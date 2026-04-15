@@ -4877,8 +4877,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.5rem"}}>Birthdays show in pink on your calendar every year automatically.</p>
             </div>
           )}
-        </div>
-
         </SettingSection>
         <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
           <h2 style={{margin:"0 0 0.65rem",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🔔 Notifications</h2>
@@ -4940,7 +4938,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               ))}
             </div>
           )}
-        </div>
         </SettingSection>
         <SettingSection id="sync" title="🔄 Family Sync">
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
@@ -4988,7 +4985,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             </div>
           )}
-        </div>
         </SettingSection>
         <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false}>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
@@ -5003,7 +4999,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             ))}
           </div>
-        </div>
         </SettingSection>
         <SettingSection id="members" title="👥 Household Members" defaultOpen={false}>
           {people.filter(p=>p&&p.id&&p.name).map(p=>(
@@ -5024,7 +5019,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <input value={newPersonName} onChange={e=>setNewPersonName(e.target.value)} placeholder="Add person…" style={inp()}/>
             <button onClick={()=>{if(newPersonName.trim()){setPeople(p=>[...p,{id:uid(),name:newPersonName.trim(),color:PC[p.length%PC.length]}]);setNewPersonName("");}}} style={btnP(T.sage)}>Add</button>
           </div>
-        </div>
         </SettingSection>
         <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false}>
           {TABS.filter(t=>t.id!=="settings"&&t.id!=="anchor").map(t=>(
@@ -5035,7 +5029,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             </div>
           ))}
-        </div>
         </SettingSection>
         <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`,textAlign:"center",padding:"1.8rem"})}}>
           <AnchorLogo size={44} color={T.blue}/>
