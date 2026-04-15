@@ -636,6 +636,7 @@ function HomeFlow() {
       try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
       try { localStorage.setItem("af_authUser", JSON.stringify({ id: userId, email, displayName })); } catch {}
       try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
+      try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
 
       // Always look up Supabase on sign-in to find the real household with data
       // This ensures any device gets the right household, not a stale empty local one
