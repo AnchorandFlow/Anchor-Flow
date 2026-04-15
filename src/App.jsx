@@ -2403,6 +2403,9 @@ Respond ONLY with valid JSON array, no markdown:
       "10-minute tidy — floors and surfaces",
     ];
 
+    // Auto-load Ripple suggestions when tab mounts
+    useEffect(() => { loadAiSuggestions(); }, []); // eslint-disable-line
+
     async function loadAiSuggestions() {
       if (aiSuggestions || aiLoading) return;
       setAiLoading(true);
