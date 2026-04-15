@@ -794,6 +794,28 @@ function HomeFlow() {
     }
   }, []);
 
+  // ── Startup: correct household ID by owner_id ────────────────────────────
+  // Runs once on mount. If the stored householdId doesn't match the one
+  // owned by this user in Supabase, correct it immediately.
+  useEffect(() => {
+    if (!authToken) return;
+    const userId = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id; } catch { return null; } })();
+    if (!userId) return;
+    sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&limit=1`, { _token: authToken })
+      .then(rows => {
+        if (rows && rows.length > 0 && rows[0].id) {
+          const correctId = rows[0].id;
+          const currentId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+          if (correctId !== currentId) {
+            console.log("Correcting household ID:", currentId, "->", correctId);
+            localStorage.setItem("af_householdId", JSON.stringify(correctId));
+            window.location.reload();
+          }
+        }
+      }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Background household sync — polls every 60s ─────────────────────────
   // Each tick fetches the server row and compares updated_at to af_lastHHSync.
   // If server is newer and the user isn't actively typing, writes fresh data
