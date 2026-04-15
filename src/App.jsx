@@ -741,7 +741,7 @@ function HomeFlow() {
     if (!rows || !rows.length) return;
     const row = rows[0];
     if (!row.data) return;
-    if (!householdId) setHouseholdId(row.id);
+    setHouseholdId(row.id); // always trust Supabase over stale localStorage
     const clean1 = sanitizeHouseholdData(row.data);
     SYNC_KEYS.forEach(k => {
       if (clean1[k] !== undefined) {
