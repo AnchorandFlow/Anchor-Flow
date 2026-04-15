@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, S
 // Cleans any null entries from localStorage arrays so they never reach render
 (function sanitizeLocalStorageOnLoad() {
   try {
-    const ARRAY_KEYS = ["af_tasks", "af_brainItems", "af_shoppingItems", "af_notifications", "af_calEvents", "af_connectedCals", "af_favMeals", "af_customMeals", "af_checkedCalEvents", "af_checkedMealItems", "af_burnoutChecked"];
-    const MEAL_DAYS_S = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const ARRAY_KEYS = ["af_tasks", "af_brainItems", "af_shoppingItems", "af_notifications", "af_calEvents", "af_connectedCals", "af_favMeals", "af_checkedCalEvents", "af_checkedMealItems", "af_burnoutChecked"];
+    const MEAL_DAYS_S = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
     // Sanitize all array keys — filter out null/non-object entries
     ARRAY_KEYS.forEach(key => {
@@ -64,25 +64,6 @@ import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, S
         if (Array.isArray(parsed)) {
           const clean = parsed.filter(t => t != null && typeof t === "object" && t.id && t.text != null);
           localStorage.setItem("af_tasks", JSON.stringify(clean));
-        }
-      }
-    } catch {}
-
-    // Remove placeholder AI tasks that should never have been saved
-    try {
-      const PLACEHOLDER_TEXTS = [
-        "Choose your most important task",
-        "Check your calendar",
-        "Plan tonight's dinner",
-      ];
-      const raw = localStorage.getItem("af_tasks");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const clean = parsed.filter(t => !PLACEHOLDER_TEXTS.includes(t.text));
-          if (clean.length !== parsed.length) {
-            localStorage.setItem("af_tasks", JSON.stringify(clean));
-          }
         }
       }
     } catch {}
@@ -177,7 +158,7 @@ async function sbSignOut(token) {
 }
 
 // Household data keys that get synced to Supabase
-const SYNC_KEYS = ["tasks","meals","calEvents","shoppingItems","rhythm","people","familyProfile","brainItems"];
+const SYNC_KEYS = ["tasks","meals","mealsWeekOf","nextWeekMeals","calEvents","shoppingItems","rhythm","people","familyProfile","brainItems"];
 
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -185,7 +166,14 @@ const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
 const FORMAT_DATE = d => d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 const FORMAT_SHORT = d => d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
 const uid = () => Math.random().toString(36).slice(2,9);
-const MEAL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+// Returns the ISO date string (YYYY-MM-DD) of the Monday starting the current week
+const getThisMonday = () => {
+  const d = new Date();
+  const day = d.getDay(); // 0=Sun, 1=Mon...
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().slice(0, 10);
+};
+const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const WEEKDAYS_SUN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 const THEMES = {
@@ -442,9 +430,14 @@ function HomeFlow() {
       catch { return fallback; }
     });
     function setSaved(next) {
-      const resolved = typeof next === "function" ? next(val) : next;
-      setVal(resolved);
-      try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
+      // Use React's functional updater so we always operate on the latest state,
+      // avoiding stale-closure bugs when setSaved is called inside timeouts or
+      // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
+      setVal(prev => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
+        return resolved;
+      });
     }
     return [val, setSaved];
   }
@@ -489,38 +482,15 @@ function HomeFlow() {
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── One-time cleanup: remove placeholder AI tasks from state ────────────────
-  useEffect(() => {
-    const PLACEHOLDER_TEXTS = [
-      "Choose your most important task",
-      "Check your calendar",
-      "Plan tonight's dinner",
-    ];
-    setTasks(prev => {
-      const filtered = prev.filter(t => !PLACEHOLDER_TEXTS.includes(t.text));
-      return filtered.length === prev.length ? prev : filtered;
-    });
-    // Also force-push to Supabase after a short delay to permanently remove from cloud
-    if(authToken && householdId) {
-      setTimeout(async () => {
-        try { await pushHouseholdData(authToken, householdId); } catch {}
-      }, 3000);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
 
   // ── Sanitize data from Supabase — removes null array entries, ensures safe types ──
   function sanitizeHouseholdData(data) {
     if (!data || typeof data !== "object") return {};
     const out = {};
-    const PLACEHOLDER_TEXTS = ["Choose your most important task","Check your calendar","Plan tonight's dinner"];
     // Arrays: filter out null/undefined entries
     ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals"].forEach(k => {
       if (Array.isArray(data[k])) {
-        let filtered = data[k].filter(item => item != null && typeof item === "object");
-        // Remove placeholder tasks from Supabase data
-        if (k === "tasks") filtered = filtered.filter(t => !PLACEHOLDER_TEXTS.includes(t.text));
-        out[k] = filtered;
+        out[k] = data[k].filter(item => item != null && typeof item === "object");
       } else if (data[k] !== undefined) {
         out[k] = data[k];
       }
@@ -604,7 +574,7 @@ function HomeFlow() {
           await sbFetch("/rest/v1/households", {
             method: "POST", _token: token,
             headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-            body: JSON.stringify({ id: hid, data: {}, updated_at: new Date().toISOString() })
+            body: JSON.stringify({ id: hid, owner_id: data.user?.id, data: {}, updated_at: new Date().toISOString() })
           });
         } catch(hhErr) { console.warn("Household create failed:", hhErr.message); }
         setSyncStatus("synced");
@@ -670,7 +640,8 @@ function HomeFlow() {
       // Always look up Supabase on sign-in to find the real household with data
       // This ensures any device gets the right household, not a stale empty local one
       try {
-        const existingRows = await sbFetch("/rest/v1/households?select=*&order=updated_at.desc&limit=1", { _token: token });
+        // Filter by owner_id so each user only finds their own household, never a stranger's
+        const existingRows = await sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=*&order=updated_at.desc&limit=1`, { _token: token });
         if (existingRows && existingRows.length > 0) {
           const existingHH = existingRows[0];
           // Use the Supabase household (it has the real data)
@@ -686,7 +657,8 @@ function HomeFlow() {
             try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
           }
         } else {
-          // No household in Supabase — create one fresh
+          // No household found for this user — check if they have a stored join code
+          // (i.e. they previously joined someone else's household), otherwise create fresh
           const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
           if (!storedHHId) {
             const hid = "hh_" + uid();
@@ -694,7 +666,7 @@ function HomeFlow() {
             await sbFetch("/rest/v1/households", {
               method: "POST", _token: token,
               headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify({ id: hid, data: {}, updated_at: new Date().toISOString() })
+              body: JSON.stringify({ id: hid, owner_id: userId, data: {}, updated_at: new Date().toISOString() })
             });
           }
         }
@@ -732,31 +704,39 @@ function HomeFlow() {
     SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
     const updatedAt = new Date().toISOString();
     try {
-      await sbFetch("/rest/v1/households", {
+      // return=representation so Supabase gives us back the actual row with
+      // the server-stamped updated_at. We store that value (not our client
+      // timestamp) so the startup sync check never sees a false mismatch.
+      const rows = await sbFetch("/rest/v1/households", {
         method: "POST",
         _token: token,
-        headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
         body: JSON.stringify({ id: hid, data: payload, updated_at: updatedAt })
       });
-      // Stamp lastHHSync with what we just pushed so the interval knows we are in sync
-      try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
+      const serverTs = (rows && rows[0] && rows[0].updated_at) ? rows[0].updated_at : updatedAt;
+      try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
     } catch {
       // Fallback: try PATCH if POST fails
       try {
-        await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
+        const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
           method: "PATCH",
           _token: token,
-          headers: { "Prefer": "return=minimal" },
+          headers: { "Prefer": "return=representation" },
           body: JSON.stringify({ data: payload, updated_at: updatedAt })
         });
-        try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
+        const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
+        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
       } catch {}
     }
   }
 
   async function pullHouseholdData(token) {
     if (!token) return;
-    const rows = await sbFetch("/rest/v1/households?select=*&limit=1", { _token: token });
+    const storedHid = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+    const url = storedHid
+      ? `/rest/v1/households?id=eq.${storedHid}&select=*&limit=1`
+      : `/rest/v1/households?select=*&limit=1`;
+    const rows = await sbFetch(url, { _token: token });
     if (!rows || !rows.length) return;
     const row = rows[0];
     if (!row.data) return;
@@ -813,57 +793,48 @@ function HomeFlow() {
     }
   }, []);
 
-  // ── Background household sync on app load ────────────────────────────────
-  // Pulls latest data once per session. If server has newer data, writes to
-  // localStorage then reloads ONCE (sessionStorage flag prevents loop).
-  // Startup sanitizer already ran so data is clean before reload.
+  // ── Background household sync — polls every 60s ─────────────────────────
+  // Each tick fetches the server row and compares updated_at to af_lastHHSync.
+  // If server is newer and the user isn't actively typing, writes fresh data
+  // and reloads so the other household member's changes appear automatically.
+  // Our own pushes update af_lastHHSync, so we never reload on our own writes.
   useEffect(() => {
     if (!authToken || !householdId) return;
-    // Only reload once per browser session — flag clears when tab closes
-    const alreadySynced = sessionStorage.getItem("af_synced_this_session");
-    const timer = setTimeout(() => {
-      sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken })
-        .then(rows => {
-          if (rows && rows.length > 0 && rows[0].data) {
-            const row = rows[0];
-            const lastSync = localStorage.getItem("af_lastHHSync");
-            if (!alreadySynced && lastSync !== (row.updated_at || "")) {
-              // Server has newer data — write clean data then reload once
-              // Skip reload if user is actively typing in an input
-              const activeEl = document.activeElement;
-              const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
-              if (isTyping) return; // don't interrupt the user
-              const cleanBg = sanitizeHouseholdData(row.data);
-              // Extra safety: strip placeholder tasks from any synced data before writing
-              if (Array.isArray(cleanBg.tasks)) {
-                const PT = ["Choose your most important task","Check your calendar","Plan tonight's dinner"];
-                cleanBg.tasks = cleanBg.tasks.filter(t => !PT.includes(t.text));
-              }
-              SYNC_KEYS.forEach(k => {
-                if (cleanBg[k] !== undefined) {
-                  try { localStorage.setItem("af_" + k, JSON.stringify(cleanBg[k])); } catch {}
-                }
-              });
-              // Also immediately push clean tasks back to Supabase before reload
-              const updatedAt = new Date().toISOString();
-              sbFetch("/rest/v1/households", {
-                method:"POST", _token:authToken,
-                headers:{"Prefer":"resolution=merge-duplicates,return=minimal"},
-                body:JSON.stringify({id:householdId, data:cleanBg, updated_at:updatedAt})
-              }).catch(()=>{});
-              localStorage.setItem("af_lastHHSync", row.updated_at || Date.now().toString());
-              sessionStorage.setItem("af_synced_this_session", "1"); // prevent loop
-              window.location.reload();
-            } else {
-              // Already in sync — just update status
-              setSyncStatus("synced");
-              setLastSyncTime(new Date().toLocaleTimeString());
+
+    async function checkForUpdates() {
+      try {
+        const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
+        if (!rows || !rows.length || !rows[0].data) return;
+        const row = rows[0];
+        const serverTs = row.updated_at || "";
+        const lastSync = localStorage.getItem("af_lastHHSync") || "";
+        if (serverTs && serverTs !== lastSync) {
+          const activeEl = document.activeElement;
+          const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
+          const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
+          if (isTyping || isDragging) return;
+          const cleanBg = sanitizeHouseholdData(row.data);
+          const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+          SYNC_KEYS.forEach(k => {
+            // Don't overwrite mealsWeekOf from server if local already has this week's value
+            if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
+            if (cleanBg[k] !== undefined) {
+              try { localStorage.setItem("af_" + k, JSON.stringify(cleanBg[k])); } catch {}
             }
-          }
-        })
-        .catch(() => {});
-    }, 15000); // wait 15s so user has time to interact before any reload
-    return () => clearTimeout(timer);
+          });
+          localStorage.setItem("af_lastHHSync", serverTs);
+          window.location.reload();
+        } else {
+          setSyncStatus("synced");
+          setLastSyncTime(new Date().toLocaleTimeString());
+        }
+      } catch {}
+    }
+
+    // First check after 5s, then every 60s
+    const initial = setTimeout(checkForUpdates, 5000);
+    const interval = setInterval(checkForUpdates, 60000);
+    return () => { clearTimeout(initial); clearInterval(interval); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -897,26 +868,48 @@ function HomeFlow() {
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
-  const PLACEHOLDER_TASK_TEXTS = ["Choose your most important task","Check your calendar","Plan tonight's dinner"];
-  const [tasks, setTasksRaw] = useState(() => {
-    try {
-      const s = localStorage.getItem("af_tasks");
-      if (!s) return [];
-      const parsed = JSON.parse(s);
-      if (!Array.isArray(parsed)) return [];
-      const clean = parsed.filter(t => t != null && typeof t === "object" && t.id && !PLACEHOLDER_TASK_TEXTS.includes(t.text));
-      return clean;
-    } catch { return []; }
-  });
-  function setTasks(next) {
-    const resolved = typeof next === "function" ? next(tasks) : next;
-    const clean = Array.isArray(resolved) ? resolved.filter(t => t != null && typeof t === "object" && t.id && !PLACEHOLDER_TASK_TEXTS.includes(t.text)) : resolved;
-    setTasksRaw(clean);
-    try { localStorage.setItem("af_tasks", JSON.stringify(clean)); } catch {}
-  }
-  // meals — sanitized at read time so nulls never reach the renderer
+  const [tasks,setTasks]                       = useSaved("tasks",[]);
+  // meals — sanitized at read time; rolls over to next week's plan if the calendar week has changed
   const [meals, setMealsRaw] = useState(() => {
     try {
+      const thisMonday = getThisMonday();
+      // Safely read mealsWeekOf — may be plain string or JSON-stringified string
+      const storedWeekOf = (() => {
+        try {
+          const raw = localStorage.getItem("af_mealsWeekOf");
+          if (!raw) return null;
+          // Handle both plain "2026-04-14" and JSON-quoted '"2026-04-14"'
+          const parsed = JSON.parse(raw);
+          return typeof parsed === "string" ? parsed : null;
+        } catch { return null; }
+      })();
+
+      // If we're in a new week, promote nextWeekMeals → current and clear the old plan
+      if (storedWeekOf && storedWeekOf !== thisMonday) {
+        const nextRaw = (() => { try { return JSON.parse(localStorage.getItem("af_nextWeekMeals")||"null"); } catch { return null; } })();
+        const promoted = (nextRaw && typeof nextRaw === "object") ? nextRaw : {};
+        const safe = {};
+        MEAL_DAYS.forEach(day => {
+          const m = promoted[day];
+          if (!m || typeof m !== "object") { safe[day] = {}; }
+          else {
+            const clean = {};
+            Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
+            safe[day] = clean;
+          }
+        });
+        // Persist the promoted plan as this week and clear next week
+        try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
+        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisMonday)); } catch {}
+        try { localStorage.setItem("af_nextWeekMeals", JSON.stringify({})); } catch {}
+        return safe;
+      }
+
+      // Same week — stamp mealsWeekOf if missing so future rollover works
+      if (!storedWeekOf) {
+        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisMonday)); } catch {}
+      }
+
       const raw = localStorage.getItem("af_meals");
       const parsed = raw ? JSON.parse(raw) : {};
       if (!parsed || typeof parsed !== "object") return {};
@@ -968,10 +961,24 @@ function HomeFlow() {
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
   const [dailySummaryScheduled,setDailySummaryScheduled] = useSaved("dailySummaryScheduled",null);
+  // Weather
+  const [weatherData,setWeatherData]           = useState(null);
+  const [weatherLocation,setWeatherLocation]   = useSaved("weatherLocation",null);
+  // Birthdays
+  const [birthdays,setBirthdays]               = useSaved("birthdays",[]);
+  // Quick Capture
+  const [captureOpen,setCaptureOpen]           = useState(false);
+  const [captureText,setCaptureText]           = useState("");
+  const [captureDest,setCaptureDest]           = useState("tasks");
+  const [captureCategory,setCaptureCategory]   = useState("");
+  // Person filter on Anchor
+  const [personFilter,setPersonFilter]         = useState("all");
+  // Weekly subtab
+  const [weekSubTab,setWeekSubTab]             = useState("glance");
 
-  const [calViewDate,setCalViewDate]   = useState(new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()));
+  const [calViewDate,setCalViewDate]   = useState(new Date(TODAY.getFullYear(),TODAY.getMonth(),1));
   const [selectedDay,setSelectedDay]   = useState(null);
-  const [calView,setCalView]           = useState("day");
+  const [calView,setCalView]           = useState("month");
   const [chatOpen,setChatOpen]         = useState(false);
   const [moreDrawerOpen,setMoreDrawerOpen] = useState(false);
   const [newPersonName,setNewPersonName]   = useState("");
@@ -997,6 +1004,7 @@ function HomeFlow() {
   const [notifPermission,setNotifPermission] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
+  const [inAppBanner,setInAppBanner] = useState(null); // {title, body} shown as in-app toast
 
   // ── New feature state (all useSaved first, then useState) ───────────────────
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
@@ -1004,7 +1012,6 @@ function HomeFlow() {
   const [briefingBuilt,setBriefingBuilt]           = useSaved("briefingBuilt",null);
   const [lastSeenDate,setLastSeenDate]             = useSaved("lastSeenDate",null);
   const [favMeals,setFavMeals]                     = useSaved("favMeals",[]);
-  const [customMeals,setCustomMeals]               = useSaved("customMeals",[]);
   const [emailSubmitted,setEmailSubmitted]         = useSaved("emailSubmitted",false);
 
   const [showOnboardingWizard,setShowOnboardingWizard] = useState(false);
@@ -1064,22 +1071,82 @@ function HomeFlow() {
         d.setDate(d.getDate() - 1);
         return DAY_NAMES[d.getDay()];
       })();
-      setTasks(p => p.map(t =>
-        (!t.done && t.day === yName && !t.carried && !t.archived)
-          ? { ...t, carried: true, carriedTo: TODAY_NAME }
-          : t
-      ));
+      setTasks(p => p.map(t => {
+        // Carry forward incomplete non-AI tasks from yesterday
+        if (!t.done && t.day === yName && !t.carried && !t.archived && !t.aiG) {
+          return { ...t, carried: true, carriedTo: TODAY_NAME };
+        }
+        // Archive AI-generated tasks from previous days so they don't linger
+        if (t.aiG && t.day !== TODAY_NAME && t.carriedTo !== TODAY_NAME && !t.archived) {
+          return { ...t, archived: true };
+        }
+        return t;
+      }));
+      // Also clear daily check state for the new day
+      setCheckedCalEvents([]);
+      setCheckedMealItems([]);
       setLastSeenDate(todayStr);
     }
   }, []); // eslint-disable-line
+
+  // ── Birthday → Calendar injection ───────────────────────────────────────────
+  useEffect(function(){
+    if(!birthdays||birthdays.length===0)return;
+    var today=new Date();today.setHours(0,0,0,0);
+    var horizon=new Date(today);horizon.setFullYear(horizon.getFullYear()+2);
+    var toAdd=[];
+    birthdays.forEach(function(b){
+      if(!b.month||!b.day)return;
+      [-1,0,1,2].forEach(function(yOff){
+        var yr=today.getFullYear()+yOff;
+        var d=new Date(yr,b.month-1,b.day);
+        if(d<today||d>horizon)return;
+        var ds=yr+"-"+String(b.month).padStart(2,"0")+"-"+String(b.day).padStart(2,"0");
+        var genId="bday_"+b.id+"_"+yr;
+        if(!calEvents.some(function(e){return e.id===genId;})){
+          var age=b.year?yr-b.year:null;
+          toAdd.push({id:genId,title:"🎂 "+b.name+(age?" (turns "+age+")":""),date:ds,time:"",color:"#c878a8",colorLabel:"Birthday",note:"",_birthday:true});
+        }
+      });
+    });
+    if(toAdd.length>0)setCalEvents(function(prev){return[...prev,...toAdd];});
+  },[birthdays.length]);//eslint-disable-line
+
+  // ── Weather ──────────────────────────────────────────────────────────────────
+  function weatherEmoji(code){
+    if(code===0)return"☀️";if(code<=2)return"🌤️";if(code<=3)return"☁️";
+    if(code<=48)return"🌫️";if(code<=67)return"🌧️";if(code<=77)return"❄️";
+    if(code<=82)return"🌧️";if(code<=99)return"⛈️";return"🌡️";
+  }
+  async function fetchWeather(lat,lng){
+    try{
+      const res=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lng+"&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=14");
+      const data=await res.json();
+      if(data&&data.daily){
+        setWeatherData(data.daily.time.map(function(date,i){
+          return{date:date,high:Math.round(data.daily.temperature_2m_max[i]),low:Math.round(data.daily.temperature_2m_min[i]),code:data.daily.weathercode[i],precip:data.daily.precipitation_probability_max[i],emoji:weatherEmoji(data.daily.weathercode[i])};
+        }));
+      }
+    }catch(e){}
+  }
+  function requestWeatherLocation(){
+    if(!navigator.geolocation)return;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var lat=pos.coords.latitude,lng=pos.coords.longitude;
+      fetch("https://nominatim.openstreetmap.org/reverse?lat="+lat+"&lon="+lng+"&format=json")
+        .then(function(r){return r.json();})
+        .then(function(d){var city=d.address&&(d.address.city||d.address.town||d.address.village)||"Your area";setWeatherLocation({lat:lat,lng:lng,city:city});fetchWeather(lat,lng);})
+        .catch(function(){setWeatherLocation({lat:lat,lng:lng,city:"Your area"});fetchWeather(lat,lng);});
+    },function(){});
+  }
+  useEffect(function(){if(weatherLocation&&weatherLocation.lat)fetchWeather(weatherLocation.lat,weatherLocation.lng);},[]);//eslint-disable-line
 
   // ── Derived / constants ─────────────────────────────────────────────────────
   const todayDateStr       = TODAY.toISOString().split("T")[0];
   const briefingReadyToday = briefingBuilt === todayDateStr && !!dayBriefing;
   // Auto-build insights once per day when Anchor tab loads
   useEffect(()=>{
-    const noInsights = !insights || insights.length===0;
-    if(tab==="anchor"&&(insightsBuilt!==todayDateStr||noInsights)&&!insightsLoading){
+    if(tab==="anchor"&&insightsBuilt!==todayDateStr&&!insightsLoading){
       buildInsights();
     }
   },[tab]); // eslint-disable-line
@@ -1129,7 +1196,7 @@ function HomeFlow() {
       "Family: "+(familyProfile?JSON.stringify(familyProfile):"not set"),
       "Today: "+TODAY_NAME+", theme: "+(dayRhythm.theme||"none"),
       "Events today: "+(todayEvts.map(e=>(e.time||"all day")+" "+e.title).join(", ")||"none"),
-      "Upcoming events next 7 days: "+(upcomingEvts7.map(e=>e.date+" "+e.title).join(", ")||"none"),
+      "Upcoming events next 7 days: "+(upcomingEvts7.map(e=>{const d=new Date(e.date+"T12:00:00");const dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dn+" "+e.date+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"),
       "Meals: "+(Object.entries(todayMealObj).map(([k,v])=>k+"="+v).join(", ")||"none"),
       "Carried tasks: "+(carried.map(t=>t.text).join(", ")||"none"),
       "Existing tasks: "+(existing.map(t=>t.text).join(", ")||"none"),
@@ -1138,9 +1205,9 @@ function HomeFlow() {
       "Tomorrow: "+tmrName+", theme="+(tmrRhythm.theme||"none")+", events: "+(tmrEvts.map(e=>e.title).join(", ")||"none")+", meal: "+(tmrMeal.dinner||"not planned"),
       "Flow mode: "+flowMode,
     ].join(". ");
-    const sysPrompt = `You are Anchor & Flow. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
+    const sysPrompt = `You are Ripple, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      const res = await fetch("/api/claude",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:sysPrompt,messages:[{role:"user",content:ctx}]})
@@ -1170,12 +1237,22 @@ function HomeFlow() {
       setBriefingBuilt(todayDateStr);
       setLastSeenDate(todayDateStr);
     } catch(err) {
+      setTasks(prev=>{
+        const hasAiToday = prev.some(t=>t.aiG&&(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME));
+        if(hasAiToday) return prev;
+        return [...prev,
+          {id:uid(),text:"Choose your most important task",day:TODAY_NAME,done:false,person:"",order:0,aiG:true,tier:"top3"},
+          {id:uid(),text:"Check your calendar",day:TODAY_NAME,done:false,person:"",order:1,aiG:true,tier:"top3"},
+          {id:uid(),text:"Plan tonight's dinner",day:TODAY_NAME,done:false,person:"",order:2,aiG:true,tier:"top3"},
+        ];
+      });
+      setDayBriefing({greeting:"Let's take it one step at a time.",top3:["Choose your most important task","Check your calendar","Plan tonight's dinner"],next3:[],more:[],prepItems:[],tomorrowNote:"Tomorrow is a fresh start.",message:"You've got this.",todayEvts,tmrEvts,todayMealObj,tmrMeal,dayRhythm,tmrRhythm,tmrName});
       setBriefingBuilt(todayDateStr);
     }
     setBriefingLoading(false);
   }
 
-  // ── Doubtfire Insights — proactive AI suggestions feed ─────────────────────
+  // ── Ripple Insights — proactive AI suggestions feed ───────────────────────────
   async function buildInsights() {
     if (insightsBuilt === todayDateStr && insights) return;
     setInsightsLoading(true);
@@ -1252,13 +1329,13 @@ function HomeFlow() {
       ].filter(Boolean).join("\n");
 
 
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
+      const res = await fetch("/api/claude",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
-          system:`You are Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
+          system:`You are Ripple, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
 
 INSIGHT CATEGORIES (use exactly these ids):
 - "calendar" — scheduling conflicts, tight transitions, prep needed for upcoming events
@@ -1331,25 +1408,38 @@ Respond ONLY with valid JSON array, no markdown:
     if (perm === "granted") scheduleAllDailyNotifications();
   }
 
+  function showInAppBanner(title, body) {
+    setInAppBanner({title, body});
+    setTimeout(() => setInAppBanner(null), 8000);
+  }
+
   function scheduleNotification(title, body, fireAt) {
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const delay = fireAt instanceof Date
       ? fireAt.getTime() - Date.now()
       : typeof fireAt === "number" ? fireAt : 0;
+    if (delay > 86400000) return; // ignore anything more than 24hrs out
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const hasNativeNotif = typeof Notification !== "undefined" && Notification.permission === "granted";
 
     function fire() {
-      // Use Service Worker for persistent notifications (survives tab close on mobile)
-      if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: "SHOW_NOTIFICATION", title, body, icon: "/favicon.svg"
-        });
+      if (hasNativeNotif && !isIOS) {
+        // Desktop / Android — use native notification via Service Worker
+        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: "SHOW_NOTIFICATION", title, body, icon: "/favicon.svg"
+          });
+        } else {
+          new Notification(title, {body, icon:"/favicon.svg"});
+        }
       } else {
-        new Notification(title, {body, icon:"/favicon.svg"});
+        // iOS Safari doesn't support Web Notifications — show in-app banner instead
+        showInAppBanner(title, body);
       }
     }
 
     if (delay <= 0) { fire(); return; }
-    if (delay < 86400000) setTimeout(fire, delay);
+    setTimeout(fire, delay);
   }
 
   function addNotification(entityId, entityTitle, date, time, note) {
@@ -1383,7 +1473,7 @@ Respond ONLY with valid JSON array, no markdown:
   // ── AI message generator ─────────────────────────────────────────────────────
   async function generateAIMessage(system, userContent, fallback) {
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
+      const r = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1398,7 +1488,10 @@ Respond ONLY with valid JSON array, no markdown:
 
   // ── Schedule all daily notifications ─────────────────────────────────────────
   async function scheduleAllDailyNotifications() {
-    if (notifPermission !== "granted") return;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    // On iOS, native notifications aren't supported but we still run this
+    // to schedule in-app banners. On other platforms, require permission.
+    if (!isIOS && notifPermission !== "granted") return;
     // Note: we intentionally do NOT guard with dailySummaryScheduled here.
     // setTimeout-based notifications don't survive the app being closed/refreshed,
     // so we reschedule every time the app opens. Times that have already passed
@@ -1427,7 +1520,7 @@ Respond ONLY with valid JSON array, no markdown:
       ? scheduleLines.join(" · ")
       : "Clear schedule today";
 
-    // ── 1. MORNING AGENDA (7am) — Doubtfire style ───────────────────────────
+    // ── 1. MORNING AGENDA (7am) — Ripple style ────────────────────────────────
     const morningTime = todayAt(7);
     if (morningTime > now) {
       // Build a structured body that always lists the actual schedule
@@ -1436,7 +1529,7 @@ Respond ONLY with valid JSON array, no markdown:
         : `${pendingTasks.length} tasks today. ${todayMeal ? `Dinner: ${todayMeal}.` : "No dinner planned yet."} You've got this ⚓️`;
       // Also get a warm AI greeting for the title
       const title = await generateAIMessage(
-        `You are Anchor & Flow. Write a warm good morning greeting — max 50 chars, no punctuation at end. Start with "Good morning" and optionally one warm word. Examples: "Good morning, lovely day ahead", "Good morning — let's do this".`,
+        `You are Ripple, the Anchor & Flow AI. Write a warm good morning greeting — max 50 chars, no punctuation at end. Start with "Good morning" and optionally one warm word. Examples: "Good morning, lovely day ahead", "Good morning — let's do this".`,
         dataCtx,
         "Good morning ⚓️ Here's your day"
       );
@@ -1462,14 +1555,14 @@ Respond ONLY with valid JSON array, no markdown:
     const defrostTime = todayAt(15);
     if (defrostTime > now && todayMeal && !["snack plate","freezer burrito","rotisserie","no-cook"].some(s=>todayMeal.toLowerCase().includes(s))) {
       const msg = await generateAIMessage(
-        `You are Anchor & Flow. Write a friendly 3pm meal prep reminder (max 120 chars). Mention the specific dinner and suggest one thing to do now (defrost, start slow cooker, etc). Warm tone.`,
+        `You are Ripple, the Anchor & Flow AI. Write a friendly 3pm meal prep reminder (max 120 chars). Mention the specific dinner and suggest one thing to do now (defrost, start slow cooker, etc). Warm tone.`,
         `Dinner tonight: ${todayMeal}. Family: ${familyProfile?.numKids||""} kids.`,
         `🍽️ Dinner reminder — ${todayMeal} tonight. Good time to check if anything needs defrosting!`
       );
       scheduleNotification("🍽️ Dinner heads-up", msg, defrostTime);
     }
 
-    // ── 4. EVENING RECAP — Doubtfire-style (5pm) ────────────────────────────
+    // ── 4. EVENING RECAP — Ripple-style (5pm) ─────────────────────────────────
     const eveningTime = todayAt(17);
     if (eveningTime > now) {
       const tmrDateStr = new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).toISOString().split("T")[0];
@@ -1479,7 +1572,7 @@ Respond ONLY with valid JSON array, no markdown:
         ...(tmrMeal?[`Dinner: ${tmrMeal}`]:[])
       ].join(" · ");
       const body = await generateAIMessage(
-        `You are Anchor & Flow — warm and real, like Mrs. Doubtfire. Write an evening recap (max 160 chars). Acknowledge what they did, mention tomorrow briefly. Caring tone, not corporate.`,
+        `You are Ripple, the Anchor & Flow AI — warm and real. Write an evening recap (max 160 chars). Acknowledge what they did, mention tomorrow briefly. Caring tone, not corporate.`,
         `Done today: ${doneTasks.map(t=>t.text).join(", ")||"none"}. Still pending: ${pendingTasks.length}. Tomorrow (${tmrName}): ${tmrStr||"nothing planned yet"}.`,
         `Good evening 🌙 ${doneTasks.length>0?`${doneTasks.length} things done today — well done.`:"Rest up."} ${tmrStr?`Tomorrow: ${tmrStr.slice(0,60)}.`:""}`
       );
@@ -1494,7 +1587,7 @@ Respond ONLY with valid JSON array, no markdown:
       const nudgeTime = new Date(eventTime.getTime() - 2 * 60 * 60 * 1000); // 2hrs before
       if (nudgeTime <= now) return;
       const msg = await generateAIMessage(
-        `You are Anchor & Flow. Write a friendly heads-up notification for an upcoming appointment in 2 hours (max 120 chars). Be warm and helpful — suggest one thing to do to prepare.`,
+        `You are Ripple, the Anchor & Flow AI. Write a friendly heads-up notification for an upcoming appointment in 2 hours (max 120 chars). Be warm and helpful — suggest one thing to do to prepare.`,
         `Event: ${e.title} at ${e.time}. ${familyCtx}`,
         `⏰ ${e.title} is in 2 hours — time to get ready!`
       );
@@ -1506,7 +1599,9 @@ Respond ONLY with valid JSON array, no markdown:
   const scheduleDailySummary = scheduleAllDailyNotifications;
 
   useEffect(() => {
-    if (notifPermission === "granted") scheduleAllDailyNotifications();
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    // Run on iOS always (uses in-app banners), elsewhere only if permission granted
+    if (notifPermission === "granted" || isIOS) scheduleAllDailyNotifications();
     // Register Service Worker for persistent notifications
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -1528,7 +1623,7 @@ Respond ONLY with valid JSON array, no markdown:
   // ── Calendar helpers ────────────────────────────────────────────────────────
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
-  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:""}); setCalFormMode("add"); setCalFormId(null); }
+  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:"",repeat:""}); setCalFormMode("add"); setCalFormId(null); }
   function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
   function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
 
@@ -1537,7 +1632,7 @@ Respond ONLY with valid JSON array, no markdown:
     if (!recipeUrl.trim()) return;
     setRecipeLoading(true); setRecipeError(""); setRecipeResult(null);
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         model:"claude-sonnet-4-20250514", max_tokens:800,
         system:`Extract recipe info from a URL. Respond ONLY in JSON: {"name":"","ingredients":[],"servings":"","time":"","notes":"","source":""}. If social media video, set name to "Paste ingredients below" and notes to "Social media video — please paste the ingredient list manually."`,
         messages:[{role:"user",content:`URL: ${recipeUrl.trim()}`}]
@@ -1716,92 +1811,67 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   function DraggableTaskList({tasks:localTasks, setTasks:setAllTasks, accent}) {
-    const dragItem = useRef(null), dragOver = useRef(null);
     const [showNotifFor, setShowNotifFor] = useState(null);
-    function onDragStart(e,idx){ dragItem.current=idx; e.dataTransfer.effectAllowed="move"; e.currentTarget.style.opacity="0.5"; }
-    function onDragEnter(idx){ dragOver.current=idx; }
-    function onDragEnd(e){
-      e.currentTarget.style.opacity="1";
-      if(dragItem.current===null||dragOver.current===null||dragItem.current===dragOver.current){dragItem.current=null;dragOver.current=null;return;}
-      const ids=localTasks.map(t=>t.id);
-      const newIds=[...ids]; const [moved]=newIds.splice(dragItem.current,1); newIds.splice(dragOver.current,0,moved);
-      setAllTasks(prev=>{ const others=prev.filter(t=>!ids.includes(t.id)); const reordered=newIds.map(id=>prev.find(t=>t.id===id)); return [...others,...reordered]; });
-      dragItem.current=null; dragOver.current=null;
-    }
+    const groupIds = localTasks.map(t=>t.id);
+    const {draggingId, dragOverId, pointerDown} = usePointerDrag(localTasks, updated => {
+      setAllTasks(prev => { const others = prev.filter(t => !groupIds.includes(t.id)); return [...others, ...updated]; });
+    }, {dataAttr:"data-taskid"});
     return (
       <>
-        {localTasks.map((t,idx) => (
-          <div key={t.id} draggable onDragStart={e=>onDragStart(e,idx)} onDragEnter={()=>onDragEnter(idx)} onDragEnd={onDragEnd} onDragOver={e=>e.preventDefault()} style={{cursor:"grab"}}>
+        {localTasks.map((t) => {
+          const isBeingDragged = draggingId === t.id;
+          const isDropTarget   = dragOverId  === t.id;
+          return (
+          <div key={t.id} data-taskid={t.id} onPointerDown={e=>pointerDown(e,t.id)}
+            style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.6rem",
+              outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"2px",transition:"opacity 0.15s"}}>
             <TaskRow t={t} accent={accent} showNotifFor={showNotifFor} setShowNotifFor={setShowNotifFor}
               onToggle={id=>setAllTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
               onDelete={id=>setAllTasks(p=>p.filter(x=>x.id!==id))}
               onSave={(id,val)=>setAllTasks(p=>p.map(x=>x.id===id?{...x,text:val}:x))}
             />
           </div>
-        ))}
+        );})}
       </>
     );
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  function ShopItemRow({item, onToggle, onDelete, onSave, onMove, allStores}) {
+  function ShopItemRow({item, onToggle, onDelete, onSave}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
-    const [showMove, setShowMove] = useState(false);
-    const otherStores = (allStores||[]).filter(s=>s!==item.store);
     return (
-      <div style={{borderBottom:"1px solid "+T.borderSoft}}>
+      <div style={{borderBottom:`1px solid ${T.borderSoft}`}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",padding:"0.4rem 0",alignItems:"center"}}>
             <input value={editVal} onChange={e=>setEditVal(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"){onSave(item.id,editVal);setEditing(false);}if(e.key==="Escape")setEditing(false);}}
-              style={{flex:1,background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.38rem 0.6rem",color:T.textDark,fontSize:"0.84rem",outline:"none",fontFamily:"inherit"}} autoFocus/>
-            <button onClick={()=>{onSave(item.id,editVal);setEditing(false);}} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.38rem 0.65rem",cursor:"pointer",fontSize:"0.76rem",fontWeight:700,fontFamily:"inherit"}}>Save</button>
-            <button onClick={()=>setEditing(false)} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.38rem 0.65rem",cursor:"pointer",fontSize:"0.76rem",fontFamily:"inherit"}}>✕</button>
+              style={{...inp({flex:1,padding:"0.38rem 0.6rem",fontSize:"0.84rem"})}} autoFocus/>
+            <button onClick={()=>{onSave(item.id,editVal);setEditing(false);}} style={btnP(T.sage,{padding:"0.38rem 0.65rem",fontSize:"0.76rem"})}>Save</button>
+            <button onClick={()=>setEditing(false)} style={btnS({padding:"0.38rem 0.65rem",fontSize:"0.76rem"})}>✕</button>
           </div>
         ) : (
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.44rem 0"}}>
-              <button onClick={()=>onToggle(item.id)} style={{width:18,height:18,borderRadius:"0.3rem",border:"2px solid "+(item.done?T.sage:T.border),background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+              <button onClick={()=>onToggle(item.id)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
               {item.photo&&(
-                <button onClick={()=>setShowPhoto(v=>!v)} style={{width:28,height:28,borderRadius:"0.35rem",overflow:"hidden",border:"2px solid "+T.sage+"50",flexShrink:0,padding:0,cursor:"pointer",background:"none"}}>
+                <button onClick={()=>setShowPhoto(v=>!v)} style={{width:28,height:28,borderRadius:"0.35rem",overflow:"hidden",border:`2px solid ${T.sage}50`,flexShrink:0,padding:0,cursor:"pointer",background:"none"}}>
                   <img src={item.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 </button>
               )}
               <span style={{flex:1,fontSize:"0.85rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",fontWeight:item.done?400:600}}>
                 {item.text}
                 {item.photo&&<span style={{fontSize:"0.62rem",color:T.sage,fontWeight:700,marginLeft:"0.4rem"}}>📷</span>}
-                {item.mealSource&&!item.done&&<span style={{fontSize:"0.62rem",color:T.textFaint,fontWeight:500,marginLeft:"0.45rem",fontStyle:"italic"}}>for {item.mealSource}</span>}
               </span>
-              {!item.done&&otherStores.length>0&&(
-                <div style={{position:"relative",flexShrink:0}}>
-                  <button onClick={()=>setShowMove(v=>!v)} title="Move to another store"
-                    style={{background:"none",border:"none",cursor:"pointer",padding:"2px 3px",fontSize:"0.78rem",opacity:0.5,lineHeight:1}}>🏪</button>
-                  {showMove&&(
-                    <>
-                      <div onClick={()=>setShowMove(false)} style={{position:"fixed",inset:0,zIndex:49}}/>
-                      <div style={{position:"absolute",right:0,top:"110%",zIndex:50,background:T.surface,border:"1.5px solid "+T.border,borderRadius:"0.75rem",boxShadow:"0 4px 18px "+T.cardShadow,minWidth:140,padding:"0.3rem 0",overflow:"hidden"}}>
-                        <div style={{fontSize:"0.63rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.07em",padding:"0.3rem 0.75rem 0.2rem"}}>Move to</div>
-                        {otherStores.map(s=>(
-                          <button key={s} onClick={()=>{onMove(item.id,s);setShowMove(false);}}
-                            style={{display:"block",width:"100%",textAlign:"left",background:"none",border:"none",padding:"0.42rem 0.75rem",cursor:"pointer",fontSize:"0.81rem",fontWeight:600,color:T.textDark,fontFamily:"inherit"}}>
-                            → {s}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
               <button onClick={()=>{setEditVal(item.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={12} color={T.textSoft}/></button>
               <button onClick={()=>onDelete(item.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
             </div>
             {showPhoto&&item.photo&&(
               <div style={{paddingBottom:"0.6rem"}}>
-                <img src={item.photo} alt={item.text} style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:"0.65rem",border:"2px solid "+T.sage+"40"}}/>
+                <img src={item.photo} alt={item.text} style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:"0.65rem",border:`2px solid ${T.sage}40`}}/>
               </div>
             )}
           </div>
@@ -1897,9 +1967,9 @@ Respond ONLY with valid JSON array, no markdown:
         setAwaitingGTK(false);
       }
       try {
-        const r = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
-          system:`You are Anchor & Flow's warm, practical home management assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
+          system:`You are Ripple, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
           messages:msgs.map(m=>({role:m.role,content:m.text}))
         })});
         const d = await r.json();
@@ -2229,7 +2299,7 @@ Respond ONLY with valid JSON array, no markdown:
       if(prepNote.trim()) setTasks(p=>[...p,{id:uid(),text:prepNote.trim(),day:tmrName,done:false,person:"",order:99}]);
       setStep("close"); setRLoad(true);
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:"You are Anchor & Flow. Write one warm personal closing reflection, 1-2 sentences max. Be specific to their data. Make them feel seen. No lists.",messages:[{role:"user",content:"Completed: "+(done.map(t=>t.text).join(", ")||"nothing")+". Let go: "+letGo.length+". Carried: "+carry.length+". Flow mode: "+flowMode+"."}]})});
+        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,system:"You are Ripple, the Anchor & Flow AI. Write one warm personal closing reflection, 1-2 sentences max. Be specific to their data. Make them feel seen. No lists.",messages:[{role:"user",content:"Completed: "+(done.map(t=>t.text).join(", ")||"nothing")+". Let go: "+letGo.length+". Carried: "+carry.length+". Flow mode: "+flowMode+"."}]})});
         const dat = await res.json();
         setRefl(dat.content?.find(b=>b.type==="text")?.text||"You showed up today. That's what matters most.");
       } catch { setRefl("You showed up today. That's more than enough."); }
@@ -2292,9 +2362,7 @@ Respond ONLY with valid JSON array, no markdown:
     const [fullDayDismissed,setFullDayDismissed] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
-    const [addingTask, setAddingTask] = useState(null); // null | "top3" | "next3"
-    const [showBrainPicker, setShowBrainPicker] = useState(null); // null | "top3" | "next3"
-    const [brainPickerFilter, setBrainPickerFilter] = useState("all");
+    const [addingTask, setAddingTask] = useState(null);
     const dayOpen = anchorDayOpen;
     const setDayOpen = setAnchorDayOpen;
 
@@ -2323,6 +2391,7 @@ Respond ONLY with valid JSON array, no markdown:
     const next3Raw= allToday.filter(t=>t.tier==="next3");
     const moreRaw = allToday.filter(t=>t.tier==="more");
     const allTaskTiers = [...top3Raw, ...next3Raw, ...moreRaw];
+    const filteredTaskTiers = personFilter==="all" ? allTaskTiers : allTaskTiers.filter(function(t){return !t.person||t.person===personFilter;});
 
     // Evening wind-down suggestions
     const eveningNudges = [
@@ -2398,7 +2467,7 @@ Respond ONLY with valid JSON array, no markdown:
       const ctx = [
         `Today: ${TODAY_NAME}${dayRhythm.theme?" — "+dayRhythm.theme+" day":""}`,
         `Today's calendar events: ${todayEvents.map(e=>(e.time||"all day")+" — "+e.title).join(", ")||"none"}`,
-        `Upcoming events next 7 days: ${upcomingEvts.map(e=>e.date.slice(5)+" "+e.title).join(", ")||"none"}`,
+        `Upcoming events next 7 days: ${upcomingEvts.map(e=>{const d=new Date(e.date+"T12:00:00");const dayName=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dayName+" "+e.date.slice(5)+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"}`,
         `Dinner tonight: ${todayMeal.dinner||"not planned"}`,
         `Tomorrow (${tmrName2}): ${tmrEvents.map(e=>e.title).join(", ")||"no events"}${tmrMeal2.dinner?", dinner: "+tmrMeal2.dinner:""}`,
         `Tasks already on today's list: ${allTaskTiers.map(t=>t.text).join(", ")||"none"}`,
@@ -2409,9 +2478,9 @@ Respond ONLY with valid JSON array, no markdown:
       ].join("\n");
 
       try {
-        const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:700,
-          system:`You are Anchor & Flow, a warm family home assistant. Suggest what to do today based on the family's real data.
+          system:`You are Ripple, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
 
 RULES:
 1. "brain_items": Pick 2-4 items from the brain dump that make sense TODAY. Prioritize:
@@ -2482,7 +2551,7 @@ Respond ONLY in valid JSON:
 
     return (
       <div>
-        {/* ── Doubtfire Insights Feed ── */}
+        {/* ── Ripple Insights Feed ── */}
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.55rem",paddingLeft:"0.2rem"}}>
@@ -2495,7 +2564,7 @@ Respond ONLY in valid JSON:
             {insightsLoading&&(
               <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",padding:"1.1rem",textAlign:"center"}}>
                 <div style={{display:"flex",gap:7,justifyContent:"center",marginBottom:"0.45rem"}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:T.blue,animation:"bounce 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>)}</div>
-                <div style={{fontSize:"0.75rem",color:T.textSoft,fontStyle:"italic"}}>Doubtfire is looking at your week…</div>
+                <div style={{fontSize:"0.75rem",color:T.textSoft,fontStyle:"italic"}}>Ripple is looking at your week…</div>
               </div>
             )}
 
@@ -2545,15 +2614,23 @@ Respond ONLY in valid JSON:
         {/* ── Hero greeting card ── */}
         <div style={{background:"linear-gradient(150deg,"+T.blue+"22,"+T.bluePale+" 80%)",border:"2px solid "+T.blue+"40",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px "+T.blue+"12"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
-            <div>
-              <div style={{fontSize:"0.62rem",color:T.blueDark,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800,marginBottom:"0.4rem"}}>{FORMAT_DATE(TODAY)}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
+                <div style={{fontSize:"0.62rem",color:T.blueDark,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
+                {weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];})?
+                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:T.white+"80",borderRadius:"50px",padding:"2px 8px"}}>
+                    <span style={{fontSize:"0.85rem"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).emoji}</span>
+                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.textMid}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).high}°</span>
+                  </div>
+                :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:T.blue,background:"none",border:"1px solid "+T.blue+"40",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
+              </div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:T.textDark,lineHeight:1.05}}>
                 {greeting} {greetingEmoji}
               </div>
               {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
               {flowMode==="Survival"&&<div style={{color:T.rose,fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
             </div>
-            <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.35,display:"flex",marginTop:"0.2rem"}}><Icon name="share" size={14} color={T.textMid}/></button>
+            <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.35,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color={T.textMid}/></button>
           </div>
 
           {/* Flow mode chips */}
@@ -2608,12 +2685,12 @@ Respond ONLY in valid JSON:
               </div>
               {todayEvents.length===0
                 ?<p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.3rem 0"}}>No events today — open space 🌿</p>
-                :todayEvents.filter(e=>!checkedCalEvents.includes(e.id)).map(e=>(
+                :todayEvents.map(e=>(
                   <AnchorCheckItem
                     key={e.id} id={e.id}
                     text={e.title}
-                    checked={false}
-                    onCheck={id=>setCheckedCalEvents(p=>[...p,id])}
+                    checked={checkedCalEvents.includes(e.id)}
+                    onCheck={id=>setCheckedCalEvents(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
                     color={e.color}
                     badge={e.time||"all day"}
                     entityTitle={e.title}
@@ -2628,12 +2705,7 @@ Respond ONLY in valid JSON:
                       <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through"}}>{e.title}</span>
                     </div>
                   ))}
-                  <button onClick={()=>{
-                    // Remove today's checked events from the calendar entirely
-                    const checkedTodayIds = todayEvents.filter(e=>checkedCalEvents.includes(e.id)).map(e=>e.id);
-                    setCalEvents(p=>p.filter(e=>!checkedTodayIds.includes(e.id)));
-                    setCheckedCalEvents(p=>p.filter(id=>!checkedTodayIds.includes(id)));
-                  }} style={{fontSize:"0.68rem",color:T.rose,background:"none",border:"none",cursor:"pointer",padding:"0.2rem 0.6rem",fontFamily:"inherit",fontWeight:600}}>Clear done</button>
+                  <button onClick={()=>setCheckedCalEvents(p=>p.filter(id=>!todayEvents.find(e=>e.id===id)))} style={{fontSize:"0.68rem",color:T.textFaint,background:"none",border:"none",cursor:"pointer",padding:"0.2rem 0.6rem",fontFamily:"inherit"}}>Clear done</button>
                 </div>
               )}
             </div>
@@ -2651,15 +2723,25 @@ Respond ONLY in valid JSON:
 
             {/* Today's tasks */}
             <div style={{background:T.surface,border:"3px solid "+T.blue,borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:"0 4px 20px "+T.blue+"14"}}>
+              {people.length>1&&(
+                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
+                  {[{id:"all",name:"Everyone"},...people].map(function(p){
+                    return <button key={p.id} onClick={function(){setPersonFilter(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(personFilter===p.id?(p.color||T.blue):T.border),background:personFilter===p.id?(p.color||T.blue)+"22":"transparent",color:personFilter===p.id?(p.color||T.blue):T.textMid,fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
+                  })}
+                </div>
+              )}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
                   <span style={{fontSize:"1rem"}}>⚓️</span>
                   <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today's tasks</span>
                   {allTaskTiers.length>0&&<span style={{background:T.blue,color:"#fff",fontSize:"0.6rem",fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>{allTaskTiers.filter(t=>t.done).length}/{allTaskTiers.length}</span>}
                 </div>
-                <button onClick={()=>buildDailyBriefing()} disabled={briefingLoading} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:briefingLoading?0.6:1})}>
-                  {briefingLoading?<>{[0,1,2].map(i=><span key={i} style={{width:5,height:5,borderRadius:"50%",background:T.textMid,display:"inline-block",margin:"0 1px"}}/>)}</>:<>✨ Build</>}
-                </button>
+                <div style={{display:"flex",gap:"0.3rem"}}>
+                  {allTaskTiers.length>0&&<button onClick={function(){if(window.confirm("Clear all tasks for today?"))setTasks(function(p){return p.map(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)?{...t,archived:true}:t;});});}} style={btnS({fontSize:"0.68rem",padding:"0.22rem 0.55rem",color:T.textFaint})}>Clear</button>}
+                  <button onClick={()=>buildDailyBriefing()} disabled={briefingLoading} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:briefingLoading?0.6:1})}>
+                    {briefingLoading?<>{[0,1,2].map(i=><span key={i} style={{width:5,height:5,borderRadius:"50%",background:T.textMid,display:"inline-block",margin:"0 1px"}}/>)}</>:<>✨ Build</>}
+                  </button>
+                </div>
               </div>
               {allTaskTiers.filter(t=>!t.done).length===0&&allTaskTiers.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.2rem 0 0.5rem"}}>No tasks yet — tap ✨ Build or add below.</p>}
               {/* Progress momentum line */}
@@ -2672,14 +2754,14 @@ Respond ONLY in valid JSON:
               {allTaskTiers.length>0&&allTaskTiers.every(t=>t.done)&&(
                 <div style={{fontSize:"0.78rem",color:T.sage,fontWeight:700,marginBottom:"0.5rem",fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",textAlign:"center"}}>🌿 All done. That's everything for today.</div>
               )}
-              {top3Raw.filter(t=>!t.done).map(t=>(
-                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={false}
-                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:true}:x))}
+              {top3Raw.map(t=>(
+                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done}
+                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
                   color={T.blue} badge="TOP" entityTitle={t.text}/>
               ))}
-              {next3Raw.filter(t=>!t.done).map(t=>(
-                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={false}
-                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:true}:x))}
+              {next3Raw.map(t=>(
+                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done}
+                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
                   color={T.sage} entityTitle={t.text}/>
               ))}
               {/* Completed tasks — collapsed */}
@@ -2688,29 +2770,10 @@ Respond ONLY in valid JSON:
                   {allTaskTiers.filter(t=>t.done).map(t=>(
                     <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.6rem",opacity:0.45}}>
                       <div style={{width:18,height:18,borderRadius:"50%",background:T.sage,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={9} color="#fff"/></div>
-                      <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through",flex:1}}>{t.text}</span>
+                      <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through"}}>{t.text}</span>
                       <button onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:false}:x))} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.65rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>undo</button>
                     </div>
                   ))}
-                  <button
-                    onClick={async ()=>{
-                      const cleaned = tasks.filter(t=>!(t.done&&(t.day===TODAY_NAME||t.day==="Daily"||t.carriedTo===TODAY_NAME)));
-                      // Write to localStorage first so pushHouseholdData reads the clean version
-                      try { localStorage.setItem("af_tasks", JSON.stringify(cleaned)); } catch {}
-                      setTasks(cleaned);
-                      // Mark session as synced so background reload won't bring old data back
-                      sessionStorage.setItem("af_synced_this_session","1");
-                      // Immediately push clean list to Supabase
-                      if(authToken && householdId) {
-                        try {
-                          await pushHouseholdData(authToken, householdId);
-                          setSyncStatus("synced");
-                        } catch {}
-                      }
-                    }}
-                    style={{display:"block",width:"100%",textAlign:"center",marginTop:"0.4rem",padding:"0.45rem",background:T.rosePale||"#fdecea",border:"1px solid "+T.rose+"44",borderRadius:"0.6rem",color:T.rose,fontSize:"0.78rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                    🗑 Clear completed tasks
-                  </button>
                 </div>
               )}
               {addingTask&&(
@@ -2718,72 +2781,14 @@ Respond ONLY in valid JSON:
                   <input value={newTask} onChange={e=>setNewTask(e.target.value)}
                     onKeyDown={e=>{if(e.key==="Enter"){addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setAddingTask(null);}}}
                     placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
-                    style={{flex:1,background:T.inputBg,border:"1.5px solid "+(addingTask==="top3"?T.blue+"70":T.sage+"70"),borderRadius:"0.7rem",padding:"0.6rem 0.85rem",color:T.textDark,fontSize:"0.86rem",outline:"none",fontFamily:"inherit"}} autoFocus/>
-                  <button onClick={()=>{addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}} style={{background:addingTask==="top3"?T.blue:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.58rem 0.8rem",cursor:"pointer",display:"flex",alignItems:"center"}}><Icon name="plus" size={15} color="#fff"/></button>
+                    style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
+                  <button onClick={()=>{addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
                 </div>
               )}
-              {!addingTask&&!showBrainPicker&&(
+              {!addingTask&&(
                 <div style={{display:"flex",gap:"0.4rem",marginTop:"0.55rem"}}>
-                  <button onClick={()=>setShowBrainPicker("top3")} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.45rem",cursor:"pointer",fontWeight:700,fontSize:"0.75rem",fontFamily:"inherit",flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}><Icon name="plus" size={12} color="#fff"/> Top priority</button>
-                  <button onClick={()=>setShowBrainPicker("next3")} style={{background:T.white,color:T.sage,border:"1.5px solid "+T.sage+"60",borderRadius:"0.7rem",padding:"0.45rem",cursor:"pointer",fontWeight:700,fontSize:"0.75rem",fontFamily:"inherit",flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}><Icon name="plus" size={12} color={T.sage}/> Flow task</button>
-                </div>
-              )}
-              {/* Brain Dump Picker */}
-              {showBrainPicker&&(
-                <div style={{marginTop:"0.55rem",background:T.bgAlt,border:"1.5px solid "+(showBrainPicker==="top3"?T.blue+"50":T.sage+"50"),borderRadius:"0.9rem",padding:"0.75rem 0.8rem"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
-                    <span style={{fontSize:"0.72rem",fontWeight:800,color:showBrainPicker==="top3"?T.blue:T.sage,textTransform:"uppercase",letterSpacing:"0.07em"}}>
-                      {showBrainPicker==="top3"?"🎯 Pick a top priority":"🌿 Pick a flow task"}
-                    </span>
-                    <button onClick={()=>setShowBrainPicker(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",color:T.textFaint,lineHeight:1}}>×</button>
-                  </div>
-                  {/* Category filter chips */}
-                  <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-                    <button onClick={()=>setBrainPickerFilter("all")} style={{background:brainPickerFilter==="all"?T.textDark:T.white,color:brainPickerFilter==="all"?"#fff":T.textMid,border:"1.5px solid "+(brainPickerFilter==="all"?T.textDark:T.border),borderRadius:"2rem",padding:"0.18rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>All</button>
-                    {BRAIN_CATS.map(c=>{
-                      const cnt=brainItems.filter(i=>i.cat===c.id&&!i.done&&!i.scheduledDay).length;
-                      if(cnt===0) return null;
-                      const catColors={sage:T.sage,blue:T.blue,lavender:T.lavender,sand:T.sand,rose:T.rose};
-                      const col=catColors[c.color]||T.sage;
-                      return(
-                        <button key={c.id} onClick={()=>setBrainPickerFilter(brainPickerFilter===c.id?"all":c.id)}
-                          style={{background:brainPickerFilter===c.id?col:T.white,color:brainPickerFilter===c.id?"#fff":T.textMid,border:"1.5px solid "+(brainPickerFilter===c.id?col:T.border),borderRadius:"2rem",padding:"0.18rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.2rem"}}>
-                          {c.emoji} {c.label} ({cnt})
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {/* Brain items list */}
-                  {brainItems.filter(i=>!i.done&&!i.scheduledDay&&(brainPickerFilter==="all"||i.cat===brainPickerFilter)).length===0?(
-                    <p style={{fontSize:"0.78rem",color:T.textFaint,fontStyle:"italic",margin:"0.3rem 0"}}>No pending brain dump items — add some in Brain Dump!</p>
-                  ):(
-                    <div style={{maxHeight:200,overflowY:"auto",borderRadius:"0.6rem",border:"1px solid "+T.border,background:T.surface}}>
-                      {brainItems.filter(i=>!i.done&&!i.scheduledDay&&(brainPickerFilter==="all"||i.cat===brainPickerFilter)).map(item=>{
-                        const cat=BRAIN_CATS.find(c=>c.id===item.cat)||BRAIN_CATS[0];
-                        const catColors={sage:T.sage,blue:T.blue,lavender:T.lavender,sand:T.sand,rose:T.rose};
-                        const dotCol=catColors[cat.color]||T.sage;
-                        return(
-                          <button key={item.id} onClick={()=>{
-                            addQuickTask(item.text, showBrainPicker);
-                            setBrainItems(p=>p.map(x=>x.id===item.id?{...x,scheduledDay:TODAY_NAME}:x));
-                            setShowBrainPicker(null);
-                          }} style={{display:"flex",alignItems:"center",gap:"0.55rem",width:"100%",textAlign:"left",background:"none",border:"none",borderBottom:"1px solid "+T.borderSoft,padding:"0.5rem 0.75rem",cursor:"pointer",fontFamily:"inherit"}}>
-                            <div style={{width:7,height:7,borderRadius:"50%",background:dotCol,flexShrink:0}}/>
-                            <span style={{flex:1,fontSize:"0.83rem",color:T.textDark,fontWeight:500}}>{item.text}</span>
-                            <span style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{cat.emoji}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {/* Also allow typing a new one */}
-                  <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
-                    <input value={newTask} onChange={e=>setNewTask(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter"&&newTask.trim()){addQuickTask(newTask,showBrainPicker);setNewTask("");setShowBrainPicker(null);}if(e.key==="Escape")setShowBrainPicker(null);}}
-                      placeholder="Or type a new task…"
-                      style={{flex:1,background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.45rem 0.7rem",color:T.textDark,fontSize:"0.82rem",outline:"none",fontFamily:"inherit"}}/>
-                    <button onClick={()=>{if(newTask.trim()){addQuickTask(newTask,showBrainPicker);setNewTask("");setShowBrainPicker(null);}}} style={{background:showBrainPicker==="top3"?T.blue:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.45rem 0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.78rem",fontFamily:"inherit"}}>Add</button>
-                  </div>
+                  <button onClick={()=>setAddingTask("top3")} style={btnP(T.blue,{flex:1,fontSize:"0.75rem",padding:"0.45rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}><Icon name="plus" size={12} color="#fff"/> Top priority</button>
+                  <button onClick={()=>setAddingTask("next3")} style={{...btnS({flex:1,fontSize:"0.75rem",padding:"0.45rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem",color:T.sage,borderColor:T.sage+"60"})}}><Icon name="plus" size={12} color={T.sage}/> Flow task</button>
                 </div>
               )}
             </div>
@@ -2930,16 +2935,16 @@ Respond ONLY in valid JSON:
                 </div>
                 {allTaskTiers.length===0
                   ?<p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",textAlign:"center"}}>No tasks today.</p>
-                  :allTaskTiers.filter(t=>!t.done).slice(0,5).map(t=>(
+                  :allTaskTiers.slice(0,5).map(t=>(
                     <AnchorCheckItem key={t.id} id={t.id}
-                      text={t.text} checked={false}
-                      onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:true}:x))}
+                      text={t.text} checked={t.done}
+                      onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
                       color={T.blue} bell={false} entityTitle={t.text}/>
                   ))}
                 {allTaskTiers.every(t=>t.done)&&allTaskTiers.length>0&&(
                   <p style={{color:T.sage,fontSize:"0.82rem",fontWeight:700,textAlign:"center",fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",padding:"0.2rem 0"}}>🌿 Everything done — you crushed it.</p>
                 )}
-                <button onClick={()=>setShowEndOfDay(true)} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.9rem",padding:"0.75rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",width:"100%",marginTop:"0.65rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.45rem",boxShadow:"0 3px 16px "+T.blue+"35"}}>🌙 Close my day →</button>
+                <button onClick={()=>setShowEndOfDay(true)} style={{...btnP(T.blue,{width:"100%",marginTop:"0.65rem",fontSize:"0.88rem",padding:"0.75rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.45rem",borderRadius:"0.9rem",boxShadow:"0 3px 16px "+T.blue+"35"})}}>🌙 Close my day →</button>
               </div>
             )}
 
@@ -2955,9 +2960,9 @@ Respond ONLY in valid JSON:
             {/* Tomorrow peek */}
             <div style={{background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",border:"1.5px solid "+T.lavender+"35",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
               <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.lavender,marginBottom:"0.5rem"}}>👁 {tmrName2} — prep tonight</div>
-              {eveningNudges.slice(0,4).filter((_,i)=>!checkedMealItems.includes("evening_"+i)).map((n,i)=>(
-                <AnchorCheckItem key={i} id={"evening_"+i}
-                  text={n} checked={false}
+              {eveningNudges.slice(0,4).map((n,i)=>(
+                <AnchorCheckItem key={"evening_"+i} id={"evening_"+i}
+                  text={n} checked={checkedMealItems.includes("evening_"+i)}
                   onCheck={id=>setCheckedMealItems(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
                   color={T.lavender} bell={false} entityTitle={n}/>
               ))}
@@ -2967,7 +2972,6 @@ Respond ONLY in valid JSON:
             </div>
           </div>
         )}
-
       </div>
     );
   }
@@ -3031,7 +3035,7 @@ Respond ONLY in valid JSON:
                 const isSelected=selectedDay&&selectedDay.getDate()===day&&selectedDay.getMonth()===month&&selectedDay.getFullYear()===year;
                 const isLastCol=(firstDay+i)%7===6;
                 return (
-                  <div key={day} onClick={()=>{setCalViewDate(thisDate);setCalView("day");setSelectedDay(thisDate);}}
+                  <div key={day} onClick={()=>setSelectedDay(isSelected?null:thisDate)}
                     style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
                     {/* Date number */}
                     <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
@@ -3162,10 +3166,66 @@ Respond ONLY in valid JSON:
     function openEditDay(day){setEditingDay(day);setEditForm({...rhythm[day]});}
     function saveEditDay(){setRhythm(p=>({...p,[editingDay]:{...editForm}}));setEditingDay(null);}
     function applyPreset(preset){if(preset.theme==="Custom"){setEditForm(p=>({...p,emoji:preset.emoji}));return;}setEditForm({theme:preset.theme,emoji:preset.emoji,desc:preset.desc});}
+    // Pre-compute glance data
+    var glanceData = MEAL_DAYS.map(function(day,di){
+      var todayIdx=TODAY.getDay();
+      var mealIdx=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].indexOf(day);
+      var diff=mealIdx-todayIdx;if(diff<0)diff+=7;
+      var dayDate=new Date(TODAY);dayDate.setDate(dayDate.getDate()+diff);
+      var dateStr=dayDate.getFullYear()+"-"+String(dayDate.getMonth()+1).padStart(2,"0")+"-"+String(dayDate.getDate()).padStart(2,"0");
+      var dayEvents=calEvents.filter(function(e){return e.date===dateStr&&!e._birthday;});
+      var dinner=(meals[day]||{}).dinner||"";
+      var dayTasks=tasks.filter(function(t){return(t.day===day||t.day==="Daily")&&!t.archived&&!t.done;});
+      var isBusy=dayEvents.length>=2;
+      var noMeal=!dinner;
+      var isToday=day===TODAY_NAME;
+      var w=weatherData&&weatherData.find(function(d){return d.date===dateStr;});
+      return{day:day,dateStr:dateStr,dayEvents:dayEvents,dinner:dinner,dayTasks:dayTasks,isBusy:isBusy,noMeal:noMeal,isToday:isToday,weather:w};
+    });
+
     return (
       <div>
         <SecHead emoji="📅" title="Weekly Rhythm" sub="Your week at a glance"/>
-        <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`})}}>
+        {/* Subtab nav */}
+        <div style={{display:"flex",gap:"0.35rem",marginBottom:"1rem",background:T.surface,borderRadius:"0.85rem",padding:"0.3rem"}}>
+          {[{id:"glance",label:"Glance",emoji:"👁"},{id:"rhythm",label:"Day Themes",emoji:"🗓️"},{id:"tasks",label:"Task Board",emoji:"✅"}].map(function(st){
+            return <button key={st.id} onClick={function(){setWeekSubTab(st.id);}} style={{flex:1,padding:"0.4rem 0.3rem",borderRadius:"0.6rem",border:"none",background:weekSubTab===st.id?T.white:"transparent",color:weekSubTab===st.id?T.textDark:T.textFaint,fontWeight:700,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit",boxShadow:weekSubTab===st.id?"0 1px 4px rgba(0,0,0,0.08)":"none"}}>{st.emoji} {st.label}</button>;
+          })}
+        </div>
+
+        {/* Week Glance */}
+        {weekSubTab==="glance"&&(
+          <div style={card()}>
+            {glanceData.map(function(g,i){
+              return(
+                <div key={g.day} style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:"0.5rem",padding:"0.55rem 0.25rem",borderBottom:i<glanceData.length-1?"1px solid "+T.borderSoft:"none",alignItems:"start"}}>
+                  <div>
+                    <div style={{fontSize:"0.65rem",fontWeight:800,textTransform:"uppercase",color:g.isToday?T.blue:T.textFaint}}>{g.day.slice(0,3)}</div>
+                    {g.isToday&&<div style={{fontSize:"0.58rem",fontWeight:700,color:T.blue}}>Today</div>}
+                    {g.weather&&<div style={{fontSize:"0.72rem",marginTop:"2px"}}>{g.weather.emoji} {g.weather.high}°</div>}
+                  </div>
+                  <div>
+                    {g.dayEvents.length===0?<span style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic"}}>Open</span>:g.dayEvents.slice(0,2).map(function(e,ei){return <div key={ei} style={{fontSize:"0.75rem",color:T.textDark,marginBottom:"0.12rem"}}>{"· "+e.title}</div>;})}
+                    {g.dinner?<div style={{fontSize:"0.72rem",color:T.sage,marginTop:"0.15rem"}}>{"🍽 "+g.dinner}</div>:g.isBusy&&<div style={{fontSize:"0.72rem",color:T.rose,fontWeight:600,marginTop:"0.15rem"}}>⚠ No dinner set</div>}
+                    {g.dayTasks.length>0&&<div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:"0.1rem"}}>{g.dayTasks.length+" task"+(g.dayTasks.length!==1?"s":"")}</div>}
+                  </div>
+                </div>
+              );
+            })}
+            {!weatherLocation&&(
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginTop:"0.75rem",padding:"0.5rem 0.75rem",background:T.bluePale,borderRadius:"0.75rem"}}>
+                <span>🌤️</span>
+                <span style={{fontSize:"0.75rem",color:T.textMid,flex:1}}>Add weather to your week</span>
+                <button onClick={requestWeatherLocation} style={btnP(T.blue,{fontSize:"0.72rem",padding:"0.28rem 0.7rem"})}>Enable</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Task Board */}
+        {weekSubTab==="tasks"&&(
+          <div>
+            <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
             <input value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
             <select value={taskDay} onChange={e=>setTaskDay(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
@@ -3178,24 +3238,46 @@ Respond ONLY in valid JSON:
             <button onClick={()=>{if(newTaskText.trim()){setTasks(p=>[...p,{id:uid(),text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson}]);setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
           </div>
         </div>
-        {[...MEAL_DAYS,"Daily"].map((day,di)=>{
-          const dayTasks=tasks.filter(t=>t.day===day&&!t.archived);
-          const dr=rhythm[day];const accent=DAY_COLORS[di%DAY_COLORS.length];
+        {weekSubTab==="tasks"&&[...MEAL_DAYS,"Daily"].map(function(day,di){
+          var dayTasks=tasks.filter(function(t){return t.day===day&&!t.archived;});
+          var dr=rhythm[day];var accent=DAY_COLORS[di%DAY_COLORS.length];
           return (
-            <div key={day} style={{...card({borderLeft:`4px solid ${day===TODAY_NAME?accent:T.borderSoft}`})}}>
+            <div key={day} style={{...card({borderLeft:"4px solid "+(day===TODAY_NAME?accent:T.borderSoft)})}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:dayTasks.length?"0.75rem":"0.1rem"}}>
-                <span style={{fontSize:"1rem"}}>{dr?.emoji||"📋"}</span>
+                <span style={{fontSize:"1rem"}}>{(dr&&dr.emoji)||"📋"}</span>
                 <span style={{fontWeight:700,color:day===TODAY_NAME?accent:T.textDark,fontSize:"0.92rem"}}>{day}</span>
-                {dr&&<span style={{color:T.textSoft,fontSize:"0.76rem",fontWeight:500}}>· {dr.theme}</span>}
+                {dr&&dr.theme&&<span style={{color:T.textSoft,fontSize:"0.76rem",fontWeight:500}}>{"· "+dr.theme}</span>}
                 <div style={{flex:1}}/>
                 {day===TODAY_NAME&&<Pill label="Today" color={accent} tiny/>}
-                {day!=="Daily"&&<button onClick={()=>openEditDay(day)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={T.textSoft}/> Edit Day</button>}
+                {day!=="Daily"&&<button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={T.textSoft}/> Edit Day</button>}
               </div>
               <DraggableTaskList tasks={dayTasks} setTasks={setTasks} accent={accent}/>
               {dayTasks.length===0&&<p style={{color:T.textFaint,fontSize:"0.77rem",fontWeight:500}}>Nothing yet</p>}
             </div>
           );
         })}
+          </div>
+        )}
+
+        {/* Day Themes subtab */}
+        {weekSubTab==="rhythm"&&MEAL_DAYS.map(function(day,di){
+          var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
+          return(
+            <div key={day} style={{...card({borderLeft:"4px solid "+accent+"60"})}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                  <span style={{fontSize:"1.2rem"}}>{dr.emoji||"📋"}</span>
+                  <div>
+                    <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{day}</div>
+                    {dr.theme&&<div style={{fontSize:"0.75rem",color:T.textMid}}>{dr.theme}</div>}
+                  </div>
+                </div>
+                <button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+              </div>
+            </div>
+          );
+        })}
+
         {editingDay&&(
           <ModalBox title={`Edit ${editingDay}`} onClose={()=>setEditingDay(null)}>
             <div style={{marginBottom:"0.75rem"}}>
@@ -3228,14 +3310,12 @@ Respond ONLY in valid JSON:
     const [mealSubTab,setMealSubTab]=useState("week");
     const [weekTypeKey,setWeekTypeKey]=useState(null);
     const [showWeekTypePicker,setShowWeekTypePicker]=useState(false);
-    const [nextWeekMeals,setNextWeekMeals]=useState({});
+    const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
     const [nextWeekMealCount,setNextWeekMealCount]=useState(1);
+    var nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
     const [bankFilters,setBankFilters]=useState([]);
-    const [bankViewFilter,setBankViewFilter]=useState("all"); // "all" | "favorites" | "custom"
     const [selectedBankMeal,setSelectedBankMeal]=useState(null);
-    const [showAddMealModal,setShowAddMealModal]=useState(false);
-    const [newMealForm,setNewMealForm]=useState({name:"",tags:"",notes:"",groceryInput:"",favorite:false,rating:0});
     const [prepChecked,setPrepChecked]=useState([]);
     const [rescueInput,setRescueInput]=useState("");
     const [rescueResults,setRescueResults]=useState(null);
@@ -3272,24 +3352,14 @@ Respond ONLY in valid JSON:
     }
     const activePrepTasks = getSmartPrepTasks(weekMealNames);
 
-    function openEdit(day){setEditDay(day);setEditMeal(meals[day]||{});setEditMealGroceries("");}
+    function openEdit(day){setEditDay(day);setEditMeal(meals[day]||{});}
     function saveEdit(){
       // Sanitize — replace any null/undefined meal values with empty strings
       const clean = {};
-      Object.entries(editMeal).forEach(([k,v]) => { if(k!=="groceryInput") clean[k] = v == null ? "" : String(v); });
+      Object.entries(editMeal).forEach(([k,v]) => { clean[k] = v == null ? "" : String(v); });
       setMeals(p=>({...p,[editDay]:clean}));
-      // Push any groceries entered to the shopping list
-      if(editMealGroceries.trim()) {
-        const items = editMealGroceries.split(/[\n,]+/).map(g=>g.trim()).filter(Boolean);
-        if(items.length>0) {
-          const mealName = clean.dinner||clean.lunch||clean.breakfast||editDay;
-          setShoppingItems(p=>[...p,...items.map(g=>({id:uid(),text:g,done:false,store:"Grocery Store",mealSource:mealName}))]);
-        }
-      }
-      setEditMealGroceries("");
       setEditDay(null);
     }
-    const [editMealGroceries,setEditMealGroceries] = useState("");
     function rotateMeals(){const days=[...MEAL_DAYS];const cur={...meals};const rotated={};days.forEach((day,i)=>{const prev=days[(i-1+days.length)%days.length];rotated[day]={...cur[prev]};});setMeals(rotated);}
     function applyWeekType(key){
       const preset=WEEK_TYPE_PRESETS[key];if(!preset)return;
@@ -3297,74 +3367,13 @@ Respond ONLY in valid JSON:
       setWeekTypeKey(key);setShowWeekTypePicker(false);
     }
 
-    // Merge built-in + custom meals for bank display
-    const allBankMeals = [
-      ...MEAL_BANK_DATA,
-      ...customMeals.map(m=>({
-        ...m,
-        // normalize custom meals to match built-in shape for rendering
-        time: m.time||null, pans: m.pans||null, cleanup: m.cleanup||null,
-        kidRating: m.rating||0, ingredients: m.groceries||[], steps: [],
-        swap:"", skip:"", leftovers:"", prepNote:"",
-        isCustom: true,
-      }))
-    ];
-
-    const filteredBank = allBankMeals
-      .filter(m => bankViewFilter==="favorites" ? (m.favorite || favMeals.includes(m.id)) : bankViewFilter==="custom" ? m.isCustom : true)
-      .filter(m => bankFilters.length===0 || bankFilters.every(f=>Array.isArray(m.tags)&&m.tags.includes(f)));
-
-    function handleAddMeal() {
-      if(!newMealForm.name.trim()) return;
-      const groceries = newMealForm.groceryInput
-        .split(/[\n,]+/)
-        .map(g=>g.trim())
-        .filter(Boolean);
-      const meal = {
-        id: uid(),
-        name: newMealForm.name.trim(),
-        tags: newMealForm.tags.split(",").map(t=>t.trim()).filter(Boolean),
-        notes: newMealForm.notes.trim(),
-        groceries,
-        favorite: newMealForm.favorite,
-        rating: newMealForm.rating,
-        isCustom: true,
-        createdAt: Date.now(),
-      };
-      setCustomMeals(p=>[...p, meal]);
-      if(groceries.length>0) {
-        setShoppingItems(p=>[
-          ...p,
-          ...groceries.map(g=>({id:uid(), text:g, done:false, store:"Grocery Store", mealSource:meal.name}))
-        ]);
-      }
-      setNewMealForm({name:"",tags:"",notes:"",groceryInput:"",favorite:false,rating:0});
-      setShowAddMealModal(false);
-    }
-
-    function toggleCustomFavorite(mealId) {
-      setCustomMeals(p=>p.map(m=>m.id===mealId?{...m,favorite:!m.favorite}:m));
-    }
-
-    function deleteCustomMeal(mealId) {
-      setCustomMeals(p=>p.filter(m=>m.id!==mealId));
-      if(selectedBankMeal===mealId) setSelectedBankMeal(null);
-    }
-
-    function addMealGroceriesToShop(meal) {
-      const items = (meal.ingredients||meal.groceries||[]);
-      if(items.length===0) return;
-      setShoppingItems(p=>[
-        ...p,
-        ...items.map(g=>({id:uid(), text:g, done:false, store:"Grocery Store", mealSource:meal.name}))
-      ]);
-    }
+    const filteredBank=bankFilters.length===0?MEAL_BANK_DATA:MEAL_BANK_DATA.filter(m=>bankFilters.every(f=>m.tags.includes(f)));
 
     async function findRescueMeals(){
       if(!rescueInput.trim())return;
       setRescueLoading(true);setRescueResults(null);setRescueError(null);
       try{
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:800,
           system:`You are a helpful family meal assistant. Given ingredients on hand, suggest 3 simple family-friendly dinners.
 Respond ONLY with a valid JSON array, no markdown, no explanation, nothing else.
@@ -3395,7 +3404,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setRescueLoading(false);
     }
 
-    const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
+    const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"grocery",label:"Grocery",emoji:"🛒"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
 
     return (
       <div>
@@ -3540,70 +3549,142 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               )}
             </div>
-            {(()=>{
-              const nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
-              return MEAL_DAYS.map(day=>{
-                const m = nextWeekMeals[day]||{};
-                const nwGroceries = m._groceries||"";
-                return (
-                  <div key={day} style={{...card({borderLeft:"4px solid "+T.blue+"50"})}}>
-                    <div style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem",marginBottom:"0.65rem"}}>{day}</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat("+nwMealsToShow.length+",1fr)",gap:"0.45rem",marginBottom:"0.55rem"}}>
-                      {nwMealsToShow.map(meal=>(
-                        <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
-                          <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
-                          <input value={m[meal]||""} onChange={e=>setNextWeekMeals(p=>({...p,[day]:{...(p[day]||{}),[meal]:e.target.value}}))} placeholder="—" style={{width:"100%",background:"transparent",border:"none",outline:"none",fontSize:"0.8rem",color:T.textDark,fontFamily:"inherit",padding:"0.28rem 0.45rem"}}/>
-                        </div>
-                      ))}
-                    </div>
-                    {nwMealsToShow.includes("dinner")&&(
-                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
-                        {MEAL_BANK_DATA.slice(0,4).map(mb=>(
-                          <button key={mb.id} onClick={()=>setNextWeekMeals(p=>({...p,[day]:{...(p[day]||{}),dinner:mb.name}}))}
-                            style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.65rem",fontWeight:700,fontFamily:"inherit",color:T.textSoft}}>
-                            + {mb.name.split(" ").slice(0,3).join(" ")}…
-                          </button>
-                        ))}
+            {MEAL_DAYS.map(function(day){
+              var m=nextWeekMeals[day]||{};
+              return (
+                <div key={day} style={{...card({borderLeft:"4px solid "+T.blue+"50"})}}>
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem",marginBottom:"0.65rem"}}>{day}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat("+nwMealsToShow.length+",1fr)",gap:"0.45rem",marginBottom:"0.55rem"}}>
+                    {nwMealsToShow.map(function(meal){return(
+                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
+                        <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
+                        <input value={m[meal]||""} onChange={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                       </div>
-                    )}
-                    <div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.3rem"}}>🛒 Groceries needed</div>
-                      <textarea value={nwGroceries} onChange={e=>setNextWeekMeals(p=>({...p,[day]:{...(p[day]||{}),_groceries:e.target.value}}))} placeholder={"Ingredients for "+day+"… (one per line)"} style={{width:"100%",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.6rem",padding:"0.5rem 0.7rem",color:T.textDark,fontSize:"0.78rem",outline:"none",boxSizing:"border-box",fontFamily:"monospace",height:68,resize:"none"}}/>
-                    </div>
+                    );})}
                   </div>
-                );
-              });
-            })()}
+                  {nwMealsToShow.includes("dinner")&&(
+                    <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
+                      {MEAL_BANK_DATA.slice(0,4).map(function(mb){return(
+                        <button key={mb.id} onClick={function(){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day].dinner=mb.name;return nd;});}} style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.65rem",fontWeight:700,fontFamily:"inherit",color:T.textSoft}}>
+                          {"+ "+mb.name.split(" ").slice(0,3).join(" ")+"…"}
+                        </button>
+                      );})}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <button onClick={()=>{
               setMeals(prev=>{
                 const next={...prev};
-                Object.entries(nextWeekMeals).forEach(([day,m])=>{
-                  if(m&&Object.keys(m).length>0){
-                    const clean={};
-                    Object.entries(m).forEach(([k,v])=>{if(k!=="_groceries")clean[k]=v;});
-                    next[day]={...(next[day]||{}),...clean};
-                  }
-                });
+                Object.entries(nextWeekMeals).forEach(([day,m])=>{if(m&&Object.keys(m).length>0)next[day]={...(next[day]||{}),...m};});
                 return next;
               });
-              // Push all next week groceries to shopping list
-              const allGroceries=[];
-              Object.entries(nextWeekMeals).forEach(([day,m])=>{
-                if(m&&m._groceries&&m._groceries.trim()){
-                  const mealName=m.dinner||m.lunch||m.breakfast||day;
-                  m._groceries.split(/[\n,]+/).map(g=>g.trim()).filter(Boolean).forEach(g=>{
-                    allGroceries.push({id:uid(),text:g,done:false,store:"Grocery Store",mealSource:mealName});
-                  });
-                }
-              });
-              if(allGroceries.length>0) setShoppingItems(p=>[...p,...allGroceries]);
               setNextWeekMeals({});
               setMealSubTab("week");
-            }} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.85rem",fontSize:"0.9rem",fontFamily:"inherit",fontWeight:700,cursor:"pointer",width:"100%",marginTop:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem"}}>
+            }} style={{...btnP(T.blue,{width:"100%",padding:"0.85rem",fontSize:"0.9rem",marginTop:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem"})}}>
               ✓ Apply as This Week's Meals
             </button>
           </div>
         )}
+        {mealSubTab==="month"&&(function(){
+          var BMONTHS2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          var WEEK_LABELS=["Week 1","Week 2","Week 3","Week 4"];
+          var monthKey="af_monthMeals";
+          function getMonthMeals(){try{return JSON.parse(localStorage.getItem(monthKey)||"{}");}catch{return{};}}
+          function saveMonthMeals(d){try{localStorage.setItem(monthKey,JSON.stringify(d));}catch{}}
+          var monthMeals=getMonthMeals();
+          return(
+            <div>
+              <div style={{...card({background:"linear-gradient(135deg,"+T.lavPale||T.bluePale+","+T.surface+")",border:"2px solid "+T.blue+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>📅 Monthly Meal Plan</div>
+                <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Plan dinners across four weeks. Hit Load Week to pull any week into your current plan.</p>
+              </div>
+              {WEEK_LABELS.map(function(wLabel,wi){
+                return(
+                  <div key={wi} style={{marginBottom:"1rem"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.45rem"}}>
+                      <span style={{fontSize:"0.75rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid}}>{wLabel}</span>
+                      <button onClick={function(){
+                        setMeals(function(prev){
+                          var next={...prev};
+                          MEAL_DAYS.forEach(function(day){
+                            var val=monthMeals["w"+(wi+1)+"_"+day];
+                            if(val)next[day]={...(next[day]||{}),dinner:val};
+                          });
+                          return next;
+                        });
+                        setMealSubTab("week");
+                      }} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.7rem"})}>Load Week</button>
+                    </div>
+                    <div style={card({padding:"0.5rem 0.75rem"})}>
+                      {MEAL_DAYS.map(function(day){
+                        var k="w"+(wi+1)+"_"+day;
+                        return(
+                          <div key={day} style={{display:"grid",gridTemplateColumns:"70px 1fr",gap:"0.5rem",alignItems:"center",padding:"0.28rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                            <span style={{fontSize:"0.72rem",fontWeight:700,color:T.textFaint}}>{day.slice(0,3)}</span>
+                            <input defaultValue={monthMeals[k]||""} onBlur={function(e){var d=getMonthMeals();d[k]=e.target.value;saveMonthMeals(d);}} placeholder="Dinner…" style={{...inp({padding:"0.28rem 0.5rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {mealSubTab==="grocery"&&(function(){
+          var weekMeals=MEAL_DAYS.map(function(day){
+            var mealObj=meals[day]||{};
+            var dinnerName=mealObj.dinner||"";
+            var bankMatch=MEAL_BANK_DATA.find(function(b){return b.name.toLowerCase()===(dinnerName).toLowerCase();});
+            return{day:day,dinner:dinnerName,ingredients:bankMatch?bankMatch.ingredients:[],isToday:day===TODAY_NAME};
+          }).filter(function(d){return d.dinner;});
+          function inList(ing){return shoppingItems.some(function(s){return s.text.toLowerCase()===ing.toLowerCase();});}
+          function addIng(ing){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:"Grocery Store",done:false}];});}
+          function addAll(ings){ings.forEach(function(ing){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:"Grocery Store",done:false}];});});}
+          return(
+            <div>
+              <div style={{...card({background:"linear-gradient(135deg,"+T.sagePale+","+T.surface+")",border:"2px solid "+T.sage+"50",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>🛒 Meals → Grocery</div>
+                <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Tap ingredients to add to your shopping list, or add everything at once.</p>
+              </div>
+              {weekMeals.length===0?(
+                <div style={{...card({textAlign:"center",padding:"2rem"})}}>
+                  <p style={{color:T.textFaint,fontSize:"0.85rem"}}>No meals planned this week yet.</p>
+                  <button onClick={function(){setMealSubTab("week");}} style={btnP(T.sage,{marginTop:"0.75rem",fontSize:"0.8rem"})}>Plan this week</button>
+                </div>
+              ):weekMeals.map(function(d){
+                return(
+                  <div key={d.day} style={{...card({marginBottom:"0.65rem"})}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
+                      <div>
+                        <div style={{fontSize:"0.65rem",fontWeight:800,textTransform:"uppercase",color:d.isToday?T.sage:T.textFaint,letterSpacing:"0.06em"}}>{d.day}{d.isToday?" · Tonight":""}</div>
+                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{d.dinner}</div>
+                      </div>
+                      {d.ingredients.length>0&&<button onClick={function(){addAll(d.ingredients);}} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Add all</button>}
+                    </div>
+                    {d.ingredients.length>0?(
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem"}}>
+                        {d.ingredients.map(function(ing){
+                          var added=inList(ing);
+                          return(
+                            <button key={ing} onClick={function(){addIng(ing);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1px solid "+(added?T.sage:T.border),background:added?T.sagePale:"transparent",color:added?T.sageDark:T.textMid,fontSize:"0.73rem",fontWeight:600,cursor:added?"default":"pointer",fontFamily:"inherit"}}>
+                              {added?"✓ ":""}{ing}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ):<p style={{color:T.textFaint,fontSize:"0.78rem",fontStyle:"italic"}}>Not in meal bank — add ingredients manually.</p>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
         {mealSubTab==="tonight"&&(
           <div>
             {tonightMealData?(
@@ -3665,205 +3746,55 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="bank"&&(
           <div>
-            {/* View filter + Add button row */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",gap:"0.5rem"}}>
-              <div style={{display:"flex",gap:"0.35rem",background:T.bgAlt,borderRadius:"0.7rem",padding:"0.22rem",border:"1px solid "+T.border}}>
-                {[{id:"all",label:"All"},{id:"favorites",label:"⭐ Faves"},{id:"custom",label:"✏️ Mine"}].map(vf=>{
-                  const vfActive=bankViewFilter===vf.id;
-                  return (
-                    <button key={vf.id} onClick={()=>setBankViewFilter(vf.id)} style={{background:vfActive?T.sage:"transparent",color:vfActive?"#fff":T.textMid,border:"none",borderRadius:"0.45rem",padding:"0.3rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap"}}>
-                      {vf.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <button onClick={()=>setShowAddMealModal(true)} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.35rem 0.8rem",cursor:"pointer",fontWeight:700,fontSize:"0.76rem",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.35rem"}}>
-                <Icon name="plus" size={13} color="#fff"/> Add Meal
-              </button>
-            </div>
-
             <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,marginBottom:"0.65rem",lineHeight:1.55}}>Filter by what you need tonight. Tap a meal to see details.</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-              {MEAL_TAG_FILTERS.map(tf=>{
-                const tfActive=bankFilters.includes(tf.id);
-                return (
-                  <button key={tf.id} onClick={()=>setBankFilters(p=>p.includes(tf.id)?p.filter(x=>x!==tf.id):[...p,tf.id])} style={{background:tfActive?T.sage:T.white,color:tfActive?"#fff":T.textMid,border:"1.5px solid "+(tfActive?T.sage:T.border),borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
-                    {tf.emoji} {tf.label}
-                  </button>
-                );
-              })}
+              {MEAL_TAG_FILTERS.map(tf=>(
+                <button key={tf.id} onClick={()=>setBankFilters(p=>p.includes(tf.id)?p.filter(x=>x!==tf.id):[...p,tf.id])} style={{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                  {tf.emoji} {tf.label}
+                </button>
+              ))}
               {bankFilters.length>0&&<button onClick={()=>setBankFilters([])} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",fontWeight:600}}>Clear</button>}
             </div>
             <p style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginBottom:"0.65rem"}}>{filteredBank.length} meal{filteredBank.length!==1?"s":""} match</p>
-
-            {filteredBank.map(m=>{
-              const mIsSelected=selectedBankMeal===m.id;
-              const mIsFav=m.isCustom?m.favorite:favMeals.includes(m.id);
-              const mIngredients=m.ingredients||m.groceries||[];
-              const mCardBorderColor=mIsSelected?T.sage:m.isCustom?T.blue+"80":T.borderSoft;
-              const mCardBg=mIsSelected?"linear-gradient(to right,"+T.sagePale+","+T.surface+")":T.surface;
-              const mRatingStr=m.isCustom&&m.rating>0?"★".repeat(m.rating)+"☆".repeat(5-m.rating)+" family":"";
-              return (
-                <div key={m.id} onClick={()=>setSelectedBankMeal(mIsSelected?null:m.id)} style={{background:mCardBg,border:"1px solid "+T.borderSoft,borderLeft:"4px solid "+mCardBorderColor,borderRadius:"1.1rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px "+T.cardShadow,cursor:"pointer",transition:"all 0.15s"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"0.5rem"}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{m.name}</div>
-                        {m.isCustom&&<span style={{fontSize:"0.6rem",fontWeight:800,color:T.blue,background:T.bluePale,borderRadius:"2rem",padding:"1px 6px",border:"1px solid "+T.blue+"30"}}>MY MEAL</span>}
-                      </div>
-                      <div style={{display:"flex",gap:"0.5rem",marginTop:"0.2rem",flexWrap:"wrap",alignItems:"center"}}>
-                        {m.time&&<span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>⏱ {m.time} min</span>}
-                        {m.cleanup&&<span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>· 🧹 {m.cleanup}</span>}
-                        {m.isCustom&&m.rating>0&&<span style={{fontSize:"0.69rem",color:T.sand,fontWeight:700}}>{mRatingStr}</span>}
-                        {!m.isCustom&&m.kidRating>0&&<span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>{"⭐".repeat(m.kidRating)}</span>}
-                      </div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.4rem"}}>
-                        {(m.tags||[]).slice(0,4).map(tag=>{
-                          const tf=MEAL_TAG_FILTERS.find(t=>t.id===tag);
-                          if(tf) return <span key={tag} style={{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:"1px solid "+T.sage+"30"}}>{tf.emoji} {tf.label}</span>;
-                          if(tag) return <span key={tag} style={{fontSize:"0.62rem",color:T.textSoft,background:T.bgAlt,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:"1px solid "+T.border}}>{tag}</span>;
-                          return null;
-                        })}
-                      </div>
-                      {m.isCustom&&mIngredients.length>0&&<div style={{fontSize:"0.69rem",color:T.textFaint,marginTop:"0.25rem",fontWeight:500}}>🛒 {mIngredients.length} ingredient{mIngredients.length!==1?"s":""}</div>}
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.35rem",flexShrink:0}}>
-                      <button onClick={e=>{e.stopPropagation();m.isCustom?toggleCustomFavorite(m.id):setFavMeals(p=>p.includes(m.id)?p.filter(x=>x!==m.id):[...p,m.id]);}} style={{background:"none",border:"none",fontSize:"1rem",cursor:"pointer",lineHeight:1,padding:"2px"}} title="Favorite">
-                        {mIsFav?"⭐":"☆"}
-                      </button>
-                      <Icon name={mIsSelected?"chevD":"chevR"} size={16} color={T.textSoft}/>
-                    </div>
-                  </div>
-                  {mIsSelected&&(
-                    <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:"1px solid "+T.borderSoft}}>
-                      {m.notes&&(
-                        <div style={{background:T.sandPale,border:"1px solid "+T.sand+"30",borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginBottom:"0.65rem",fontSize:"0.8rem",color:T.textDark,fontStyle:"italic"}}>"{m.notes}"</div>
-                      )}
-                      {mIngredients.length>0&&(
-                        <div>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.4rem"}}>
-                            <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em"}}>Ingredients</div>
-                            <button onClick={e=>{
-                              e.stopPropagation();
-                              const checked=mIngredients.filter((_,i)=>((window._mealChecked||{})[m.id]||{})[i]);
-                              const toAdd=checked.length>0?checked:mIngredients;
-                              setShoppingItems(p=>[...p,...toAdd.map(g=>({id:uid(),text:g,done:false,store:"Grocery Store",mealSource:m.name}))]);
-                              window._mealChecked=window._mealChecked||{};
-                              window._mealChecked[m.id]={};
-                            }} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.5rem",padding:"0.22rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>
-                              🛒 Add to Shop
-                            </button>
-                          </div>
-                          <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.75rem"}}>
-                            {mIngredients.map((ing,i)=>{
-                              const ckKey=(m.id||"")+"_"+i;
-                              return (
-                                <label key={i} onClick={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:"0.55rem",cursor:"pointer",padding:"0.28rem 0.45rem",borderRadius:"0.5rem",background:T.bgAlt}}>
-                                  <input type="checkbox" id={ckKey} style={{width:15,height:15,accentColor:T.sage,cursor:"pointer",flexShrink:0}}
-                                    onChange={e=>{
-                                      window._mealChecked=window._mealChecked||{};
-                                      window._mealChecked[m.id]=window._mealChecked[m.id]||{};
-                                      window._mealChecked[m.id][i]=e.target.checked;
-                                    }}
-                                  />
-                                  <span style={{fontSize:"0.8rem",color:T.textDark,fontWeight:500}}>{ing}</span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                          <p style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.5rem"}}>Check items you need, then tap Add to Shop — or tap without checking to add all.</p>
-                        </div>
-                      )}
-                      {m.steps&&m.steps.length>0&&(
-                        <div>
-                          <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Steps</div>
-                          {m.steps.map((step,i)=>(
-                            <div key={i} style={{display:"flex",gap:"0.6rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
-                              <div style={{width:20,height:20,borderRadius:"50%",background:T.sage,color:"#fff",fontSize:"0.65rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
-                              <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{step}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {m.swap&&<div style={{background:T.bluePale,border:"1px solid "+T.blue+"30",borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:T.textDark,fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>}
-                      <div style={{marginTop:"0.65rem",display:"flex",gap:"0.45rem",flexWrap:"wrap"}}>
-                        <button onClick={e=>{e.stopPropagation();setMeals(p=>({...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}}));setMealSubTab("tonight");}} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.35rem 0.8rem",cursor:"pointer",fontWeight:700,fontSize:"0.76rem",fontFamily:"inherit"}}>🌙 Make Tonight</button>
-                        <button onClick={e=>{e.stopPropagation();openEdit(TODAY_NAME);}} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.35rem 0.75rem",cursor:"pointer",fontSize:"0.76rem",fontFamily:"inherit",fontWeight:600}}>Add to Week</button>
-                        {m.isCustom&&<button onClick={e=>{e.stopPropagation();deleteCustomMeal(m.id);}} style={{background:T.white,color:T.rose,border:"1.5px solid "+T.rose+"66",borderRadius:"0.7rem",padding:"0.35rem 0.75rem",cursor:"pointer",fontSize:"0.76rem",fontFamily:"inherit",fontWeight:600}}>Delete</button>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {filteredBank.length===0&&(
-              <div style={{background:T.surface,border:"1px solid "+T.borderSoft,borderRadius:"1.1rem",padding:"1.5rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px "+T.cardShadow,textAlign:"center"}}>
-                {bankViewFilter==="custom"?(
+            {filteredBank.map(m=>(
+              <div key={m.id} onClick={()=>setSelectedBankMeal(selectedBankMeal===m.id?null:m.id)} style={{...card({cursor:"pointer",borderLeft:`4px solid ${selectedBankMeal===m.id?T.sage:T.borderSoft}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,transition:"all 0.15s"})}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"0.5rem"}}>
                   <div>
-                    <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>✏️</div>
-                    <p style={{color:T.textMid,fontWeight:700,fontSize:"0.9rem",marginBottom:"0.5rem"}}>No custom meals yet</p>
-                    <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.85rem"}}>Add your family's go-to meals and their grocery lists.</p>
-                    <button onClick={()=>setShowAddMealModal(true)} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:700,fontSize:"0.82rem",fontFamily:"inherit"}}>+ Add Your First Meal</button>
+                    <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{m.name}</div>
+                    <div style={{display:"flex",gap:"0.5rem",marginTop:"0.2rem"}}>
+                      <span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>⏱ {m.time} min · 🧹 {m.cleanup} · {"⭐".repeat(m.kidRating)}</span>
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.4rem"}}>
+                      {m.tags.slice(0,4).map(tag=>{const tf=MEAL_TAG_FILTERS.find(t=>t.id===tag);return tf?<span key={tag} style={{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${T.sage}30`}}>{tf.emoji} {tf.label}</span>:null;})}
+                    </div>
                   </div>
-                ):(
-                  <p style={{color:T.textMid,fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one.</p>
+                  <Icon name={selectedBankMeal===m.id?"chevD":"chevR"} size={16} color={T.textSoft}/>
+                </div>
+                {selectedBankMeal===m.id&&(
+                  <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:`1px solid ${T.borderSoft}`}}>
+                    <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Ingredients</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginBottom:"0.75rem"}}>
+                      {m.ingredients.map((ing,i)=><span key={i} style={{fontSize:"0.77rem",color:T.textDark,background:T.sandPale,border:`1px solid ${T.sand}30`,borderRadius:"2rem",padding:"1px 8px",fontWeight:500}}>{ing}</span>)}
+                    </div>
+                    <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Steps</div>
+                    {m.steps.map((step,i)=>(
+                      <div key={i} style={{display:"flex",gap:"0.6rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
+                        <div style={{width:20,height:20,borderRadius:"50%",background:T.sage,color:"#fff",fontSize:"0.65rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
+                        <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{step}</span>
+                      </div>
+                    ))}
+                    <div style={{background:T.bluePale,border:`1px solid ${T.blue}30`,borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:T.textDark,fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>
+                    <div style={{marginTop:"0.65rem",display:"flex",gap:"0.45rem"}}>
+                      <button onClick={e=>{e.stopPropagation();setMeals(p=>({...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}}));setMealSubTab("tonight");}} style={btnP(T.sage,{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
+                      <button onClick={e=>{e.stopPropagation();openEdit(TODAY_NAME);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Add to Week</button>
+                    </div>
+                  </div>
                 )}
               </div>
-            )}
-
-            {/* Add Meal Modal */}
-            {showAddMealModal&&(
-              <div>
-                <div onClick={()=>setShowAddMealModal(false)} style={{position:"fixed",inset:0,background:T.modalOverlay,zIndex:200}}/>
-                <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"min(500px,100vw)",background:T.surface,borderRadius:"1.4rem 1.4rem 0 0",padding:"1.5rem 1.25rem 2.5rem",zIndex:201,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 -8px 40px "+T.cardShadow}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.1rem"}}>
-                    <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:T.textDark,margin:0}}>Add to Meal Bank</h2>
-                    <button onClick={()=>setShowAddMealModal(false)} style={{background:"none",border:"none",fontSize:"1.3rem",cursor:"pointer",color:T.textSoft,lineHeight:1,padding:"2px"}}>×</button>
-                  </div>
-
-                  <label style={{display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700}}>Meal Name *</label>
-                  <input placeholder="e.g. Sheet Pan Chicken" value={newMealForm.name} onChange={e=>setNewMealForm(p=>({...p,name:e.target.value}))} style={{width:"100%",background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:"0.75rem"}} autoFocus/>
-
-                  <div style={{display:"flex",alignItems:"center",gap:"1rem",marginBottom:"0.85rem",padding:"0.65rem 0.85rem",background:T.bgAlt,borderRadius:"0.8rem",border:"1px solid "+T.border}}>
-                    <button onClick={()=>setNewMealForm(p=>({...p,favorite:!p.favorite}))} style={{background:"none",border:"none",fontSize:"1.35rem",cursor:"pointer",lineHeight:1,padding:0,flexShrink:0}} title="Mark as favorite">
-                      {newMealForm.favorite?"⭐":"☆"}
-                    </button>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textSoft,marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.07em"}}>Family Rating</div>
-                      <div style={{display:"flex",gap:"0.2rem"}}>
-                        {[1,2,3,4,5].map(n=>(
-                          <button key={n} onClick={()=>setNewMealForm(p=>({...p,rating:p.rating===n?0:n}))} style={{background:"none",border:"none",fontSize:"1.2rem",cursor:"pointer",opacity:n<=newMealForm.rating?1:0.3,padding:0,lineHeight:1,transition:"opacity 0.12s"}}>★</button>
-                        ))}
-                      </div>
-                    </div>
-                    {newMealForm.rating>0&&<span style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600}}>{["","Meh","OK","Good","Love it","Family fave!"][newMealForm.rating]}</span>}
-                  </div>
-
-                  <label style={{display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700}}>Tags <span style={{fontWeight:400,color:T.textFaint,textTransform:"none"}}>(comma separated)</span></label>
-                  <input placeholder="quick, dairy-free, kids love it" value={newMealForm.tags} onChange={e=>setNewMealForm(p=>({...p,tags:e.target.value}))} style={{width:"100%",background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:"0.75rem"}}/>
-
-                  <label style={{display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700}}>Notes</label>
-                  <textarea placeholder="Tips, variations, family notes…" value={newMealForm.notes} onChange={e=>setNewMealForm(p=>({...p,notes:e.target.value}))} style={{width:"100%",background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit",marginBottom:"0.75rem",height:68,resize:"none"}}/>
-
-                  <label style={{display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700}}>🛒 Groceries needed</label>
-                  <p style={{margin:"0 0 0.4rem",fontSize:"0.75rem",color:T.textSoft,lineHeight:1.5}}>Auto-added to your shopping list when you save. One per line or comma-separated.</p>
-                  <textarea placeholder={"chicken thighs\nbell peppers\nlimes\ngarlic\n(one per line)"} value={newMealForm.groceryInput} onChange={e=>setNewMealForm(p=>({...p,groceryInput:e.target.value}))} style={{width:"100%",background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.82rem",outline:"none",boxSizing:"border-box",fontFamily:"monospace",height:110,resize:"none"}}/>
-
-                  {newMealForm.groceryInput.trim()&&(
-                    <div style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.45rem 0.75rem",background:T.sagePale,border:"1px solid "+T.sage+"40",borderRadius:"0.6rem",marginTop:"0.35rem",marginBottom:"0.5rem"}}>
-                      <span style={{fontSize:"0.75rem",color:T.sageDark,fontWeight:600}}>
-                        ✓ {newMealForm.groceryInput.split(/[\n,]+/).map(g=>g.trim()).filter(Boolean).length} items will be added to your shopping list
-                      </span>
-                    </div>
-                  )}
-
-                  <button onClick={handleAddMeal} disabled={!newMealForm.name.trim()} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.8rem",cursor:"pointer",fontWeight:700,fontSize:"0.9rem",fontFamily:"inherit",width:"100%",marginTop:"0.65rem",display:"flex",justifyContent:"center",alignItems:"center",opacity:newMealForm.name.trim()?1:0.45}}>
-                    Save Meal
-                  </button>
-                </div>
-              </div>
-            )}
+            ))}
+            {filteredBank.length===0&&<div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
+              <p style={{color:T.textMid,fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one.</p>
+            </div>}
           </div>
         )}
 
@@ -3939,13 +3870,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
 
         {editDay&&(
-          <ModalBox title={"Meals for "+editDay} onClose={()=>setEditDay(null)}>
-            {mealThemeEnabled&&mealThemes[editDay]&&<div style={{background:T.sandPale,border:"1px solid "+T.sand+"40",borderRadius:"0.65rem",padding:"0.5rem 0.8rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.5rem"}}><span style={{fontSize:"1.1rem"}}>{mealThemes[editDay].emoji}</span><span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark}}>{mealThemes[editDay].theme}</span></div>}
+          <ModalBox title={`Meals for ${editDay}`} onClose={()=>setEditDay(null)}>
+            {mealThemeEnabled&&mealThemes[editDay]&&<div style={{background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.5rem 0.8rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.5rem"}}><span style={{fontSize:"1.1rem"}}>{mealThemes[editDay].emoji}</span><span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark}}>{mealThemes[editDay].theme}</span></div>}
             {MEALS_TO_SHOW.map(m=>(
               <div key={m} style={{marginBottom:"0.9rem"}}>
                 <label style={lbl}>{m}</label>
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input value={editMeal[m]||""} onChange={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={m[0].toUpperCase()+m.slice(1)+"…"} style={{...inp({flex:1})}}/>
+                  <input value={editMeal[m]||""} onChange={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1})}}/>
                   {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"auto",flex:"none",fontSize:"0.74rem"})}}>
                     <option value="">From recipes…</option>
                     {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
@@ -3954,17 +3885,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             ))}
             <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea value={editMeal.notes||""} onChange={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none"})}}/></div>
-            <div style={{marginBottom:"0.9rem"}}>
-              <label style={lbl}>🛒 Groceries needed</label>
-              <p style={{margin:"0 0 0.35rem",fontSize:"0.74rem",color:T.textSoft,lineHeight:1.5}}>These will be added to your shopping list. One per line or comma-separated.</p>
-              <textarea value={editMealGroceries} onChange={e=>setEditMealGroceries(e.target.value)} placeholder={"chicken thighs\nbell peppers\nlimes\n(one per line)"} style={{width:"100%",background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.82rem",outline:"none",boxSizing:"border-box",fontFamily:"monospace",height:90,resize:"none"}}/>
-              {editMealGroceries.trim()&&(
-                <div style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.4rem 0.7rem",background:T.sagePale,border:"1px solid "+T.sage+"40",borderRadius:"0.6rem",marginTop:"0.3rem"}}>
-                  <span style={{fontSize:"0.74rem",color:T.sageDark,fontWeight:600}}>✓ {editMealGroceries.split(/[\n,]+/).map(g=>g.trim()).filter(Boolean).length} items will be added to shopping list</span>
-                </div>
-              )}
-            </div>
-            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>{setEditDay(null);setEditMealGroceries("");}} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP(T.sage)}>Save</button></div>
+            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>setEditDay(null)} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP(T.sage)}>Save</button></div>
           </ModalBox>
         )}
         {editingThemes&&(
@@ -4018,21 +3939,153 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
   function ShoppingTab(){
+    // Default to last used store
+    const lastStore = useSaved("lastUsedStore", stores[0]);
     const[newItem,setNewItem]=useState("");
-    const[newStore,setNewStore]=useState(stores[0]);
+    const[newStore,setNewStore]=useState(lastStore[0]||stores[0]);
     const[addingStore,setAddingStore]=useState(false);
     const[newStoreName,setNewStoreName]=useState("");
     const[isListening,setIsListening]=useState(false);
     const[voiceStatus,setVoiceStatus]=useState("");
     const[isAnalyzingPhoto,setIsAnalyzingPhoto]=useState(false);
     const[photoStatus,setPhotoStatus]=useState("");
+    const[editingStoreName,setEditingStoreName]=useState(null); // store name being edited
+    const[editStoreVal,setEditStoreVal]=useState("");
+    const[inlineStore,setInlineStore]=useState(null); // which store has inline add open
+    const[inlineText,setInlineText]=useState("");
+
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
 
     function toggleCollapse(store){setCollapsedStores(p=>({...p,[store]:!p[store]}));}
-    function addItem(text,store,photoUrl){if(!text.trim())return;setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:store||newStore,done:false,photo:photoUrl||null}]);setNewItem("");}
-    function addStore(){if(!newStoreName.trim())return;const ns=newStoreName.trim();setStores(p=>[...p,ns]);setNewStore(ns);setNewStoreName("");setAddingStore(false);}
+    function addItem(text,store,photoUrl){
+      if(!text.trim())return;
+      var s=store||newStore;
+      setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null}]);
+      setNewItem("");
+      lastStore[1](s); // remember last used store
+      setNewStore(s);
+    }
+    function addStore(){if(!newStoreName.trim())return;const ns=newStoreName.trim();setStores(p=>[...p,ns]);setNewStore(ns);lastStore[1](ns);setNewStoreName("");setAddingStore(false);}
+    function renameStore(oldName,newName){
+      if(!newName.trim()||newName===oldName){setEditingStoreName(null);return;}
+      setStores(p=>p.map(s=>s===oldName?newName.trim():s));
+      setShoppingItems(p=>p.map(i=>i.store===oldName?{...i,store:newName.trim()}:i));
+      if(newStore===oldName)setNewStore(newName.trim());
+      setEditingStoreName(null);
+    }
+    function addInlineItem(store){
+      if(!inlineText.trim())return;
+      setShoppingItems(p=>[...p,{id:uid(),text:inlineText.trim(),store:store,done:false,photo:null}]);
+      setInlineText("");
+      lastStore[1](store);
+    }
+    // ── Unified drag: reorder within store + move between stores ─────────────
+    // Works on both desktop (mouse) and mobile (touch) via pointer events.
+    const dragState=useRef({id:null,fromStore:null,clone:null,startY:0,startX:0,lastTarget:null});
+    const [draggingId,setDraggingId]=useState(null);
+    const [dragOverId,setDragOverId]=useState(null); // item id being hovered over
+    const [dragOverStoreTarget,setDragOverStoreTarget]=useState(null); // store header being hovered
+
+    function getItemEl(id){ return document.querySelector(`[data-shopid="${id}"]`); }
+    function getStoreEl(store){ return document.querySelector(`[data-shopstore="${CSS.escape(store)}"]`); }
+
+    function pointerDown(e,itemId,fromStore){
+      if(e.button===1||e.button===2) return;
+      const ds=dragState.current;
+      ds.id=itemId; ds.fromStore=fromStore; ds.startY=e.clientY; ds.startX=e.clientX;
+      ds.lastTarget=null;
+      // Clone the row for visual drag ghost
+      const el=getItemEl(itemId);
+      if(el){
+        const rect=el.getBoundingClientRect();
+        const clone=el.cloneNode(true);
+        clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;
+        document.body.appendChild(clone);
+        ds.clone=clone;
+      }
+      setDraggingId(itemId);
+      e.preventDefault();
+    }
+
+    function pointerMove(e){
+      const ds=dragState.current;
+      if(!ds.id) return;
+      if(ds.clone){ ds.clone.style.left=(e.clientX-(ds.clone.offsetWidth/2))+"px"; ds.clone.style.top=(e.clientY-24)+"px"; }
+      // Hit test: find what's under the pointer (excluding clone)
+      if(ds.clone) ds.clone.style.display="none";
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      if(ds.clone) ds.clone.style.display="";
+      if(!el) return;
+      // Check if over a store drop zone header
+      const storeEl=el.closest("[data-shopstore]");
+      const itemEl=el.closest("[data-shopid]");
+      if(itemEl){
+        const overId=itemEl.getAttribute("data-shopid");
+        if(overId!==ds.id){ setDragOverId(overId); setDragOverStoreTarget(null); }
+      } else if(storeEl){
+        const overStore=storeEl.getAttribute("data-shopstore");
+        setDragOverStoreTarget(overStore); setDragOverId(null);
+      } else {
+        setDragOverId(null); setDragOverStoreTarget(null);
+      }
+    }
+
+    function pointerUp(e){
+      const ds=dragState.current;
+      if(!ds.id){ return; }
+      if(ds.clone){ ds.clone.remove(); ds.clone=null; }
+      setDraggingId(null);
+
+      // Determine drop target
+      if(ds.clone) ds.clone.style.display="none";
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      if(ds.clone) ds.clone.style.display="";
+
+      let targetItemId=dragOverId;
+      let targetStore=dragOverStoreTarget;
+
+      // If dropped on an item, use that item's store
+      if(targetItemId){
+        const targetItem=shoppingItems.find(i=>i.id===targetItemId);
+        if(targetItem) targetStore=targetItem.store;
+      }
+
+      if((targetItemId||targetStore) && (targetItemId!==ds.id)){
+        setShoppingItems(prev=>{
+          const items=[...prev];
+          const fromIdx=items.findIndex(i=>i.id===ds.id);
+          if(fromIdx===-1){ ds.id=null; return prev; }
+          const [moved]=items.splice(fromIdx,1);
+          // Update store if moving between stores
+          const finalStore=targetStore||moved.store;
+          const movedItem={...moved,store:finalStore};
+          if(targetItemId){
+            // Insert before the target item
+            const toIdx=items.findIndex(i=>i.id===targetItemId);
+            items.splice(toIdx,0,movedItem);
+          } else {
+            // Dropped on store header — append to end of that store's items
+            const lastInStore=items.reduce((acc,item,idx)=>item.store===finalStore?idx:acc,-1);
+            items.splice(lastInStore+1,0,movedItem);
+          }
+          return items;
+        });
+      }
+
+      ds.id=null; ds.fromStore=null; ds.lastTarget=null;
+      setDragOverId(null); setDragOverStoreTarget(null);
+    }
+
+    // Attach global pointer move/up listeners while dragging
+    useEffect(()=>{
+      if(!draggingId) return;
+      window.addEventListener("pointermove",pointerMove);
+      window.addEventListener("pointerup",pointerUp);
+      return ()=>{ window.removeEventListener("pointermove",pointerMove); window.removeEventListener("pointerup",pointerUp); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    },[draggingId,dragOverId,dragOverStoreTarget,shoppingItems]);
 
     function startListening(){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -4062,7 +4115,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const base64=await new Promise(res=>{const reader=new FileReader();reader.onload=()=>res(reader.result.split(",")[1]);reader.readAsDataURL(file);});
       const photoUrl=URL.createObjectURL(file);
       try{
-        const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:300,
           system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category: produce/protein/dairy/pantry/frozen/bakery/extras. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"extras"}.`,
           messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]
@@ -4086,7 +4139,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
             <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addItem(newItem,newStore);}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
-            <select value={newStore} onChange={e=>setNewStore(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
+            <select value={newStore} onChange={e=>{setNewStore(e.target.value);lastStore[1](e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
               {stores.map(s=><option key={s} value={s}>{s}</option>)}
             </select>
             <button onClick={()=>addItem(newItem,newStore)} style={btnP(T.sand)}>Add</button>
@@ -4125,37 +4178,71 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <button onClick={()=>setCollapsedStores(stores.reduce((a,s)=>({...a,[s]:true}),{}))} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
           <button onClick={()=>setCollapsedStores({})} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
         </div>
-        {stores.map((store,si)=>{
-          const items=shoppingItems.filter(i=>i.store===store);
-          const accent=STORE_COLORS[si%STORE_COLORS.length];
-          const isCollapsed=!!collapsedStores[store];
-          const pendingCount=items.filter(i=>!i.done).length;
-          const doneCount=items.filter(i=>i.done).length;
+        {stores.map(function(store,si){
+          var items=shoppingItems.filter(function(i){return i.store===store;});
+          var accent=STORE_COLORS[si%STORE_COLORS.length];
+          var isCollapsed=!!collapsedStores[store];
+          var pendingCount=items.filter(function(i){return !i.done;}).length;
+          var doneCount=items.filter(function(i){return i.done;}).length;
+
+          var isDragTarget=dragOverStoreTarget===store;
           return(
-            <div key={store} style={{...card({borderLeft:`4px solid ${accent}`,padding:"0"})}}>
-              <div onClick={()=>toggleCollapse(store)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.9rem 1.1rem",cursor:"pointer",userSelect:"none"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.55rem"}}>
+            <div key={store} data-shopstore={store}
+              style={{...card({borderLeft:"4px solid "+accent,padding:"0",outline:isDragTarget?"2px dashed "+accent:"none",outlineOffset:"2px"})}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.9rem 1.1rem",cursor:"pointer",userSelect:"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.55rem",flex:1}} onClick={function(){toggleCollapse(store);}}>
                   <div style={{width:10,height:10,borderRadius:"50%",background:accent,flexShrink:0}}/>
-                  <span style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem"}}>{store}</span>
+                  {editingStoreName===store?(
+                    <input value={editStoreVal} onChange={function(e){setEditStoreVal(e.target.value);}}
+                      onBlur={function(){renameStore(store,editStoreVal);}}
+                      onKeyDown={function(e){if(e.key==="Enter")renameStore(store,editStoreVal);if(e.key==="Escape"){setEditingStoreName(null);}}}
+                      onClick={function(e){e.stopPropagation();}}
+                      autoFocus
+                      style={{...inp({fontSize:"0.88rem",padding:"0.2rem 0.4rem",flex:1,fontWeight:700})}}/>
+                  ):(
+                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem"}}>{store}</span>
+                  )}
                 </div>
                 <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                  {doneCount>0&&<Pill label={`${doneCount} done`} color={T.sage} tiny/>}
-                  <Pill label={pendingCount===0?"All done!":pendingCount===1?"1 left":`${pendingCount} left`} color={pendingCount===0?T.sage:accent} tiny/>
-                  {!["Grocery Store","Costco","Target","Amazon"].includes(store)&&<button onClick={e=>{e.stopPropagation();setStores(p=>p.filter(s=>s!==store));setShoppingItems(p=>p.filter(i=>i.store!==store));}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.textFaint}/></button>}
-                  <div style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
+                  {items.some(function(i){return i.done;})&&(
+                    <button onClick={function(e){e.stopPropagation();setShoppingItems(function(p){return p.filter(function(i){return i.store!==store||!i.done;});});}} title="Clear checked" style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",padding:"0.1rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",color:T.rose}}>Clear ✓</button>
+                  )}
+                  <button onClick={function(e){e.stopPropagation();setInlineStore(inlineStore===store?null:store);setInlineText("");}} title="Add item here" style={{background:"none",border:"1px solid "+accent+"60",borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:accent,fontSize:"1rem",fontWeight:300,lineHeight:1}}>+</button>
+                  <button onClick={function(e){e.stopPropagation();setEditingStoreName(store);setEditStoreVal(store);}} title="Rename store" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="edit" size={13} color={T.textMid}/></button>
+                  <button onClick={function(e){e.stopPropagation();if(window.confirm("Remove "+store+" and all its items?")){{setStores(function(p){return p.filter(function(s){return s!==store;});});setShoppingItems(function(p){return p.filter(function(i){return i.store!==store;});});}}}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
+                  <div onClick={function(){toggleCollapse(store);}} style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
                 </div>
               </div>
               {!isCollapsed&&(
-                <div style={{padding:"0 1.1rem 0.9rem",borderTop:`1px solid ${T.borderSoft}`}}>
-                  {items.length===0&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet</p>}
-                  {items.map(item=>(
-                    <ShopItemRow key={item.id} item={item}
-                      onToggle={id=>setShoppingItems(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
-                      onDelete={id=>setShoppingItems(p=>p.filter(x=>x.id!==id))}
-                      onSave={(id,val)=>setShoppingItems(p=>p.map(x=>x.id===id?{...x,text:val}:x))}
-                      onMove={(id,newStore)=>setShoppingItems(p=>p.map(x=>x.id===id?{...x,store:newStore}:x))}
-                      allStores={stores}/>
-                  ))}
+                <div style={{padding:"0 1.1rem 0.9rem",borderTop:"1px solid "+T.borderSoft}}>
+                  {isDragTarget&&<div style={{padding:"0.4rem",marginBottom:"0.3rem",borderRadius:"0.5rem",background:accent+"15",border:"1.5px dashed "+accent,textAlign:"center",fontSize:"0.72rem",color:accent,fontWeight:700}}>Drop here to move to {store}</div>}
+                  {items.length===0&&!inlineStore&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet — tap + to add</p>}
+                  {items.map(function(item){
+                    var isBeingDragged=draggingId===item.id;
+                    var isDropTarget=dragOverId===item.id;
+                    return(
+                    <div key={item.id} data-shopid={item.id}
+                      onPointerDown={function(e){pointerDown(e,item.id,store);}}
+                      style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",
+                        outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",
+                        transition:"opacity 0.15s"}}>
+                      <ShopItemRow item={item}
+                        onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
+                        onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                        onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}/>
+                    </div>
+                  );})}
+                  {inlineStore===store&&(
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem",alignItems:"center"}}>
+                      <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}}
+                        onKeyDown={function(e){if(e.key==="Enter"){addInlineItem(store);}if(e.key==="Escape"){setInlineStore(null);}}}
+                        placeholder={"Add to "+store+"…"}
+                        autoFocus
+                        style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
+                      <button onClick={function(){addInlineItem(store);}} style={btnP(accent,{padding:"0.4rem 0.75rem",fontSize:"0.8rem"})}>Add</button>
+                      <button onClick={function(){setInlineStore(null);}} style={btnS({padding:"0.4rem 0.6rem",fontSize:"0.8rem"})}>✕</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -4171,14 +4258,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[editingSystem,setEditingSystem]=useState(null);
     const[editForm,setEditForm]=useState({label:"",emoji:"",items:[]});
     const[newItemText,setNewItemText]=useState("");
-    const sysDrag=useRef(null),sysOver=useRef(null);
-    const itemDrag=useRef(null),itemOver=useRef(null);
-    function sysDragStart(e,i){sysDrag.current=i;e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.5";}
-    function sysDragEnter(i){sysOver.current=i;}
-    function sysDragEnd(e){e.currentTarget.style.opacity="1";if(sysDrag.current===null||sysOver.current===null||sysDrag.current===sysOver.current){sysDrag.current=null;sysOver.current=null;return;}const next=[...homeSystems];const[m]=next.splice(sysDrag.current,1);next.splice(sysOver.current,0,m);setHomeSystems(next);sysDrag.current=null;sysOver.current=null;}
-    function itemDragStart(e,i){itemDrag.current=i;e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.5";}
-    function itemDragEnter(i){itemOver.current=i;}
-    function itemDragEnd(e){e.currentTarget.style.opacity="1";if(itemDrag.current===null||itemOver.current===null||itemDrag.current===itemOver.current){itemDrag.current=null;itemOver.current=null;return;}const next=[...editForm.items];const[m]=next.splice(itemDrag.current,1);next.splice(itemOver.current,0,m);setEditForm(p=>({...p,items:next}));itemDrag.current=null;itemOver.current=null;}
+    const {draggingId:sysDragId, dragOverId:sysDropId, pointerDown:sysPointerDown} =
+      usePointerDrag(homeSystems, setHomeSystems, {dataAttr:"data-sysid"});
+    // editForm item drag (plain strings, not objects — handled with simple index refs)
+    const editItemDs = useRef({from:null,to:null,clone:null});
+    const [editDragIdx,setEditDragIdx] = useState(null);
+    const [editDropIdx,setEditDropIdx] = useState(null);
+    function editItemPointerDown(e,fromIdx){
+      editItemDs.current.from=fromIdx; editItemDs.current.to=null;
+      setEditDragIdx(fromIdx);
+      function onMove(ev){
+        const el=document.elementFromPoint(ev.clientX,ev.clientY);
+        const row=el&&el.closest("[data-editidx]");
+        const idx=row?parseInt(row.getAttribute("data-editidx")):null;
+        editItemDs.current.to=idx!==null&&idx!==fromIdx?idx:null;
+        setEditDropIdx(editItemDs.current.to);
+      }
+      function onUp(){
+        const toIdx=editItemDs.current.to;
+        setEditDragIdx(null); setEditDropIdx(null);
+        editItemDs.current.from=null; editItemDs.current.to=null;
+        window.removeEventListener("pointermove",onMove);
+        if(toIdx===null||toIdx===fromIdx) return;
+        setEditForm(p=>{ const arr=[...p.items]; const[m]=arr.splice(fromIdx,1); arr.splice(toIdx,0,m); return {...p,items:arr}; });
+      }
+      window.addEventListener("pointermove",onMove);
+      window.addEventListener("pointerup",onUp,{once:true});
+      e.preventDefault();
+    }
     function openEdit(sys){setEditingSystem(sys.id);setEditForm({label:sys.label,emoji:sys.emoji,items:[...sys.items]});setNewItemText("");}
     function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});setNewItemText("");}
     function saveSystem(){if(!editForm.label.trim())return;if(editingSystem==="new")setHomeSystems(p=>[...p,{id:uid(),label:editForm.label.trim(),emoji:editForm.emoji,items:editForm.items}]);else setHomeSystems(p=>p.map(s=>s.id===editingSystem?{...s,label:editForm.label,emoji:editForm.emoji,items:editForm.items}:s));setEditingSystem(null);}
@@ -4187,7 +4294,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div>
         <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life running" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
         {homeSystems.map((sys,i)=>(
-          <div key={sys.id} draggable onDragStart={e=>sysDragStart(e,i)} onDragEnter={()=>sysDragEnter(i)} onDragEnd={sysDragEnd} onDragOver={e=>e.preventDefault()} style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab"})}}>
+          <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
+            style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
+              opacity:sysDragId===sys.id?0.35:1,
+              outline:sysDropId===sys.id?`2px dashed ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`:"none",
+              outlineOffset:"2px"})}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.55rem",marginBottom:"0.85rem"}}>
               <div style={{opacity:0.35,flexShrink:0}}><Icon name="drag" size={14} color={T.textSoft}/></div>
               <span style={{fontSize:"1.15rem"}}>{sys.emoji}</span>
@@ -4214,7 +4325,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{marginBottom:"0.7rem",border:`1.5px solid ${T.border}`,borderRadius:"0.8rem",overflow:"hidden"}}>
               {editForm.items.length===0&&<p style={{color:T.textFaint,fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500}}>No items yet</p>}
               {editForm.items.map((item,i)=>(
-                <div key={i} draggable onDragStart={e=>itemDragStart(e,i)} onDragEnter={()=>itemDragEnter(i)} onDragEnd={itemDragEnd} onDragOver={e=>e.preventDefault()} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.65rem",borderBottom:i<editForm.items.length-1?`1px solid ${T.borderSoft}`:"none",background:T.surface,cursor:"grab"}}>
+                <div key={i} data-editidx={String(i)} onPointerDown={e=>editItemPointerDown(e,i)}
+                  style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.65rem",
+                    borderBottom:i<editForm.items.length-1?`1px solid ${T.borderSoft}`:"none",
+                    background:T.surface,cursor:"grab",
+                    opacity:editDragIdx===i?0.35:1,
+                    outline:editDropIdx===i?`2px dashed ${T.blue}`:"none",outlineOffset:"1px"}}>
                   <div style={{opacity:0.35,flexShrink:0}}><Icon name="drag" size={13} color={T.textSoft}/></div>
                   <input value={item} onChange={e=>setEditForm(p=>({...p,items:p.items.map((x,j)=>j===i?e.target.value:x)}))} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem",border:"none",background:"transparent"})}}/>
                   <button onClick={()=>setEditForm(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
@@ -4240,119 +4356,111 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [newCat,setNewCat]     = useState("household");
     const [newPerson,setNewPerson] = useState("");
     const [activeFilter,setActiveFilter] = useState("all");
-    const [dayFilter,setDayFilter] = useState("all");
-    const [brainView,setBrainView] = useState("category");
-    const [scheduleItem,setScheduleItem] = useState(null);
-    const brainDrag = useRef(null);
-    const brainOver = useRef(null);
+    const [brainView,setBrainView] = useState("category"); // "category" | "person"
+    const [scheduleItem,setScheduleItem] = useState(null); // {item, cat}
 
+    // colour helpers
     function catTheme(cat){
       const map={sage:{color:T.sage,pale:T.sagePale},blue:{color:T.blue,pale:T.bluePale},lavender:{color:T.lavender,pale:T.lavPale},sand:{color:T.sand,pale:T.sandPale},rose:{color:T.rose,pale:T.rosePale}};
       return map[cat?.color]||{color:T.sage,pale:T.sagePale};
     }
+
+    // find which rhythm day matches a suggestDay label
     function findSuggestedDay(suggestDay){
       if(!suggestDay) return null;
       const match = Object.entries(rhythm).find(([,v])=>v.theme&&v.theme.toLowerCase().includes(suggestDay.toLowerCase()));
       return match?match[0]:null;
     }
+
     function addItem(){
       if(!newText.trim()) return;
       setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:newCat,done:false,scheduledDay:null,person:newPerson}]);
       setNewText("");
     }
+
     function scheduleToDay(item, day){
+      // add as a task on that day + mark scheduled
       setTasks(p=>[...p,{id:uid(),text:item.text,day,done:false,person:item.person||"",order:p.length}]);
       setBrainItems(p=>p.map(x=>x.id===item.id?{...x,scheduledDay:day}:x));
       setScheduleItem(null);
     }
-    function brainDragStart(e,idx){brainDrag.current=idx;e.dataTransfer.effectAllowed="move";e.currentTarget.style.opacity="0.5";}
-    function brainDragEnter(idx){brainOver.current=idx;}
-    function brainDragEnd(e){
-      e.currentTarget.style.opacity="1";
-      if(brainDrag.current===null||brainOver.current===null||brainDrag.current===brainOver.current){brainDrag.current=null;brainOver.current=null;return;}
-      const next=[...brainItems];const[m]=next.splice(brainDrag.current,1);next.splice(brainOver.current,0,m);
-      setBrainItems(next);brainDrag.current=null;brainOver.current=null;
-    }
 
-    const DAY_OPTIONS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const {draggingId:brainDragId, dragOverId:brainDropId, pointerDown:brainPointerDown} =
+      usePointerDrag(brainItems, setBrainItems, {dataAttr:"data-brainid"});
+
     const activeCats = BRAIN_CATS.filter(c=> activeFilter==="all" || c.id===activeFilter);
     const totalActive = brainItems.filter(i=>!i.done).length;
     const totalDone   = brainItems.filter(i=>i.done).length;
     const totalAll    = brainItems.length;
     const pct         = totalAll > 0 ? Math.round((totalDone/totalAll)*100) : 0;
 
-    // Apply day filter
-    function dayMatch(item){
-      if(dayFilter==="all") return true;
-      if(dayFilter==="unscheduled") return !item.scheduledDay;
-      return item.scheduledDay===dayFilter;
-    }
-
-    function BrainRow({item, cat, globalIdx}){
+    function BrainRow({item, cat, isBeingDragged, isDropTarget, onPointerDown}){
       const [editing,setEditing] = useState(false);
       const [val,setVal]         = useState(item.text);
-      const {color}              = catTheme(cat);
+      const {color,pale}         = catTheme(cat);
       const sugDay               = findSuggestedDay(cat.suggestDay);
       return (
-        <div draggable onDragStart={e=>brainDragStart(e,globalIdx)} onDragEnter={()=>brainDragEnter(globalIdx)} onDragEnd={brainDragEnd} onDragOver={e=>e.preventDefault()}
-          style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0.55rem",borderBottom:"1px solid "+T.borderSoft,background:T.surface,cursor:"grab",transition:"opacity 0.15s"}}>
-          {/* drag handle */}
-          <div style={{opacity:0.25,flexShrink:0}}><Icon name="drag" size={12} color={T.textSoft}/></div>
-          {/* color dot = category */}
-          <div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
+        <div data-brainid={item.id} onPointerDown={onPointerDown}
+          style={{background:T.white,borderRadius:"0.85rem",padding:"0.65rem 0.85rem",marginBottom:"0.35rem",
+            border:"1.5px solid "+color+"28",display:"flex",alignItems:"flex-start",gap:"0.6rem",
+            cursor:"grab",opacity:isBeingDragged?0.35:1,
+            outline:isDropTarget?"2px dashed "+color:"none",outlineOffset:"2px",transition:"opacity 0.15s"}}>
           {/* checkbox */}
           <div onClick={()=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,done:!x.done}:x))}
-            style={{width:17,height:17,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
-            {item.done&&<Icon name="check" size={9} color="#fff"/>}
-          </div>          {/* text / edit */}
+            style={{width:20,height:20,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:"0.1rem",transition:"all 0.15s"}}>
+            {item.done&&<Icon name="check" size={10} color="#fff"/>}
+          </div>
           <div style={{flex:1,minWidth:0}}>
             {editing?(
-              <div style={{display:"flex",gap:"0.35rem"}}>
-                <input value={val} onChange={e=>setVal(e.target.value)}
-                  onKeyDown={e=>{if(e.key==="Enter"){setBrainItems(p=>p.map(x=>x.id===item.id?{...x,text:val}:x));setEditing(false);}if(e.key==="Escape")setEditing(false);}}
-                  style={{flex:1,background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.5rem",padding:"0.22rem 0.5rem",color:T.textDark,fontSize:"0.83rem",outline:"none",fontFamily:"inherit"}} autoFocus/>
-                <button onClick={()=>{setBrainItems(p=>p.map(x=>x.id===item.id?{...x,text:val}:x));setEditing(false);}} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.5rem",padding:"0.22rem 0.55rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>✓</button>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setBrainItems(p=>p.map(x=>x.id===item.id?{...x,text:val}:x));setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem"})}} autoFocus/>
+                <button onClick={()=>{setBrainItems(p=>p.map(x=>x.id===item.id?{...x,text:val}:x));setEditing(false);}} style={btnP(T.sage,{padding:"0.3rem 0.65rem",fontSize:"0.76rem"})}>Save</button>
               </div>
             ):(
-              <span style={{fontSize:"0.85rem",fontWeight:item.done?400:600,color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"block"}}>{item.text}</span>
+              <span style={{fontSize:"0.88rem",fontWeight:item.done?400:600,color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",lineHeight:1.45}}>{item.text}</span>
             )}
+            {/* scheduled pill + person pill */}
+            <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginTop:item.scheduledDay||item.person?"0.28rem":"0"}}>
+              {item.scheduledDay&&<span style={{display:"inline-flex",alignItems:"center",gap:"3px",background:T.sagePale,color:T.sageDark,borderRadius:"2rem",padding:"2px 8px",fontSize:"0.65rem",fontWeight:700}}>📅 {item.scheduledDay}</span>}
+              {item.person&&<PersonPill name={item.person} people={people} T={T}/>}
+            </div>
           </div>
-          {/* scheduled day pill */}
-          {item.scheduledDay&&<span style={{flexShrink:0,fontSize:"0.6rem",fontWeight:700,color:T.sageDark,background:T.sagePale,borderRadius:"2rem",padding:"2px 6px",whiteSpace:"nowrap"}}>📅 {item.scheduledDay.slice(0,3)}</span>}
-          {/* person pill */}
-          {item.person&&<span style={{flexShrink:0,fontSize:"0.6rem",fontWeight:700,color:T.blue,background:T.bluePale,borderRadius:"2rem",padding:"2px 6px",whiteSpace:"nowrap"}}>{item.person.slice(0,1)}</span>}
           {/* actions */}
-          <div style={{display:"flex",gap:"0.2rem",alignItems:"center",flexShrink:0}}>
-            {/* category change */}
-            {!item.done&&(
-              <select value={item.cat||"household"} onChange={e=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,cat:e.target.value}:x))}
-                title="Change category"
-                style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",color:T.textFaint,padding:"1px",maxWidth:28}}>
-                {BRAIN_CATS.map(c=><option key={c.id} value={c.id}>{c.emoji}</option>)}
-              </select>
+          <div style={{display:"flex",gap:"0.25rem",alignItems:"center",flexShrink:0}}>
+            {/* suggest day button */}
+            {!item.done&&!item.scheduledDay&&sugDay&&(
+              <button onClick={()=>setScheduleItem({item,cat})} title={"Schedule to "+sugDay}
+                style={{background:pale,border:"1px solid "+color+"40",color:color,borderRadius:"0.5rem",padding:"0.25rem 0.55rem",cursor:"pointer",fontSize:"0.66rem",fontWeight:800,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                📅 {sugDay}
+              </button>
             )}
-            {!item.done&&!item.scheduledDay&&(
-              <button onClick={()=>setScheduleItem({item,cat})} title="Schedule"
-                style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.75rem",padding:"2px",color:T.textFaint}}>📅</button>
+            {!item.done&&!item.scheduledDay&&!sugDay&&(
+              <button onClick={()=>setScheduleItem({item,cat})} title="Schedule to a day"
+                style={{background:T.bgAlt,border:"1px solid "+T.border,color:T.textSoft,borderRadius:"0.5rem",padding:"0.25rem 0.55rem",cursor:"pointer",fontSize:"0.66rem",fontWeight:700,fontFamily:"inherit"}}>
+                📅
+              </button>
             )}
+            {/* Person assign */}
             {!item.done&&(
               <select value={item.person||""} onChange={e=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,person:e.target.value}:x))}
-                style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",color:T.textFaint,padding:"1px",maxWidth:50}}>
-                <option value="">👤</option>
+                title="Assign to person"
+                style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.5rem",padding:"0.2rem 0.3rem",cursor:"pointer",fontSize:"0.66rem",fontWeight:700,fontFamily:"inherit",color:T.textSoft,maxWidth:72}}>
+                <option value="">👤 —</option>
                 {people.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             )}
-            {!editing&&<button onClick={()=>{setVal(item.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px",display:"flex",opacity:0.4}}><Icon name="edit" size={11} color={T.textSoft}/></button>}
-            <button onClick={()=>setBrainItems(p=>p.filter(x=>x.id!==item.id))} style={{background:"none",border:"none",cursor:"pointer",padding:"2px",display:"flex",opacity:0.3}}><Icon name="trash" size={11} color={T.textSoft}/></button>
+            {!editing&&<button onClick={()=>{setVal(item.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.45}}><Icon name="edit" size={13} color={T.textSoft}/></button>}
+            <button onClick={()=>setBrainItems(p=>p.filter(x=>x.id!==item.id))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.35}}><Icon name="trash" size={13} color={T.textSoft}/></button>
           </div>
         </div>
       );
     }
 
+    // Pre-compute person view sections — avoids IIFE in JSX (Rolldown incompatible)
     const brainUnassigned = brainItems.filter(i=>!i.done&&(!i.person||i.person===""));
     const personSections = [
-      ...people.map(p=>({id:p.id,name:p.name,color:p.color,items:brainItems.filter(i=>!i.done&&i.person===p.name&&dayMatch(i))})),
-      ...(brainUnassigned.filter(dayMatch).length>0?[{id:"unassigned",name:"Unassigned",color:T.textFaint,items:brainUnassigned.filter(dayMatch)}]:[])
+      ...people.map(p=>({id:p.id,name:p.name,color:p.color,items:brainItems.filter(i=>!i.done&&i.person===p.name)})),
+      ...(brainUnassigned.length>0?[{id:"unassigned",name:"Unassigned",color:T.textFaint,items:brainUnassigned}]:[])
     ].filter(s=>s.items.length>0);
 
     return(
@@ -4360,10 +4468,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <SecHead emoji="🧠" title="Brain Dump" sub="Capture everything — sorted by where it happens"/>
 
         {/* View toggle */}
-        <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.6rem"}}>
-          {[{id:"category",label:"By Category",emoji:"📂"},{id:"person",label:"By Person",emoji:"👤"}].map(v=>(
+        <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.85rem"}}>
+          {[{id:"category",label:"By Category",emoji:"📂"},{id:"person",label:"By Person",emoji:"👤"},{id:"day",label:"By Day",emoji:"📅"}].map(v=>(
             <button key={v.id} onClick={()=>setBrainView(v.id)}
-              style={{flex:1,background:brainView===v.id?T.blue:T.white,color:brainView===v.id?"#fff":T.textMid,border:"1.5px solid "+(brainView===v.id?T.blue:T.border),borderRadius:"0.75rem",padding:"0.4rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.35rem"}}>
+              style={{flex:1,background:brainView===v.id?T.blue:T.white,color:brainView===v.id?"#fff":T.textMid,border:"1.5px solid "+(brainView===v.id?T.blue:T.border),borderRadius:"0.75rem",padding:"0.45rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.35rem"}}>
               <span>{v.emoji}</span>{v.label}
             </button>
           ))}
@@ -4375,6 +4483,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.3rem",padding:"1.6rem",width:"100%",maxWidth:400,boxShadow:"0 32px 80px "+T.cardShadow}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.25rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>Schedule this task</div>
               <div style={{color:T.textSoft,fontSize:"0.82rem",marginBottom:"1rem"}}>"{scheduleItem.item.text}"</div>
+              {/* Suggested day highlight */}
               {findSuggestedDay(scheduleItem.cat.suggestDay)&&(
                 <div style={{background:T.sagePale,border:"1.5px solid "+T.sage+"50",borderRadius:"0.8rem",padding:"0.65rem 0.85rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.6rem"}}>
                   <span style={{fontSize:"0.95rem"}}>✨</span>
@@ -4382,13 +4491,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <div style={{fontSize:"0.77rem",fontWeight:700,color:T.sageDark}}>Best fit: {findSuggestedDay(scheduleItem.cat.suggestDay)}</div>
                     <div style={{fontSize:"0.71rem",color:T.textSoft}}>Matches your {scheduleItem.cat.suggestDay} day theme</div>
                   </div>
-                  <button onClick={()=>scheduleToDay(scheduleItem.item,findSuggestedDay(scheduleItem.cat.suggestDay))} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.35rem 0.8rem",cursor:"pointer",fontWeight:700,fontSize:"0.78rem",fontFamily:"inherit",marginLeft:"auto"}}>Add it</button>
+                  <button onClick={()=>scheduleToDay(scheduleItem.item,findSuggestedDay(scheduleItem.cat.suggestDay))} style={{...btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.8rem",marginLeft:"auto"})}}>Add it</button>
                 </div>
               )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.4rem",marginBottom:"1rem"}}>
                 {[...MEAL_DAYS,"Daily"].map(day=>(
                   <button key={day} onClick={()=>scheduleToDay(scheduleItem.item,day)}
-                    style={{background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.65rem",padding:"0.55rem 0.7rem",cursor:"pointer",fontSize:"0.82rem",fontWeight:600,fontFamily:"inherit",color:T.textDark,textAlign:"left",display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                    style={{background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.65rem",padding:"0.55rem 0.7rem",cursor:"pointer",fontSize:"0.82rem",fontWeight:600,fontFamily:"inherit",color:T.textDark,textAlign:"left",transition:"all 0.12s",display:"flex",alignItems:"center",gap:"0.4rem"}}>
                     <span style={{fontSize:"0.8rem"}}>{rhythm[day]?.emoji||"📅"}</span>
                     <div>
                       <div style={{fontSize:"0.8rem",fontWeight:700}}>{day}</div>
@@ -4397,170 +4506,190 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </button>
                 ))}
               </div>
-              <button onClick={()=>setScheduleItem(null)} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600,width:"100%"}}>Cancel</button>
+              <button onClick={()=>setScheduleItem(null)} style={btnS({width:"100%"})}>Cancel</button>
             </div>
           </div>
         )}
 
         {/* Add item */}
-        <div style={{background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"1.1rem",padding:"1rem",marginBottom:"0.85rem"}}>
-          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.55rem"}}>
+        <div style={{...card({background:T.bgAlt,border:"1.5px solid "+T.border})}}>
+          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.6rem"}}>
             <input value={newText} onChange={e=>setNewText(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter")addItem();}}
-              placeholder="What's on your mind…" style={{flex:1,background:T.inputBg,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
-            <button onClick={addItem} style={{background:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 0.85rem",cursor:"pointer",display:"flex",alignItems:"center",flexShrink:0}}><Icon name="plus" size={16} color="#fff"/></button>
+              placeholder="What's on your mind…" style={{...inp({flex:1})}} autoFocus/>
+            <button onClick={addItem} style={{...btnP(T.blue,{padding:"0.56rem 0.85rem",flexShrink:0,display:"flex",alignItems:"center",borderRadius:"0.7rem"})}}><Icon name="plus" size={16} color="#fff"/></button>
           </div>
-          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.45rem",alignItems:"center",flexWrap:"wrap"}}>
+          {/* Person + Category row */}
+          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.5rem",alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",flexShrink:0}}>For:</span>
             <button onClick={()=>setNewPerson("")}
-              style={{background:newPerson===""?T.textDark:"transparent",color:newPerson===""?"#fff":T.textMid,border:"1.5px solid "+(newPerson===""?T.textDark:T.border),borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>Anyone</button>
+              style={{background:newPerson===""?T.textDark:"transparent",color:newPerson===""?"#fff":T.textMid,border:"1.5px solid "+(newPerson===""?T.textDark:T.border),borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+              Anyone
+            </button>
             {people.map(p=>(
               <button key={p.id} onClick={()=>setNewPerson(p.name)}
-                style={{background:newPerson===p.name?p.color:"transparent",color:newPerson===p.name?"#fff":T.textMid,border:"1.5px solid "+(newPerson===p.name?p.color:T.border),borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                <div style={{width:6,height:6,borderRadius:"50%",background:newPerson===p.name?"#fff":p.color,flexShrink:0}}/>{p.name}
+                style={{background:newPerson===p.name?p.color:"transparent",color:newPerson===p.name?"#fff":T.textMid,border:"1.5px solid "+(newPerson===p.name?p.color:T.border),borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                <div style={{width:7,height:7,borderRadius:"50%",background:newPerson===p.name?"#fff":p.color,flexShrink:0}}/>
+                {p.name}
               </button>
             ))}
           </div>
-          <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
+          {/* Category selector */}
+          <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
             {BRAIN_CATS.map(c=>{const{color}=catTheme(c);return(
               <button key={c.id} onClick={()=>setNewCat(c.id)}
-                style={{background:newCat===c.id?color:T.white,color:newCat===c.id?"#fff":T.textMid,border:"1.5px solid "+(newCat===c.id?color:T.border),borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.25rem"}}>
+                style={{background:newCat===c.id?color:T.white,color:newCat===c.id?"#fff":T.textMid,border:"1.5px solid "+(newCat===c.id?color:T.border),borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",gap:"0.28rem"}}>
                 {c.emoji} {c.label}
               </button>
             );})}
+          </div>
+          {/* Show example for selected category */}
+          <div style={{fontSize:"0.7rem",color:T.textFaint,marginTop:"0.5rem",fontStyle:"italic"}}>
+            e.g. {BRAIN_CATS.find(c=>c.id===newCat)?.examples.join(" · ")}
           </div>
         </div>
 
         {/* Progress bar */}
         {totalAll > 0 && (
-          <div style={{marginBottom:"0.75rem"}}>
+          <div style={{marginBottom:"0.85rem"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.3rem"}}>
               <span style={{fontSize:"0.71rem",color:T.textSoft,fontWeight:600}}>
-                {totalDone===totalAll?"🌿 Mind clear.":totalDone>0?"✓ "+totalDone+" cleared — keep going":totalActive+" things on your radar"}
+                {totalDone===totalAll
+                  ? "🌿 Mind clear — nothing left to hold."
+                  : totalDone>0
+                    ? `✓ ${totalDone} cleared — keep going`
+                    : `${totalActive} things on your radar`}
               </span>
               <span style={{fontSize:"0.71rem",color:totalDone===totalAll?T.sage:T.textFaint,fontWeight:700}}>{pct}%</span>
             </div>
             <div style={{height:5,background:T.borderSoft,borderRadius:"2rem",overflow:"hidden"}}>
-              <div style={{height:"100%",width:pct+"%",background:totalDone===totalAll?"linear-gradient(90deg,"+T.sage+","+T.blue+")":"linear-gradient(90deg,"+T.blue+","+T.blueLight+")",borderRadius:"2rem",transition:"width 0.4s ease"}}/>
+              <div style={{height:"100%",width:`${pct}%`,background:totalDone===totalAll?`linear-gradient(90deg,${T.sage},${T.blue})`:`linear-gradient(90deg,${T.blue},${T.blueLight})`,borderRadius:"2rem",transition:"width 0.4s ease"}}/>
             </div>
           </div>
         )}
 
-        {/* Category filter pills */}
-        <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-          <button onClick={()=>setActiveFilter("all")} style={{background:activeFilter==="all"?T.blue:T.white,color:activeFilter==="all"?"#fff":T.textMid,border:"1.5px solid "+(activeFilter==="all"?T.blue:T.border),borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>
+        {/* Filter pills */}
+        <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.85rem"}}>
+          <button onClick={()=>setActiveFilter("all")} style={{background:activeFilter==="all"?T.blue:T.white,color:activeFilter==="all"?"#fff":T.textMid,border:"1.5px solid "+(activeFilter==="all"?T.blue:T.border),borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit"}}>
             All {totalActive>0?"("+totalActive+")":""}
           </button>
           {BRAIN_CATS.map(c=>{const{color}=catTheme(c);const cnt=brainItems.filter(i=>i.cat===c.id&&!i.done).length;if(cnt===0&&activeFilter!==c.id)return null;return(
             <button key={c.id} onClick={()=>setActiveFilter(activeFilter===c.id?"all":c.id)}
-              style={{background:activeFilter===c.id?color:T.white,color:activeFilter===c.id?"#fff":T.textMid,border:"1.5px solid "+(activeFilter===c.id?color:T.border),borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.25rem",transition:"all 0.15s"}}>
+              style={{background:activeFilter===c.id?color:T.white,color:activeFilter===c.id?"#fff":T.textMid,border:"1.5px solid "+(activeFilter===c.id?color:T.border),borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.28rem",transition:"all 0.15s"}}>
               {c.emoji} {c.label}{cnt>0?" ("+cnt+")":""}
             </button>
           );})}
         </div>
 
-        {/* Day filter pills */}
-        <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.85rem"}}>
-          <button onClick={()=>setDayFilter("all")} style={{background:dayFilter==="all"?T.sand:T.white,color:dayFilter==="all"?"#fff":T.textMid,border:"1.5px solid "+(dayFilter==="all"?T.sand:T.border),borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>Any day</button>
-          <button onClick={()=>setDayFilter("unscheduled")} style={{background:dayFilter==="unscheduled"?T.rose:T.white,color:dayFilter==="unscheduled"?"#fff":T.textMid,border:"1.5px solid "+(dayFilter==="unscheduled"?T.rose:T.border),borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>Unscheduled</button>
-          {DAY_OPTIONS.map(day=>{
-            const cnt=brainItems.filter(i=>i.scheduledDay===day&&!i.done).length;
-            if(cnt===0&&dayFilter!==day) return null;
-            return(
-              <button key={day} onClick={()=>setDayFilter(dayFilter===day?"all":day)} style={{background:dayFilter===day?T.blue:T.white,color:dayFilter===day?"#fff":T.textMid,border:"1.5px solid "+(dayFilter===day?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>
-                {day.slice(0,3)}{cnt>0?" ("+cnt+")":""}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Category groups — when "all" show grouped, when filtered show flat */}
-        {brainView==="category"&&activeFilter==="all"&&activeCats.map(cat=>{
-          const allItems = brainItems.map((item,globalIdx)=>({item,globalIdx})).filter(({item})=>item.cat===cat.id&&!item.done&&dayMatch(item));
-          if(allItems.length===0) return null;
+        {/* Category groups */}
+        {brainView==="category"&&activeCats.map(cat=>{
+          const items = brainItems.filter(i=>i.cat===cat.id&&(activeFilter==="all"||i.cat===activeFilter));
+          if(items.length===0) return null;
           const {color,pale} = catTheme(cat);
           const sugDay = findSuggestedDay(cat.suggestDay);
-          const unscheduled = allItems.filter(({item})=>!item.done&&!item.scheduledDay);
+          const unscheduled = items.filter(i=>!i.done&&!i.scheduledDay);
           return(
-            <div key={cat.id} style={{marginBottom:"0.85rem",border:"1.5px solid "+color+"28",borderRadius:"0.9rem",overflow:"hidden"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.75rem",background:pale,borderBottom:"1px solid "+color+"20"}}>
-                <span style={{fontSize:"1rem"}}>{cat.emoji}</span>
-                <span style={{fontWeight:800,color,fontSize:"0.84rem"}}>{cat.label}</span>
-                <span style={{color:T.textSoft,fontSize:"0.72rem",fontWeight:400}}>— {cat.desc}</span>
+            <div key={cat.id} style={{marginBottom:"1rem"}}>
+              {/* Category header */}
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.75rem",background:pale,borderRadius:"0.8rem",border:"1.5px solid "+color+"38",marginBottom:"0.45rem"}}>
+                <span style={{fontSize:"1.05rem"}}>{cat.emoji}</span>
+                <div style={{flex:1}}>
+                  <span style={{fontWeight:800,color,fontSize:"0.84rem",letterSpacing:"0.02em"}}>{cat.label}</span>
+                  <span style={{color:T.textSoft,fontSize:"0.72rem",fontWeight:400,marginLeft:"0.4rem"}}>— {cat.desc}</span>
+                </div>
+                {/* Day suggestion chip */}
                 {sugDay&&unscheduled.length>0&&(
-                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:T.white,border:"1.5px solid "+color+"40",borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",marginLeft:"auto"}}
-                    onClick={()=>unscheduled.forEach(({item})=>scheduleToDay(item,sugDay))}>
-                    <span style={{fontSize:"0.62rem"}}>📅</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:800,color,whiteSpace:"nowrap"}}>Do on {sugDay}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:T.white,border:"1.5px solid "+color+"40",borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer"}}
+                    onClick={()=>{
+                      // bulk schedule all unscheduled items in this category
+                      unscheduled.forEach(item=>scheduleToDay(item,sugDay));
+                    }}>
+                    <span style={{fontSize:"0.65rem"}}>📅</span>
+                    <span style={{fontSize:"0.67rem",fontWeight:800,color,whiteSpace:"nowrap"}}>Do on {sugDay}</span>
                   </div>
                 )}
-                <span style={{color,fontSize:"0.72rem",fontWeight:700,flexShrink:0,marginLeft:sugDay&&unscheduled.length>0?"0":"auto"}}>{allItems.filter(({item})=>!item.done).length} left</span>
+                <span style={{color,fontSize:"0.73rem",fontWeight:700,flexShrink:0}}>{items.filter(i=>!i.done).length} left</span>
               </div>
-              {allItems.map(({item,globalIdx})=><BrainRow key={item.id} item={item} cat={cat} globalIdx={globalIdx}/>)}
+              {/* Items */}
+              {items.map(item=><BrainRow key={item.id} item={item} cat={cat} isBeingDragged={brainDragId===item.id} isDropTarget={brainDropId===item.id} onPointerDown={e=>brainPointerDown(e,item.id)}/>)}
             </div>
           );
         })}
 
         {/* Person view */}
         {brainView==="person"&&personSections.length===0&&brainItems.filter(i=>!i.done).length>0&&(
-          <div style={{background:T.surface,border:"1px solid "+T.borderSoft,borderRadius:"1.1rem",padding:"1.5rem",textAlign:"center",marginBottom:"0.85rem"}}>
+          <div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
             <p style={{color:T.textSoft,fontSize:"0.84rem"}}>All items are unassigned. Use the <strong>For:</strong> selector above to assign items to people.</p>
           </div>
         )}
-        {/* Flat filtered view when a specific category is selected */}
-        {brainView==="category"&&activeFilter!=="all"&&(()=>{
-          const cat=BRAIN_CATS.find(c=>c.id===activeFilter)||BRAIN_CATS[0];
-          const {color,pale}=catTheme(cat);
-          const filteredItems=brainItems.map((item,globalIdx)=>({item,globalIdx})).filter(({item})=>item.cat===activeFilter&&!item.done&&dayMatch(item));
+        {brainView==="person"&&personSections.map(section=>(
+          <div key={section.id} style={{marginBottom:"1rem"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.75rem",background:section.color+"18",borderRadius:"0.8rem",border:"1.5px solid "+section.color+"40",marginBottom:"0.45rem"}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:section.color,flexShrink:0}}/>
+              <span style={{fontWeight:800,color:section.color,fontSize:"0.84rem",flex:1}}>{section.name}</span>
+              <span style={{fontSize:"0.73rem",fontWeight:700,color:section.color}}>{section.items.length} item{section.items.length!==1?"s":""}</span>
+            </div>
+            {section.items.map(item=>{
+              const cat=BRAIN_CATS.find(c=>c.id===item.cat)||BRAIN_CATS[0];
+              return <BrainRow key={item.id} item={item} cat={cat} isBeingDragged={brainDragId===item.id} isDropTarget={brainDropId===item.id} onPointerDown={e=>brainPointerDown(e,item.id)}/>;
+            })}
+          </div>
+        ))}
+
+        {/* By Day view */}
+        {brainView==="day"&&(function(){
+          var scheduled=brainItems.filter(function(i){return !i.done&&i.scheduledDay;});
+          var unscheduled=brainItems.filter(function(i){return !i.done&&!i.scheduledDay;});
           return(
-            <div style={{marginBottom:"0.85rem",border:"1.5px solid "+color+"28",borderRadius:"0.9rem",overflow:"hidden"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.75rem",background:pale,borderBottom:"1px solid "+color+"20"}}>
-                <span style={{fontSize:"1rem"}}>{cat.emoji}</span>
-                <span style={{fontWeight:800,color,fontSize:"0.84rem"}}>{cat.label}</span>
-                <span style={{color,fontSize:"0.72rem",fontWeight:700,marginLeft:"auto"}}>{filteredItems.length} item{filteredItems.length!==1?"s":""}</span>
-              </div>
-              {filteredItems.length===0?(
-                <div style={{padding:"1rem",textAlign:"center",color:T.textFaint,fontSize:"0.82rem"}}>No items in this category yet.</div>
-              ):(
-                filteredItems.map(({item,globalIdx})=><BrainRow key={item.id} item={item} cat={cat} globalIdx={globalIdx}/>)
+            <div>
+              {MEAL_DAYS.map(function(day){
+                var dayItems=scheduled.filter(function(i){return i.scheduledDay===day;});
+                if(dayItems.length===0)return null;
+                return(
+                  <div key={day} style={{marginBottom:"0.85rem"}}>
+                    <div style={{fontSize:"0.7rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid,marginBottom:"0.35rem",paddingLeft:"0.25rem"}}>{day}{day===TODAY_NAME?" · Today":""}</div>
+                    {dayItems.map(function(item){
+                      var cat=BRAIN_CATS.find(function(c){return c.id===item.cat;})||BRAIN_CATS[0];
+                      return <BrainRow key={item.id} item={item} cat={cat} isBeingDragged={brainDragId===item.id} isDropTarget={brainDropId===item.id} onPointerDown={e=>brainPointerDown(e,item.id)}/>;
+                    })}
+                  </div>
+                );
+              })}
+              {unscheduled.length>0&&(
+                <div style={{marginTop:"0.5rem"}}>
+                  <div style={{fontSize:"0.7rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:"0.35rem",paddingLeft:"0.25rem"}}>Not scheduled</div>
+                  {unscheduled.map(function(item){
+                    var cat=BRAIN_CATS.find(function(c){return c.id===item.cat;})||BRAIN_CATS[0];
+                    return <BrainRow key={item.id} item={item} cat={cat} isBeingDragged={brainDragId===item.id} isDropTarget={brainDropId===item.id} onPointerDown={e=>brainPointerDown(e,item.id)}/>;
+                  })}
+                </div>
+              )}
+              {scheduled.length===0&&unscheduled.length===0&&(
+                <div style={{...card({textAlign:"center",padding:"2rem"})}}>
+                  <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>📅</div>
+                  <p style={{color:T.textMid,fontSize:"0.87rem"}}>Nothing scheduled yet.<br/><span style={{color:T.textSoft,fontSize:"0.82rem"}}>Tap any brain dump item to assign it a day.</span></p>
+                </div>
               )}
             </div>
           );
         })()}
 
-        {brainView==="person"&&personSections.map(section=>(
-          <div key={section.id} style={{marginBottom:"0.85rem",border:"1.5px solid "+section.color+"30",borderRadius:"0.9rem",overflow:"hidden"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.75rem",background:section.color+"18",borderBottom:"1px solid "+section.color+"20"}}>
-              <div style={{width:9,height:9,borderRadius:"50%",background:section.color,flexShrink:0}}/>
-              <span style={{fontWeight:800,color:section.color,fontSize:"0.84rem",flex:1}}>{section.name}</span>
-              <span style={{fontSize:"0.72rem",fontWeight:700,color:section.color}}>{section.items.length} item{section.items.length!==1?"s":""}</span>
-            </div>
-            {section.items.map(item=>{
-              const cat=BRAIN_CATS.find(c=>c.id===item.cat)||BRAIN_CATS[0];
-              const globalIdx=brainItems.findIndex(b=>b.id===item.id);
-              return <BrainRow key={item.id} item={item} cat={cat} globalIdx={globalIdx}/>;
-            })}
-          </div>
-        ))}
-
         {brainItems.length===0&&(
-          <div style={{background:T.surface,border:"1px solid "+T.borderSoft,borderRadius:"1.1rem",padding:"2rem",marginBottom:"0.85rem",textAlign:"center"}}>
+          <div style={{...card({textAlign:"center",padding:"2rem"})}}>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🌿</div>
             <p style={{color:T.textMid,fontSize:"0.87rem",fontWeight:700}}>Your mind is clear.<br/><span style={{color:T.textSoft,fontWeight:400,fontSize:"0.82rem"}}>Add anything that's on your radar.</span></p>
           </div>
         )}
 
+        {/* Completed section */}
         {brainItems.some(i=>i.done)&&(
           <div style={{marginTop:"0.5rem",paddingTop:"0.75rem",borderTop:"1px dashed "+T.borderSoft}}>
-            <div style={{fontSize:"0.67rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.35rem"}}>Completed</div>
-            <div style={{border:"1px solid "+T.borderSoft,borderRadius:"0.9rem",overflow:"hidden"}}>
-              {brainItems.filter(i=>i.done).map((item,i)=>{
-                const cat=BRAIN_CATS.find(c=>c.id===item.cat)||BRAIN_CATS[0];
-                const globalIdx=brainItems.findIndex(b=>b.id===item.id);
-                return <BrainRow key={item.id} item={item} cat={cat} globalIdx={globalIdx}/>;
-              })}
-            </div>
-            <button onClick={()=>setBrainItems(p=>p.filter(i=>!i.done))} style={{background:T.white,color:T.rose,border:"1.5px solid "+T.rose+"66",borderRadius:"0.7rem",padding:"0.35rem 0.8rem",cursor:"pointer",fontSize:"0.76rem",fontFamily:"inherit",fontWeight:700,marginTop:"0.4rem"}}>Clear completed</button>
+            <div style={{fontSize:"0.67rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.45rem"}}>Completed</div>
+            {brainItems.filter(i=>i.done).map(item=>{
+              const cat=BRAIN_CATS.find(c=>c.id===item.cat)||BRAIN_CATS[0];
+              return <BrainRow key={item.id} item={item} cat={cat} isBeingDragged={brainDragId===item.id} isDropTarget={brainDropId===item.id} onPointerDown={e=>brainPointerDown(e,item.id)}/>;
+            })}
+            <button onClick={()=>setBrainItems(p=>p.filter(i=>!i.done))} style={{...btnS({fontSize:"0.76rem",padding:"0.35rem 0.8rem",color:T.rose,marginTop:"0.4rem"})}}>Clear completed</button>
           </div>
         )}
       </div>
@@ -4624,10 +4753,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setShowOnboarding(false);
       setOnboardStep(0);
     }
+    const [settingsOpen, setSettingsOpen] = useState({});
+    function toggleSetting(key){ setSettingsOpen(p=>({...p,[key]:!p[key]})); }
+    function SettingSection({id, title, children, defaultOpen=true}){
+      const isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
+      return (
+        <div style={card()}>
+          <div onClick={()=>toggleSetting(id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none",marginBottom:isOpen?"0.85rem":0}}>
+            <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>{title}</h2>
+            <div style={{display:"flex",transition:"transform 0.2s",transform:isOpen?"rotate(0deg)":"rotate(-90deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
+          </div>
+          {isOpen&&<div>{children}</div>}
+        </div>
+      );
+    }
     return(
       <div>
         <SecHead emoji="⚙️" title="Settings"/>
-        <div style={card()}>
+        <SettingSection id="family" title="👥 Family Profile">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
             <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>👥 Family Profile</h2>
             <div style={{display:"flex",gap:"0.4rem"}}>
@@ -4665,10 +4808,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             </div>
           )}
-        </div>
+        </SettingSection>
         {/* AI Memory */}
         {Object.keys(aiMemory).length>0&&(
-          <div style={card()}>
+          <SettingSection id="aimemory" title="🧠 What the AI Knows" defaultOpen={false}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
               <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🧠 What the AI Knows</h2>
               <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
@@ -4679,9 +4822,62 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{a}</div>
               </div>
             ))}
-          </div>
+          </SettingSection>
         )}
-        <div style={card()}>
+        <SettingSection id="birthdays" title="🎂 Birthdays" defaultOpen={false}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+            <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🎂 Birthdays</h2>
+            <button onClick={function(){
+              var name=prompt("Name");if(!name||!name.trim())return;
+              var month=parseInt(prompt("Birth month (1-12)"));if(!month||month<1||month>12)return;
+              var day=parseInt(prompt("Birth day (1-31)"));if(!day||day<1||day>31)return;
+              var yearStr=prompt("Birth year (optional, for age)","");
+              var year=yearStr?parseInt(yearStr):null;
+              setBirthdays(function(p){return[...p,{id:uid(),name:name.trim(),month:month,day:day,year:year||null}];});
+            }} style={btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>+ Add</button>
+          </div>
+          {birthdays.length===0?(
+            <p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.5rem 0"}}>No birthdays yet — add them and they appear on your calendar each year.</p>
+          ):(
+            <div>
+              {(function(){
+                var BMONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                var nowB=new Date();nowB.setHours(0,0,0,0);
+                return birthdays.slice().sort(function(a,x){
+                  var da=new Date(nowB.getFullYear(),a.month-1,a.day);if(da<nowB)da.setFullYear(da.getFullYear()+1);
+                  var dx=new Date(nowB.getFullYear(),x.month-1,x.day);if(dx<nowB)dx.setFullYear(dx.getFullYear()+1);
+                  return da-dx;
+                }).map(function(b){
+                  var nextB=new Date(nowB.getFullYear(),b.month-1,b.day);
+                  if(nextB<nowB)nextB.setFullYear(nextB.getFullYear()+1);
+                  var diffB=Math.round((nextB-nowB)/86400000);
+                  var soonB=diffB<=7;
+                  return(
+                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:soonB?T.sandPale:T.surface,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1px solid "+(soonB?T.sand+"60":T.borderSoft)}}>
+                      <span style={{fontSize:"1.1rem"}}>🎂</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{b.name}</div>
+                        <div style={{fontSize:"0.72rem",color:T.textFaint}}>{BMONTHS[b.month-1]} {b.day}{b.year?" · born "+b.year:""}</div>
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        {diffB===0?<span style={{fontSize:"0.72rem",fontWeight:800,color:T.sand}}>Today! 🎉</span>
+                        :diffB===1?<span style={{fontSize:"0.72rem",fontWeight:700,color:T.sandDark}}>Tomorrow</span>
+                        :<span style={{fontSize:"0.72rem",color:soonB?T.sandDark:T.textFaint}}>{"in "+diffB+" days"}</span>}
+                      </div>
+                      <button onClick={function(){setBirthdays(function(p){return p.filter(function(x){return x.id!==b.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,opacity:0.35}}>
+                        <Icon name="trash" size={13} color={T.rose}/>
+                      </button>
+                    </div>
+                  );
+                });
+              })()}
+              <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.5rem"}}>Birthdays show in pink on your calendar every year automatically.</p>
+            </div>
+          )}
+        </div>
+
+        </SettingSection>
+        <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
           <h2 style={{margin:"0 0 0.65rem",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🔔 Notifications</h2>
           <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Anchor & Flow sends warm AI-powered notifications throughout your day — like having a family assistant checking in.</p>
 
@@ -4690,7 +4886,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {time:"7:00 am", emoji:"🌅", label:"Morning anchor", desc:"Your daily agenda, tasks & events"},
             {time:"12:00 pm", emoji:"🌊", label:"Midday check-in", desc:"Progress update & encouragement"},
             {time:"3:00 pm", emoji:"🍽️", label:"Dinner heads-up", desc:"Defrost reminders & meal prep"},
-            {time:"5:00 pm", emoji:"🌙", label:"Evening recap", desc:"Doubtfire-style day summary + tomorrow preview"},
+            {time:"5:00 pm", emoji:"🌙", label:"Evening recap", desc:"Ripple-style day summary + tomorrow preview"},
             {time:"2hrs before", emoji:"⏰", label:"Event nudges", desc:"Smart reminders before appointments"},
           ].map((n,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
@@ -4742,7 +4938,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </div>
-        <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.sagePale})`,border:`2px solid ${T.blue}55`})}}>
+        </SettingSection>
+        <SettingSection id="sync" title="🔄 Family Sync">
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
               <Icon name="sync" size={18} color={T.blueDark}/>
@@ -4789,7 +4986,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </div>
-        <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.sagePale})`,border:`2px solid ${T.blue}55`})}}>
+        </SettingSection>
+        <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false}>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
             <Icon name="palette" size={18} color={T.blueDark}/>
             <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>Appearance</h2>
@@ -4803,8 +5001,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             ))}
           </div>
         </div>
-        <div style={card()}>
-          <SecHead emoji="👥" title="Household Members"/>
+        </SettingSection>
+        <SettingSection id="members" title="👥 Household Members" defaultOpen={false}>
           {people.filter(p=>p&&p.id&&p.name).map(p=>(
             <div key={p.id} style={{padding:"0.6rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.5rem"}}>
@@ -4824,8 +5022,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={()=>{if(newPersonName.trim()){setPeople(p=>[...p,{id:uid(),name:newPersonName.trim(),color:PC[p.length%PC.length]}]);setNewPersonName("");}}} style={btnP(T.sage)}>Add</button>
           </div>
         </div>
-        <div style={card()}>
-          <SecHead emoji="📋" title="Visible Sections"/>
+        </SettingSection>
+        <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false}>
           {TABS.filter(t=>t.id!=="settings"&&t.id!=="anchor").map(t=>(
             <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
               <span style={{fontSize:"0.87rem",color:T.textDark,fontWeight:600}}>{t.emoji} {t.label}</span>
@@ -4835,6 +5033,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           ))}
         </div>
+        </SettingSection>
         <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`,textAlign:"center",padding:"1.8rem"})}}>
           <AnchorLogo size={44} color={T.blue}/>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
@@ -5366,7 +5565,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             ))}
           </div>
-          <input value={f.colorCustom||""} onChange={e=>setF(p=>({...p,colorCustom:e.target.value}))} placeholder={`Custom label e.g. "Kids", "Work"…`} style={inp()}/>
+          <input value={f.colorCustom||""} onChange={e=>setF(p=>({...p,colorCustom:e.target.value}))} placeholder="Label e.g. Kids, Work, School..." style={inp()}/>
+          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",marginTop:"0.5rem"}}>
+            <input type="color" value={f.color||"#6A9BB5"} onChange={e=>setF(p=>({...p,color:e.target.value,colorLabel:"Custom",colorCustom:""}))} style={{width:36,height:36,border:"none",borderRadius:"0.5rem",cursor:"pointer",padding:2,background:"none"}}/>
+            <span style={{fontSize:"0.72rem",color:T.textFaint}}>Pick any colour</span>
+            <input value={f.color||""} onChange={e=>setF(p=>({...p,color:e.target.value,colorLabel:"Custom",colorCustom:""}))} placeholder="#hex" style={{...inp({flex:1,fontFamily:"monospace",fontSize:"0.8rem"})}}/>
+          </div>
+        </div>
+        <div style={{marginBottom:"0.9rem"}}>
+          <label style={lbl}>Repeat</label>
+          <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+            {[{v:"",label:"None"},{v:"weekly",label:"Weekly"},{v:"biweekly",label:"Every 2 wks"},{v:"monthly",label:"Monthly"},{v:"yearly",label:"Yearly"}].map(o=>(
+              <button key={o.v} onClick={()=>setF(p=>({...p,repeat:o.v}))} style={{padding:"0.25rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(f.repeat===o.v?T.blue:T.border),background:f.repeat===o.v?T.bluePale:"transparent",color:f.repeat===o.v?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                {o.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
           <button onClick={closeCalForm} style={btnS()}>Cancel</button>
@@ -5462,9 +5676,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:${T.bgAlt}}::-webkit-scrollbar-thumb{background:${T.blueLight};border-radius:4px}
         @keyframes fu{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}.fu{animation:fu 0.22s ease both}
         @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1.1)}}
+        @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
         [draggable]:active{cursor:grabbing!important}
       `}</style>
 
+      {/* ── In-app notification banner (iOS + fallback) ── */}
+      {inAppBanner&&(
+        <div onClick={()=>setInAppBanner(null)} style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:9999,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#fff",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",cursor:"pointer",display:"flex",gap:"0.75rem",alignItems:"flex-start",animation:"slideDown 0.3s ease"}}>
+          <span style={{fontSize:"1.3rem",flexShrink:0}}>⚓️</span>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:"0.2rem",fontFamily:"'Cormorant Garamond',serif"}}>{inAppBanner.title}</div>
+            <div style={{fontSize:"0.79rem",opacity:0.88,lineHeight:1.4}}>{inAppBanner.body}</div>
+          </div>
+          <span style={{fontSize:"0.75rem",opacity:0.6,flexShrink:0,marginTop:2}}>✕</span>
+        </div>
+      )}
       <div style={{minHeight:"100vh",background:T.bg,paddingBottom:"5.5rem",transition:"background 0.3s"}}>
         <div style={{background:T.topBg,borderBottom:`2px solid ${T.border}`,padding:"0.75rem 1.1rem",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:100,boxShadow:`0 2px 14px ${T.cardShadow}`}}>
           <div style={{display:"flex",alignItems:"center",gap:"0.65rem"}}>
@@ -5534,6 +5760,35 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
 
         {/* Bottom nav bar — Option C */}
+        {/* ── Quick Capture FAB ── */}
+        <button onClick={()=>setCaptureOpen(true)} style={{position:"fixed",bottom:"4.8rem",right:"1.1rem",width:48,height:48,borderRadius:"50%",background:T.navy,color:"#fff",border:"none",cursor:"pointer",fontSize:"1.5rem",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 20px rgba(0,0,0,0.25)",zIndex:99,fontWeight:300,lineHeight:1}}>+</button>
+
+        {/* ── Quick Capture Sheet ── */}
+        {captureOpen&&(
+          <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+            <div onClick={()=>setCaptureOpen(false)} style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.4)"}}/>
+            <div style={{position:"relative",background:T.surface,borderRadius:"1.4rem 1.4rem 0 0",padding:"1.25rem 1.25rem max(1.5rem,env(safe-area-inset-bottom))",boxShadow:"0 -8px 40px rgba(0,0,0,0.18)"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>Quick capture</div>
+              <input value={captureText} onChange={e=>setCaptureText(e.target.value)} autoFocus placeholder="What's on your mind..." style={{...inp({marginBottom:"0.75rem",fontSize:"1rem"})}}/>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.85rem"}}>
+                {[{id:"tasks",label:"Tasks",emoji:"✅"},{id:"brain",label:"Brain Dump",emoji:"🧠"},{id:"shopping",label:"Shopping",emoji:"🛒"}].map(d=>(
+                  <button key={d.id} onClick={()=>setCaptureDest(d.id)} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(captureDest===d.id?T.blue:T.border),background:captureDest===d.id?T.bluePale:"transparent",color:captureDest===d.id?T.blue:T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    {d.emoji} {d.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={function(){
+                if(!captureText.trim())return;
+                var txt=captureText.trim();
+                if(captureDest==="tasks"){setTasks(function(p){return[...p,{id:uid(),text:txt,day:TODAY_NAME,done:false,category:captureCategory||""}];});}
+                else if(captureDest==="brain"){setBrainItems(function(p){return[...p,{id:uid(),text:txt,cat:"inbox",done:false}];});}
+                else if(captureDest==="shopping"){setShoppingItems(function(p){return[...p,{id:uid(),text:txt,store:"Grocery Store",done:false}];});}
+                setCaptureText("");setCaptureOpen(false);
+              }} style={btnP(T.navy,{width:"100%",padding:"0.85rem",fontSize:"0.95rem"})}>Add →</button>
+            </div>
+          </div>
+        )}
+
         <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.navBg,borderTop:`2px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"0.5rem 0 max(0.75rem, env(safe-area-inset-bottom))",zIndex:100,boxShadow:`0 -2px 14px ${T.cardShadow}`}}>
           {primaryVisible.map(t=>(
             <button key={t.id} onClick={()=>{goTab(t.id);setMoreDrawerOpen(false);}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"0.6rem 0.4rem",minWidth:48,flex:1,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
@@ -5597,6 +5852,100 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     </>
   );
 }
+
+// ── Shared pointer-based drag hook (touch + mouse) ───────────────────────────
+// Stable-ref approach: all mutable state lives in a single ref so listeners
+// never go stale and are registered only once per drag gesture.
+function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
+  const [draggingId, setDraggingId] = React.useState(null);
+  const [dragOverId, setDragOverId] = React.useState(null);
+  // Keep latest items/setItems accessible inside listeners without re-registering
+  const latestItems    = useRef(items);
+  const latestSetItems = useRef(setItems);
+  useEffect(() => { latestItems.current = items; }, [items]);
+  useEffect(() => { latestSetItems.current = setItems; }, [setItems]);
+
+  const ds = useRef({ id:null, clone:null, dragOverId:null });
+
+  function pointerDown(e, id) {
+    if (e.button === 1 || e.button === 2) return;
+    // Clean up any orphaned clone from a previous interrupted drag
+    if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
+    ds.current.id = id;
+    ds.current.dragOverId = null;
+    const el = document.querySelector(`[${dataAttr}="${CSS.escape(id)}"]`);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const clone = el.cloneNode(true);
+      // Strip pointer-events and interactions from clone children
+      clone.querySelectorAll("button,input,select,textarea").forEach(c => { c.style.pointerEvents = "none"; });
+      clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;` +
+        `opacity:0.85;pointer-events:none;z-index:9999;` +
+        `box-shadow:0 8px 28px rgba(0,0,0,0.2);border-radius:0.7rem;transition:none;`;
+      document.body.appendChild(clone);
+      ds.current.clone = clone;
+    }
+    setDraggingId(id);
+    setDragOverId(null);
+    e.preventDefault();
+  }
+
+  useEffect(() => {
+    function onMove(e) {
+      if (!ds.current.id) return;
+      const clone = ds.current.clone;
+      if (clone) {
+        clone.style.left = (e.clientX - clone.offsetWidth / 2) + "px";
+        clone.style.top  = (e.clientY - 28) + "px";
+        clone.style.display = "none";
+      }
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (clone) clone.style.display = "";
+      const row = el && el.closest(`[${dataAttr}]`);
+      const tid = row ? row.getAttribute(dataAttr) : null;
+      const next = (tid && tid !== ds.current.id) ? tid : null;
+      if (next !== ds.current.dragOverId) {
+        ds.current.dragOverId = next;
+        setDragOverId(next);
+      }
+    }
+    function onUp() {
+      if (!ds.current.id) return;
+      if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
+      const fromId   = ds.current.id;
+      const targetId = ds.current.dragOverId;
+      ds.current.id = null;
+      ds.current.dragOverId = null;
+      setDraggingId(null);
+      setDragOverId(null);
+      if (!targetId || targetId === fromId) return;
+      latestSetItems.current(prev => {
+        const arr = [...prev];
+        const fi = arr.findIndex(x => x.id === fromId);
+        const ti = arr.findIndex(x => x.id === targetId);
+        if (fi === -1 || ti === -1) return prev;
+        const [moved] = arr.splice(fi, 1);
+        arr.splice(ti, 0, moved);
+        return arr;
+      });
+    }
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointercancel", onUp);
+      // Safety: remove any orphaned clone on unmount
+      if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
+    };
+  // Register once — uses refs for fresh data
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataAttr]);
+
+  return { draggingId, dragOverId, pointerDown };
+}
+
 
 export default function App() {
   return (
