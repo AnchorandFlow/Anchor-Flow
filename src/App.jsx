@@ -568,15 +568,7 @@ function HomeFlow() {
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
         try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
-        const hid = "hh_" + uid();
-        try { localStorage.setItem("af_householdId", JSON.stringify(hid)); } catch {}
-        try {
-          await sbFetch("/rest/v1/households", {
-            method: "POST", _token: token,
-            headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-            body: JSON.stringify({ id: hid, owner_id: data.user?.id, data: {}, updated_at: new Date().toISOString() })
-          });
-        } catch(hhErr) { console.warn("Household create failed:", hhErr.message); }
+        // Don't auto-create household on signup — user will join or create via UI
         setSyncStatus("synced");
         window.location.reload();
         return { ok: true };
@@ -658,18 +650,11 @@ function HomeFlow() {
             try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
           }
         } else {
-          // No household found for this user — check if they have a stored join code
-          // (i.e. they previously joined someone else's household), otherwise create fresh
+          // No household found by owner_id — use whatever is stored in localStorage
+          // Never auto-create a new household on sign-in (prevents orphan households)
+          // User can join a household manually via the household sync screen
           const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
-          if (!storedHHId) {
-            const hid = "hh_" + uid();
-            try { localStorage.setItem("af_householdId", JSON.stringify(hid)); } catch {}
-            await sbFetch("/rest/v1/households", {
-              method: "POST", _token: token,
-              headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
-              body: JSON.stringify({ id: hid, owner_id: userId, data: {}, updated_at: new Date().toISOString() })
-            });
-          }
+          console.log("No household found by owner_id, using stored:", storedHHId);
         }
       } catch(hhErr) {
         console.warn("Household lookup failed:", hhErr.message);
@@ -795,24 +780,27 @@ function HomeFlow() {
   }, []);
 
   // ── Startup: correct household ID by owner_id ────────────────────────────
-  // Runs once on mount. If the stored householdId doesn't match the one
-  // owned by this user in Supabase, correct it immediately.
+  // Runs once on mount. Always trust Supabase owner_id over localStorage.
   useEffect(() => {
     if (!authToken) return;
     const userId = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id; } catch { return null; } })();
     if (!userId) return;
-    sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&limit=1`, { _token: authToken })
+    sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id,updated_at&order=updated_at.desc&limit=1`, { _token: authToken })
       .then(rows => {
         if (rows && rows.length > 0 && rows[0].id) {
           const correctId = rows[0].id;
           const currentId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
           if (correctId !== currentId) {
-            console.log("Correcting household ID:", currentId, "->", correctId);
+            console.log("[AF] Correcting household ID:", currentId, "->", correctId);
             localStorage.setItem("af_householdId", JSON.stringify(correctId));
             window.location.reload();
+          } else {
+            console.log("[AF] Household ID correct:", correctId);
           }
+        } else {
+          console.log("[AF] No household found by owner_id for user:", userId);
         }
-      }).catch(() => {});
+      }).catch(err => console.warn("[AF] Household correction failed:", err));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
