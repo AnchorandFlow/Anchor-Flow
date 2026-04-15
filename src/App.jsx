@@ -4786,7 +4786,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <SecHead emoji="⚙️" title="Settings"/>
         <SettingSection id="family" title="👥 Family Profile">
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-            <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>👥 Family Profile</h2>
             <div style={{display:"flex",gap:"0.4rem"}}>
               <button onClick={()=>setShowOnboardingWizard(true)} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>🔄 Setup wizard</button>
               <button onClick={()=>setShowOnboarding(v=>!v)} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.78rem"})}>{familyProfile?"Edit":"Set up"}</button>
@@ -4827,7 +4826,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {Object.keys(aiMemory).length>0&&(
           <SettingSection id="aimemory" title="🧠 What the AI Knows" defaultOpen={false}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-              <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🧠 What the AI Knows</h2>
               <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
             </div>
             {Object.entries(aiMemory).map(([q,a],i)=>(
@@ -4840,7 +4838,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
         <SettingSection id="birthdays" title="🎂 Birthdays" defaultOpen={false}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-            <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🎂 Birthdays</h2>
             <button onClick={function(){
               var name=prompt("Name");if(!name||!name.trim())return;
               var month=parseInt(prompt("Birth month (1-12)"));if(!month||month<1||month>12)return;
@@ -4890,7 +4887,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           )}
         </SettingSection>
         <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
-          <h2 style={{margin:"0 0 0.65rem",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>🔔 Notifications</h2>
+
           <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Anchor & Flow sends warm AI-powered notifications throughout your day — like having a family assistant checking in.</p>
 
           {/* Notification types */}
@@ -4954,7 +4951,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
               <Icon name="sync" size={18} color={T.blueDark}/>
-              <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>Family Sync</h2>
             </div>
             {syncStatus==="synced"&&<span style={{fontSize:"0.72rem",color:T.sage,fontWeight:700}}>✓ Synced</span>}
             {syncStatus==="syncing"&&<span style={{fontSize:"0.72rem",color:T.sand,fontWeight:700}}>⟳ Syncing…</span>}
@@ -5000,7 +4996,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false}>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
             <Icon name="palette" size={18} color={T.blueDark}/>
-            <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>Appearance</h2>
+
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.65rem"}}>
             {Object.entries(THEMES).map(([key,th])=>(
