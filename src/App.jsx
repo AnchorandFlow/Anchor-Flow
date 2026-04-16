@@ -4236,7 +4236,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     var isDropTarget=dragOverId===item.id;
                     return(
                     <div key={item.id} data-shopid={item.id}
-                      onPointerDown={function(e){pointerDown(e,item.id,store);}}
+                      onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,store);}}
                       style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",
                         outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",
                         transition:"opacity 0.15s"}}>
@@ -4413,8 +4413,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const [val,setVal]         = useState(item.text);
       const {color,pale}         = catTheme(cat);
       const sugDay               = findSuggestedDay(cat.suggestDay);
+      function handlePointerDown(e){
+        // Don't start drag if user tapped a button, checkbox, input, or select
+        if(e.target.closest("button,input,select,textarea,[role=button]")) return;
+        onPointerDown(e);
+      }
       return (
-        <div data-brainid={item.id} onPointerDown={onPointerDown}
+        <div data-brainid={item.id} onPointerDown={handlePointerDown}
           style={{background:T.white,borderRadius:"0.85rem",padding:"0.65rem 0.85rem",marginBottom:"0.35rem",
             border:"1.5px solid "+color+"28",display:"flex",alignItems:"flex-start",gap:"0.6rem",
             cursor:"grab",opacity:isBeingDragged?0.35:1,
