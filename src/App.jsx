@@ -4367,7 +4367,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function BrainTab(){
     const [newText,setNewText]   = useState("");
-    const [newCat,setNewCat]     = useState("household");
+    const [newCat,setNewCat]     = useState("errands");
     const [newPerson,setNewPerson] = useState("");
     const [activeFilter,setActiveFilter] = useState("all");
     const [brainView,setBrainView] = useState("category"); // "category" | "person"
