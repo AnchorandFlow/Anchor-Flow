@@ -4386,9 +4386,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return match?match[0]:null;
     }
 
+    function smartCat(text){
+      const t = text.toLowerCase();
+      if(/order|buy|amazon|walmart|target|ship|deliver|online/.test(t)) return "orders";
+      if(/call|phone|voicemail|ring|text|email|reply|respond|message/.test(t)) return "calls";
+      if(/errand|pick up|drop off|return|library|pharmacy|prescription|dry clean|post office|bank|store/.test(t)) return "errands";
+      if(/paperwork|schedule|book|appoint|form|file|tax|insurance|admin|renewal|register/.test(t)) return "admin";
+      if(/someday|maybe|eventually|would be nice|idea|dream|wish/.test(t)) return "someday";
+      if(/clean|fix|repair|organize|tidy|laundry|dishes|vacuum|wipe|declutter|home|house/.test(t)) return "household";
+      return newCat; // keep current selection if no match
+    }
     function addItem(){
       if(!newText.trim()) return;
-      setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:newCat,done:false,scheduledDay:null,person:newPerson}]);
+      const cat = smartCat(newText.trim());
+      setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat,done:false,scheduledDay:null,person:newPerson}]);
       setNewText("");
     }
 
@@ -4414,8 +4425,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const {color,pale}         = catTheme(cat);
       const sugDay               = findSuggestedDay(cat.suggestDay);
       function handlePointerDown(e){
-        // Don't start drag if user tapped a button, checkbox, input, or select
-        if(e.target.closest("button,input,select,textarea,[role=button]")) return;
+        // Don't start drag if user tapped a button, checkbox, input, select, or clickable div
+        if(e.target.closest("button,input,select,textarea,[role=button],[data-nodrag]")) return;
         onPointerDown(e);
       }
       return (
@@ -4425,7 +4436,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             cursor:"grab",opacity:isBeingDragged?0.35:1,
             outline:isDropTarget?"2px dashed "+color:"none",outlineOffset:"2px",transition:"opacity 0.15s"}}>
           {/* checkbox */}
-          <div onClick={()=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,done:!x.done}:x))}
+          <div data-nodrag onClick={()=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,done:!x.done}:x))}
             style={{width:20,height:20,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:"0.1rem",transition:"all 0.15s"}}>
             {item.done&&<Icon name="check" size={10} color="#fff"/>}
           </div>
@@ -4445,7 +4456,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           </div>
           {/* actions */}
-          <div style={{display:"flex",gap:"0.25rem",alignItems:"center",flexShrink:0}}>
+          <div data-nodrag style={{display:"flex",gap:"0.25rem",alignItems:"center",flexShrink:0}}>
             {/* suggest day button */}
             {!item.done&&!item.scheduledDay&&sugDay&&(
               <button onClick={()=>setScheduleItem({item,cat})} title={"Schedule to "+sugDay}
