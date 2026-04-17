@@ -697,7 +697,7 @@ function HomeFlow() {
         method: "POST",
         _token: token,
         headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ id: hid, data: payload, updated_at: updatedAt })
+        body: JSON.stringify({ id: hid, owner_id: (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id||null; } catch { return null; } })(), data: payload, updated_at: updatedAt })
       });
       const serverTs = (rows && rows[0] && rows[0].updated_at) ? rows[0].updated_at : updatedAt;
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
@@ -780,27 +780,47 @@ function HomeFlow() {
   }, []);
 
   // ── Startup: correct household ID by owner_id ────────────────────────────
-  // Runs once on mount. Always trust Supabase owner_id over localStorage.
+  // Runs once on mount. If the stored household is owned by this user, use it.
+  // If the stored household belongs to someone else (joined household), keep it.
   useEffect(() => {
     if (!authToken) return;
     const userId = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id; } catch { return null; } })();
     if (!userId) return;
-    sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id,updated_at&order=updated_at.desc&limit=1`, { _token: authToken })
-      .then(rows => {
-        if (rows && rows.length > 0 && rows[0].id) {
-          const correctId = rows[0].id;
-          const currentId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
-          if (correctId !== currentId) {
-            console.log("[AF] Correcting household ID:", currentId, "->", correctId);
-            localStorage.setItem("af_householdId", JSON.stringify(correctId));
+    const currentId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+    // First check if the current household is valid (exists in Supabase)
+    if (currentId) {
+      sbFetch(`/rest/v1/households?id=eq.${currentId}&select=id,owner_id&limit=1`, { _token: authToken })
+        .then(rows => {
+          if (rows && rows.length > 0) {
+            // Household exists — keep it regardless of owner (could be a joined household)
+            console.log("[AF] Household ID valid:", currentId);
+          } else {
+            // Household doesn't exist — find the one owned by this user
+            sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
+              .then(owned => {
+                if (owned && owned.length > 0) {
+                  console.log("[AF] Correcting to owned household:", owned[0].id);
+                  localStorage.setItem("af_householdId", JSON.stringify(owned[0].id));
+                  window.location.reload();
+                } else {
+                  console.log("[AF] No household found for user:", userId);
+                }
+              }).catch(() => {});
+          }
+        }).catch(() => {});
+    } else {
+      // No household stored — find the one owned by this user
+      sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
+        .then(rows => {
+          if (rows && rows.length > 0) {
+            console.log("[AF] Setting owned household:", rows[0].id);
+            localStorage.setItem("af_householdId", JSON.stringify(rows[0].id));
             window.location.reload();
           } else {
-            console.log("[AF] Household ID correct:", correctId);
+            console.log("[AF] No household found for user:", userId);
           }
-        } else {
-          console.log("[AF] No household found by owner_id for user:", userId);
-        }
-      }).catch(err => console.warn("[AF] Household correction failed:", err));
+        }).catch(() => {});
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
