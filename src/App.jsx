@@ -2645,6 +2645,17 @@ Respond ONLY in valid JSON:
           </div>
         )}
 
+        {/* ── Not signed in warning ── */}
+        {!authUser&&(
+          <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.6rem",cursor:"pointer"}}>
+            <span style={{fontSize:"1.1rem"}}>⚠️</span>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:T.sandDark,fontSize:"0.85rem"}}>You're not signed in</div>
+              <div style={{color:T.textSoft,fontSize:"0.75rem"}}>Changes won't sync to other devices. Tap to sign in.</div>
+            </div>
+            <div style={{fontSize:"0.78rem",color:T.blue,fontWeight:700}}>Sign in →</div>
+          </div>
+        )}
         {/* ── Hero greeting card ── */}
         <div style={{background:"linear-gradient(150deg,"+T.blue+"22,"+T.bluePale+" 80%)",border:"2px solid "+T.blue+"40",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px "+T.blue+"12"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
@@ -2659,7 +2670,7 @@ Respond ONLY in valid JSON:
                 :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:T.blue,background:"none",border:"1px solid "+T.blue+"40",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
               </div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:T.textDark,lineHeight:1.05}}>
-                {greeting} {greetingEmoji}
+                {greeting}{authUser?.displayName ? ", " + authUser.displayName.split(" ")[0] : ""} {greetingEmoji}
               </div>
               {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
               {flowMode==="Survival"&&<div style={{color:T.rose,fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
@@ -4170,6 +4181,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div>
         <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
+        {!authUser&&(
+          <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.65rem 0.9rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
+            <span>⚠️</span>
+            <div style={{flex:1,fontSize:"0.8rem",color:T.sandDark,fontWeight:600}}>Not signed in — items won't sync. <span style={{color:T.blue}}>Sign in →</span></div>
+          </div>
+        )}
         <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
             <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addItem(newItem,newStore);}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
@@ -4516,6 +4533,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div>
         <SecHead emoji="🧠" title="Brain Dump" sub="Capture everything — sorted by where it happens"/>
+        {!authUser&&(
+          <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.65rem 0.9rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
+            <span>⚠️</span>
+            <div style={{flex:1,fontSize:"0.8rem",color:T.sandDark,fontWeight:600}}>Not signed in — items won't sync. <span style={{color:T.blue}}>Sign in →</span></div>
+          </div>
+        )}
 
         {/* View toggle */}
         <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.85rem"}}>
