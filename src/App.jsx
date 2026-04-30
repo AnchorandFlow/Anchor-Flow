@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
+import RippleTab from "./components/RippleTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
 import HomeScreen from "./components/HomeScreen"
@@ -1015,6 +1016,7 @@ function HomeFlow() {
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
   const [chatOpen,setChatOpen]         = useState(false);
+  React.useEffect(() => { const h = () => setChatOpen(true); window.addEventListener("af-open-chat", h); return () => window.removeEventListener("af-open-chat", h); }, []);
   const [moreDrawerOpen,setMoreDrawerOpen] = useState(false);
   const [newPersonName,setNewPersonName]   = useState("");
   const [syncing,setSyncing]           = useState(false);
@@ -5787,7 +5789,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings"].map(t=>{
+          {["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -5800,7 +5802,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="brain"    && <BrainTab/>}
                 {t==="burnout"  && <BurnoutTab/>}
                 {t==="settings" && <SettingsTab/>}
-                {t==="ai"       && <AIChatPanel onClose={()=>{}}/>}
+                {t==="ai" && <RippleTab/>}
               </div>
             );
           })}
@@ -6030,6 +6032,9 @@ function FlowWrapper({ onHome, onSignOut }) {
   ]
   React.useEffect(() => {
     window.dispatchEvent(new CustomEvent("af-set-tab", { detail: activeTab }))
+    if (activeTab === "ai") {
+    // Ripple tab handled by RippleTab component
+    }
   }, [activeTab])
   return (
     <div style={{ display: "flex", minHeight: "100dvh" }}>
