@@ -6025,7 +6025,6 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "brain",    label: "Brain"    },
     { id: "home",     label: "Home"     },
     { id: "ai",       label: "Ripple"   },
-    { id: "ai",       label: "Ripple"   },
     { id: "burnout",  label: "Survival" },
     { id: "settings", label: "Settings" },
   ]
