@@ -896,8 +896,9 @@ function HomeFlow() {
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
-  const [tab,setTab]                           = useState("anchor");
-  const visitedTabs                            = useRef(new Set(["anchor"]));
+  const [tab,setTab] = useState("home");
+  React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
+  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); }
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
@@ -6013,14 +6014,47 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 
 function FlowWrapper({ onHome, onSignOut }) {
+  const [activeTab, setActiveTab] = React.useState("home")
+  const NAV = [
+    { id: "home",     label: "Home"     },
+    { id: "anchor",   label: "Anchor"   },
+    { id: "brain",    label: "Brain"    },
+    { id: "calendar", label: "Calendar" },
+    { id: "meals",    label: "Meals"    },
+    { id: "shop",     label: "Shopping" },
+    { id: "weekly",   label: "Weekly"   },
+    { id: "burnout",  label: "Survival" },
+    { id: "settings", label: "Settings" },
+  ]
+  React.useEffect(() => {
+    window.dispatchEvent(new CustomEvent("af-set-tab", { detail: activeTab }))
+  }, [activeTab])
   return (
-    <div style={{ position: "relative" }}>
-      <div style={{ position: "fixed", top: "12px", left: "12px", zIndex: 9999 }}>
-        <button onClick={onHome} style={{ background: "rgba(26,39,68,0.85)", color: "rgba(250,248,244,0.8)", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: "20px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", backdropFilter: "blur(8px)" }}>
-          ← home
+    <div style={{ display: "flex", minHeight: "100dvh" }}>
+      <div style={{ width: "68px", background: "#1a2744", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 8px", gap: "2px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+        <button onClick={onHome} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: "8px", padding: "6px 0", width: "100%", display: "flex", justifyContent: "center" }}>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
+        <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
+        {NAV.map(item => (
+          <button key={item.id} onClick={() => setActiveTab(item.id)} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", transition: "all 0.15s" }}>
+            <span style={{ fontSize: "9px", color: activeTab === item.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+          </button>
+        ))}
+        <div style={{ marginTop: "auto" }}>
+          <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
+        </div>
       </div>
-      <HomeFlow/>
+      <div style={{ marginLeft: "68px", flex: 1, minWidth: 0 }}>
+        <style>{`
+          div[style*="bottom:0,left:0,right:0"],
+          div[style*="bottom: 0"][style*="left: 0"][style*="right: 0"],
+          div[style*="bottom:0"][style*="left:0"][style*="right:0"] {
+            display: none !important;
+          }
+        `}</style>
+        <HomeFlow />
+      </div>
     </div>
   )
 }
