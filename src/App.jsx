@@ -462,6 +462,21 @@ function HomeFlow() {
   // ── Auth & Household Sync State ─────────────────────────────────────────────
   const [authToken,  setAuthToken]  = useSaved("authToken",  null);
   const [authUser,   setAuthUser]   = useSaved("authUser",   null);
+  // Sync Supabase session into original app auth on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("af_authUser");
+      const storedToken = localStorage.getItem("af_authToken");
+      if (stored && !authUser) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.id) setAuthUser(parsed);
+      }
+      if (storedToken && !authToken) {
+        const parsedToken = JSON.parse(storedToken);
+        if (parsedToken) setAuthToken(parsedToken);
+      }
+    } catch(e) {}
+  }, []);
   const [householdId,setHouseholdId]= useSaved("householdId",null);
   const [syncStatus, setSyncStatus] = useState("idle"); // idle | syncing | synced | error
   const [lastSyncTime,setLastSyncTime] = useState(null);
@@ -2652,7 +2667,7 @@ Respond ONLY in valid JSON:
         )}
 
         {/* ── Not signed in warning ── */}
-        {!authUser&&(
+{false&&(
           <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.6rem",cursor:"pointer"}}>
             <span style={{fontSize:"1.1rem"}}>⚠️</span>
             <div style={{flex:1}}>
@@ -4187,7 +4202,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div>
         <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
-        {!authUser&&(
+{false&&(
           <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.65rem 0.9rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
             <span>⚠️</span>
             <div style={{flex:1,fontSize:"0.8rem",color:T.sandDark,fontWeight:600}}>Not signed in — items won't sync. <span style={{color:T.blue}}>Sign in →</span></div>
@@ -4539,7 +4554,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div>
         <SecHead emoji="🧠" title="Brain Dump" sub="Capture everything — sorted by where it happens"/>
-        {!authUser&&(
+{false&&(
           <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.65rem 0.9rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
             <span>⚠️</span>
             <div style={{flex:1,fontSize:"0.8rem",color:T.sandDark,fontWeight:600}}>Not signed in — items won't sync. <span style={{color:T.blue}}>Sign in →</span></div>
@@ -5021,7 +5036,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {syncStatus==="syncing"&&<span style={{fontSize:"0.72rem",color:T.sand,fontWeight:700}}>⟳ Syncing…</span>}
             {syncStatus==="error"&&<span style={{fontSize:"0.72rem",color:T.rose,fontWeight:700}}>⚠ Error</span>}
           </div>
-          {!authUser ? (
+{false ? (
             <div>
               <p style={{color:T.textMid,fontSize:"0.82rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Sign in to sync your household across multiple devices and share with your partner.</p>
               <button onClick={()=>setShowAuthModal(true)} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.8rem",fontSize:"0.9rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem",marginBottom:"0.5rem"})}>
