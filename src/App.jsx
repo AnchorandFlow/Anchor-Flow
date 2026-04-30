@@ -6046,7 +6046,10 @@ export default function App() {
     // Set displayName in localStorage so original app greeting works
     if (s?.user) {
       const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0]
-      try { localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName })) } catch(e) {}
+      try {
+        localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
+        if (s.access_token) localStorage.setItem("af_token", s.access_token)
+      } catch(e) {}
     }
   }} />
 
