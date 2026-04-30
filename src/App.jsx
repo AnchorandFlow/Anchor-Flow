@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
+import { supabase } from "./lib/supabase"
+import AuthScreen from "./components/AuthScreen"
+import HomeScreen from "./components/HomeScreen"
 
 // ── Startup data sanitizer — runs before React mounts ───────────────────────
 // Cleans any null entries from localStorage arrays so they never reach render
@@ -6009,10 +6012,52 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 }
 
 
-export default function App() {
+function FlowWrapper({ onHome, onSignOut }) {
   return (
-    <ErrorBoundary>
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "fixed", top: "12px", left: "12px", zIndex: 9999 }}>
+        <button onClick={onHome} style={{ background: "rgba(26,39,68,0.85)", color: "rgba(250,248,244,0.8)", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: "20px", padding: "6px 14px", fontSize: "12px", cursor: "pointer", fontFamily: "inherit", backdropFilter: "blur(8px)" }}>
+          ← home
+        </button>
+      </div>
       <HomeFlow/>
-    </ErrorBoundary>
-  );
+    </div>
+  )
+}
+
+export default function App() {
+  const [session, setSession] = React.useState(undefined)
+  const [mode, setMode] = React.useState(null)
+
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setSession(session))
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const signOut = () => { supabase.auth.signOut(); setSession(null); setMode(null) }
+
+  if (session === undefined) {
+    return <div style={{ minHeight: "100dvh", background: "#1a2744", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "serif", fontSize: "20px", color: "rgba(250,248,244,0.4)" }}>anchor & flow</div>
+  }
+
+  if (!session) return <AuthScreen onAuth={(s) => {
+    setSession(s)
+    // Set displayName in localStorage so original app greeting works
+    if (s?.user) {
+      const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0]
+      try { localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName })) } catch(e) {}
+    }
+  }} />
+
+  if (mode === "flow") return <FlowWrapper onHome={() => setMode(null)} onSignOut={signOut} />
+
+  return (
+    <HomeScreen
+      onAnchor={() => setMode("flow")}
+      onFlow={() => setMode("flow")}
+      session={session}
+      onSignOut={signOut}
+    />
+  )
 }
