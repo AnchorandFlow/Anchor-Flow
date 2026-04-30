@@ -898,7 +898,7 @@ function HomeFlow() {
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState("home");
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings"]));
+  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); }
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
@@ -5800,6 +5800,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="brain"    && <BrainTab/>}
                 {t==="burnout"  && <BurnoutTab/>}
                 {t==="settings" && <SettingsTab/>}
+                {t==="ai"       && <AIChatPanel onClose={()=>{}}/>}
               </div>
             );
           })}
@@ -6016,13 +6017,15 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 function FlowWrapper({ onHome, onSignOut }) {
   const [activeTab, setActiveTab] = React.useState("home")
   const NAV = [
-    { id: "home",     label: "Home"     },
     { id: "anchor",   label: "Anchor"   },
-    { id: "brain",    label: "Brain"    },
     { id: "calendar", label: "Calendar" },
     { id: "meals",    label: "Meals"    },
     { id: "shop",     label: "Shopping" },
     { id: "weekly",   label: "Weekly"   },
+    { id: "brain",    label: "Brain"    },
+    { id: "home",     label: "Home"     },
+    { id: "ai",       label: "Ripple"   },
+    { id: "ai",       label: "Ripple"   },
     { id: "burnout",  label: "Survival" },
     { id: "settings", label: "Settings" },
   ]
