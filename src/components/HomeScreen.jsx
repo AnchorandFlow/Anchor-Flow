@@ -28,7 +28,7 @@ export default function HomeScreen({ onAnchor, onFlow, session, onSignOut }) {
         anchor <em style={{ color: "#c8a97a", fontStyle: "normal" }}>&</em> flow
       </div>
 
-      <div style={{ ...fade(80), fontFamily: "var(--font-serif)", fontSize: "36px", fontWeight: 500, color: "#faf8f4", textAlign: "center", lineHeight: 1.12, letterSpacing: "0.01em", marginBottom: "12px", maxWidth: "480px" }}>
+      <div style={{ ...fade(80), fontFamily: "var(--font-serif)", fontSize: "38px", fontWeight: 500, color: "#faf8f4", textAlign: "center", lineHeight: 1.15, letterSpacing: "0.01em", marginBottom: "12px", maxWidth: "440px" }}>
         Anchor what matters.
         <br /><em style={{ color: "#c8a97a", fontStyle: "italic" }}>Flow</em> through your days.
       </div>
@@ -46,7 +46,7 @@ export default function HomeScreen({ onAnchor, onFlow, session, onSignOut }) {
       </div>
 
       <div
-        style={{ ...fade(240), width: "100%", maxWidth: "360px", background: hovered==="flow" ? "rgba(200,169,122,0.15)" : "rgba(200,169,122,0.10)", border: "1px solid "+(hovered==="flow" ? "rgba(200,169,122,0.38)" : "rgba(200,169,122,0.24)"), borderRadius: "18px", padding: "24px 24px 20px", cursor: "pointer", transition: "background 0.2s,border-color 0.2s,transform 0.22s", transform: hovered==="flow" ? "translateY(-2px)" : "translateY(0)" }}
+        style={{ ...fade(240), width: "100%", maxWidth: "360px", overflow: "hidden", background: hovered==="flow" ? "rgba(200,169,122,0.15)" : "rgba(200,169,122,0.10)", border: "1px solid "+(hovered==="flow" ? "rgba(200,169,122,0.38)" : "rgba(200,169,122,0.24)"), borderRadius: "18px", padding: "24px 24px 20px", cursor: "pointer", transition: "background 0.2s,border-color 0.2s,transform 0.22s", transform: hovered==="flow" ? "translateY(-2px)" : "translateY(0)" }}
         onClick={onFlow}
         onMouseEnter={() => setHovered("flow")}
         onMouseLeave={() => setHovered(null)}
@@ -61,7 +61,7 @@ export default function HomeScreen({ onAnchor, onFlow, session, onSignOut }) {
           </div>
         </div>
         <div style={{ fontSize: "14px", color: "rgba(200,169,122,0.82)", lineHeight: 1.6, marginBottom: "18px" }}>Get through today with clarity and calm.</div>
-        <div onClick={onFlow} style={{ width: "100%", padding: "13px 16px", background: "#b8904a", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", cursor: "pointer", marginBottom: "14px", boxShadow: "0 0 0 3px rgba(200,169,122,0.18)" }}>
+        <div onClick={onFlow} style={{ width: "100%", padding: "13px 16px", background: "#b8904a", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", cursor: "pointer", marginBottom: "14px", boxShadow: "0 0 0 3px rgba(200,169,122,0.18)", margin: "0 auto 14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
             {[6,11,5,9].map((h,i) => <span key={i} style={{ display: "inline-block", width: "3px", height: h+"px", borderRadius: "2px", background: "#1a2744", opacity: 0.4 }} />)}
           </div>

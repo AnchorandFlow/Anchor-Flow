@@ -630,7 +630,7 @@ function HomeFlow() {
       const displayName = (data.user?.user_metadata?.displayName) || email.split("@")[0];
 
       try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
-      try { localStorage.setItem("af_authUser", JSON.stringify({ id: userId, email, displayName })); } catch {}
+        localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
       try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
 
