@@ -147,15 +147,16 @@ export default function AnchorVault({ onClose }) {
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: 12, padding: "6px 0", width: "100%", display: "flex", justifyContent: "center" }}>
           <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 12, color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
+        <button onClick={onClose} style={{ background: "rgba(58,107,138,0.18)", border: "1px solid rgba(58,107,138,0.35)", borderRadius: 8, cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, marginBottom: 8 }}>
+          <span style={{ fontSize: 9, color: "#6ba3c4", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span>
+        </button>
         <div style={{ width: 32, height: "0.5px", background: "rgba(200,169,122,0.2)", marginBottom: 8 }} />
         {NAV.map(item => (
           <button key={item.id} onClick={() => !item.premium && setActiveSection(item.id)} title={item.label} style={{ background: activeSection === item.id ? "rgba(200,169,122,0.12)" : "none", border: "none", borderLeft: activeSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
             <span style={{ fontSize: 9, color: item.premium ? "rgba(200,169,122,0.2)" : activeSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.35)", fontWeight: activeSection === item.id ? 700 : 500, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label.split(" ")[0]}</span>
           </button>
         ))}
-        <div style={{ marginTop: "auto" }}>
-          <button onClick={onClose} style={{ background: "rgba(58,107,138,0.2)", border: "1px solid rgba(58,107,138,0.3)", borderRadius: 8, cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, marginBottom: 8 }}><span style={{ fontSize: 9, color: "#6ba3c4", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span><span style={{ fontSize: 8, color: "rgba(107,163,196,0.6)", fontFamily: "DM Sans,sans-serif" }}>back</span></button>
-        </div>
+        <div style={{ marginTop: "auto" }} />
       </div>
 
       {/* Content */}
