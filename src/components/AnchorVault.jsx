@@ -14,80 +14,177 @@ const PANTRY = ["Pasta","Rice","Olive oil","Canned tomatoes","Peanut butter","Oa
 const HOUSEHOLD = ["Paper towels","Dish soap","Laundry pods","Trash bags","Toilet paper","Hand soap","Sponges","Foil"]
 
 function InventorySection({ onAddToShopping }) {
-  const [items, setItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("af_inventory") || "null") } catch {}
-    return {
-      pantry: PANTRY.map(n => ({ name: n, stocked: true })),
-      household: HOUSEHOLD.map(n => ({ name: n, stocked: true })),
-    }
+  const DEFAULTS = {
+    pantry: { label: "Pantry", icon: "🥫", items: ["Pasta","Rice","Olive oil","Canned tomatoes","Peanut butter","Oats","Flour","Sugar","Coffee","Cereal","Bread","Honey"] },
+    household: { label: "Household", icon: "🧹", items: ["Paper towels","Dish soap","Laundry pods","Trash bags","Toilet paper","Hand soap","Sponges","Foil","Ziploc bags","Cleaning spray"] },
+    bathroom: { label: "Bathroom", icon: "🛁", items: ["Shampoo","Conditioner","Body wash","Toothpaste","Floss","Cotton rounds","Razors"] },
+    kids: { label: "Kids", icon: "🧸", items: ["Wipes","Diapers","Kids shampoo","Sunscreen","Band-aids","Kids vitamins"] },
+  }
+
+  const [cats, setCats] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("af_inv_cats") || "null")
+      if (saved) return saved
+    } catch(e) {}
+    const out = {}
+    Object.entries(DEFAULTS).forEach(([k, v]) => {
+      out[k] = { label: v.label, icon: v.icon, items: v.items.map(n => ({ name: n, stocked: true })) }
+    })
+    return out
   })
-  const [toast, setToast] = useState(null)
+
+  const [activeTab, setActiveTab] = React.useState("pantry")
+  const [editing, setEditing] = React.useState(null)
+  const [editVal, setEditVal] = React.useState("")
+  const [newItem, setNewItem] = React.useState("")
+  const [addingNew, setAddingNew] = React.useState(false)
+  const [toast, setToast] = React.useState(null)
 
   const save = (updated) => {
-    setItems(updated)
-    try { localStorage.setItem("af_inventory", JSON.stringify(updated)) } catch {}
+    setCats(updated)
+    try { localStorage.setItem("af_inv_cats", JSON.stringify(updated)) } catch(e) {}
   }
 
   const toggle = (cat, idx) => {
-    const updated = { ...items, [cat]: items[cat].map((x, i) => i === idx ? { ...x, stocked: !x.stocked } : x) }
-    const item = updated[cat][idx]
+    const updated = { ...cats, [cat]: { ...cats[cat], items: cats[cat].items.map((x, i) => i === idx ? { ...x, stocked: !x.stocked } : x) } }
+    const item = updated[cat].items[idx]
     if (!item.stocked) {
       onAddToShopping(item.name)
-      setToast(item.name + " added to shopping list")
-      setTimeout(() => setToast(null), 2500)
+      setToast(item.name + " added to shopping")
+      setTimeout(() => setToast(null), 2200)
     }
     save(updated)
   }
 
-  const lowPantry = items.pantry.filter(x => !x.stocked).length
-  const lowHH = items.household.filter(x => !x.stocked).length
+  const startEdit = (idx, name) => { setEditing(idx); setEditVal(name) }
+
+  const saveEdit = (cat, idx) => {
+    if (!editVal.trim()) return
+    const updated = { ...cats, [cat]: { ...cats[cat], items: cats[cat].items.map((x, i) => i === idx ? { ...x, name: editVal.trim() } : x) } }
+    save(updated); setEditing(null)
+  }
+
+  const removeItem = (cat, idx) => {
+    const updated = { ...cats, [cat]: { ...cats[cat], items: cats[cat].items.filter((_, i) => i !== idx) } }
+    save(updated)
+  }
+
+  const addItem = (cat) => {
+    if (!newItem.trim()) return
+    const updated = { ...cats, [cat]: { ...cats[cat], items: [...cats[cat].items, { name: newItem.trim(), stocked: true }] } }
+    save(updated); setNewItem(""); setAddingNew(false)
+  }
+
+  const resetCat = (cat) => {
+    if (!DEFAULTS[cat]) return
+    const updated = { ...cats, [cat]: { ...cats[cat], items: DEFAULTS[cat].items.map(n => ({ name: n, stocked: true })) } }
+    save(updated)
+  }
+
+  const cur = cats[activeTab]
+  const lowCount = cur ? cur.items.filter(x => !x.stocked).length : 0
+  const totalLow = Object.values(cats).reduce((a, c) => a + c.items.filter(x => !x.stocked).length, 0)
+
+  const T = { navy: "#1a2744", sand: "#c8a97a", sage: "#7a9e8e", warm: "#faf8f4", orange: "#c8834a" }
 
   return (
     <div>
-      <div style={{ background: "rgba(200,169,122,0.08)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "12px 16px", marginBottom: 20, display: "flex", gap: 16 }}>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: lowPantry > 0 ? "#c8834a" : "#7a9e8e", fontFamily: "Cormorant Garamond,serif" }}>{lowPantry}</div>
-          <div style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif" }}>pantry low</div>
+      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: T.warm, marginBottom: 3 }}>Inventory</div>
+      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginBottom: 16, lineHeight: 1.5 }}>Check what you are low on. Unchecked items go straight to your shopping list.</div>
+
+      {/* Signal bar */}
+      <div style={{ background: "rgba(200,169,122,0.08)", border: "1px solid rgba(200,169,122,0.18)", borderRadius: 10, padding: "10px 16px", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: totalLow > 0 ? T.orange : T.sage }}>{totalLow}</div>
+          <div style={{ fontSize: 9, color: "rgba(250,248,244,0.4)", textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "DM Sans,sans-serif" }}>items low</div>
         </div>
-        <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: lowHH > 0 ? "#c8834a" : "#7a9e8e", fontFamily: "Cormorant Garamond,serif" }}>{lowHH}</div>
-          <div style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif" }}>household low</div>
-        </div>
-        <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
-        <div style={{ flex: 2, display: "flex", alignItems: "center" }}>
-          <div style={{ fontSize: 12, color: "rgba(250,248,244,0.55)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.4 }}>
-            {lowPantry + lowHH === 0 ? "Everything stocked. Nice work." : `${lowPantry + lowHH} items low — tap to add to shopping`}
-          </div>
+        <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)" }} />
+        <div style={{ fontSize: 12, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.4, flex: 1 }}>
+          {totalLow === 0 ? "All stocked. Nice work." : totalLow + " items running low across all categories"}
         </div>
       </div>
 
-      {toast && (
-        <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", background: "#7a9e8e", color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 13, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap" }}>
-          {toast}
-        </div>
-      )}
-
-      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
-        Quick weekly reset — check what you are low on
+      {/* Category tabs */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 16 }}>
+        {Object.entries(cats).map(([key, cat]) => {
+          const low = cat.items.filter(x => !x.stocked).length
+          return (
+            <div key={key} onClick={() => { setActiveTab(key); setEditing(null); setAddingNew(false) }} style={{ padding: "7px 12px", fontSize: 11, cursor: "pointer", borderBottom: activeTab === key ? "2px solid " + T.sand : "2px solid transparent", color: activeTab === key ? T.sand : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", position: "relative", display: "flex", alignItems: "center", gap: 5 }}>
+              <span>{cat.icon}</span>
+              <span>{cat.label}</span>
+              {low > 0 && <span style={{ background: T.orange, color: "#fff", fontSize: 8, borderRadius: 8, padding: "1px 5px", fontWeight: 700 }}>{low}</span>}
+            </div>
+          )
+        })}
       </div>
 
-      {[["pantry", "Pantry"], ["household", "Household"]].map(([cat, label]) => (
-        <div key={cat} style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#c8a97a", fontFamily: "Cormorant Garamond,serif", marginBottom: 8, letterSpacing: "0.03em" }}>{label}</div>
-          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, overflow: "hidden" }}>
-            {items[cat].map((item, idx) => (
-              <div key={idx} onClick={() => toggle(cat, idx)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", transition: "background 0.15s" }}>
-                <div style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.25)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {item.stocked && <span style={{ color: "#fff", fontSize: 10 }}>ok</span>}
+      {/* Toast */}
+      {toast && <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", background: T.sage, color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 12, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap", pointerEvents: "none" }}>{toast}</div>}
+
+      {/* Item list */}
+      {cur && (
+        <div>
+          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, overflow: "hidden", marginBottom: 10 }}>
+            {cur.items.map((item, idx) => (
+              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>
+                {/* Checkbox */}
+                <div onClick={() => editing !== idx && toggle(activeTab, idx)} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (item.stocked ? T.sage : "rgba(255,255,255,0.2)"), background: item.stocked ? T.sage : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                  {item.stocked && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
                 </div>
-                <span style={{ fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.8)" : "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
-                {!item.stocked && <span style={{ marginLeft: "auto", fontSize: 10, color: "#c8834a", fontFamily: "DM Sans,sans-serif" }}>add to list</span>}
+
+                {/* Name or edit input */}
+                {editing === idx ? (
+                  <input
+                    value={editVal}
+                    onChange={e => setEditVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveEdit(activeTab, idx); if (e.key === "Escape") setEditing(null) }}
+                    autoFocus
+                    style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "4px 8px", color: T.warm, fontSize: 13, fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                  />
+                ) : (
+                  <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.8)" : "rgba(250,248,244,0.35)", textDecoration: item.stocked ? "none" : "line-through", fontFamily: "DM Sans,sans-serif" }}>{item.name}</span>
+                )}
+
+                {/* Actions */}
+                {editing === idx ? (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => saveEdit(activeTab, idx)} style={{ background: T.sage, border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 10, color: "#fff", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>save</button>
+                    <button onClick={() => setEditing(null)} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 10, color: "rgba(250,248,244,0.5)", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>cancel</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 6, opacity: 0, transition: "opacity .15s" }} className="item-actions">
+                    <button onClick={() => startEdit(idx, item.name)} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.3)", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
+                    <button onClick={() => removeItem(activeTab, idx)} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.25)", cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                  </div>
+                )}
+
+                {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: T.orange, fontFamily: "DM Sans,sans-serif", marginLeft: 4 }}>on list</span>}
               </div>
             ))}
           </div>
+
+          {/* Add item */}
+          {addingNew ? (
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input
+                value={newItem}
+                onChange={e => setNewItem(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") addItem(activeTab); if (e.key === "Escape") setAddingNew(false) }}
+                placeholder={"Add to " + cur.label + "..."}
+                autoFocus
+                style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.35)", borderRadius: 8, padding: "8px 12px", color: T.warm, fontSize: 13, fontFamily: "DM Sans,sans-serif", outline: "none" }}
+              />
+              <button onClick={() => addItem(activeTab)} style={{ background: T.sand, border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 500, color: T.navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>Add</button>
+              <button onClick={() => setAddingNew(false)} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>Cancel</button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setAddingNew(true)} style={{ flex: 1, background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.22)", borderRadius: 8, padding: "9px", fontSize: 12, color: T.sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>+ Add item</button>
+              <button onClick={() => resetCat(activeTab)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "9px 14px", fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>Reset defaults</button>
+            </div>
+          )}
         </div>
-      ))}
+      )}
     </div>
   )
 }
