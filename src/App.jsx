@@ -1031,6 +1031,17 @@ function HomeFlow() {
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
   const [chatOpen,setChatOpen]         = useState(false);
+  // Clean up any orphaned drag clones periodically
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      document.querySelectorAll('[style*="z-index:9999"][style*="position:fixed"]').forEach(el => {
+        if (el.style.pointerEvents === 'none' && el.getAttribute('data-drag-clone') !== null) {
+          el.remove();
+        }
+      });
+    }, 2000);
+    return () => clearInterval(cleanup);
+  }, []);
   React.useEffect(() => { const h = () => setChatOpen(true); window.addEventListener("af-open-chat", h); return () => window.removeEventListener("af-open-chat", h); }, []);
   const [moreDrawerOpen,setMoreDrawerOpen] = useState(false);
   const [newPersonName,setNewPersonName]   = useState("");
@@ -4075,6 +4086,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         const rect=el.getBoundingClientRect();
         const clone=el.cloneNode(true);
         clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;
+      clone.setAttribute("data-drag-clone", "1");
         document.body.appendChild(clone);
         ds.clone=clone;
       }
@@ -6001,6 +6013,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
       }
     }
     function onUp() {
+      document.querySelectorAll("[data-drag-clone]").forEach(el => el.remove());
       if (!ds.current.id) return;
       if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
       const fromId   = ds.current.id;
