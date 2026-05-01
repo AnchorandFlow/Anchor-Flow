@@ -108,15 +108,15 @@ function AnchorHome({ onNav, inventory }) {
         { id: "subs", label: "Subscriptions", desc: "Premium", premium: true, icon: "sub" },
         { id: "gifts", label: "Gifts & Birthdays", desc: "Premium", premium: true, icon: "gift" },
       ].map(item => (
-        <div key={item.id} onClick={() => !item.premium && onNav(item.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "rgba(255,255,255,0.04)", border: "1px solid " + (item.signal ? "rgba(200,131,74,0.35)" : "rgba(255,255,255,0.08)"), borderRadius: 12, marginBottom: 10, cursor: item.premium ? "default" : "pointer", transition: "background 0.15s" }}>
+        <div key={item.id} onClick={() => !item.premium && onNav(item.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid " + (item.signal ? "rgba(200,131,74,0.4)" : "rgba(255,255,255,0.12)"), borderRadius: 12, marginBottom: 10, cursor: item.premium ? "default" : "pointer", transition: "background 0.15s" }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: item.premium ? "rgba(255,255,255,0.04)" : "rgba(200,169,122,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <span style={{ fontSize: 14, opacity: item.premium ? 0.3 : 1 }}>
               {item.id === "inventory" ? "box" : item.id === "systems" ? "home" : item.id === "health" ? "heart" : item.id === "career" ? "doc" : item.id === "subs" ? "cal" : "gift"}
             </span>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: item.premium ? "rgba(250,248,244,0.3)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{item.label}</div>
-            <div style={{ fontSize: 11, color: item.signal ? "#c8834a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{item.desc}</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: item.premium ? "rgba(250,248,244,0.35)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{item.label}</div>
+            <div style={{ fontSize: 11, color: item.signal ? "#c8834a" : "rgba(250,248,244,0.55)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{item.desc}</div>
           </div>
           {item.premium && <span style={{ fontSize: 9, color: "rgba(200,169,122,0.5)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 10, padding: "2px 7px", fontFamily: "DM Sans,sans-serif" }}>Premium</span>}
           {!item.premium && <span style={{ fontSize: 14, color: "rgba(200,169,122,0.4)" }}>go</span>}
@@ -143,7 +143,7 @@ export default function AnchorVault({ onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex" }}>
       {/* Sidebar */}
-      <div style={{ width: 68, background: "#0f1a2e", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", borderRight: "1px solid rgba(200,169,122,0.15)" }}>
+      <div style={{ width: 68, background: "#162035", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", borderRight: "1px solid rgba(200,169,122,0.15)" }}>
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: 12, padding: "6px 0", width: "100%", display: "flex", justifyContent: "center" }}>
           <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 12, color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
@@ -154,12 +154,12 @@ export default function AnchorVault({ onClose }) {
           </button>
         ))}
         <div style={{ marginTop: "auto" }}>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: 11, fontFamily: "DM Sans,sans-serif" }}>back</button>
+          <button onClick={onClose} style={{ background: "rgba(58,107,138,0.2)", border: "1px solid rgba(58,107,138,0.3)", borderRadius: 8, cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, marginBottom: 8 }}><span style={{ fontSize: 9, color: "#6ba3c4", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span><span style={{ fontSize: 8, color: "rgba(107,163,196,0.6)", fontFamily: "DM Sans,sans-serif" }}>back</span></button>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, background: "#1a2744", overflowY: "auto", padding: "24px 20px" }}>
+      <div style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           {activeSection === "home" && <AnchorHome onNav={setActiveSection} inventory={inventory} />}
           {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
