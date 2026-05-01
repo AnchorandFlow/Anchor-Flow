@@ -6027,6 +6027,16 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup",   onUp);
       window.removeEventListener("pointercancel", onUp);
+      document.removeEventListener("visibilitychange", onVisChange);
+      document.removeEventListener("scroll", onVisChange);
+      // Also clean up on visibility change (tab switch, scroll cancel)
+      function onVisChange() {
+        if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
+        ds.current.id = null; ds.current.dragOverId = null;
+        setDraggingId(null); setDragOverId(null);
+      }
+      document.addEventListener("visibilitychange", onVisChange);
+      document.addEventListener("scroll", onVisChange, { passive: true });
       // Safety: remove any orphaned clone on unmount
       if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
     };
