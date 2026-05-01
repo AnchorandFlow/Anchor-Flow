@@ -220,9 +220,9 @@ const THEMES = {
 };
 
 const FLOW_MODES_FN = T => ({
-  Smooth:   {color:T.sage,  bg:T.sagePale, emoji:"🌊", desc:"Full capacity. System on."},
-  Busy:     {color:T.sand,  bg:T.sandPale, emoji:"⚡", desc:"Lighter load. Focus on what matters."},
-  Survival: {color:T.rose,  bg:T.rosePale, emoji:"🛟", desc:"Just today. You are doing enough."},
+  Smooth:   {color:T.sage,  bg:T.sagePale, emoji:"🌊", desc:"Balanced, realistic day."},
+  Busy:     {color:T.sand,  bg:T.sandPale, emoji:"⚡", desc:"Fewer tasks, more focus."},
+  Survival: {color:T.rose,  bg:T.rosePale, emoji:"🛟", desc:"Only what truly matters."},
 });
 
 const DEFAULT_RHYTHM = {
@@ -2840,6 +2840,13 @@ Respond ONLY in valid JSON:
                       <button onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:false}:x))} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.65rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>undo</button>
                     </div>
                   ))}
+                </div>
+              )}
+              {top3Raw.length > 0 && top3Raw.every(t=>t.done) && (
+                <div style={{textAlign:"center",padding:"0.75rem",background:"rgba(122,158,142,0.1)",borderRadius:"0.75rem",marginTop:"0.5rem",marginBottom:"0.25rem"}}>
+                  <div style={{fontSize:"1.2rem",marginBottom:"0.2rem"}}>🌿</div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",color:"#4d7a6a",fontWeight:600}}>You did enough today.</div>
+                  <div style={{fontSize:"0.75rem",color:"#7a9e8e",marginTop:"0.15rem"}}>That is a win.</div>
                 </div>
               )}
               {addingTask&&(
