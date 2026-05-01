@@ -6132,6 +6132,11 @@ export default function App() {
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    if (session?.user) {
+      const u = session.user
+      const dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0]
+      try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
+    }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setSession(session))
     return () => subscription.unsubscribe()
   }, [])
