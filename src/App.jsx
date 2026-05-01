@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
 import RippleTab from "./components/RippleTab";
+import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
@@ -6065,14 +6066,15 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 function FlowWrapper({ onHome, onSignOut }) {
   const [activeTab, setActiveTab] = React.useState("home")
+  const [showAnchor, setShowAnchor] = React.useState(false)
   const NAV = [
+    { id: "home",     label: "Today"    },
     { id: "anchor",   label: "Anchor"   },
+    { id: "brain",    label: "Brain"    },
     { id: "calendar", label: "Calendar" },
     { id: "meals",    label: "Meals"    },
     { id: "shop",     label: "Shopping" },
     { id: "weekly",   label: "Weekly"   },
-    { id: "brain",    label: "Brain"    },
-    { id: "home",     label: "Home"     },
     { id: "ai",       label: "Ripple"   },
     { id: "burnout",  label: "Survival" },
     { id: "settings", label: "Settings" },
@@ -6089,6 +6091,13 @@ function FlowWrapper({ onHome, onSignOut }) {
         <button onClick={onHome} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: "8px", padding: "6px 0", width: "100%", display: "flex", justifyContent: "center" }}>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
+        {/* Anchor vault button */}
+        <button onClick={() => setShowAnchor(true)} title="Anchor Vault" style={{ background: "rgba(200,169,122,0.15)", border: "1px solid rgba(200,169,122,0.28)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+          <span style={{ fontSize: "15px" }}>anchor</span>
+          <span style={{ fontSize: "7px", color: "#c8a97a", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Vault</span>
+        </button>
+        <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.1)", margin: "6px 0 4px" }} />
+        <div style={{ fontSize: "7px", color: "rgba(250,248,244,0.22)", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "3px" }}>Flow</div>
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {NAV.map(item => (
           <button key={item.id} onClick={() => setActiveTab(item.id)} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", transition: "all 0.15s" }}>
@@ -6110,6 +6119,7 @@ function FlowWrapper({ onHome, onSignOut }) {
             display: none !important;
           }
         `}</style>
+        {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} />}
         <HomeFlow />
       </div>
     </div>
