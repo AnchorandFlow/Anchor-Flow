@@ -93,39 +93,78 @@ function InventorySection({ onAddToShopping }) {
 }
 
 function AnchorHome({ onNav, inventory }) {
-  const lowCount = inventory ? (inventory.pantry?.filter(x => !x.stocked).length || 0) + (inventory.household?.filter(x => !x.stocked).length || 0) : 0
+  const lowPantry = inventory ? inventory.pantry.filter(x => !x.stocked).length : 0
+  const lowHH = inventory ? inventory.household.filter(x => !x.stocked).length : 0
+  const lowTotal = lowPantry + lowHH
+  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
 
   return (
     <div>
-      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Your Anchor</div>
-      <div style={{ fontSize: 13, color: "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", marginBottom: 24, lineHeight: 1.5 }}>The foundation. Everything your home runs on.</div>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 2 }}>Your Anchor — {today}</div>
+        <div style={{ fontSize: 11, color: "rgba(250,248,244,0.38)", fontFamily: "DM Sans,sans-serif" }}>Here is what your home is telling you right now.</div>
+      </div>
 
+      {/* Stat row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 18 }}>
+        {[
+          { num: lowTotal, lbl: "items low", alert: lowTotal > 0 },
+          { num: 1, lbl: "expiring soon", alert: true },
+          { num: 3, lbl: "birthdays", alert: true },
+          { num: 0, lbl: "overdue", alert: false },
+        ].map((s, i) => (
+          <div key={i} style={{ background: s.alert ? "rgba(200,131,74,0.06)" : "rgba(122,158,142,0.06)", border: "1px solid " + (s.alert ? "rgba(200,131,74,0.28)" : "rgba(122,158,142,0.25)"), borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: s.alert ? "#c8834a" : "#7a9e8e", lineHeight: 1 }}>{s.num}</div>
+            <div style={{ fontSize: 9, color: "rgba(250,248,244,0.4)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.05em", fontFamily: "DM Sans,sans-serif" }}>{s.lbl}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Inventory feed */}
+      <div style={{ fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>
+        <span style={{ background: "rgba(200,169,122,0.12)", color: "#c8a97a", fontSize: 8, padding: "1px 7px", borderRadius: 10, fontWeight: 700, letterSpacing: "0.04em" }}>Inventory</span>
+      </div>
+      <div onClick={() => onNav("inventory")} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "11px 14px", background: lowTotal > 0 ? "rgba(200,131,74,0.1)" : "rgba(255,255,255,0.04)", border: "1px solid " + (lowTotal > 0 ? "rgba(200,131,74,0.25)" : "rgba(255,255,255,0.08)"), borderRadius: 10, marginBottom: 16, cursor: "pointer" }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(200,131,74,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 14 }}>📦</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{lowTotal > 0 ? lowTotal + " items running low" : "Everything stocked"}</div>
+          {lowTotal > 0 && <div style={{ fontSize: 11, color: "#c8834a", marginTop: 2 }}>Tap to add to your shopping list</div>}
+          {lowTotal === 0 && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.42)", marginTop: 2 }}>Nice work — pantry and household stocked</div>}
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(200,169,122,0.35)" }}>→</div>
+      </div>
+
+      {/* Premium feeds */}
       {[
-        { id: "inventory", label: "Inventory", desc: lowCount > 0 ? lowCount + " items running low" : "Everything stocked", signal: lowCount > 0, icon: "inv" },
-        { id: "systems", label: "Home Systems", desc: "Rhythms that keep life running", signal: false, icon: "sys" },
-        { id: "health", label: "Health Records", desc: "Premium", premium: true, icon: "hlth" },
-        { id: "career", label: "Career & Docs", desc: "Premium", premium: true, icon: "car" },
-        { id: "subs", label: "Subscriptions", desc: "Premium", premium: true, icon: "sub" },
-        { id: "gifts", label: "Gifts & Birthdays", desc: "Premium", premium: true, icon: "gift" },
-      ].map(item => (
-        <div key={item.id} onClick={() => !item.premium && onNav(item.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid " + (item.signal ? "rgba(200,131,74,0.4)" : "rgba(255,255,255,0.12)"), borderRadius: 12, marginBottom: 10, cursor: item.premium ? "default" : "pointer", transition: "background 0.15s" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: item.premium ? "rgba(255,255,255,0.04)" : "rgba(200,169,122,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <span style={{ fontSize: 14, opacity: item.premium ? 0.3 : 1 }}>
-              {item.id === "inventory" ? "box" : item.id === "systems" ? "home" : item.id === "health" ? "heart" : item.id === "career" ? "doc" : item.id === "subs" ? "cal" : "gift"}
-            </span>
+        { src: "Gifts & Birthdays", srcColor: "#c8834a", srcBg: "rgba(200,131,74,0.12)", icon: "🎂", title: "Mom's birthday in 6 days", sub: "May 7 — no gift recorded yet", badge: "Act now", badgeColor: "#c8834a", badgeBg: "rgba(200,131,74,0.18)" },
+        { src: "Career & Docs", srcColor: "#7a9e8e", srcBg: "rgba(122,158,142,0.15)", icon: "📋", title: "Driver's license expires in 47 days", sub: "June 17 — schedule renewal", badge: "47 days", badgeColor: "#6ba3c4", badgeBg: "rgba(58,107,138,0.15)" },
+        { src: "Health", srcColor: "#6ba3c4", srcBg: "rgba(58,107,138,0.15)", icon: "🩺", title: "Annual checkup — no date set", sub: "Last visit was 14 months ago", badge: "Overdue", badgeColor: "#6ba3c4", badgeBg: "rgba(58,107,138,0.15)" },
+      ].map((item, i) => (
+        <div key={i} style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 9, marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ background: item.srcBg, color: item.srcColor, fontSize: 8, padding: "1px 7px", borderRadius: 10, fontWeight: 700, letterSpacing: "0.04em", fontFamily: "DM Sans,sans-serif" }}>{item.src}</span>
+            <span style={{ background: "rgba(255,255,255,0.06)", color: "rgba(250,248,244,0.25)", fontSize: 8, padding: "1px 7px", borderRadius: 10, fontFamily: "DM Sans,sans-serif" }}>Premium</span>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: item.premium ? "rgba(250,248,244,0.35)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{item.label}</div>
-            <div style={{ fontSize: 11, color: item.signal ? "#c8834a" : "rgba(250,248,244,0.55)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{item.desc}</div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "11px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, opacity: 0.75 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 14 }}>{item.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif" }}>{item.title}</div>
+              <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", marginTop: 2 }}>{item.sub}</div>
+              <div style={{ marginTop: 5 }}><span style={{ fontSize: 9, padding: "2px 7px", borderRadius: 10, fontWeight: 600, background: item.badgeBg, color: item.badgeColor, fontFamily: "DM Sans,sans-serif", opacity: 0.6 }}>{item.badge}</span></div>
+            </div>
+            <span style={{ fontSize: 9, color: "rgba(250,248,244,0.2)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "2px 8px", fontFamily: "DM Sans,sans-serif", alignSelf: "center" }}>Premium</span>
           </div>
-          {item.premium && <span style={{ fontSize: 9, color: "rgba(200,169,122,0.5)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 10, padding: "2px 7px", fontFamily: "DM Sans,sans-serif" }}>Premium</span>}
-          {!item.premium && <span style={{ fontSize: 14, color: "rgba(200,169,122,0.4)" }}>go</span>}
         </div>
       ))}
+
+      {/* Upgrade strip */}
+      <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", lineHeight: 1.5, flex: 1, fontStyle: "italic", fontFamily: "DM Sans,sans-serif" }}>"You have a license expiring, a birthday in 6 days, and a checkup overdue — and you didn't have to remember any of it."</div>
+        <button style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "8px 14px", fontSize: 11, fontWeight: 500, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", whiteSpace: "nowrap" }}>Unlock full vault</button>
+      </div>
     </div>
   )
 }
-
 export default function AnchorVault({ onClose }) {
   const [activeSection, setActiveSection] = useState("home")
   const [inventory, setInventory] = useState(() => {
