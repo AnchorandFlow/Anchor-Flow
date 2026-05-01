@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
 import RippleTab from "./components/RippleTab";
+import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
 import HomeScreen from "./components/HomeScreen"
@@ -3488,7 +3489,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setRescueLoading(false);
     }
 
-    const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"grocery",label:"Grocery",emoji:"🛒"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
+    const subTabs=[{id:"recipes",label:"Recipes",emoji:"📖"},{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"grocery",label:"Grocery",emoji:"🛒"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
 
     return (
       <div>
@@ -3521,6 +3522,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           ))}
         </div>
 
+        {mealSubTab==="recipes"&&<RecipesTab onAddToShopping={(ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery",category:"grocery"}])}/>}
         {mealSubTab==="week"&&(
           <div>
             <div style={{...card({padding:"0.85rem 1rem",background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.85rem"})}}>
