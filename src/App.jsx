@@ -6097,11 +6097,11 @@ function FlowWrapper({ onHome, onSignOut }) {
           <span style={{ fontSize: "7px", color: "#c8a97a", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Vault</span>
         </button>
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.1)", margin: "6px 0 4px" }} />
-        <div style={{ fontSize: "7px", color: "rgba(250,248,244,0.22)", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "3px" }}>Flow</div>
+        <div style={{ fontSize: "8px", color: "rgba(107,163,196,0.6)", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "4px", fontWeight: 600 }}>Flow</div>
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {NAV.map(item => (
           <button key={item.id} onClick={() => setActiveTab(item.id)} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", transition: "all 0.15s" }}>
-            <span style={{ fontSize: "9px", color: activeTab === item.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+            <span style={{ fontSize: "9px", color: activeTab === item.id ? "#6ba3c4" : "rgba(250,248,244,0.5)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
           </button>
         ))}
         <div style={{ marginTop: "auto" }}>
