@@ -5793,8 +5793,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <AnchorLogo size={20} color="#fff"/>
               </button>
             </div>
-            {authUser&&(
-              <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:syncStatus==="synced"?T.sagePale:syncStatus==="syncing"?T.sandPale:T.bgAlt,border:`1.5px solid ${syncStatus==="synced"?T.sage+"50":syncStatus==="syncing"?T.sand+"50":T.borderSoft}`,borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer"}} onClick={()=>setShowHouseholdModal(true)}>
+            {false&&(
+              <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:syncStatus==="synced"?T.sagePale:syncStatus==="syncing"?T.sandPale:T.bgAlt,border:`1.5px solid ${syncStatus==="synced"?T.sage+"50":syncStatus==="syncing"?T.sand+"50":T.borderSoft}`,borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",display:"none"}} onClick={()=>setShowHouseholdModal(true)}>
                 <span style={{fontSize:"0.65rem"}}>{syncStatus==="synced"?"✓":syncStatus==="syncing"?"⟳":"⚠"}</span>
                 <span style={{fontSize:"0.65rem",fontWeight:700,color:syncStatus==="synced"?T.sage:syncStatus==="syncing"?T.sand:T.textSoft}}>Sync</span>
               </div>
@@ -5807,7 +5807,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
-              <div key={t} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
+              <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
                 {t==="anchor"   && <AnchorTab/>}
                 {t==="calendar" && <CalendarTab/>}
                 {t==="weekly"   && <WeeklyTab/>}
@@ -6070,6 +6070,9 @@ function FlowWrapper({ onHome, onSignOut }) {
       <div style={{ marginLeft: "68px", flex: 1, minWidth: 0 }}>
         <style>{`
           div[style*="bottom:0,left:0,right:0"],
+          div[style*="position:sticky"][style*="top:0"],
+          div[style*="borderBottom"][style*="sticky"],
+          div[style*="topBg"],
           div[style*="bottom: 0"][style*="left: 0"][style*="right: 0"],
           div[style*="bottom:0"][style*="left:0"][style*="right:0"] {
             display: none !important;

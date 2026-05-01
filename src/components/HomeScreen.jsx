@@ -61,6 +61,7 @@ export default function HomeScreen({ onAnchor, onFlow, session, onSignOut }) {
           </div>
         </div>
         <div style={{ fontSize: "14px", color: "rgba(200,169,122,0.82)", lineHeight: 1.6, marginBottom: "18px" }}>Get through today with clarity and calm.</div>
+        <div style={{ fontSize: "12px", color: "rgba(250,248,244,0.65)", textAlign: "center", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>In under a minute, you will know exactly what to focus on today.</div>
         <div onClick={onFlow} style={{ width: "100%", padding: "13px 16px", background: "#b8904a", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", cursor: "pointer", marginBottom: "14px", boxShadow: "0 0 0 3px rgba(200,169,122,0.18)", margin: "0 auto 14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
             {[6,11,5,9].map((h,i) => <span key={i} style={{ display: "inline-block", width: "3px", height: h+"px", borderRadius: "2px", background: "#1a2744", opacity: 0.4 }} />)}
