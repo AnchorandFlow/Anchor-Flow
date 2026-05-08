@@ -6068,7 +6068,7 @@ function FlowWrapper({ onHome, onSignOut }) {
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {showAnchor ? (
           VAULT_NAV.map(item => (
-            <button key={item.id} onClick={() => !item.premium && setVaultSection(item.id)} title={item.label} style={{ background: vaultSection === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: vaultSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
+            <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: vaultSection === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: vaultSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
               <span style={{ fontSize: "14px", lineHeight: 1, opacity: item.premium ? 0.25 : 1 }}>{item.emoji}</span>
               <span style={{ fontSize: "7px", color: item.premium ? "rgba(200,169,122,0.2)" : vaultSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: vaultSection === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
             </button>
