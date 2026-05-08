@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Anchor & Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #1a2744; --coastal: #3a6b8a; --coastal-light: #5a8fa8;
+  --sand: #c8a97a; --sand-light: #e8d5b0; --sand-pale: #f5ede0;
+  --warm-white: #faf8f4; --cream: #f0ead8;
+  --text-dark: #1a2744; --text-body: #3d4a5c; --text-muted: #7a8799;
+  --border: rgba(26,39,68,0.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'DM Sans', sans-serif; background: var(--warm-white); color: var(--text-body); font-size: 16px; line-height: 1.7; }
+nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(250,248,244,0.93); backdrop-filter: blur(14px); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 64px; }
+.nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 500; color: var(--navy); letter-spacing: 0.04em; text-decoration: none; }
+.nav-logo span { color: var(--coastal); }
+.nav-cta { background: var(--navy); color: var(--sand-light); border: none; padding: 0.5rem 1.25rem; border-radius: 100px; font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-block; }
+.page-header { background: var(--navy); padding: 7rem 2rem 4rem; text-align: center; }
+.page-header .eyebrow { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sand); margin-bottom: 1rem; display: block; }
+.page-header h1 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 400; color: var(--warm-white); margin-bottom: 1rem; }
+.page-header p { font-size: 0.93rem; color: rgba(245,237,224,0.52); font-weight: 300; max-width: 480px; margin: 0 auto; }
+.content { max-width: 720px; margin: 0 auto; padding: 4rem 2rem 6rem; }
+.content h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 500; color: var(--navy); margin: 2.5rem 0 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+.content h2:first-child { margin-top: 0; }
+.content p { margin-bottom: 1rem; color: var(--text-body); font-size: 0.97rem; font-weight: 300; line-height: 1.85; }
+.content ul { margin: 0.5rem 0 1rem 1.25rem; }
+.content ul li { margin-bottom: 0.5rem; font-size: 0.97rem; font-weight: 300; color: var(--text-body); line-height: 1.7; }
+.content strong { color: var(--text-dark); font-weight: 500; }
+.content a { color: var(--coastal); text-decoration: none; }
+.content a:hover { text-decoration: underline; }
+.callout { background: var(--sand-pale); border: 1px solid var(--sand-light); border-radius: 12px; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+.callout p { margin: 0; font-size: 0.93rem; }
+footer { background: var(--navy); padding: 2rem; text-align: center; }
+footer p { font-size: 0.82rem; color: rgba(245,237,224,0.35); }
+footer a { color: var(--sand); text-decoration: none; }
+@media (max-width: 600px) { .content { padding: 2.5rem 1.25rem 4rem; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/home" class="nav-logo">Anchor <span>&</span> Flow</a>
+  <a href="https://anchorandflowapp.com" class="nav-cta">Open app →</a>
+</nav>
+
+<div class="page-header">
+  <span class="eyebrow">Legal</span>
+  <h1>Privacy Policy</h1>
+  <p>Last updated: May 8, 2026 &nbsp;·&nbsp; Effective immediately</p>
+</div>
+
+<div class="content">
+
+  <div class="callout">
+    <p><strong>The short version:</strong> Anchor & Flow stores your household data to power the app. We don't sell your data, show you ads, or share it with third parties for marketing. Your vault data is encrypted. You can delete everything anytime.</p>
+  </div>
+
+  <h2>1. Who we are</h2>
+  <p>Anchor & Flow is a family home management application operated by Anchor & Flow LLC ("we," "us," or "our"). We can be reached at <a href="mailto:support@anchorandflowapp.com">support@anchorandflowapp.com</a>.</p>
+
+  <h2>2. What data we collect</h2>
+  <p>We collect only what's necessary to run the app:</p>
+  <ul>
+    <li><strong>Account information</strong> — your email address and display name, used to create and identify your account.</li>
+    <li><strong>Household data</strong> — tasks, brain dump items, meals, shopping lists, calendar events, and other content you enter into the app. This is stored in our database (Supabase) so it syncs across your devices.</li>
+    <li><strong>Vault data</strong> — inventory, gift tracking, pet records, celebrations, and other Anchor Vault content you choose to save.</li>
+    <li><strong>Usage data</strong> — basic technical logs such as error reports and feature usage, used to improve the app. We do not track individual user behavior for advertising.</li>
+    <li><strong>Device information</strong> — browser type and version, used to ensure compatibility.</li>
+  </ul>
+  <p>We do <strong>not</strong> collect your location, payment card details (handled by Stripe), or any data from third-party sources.</p>
+
+  <h2>3. How we use your data</h2>
+  <ul>
+    <li>To provide, maintain, and improve the Anchor & Flow service</li>
+    <li>To sync your data across your household's devices</li>
+    <li>To power AI features (Ripple) — your data is sent to Anthropic's API to generate suggestions. See Section 6.</li>
+    <li>To send you product updates and notifications you've opted into</li>
+    <li>To respond to support requests</li>
+    <li>To process subscription payments via Stripe</li>
+  </ul>
+
+  <h2>4. Data storage and security</h2>
+  <p>Your household data is stored on Supabase infrastructure, hosted in the United States. We use row-level security policies to ensure your data is only accessible to your account.</p>
+  <p>Family Vault sensitive data is encrypted client-side using AES-GCM encryption before being stored. This means even we cannot read your encrypted vault contents.</p>
+  <p>We use HTTPS for all data in transit. While we take reasonable precautions, no system is 100% secure — please use a strong password.</p>
+
+  <h2>5. Data sharing</h2>
+  <p>We do not sell, rent, or trade your personal data. We share data only with:</p>
+  <ul>
+    <li><strong>Supabase</strong> — our database and authentication provider. <a href="https://supabase.com/privacy" target="_blank">Their privacy policy →</a></li>
+    <li><strong>Anthropic</strong> — to power Ripple AI features. Your household context is sent to generate suggestions. Anthropic does not use your data to train models via the API. <a href="https://www.anthropic.com/privacy" target="_blank">Their privacy policy →</a></li>
+    <li><strong>Stripe</strong> — to process subscription payments. We never see your full card number. <a href="https://stripe.com/privacy" target="_blank">Their privacy policy →</a></li>
+    <li><strong>Vercel</strong> — our hosting provider. <a href="https://vercel.com/legal/privacy-policy" target="_blank">Their privacy policy →</a></li>
+  </ul>
+  <p>We may disclose data if required by law, court order, or to protect the safety of our users.</p>
+
+  <h2>6. AI features (Ripple)</h2>
+  <p>Ripple AI generates daily briefings, suggestions, and insights by sending relevant household data — such as your task list, calendar events, meal plan, and brain dump — to Anthropic's Claude API. This data is used solely to generate your response and is not retained by Anthropic for training purposes when accessed via their API.</p>
+  <p>You can disable AI features at any time in Settings.</p>
+
+  <h2>7. Children's privacy (COPPA)</h2>
+  <p>Anchor & Flow is designed for adults managing a household. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided us with personal information, please contact us at <a href="mailto:support@anchorandflowapp.com">support@anchorandflowapp.com</a> and we will delete it promptly.</p>
+  <p>Family members under 13 may be referenced within a parent or guardian's account (for example, in meal planning or household tasks), but they do not create their own accounts.</p>
+
+  <h2>8. Your rights and choices</h2>
+  <ul>
+    <li><strong>Access</strong> — you can view all your data within the app at any time.</li>
+    <li><strong>Correction</strong> — you can edit or update your data directly in the app.</li>
+    <li><strong>Deletion</strong> — you can delete your account and all associated data by contacting us at <a href="mailto:support@anchorandflowapp.com">support@anchorandflowapp.com</a>. We will complete deletion within 30 days.</li>
+    <li><strong>Data portability</strong> — contact us to request an export of your data.</li>
+    <li><strong>Email opt-out</strong> — all marketing emails include an unsubscribe link.</li>
+  </ul>
+
+  <h2>9. Cookies and local storage</h2>
+  <p>We use browser localStorage to store your session, preferences, and cached household data for offline use. We do not use third-party tracking cookies or advertising cookies. If you use the landing page at anchorandflowapp.com, basic analytics may be collected by Vercel.</p>
+
+  <h2>10. Subscriptions and billing</h2>
+  <p>Subscription payments are processed by Stripe. We store only your subscription status (active, cancelled, past due) and Stripe customer ID — not your payment details. See our <a href="/terms">Terms of Service</a> for cancellation and refund terms.</p>
+
+  <h2>11. Changes to this policy</h2>
+  <p>We may update this Privacy Policy from time to time. We'll notify you of material changes by email or by posting a notice in the app. Continued use of Anchor & Flow after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>12. Contact us</h2>
+  <p>Questions about this policy? Reach us at <a href="mailto:support@anchorandflowapp.com">support@anchorandflowapp.com</a>.</p>
+  <p>Anchor & Flow LLC<br>Colorado Springs, Colorado</p>
+
+</div>
+
+<footer>
+  <p><a href="/home">Home</a> &nbsp;·&nbsp; <a href="/privacy">Privacy Policy</a> &nbsp;·&nbsp; <a href="/terms">Terms of Service</a> &nbsp;·&nbsp; <a href="mailto:support@anchorandflowapp.com">Contact</a></p>
+  <p style="margin-top:0.5rem;">© 2026 Anchor & Flow LLC. All rights reserved.</p>
+</footer>
+
+</body>
+</html>

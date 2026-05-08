@@ -89,6 +89,7 @@ export default function AuthScreen({ onAuth }) {
             <button onClick={async () => { if (!email) { setError("Enter your email first."); return } await supabase.auth.resetPasswordForEmail(email.trim()); alert("Check your email for a reset link.") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.6)", fontSize: "12px", cursor: "pointer", fontFamily: "var(--font-sans)" }}>Forgot password?</button>
           </div>
         )}
+        <button onClick={handleSubmit} disabled={loading} style={{ width: "100%", padding: "13px", background: "#c8a97a", border: "none", borderRadius: "10px", fontSize: "14px", fontWeight: 600, color: "#1a2744", cursor: "pointer", fontFamily: "var(--font-sans)", marginBottom: "10px", opacity: loading ? 0.7 : 1 }}>{loading ? "Please wait..." : mode === "signup" ? "Create account" : "Sign in"}</button>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "18px 0" }}>
           <div style={{ flex: 1, height: "0.5px", background: "rgba(255,255,255,0.1)" }} />
           <span style={{ fontSize: "11px", color: "rgba(250,248,244,0.3)", letterSpacing: "0.06em" }}>or</span>

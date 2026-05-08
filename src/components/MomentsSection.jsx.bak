@@ -1,0 +1,240 @@
+import { useState } from "react"
+
+const B = {
+  navy: "#1a2744", coastal: "#3a6b8a", sage: "#7a9e8e", sand: "#c8a97a",
+  warm: "#faf8f4", white: "#ffffff", border: "rgba(26,39,68,0.12)",
+  muted: "#7a8494", soft: "#f0ede8", rose: "#c97a7a", lavender: "#8878b8",
+}
+
+const inp = (extra={}) => ({ border:"1.5px solid "+B.border, borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"DM Sans,sans-serif", width:"100%", boxSizing:"border-box", background:B.white, ...extra })
+
+const uid = () => Math.random().toString(36).slice(2)
+
+const PACKING_TEMPLATES = {
+  "Beach Trip": ["Sunscreen","Swimsuit","Beach towel","Flip flops","Sunglasses","Hat","Water bottle","Snacks","Book","Camera"],
+  "Business Trip": ["Laptop + charger","Dress clothes","Toiletries","Business cards","Notebook","Phone charger","Headphones"],
+  "Family Road Trip": ["Snacks","Water bottles","Car games","First aid kit","Phone charger","Maps/GPS","Change of clothes","Pillows","Blankets"],
+  "Weekend Getaway": ["Clothes (2-3 days)","Toiletries","Phone charger","Medications","Cash","Snacks","Camera"],
+}
+
+function MomentCard({ moment, onUpdate, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState(moment.type === "travel" ? "flights" : "guests")
+  const [newGuest, setNewGuest] = useState("")
+  const [newFood, setNewFood] = useState("")
+  const [newShop, setNewShop] = useState("")
+  const [newNote, setNewNote] = useState("")
+  const [newPack, setNewPack] = useState("")
+  const [newItinDay, setNewItinDay] = useState("")
+  const [newItinTime, setNewItinTime] = useState("")
+  const [newItinItem, setNewItinItem] = useState("")
+  const [showTemplates, setShowTemplates] = useState(false)
+
+  const update = (changes) => onUpdate({ ...moment, ...changes })
+
+  const tabs = moment.type === "party"
+    ? ["guests","food","shopping","notes"]
+    : ["flights","hotels","packing","itinerary"]
+
+  const tabEmoji = { guests:"👥", food:"🍽️", shopping:"🛒", notes:"📋", flights:"✈️", hotels:"🏨", packing:"🧳", itinerary:"📅" }
+
+  const daysUntil = moment.date ? Math.ceil((new Date(moment.date+"T00:00:00") - new Date()) / (1000*60*60*24)) : null
+
+  return (
+    <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:14, marginBottom:12, overflow:"hidden" }}>
+      <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px", cursor:"pointer" }}>
+        <span style={{ fontSize:20 }}>{moment.type==="party"?"🎉":"✈️"}</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:15, fontWeight:700, color:B.navy }}>{moment.name||"Unnamed Moment"}</div>
+          <div style={{ display:"flex", gap:8, marginTop:3 }}>
+            {moment.date && <span style={{ fontSize:11, color:B.muted }}>{new Date(moment.date+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>}
+            {daysUntil !== null && daysUntil >= 0 && <span style={{ fontSize:11, color:daysUntil<=7?B.rose:B.coastal, fontWeight:700 }}>{daysUntil===0?"Today!":daysUntil===1?"Tomorrow":daysUntil+" days away"}</span>}
+            {moment.location && <span style={{ fontSize:11, color:B.muted }}>📍 {moment.location}</span>}
+          </div>
+        </div>
+        <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop:"1px solid "+B.border }}>
+          <div style={{ padding:"12px 14px", background:B.soft, display:"flex", flexDirection:"column", gap:8 }}>
+            <input value={moment.name||""} onChange={e=>update({name:e.target.value})} placeholder="Event name" style={inp({fontSize:14,fontWeight:600})}/>
+            <div style={{ display:"flex", gap:8 }}>
+              <input type="date" value={moment.date||""} onChange={e=>update({date:e.target.value})} style={{...inp(),flex:1}}/>
+              {moment.type==="travel" && <input value={moment.endDate||""} onChange={e=>update({endDate:e.target.value})} type="date" placeholder="Return date" style={{...inp(),flex:1}}/>}
+            </div>
+            <input value={moment.location||""} onChange={e=>update({location:e.target.value})} placeholder={moment.type==="party"?"Venue / address":"Destination"} style={inp()}/>
+          </div>
+          <div style={{ display:"flex", borderBottom:"1px solid "+B.border }}>
+            {tabs.map(t => (
+              <button key={t} onClick={()=>setTab(t)} style={{ flex:1, background:"none", border:"none", borderBottom: tab===t ? "2px solid "+B.coastal : "2px solid transparent", color: tab===t ? B.coastal : B.muted, padding:"8px 4px", fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight: tab===t?700:400, cursor:"pointer" }}>
+                {tabEmoji[t]} {t.charAt(0).toUpperCase()+t.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding:"12px 14px" }}>
+            {tab==="flights" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {(moment.flights||[{airline:"",confirmation:"",departure:"",arrival:"",departTime:"",arriveTime:""}]).map((f,i) => (
+                  <div key={i} style={{ background:B.soft, borderRadius:10, padding:12 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Flight {i+1}</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      <input value={f.airline||""} onChange={e=>update({flights:(moment.flights||[{}]).map((x,j)=>j===i?{...x,airline:e.target.value}:x)})} placeholder="Airline" style={inp()}/>
+                      <input value={f.confirmation||""} onChange={e=>update({flights:(moment.flights||[{}]).map((x,j)=>j===i?{...x,confirmation:e.target.value}:x)})} placeholder="Confirmation #" style={inp()}/>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <input value={f.departure||""} onChange={e=>update({flights:(moment.flights||[{}]).map((x,j)=>j===i?{...x,departure:e.target.value}:x)})} placeholder="From" style={{...inp(),flex:1}}/>
+                        <input value={f.arrival||""} onChange={e=>update({flights:(moment.flights||[{}]).map((x,j)=>j===i?{...x,arrival:e.target.value}:x)})} placeholder="To" style={{...inp(),flex:1}}/>
+                      </div>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <input type="time" value={f.departTime||""} onChange={e=>update({flights:(moment.flights||[{}]).map((x,j)=>j===i?{...x,departTime:e.target.value}:x)})} style={{...inp(),flex:1}}/>
+                        <input type="time" value={f.arriveTime||""} onChange={e=>update({flights:(moment.flights||[{}]).map((x,j)=>j===i?{...x,arriveTime:e.target.value}:x)})} style={{...inp(),flex:1}}/>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={()=>update({flights:[...(moment.flights||[{}]),{airline:"",confirmation:"",departure:"",arrival:"",departTime:"",arriveTime:""}]})} style={{ background:"none", border:"1.5px dashed "+B.border, borderRadius:8, padding:"8px", color:B.muted, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>+ Add another flight</button>
+              </div>
+            )}
+            {tab==="hotels" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                {(moment.hotels||[{name:"",confirmation:"",checkIn:"",checkOut:"",address:""}]).map((h,i) => (
+                  <div key={i} style={{ background:B.soft, borderRadius:10, padding:12 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Hotel {i+1}</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      <input value={h.name||""} onChange={e=>update({hotels:(moment.hotels||[{}]).map((x,j)=>j===i?{...x,name:e.target.value}:x)})} placeholder="Hotel name" style={inp()}/>
+                      <input value={h.confirmation||""} onChange={e=>update({hotels:(moment.hotels||[{}]).map((x,j)=>j===i?{...x,confirmation:e.target.value}:x)})} placeholder="Confirmation #" style={inp()}/>
+                      <input value={h.address||""} onChange={e=>update({hotels:(moment.hotels||[{}]).map((x,j)=>j===i?{...x,address:e.target.value}:x)})} placeholder="Address" style={inp()}/>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <div style={{ flex:1 }}><div style={{ fontSize:11, color:B.muted, marginBottom:3 }}>Check-in</div><input type="date" value={h.checkIn||""} onChange={e=>update({hotels:(moment.hotels||[{}]).map((x,j)=>j===i?{...x,checkIn:e.target.value}:x)})} style={inp()}/></div>
+                        <div style={{ flex:1 }}><div style={{ fontSize:11, color:B.muted, marginBottom:3 }}>Check-out</div><input type="date" value={h.checkOut||""} onChange={e=>update({hotels:(moment.hotels||[{}]).map((x,j)=>j===i?{...x,checkOut:e.target.value}:x)})} style={inp()}/></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button onClick={()=>update({hotels:[...(moment.hotels||[{}]),{name:"",confirmation:"",checkIn:"",checkOut:"",address:""}]})} style={{ background:"none", border:"1.5px dashed "+B.border, borderRadius:8, padding:"8px", color:B.muted, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>+ Add another hotel</button>
+              </div>
+            )}
+            {tab==="packing" && (
+              <div>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  <div style={{ fontSize:11, color:B.muted }}>{(moment.packing||[]).filter(p=>p.done).length}/{(moment.packing||[]).length} packed</div>
+                  <button onClick={()=>setShowTemplates(v=>!v)} style={{ background:"none", border:"1.5px solid "+B.coastal, borderRadius:6, padding:"4px 10px", fontSize:11, color:B.coastal, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Templates</button>
+                </div>
+                {showTemplates && (
+                  <div style={{ background:B.soft, borderRadius:8, padding:10, marginBottom:10 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:B.muted, marginBottom:6 }}>Load a template:</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {Object.keys(PACKING_TEMPLATES).map(t => (
+                        <button key={t} onClick={()=>{ const existing=(moment.packing||[]).map(p=>p.text); const newItems=PACKING_TEMPLATES[t].filter(i=>!existing.includes(i)).map(i=>({text:i,done:false})); update({packing:[...(moment.packing||[]),...newItems]}); setShowTemplates(false); }} style={{ background:B.coastal, border:"none", borderRadius:6, padding:"5px 10px", fontSize:11, color:"#fff", cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(moment.packing||[]).map((p,i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+B.border }}>
+                    <input type="checkbox" checked={p.done||false} onChange={()=>update({packing:(moment.packing||[]).map((x,j)=>j===i?{...x,done:!x.done}:x)})} style={{ cursor:"pointer" }}/>
+                    <span style={{ flex:1, fontSize:13, color:B.navy, textDecoration:p.done?"line-through":"none" }}>{p.text}</span>
+                    <button onClick={()=>update({packing:(moment.packing||[]).filter((_,j)=>j!==i)})} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:14 }}>×</button>
+                  </div>
+                ))}
+                <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                  <input value={newPack} onChange={e=>setNewPack(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newPack.trim()){ update({packing:[...(moment.packing||[]),{text:newPack.trim(),done:false}]}); setNewPack(""); }}} placeholder="Add item..." style={{...inp(),flex:1}}/>
+                  <button onClick={()=>{ if(newPack.trim()){ update({packing:[...(moment.packing||[]),{text:newPack.trim(),done:false}]}); setNewPack(""); }}} style={{ background:B.coastal, border:"none", borderRadius:8, padding:"8px 14px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
+                </div>
+              </div>
+            )}
+            {tab==="itinerary" && (
+              <div>
+                {Object.entries((moment.itinerary||{})).sort().map(([day, items]) => (
+                  <div key={day} style={{ marginBottom:12 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:B.coastal, marginBottom:6 }}>{day}</div>
+                    {items.map((item,i) => (
+                      <div key={i} style={{ display:"flex", gap:8, padding:"5px 0", borderBottom:"1px solid "+B.border, fontSize:13 }}>
+                        {item.time && <span style={{ color:B.muted, minWidth:45, fontSize:11 }}>{item.time}</span>}
+                        <span style={{ flex:1, color:B.navy }}>{item.text}</span>
+                        <button onClick={()=>{ const newItin={...moment.itinerary}; newItin[day]=items.filter((_,j)=>j!==i); if(!newItin[day].length) delete newItin[day]; update({itinerary:newItin}); }} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:14 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div style={{ background:B.soft, borderRadius:8, padding:10, marginTop:8 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:B.muted, marginBottom:6 }}>Add itinerary item</div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    <input value={newItinDay} onChange={e=>setNewItinDay(e.target.value)} placeholder="Day (e.g. Monday, Day 1)" style={inp()}/>
+                    <div style={{ display:"flex", gap:6 }}>
+                      <input type="time" value={newItinTime} onChange={e=>setNewItinTime(e.target.value)} style={{...inp(),flex:"0 0 100px"}}/>
+                      <input value={newItinItem} onChange={e=>setNewItinItem(e.target.value)} placeholder="Activity or note" style={{...inp(),flex:1}}/>
+                    </div>
+                    <button onClick={()=>{ if(newItinDay.trim()&&newItinItem.trim()){ const newItin={...moment.itinerary}; if(!newItin[newItinDay]) newItin[newItinDay]=[]; newItin[newItinDay]=[...newItin[newItinDay],{time:newItinTime,text:newItinItem.trim()}]; update({itinerary:newItin}); setNewItinItem(""); setNewItinTime(""); }}} style={{ background:B.coastal, border:"none", borderRadius:8, padding:"8px", color:"#fff", fontSize:12, fontFamily:"DM Sans,sans-serif", fontWeight:600, cursor:"pointer" }}>Add to Itinerary</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ padding:"8px 14px 12px" }}>
+            <button onClick={()=>onDelete(moment.id)} style={{ background:"none", border:"1px solid #e74c3c44", borderRadius:7, padding:"5px 12px", color:"#e74c3c", fontSize:11, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>Delete moment</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function MomentsSection() {
+  const [moments, setMoments] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("af_moments")||"[]") } catch { return [] }
+  })
+  const [adding, setAdding] = useState(false)
+  const [newType, setNewType] = useState("party")
+  const [newName, setNewName] = useState("")
+
+  const save = (updated) => {
+    setMoments(updated)
+    try { localStorage.setItem("af_moments", JSON.stringify(updated)) } catch {}
+  }
+
+  const addMoment = () => {
+    if (!newName.trim()) return
+    save([...moments, { id:uid(), type:newType, name:newName.trim(), date:"", location:"", guests:[], food:[], shopping:[], notes:[], flights:[{airline:"",confirmation:"",departure:"",arrival:"",departTime:"",arriveTime:""}], hotels:[{name:"",confirmation:"",checkIn:"",checkOut:"",address:""}], packing:[], itinerary:{} }])
+    setAdding(false); setNewName("")
+  }
+
+  const updateMoment = (updated) => save(moments.map(m => m.id===updated.id ? updated : m))
+  const deleteMoment = (id) => save(moments.filter(m => m.id!==id))
+  const upcoming = moments.filter(m => !m.date || new Date(m.date+"T00:00:00") >= new Date())
+  const past = moments.filter(m => m.date && new Date(m.date+"T00:00:00") < new Date())
+
+  return (
+    <div style={{ padding:"0 0 2rem" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+        <div>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:"#faf8f4" }}>Moments</div>
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.5)", marginTop:2 }}>Trips, parties & special occasions</div>
+        </div>
+        <button onClick={()=>setAdding(v=>!v)} style={{ background:"#c8a97a", border:"none", borderRadius:9, padding:"8px 16px", color:"#1a2744", fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, cursor:"pointer" }}>+ New</button>
+      </div>
+      {adding && (
+        <div style={{ background:"rgba(250,248,244,0.06)", border:"1.5px solid rgba(250,248,244,0.15)", borderRadius:12, padding:14, marginBottom:16 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"rgba(250,248,244,0.6)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>New Moment</div>
+          <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+            <button onClick={()=>setNewType("party")} style={{ flex:1, background:newType==="party"?"#c8a97a":"transparent", border:"1.5px solid "+(newType==="party"?"#c8a97a":"rgba(250,248,244,0.2)"), borderRadius:8, padding:"8px", color:newType==="party"?"#1a2744":"rgba(250,248,244,0.7)", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>🎉 Party / Event</button>
+            <button onClick={()=>setNewType("travel")} style={{ flex:1, background:newType==="travel"?"#3a6b8a":"transparent", border:"1.5px solid "+(newType==="travel"?"#3a6b8a":"rgba(250,248,244,0.2)"), borderRadius:8, padding:"8px", color:newType==="travel"?"#fff":"rgba(250,248,244,0.7)", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>✈️ Travel</button>
+          </div>
+          <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMoment()} placeholder={newType==="party"?"Event name (e.g. Madi's Birthday Party)":"Trip name (e.g. Summer Vacation)"} style={{ border:"1.5px solid rgba(250,248,244,0.2)", borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"DM Sans,sans-serif", width:"100%", boxSizing:"border-box", background:"rgba(250,248,244,0.08)", color:"#faf8f4", marginBottom:10 }}/>
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={addMoment} disabled={!newName.trim()} style={{ flex:2, background:"#c8a97a", border:"none", borderRadius:8, padding:"9px", color:"#1a2744", fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, cursor:"pointer", opacity:newName.trim()?1:0.5 }}>Create Moment</button>
+            <button onClick={()=>setAdding(false)} style={{ flex:1, background:"transparent", border:"1.5px solid rgba(250,248,244,0.2)", borderRadius:8, padding:"9px", color:"rgba(250,248,244,0.6)", fontFamily:"DM Sans,sans-serif", fontSize:13, cursor:"pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {moments.length===0&&!adding&&(
+        <div style={{ textAlign:"center", padding:"40px 20px" }}>
+          <div style={{ fontSize:36, marginBottom:12 }}>✨</div>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:20, color:"#faf8f4", marginBottom:8 }}>No moments yet</div>
+          <div style={{ fontSize:13, color:"rgba(250,248,244,0.45)", lineHeight:1.6 }}>Add a trip, party, or special occasion to start planning.</div>
+        </div>
+      )}
+      {upcoming.length>0&&<div><div style={{ fontSize:11, fontWeight:700, color:"rgba(250,248,244,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Upcoming</div>{upcoming.map(m=><MomentCard key={m.id} moment={m} onUpdate={updateMoment} onDelete={deleteMoment}/>)}</div>}
+      {past.length>0&&<div style={{ marginTop:16 }}><div style={{ fontSize:11, fontWeight:700, color:"rgba(250,248,244,0.3)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Past</div>{past.map(m=><MomentCard key={m.id} moment={m} onUpdate={updateMoment} onDelete={deleteMoment}/>)}</div>}
+    </div>
+  )
+}

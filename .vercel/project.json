@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_musrKc96nmQ4HU2v0e7NIuAHtdf3",
+  "orgId": "team_M6nAcBVH8LnnDYavdSYSgcXw",
+  "projectName": "anchor-and-flow",
+  "settings": {
+    "createdAt": 1774411328004,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
