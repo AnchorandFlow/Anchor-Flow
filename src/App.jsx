@@ -6035,7 +6035,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "inventory", label: "Inventory", emoji: "📦" },
     { id: "systems",   label: "Systems",   emoji: "🏠" },
     { id: "health",    label: "Health",    emoji: "🩺" },
-    { id: "career",    label: "Career",    emoji: "📋", premium: true },
+    { id: "career",    label: "Career",    emoji: "📋" },
     { id: "subs",      label: "Subscript", emoji: "🔄", premium: true },
     { id: "gifts",     label: "Celebrate", emoji: "🎉" },
     { id: "pets",      label: "Pets",      emoji: "🐾" },
