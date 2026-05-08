@@ -1006,6 +1006,7 @@ function HomeFlow() {
   const [mealThemeEnabled,setMealThemeEnabled] = useSaved("mealThemeEnabled",false);
   const [mealThemes,setMealThemes]             = useSaved("mealThemes",DEFAULT_MEAL_THEMES);
   const [recipes,setRecipes]                   = useSaved("recipes",[]);
+  const [mealBankCustom,setMealBankCustom]     = useSaved("mealBankCustom",[]);
   const [shoppingItems,setShoppingItems]       = useSaved("shoppingItems",[]);
   const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
@@ -3453,7 +3454,7 @@ Respond ONLY in valid JSON:
     const [editMeal,setEditMeal]=useState({});
     const [showRecipes,setShowRecipes]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
-    const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","recipes");
+    const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","bank");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
     const [weekTypeKey,setWeekTypeKey]=useState(null);
     const [showWeekTypePicker,setShowWeekTypePicker]=useState(false);
@@ -3463,6 +3464,10 @@ Respond ONLY in valid JSON:
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
     const [bankFilters,setBankFilters]=useState([]);
     const [selectedBankMeal,setSelectedBankMeal]=useState(null);
+    const [bankInnerTab,setBankInnerTab]=useState("meals");
+    const [showAddToBank,setShowAddToBank]=useState(false);
+    const [newBankMeal,setNewBankMeal]=useState({name:"",tags:[],notes:""});
+    const [addToBankMealName,setAddToBankMealName]=useState("");
     const [prepChecked,setPrepChecked]=useState([]);
     const [rescueInput,setRescueInput]=useState("");
     const [rescueResults,setRescueResults]=useState(null);
@@ -3519,7 +3524,7 @@ Respond ONLY in valid JSON:
       setWeekTypeKey(key);setShowWeekTypePicker(false);
     }
 
-    const filteredBank=bankFilters.length===0?MEAL_BANK_DATA:MEAL_BANK_DATA.filter(m=>bankFilters.every(f=>m.tags.includes(f)));
+    const allBankMeals=[...MEAL_BANK_DATA,...mealBankCustom.map(m=>({...m,isCustom:true}))];const filteredBank=bankFilters.length===0?allBankMeals:allBankMeals.filter(m=>bankFilters.every(f=>(m.tags||[]).includes(f)));
 
     async function findRescueMeals(){
       if(!rescueInput.trim())return;
@@ -3556,7 +3561,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setRescueLoading(false);
     }
 
-    const subTabs=[{id:"recipes",label:"Recipes",emoji:"📖"},{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
+    const subTabs=[{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
 
     return (
       <div>
@@ -3589,7 +3594,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           ))}
         </div>
 
-        {mealSubTab==="recipes"&&<RecipesTab onAddToShopping={addIngredientToShopping}/>}
         {mealSubTab==="week"&&(
           <div>
             <div style={{...card({padding:"0.85rem 1rem",background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.85rem"})}}>
@@ -3878,55 +3882,122 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="bank"&&(
           <div>
-            <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,marginBottom:"0.65rem",lineHeight:1.55}}>Filter by what you need tonight. Tap a meal to see details.</p>
-            <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-              {MEAL_TAG_FILTERS.map(tf=>(
-                <button key={tf.id} onClick={()=>setBankFilters(p=>p.includes(tf.id)?p.filter(x=>x!==tf.id):[...p,tf.id])} style={{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
-                  {tf.emoji} {tf.label}
+            {/* ── Inner tab bar: Meals | Recipes ── */}
+            <div style={{display:"flex",gap:"0.3rem",marginBottom:"1rem",background:T.bgAlt,borderRadius:"0.7rem",padding:"0.22rem",border:`1px solid ${T.border}`}}>
+              {[{id:"meals",label:"Meal Bank",emoji:"📋"},{id:"recipes",label:"Recipes",emoji:"📖"}].map(function(it){return(
+                <button key={it.id} onClick={function(){setBankInnerTab(it.id);}} style={{flex:1,background:bankInnerTab===it.id?T.sage:"transparent",color:bankInnerTab===it.id?"#fff":T.textMid,border:"none",borderRadius:"0.5rem",padding:"0.42rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}>
+                  {it.emoji} {it.label}
                 </button>
-              ))}
-              {bankFilters.length>0&&<button onClick={()=>setBankFilters([])} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",fontWeight:600}}>Clear</button>}
+              );})}
             </div>
-            <p style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginBottom:"0.65rem"}}>{filteredBank.length} meal{filteredBank.length!==1?"s":""} match</p>
-            {filteredBank.map(m=>(
-              <div key={m.id} onClick={()=>setSelectedBankMeal(selectedBankMeal===m.id?null:m.id)} style={{...card({cursor:"pointer",borderLeft:`4px solid ${selectedBankMeal===m.id?T.sage:T.borderSoft}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,transition:"all 0.15s"})}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"0.5rem"}}>
-                  <div>
-                    <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{m.name}</div>
-                    <div style={{display:"flex",gap:"0.5rem",marginTop:"0.2rem"}}>
-                      <span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>⏱ {m.time} min · 🧹 {m.cleanup} · {"⭐".repeat(m.kidRating)}</span>
-                    </div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.4rem"}}>
-                      {m.tags.slice(0,4).map(tag=>{const tf=MEAL_TAG_FILTERS.find(t=>t.id===tag);return tf?<span key={tag} style={{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${T.sage}30`}}>{tf.emoji} {tf.label}</span>:null;})}
-                    </div>
-                  </div>
-                  <Icon name={selectedBankMeal===m.id?"chevD":"chevR"} size={16} color={T.textSoft}/>
+
+            {/* ── MEALS inner tab ── */}
+            {bankInnerTab==="meals"&&(
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
+                  <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
+                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
                 </div>
-                {selectedBankMeal===m.id&&(
-                  <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:`1px solid ${T.borderSoft}`}}>
-                    <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Ingredients</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginBottom:"0.75rem"}}>
-                      {m.ingredients.map((ing,i)=><span key={i} style={{fontSize:"0.77rem",color:T.textDark,background:T.sandPale,border:`1px solid ${T.sand}30`,borderRadius:"2rem",padding:"1px 8px",fontWeight:500}}>{ing}</span>)}
-                    </div>
-                    <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Steps</div>
-                    {m.steps.map((step,i)=>(
-                      <div key={i} style={{display:"flex",gap:"0.6rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
-                        <div style={{width:20,height:20,borderRadius:"50%",background:T.sage,color:"#fff",fontSize:"0.65rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
-                        <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{step}</span>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
+                  {MEAL_TAG_FILTERS.map(function(tf){return(
+                    <button key={tf.id} onClick={function(){setBankFilters(function(p){return p.includes(tf.id)?p.filter(function(x){return x!==tf.id;}):[...p,tf.id];});}} style={{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                      {tf.emoji} {tf.label}
+                    </button>
+                  );})}
+                  {bankFilters.length>0&&<button onClick={function(){setBankFilters([]);}} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",fontWeight:600}}>Clear</button>}
+                </div>
+                <p style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginBottom:"0.65rem"}}>{filteredBank.length} meal{filteredBank.length!==1?"s":""} found</p>
+                {filteredBank.map(function(m){return(
+                  <div key={m.id} onClick={function(){setSelectedBankMeal(selectedBankMeal===m.id?null:m.id);}} style={{...card({cursor:"pointer",borderLeft:`4px solid ${selectedBankMeal===m.id?T.sage:(m.isCustom?T.sand:T.borderSoft)}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,transition:"all 0.15s"})}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"0.5rem"}}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
+                          <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{m.name}</div>
+                          {m.isCustom&&<span style={{fontSize:"0.6rem",color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"1px 6px",fontWeight:700,border:`1px solid ${T.sand}40`}}>custom</span>}
+                        </div>
+                        {(m.time||m.cleanup||m.kidRating)&&(
+                          <div style={{display:"flex",gap:"0.5rem",marginTop:"0.2rem"}}>
+                            <span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>{m.time?`⏱ ${m.time} min`:""}{m.cleanup?` · 🧹 ${m.cleanup}`:""}{m.kidRating?` · ${"⭐".repeat(m.kidRating)}`:""}</span>
+                          </div>
+                        )}
+                        {m.notes&&!selectedBankMeal&&<div style={{fontSize:"0.74rem",color:T.textSoft,marginTop:"0.2rem",fontStyle:"italic"}}>{m.notes}</div>}
+                        <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.4rem"}}>
+                          {(m.tags||[]).slice(0,4).map(function(tag){const tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?<span key={tag} style={{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${T.sage}30`}}>{tf.emoji} {tf.label}</span>:null;})}
+                        </div>
                       </div>
-                    ))}
-                    <div style={{background:T.bluePale,border:`1px solid ${T.blue}30`,borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:T.textDark,fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>
-                    <div style={{marginTop:"0.65rem",display:"flex",gap:"0.45rem"}}>
-                      <button onClick={e=>{e.stopPropagation();setMeals(p=>({...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}}));setMealSubTab("tonight");}} style={btnP(T.sage,{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
-                      <button onClick={e=>{e.stopPropagation();openEdit(TODAY_NAME);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Add to Week</button>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.3rem"}}>
+                        <Icon name={selectedBankMeal===m.id?"chevD":"chevR"} size={16} color={T.textSoft}/>
+                        {m.isCustom&&<button onClick={function(e){e.stopPropagation();setMealBankCustom(function(p){return p.filter(function(x){return x.id!==m.id;});});if(selectedBankMeal===m.id)setSelectedBankMeal(null);}} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.7rem",padding:0,fontFamily:"inherit"}}>✕</button>}
+                      </div>
                     </div>
+                    {selectedBankMeal===m.id&&(
+                      <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:`1px solid ${T.borderSoft}`}}>
+                        {m.notes&&<div style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,marginBottom:"0.65rem",fontStyle:"italic"}}>{m.notes}</div>}
+                        {m.ingredients&&m.ingredients.length>0&&(
+                          <div>
+                            <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Ingredients</div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginBottom:"0.75rem"}}>
+                              {m.ingredients.map(function(ing,i){return <span key={i} style={{fontSize:"0.77rem",color:T.textDark,background:T.sandPale,border:`1px solid ${T.sand}30`,borderRadius:"2rem",padding:"1px 8px",fontWeight:500}}>{ing}</span>;})}
+                            </div>
+                          </div>
+                        )}
+                        {m.steps&&m.steps.length>0&&(
+                          <div>
+                            <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Steps</div>
+                            {m.steps.map(function(step,i){return(
+                              <div key={i} style={{display:"flex",gap:"0.6rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
+                                <div style={{width:20,height:20,borderRadius:"50%",background:T.sage,color:"#fff",fontSize:"0.65rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
+                                <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{step}</span>
+                              </div>
+                            );})}
+                          </div>
+                        )}
+                        {m.swap&&<div style={{background:T.bluePale,border:`1px solid ${T.blue}30`,borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:T.textDark,fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>}
+                        <div style={{marginTop:"0.65rem",display:"flex",gap:"0.45rem",flexWrap:"wrap"}}>
+                          <button onClick={function(e){e.stopPropagation();setMeals(function(p){return{...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}};});setMealSubTab("tonight");}} style={btnP(T.sage,{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
+                          <button onClick={function(e){e.stopPropagation();openEdit(TODAY_NAME);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Add to Week</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                );})}
+                {filteredBank.length===0&&<div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
+                  <p style={{color:T.textMid,fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one or add a new meal.</p>
+                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{marginTop:"0.65rem",fontSize:"0.78rem"})}>+ Add Meal</button>
+                </div>}
+
+                {/* ── Add to Meal Bank modal ── */}
+                {showAddToBank&&(
+                  <ModalBox title="Add to Meal Bank" onClose={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:""});}}>
+                    <div style={{marginBottom:"0.85rem"}}>
+                      <label style={lbl}>Meal name *</label>
+                      <input value={newBankMeal.name} onChange={function(e){setNewBankMeal(function(p){return{...p,name:e.target.value};});}} placeholder="e.g. Hamburgers" style={inp()} autoFocus/>
+                    </div>
+                    <div style={{marginBottom:"0.85rem"}}>
+                      <label style={lbl}>Notes (optional)</label>
+                      <textarea value={newBankMeal.notes} onChange={function(e){setNewBankMeal(function(p){return{...p,notes:e.target.value};});}} placeholder="Any notes, variations, family preferences…" style={{...inp({height:65,resize:"none"})}}/>
+                    </div>
+                    <div style={{marginBottom:"1rem"}}>
+                      <label style={lbl}>Tags</label>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginTop:"0.3rem"}}>
+                        {MEAL_TAG_FILTERS.map(function(tf){var on=(newBankMeal.tags||[]).includes(tf.id);return(
+                          <button key={tf.id} onClick={function(){setNewBankMeal(function(p){return{...p,tags:on?p.tags.filter(function(x){return x!==tf.id;}):[...(p.tags||[]),tf.id]};});}} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                            {tf.emoji} {tf.label}
+                          </button>
+                        );})}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                      <button onClick={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnS()}>Cancel</button>
+                      <button disabled={!newBankMeal.name.trim()} onClick={function(){if(!newBankMeal.name.trim())return;setMealBankCustom(function(p){return[...p,{...newBankMeal,id:"c"+Date.now(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{opacity:newBankMeal.name.trim()?1:0.5})}>Save to Bank</button>
+                    </div>
+                  </ModalBox>
                 )}
               </div>
-            ))}
-            {filteredBank.length===0&&<div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
-              <p style={{color:T.textMid,fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one.</p>
-            </div>}
+            )}
+
+            {/* ── RECIPES inner tab ── */}
+            {bankInnerTab==="recipes"&&<RecipesTab onAddToShopping={addIngredientToShopping}/>}
           </div>
         )}
 
@@ -4013,6 +4084,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <option value="">From recipes…</option>
                     {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>}
+                  {(function(){var allBank=[...MEAL_BANK_DATA,...mealBankCustom];return allBank.length>0?<select onChange={function(e){if(e.target.value){setEditMeal(function(p){return {...p,[m]:e.target.value};});e.target.value="";}}} style={{...inp({width:"auto",flex:"none",fontSize:"0.74rem"})}}><option value="">From bank…</option>{allBank.map(function(bm){return <option key={bm.id} value={bm.name}>{bm.name}</option>;})}</select>:null;})()}
                 </div>
               </div>
             ))}
@@ -4030,6 +4102,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <input value={editMeal.groceryInput||""} onChange={e=>setEditMeal(p=>({...p,groceryInput:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&(editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} placeholder="Add grocery item…" style={{...inp({flex:1,fontSize:"0.82rem"})}}/>
                   <button onClick={()=>{if((editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
                 </div>
+              </div>
+            </div>
+            <div style={{marginBottom:"0.9rem",background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.65rem 0.8rem"}}>
+              <label style={{...lbl,color:T.sandDark,marginBottom:"0.4rem"}}>📋 Save a meal to Meal Bank</label>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <input value={addToBankMealName} onChange={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:T.white})}}/>
+                <button disabled={!addToBankMealName.trim()} onClick={function(){if(!addToBankMealName.trim())return;var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===addToBankMealName.trim().toLowerCase();});if(!already){setMealBankCustom(function(p){return[...p,{id:"c"+Date.now(),name:addToBankMealName.trim(),tags:[],notes:"",isCustom:true}];});}setAddToBankMealName("");}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.7rem",opacity:addToBankMealName.trim()?1:0.5})}>Add</button>
               </div>
             </div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>setEditDay(null)} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP(T.sage)}>Save</button></div>
