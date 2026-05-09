@@ -328,8 +328,18 @@ function InventorySection({ onAddToShopping }) {
   const dragToIdx = React.useRef(null)
   const dragClone = React.useRef(null)
   const itemEls = React.useRef({})
+  const itemsRef = React.useRef(items)
+  const activeCatRef = React.useRef(activeCat)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [draggingIdx, setDraggingIdx] = useState(null)
+
+  // Keep refs in sync so drag closures always see latest values
+  React.useEffect(function() { itemsRef.current = items }, [items])
+  React.useEffect(function() {
+    activeCatRef.current = activeCat
+    // Clear el map when category changes so stale indices don't linger
+    itemEls.current = {}
+  }, [activeCat])
 
   // collapsed subcategories: { "pantry:baking": true, ... }
   // Reset on mount so nothing is pre-hidden (clears any bad state from previous sessions)
@@ -433,48 +443,54 @@ function InventorySection({ onAddToShopping }) {
   // Pointer-based drag — reliable cross-browser reorder
   function onHandlePointerDown(e, globalIdx) {
     e.preventDefault()
+    e.stopPropagation()
+
+    var srcEl = itemEls.current[globalIdx]
+    if (!srcEl) return
+
     dragFromIdx.current = globalIdx
     dragToIdx.current = globalIdx
     setDraggingIdx(globalIdx)
-    setDragOverIdx(globalIdx)
+    setDragOverIdx(null)
 
-    // Create floating clone
-    var srcEl = itemEls.current[globalIdx]
-    var clone = null
-    if (srcEl) {
-      clone = srcEl.cloneNode(true)
-      clone.style.position = "fixed"
-      clone.style.pointerEvents = "none"
-      clone.style.opacity = "0.85"
-      clone.style.zIndex = "9999"
-      clone.style.width = srcEl.offsetWidth + "px"
-      clone.style.background = "#2a3a5c"
-      clone.style.borderRadius = "8px"
-      clone.style.boxShadow = "0 8px 24px rgba(0,0,0,0.5)"
-      var rect = srcEl.getBoundingClientRect()
-      clone.style.left = rect.left + "px"
-      clone.style.top = rect.top + "px"
-      document.body.appendChild(clone)
-      dragClone.current = clone
-    }
+    // Floating clone that follows cursor
+    var rect = srcEl.getBoundingClientRect()
+    var startY = e.clientY
+    var offsetY = e.clientY - rect.top
+
+    var clone = srcEl.cloneNode(true)
+    clone.style.cssText = [
+      "position:fixed",
+      "pointer-events:none",
+      "z-index:9999",
+      "opacity:0.9",
+      "width:" + rect.width + "px",
+      "left:" + rect.left + "px",
+      "top:" + (e.clientY - offsetY) + "px",
+      "background:#2a3a5c",
+      "border-radius:8px",
+      "box-shadow:0 6px 20px rgba(0,0,0,0.5)",
+      "transform:scale(1.02)"
+    ].join(";")
+    document.body.appendChild(clone)
+    dragClone.current = clone
 
     function onMove(me) {
-      var clientY = me.touches ? me.touches[0].clientY : me.clientY
-      var clientX = me.touches ? me.touches[0].clientX : me.clientX
-      if (dragClone.current) {
-        dragClone.current.style.top = (clientY - 20) + "px"
-        dragClone.current.style.left = clientX + "px"
-      }
-      // Find which item we're hovering over
+      var clientY = me.clientY
+      // Move clone
+      dragClone.current.style.top = (clientY - offsetY) + "px"
+
+      // Nearest item mid-point
       var best = dragFromIdx.current
       var bestDist = Infinity
-      Object.keys(itemEls.current).forEach(function(k) {
-        var el = itemEls.current[k]
+      var els = itemEls.current
+      Object.keys(els).forEach(function(k) {
+        var el = els[k]
         if (!el) return
         var r = el.getBoundingClientRect()
-        var midY = r.top + r.height / 2
-        var dist = Math.abs(clientY - midY)
-        if (dist < bestDist) { bestDist = dist; best = parseInt(k) }
+        var mid = r.top + r.height / 2
+        var dist = Math.abs(clientY - mid)
+        if (dist < bestDist) { bestDist = dist; best = parseInt(k, 10) }
       })
       if (best !== dragToIdx.current) {
         dragToIdx.current = best
@@ -485,21 +501,24 @@ function InventorySection({ onAddToShopping }) {
     function onUp() {
       document.removeEventListener("pointermove", onMove)
       document.removeEventListener("pointerup", onUp)
-      document.removeEventListener("touchmove", onMove)
-      document.removeEventListener("touchend", onUp)
-      if (dragClone.current) { document.body.removeChild(dragClone.current); dragClone.current = null }
+      if (dragClone.current && dragClone.current.parentNode) {
+        dragClone.current.parentNode.removeChild(dragClone.current)
+        dragClone.current = null
+      }
       var from = dragFromIdx.current
       var to = dragToIdx.current
-      if (from !== null && to !== null && from !== to) {
-        var arr = (items[activeCat] || []).slice()
-        var moved = arr.splice(from, 1)[0]
-        arr.splice(to, 0, moved)
-        save({ ...items, [activeCat]: arr })
-      }
       dragFromIdx.current = null
       dragToIdx.current = null
       setDraggingIdx(null)
       setDragOverIdx(null)
+      if (from !== null && to !== null && from !== to) {
+        var cat = activeCatRef.current
+        var cur = itemsRef.current
+        var arr = (cur[cat] || []).slice()
+        var moved = arr.splice(from, 1)[0]
+        arr.splice(to, 0, moved)
+        save({ ...cur, [cat]: arr })
+      }
     }
 
     document.addEventListener("pointermove", onMove)
@@ -708,12 +727,12 @@ function InventorySection({ onAddToShopping }) {
                           <div
                             key={idx}
                             ref={function(el) { itemEls.current[idx] = el }}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.1)" : "transparent", borderLeft: isDragOver ? "2px solid #c8a97a" : "2px solid transparent", transition: "background 0.08s", opacity: isDragging ? 0.35 : 1 }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.1)" : "transparent", borderLeft: isDragOver ? "2px solid #c8a97a" : "2px solid transparent", transition: "background 0.08s", opacity: isDragging ? 0.35 : 1, touchAction: "none" }}
                           >
                             {/* Drag handle */}
                             <span
                               onPointerDown={function(e) { onHandlePointerDown(e, idx) }}
-                              style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", cursor: "grab", flexShrink: 0, lineHeight: 1, marginRight: -4, touchAction: "none", userSelect: "none", padding: "4px 2px" }}
+                              style={{ fontSize: 16, color: "rgba(250,248,244,0.3)", cursor: "grab", flexShrink: 0, lineHeight: 1, touchAction: "none", userSelect: "none", padding: "4px 6px" }}
                             >⠿</span>
                             {/* Stocked checkbox */}
                             <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
