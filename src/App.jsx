@@ -4517,8 +4517,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var steps = [0,33,66,100]
       var iv = setInterval(function(){ setRippleStep(function(p){ var n=p+1; if(n>=steps.length){clearInterval(iv);} return n; }) }, 550)
       // Parse raw dump into item names
-      var raw = rippleDump.split(/[,
-]+/).map(function(s){return s.trim();}).filter(Boolean)
+      var raw = rippleDump.split(/[,\n\r]+/).map(function(s){return s.trim();}).filter(Boolean)
       try {
         var r = await fetch("/api/claude", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
