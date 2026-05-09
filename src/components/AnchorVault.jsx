@@ -14,15 +14,164 @@ const NAV = [
   { id: "moments",   label: "Moments",      icon: "mom"  },
 ]
 
+// ── Subcategory definitions per main category ────────────────────────────────
+const SUBCATS = {
+  pantry: [
+    { id: "baking",    label: "Baking Supplies",       icon: "🧁" },
+    { id: "spices",    label: "Spices & Seasonings",   icon: "🧂" },
+    { id: "dried",     label: "Dried Goods",           icon: "🫙" },
+    { id: "snacks",    label: "Snacks",                icon: "🍿" },
+    { id: "canned",    label: "Canned & Jarred",       icon: "🥫" },
+    { id: "condiments",label: "Condiments & Oils",     icon: "🫒" },
+    { id: "drinks",    label: "Drinks & Coffee",       icon: "☕" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  freezer: [
+    { id: "meats",     label: "Meats & Seafood",       icon: "🥩" },
+    { id: "veggies",   label: "Vegetables",            icon: "🥦" },
+    { id: "fruits",    label: "Fruits",                icon: "🍓" },
+    { id: "meals",     label: "Meals & Leftovers",     icon: "🍱" },
+    { id: "breads",    label: "Breads & Doughs",       icon: "🥖" },
+    { id: "treats",    label: "Treats & Desserts",     icon: "🍦" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  fridge: [
+    { id: "dairy",     label: "Dairy & Eggs",          icon: "🥛" },
+    { id: "produce",   label: "Fresh Produce",         icon: "🥬" },
+    { id: "proteins",  label: "Proteins",              icon: "🍗" },
+    { id: "leftovers", label: "Leftovers",             icon: "🍲" },
+    { id: "drinks",    label: "Drinks & Juices",       icon: "🧃" },
+    { id: "condiments",label: "Condiments",            icon: "🫙" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  medications: [
+    { id: "otc",       label: "OTC Medicine",          icon: "💊" },
+    { id: "vitamins",  label: "Vitamins & Supplements",icon: "🌿" },
+    { id: "firstaid",  label: "First Aid",             icon: "🩹" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  cosmetics: [
+    { id: "hair",      label: "Hair Care",             icon: "💆" },
+    { id: "skin",      label: "Skin Care",             icon: "🧴" },
+    { id: "body",      label: "Body Care",             icon: "🚿" },
+    { id: "dental",    label: "Dental",                icon: "🦷" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  cleaning: [
+    { id: "kitchen",   label: "Kitchen",               icon: "🍽️" },
+    { id: "laundry",   label: "Laundry",               icon: "🧺" },
+    { id: "bathroom",  label: "Bathroom",              icon: "🚿" },
+    { id: "surfaces",  label: "Surfaces & Floors",     icon: "🧹" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  paper: [
+    { id: "paper",     label: "Paper Products",        icon: "🧻" },
+    { id: "bags",      label: "Bags & Wraps",          icon: "🛍️" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+  pet: [
+    { id: "food",      label: "Food & Treats",         icon: "🐾" },
+    { id: "hygiene",   label: "Hygiene & Grooming",    icon: "🛁" },
+    { id: "supplies",  label: "Supplies",              icon: "🎾" },
+    { id: "other",     label: "Other",                 icon: "📦" },
+  ],
+}
+
 const DEFAULTS = {
-  pantry:      ["Pasta","Rice","Olive oil","Canned tomatoes","Peanut butter","Oats","Flour","Sugar","Coffee","Cereal","Bread","Canned beans","Broth","Honey"],
-  freezer:     ["Chicken","Ground beef","Frozen vegetables","Frozen fruit","Backup meals","Ice cream","Edamame"],
-  fridge:      ["Eggs","Butter","Milk","Cheese","Greek yogurt","Salad greens","Carrots","Lemons","Condiments"],
-  medications: ["Ibuprofen","Acetaminophen","Band-aids","Cold medicine","Vitamins","Allergy medicine","Thermometer"],
-  cosmetics:   ["Shampoo","Conditioner","Body wash","Toothpaste","Deodorant","Face wash","Lotion","Sunscreen"],
-  cleaning:    ["Dish soap","Laundry pods","All-purpose spray","Bleach","Sponges","Mop pads","Toilet cleaner"],
-  paper:       ["Paper towels","Toilet paper","Trash bags","Zip bags","Foil","Plastic wrap","Napkins"],
-  pet:         ["Dog food","Cat food","Pet treats","Litter","Poop bags","Flea treatment","Pet shampoo"],
+  pantry:      [
+    { name: "Flour",          subcat: "baking" },
+    { name: "Sugar",          subcat: "baking" },
+    { name: "Baking powder",  subcat: "baking" },
+    { name: "Vanilla extract",subcat: "baking" },
+    { name: "Salt",           subcat: "spices" },
+    { name: "Black pepper",   subcat: "spices" },
+    { name: "Garlic powder",  subcat: "spices" },
+    { name: "Cumin",          subcat: "spices" },
+    { name: "Italian seasoning",subcat: "spices" },
+    { name: "Pasta",          subcat: "dried" },
+    { name: "Rice",           subcat: "dried" },
+    { name: "Oats",           subcat: "dried" },
+    { name: "Lentils",        subcat: "dried" },
+    { name: "Quinoa",         subcat: "dried" },
+    { name: "Crackers",       subcat: "snacks" },
+    { name: "Peanut butter",  subcat: "snacks" },
+    { name: "Granola bars",   subcat: "snacks" },
+    { name: "Cereal",         subcat: "snacks" },
+    { name: "Canned tomatoes",subcat: "canned" },
+    { name: "Canned beans",   subcat: "canned" },
+    { name: "Broth",          subcat: "canned" },
+    { name: "Olive oil",      subcat: "condiments" },
+    { name: "Honey",          subcat: "condiments" },
+    { name: "Soy sauce",      subcat: "condiments" },
+    { name: "Coffee",         subcat: "drinks" },
+  ],
+  freezer: [
+    { name: "Chicken",             subcat: "meats" },
+    { name: "Ground beef",         subcat: "meats" },
+    { name: "Salmon",              subcat: "meats" },
+    { name: "Frozen vegetables",   subcat: "veggies" },
+    { name: "Edamame",             subcat: "veggies" },
+    { name: "Frozen fruit",        subcat: "fruits" },
+    { name: "Backup meals",        subcat: "meals" },
+    { name: "Ice cream",           subcat: "treats" },
+  ],
+  fridge: [
+    { name: "Eggs",          subcat: "dairy" },
+    { name: "Butter",        subcat: "dairy" },
+    { name: "Milk",          subcat: "dairy" },
+    { name: "Cheese",        subcat: "dairy" },
+    { name: "Greek yogurt",  subcat: "dairy" },
+    { name: "Salad greens",  subcat: "produce" },
+    { name: "Carrots",       subcat: "produce" },
+    { name: "Lemons",        subcat: "produce" },
+    { name: "Condiments",    subcat: "condiments" },
+  ],
+  medications: [
+    { name: "Ibuprofen",      subcat: "otc" },
+    { name: "Acetaminophen",  subcat: "otc" },
+    { name: "Cold medicine",  subcat: "otc" },
+    { name: "Allergy medicine",subcat: "otc" },
+    { name: "Vitamins",       subcat: "vitamins" },
+    { name: "Band-aids",      subcat: "firstaid" },
+    { name: "Thermometer",    subcat: "firstaid" },
+  ],
+  cosmetics: [
+    { name: "Shampoo",     subcat: "hair" },
+    { name: "Conditioner", subcat: "hair" },
+    { name: "Face wash",   subcat: "skin" },
+    { name: "Lotion",      subcat: "skin" },
+    { name: "Sunscreen",   subcat: "skin" },
+    { name: "Body wash",   subcat: "body" },
+    { name: "Deodorant",   subcat: "body" },
+    { name: "Toothpaste",  subcat: "dental" },
+  ],
+  cleaning: [
+    { name: "Dish soap",          subcat: "kitchen" },
+    { name: "All-purpose spray",  subcat: "surfaces" },
+    { name: "Laundry pods",       subcat: "laundry" },
+    { name: "Bleach",             subcat: "bathroom" },
+    { name: "Sponges",            subcat: "kitchen" },
+    { name: "Mop pads",           subcat: "surfaces" },
+    { name: "Toilet cleaner",     subcat: "bathroom" },
+  ],
+  paper: [
+    { name: "Paper towels",  subcat: "paper" },
+    { name: "Toilet paper",  subcat: "paper" },
+    { name: "Napkins",       subcat: "paper" },
+    { name: "Trash bags",    subcat: "bags" },
+    { name: "Zip bags",      subcat: "bags" },
+    { name: "Foil",          subcat: "bags" },
+    { name: "Plastic wrap",  subcat: "bags" },
+  ],
+  pet: [
+    { name: "Dog food",       subcat: "food" },
+    { name: "Cat food",       subcat: "food" },
+    { name: "Pet treats",     subcat: "food" },
+    { name: "Litter",         subcat: "supplies" },
+    { name: "Poop bags",      subcat: "supplies" },
+    { name: "Flea treatment", subcat: "hygiene" },
+    { name: "Pet shampoo",    subcat: "hygiene" },
+  ],
 }
 
 const CATS = [
@@ -39,22 +188,42 @@ const CATS = [
 function migrateInventory(saved) {
   if (!saved) return null
   const keys = Object.keys(saved)
-  if (keys.some(function(k) { return ["freezer","medications","cosmetics","cleaning","paper","pet"].includes(k) })) return saved
+  // Check if already migrated to subcategory format (items have subcat field)
+  const hasFreezerKey = keys.includes("freezer")
+  if (hasFreezerKey) {
+    // May need subcat migration — add subcat:"other" to any items missing it
+    const needsSubcatMigration = Object.entries(saved).some(function(entry) {
+      return (entry[1] || []).some(function(i) { return typeof i === "object" && i.subcat === undefined })
+    })
+    if (!needsSubcatMigration) return saved
+    // Add subcat:"other" to items that don't have one
+    const patched = {}
+    Object.keys(saved).forEach(function(k) {
+      patched[k] = (saved[k] || []).map(function(i) {
+        if (typeof i === "string") return { name: i, stocked: true, subcat: "other" }
+        return i.subcat ? i : { ...i, subcat: "other" }
+      })
+    })
+    return patched
+  }
+  // Full migration from old format
   const migrated = {}
   const NEW_KEYS = ["pantry","freezer","fridge","medications","cosmetics","cleaning","paper","pet"]
   NEW_KEYS.forEach(function(k) {
     if (saved[k]) {
-      migrated[k] = saved[k].map(function(i) { return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, qty: i.qty??null, threshold: i.threshold??null } })
+      migrated[k] = saved[k].map(function(i) {
+        return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, qty: i.qty??null, threshold: i.threshold??null, subcat: "other" }
+      })
     } else {
-      migrated[k] = DEFAULTS[k].map(function(n) { return { name: n, stocked: true, qty: null, threshold: null } })
+      migrated[k] = DEFAULTS[k].map(function(d) { return { name: d.name, stocked: true, subcat: d.subcat } })
     }
   })
   if (saved.household) {
-    const hh = saved.household.map(function(i) { return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, qty: null, threshold: null } })
+    const hh = saved.household.map(function(i) { return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, subcat: "other" } })
     migrated.cleaning = [...migrated.cleaning, ...hh.filter(function(i) { return !migrated.cleaning.find(function(x) { return x.name===i.name }) })]
   }
   if (saved.pharmacy) {
-    const rx = saved.pharmacy.map(function(i) { return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, qty: null, threshold: null } })
+    const rx = saved.pharmacy.map(function(i) { return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, subcat: "other" } })
     migrated.medications = [...migrated.medications, ...rx.filter(function(i) { return !migrated.medications.find(function(x) { return x.name===i.name }) })]
   }
   return migrated
@@ -71,7 +240,9 @@ function InventorySection({ onAddToShopping }) {
       }
     } catch {}
     const init = {}
-    Object.keys(DEFAULTS).forEach(function(k) { init[k] = DEFAULTS[k].map(function(n) { return { name: n, stocked: true } }) })
+    Object.keys(DEFAULTS).forEach(function(k) {
+      init[k] = DEFAULTS[k].map(function(d) { return { name: d.name, stocked: true, subcat: d.subcat } })
+    })
     return init
   })
   const [activeTab, setActiveTab] = useState("inventory")
@@ -79,19 +250,63 @@ function InventorySection({ onAddToShopping }) {
   const [toast, setToast] = useState(null)
   const [editing, setEditing] = useState(null)
   const [editVal, setEditVal] = useState("")
-  const [adding, setAdding] = useState(false)
-  const [newItem, setNewItem] = useState("")
+
+  // inline quick-add per subcategory: { "pantry:baking": "Cocoa powder" }
+  const [inlineAdding, setInlineAdding] = useState({})
+  const [inlineVal, setInlineVal] = useState({})
+
+  // drag state refs (no re-render needed mid-drag)
+  const dragGlobalIdx = React.useRef(null)
+  const dragOverGlobalIdx = React.useRef(null)
+  const [dragActive, setDragActive] = useState(false)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
+
+  // collapsed subcategories: { "pantry:baking": true, ... }
+  const [collapsedSubs, setCollapsedSubs] = useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_inv_collapsed") || "{}") } catch { return {} }
+  })
+
+  function toggleSubcat(catId, subcatId) {
+    const key = catId + ":" + subcatId
+    const updated = { ...collapsedSubs, [key]: !collapsedSubs[key] }
+    setCollapsedSubs(updated)
+    try { localStorage.setItem("af_inv_collapsed", JSON.stringify(updated)) } catch {}
+  }
+
+  const FAV_SUBCATS = [
+    { id: "all",       label: "All",       icon: "⭐" },
+    { id: "grocery",   label: "Grocery",   icon: "🛒" },
+    { id: "beauty",    label: "Beauty",    icon: "💄" },
+    { id: "cosmetics", label: "Cosmetics", icon: "🧴" },
+    { id: "home",      label: "Home",      icon: "🏡" },
+    { id: "diy",       label: "DIY",       icon: "🔧" },
+    { id: "health",    label: "Health",    icon: "💊" },
+    { id: "pet",       label: "Pet",       icon: "🐾" },
+    { id: "other",     label: "Other",     icon: "📦" },
+  ]
 
   const [favorites, setFavorites] = useState(function() {
     try { return JSON.parse(localStorage.getItem("af_favProducts") || "[]") } catch { return [] }
   })
   const [addingFav, setAddingFav] = useState(false)
-  const [favForm, setFavForm] = useState({ name: "", brand: "", store: "", notes: "", emoji: "⭐" })
-  const FAV_EMOJIS = ["⭐","🧴","🧺","🫙","🥫","🧹","🧻","🧼","🍳","💊","🐾","🌿","☕","🧃","🫧"]
+  const [favSubcat, setFavSubcat] = useState("all")
+  const [favForm, setFavForm] = useState({ name: "", brand: "", store: "", notes: "", emoji: "⭐", subcat: "grocery", photo: null })
+  const FAV_EMOJIS = ["⭐","🧴","🧺","🫙","🥫","🧹","🧻","🧼","🍳","💊","🐾","🌿","☕","🧃","🫧","💄","🔧","🏡","🪴","🕯️"]
+  const favPhotoRef = React.useRef(null)
 
   function saveFavs(updated) {
     setFavorites(updated)
     try { localStorage.setItem("af_favProducts", JSON.stringify(updated)) } catch {}
+  }
+
+  function handleFavPhoto(e) {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = function(ev) {
+      setFavForm(function(p) { return { ...p, photo: ev.target.result } })
+    }
+    reader.readAsDataURL(file)
   }
 
   function save(updated) {
@@ -99,10 +314,10 @@ function InventorySection({ onAddToShopping }) {
     try { localStorage.setItem("af_inventory", JSON.stringify(updated)) } catch {}
   }
 
-  function toggle(idx) {
+  function toggle(globalIdx) {
     const cat = activeCat
-    const updated = { ...items, [cat]: items[cat].map(function(x, i) { return i === idx ? { ...x, stocked: !x.stocked } : x }) }
-    const item = updated[cat][idx]
+    const updated = { ...items, [cat]: items[cat].map(function(x, i) { return i === globalIdx ? { ...x, stocked: !x.stocked } : x }) }
+    const item = updated[cat][globalIdx]
     if (!item.stocked) {
       onAddToShopping(item.name)
       setToast(item.name + " added to shopping list")
@@ -111,25 +326,62 @@ function InventorySection({ onAddToShopping }) {
     save(updated)
   }
 
-  function deleteItem(idx) {
-    const updated = { ...items, [activeCat]: items[activeCat].filter(function(_, i) { return i !== idx }) }
+  function deleteItem(globalIdx) {
+    const updated = { ...items, [activeCat]: items[activeCat].filter(function(_, i) { return i !== globalIdx }) }
     save(updated)
   }
 
-  function renameItem(idx) {
+  function renameItem(globalIdx) {
     if (!editVal.trim()) return
-    const updated = { ...items, [activeCat]: items[activeCat].map(function(x, i) { return i === idx ? { ...x, name: editVal.trim() } : x }) }
+    const updated = { ...items, [activeCat]: items[activeCat].map(function(x, i) { return i === globalIdx ? { ...x, name: editVal.trim() } : x }) }
     save(updated)
     setEditing(null)
     setEditVal("")
   }
 
-  function addItem() {
-    if (!newItem.trim()) return
-    const updated = { ...items, [activeCat]: [...(items[activeCat] || []), { name: newItem.trim(), stocked: true }] }
+  // Inline add per subcategory
+  function addInlineItem(subcatId) {
+    const key = activeCat + ":" + subcatId
+    const val = (inlineVal[key] || "").trim()
+    if (!val) { setInlineAdding(function(p) { var n = {...p}; delete n[key]; return n }); return }
+    const updated = { ...items, [activeCat]: [...(items[activeCat] || []), { name: val, stocked: true, subcat: subcatId }] }
     save(updated)
-    setNewItem("")
-    setAdding(false)
+    setInlineVal(function(p) { var n = {...p}; delete n[key]; return n })
+    setInlineAdding(function(p) { var n = {...p}; delete n[key]; return n })
+  }
+
+  function openInlineAdd(subcatId) {
+    const key = activeCat + ":" + subcatId
+    // make sure subcat is expanded
+    const colKey = activeCat + ":" + subcatId
+    if (collapsedSubs[colKey]) toggleSubcat(activeCat, subcatId)
+    setInlineAdding(function(p) { return { ...p, [key]: true } })
+  }
+
+  // Drag handlers — reorder within the flat items[activeCat] array
+  function onDragStart(globalIdx) {
+    dragGlobalIdx.current = globalIdx
+    setDragActive(true)
+  }
+
+  function onDragEnter(globalIdx) {
+    dragOverGlobalIdx.current = globalIdx
+    setDragOverIdx(globalIdx)
+  }
+
+  function onDragEnd() {
+    const from = dragGlobalIdx.current
+    const to = dragOverGlobalIdx.current
+    if (from !== null && to !== null && from !== to) {
+      const arr = [...(items[activeCat] || [])]
+      const moved = arr.splice(from, 1)[0]
+      arr.splice(to, 0, moved)
+      save({ ...items, [activeCat]: arr })
+    }
+    dragGlobalIdx.current = null
+    dragOverGlobalIdx.current = null
+    setDragActive(false)
+    setDragOverIdx(null)
   }
 
   const totalLow = Object.values(items).flat().filter(function(x) { return !x.stocked }).length
@@ -149,17 +401,46 @@ function InventorySection({ onAddToShopping }) {
 
       {activeTab === "favorites" && (
         <div>
-          <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16, lineHeight: 1.5 }}>Your go-to products — brands you love, where to get them.</div>
+          <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 12, lineHeight: 1.5 }}>Your go-to products — brands you love, where to find them.</div>
+
+          {/* ── Add form ── */}
           {addingFav ? (
             <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "14px", marginBottom: 14 }}>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+
+              {/* Photo upload */}
+              <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
+                <div
+                  onClick={function() { favPhotoRef.current && favPhotoRef.current.click() }}
+                  style={{ width: 72, height: 72, borderRadius: 10, border: "1.5px dashed rgba(200,169,122,0.35)", background: favForm.photo ? "transparent" : "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, overflow: "hidden", position: "relative" }}
+                >
+                  {favForm.photo
+                    ? <img src={favForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <div style={{ textAlign: "center" }}><div style={{ fontSize: 20 }}>📷</div><div style={{ fontSize: 9, color: "rgba(200,169,122,0.5)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>Add photo</div></div>
+                  }
+                </div>
+                <input ref={favPhotoRef} type="file" accept="image/*" onChange={handleFavPhoto} style={{ display: "none" }} />
+                <div style={{ flex: 1 }}>
+                  {/* Subcategory selector */}
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                    {FAV_SUBCATS.filter(function(s) { return s.id !== "all" }).map(function(s) {
+                      return (
+                        <button key={s.id} onClick={function() { setFavForm(function(p) { return {...p, subcat: s.id} }) }} style={{ background: favForm.subcat===s.id ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (favForm.subcat===s.id ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.08)"), borderRadius: 20, padding: "3px 9px", fontSize: 10, color: favForm.subcat===s.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: favForm.subcat===s.id ? 700 : 400 }}>{s.icon} {s.label}</button>
+                      )
+                    })}
+                  </div>
+                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
+                </div>
+              </div>
+
+              {/* Emoji picker */}
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
                 {FAV_EMOJIS.map(function(e) {
                   return (
                     <button key={e} onClick={function() { setFavForm(function(p) { return {...p, emoji: e} }) }} style={{ background: favForm.emoji===e ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (favForm.emoji===e ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.08)"), borderRadius: 8, padding: "4px 7px", fontSize: 14, cursor: "pointer" }}>{e}</button>
                   )
                 })}
               </div>
-              <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                 <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
                 <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
@@ -169,40 +450,78 @@ function InventorySection({ onAddToShopping }) {
                 <button onClick={function() {
                   if (!favForm.name.trim()) return
                   saveFavs([...favorites, { id: Date.now().toString(), ...favForm }])
-                  setFavForm({ name: "", brand: "", store: "", notes: "", emoji: "⭐" })
+                  setFavForm({ name: "", brand: "", store: "", notes: "", emoji: "⭐", subcat: "grocery", photo: null })
                   setAddingFav(false)
                 }} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save product</button>
                 <button onClick={function() { setAddingFav(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
               </div>
             </div>
           ) : (
-            <button onClick={function() { setAddingFav(true) }} style={{ width: "100%", padding: "10px", background: "rgba(200,169,122,0.07)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 8, fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 500, marginBottom: 14 }}>+ Add favorite product</button>
+            <button onClick={function() { setAddingFav(true) }} style={{ width: "100%", padding: "10px", background: "rgba(200,169,122,0.07)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 8, fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 500, marginBottom: 12 }}>+ Add favorite product</button>
           )}
+
+          {/* ── Subcat filter tabs ── */}
+          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 14, overflowX: "auto" }}>
+            {FAV_SUBCATS.map(function(s) {
+              const count = s.id === "all" ? favorites.length : favorites.filter(function(f) { return (f.subcat || "other") === s.id }).length
+              if (count === 0 && s.id !== "all") return null
+              return (
+                <div key={s.id} onClick={function() { setFavSubcat(s.id) }} style={{ padding: "6px 11px", fontSize: 11, cursor: "pointer", borderBottom: favSubcat===s.id ? "2px solid #c8a97a" : "2px solid transparent", color: favSubcat===s.id ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {s.icon} {s.label}
+                  {count > 0 && <span style={{ fontSize: 9, color: favSubcat===s.id ? "#c8a97a" : "rgba(250,248,244,0.25)", marginLeft: 1 }}>({count})</span>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── Favorites list ── */}
           {favorites.length === 0 ? (
-            <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No favorites yet.</div>
-          ) : favorites.map(function(fav) {
-            return (
-              <div key={fav.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "11px 14px", marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>{fav.emoji}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{fav.name}</div>
-                  {fav.brand && <div style={{ fontSize: 11, color: "rgba(200,169,122,0.7)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{fav.brand}</div>}
-                  {fav.store && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>📍 {fav.store}</div>}
-                  {fav.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontStyle: "italic" }}>{fav.notes}</div>}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                  <button onClick={function() { onAddToShopping(fav.brand ? fav.brand + " " + fav.name : fav.name); setToast(fav.name + " added to list"); setTimeout(function() { setToast(null) }, 2000) }} style={{ background: "rgba(122,158,142,0.15)", border: "1px solid rgba(122,158,142,0.3)", borderRadius: 6, padding: "4px 8px", fontSize: 10, color: "#7a9e8e", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ List</button>
-                  <button onClick={function() { saveFavs(favorites.filter(function(f) { return f.id !== fav.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 12, color: "#faf8f4", padding: "2px" }}>✕</button>
-                </div>
-              </div>
-            )
-          })}
+            <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No favorites yet — add a product above.</div>
+          ) : (
+            <div>
+              {favorites.filter(function(f) { return favSubcat === "all" || (f.subcat || "other") === favSubcat }).map(function(fav) {
+                const subInfo = FAV_SUBCATS.find(function(s) { return s.id === (fav.subcat || "other") }) || FAV_SUBCATS[FAV_SUBCATS.length-1]
+                return (
+                  <div key={fav.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
+                      {/* Photo or emoji column */}
+                      {fav.photo ? (
+                        <div style={{ width: 72, height: 72, flexShrink: 0, overflow: "hidden" }}>
+                          <img src={fav.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        </div>
+                      ) : (
+                        <div style={{ width: 52, height: 52, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 24, paddingLeft: 10, paddingTop: 10 }}>{fav.emoji}</div>
+                      )}
+                      <div style={{ flex: 1, padding: "10px 12px 8px" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{fav.name}</div>
+                            {fav.brand && <div style={{ fontSize: 11, color: "rgba(200,169,122,0.7)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{fav.brand}</div>}
+                          </div>
+                          <span style={{ fontSize: 9, color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{subInfo.icon} {subInfo.label}</span>
+                        </div>
+                        {fav.store && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>📍 {fav.store}</div>}
+                        {fav.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontStyle: "italic" }}>{fav.notes}</div>}
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                          <button onClick={function() { onAddToShopping(fav.brand ? fav.brand + " " + fav.name : fav.name); setToast(fav.name + " added to list"); setTimeout(function() { setToast(null) }, 2000) }} style={{ background: "rgba(122,158,142,0.15)", border: "1px solid rgba(122,158,142,0.3)", borderRadius: 6, padding: "4px 10px", fontSize: 10, color: "#7a9e8e", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Shopping list</button>
+                          <button onClick={function() { saveFavs(favorites.filter(function(f2) { return f2.id !== fav.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 11, color: "#faf8f4", padding: "2px 4px" }}>✕ Remove</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {favorites.filter(function(f) { return favSubcat === "all" || (f.subcat || "other") === favSubcat }).length === 0 && (
+                <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "24px 0" }}>No favorites in this category yet.</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === "inventory" && (
         <div>
-          <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16, lineHeight: 1.5 }}>Quick weekly reset — tap to mark low, items go straight to your shopping list.</div>
+          <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16, lineHeight: 1.5 }}>Tap ✓ to mark low (adds to shopping). Drag ⠿ to reorder. Click a category to type directly.</div>
           {totalLow > 0 && (
             <div style={{ background: "rgba(200,131,74,0.1)", border: "1px solid rgba(200,131,74,0.25)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#c8834a", fontFamily: "DM Sans,sans-serif" }}>
               {totalLow} item{totalLow > 1 ? "s" : ""} running low — added to your shopping list
@@ -211,56 +530,120 @@ function InventorySection({ onAddToShopping }) {
           {toast && (
             <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", background: "#7a9e8e", color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 13, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap" }}>{toast}</div>
           )}
-          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 16 }}>
+
+          {/* ── Main category tabs ── */}
+          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 16, overflowX: "auto" }}>
             {CATS.map(function(cat) {
               const low = (items[cat.id] || []).filter(function(x) { return !x.stocked }).length
               return (
-                <div key={cat.id} onClick={function() { setActiveCat(cat.id) }} style={{ padding: "7px 12px", fontSize: 11, cursor: "pointer", borderBottom: activeCat === cat.id ? "2px solid #c8a97a" : "2px solid transparent", color: activeCat === cat.id ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", display: "flex", alignItems: "center", gap: 4 }}>
+                <div key={cat.id} onClick={function() { setActiveCat(cat.id); setEditing(null); setInlineAdding({}); setInlineVal({}) }} style={{ padding: "7px 12px", fontSize: 11, cursor: "pointer", borderBottom: activeCat === cat.id ? "2px solid #c8a97a" : "2px solid transparent", color: activeCat === cat.id ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", flexShrink: 0 }}>
                   {cat.icon} {cat.label}
                   {low > 0 && <span style={{ background: "#c8834a", color: "#fff", fontSize: 8, borderRadius: 8, padding: "1px 5px", fontWeight: 700 }}>{low}</span>}
                 </div>
               )
             })}
           </div>
-          <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
-            {(items[activeCat] || []).map(function(item, idx) {
+
+          {/* ── Subcategory accordions ── */}
+          <div style={{ marginBottom: 12 }}>
+            {(SUBCATS[activeCat] || []).map(function(sub) {
+              const colKey = activeCat + ":" + sub.id
+              const isCollapsed = !!collapsedSubs[colKey]
+              const inlineKey = activeCat + ":" + sub.id
+              const isInlineAdding = !!inlineAdding[inlineKey]
+              const allCatItems = items[activeCat] || []
+              const subItems = allCatItems.reduce(function(acc, item, globalIdx) {
+                if ((item.subcat || "other") === sub.id) acc.push({ item: item, globalIdx: globalIdx })
+                return acc
+              }, [])
+              const lowCount = subItems.filter(function(s) { return !s.item.stocked }).length
+              // Hide collapsed empty subcats (but always show if inline-adding)
+              if (subItems.length === 0 && isCollapsed && !isInlineAdding) return null
+
               return (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-                    {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
+                <div key={sub.id} style={{ marginBottom: 6 }}>
+                  {/* Subcategory header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: isCollapsed ? 10 : "10px 10px 0 0", border: "1px solid rgba(255,255,255,0.06)", borderBottom: isCollapsed ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(255,255,255,0.04)", userSelect: "none" }}>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 14, cursor: "pointer" }}>{sub.icon}</span>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "rgba(250,248,244,0.7)", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.02em", cursor: "pointer" }}>{sub.label}</span>
+                    {lowCount > 0 && <span style={{ background: "#c8834a", color: "#fff", fontSize: 8, borderRadius: 8, padding: "1px 5px", fontWeight: 700 }}>{lowCount} low</span>}
+                    {subItems.length > 0 && isCollapsed && <span style={{ fontSize: 10, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>{subItems.length} item{subItems.length !== 1 ? "s" : ""}</span>}
+                    {/* Quick-add button per subcategory */}
+                    <button onClick={function() { openInlineAdd(sub.id) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "rgba(200,169,122,0.5)", padding: "0 2px", lineHeight: 1 }} title="Add item here">+</button>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 10, color: "rgba(250,248,244,0.3)", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block", cursor: "pointer" }}>▾</span>
                   </div>
-                  {editing === idx ? (
-                    <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
-                  ) : (
-                    <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
-                  )}
-                  {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: "#c8834a", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>→ list</span>}
-                  {editing === idx ? (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={function() { renameItem(idx) }} style={{ background: "#7a9e8e", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer" }}>save</button>
-                      <button onClick={function() { setEditing(null) }} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={function() { setEditing(idx); setEditVal(item.name) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.35)", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
-                      <button onClick={function() { deleteItem(idx) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(200,131,74,0.5)", cursor: "pointer", padding: "2px 4px" }}>✕</button>
+
+                  {/* Subcategory items + inline add */}
+                  {!isCollapsed && (
+                    <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                      {subItems.length === 0 && !isInlineAdding && (
+                        <div onClick={function() { openInlineAdd(sub.id) }} style={{ padding: "10px 14px", fontSize: 12, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif", fontStyle: "italic", cursor: "text" }}>tap to add an item…</div>
+                      )}
+
+                      {subItems.map(function(s) {
+                        const item = s.item; const idx = s.globalIdx
+                        const isDragOver = dragOverIdx === idx && dragGlobalIdx.current !== idx
+                        return (
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={function() { onDragStart(idx) }}
+                            onDragEnter={function() { onDragEnter(idx) }}
+                            onDragOver={function(e) { e.preventDefault() }}
+                            onDragEnd={onDragEnd}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.08)" : "transparent", borderLeft: isDragOver ? "2px solid #c8a97a" : "2px solid transparent", transition: "background 0.1s, border 0.1s", opacity: dragActive && dragGlobalIdx.current === idx ? 0.4 : 1 }}
+                          >
+                            {/* Drag handle */}
+                            <span style={{ fontSize: 12, color: "rgba(250,248,244,0.18)", cursor: "grab", flexShrink: 0, lineHeight: 1, marginRight: -4 }}>⠿</span>
+                            {/* Stocked checkbox */}
+                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                              {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
+                            </div>
+                            {editing === idx ? (
+                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                            ) : (
+                              <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
+                            )}
+                            {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: "#c8834a", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>→ list</span>}
+                            {editing === idx ? (
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={function() { renameItem(idx) }} style={{ background: "#7a9e8e", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer" }}>save</button>
+                                <button onClick={function() { setEditing(null) }} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button onClick={function() { setEditing(idx); setEditVal(item.name) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.35)", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
+                                <button onClick={function() { deleteItem(idx) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(200,131,74,0.5)", cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+
+                      {/* Inline quick-add row */}
+                      {isInlineAdding && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: subItems.length > 0 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                          <input
+                            autoFocus
+                            value={inlineVal[inlineKey] || ""}
+                            onChange={function(e) { var v = e.target.value; setInlineVal(function(p) { return { ...p, [inlineKey]: v } }) }}
+                            onKeyDown={function(e) {
+                              if (e.key === "Enter") { addInlineItem(sub.id) }
+                              if (e.key === "Escape") { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }
+                            }}
+                            placeholder={"Add to " + sub.label + "…"}
+                            style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                          />
+                          <button onClick={function() { addInlineItem(sub.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                          <button onClick={function() { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }} style={{ background: "none", border: "none", fontSize: 13, color: "rgba(250,248,244,0.3)", cursor: "pointer", padding: "2px" }}>✕</button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )
             })}
           </div>
-          {adding ? (
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <input value={newItem} onChange={function(e) { setNewItem(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") addItem(); if (e.key === "Escape") setAdding(false) }} placeholder={"Add to " + (CATS.find(function(c) { return c.id === activeCat }) || {}).label + "..."} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
-              <button onClick={addItem} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 500 }}>Add</button>
-              <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>✕</button>
-            </div>
-          ) : (
-            <button onClick={function() { setAdding(true) }} style={{ width: "100%", padding: "10px", background: "rgba(200,169,122,0.08)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 8, fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 500 }}>
-              + Add item to {(CATS.find(function(c) { return c.id === activeCat }) || {}).label}
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -1585,12 +1968,22 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   return (
     <div style={{ paddingBottom: "2rem" }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em" }}>Anchor Vault</div>
-        <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>Your home's long memory</div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em" }}>⚓ Anchor</div>
+        <div style={{ fontSize: 13, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif", marginTop: 4, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
       </div>
 
-      <DashCard id="gifts" icon="🎉" label="Celebrations" onOpen={onNavigate}
-        summary={{ ...celeb, entries: celebEntries }} defaultOpen={celeb.soon} />
+      <DashCard id="gifts" icon="🎉" label="Celebrations & Gifts" onOpen={onNavigate}
+        summary={{
+          count: celeb.count + gifts.count,
+          highlight: celeb.highlight || gifts.highlight,
+          countdown: celeb.countdown || gifts.countdown,
+          alert: celeb.soon || gifts.alert,
+          entries: [
+            ...celebEntries,
+            ...giftEntries.map(function(g) { return { ...g, label: "🎁 " + g.label } })
+          ]
+        }}
+        defaultOpen={celeb.soon || gifts.alert} />
       <DashCard id="inventory" icon="📦" label="Inventory" onOpen={onNavigate}
         summary={{ ...inventory, entries: inventoryEntries }} defaultOpen={inventory.alert} />
       <DashCard id="health" icon="🩺" label="Health" onOpen={onNavigate}
@@ -1599,8 +1992,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         summary={{ ...pets, entries: petEntries }} />
       <DashCard id="moments" icon="✨" label="Moments" onOpen={onNavigate}
         summary={{ ...moments, entries: momentEntries }} />
-      <DashCard id="gifts" icon="🎁" label="Gifts & Occasions" onOpen={onNavigate}
-        summary={{ ...gifts, entries: giftEntries }} defaultOpen={gifts.alert} />
     </div>
   )
 }
@@ -1655,5 +2046,3 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
     </div>
   )
 }
-
-export { GiftsAndCelebrations, InventorySection, HealthSection, PetsSection, CelebrationsSection }
