@@ -293,16 +293,6 @@ function CelebrationsSection({ calEvents }) {
   const [celebType, setCelebType] = useState("birthday")
   const [form, setForm] = useState({ name: "", month: "", day: "", year: "", notes: "" })
   const [filter, setFilter] = useState("upcoming")
-  const [editingId, setEditingId] = useState(null)
-  const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
-
-  function saveEdit() {
-    if (!editForm.name.trim() || !editForm.month || !editForm.day) return
-    save(celebrations.map(function(c) {
-      return c.id === editingId ? { ...c, name: editForm.name.trim(), month: parseInt(editForm.month), day: parseInt(editForm.day), year: editForm.year ? parseInt(editForm.year) : null, notes: editForm.notes.trim(), type: editForm.type } : c
-    }))
-    setEditingId(null)
-  }
 
   function save(updated) {
     setCelebrations(updated)
@@ -354,18 +344,18 @@ function CelebrationsSection({ calEvents }) {
               )
             })}
           </div>
-          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }}>
-              <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
-              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
+            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none" }}>
+              <option value="">Month</option>
+              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744" }}>{m}</option> })}
             </select>
-            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
             {(celebType === "birthday" || celebType === "anniversary") && (
-              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
             )}
           </div>
-          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
             <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
@@ -386,26 +376,7 @@ function CelebrationsSection({ calEvents }) {
       {shown.map(function(e, i) {
         const isPast = e.diff < 0
         return (
-          <div key={e.id || i} style={{ background: editingId===e.id ? "rgba(200,169,122,0.08)" : e.soon && !isPast ? "rgba(200,131,74,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid " + (editingId===e.id ? "rgba(200,169,122,0.3)" : e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 7, overflow: "hidden" }}>
-          {editingId === e.id ? (
-            <div style={{ padding: "12px 14px" }}>
-              <input value={editForm.name} onChange={function(ev){setEditForm(function(p){return{...p,name:ev.target.value}})}} placeholder="Name / occasion" style={{ width:"100%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 10px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none", marginBottom:8, boxSizing:"border-box" }}/>
-              <div style={{ display:"flex", gap:6, marginBottom:8 }}>
-                <select value={editForm.month} onChange={function(ev){setEditForm(function(p){return{...p,month:ev.target.value}})}} style={{ flex:2, background:"#1e3060", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 8px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}>
-                  <option value="">Month</option>
-                  {MONTHS.map(function(m,mi){return <option key={mi} value={mi+1} style={{background:"#1a2744"}}>{m}</option>})}
-                </select>
-                <input value={editForm.day} onChange={function(ev){setEditForm(function(p){return{...p,day:ev.target.value}})}} placeholder="Day" type="number" min="1" max="31" style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 8px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
-                <input value={editForm.year} onChange={function(ev){setEditForm(function(p){return{...p,year:ev.target.value}})}} placeholder="Year" type="number" style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 8px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
-              </div>
-              <input value={editForm.notes} onChange={function(ev){setEditForm(function(p){return{...p,notes:ev.target.value}})}} placeholder="Notes (optional)" style={{ width:"100%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 10px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none", marginBottom:10, boxSizing:"border-box" }}/>
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={saveEdit} style={{ flex:1, background:"#c8a97a", border:"none", borderRadius:7, padding:"8px", fontSize:12, color:"#1a2744", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>Save</button>
-                <button onClick={function(){setEditingId(null)}} style={{ background:"rgba(255,255,255,0.07)", border:"none", borderRadius:7, padding:"8px 14px", fontSize:12, color:"rgba(250,248,244,0.5)", cursor:"pointer" }}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", opacity: isPast ? 0.45 : 1 }}>
+          <div key={e.id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: e.soon && !isPast ? "rgba(200,131,74,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 7, opacity: isPast ? 0.45 : 1 }}>
             <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
               <div style={{ fontSize: 18, lineHeight: 1 }}>{e.emoji}</div>
               {e.month && <div style={{ fontSize: 13, fontWeight: 700, color: e.soon && !isPast ? "#c8834a" : "rgba(200,169,122,0.6)", fontFamily: "Cormorant Garamond,serif" }}>{MONTHS[e.month-1]} {e.day}</div>}
@@ -420,13 +391,8 @@ function CelebrationsSection({ calEvents }) {
               : e.diff === 1 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#c8834a" }}>Tomorrow</span>
               : <span style={{ fontSize: 11, color: e.diff <= 7 ? "#c8834a" : "rgba(250,248,244,0.3)", fontWeight: e.diff <= 7 ? 600 : 400 }}>in {e.diff}d</span>}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-              <button onClick={function() { setEditingId(e.id); setEditForm({ name: e.name, month: String(e.month), day: String(e.day), year: e.year ? String(e.year) : "", notes: e.notes || "", type: e.type }); }} style={{ background: "rgba(200,169,122,0.12)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", fontWeight: 600 }}>Edit</button>
-              <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: "2px 4px", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif" }}>✕</button>
-            </div>
+            <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, padding: "2px 4px", color: "#faf8f4" }}>✕</button>
           </div>
-          )}
-        </div>
         )
       })}
     </div>
@@ -1323,6 +1289,322 @@ function HealthSection() {
   );
 }
 
+// ── Anchor Dashboard ──────────────────────────────────────────────────────────
+function AnchorDashboard({ onNavigate, calEvents }) {
+  calEvents = calEvents || []
+
+  // ── Live data readers ──────────────────────────────────────────────────────
+  function readCelebrations() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
+      const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+      const migrated = bdays.filter(function(b) {
+        return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" })
+      }).map(function(b) {
+        return { id: b.id, type: "birthday", name: b.name, month: b.month, day: b.day, year: b.year || null, notes: "" }
+      })
+      return [...saved, ...migrated]
+    } catch { return [] }
+  }
+
+  function readPets() { try { return JSON.parse(localStorage.getItem("af_pets") || "[]") } catch { return [] } }
+  function readGifts() { try { return JSON.parse(localStorage.getItem("af_gifts") || "[]") } catch { return [] } }
+  function readMoments() { try { return JSON.parse(localStorage.getItem("af_moments") || "[]") } catch { return [] } }
+  function readHealth() { try { var s = localStorage.getItem("af_health"); return s ? JSON.parse(s) : {} } catch { return {} } }
+  function readInventory() { try { return JSON.parse(localStorage.getItem("af_inventory") || "null") } catch { return null } }
+
+  function daysUntil(month, day) {
+    var now = new Date(); now.setHours(0,0,0,0)
+    var next = new Date(now.getFullYear(), month - 1, day)
+    if (next < now) next.setFullYear(next.getFullYear() + 1)
+    return Math.round((next - now) / 86400000)
+  }
+
+  function daysUntilDate(dateStr) {
+    if (!dateStr) return null
+    var now = new Date(); now.setHours(0,0,0,0)
+    var parts = dateStr.split("-")
+    var target = new Date(now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]))
+    if (target < now) target.setFullYear(target.getFullYear()+1)
+    return Math.round((target - now) / 86400000)
+  }
+
+  var MNAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+  // ── Summary builders ───────────────────────────────────────────────────────
+  function celebSummary() {
+    var list = readCelebrations()
+    if (!list.length) return { highlight: null, countdown: null, count: 0 }
+    var now = new Date(); now.setHours(0,0,0,0)
+    var entries = list.map(function(c) {
+      var next = new Date(now.getFullYear(), c.month-1, c.day)
+      if (next < now) next.setFullYear(next.getFullYear()+1)
+      var diff = Math.round((next - now) / 86400000)
+      var age = (c.type === "birthday" && c.year) ? (next.getFullYear() - c.year) : null
+      return { ...c, diff, age }
+    }).sort(function(a,b) { return a.diff - b.diff })
+    var next = entries[0]
+    var label = next.name + (next.age ? " turns " + next.age : next.type === "anniversary" ? " anniversary" : "")
+    var countdown = next.diff === 0 ? "Today! 🎉" : next.diff === 1 ? "Tomorrow" : "in " + next.diff + " days"
+    return { highlight: label, countdown: countdown, count: list.length, soon: next.diff <= 14, entries: entries.slice(0, 3) }
+  }
+
+  function petsSummary() {
+    var pets = readPets()
+    if (!pets.length) return { highlight: null, countdown: null, count: 0 }
+    var nextVax = null; var nextVaxPet = null; var nextVaxDays = 9999
+    pets.forEach(function(p) {
+      (p.vaccines || []).forEach(function(v) {
+        if (v.due) {
+          var d = daysUntilDate(v.due)
+          if (d !== null && d >= 0 && d < nextVaxDays) { nextVaxDays = d; nextVax = v; nextVaxPet = p.name }
+        }
+      })
+    })
+    var highlight = pets.map(function(p) { return p.name }).join(", ")
+    var countdown = nextVax ? (nextVaxPet + " · " + nextVax.name + " due " + (nextVaxDays === 0 ? "today" : "in " + nextVaxDays + "d")) : "All up to date ✓"
+    return { highlight: highlight, countdown: countdown, count: pets.length, entries: pets.slice(0,3) }
+  }
+
+  function giftsSummary() {
+    var gifts = readGifts()
+    var upcoming = []
+    gifts.forEach(function(person) {
+      (person.occasions || []).forEach(function(occ) {
+        if (occ.date) {
+          var parts = occ.date.split("-")
+          var now = new Date(); now.setHours(0,0,0,0)
+          var target = new Date(now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]))
+          if (target < now) target.setFullYear(target.getFullYear()+1)
+          var days = Math.round((target - now) / 86400000)
+          var unbought = (occ.gifts || []).filter(function(g) { return !g.bought }).length
+          upcoming.push({ name: person.name, type: occ.type, days: days, unbought: unbought })
+        }
+      })
+    })
+    upcoming.sort(function(a,b) { return a.days - b.days })
+    var soon = upcoming.filter(function(u) { return u.days <= 30 })
+    if (!upcoming.length) return { highlight: null, countdown: null, count: 0 }
+    var next = upcoming[0]
+    return {
+      highlight: next.name + " — " + next.type,
+      countdown: next.days === 0 ? "Today! 🎁" : next.days === 1 ? "Tomorrow" : "in " + next.days + " days",
+      count: upcoming.length,
+      alert: soon.some(function(u) { return u.unbought > 0 }),
+      entries: upcoming.slice(0,3)
+    }
+  }
+
+  function momentsSummary() {
+    var moments = readMoments()
+    if (!moments.length) return { highlight: null, countdown: null, count: 0 }
+    var now = new Date(); now.setHours(0,0,0,0)
+    var upcoming = moments.filter(function(m) { return !m.date || new Date(m.date+"T00:00:00") >= now })
+      .sort(function(a,b) {
+        if (!a.date) return 1; if (!b.date) return -1
+        return new Date(a.date+"T00:00:00") - new Date(b.date+"T00:00:00")
+      })
+    var next = upcoming[0]
+    if (!next) return { highlight: moments[moments.length-1].name, countdown: "Past trip", count: moments.length }
+    var days = next.date ? Math.round((new Date(next.date+"T00:00:00") - now) / 86400000) : null
+    return {
+      highlight: next.name,
+      countdown: days === null ? "No date set" : days === 0 ? "Today! ✈️" : days === 1 ? "Tomorrow!" : "in " + days + " days",
+      count: moments.length,
+      entries: upcoming.slice(0,3)
+    }
+  }
+
+  function healthSummary() {
+    var h = readHealth()
+    var members = h.members || []
+    if (!members.length) return { highlight: null, countdown: null, count: 0 }
+    var upcoming = []
+    members.forEach(function(m) {
+      (m.appointments || []).forEach(function(a) {
+        if (a.date) {
+          var now = new Date(); now.setHours(0,0,0,0)
+          var d = new Date(a.date+"T00:00:00")
+          var days = Math.round((d - now) / 86400000)
+          if (days >= 0) upcoming.push({ name: m.name, type: a.type || "Appointment", days: days })
+        }
+      })
+    })
+    upcoming.sort(function(a,b) { return a.days - b.days })
+    var meds = members.reduce(function(sum, m) { return sum + (m.medications || []).length }, 0)
+    return {
+      highlight: members.map(function(m) { return m.name }).join(", "),
+      countdown: upcoming.length ? upcoming[0].name + " · " + upcoming[0].type + " in " + upcoming[0].days + "d" : meds ? meds + " active med" + (meds !== 1 ? "s" : "") : "No upcoming appointments",
+      count: members.length,
+      entries: upcoming.slice(0,2)
+    }
+  }
+
+  function inventorySummary() {
+    var inv = readInventory()
+    if (!inv) return { highlight: null, countdown: null, count: 0 }
+    var allItems = []; var lowItems = []
+    Object.values(inv).forEach(function(cat) {
+      if (Array.isArray(cat)) {
+        cat.forEach(function(item) {
+          allItems.push(item)
+          if (!item.stocked) lowItems.push(item)
+        })
+      }
+    })
+    return {
+      highlight: allItems.length + " items tracked",
+      countdown: lowItems.length ? lowItems.length + " running low" : "All stocked ✓",
+      count: allItems.length,
+      alert: lowItems.length > 0,
+      entries: lowItems.slice(0,3).map(function(i) { return { name: i.name } })
+    }
+  }
+
+  // ── Card component ─────────────────────────────────────────────────────────
+  function DashCard({ id, icon, label, summary, onOpen, defaultOpen }) {
+    var [open, setOpen] = useState(defaultOpen || false)
+    var hasAlert = summary.alert
+    var borderColor = hasAlert ? "rgba(200,131,74,0.4)" : "rgba(200,169,122,0.18)"
+    var bgColor = hasAlert ? "rgba(200,131,74,0.05)" : "rgba(255,255,255,0.035)"
+
+    return (
+      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 14, marginBottom: 10, overflow: "hidden", transition: "all 0.2s" }}>
+        {/* Header — always visible */}
+        <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", cursor: "pointer" }}>
+          <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontFamily: "DM Sans,sans-serif", fontSize: 13, fontWeight: 700, color: "#faf8f4" }}>{label}</div>
+              {summary.count > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.7)", background: "rgba(200,169,122,0.1)", borderRadius: 20, padding: "1px 7px" }}>{summary.count}</div>}
+            </div>
+            {summary.highlight && (
+              <div style={{ fontSize: 12, color: "rgba(250,248,244,0.6)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.highlight}</div>
+            )}
+            {!summary.highlight && (
+              <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", marginTop: 2, fontStyle: "italic" }}>Nothing added yet</div>
+            )}
+          </div>
+          <div style={{ flexShrink: 0, textAlign: "right", marginRight: 8 }}>
+            {summary.countdown && summary.count > 0 && (
+              <div style={{ fontSize: 11, fontWeight: 700, color: hasAlert ? "#c8834a" : "#c8a97a", whiteSpace: "nowrap" }}>{summary.countdown}</div>
+            )}
+          </div>
+          <span style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+        </div>
+
+        {/* Expanded content */}
+        {open && (
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "10px 16px 14px" }}>
+            {summary.count === 0 ? (
+              <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>Nothing here yet — tap Open to add.</div>
+            ) : (
+              <div style={{ marginBottom: 10 }}>
+                {(summary.entries || []).map(function(e, i) {
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < (summary.entries.length - 1) ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#c8a97a", flexShrink: 0, opacity: 0.6 }}/>
+                      <span style={{ flex: 1, fontSize: 12, color: "rgba(250,248,244,0.75)", fontFamily: "DM Sans,sans-serif" }}>
+                        {e.label || e.name || e.text || "—"}
+                        {e.sub && <span style={{ color: "rgba(250,248,244,0.4)", marginLeft: 6 }}>{e.sub}</span>}
+                      </span>
+                      {e.badge && <span style={{ fontSize: 10, fontWeight: 700, color: e.badgeAlert ? "#c8834a" : "#c8a97a" }}>{e.badge}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <button onClick={function() { onOpen(id) }} style={{ width: "100%", background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>
+              Open {label} →
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Build summaries ────────────────────────────────────────────────────────
+  var celeb = celebSummary()
+  var pets = petsSummary()
+  var gifts = giftsSummary()
+  var moments = momentsSummary()
+  var health = healthSummary()
+  var inventory = inventorySummary()
+
+  // Format celebration entries for display
+  var celebEntries = (celeb.entries || []).map(function(e) {
+    var age = (e.type === "birthday" && e.year) ? (new Date().getFullYear() - e.year + (e.diff > 0 ? 1 : 0)) : null
+    return {
+      label: e.name + (age ? " turns " + age : e.type === "anniversary" ? " anniversary" : ""),
+      badge: e.diff === 0 ? "Today! 🎉" : e.diff === 1 ? "Tomorrow" : "in " + e.diff + "d",
+      badgeAlert: e.diff <= 7
+    }
+  })
+
+  var petEntries = (pets.entries || []).map(function(p) {
+    var nextVax = (p.vaccines || []).filter(function(v) { return v.due }).map(function(v) {
+      var d = daysUntilDate(v.due); return { name: v.name, days: d }
+    }).filter(function(v) { return v.days !== null && v.days >= 0 }).sort(function(a,b) { return a.days - b.days })[0]
+    return {
+      label: p.name + (p.type ? " · " + p.type : ""),
+      badge: nextVax ? nextVax.name + " due in " + nextVax.days + "d" : null,
+      badgeAlert: nextVax && nextVax.days <= 14
+    }
+  })
+
+  var giftEntries = (gifts.entries || []).map(function(e) {
+    return {
+      label: e.name + " — " + e.type,
+      badge: e.days === 0 ? "Today!" : e.days === 1 ? "Tomorrow" : "in " + e.days + "d",
+      badgeAlert: e.days <= 7,
+      sub: e.unbought > 0 ? e.unbought + " to buy" : null
+    }
+  })
+
+  var momentEntries = (moments.entries || []).map(function(m) {
+    var days = m.date ? Math.round((new Date(m.date+"T00:00:00") - new Date()) / 86400000) : null
+    return {
+      label: (m.type === "party" ? "🎉" : "✈️") + " " + m.name,
+      badge: days === null ? "" : days === 0 ? "Today!" : days === 1 ? "Tomorrow" : "in " + days + "d",
+      badgeAlert: days !== null && days <= 3
+    }
+  })
+
+  var healthEntries = (health.entries || []).map(function(e) {
+    return {
+      label: e.name + " · " + e.type,
+      badge: e.days === 0 ? "Today" : "in " + e.days + "d",
+      badgeAlert: e.days <= 3
+    }
+  })
+
+  var inventoryEntries = (inventory.entries || []).map(function(e) {
+    return { label: e.name, badge: "Low", badgeAlert: true }
+  })
+
+  return (
+    <div style={{ paddingBottom: "2rem" }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em" }}>Anchor Vault</div>
+        <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>Your home's long memory</div>
+      </div>
+
+      <DashCard id="gifts" icon="🎉" label="Celebrations" onOpen={onNavigate}
+        summary={{ ...celeb, entries: celebEntries }} defaultOpen={celeb.soon} />
+      <DashCard id="inventory" icon="📦" label="Inventory" onOpen={onNavigate}
+        summary={{ ...inventory, entries: inventoryEntries }} defaultOpen={inventory.alert} />
+      <DashCard id="health" icon="🩺" label="Health" onOpen={onNavigate}
+        summary={{ ...health, entries: healthEntries }} />
+      <DashCard id="pets" icon="🐾" label="Pets" onOpen={onNavigate}
+        summary={{ ...pets, entries: petEntries }} />
+      <DashCard id="moments" icon="✨" label="Moments" onOpen={onNavigate}
+        summary={{ ...moments, entries: momentEntries }} />
+      <DashCard id="gifts" icon="🎁" label="Gifts & Occasions" onOpen={onNavigate}
+        summary={{ ...gifts, entries: giftEntries }} defaultOpen={gifts.alert} />
+    </div>
+  )
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   calEvents = calEvents || []
@@ -1347,30 +1629,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
     <div style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <div style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
-          {activeSection === "home" && (
-            <div style={{ color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
-              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Anchor Vault</div>
-              <div style={{ fontSize: 13, color: "rgba(250,248,244,0.45)", lineHeight: 1.6, marginBottom: 24 }}>Your home's memory — inventory, health records, celebrations, and more.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { id: "inventory", icon: "📦", label: "Inventory",     sub: "Pantry, fridge & household" },
-                  { id: "health",    icon: "🩺", label: "Health",        sub: "Records, meds & history" },
-                  { id: "gifts",     icon: "🎉", label: "Celebrations",  sub: "Birthdays & occasions" },
-                  { id: "pets",      icon: "🐾", label: "Pets",          sub: "Vaccines & medications" },
-                  { id: "career",    icon: "📋", label: "Career",        sub: "Licenses & contacts" },
-                  { id: "moments",   icon: "📸", label: "Moments",       sub: "Family memories" },
-                ].map(function(s) {
-                  return (
-                    <div key={s.id} onClick={function() { setActiveSection(s.id) }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "14px", cursor: "pointer" }}>
-                      <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{s.label}</div>
-                      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.38)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>{s.sub}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+          {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
           {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
           {activeSection === "systems" && (
             <div style={{ color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
