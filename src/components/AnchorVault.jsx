@@ -185,6 +185,74 @@ const CATS = [
   { id: "pet",         label: "Pet Supplies", icon: "🐾" },
 ]
 
+// Best-guess subcat for an item name when migrating old data
+function guessSubcat(catId, itemName) {
+  var n = itemName.toLowerCase()
+  var maps = {
+    pantry: [
+      ["baking",     ["flour","sugar","baking","vanilla","cocoa","yeast","salt","powder","soda","cornstarch","syrup","molasses","honey","extract"]],
+      ["spices",     ["pepper","cumin","paprika","oregano","basil","thyme","cinnamon","turmeric","chili","seasoning","spice","herb","garlic powder","onion powder","bay","rosemary","cayenne"]],
+      ["dried",      ["pasta","rice","oat","lentil","quinoa","bean","chickpea","noodle","barley","couscous","farro","grain","cereal"]],
+      ["snacks",     ["cracker","chip","popcorn","pretzel","granola","bar","nut","almond","cashew","peanut butter","trail","jerky","cookie","biscuit"]],
+      ["canned",     ["canned","tomato","broth","stock","soup","sauce","salsa","jar","pickl","olive","corn","tuna","salmon","sardine"]],
+      ["condiments", ["oil","vinegar","soy","mustard","ketchup","mayo","dressing","hot sauce","worcestershire","tahini","miso"]],
+      ["drinks",     ["coffee","tea","cocoa mix","hot chocolate","drink","juice","broth"]],
+    ],
+    freezer: [
+      ["meats",    ["chicken","beef","pork","turkey","fish","salmon","shrimp","ground","steak","sausage","bacon","meat","seafood","lamb"]],
+      ["veggies",  ["vegetable","veg","pea","corn","carrot","broccoli","spinach","edamame","kale","green bean","lima","stir fry","mix"]],
+      ["fruits",   ["fruit","berry","strawberry","mango","peach","pineapple","cherry","blueberry","raspberry","banana"]],
+      ["meals",    ["meal","burrito","pizza","lasagna","soup","stew","leftover","casserole","dinner","entrée","entree","backup"]],
+      ["breads",   ["bread","dough","waffle","pancake","bagel","roll","bun","tortilla","biscuit","croissant","pretzel"]],
+      ["treats",   ["ice cream","gelato","sorbet","popsicle","dessert","treat","cake","pie","cookie","yogurt bar"]],
+    ],
+    fridge: [
+      ["dairy",     ["egg","butter","milk","cheese","yogurt","cream","creamer","sour cream","kefir","cottage","whipped","half"]],
+      ["produce",   ["lettuce","salad","greens","carrot","celery","cucumber","pepper","tomato","onion","herb","cilantro","parsley","lemon","lime","apple","berry","grape","strawberry","produce","fruit","veg"]],
+      ["proteins",  ["chicken","beef","deli","turkey","ham","bacon","sausage","tofu","tempeh","hummus","meat","fish","salmon"]],
+      ["leftovers", ["leftover","leftover","soup","stew","casserole","pasta","rice","cooked"]],
+      ["drinks",    ["juice","drink","water","kombucha","soda","lemonade","tea","milk alternative","oat milk","almond milk"]],
+      ["condiments",["ketchup","mustard","mayo","sauce","dressing","pickle","jam","jelly","jello","syrup","hot sauce","butter","spread"]],
+    ],
+    medications: [
+      ["otc",      ["ibuprofen","acetaminophen","tylenol","advil","aspirin","medicine","cold","flu","antacid","pepto","allergy","antihistamine","cough","sleep"]],
+      ["vitamins", ["vitamin","supplement","probiotic","omega","zinc","iron","magnesium","calcium","multivitamin","fish oil","collagen","biotin","melatonin"]],
+      ["firstaid", ["band","bandage","gauze","antiseptic","neosporin","thermometer","wrap","brace","tape","syringe","ice pack","heating"]],
+    ],
+    cosmetics: [
+      ["hair",   ["shampoo","conditioner","hair","dry shampoo","mousse","gel","serum","mask","treatment","color","dye","spray"]],
+      ["skin",   ["face","moisturizer","lotion","serum","toner","exfoliant","mask","cleanser","wash","retinol","sunscreen","spf","eye cream","foundation","concealer","primer"]],
+      ["body",   ["body","wash","lotion","butter","deodorant","antiperspirant","scrub","soap","bath","shower"]],
+      ["dental", ["toothpaste","toothbrush","floss","mouthwash","whitening","dental","teeth"]],
+    ],
+    cleaning: [
+      ["kitchen",  ["dish","sponge","scrub","kitchen","grease","oven","microwave","dishwasher"]],
+      ["laundry",  ["laundry","detergent","fabric","softener","dryer","stain","bleach pod","washing"]],
+      ["bathroom", ["toilet","bathroom","shower","tub","mildew","tile","bleach"]],
+      ["surfaces", ["all-purpose","multi","spray","wipe","floor","mop","dust","glass","window","furniture"]],
+    ],
+    paper: [
+      ["paper",  ["paper towel","toilet paper","tissue","napkin","coffee filter","paper plate","cup"]],
+      ["bags",   ["trash bag","zip","ziploc","foil","plastic wrap","parchment","wax paper","sandwich bag","storage bag","gallon","freezer bag"]],
+    ],
+    pet: [
+      ["food",    ["food","treat","kibble","wet food","can","bone","chew","snack"]],
+      ["hygiene", ["shampoo","flea","tick","grooming","brush","nail","ear","dental","wipe","collar","spray"]],
+      ["supplies",["litter","bag","toy","leash","bowl","crate","pad","mat","cage"]],
+    ],
+  }
+  var catMap = maps[catId]
+  if (!catMap) return "other"
+  for (var i = 0; i < catMap.length; i++) {
+    var subcatId = catMap[i][0]
+    var keywords = catMap[i][1]
+    for (var j = 0; j < keywords.length; j++) {
+      if (n.indexOf(keywords[j]) !== -1) return subcatId
+    }
+  }
+  return "other"
+}
+
 function migrateInventory(saved) {
   if (!saved) return null
   const keys = Object.keys(saved)
@@ -200,8 +268,8 @@ function migrateInventory(saved) {
     const patched = {}
     Object.keys(saved).forEach(function(k) {
       patched[k] = (saved[k] || []).map(function(i) {
-        if (typeof i === "string") return { name: i, stocked: true, subcat: "other" }
-        return i.subcat ? i : { ...i, subcat: "other" }
+        if (typeof i === "string") return { name: i, stocked: true, subcat: guessSubcat(k, i) }
+        return i.subcat ? i : { ...i, subcat: guessSubcat(k, i.name || "") }
       })
     })
     return patched
@@ -212,7 +280,7 @@ function migrateInventory(saved) {
   NEW_KEYS.forEach(function(k) {
     if (saved[k]) {
       migrated[k] = saved[k].map(function(i) {
-        return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, qty: i.qty??null, threshold: i.threshold??null, subcat: "other" }
+        return { name: typeof i==="string"?i:i.name, stocked: i.stocked!==undefined?i.stocked:true, qty: i.qty??null, threshold: i.threshold??null, subcat: guessSubcat(k, typeof i==="string"?i:i.name||"") }
       })
     } else {
       migrated[k] = DEFAULTS[k].map(function(d) { return { name: d.name, stocked: true, subcat: d.subcat } })
@@ -262,9 +330,11 @@ function InventorySection({ onAddToShopping }) {
   const [dragOverIdx, setDragOverIdx] = useState(null)
 
   // collapsed subcategories: { "pantry:baking": true, ... }
-  const [collapsedSubs, setCollapsedSubs] = useState(function() {
-    try { return JSON.parse(localStorage.getItem("af_inv_collapsed") || "{}") } catch { return {} }
-  })
+  // Reset on mount so nothing is pre-hidden (clears any bad state from previous sessions)
+  const [collapsedSubs, setCollapsedSubs] = useState({})
+  React.useEffect(function() {
+    try { localStorage.removeItem("af_inv_collapsed") } catch {}
+  }, [])
 
   function toggleSubcat(catId, subcatId) {
     const key = catId + ":" + subcatId
@@ -557,8 +627,6 @@ function InventorySection({ onAddToShopping }) {
                 return acc
               }, [])
               const lowCount = subItems.filter(function(s) { return !s.item.stocked }).length
-              // Hide collapsed empty subcats (but always show if inline-adding)
-              if (subItems.length === 0 && isCollapsed && !isInlineAdding) return null
 
               return (
                 <div key={sub.id} style={{ marginBottom: 6 }}>
