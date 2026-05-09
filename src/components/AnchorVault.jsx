@@ -1585,22 +1585,12 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   return (
     <div style={{ paddingBottom: "2rem" }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em" }}>⚓ Anchor</div>
-        <div style={{ fontSize: 13, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif", marginTop: 4, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em" }}>Anchor Vault</div>
+        <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>Your home's long memory</div>
       </div>
 
-      <DashCard id="gifts" icon="🎉" label="Celebrations & Gifts" onOpen={onNavigate}
-        summary={{
-          count: celeb.count + gifts.count,
-          highlight: celeb.highlight || gifts.highlight,
-          countdown: celeb.countdown || gifts.countdown,
-          alert: celeb.soon || gifts.alert,
-          entries: [
-            ...celebEntries,
-            ...giftEntries.map(function(g) { return { ...g, label: "🎁 " + g.label } })
-          ]
-        }}
-        defaultOpen={celeb.soon || gifts.alert} />
+      <DashCard id="gifts" icon="🎉" label="Celebrations" onOpen={onNavigate}
+        summary={{ ...celeb, entries: celebEntries }} defaultOpen={celeb.soon} />
       <DashCard id="inventory" icon="📦" label="Inventory" onOpen={onNavigate}
         summary={{ ...inventory, entries: inventoryEntries }} defaultOpen={inventory.alert} />
       <DashCard id="health" icon="🩺" label="Health" onOpen={onNavigate}
@@ -1609,6 +1599,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         summary={{ ...pets, entries: petEntries }} />
       <DashCard id="moments" icon="✨" label="Moments" onOpen={onNavigate}
         summary={{ ...moments, entries: momentEntries }} />
+      <DashCard id="gifts" icon="🎁" label="Gifts & Occasions" onOpen={onNavigate}
+        summary={{ ...gifts, entries: giftEntries }} defaultOpen={gifts.alert} />
     </div>
   )
 }
@@ -1663,3 +1655,5 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
     </div>
   )
 }
+
+export { GiftsAndCelebrations, InventorySection, HealthSection, PetsSection, CelebrationsSection }

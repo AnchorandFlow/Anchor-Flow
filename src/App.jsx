@@ -671,11 +671,28 @@ function HomeFlow() {
             try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
           }
         } else {
-          // No household found by owner_id — use whatever is stored in localStorage
-          // Never auto-create a new household on sign-in (prevents orphan households)
-          // User can join a household manually via the household sync screen
-          const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
-          console.log("No household found by owner_id, using stored:", storedHHId);
+          // No household owned by this user — check if they've joined someone else's.
+          // joined_household_id is stored in Supabase user_metadata at join time.
+          const joinedHhId = data.user?.user_metadata?.joined_household_id || null;
+          console.log("[AF] No owned household found. joined_household_id from metadata:", joinedHhId);
+          if (joinedHhId) {
+            try {
+              const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
+              if (joinedRows && joinedRows.length > 0 && joinedRows[0].data) {
+                try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
+                const clean = sanitizeHouseholdData(joinedRows[0].data);
+                SYNC_KEYS.forEach(k => {
+                  if (clean[k] !== undefined) {
+                    try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                  }
+                });
+                try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
+                console.log("[AF] Restored joined household on sign-in:", joinedHhId);
+              }
+            } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
+          } else {
+            console.log("[AF] No joined_household_id in metadata — user will need to join a household.");
+          }
         }
       } catch(hhErr) {
         console.warn("Household lookup failed:", hhErr.message);
@@ -766,6 +783,15 @@ function HomeFlow() {
       if (!rows || !rows.length) return { ok:false, error:"Household not found. Check the code and try again." };
       // Save householdId to localStorage BEFORE reload so it persists
       try { localStorage.setItem("af_householdId", JSON.stringify(joinCode)); } catch {}
+      // Write joined household ID into Supabase user_metadata so it survives logout/login
+      try {
+        await sbFetch("/auth/v1/user", {
+          method: "PUT",
+          _token: token,
+          body: JSON.stringify({ data: { joined_household_id: joinCode } })
+        });
+        console.log("[AF] Saved joined_household_id to user metadata:", joinCode);
+      } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
       if (rows[0].data) {
         const clean2 = sanitizeHouseholdData(rows[0].data);
         SYNC_KEYS.forEach(k => {
