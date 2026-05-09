@@ -1010,6 +1010,14 @@ function HomeFlow() {
   const [shoppingItems,setShoppingItems]       = useSaved("shoppingItems",[]);
   const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
+  const [brainCats,setBrainCats]               = useSaved("brainCats", [
+    {id:"household", label:"Household",  emoji:"🏠", color:"#7a9e8e"},
+    {id:"errands",   label:"Errands",    emoji:"🚗", color:"#e05c5c"},
+    {id:"calls",     label:"Phone Calls",emoji:"📞", color:"#6a6ab4"},
+    {id:"orders",    label:"Orders",     emoji:"📦", color:"#c8a97a"},
+    {id:"admin",     label:"Admin",      emoji:"📋", color:"#3a8ab4"},
+    {id:"someday",   label:"Someday",    emoji:"🌿", color:"#5a9e6a"},
+  ]);
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
@@ -2754,9 +2762,14 @@ Respond ONLY in valid JSON:
             </button>
           )}
           {isEvening&&!dayOpen&&(
-            <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"linear-gradient(135deg,"+T.blue+","+T.blueDark+")",color:"#fff",border:"none",borderRadius:"1.1rem",padding:"1rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.55rem",boxShadow:"0 5px 22px "+T.blue+"40"}}>
-              🌙 Wind down my day
-            </button>
+            <div style={{background:"linear-gradient(135deg,#e8f0ec,#eef3f7)",border:"1.5px solid rgba(122,158,142,0.3)",borderRadius:"1.2rem",padding:"1rem 1.2rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
+                <span style={{fontSize:"1.2rem"}}>🌙</span>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{authUser?.displayName?", "+authUser.displayName.split(" ")[0]:""}</div>
+              </div>
+              <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
+              <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"rgba(122,158,142,0.15)",border:"1.5px solid rgba(122,158,142,0.35)",borderRadius:"0.8rem",padding:"0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",color:"#4a7a68"}}>🌙 Wind down my day</button>
+            </div>
           )}
           {dayOpen&&(
             <button onClick={()=>setDayOpen(false)} style={{width:"100%",background:T.bgAlt,color:T.textSoft,border:"1.5px solid "+T.border,borderRadius:"1.1rem",padding:"0.75rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"}}>
@@ -3463,12 +3476,74 @@ Respond ONLY in valid JSON:
   }
 
   // ── Meals Tab ───────────────────────────────────────────────────────────────
+  function MealBankDrawer({mealType, allBank, onApply, onAddToShopping}) {
+    const [open,setOpen] = useState(false);
+    const [search,setSearch] = useState("");
+    const [selected,setSelected] = useState(null);
+    const [checkedIngs,setCheckedIngs] = useState({});
+    const [addedMsg,setAddedMsg] = useState(false);
+    const filtered = allBank.filter(function(m){return !search||m.name.toLowerCase().includes(search.toLowerCase());});
+    function handleSelect(meal) {
+      setSelected(meal);
+      setCheckedIngs({});
+      setOpen(false);
+      onApply(meal);
+    }
+    function toggleIng(i){ setCheckedIngs(function(p){return {...p,[i]:!p[i]};}); }
+    function addChecked(){
+      var ings = (selected.ingredients||[]);
+      ings.forEach(function(ing,i){ if(checkedIngs[i]) onAddToShopping&&onAddToShopping(ing); });
+      setAddedMsg(true);
+      setTimeout(function(){setAddedMsg(false);},2000);
+      setCheckedIngs({});
+    }
+    return (
+      <div style={{position:"relative"}}>
+        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?T.sagePale:"",borderColor:open?T.sage:""})}}>\n          📋 {selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}\n        </button>
+        {open&&(
+          <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.85rem",boxShadow:"0 4px 20px rgba(0,0,0,0.12)",width:"220px",overflow:"hidden"}}>
+            <div style={{padding:"0.5rem 0.6rem",borderBottom:"1px solid "+T.borderSoft}}>
+              <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Search meals…" style={{...inp({fontSize:"0.8rem",padding:"0.3rem 0.55rem"})}} autoFocus/>
+            </div>
+            <div style={{maxHeight:"180px",overflowY:"auto"}}>
+              {filtered.length===0&&<div style={{padding:"0.75rem",fontSize:"0.8rem",color:T.textFaint,textAlign:"center",fontStyle:"italic"}}>No meals found</div>}
+              {filtered.map(function(meal){return(
+                <div key={meal.id} onClick={function(){handleSelect(meal);}} style={{padding:"0.5rem 0.75rem",fontSize:"0.83rem",color:T.textDark,cursor:"pointer",borderBottom:"1px solid "+T.borderSoft,display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                  onMouseEnter={function(e){e.currentTarget.style.background=T.bgAlt;}}
+                  onMouseLeave={function(e){e.currentTarget.style.background="";}}>\n                  <span>{meal.name}</span>
+                  {(meal.ingredients||[]).length>0&&<span style={{fontSize:"0.65rem",color:T.textFaint}}>🥘</span>}
+                </div>
+              );})}
+            </div>
+          </div>
+        )}
+        {selected&&(selected.ingredients||[]).length>0&&(
+          <div style={{marginTop:"0.5rem",background:T.sagePale,border:"1px solid "+T.sage+"40",borderRadius:"0.75rem",padding:"0.6rem 0.75rem"}}>
+            <div style={{fontSize:"0.65rem",fontWeight:800,color:T.sageDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>Check what you need to buy</div>
+            {(selected.ingredients||[]).map(function(ing,i){return(
+              <label key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",cursor:"pointer",fontSize:"0.8rem",color:T.textDark}}>
+                <input type="checkbox" checked={!!checkedIngs[i]} onChange={function(){toggleIng(i);}} style={{accentColor:T.sage,width:13,height:13}}/>
+                {ing}
+              </label>
+            );})}
+            <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
+              <button onClick={addChecked} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>Add to shopping list</button>
+              <button onClick={function(){setCheckedIngs(Object.fromEntries((selected.ingredients||[]).map(function(_,i){return[i,true];})));}} style={{...btnS({fontSize:"0.72rem",padding:"0.3rem 0.55rem"})}}>All</button>
+              <button onClick={function(){setSelected(null);}} style={{...btnS({fontSize:"0.72rem",padding:"0.3rem 0.55rem"})}}>✕</button>
+            </div>
+            {addedMsg&&<div style={{fontSize:"0.72rem",color:T.sage,fontWeight:600,marginTop:"0.35rem"}}>✓ Added to shopping list</div>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function MealsTab() {
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [showRecipes,setShowRecipes]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
-    const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","bank");
+    const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
     const [weekTypeKey,setWeekTypeKey]=useState(null);
     const [showWeekTypePicker,setShowWeekTypePicker]=useState(false);
@@ -3575,7 +3650,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setRescueLoading(false);
     }
 
-    const subTabs=[{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"}];
+    const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"},{id:"bank",label:"Meal Bank",emoji:"📋"}];
 
     return (
       <div>
@@ -3712,15 +3787,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       </div>
                     );})}
                   </div>
-                  {nwMealsToShow.includes("dinner")&&(
-                    <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
-                      {MEAL_BANK_DATA.slice(0,4).map(function(mb){return(
-                        <button key={mb.id} onClick={function(){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day].dinner=mb.name;return nd;});}} style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.65rem",fontWeight:700,fontFamily:"inherit",color:T.textSoft}}>
-                          {"+ "+mb.name.split(" ").slice(0,3).join(" ")+"…"}
-                        </button>
-                      );})}
-                    </div>
-                  )}
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
+                    {nwMealsToShow.map(function(meal){return(
+                      <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
+                    );})}
+                  </div>
                 </div>
               );
             })}
@@ -4011,7 +4082,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
 
             {/* ── RECIPES inner tab ── */}
-            {bankInnerTab==="recipes"&&<RecipesTab onAddToShopping={addIngredientToShopping}/>}
+            {bankInnerTab==="recipes"&&<RecipesTab onAddToShopping={addIngredientToShopping} onAddToMealBank={function(name,tags,ingredients){
+              var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
+              if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
+            }}/>}
           </div>
         )}
 
@@ -4098,7 +4172,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <option value="">From recipes…</option>
                     {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>}
-                  {(function(){var allBank=[...MEAL_BANK_DATA,...mealBankCustom];return allBank.length>0?<select onChange={function(e){if(e.target.value){setEditMeal(function(p){return {...p,[m]:e.target.value};});e.target.value="";}}} style={{...inp({width:"auto",flex:"none",fontSize:"0.74rem"})}}><option value="">From bank…</option>{allBank.map(function(bm){return <option key={bm.id} value={bm.name}>{bm.name}</option>;})}</select>:null;})()}
+                  <MealBankDrawer mealType={m} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(meal){setEditMeal(function(p){return {...p,[m]:meal.name};});}} onAddToShopping={addIngredientToShopping}/>
                 </div>
               </div>
             ))}
@@ -4602,20 +4676,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   function BrainTab(){
     const [newText,setNewText] = useState("");
     const [newCat,setNewCat] = useState("errands");
-    const [newPerson,setNewPerson] = useState("");
     const [aiRecatLoading,setAiRecatLoading] = useState(false);
-    const [collapsedCats,setCollapsedCats] = useState({});
     const [patternMsg,setPatternMsg] = useState(null);
     const [patternLoading,setPatternLoading] = useState(false);
-    const [movingItem,setMovingItem] = useState(null); // item being moved
-    const [editingCat,setEditingCat] = useState(null); // cat id being edited
-    const [newCatName,setNewCatName] = useState("");
-    const [showAddCat,setShowAddCat] = useState(false);
-    const [activeFilter,setActiveFilter] = useState("all");
-    const [addCatName,setAddCatName] = useState("");
-    const [customCats,setCustomCats] = useSaved("brainCustomCats",[]);
+    const [activeTab,setBrainActiveTab] = useState("unfiled");
+    const [search,setBrainSearch] = useState("");
     const brainDragId = React.useRef(null);
     const brainDragOver = React.useRef(null);
+
+    // allCats comes from brainCats (persisted, color-coded)
+    const allCats = brainCats;
+    const DAY_NAMES_SHORT = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+    function getCatColor(catId){ var c=brainCats.find(function(x){return x.id===catId;}); return c?c.color:"#c8a97a"; }
+    function getCatEmoji(catId){ var c=brainCats.find(function(x){return x.id===catId;}); return c?c.emoji:"📌"; }
 
     function handleBrainDrop(catId) {
       const fromId = brainDragId.current;
@@ -4623,7 +4697,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if (!fromId || !toId || fromId === toId) { brainDragId.current=null; brainDragOver.current=null; return; }
       setBrainItems(function(prev) {
         const items = catId === "_unc"
-          ? prev.filter(function(b){return !b.cat||b.cat==="uncategorized";})
+          ? prev.filter(function(b){return !b.cat||b.cat==="uncategorized"||!brainCats.find(function(c){return c.id===b.cat;});})
           : prev.filter(function(b){return b.cat===catId&&!b.done;});
         const fromIdx = items.findIndex(function(b){return b.id===fromId;});
         const toIdx = items.findIndex(function(b){return b.id===toId;});
@@ -4637,13 +4711,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       brainDragId.current=null; brainDragOver.current=null;
     }
 
-    const allCats = [...BRAIN_CATS, ...customCats];
-
-    function catTheme(cat){
-      const map={sage:{color:T.sage,pale:T.sagePale},blue:{color:T.blue,pale:T.bluePale},lavender:{color:T.lavender,pale:T.lavPale},sand:{color:T.sand,pale:T.sandPale},rose:{color:T.rose,pale:T.rosePale},coastal:{color:T.coastal,pale:T.bluePale}};
-      return map[cat?.color]||{color:T.sage,pale:T.sagePale};
-    }
-
     function smartCat(text){
       const t = text.toLowerCase();
       if(/order|buy|purchase|pick up|get more|restock|amazon|walmart|target|costco|ship|deliver|online|need to get/.test(t)) return "orders";
@@ -4652,15 +4719,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(/paperwork|schedule|book|appoint|form|file|tax|insurance|admin|renewal|register|submit|sign|fill out|apply|renew/.test(t)) return "admin";
       if(/someday|maybe|eventually|would be nice|idea|dream|wish|research|look into|consider|explore/.test(t)) return "someday";
       if(/clean|fix|repair|organize|tidy|laundry|dishes|vacuum|wipe|declutter|home|house|mow|sweep|mop|bathroom|kitchen/.test(t)) return "household";
-      return null; // uncategorized
+      return null;
     }
 
     function addItem(){
       if(!newText.trim()) return;
-      const cat = smartCat(newText.trim()) || newCat;
-      const isUncategorized = !smartCat(newText.trim()) && !newCat;
-      setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,person:newPerson}]);
+      const cat = smartCat(newText.trim()) || (newCat!=="unfiled"?newCat:null);
+      setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
       setNewText("");
+    }
+
+    function scheduleItem(id, day){
+      setBrainItems(p=>p.map(function(b){
+        if(b.id!==id) return b;
+        var updated = {...b, scheduledDay:day};
+        // Also add to tasks for that day
+        if(day&&day!=="none"){
+          setTasks(function(tp){return [...tp,{id:uid(),text:b.text,day:day,done:false,tier:"next3",fromBrain:true,brainId:id}];});
+        }
+        return updated;
+      }));
+    }
+
+    function assignItem(id, person){
+      setBrainItems(p=>p.map(function(b){return b.id===id?{...b,assignedTo:b.assignedTo===person?null:person}:b;}));
+    }
+
+    function fileItem(id, catId){
+      setBrainItems(p=>p.map(function(b){return b.id===id?{...b,cat:catId}:b;}));
     }
 
     async function aiRecategorize(){
@@ -4678,35 +4764,51 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setAiRecatLoading(false);
     }
 
-    async function detectPatterns(){
+    React.useEffect(function(){
       const pending = brainItems.filter(b=>!b.done);
-      if(pending.length < 3) return;
-      setPatternLoading(true);
-      try {
-        const grouped = {};
-        pending.forEach(b=>{ if(!grouped[b.cat]) grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
-        const summary = Object.entries(grouped).map(([k,v])=>k+": "+v.length+" items ("+v.slice(0,3).join(", ")+")").join("\n");
-        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words. Examples: 'You have 6 errands — a dedicated errand morning could clear them.' or 'Several calls piling up — pick one today before the week ends.'",messages:[{role:"user",content:summary}]})});
-        const d = await res.json();
-        const msg = d.content?.find(b=>b.type==="text")?.text||"";
-        if(msg) setPatternMsg(msg);
-      } catch(e){}
-      setPatternLoading(false);
+      if(pending.length>=3&&!patternMsg&&!patternLoading){
+        setPatternLoading(true);
+        var grouped={};
+        pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
+        var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
+        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
+          .then(function(r){return r.json();})
+          .then(function(d){var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg)setPatternMsg(msg);})
+          .catch(function(){})
+          .finally(function(){setPatternLoading(false);});
+      }
+    },[]);
+
+    // Derived lists
+    const active = brainItems.filter(function(b){return !b.done;});
+    const done = brainItems.filter(function(b){return b.done;});
+    const unfiled = active.filter(function(b){return !b.cat||b.cat==="uncategorized"||!brainCats.find(function(c){return c.id===b.cat;});});
+
+    // Build person tabs from people state
+    var personTabs = people.map(function(p){ return {id:"person_"+p.id, label:p.name, initials:p.name[0].toUpperCase(), color:p.color||T.blue}; });
+
+    // Items for current tab
+    function getTabItems(){
+      var items;
+      if(activeTab==="unfiled") items=unfiled;
+      else if(activeTab.startsWith("person_")){
+        var pid=activeTab.replace("person_","");
+        var pname=people.find(function(p){return p.id===pid;})?.name||"";
+        items=active.filter(function(b){return b.assignedTo===pname;});
+      } else {
+        items=active.filter(function(b){return b.cat===activeTab;});
+      }
+      if(search) items=items.filter(function(b){return b.text.toLowerCase().includes(search.toLowerCase());});
+      return items;
     }
+    var tabItems = getTabItems();
 
-    React.useEffect(()=>{ if(brainItems.filter(b=>!b.done).length>=3) detectPatterns(); },[]);
-
-    const uncategorized = brainItems.filter(b=>!b.done && (!b.cat || b.cat==="uncategorized" || !allCats.find(c=>c.id===b.cat)));
-    const done = brainItems.filter(b=>b.done);
-    const totalActive = brainItems.filter(b=>!b.done).length;
-
-    function toggleCat(id){ setCollapsedCats(p=>({...p,[id]:!p[id]})); }
-    function moveItemToCat(itemId, catId){ setBrainItems(p=>p.map(x=>x.id===itemId?{...x,cat:catId}:x)); setMovingItem(null); }
-
-    function BrainItemRow({item,color,pale,onMove,isMoving,catId}){
+    function BrainItemRow({item, catId}){
       const [editing,setEditing] = useState(false);
       const [val,setVal] = useState(item.text);
       const [isDragOver,setIsDragOver] = useState(false);
+      const color = getCatColor(item.cat);
+      const tint = color+"18";
       return (
         <div
           draggable
@@ -4716,25 +4818,47 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           onDragOver={function(e){e.preventDefault();}}
           onDrop={function(){setIsDragOver(false);handleBrainDrop(catId||"_unc");}}
           onDragEnd={function(){setIsDragOver(false);}}
-          style={{background:isDragOver?color+"18":T.surface,borderRadius:"0.75rem",padding:"0.55rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+(isDragOver?color:color+"20"),display:"flex",alignItems:"flex-start",gap:"0.55rem",transition:"all 0.12s"}}>
-          <div onClick={()=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,done:!x.done}:x))} style={{width:20,height:20,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:2}}>
-            {item.done&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
+          style={{background:isDragOver?color+"30":tint,borderRadius:"0.75rem",padding:"0.6rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+(isDragOver?color:color+"30"),transition:"all 0.12s"}}>
+          {/* Task text */}
+          <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",marginBottom:"0.45rem"}}>
+            <div onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,done:!x.done}:x;});});}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:2}}>
+              {item.done&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              {editing?(
+                <div style={{display:"flex",gap:"0.3rem"}}>
+                  <input value={val} onChange={function(e){setVal(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.25rem 0.45rem",fontSize:"0.84rem"})}} autoFocus/>
+                  <button onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}} style={btnP(color,{fontSize:"0.7rem",padding:"0.25rem 0.5rem"})}>✓</button>
+                </div>
+              ):(
+                <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
+              )}
+            </div>
+            <button onClick={function(){setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
           </div>
-          <div style={{flex:1,minWidth:0}}>
-            {editing?(
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){setBrainItems(p=>p.map(x=>x.id===item.id?{...x,text:val}:x));setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem"})}} autoFocus/>
-                <button onClick={()=>{setBrainItems(p=>p.map(x=>x.id===item.id?{...x,text:val}:x));setEditing(false);}} style={btnP(color,{fontSize:"0.72rem",padding:"0.3rem 0.6rem"})}>✓</button>
-              </div>
-            ):(
-              <span onClick={()=>setEditing(true)} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.45,display:"block"}}>{item.text}</span>
-            )}
-            {item.person&&<span style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2,display:"block"}}>→ {item.person}</span>}
+          {/* Controls row: File · Date · Initials */}
+          <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
+            <select value={item.cat||"uncategorized"} onChange={function(e){fileItem(item.id,e.target.value);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
+              <option value="uncategorized">📁 Unfiled</option>
+              {brainCats.map(function(c){return <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>;})}
+            </select>
+            <select value={item.scheduledDay||""} onChange={function(e){scheduleItem(item.id,e.target.value||null);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
+              <option value="">📅 Date</option>
+              <option value={TODAY_NAME}>Today</option>
+              <option value={DAY_NAMES_SHORT[(new Date(TODAY).getDay()+1)%7]}>Tomorrow</option>
+              {DAY_NAMES_SHORT.map(function(d){return <option key={d} value={d}>{d.slice(0,3)}</option>;})}
+            </select>
+            <div style={{flex:1}}/>
+            {people.map(function(p){
+              var isAssigned=item.assignedTo===p.name;
+              return(
+                <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
+                  {p.name[0].toUpperCase()}
+                </button>
+              );
+            })}
           </div>
-          <div style={{display:"flex",gap:4,flexShrink:0}}>
-            <button onClick={()=>onMove(item.id)} title="Move to category" style={{background:isMoving?color:"none",border:"1px solid "+color+"40",borderRadius:6,padding:"3px 6px",cursor:"pointer",fontSize:11,color:isMoving?"#fff":color,fontFamily:"inherit"}}>↔</button>
-            <button onClick={()=>setBrainItems(p=>p.filter(x=>x.id!==item.id))} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px"}}>×</button>
-          </div>
+          {item.scheduledDay&&<div style={{fontSize:"0.65rem",color:color,fontWeight:600,marginTop:"0.3rem"}}>📅 {item.scheduledDay}</div>}
         </div>
       );
     }
@@ -4749,124 +4873,73 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontSize:"0.68rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Ripple noticed</div>
               <div style={{fontSize:"0.83rem",color:T.textDark,lineHeight:1.55}}>{patternMsg}</div>
             </div>
-            <button onClick={()=>setPatternMsg(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
+            <button onClick={function(){setPatternMsg(null);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
           </div>
         )}
 
         {/* Input */}
-        <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.85rem"}}>
-          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.6rem"}}>
-            <input value={newText} onChange={e=>setNewText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addItem()} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}}/>
+        <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
+          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
+            <input value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addItem();}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}}/>
             <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
           </div>
-          {/* Quick cat picker */}
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
-            {allCats.map(c=>{
-              const{color}=catTheme(c);
-              return <button key={c.id} onClick={()=>setNewCat(c.id)} style={{background:newCat===c.id?color:T.bgAlt,color:newCat===c.id?"#fff":T.textMid,border:"1.5px solid "+(newCat===c.id?color:T.border),borderRadius:"2rem",padding:"0.2rem 0.6rem",cursor:"pointer",fontSize:"0.7rem",fontFamily:"inherit",fontWeight:newCat===c.id?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
+            {brainCats.map(function(c){return(
+              <button key={c.id} onClick={function(){setNewCat(c.id);}} style={{background:newCat===c.id?c.color:"transparent",color:newCat===c.id?"#fff":T.textMid,border:"1.5px solid "+(newCat===c.id?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:newCat===c.id?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
             })}
           </div>
         </div>
 
-        {/* Stats + AI sort */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.75rem"}}>
-          <span style={{fontSize:"0.75rem",color:T.textFaint,fontWeight:600}}>{totalActive} active · {done.length} done</span>
-          <button onClick={aiRecategorize} disabled={aiRecatLoading} style={{background:"none",border:"1.5px solid "+T.lavender,borderRadius:"2rem",padding:"0.22rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,color:T.lavender,opacity:aiRecatLoading?0.6:1}}>
-            {aiRecatLoading?"⟳ Sorting...":"✨ AI sort"}
+        {/* Search */}
+        <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.6rem"}}>
+          <input value={search} onChange={function(e){setBrainSearch(e.target.value);}} placeholder="Search..." style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.35rem 0.65rem"})}}/>
+          <div style={{fontSize:"0.72rem",color:T.textFaint}}>{active.length} active</div>
+          <button onClick={aiRecategorize} disabled={aiRecatLoading} style={{background:"none",border:"1.5px solid "+T.lavender,borderRadius:"2rem",padding:"0.2rem 0.65rem",cursor:"pointer",fontSize:"0.7rem",fontWeight:700,color:T.lavender,opacity:aiRecatLoading?0.6:1,flexShrink:0}}>
+            {aiRecatLoading?"⟳":"✨"} AI sort
           </button>
         </div>
 
-        {/* Move item picker */}
-        {movingItem&&(
-          <div style={{background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.75rem",marginBottom:"0.75rem"}}>
-            <div style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Move to category</div>
-            <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
-              <button onClick={()=>moveItemToCat(movingItem,"uncategorized")} style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",color:T.textMid}}>📥 Uncategorized</button>
-              {allCats.map(c=>{const{color}=catTheme(c);return<button key={c.id} onClick={()=>moveItemToCat(movingItem,c.id)} style={{background:T.surface,border:"1.5px solid "+color+"50",borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",color:color,fontWeight:600}}>{c.emoji} {c.label}</button>;})}
-            </div>
+        {/* Tab bar */}
+        <div style={{display:"flex",gap:0,overflowX:"auto",borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem",paddingBottom:"1px"}}>
+          <button onClick={function(){setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+            📥 Unfiled
+            {unfiled.length>0&&<span style={{background:"#e05c5c",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{unfiled.length}</span>}
+          </button>
+          {personTabs.map(function(pt){
+            var count=active.filter(function(b){var pname=people.find(function(p){return p.id===pt.id.replace("person_","");})?.name||""; return b.assignedTo===pname;}).length;
+            return(
+              <button key={pt.id} onClick={function(){setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||T.blue):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||T.blue):T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                {pt.initials} {pt.label}
+                {count>0&&<span style={{background:pt.color||T.blue,color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>}
+              </button>
+            );
+          })}
+          {brainCats.map(function(cat){
+            var count=active.filter(function(b){return b.cat===cat.id;}).length;
+            if(count===0) return null;
+            return(
+              <button key={cat.id} onClick={function(){setBrainActiveTab(cat.id);}} style={{background:"none",border:"none",borderBottom:activeTab===cat.id?"2.5px solid "+cat.color:"2.5px solid transparent",color:activeTab===cat.id?cat.color:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===cat.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block",flexShrink:0}}/>
+                {cat.label}
+                <span style={{background:cat.color+"22",color:cat.color,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Items */}
+        {tabItems.length===0&&(
+          <div style={{textAlign:"center",padding:"2rem 1rem",color:T.textFaint,fontStyle:"italic",fontSize:"0.84rem"}}>
+            {activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
           </div>
         )}
+        {tabItems.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
 
-        {/* Uncategorized */}
-        {uncategorized.length>0&&(
-          <div style={{marginBottom:"0.75rem"}}>
-            <div onClick={()=>toggleCat("_unc")} style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem",cursor:"pointer"}}>
-              <span style={{fontSize:"1rem"}}>📥</span>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",fontWeight:700,color:T.textDark,flex:1}}>Uncategorized</span>
-              <span style={{background:T.sand,color:"#fff",borderRadius:"2rem",padding:"0.1rem 0.5rem",fontSize:"0.68rem",fontWeight:700}}>{uncategorized.length}</span>
-              <span style={{fontSize:"0.7rem",color:T.textFaint}}>{collapsedCats["_unc"]?"▶":"▼"}</span>
-            </div>
-            {!collapsedCats["_unc"]&&(
-              <div style={{paddingLeft:"0.35rem"}}>
-                {uncategorized.map(item=><BrainItemRow key={item.id} item={item} color={T.sand} pale={T.sandPale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)} catId="_unc"/>)}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Categories */}
-        {allCats.map(cat=>{
-          const items = brainItems.filter(b=>!b.done&&b.cat===cat.id);
-          const{color,pale}=catTheme(cat);
-          if(items.length===0&&activeFilter!==cat.id) return null;
-          const isCollapsed = collapsedCats[cat.id];
-          const isCustom = customCats.find(c=>c.id===cat.id);
-          return (
-            <div key={cat.id} style={{marginBottom:"0.75rem",background:isCollapsed?"transparent":pale,borderRadius:"0.9rem",padding:isCollapsed?"0":"0.75rem",border:isCollapsed?"none":"1.5px solid "+color+"30",transition:"all 0.2s"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
-                <div onClick={()=>toggleCat(cat.id)} style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1,cursor:"pointer"}}>
-                  <span style={{fontSize:"1rem"}}>{cat.emoji}</span>
-                  {editingCat===cat.id?(
-                    <input value={newCatName} onChange={e=>setNewCatName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){if(isCustom){setCustomCats(p=>p.map(c=>c.id===cat.id?{...c,label:newCatName}:c));}setEditingCat(null);} if(e.key==="Escape")setEditingCat(null);}} style={{...inp({fontSize:"0.9rem",padding:"0.2rem 0.5rem",flex:1})}} autoFocus/>
-                  ):(
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",fontWeight:700,color:T.textDark,flex:1}}>{cat.label}</span>
-                  )}
-                </div>
-                {items.length>0&&<span style={{background:color,color:"#fff",borderRadius:"2rem",padding:"0.1rem 0.5rem",fontSize:"0.68rem",fontWeight:700}}>{items.length}</span>}
-                {isCustom&&(
-                  <button onClick={()=>{setEditingCat(cat.id);setNewCatName(cat.label);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textFaint,padding:"0 3px"}}>✎</button>
-                )}
-                {isCustom&&(
-                  <button onClick={()=>setCustomCats(p=>p.filter(c=>c.id!==cat.id))} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:T.textFaint,padding:"0 3px"}}>×</button>
-                )}
-                <span onClick={()=>toggleCat(cat.id)} style={{fontSize:"0.7rem",color:T.textFaint,cursor:"pointer"}}>{isCollapsed?"▶":"▼"}</span>
-              </div>
-              {!isCollapsed&&(
-                <div style={{paddingLeft:"0.35rem"}}>
-                  {items.map(item=><BrainItemRow key={item.id} item={item} color={color} pale={pale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)} catId={cat.id}/>)}
-                  {items.length===0&&<div style={{fontSize:"0.78rem",color:T.textFaint,fontStyle:"italic",padding:"0.3rem 0"}}>Nothing here yet</div>}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {/* Add custom category */}
-        {showAddCat?(
-          <div style={{background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.75rem",marginBottom:"0.5rem"}}>
-            <div style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>New category</div>
-            <div style={{display:"flex",gap:"0.4rem"}}>
-              <input value={addCatName} onChange={e=>setAddCatName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCatName.trim()&&(setCustomCats(p=>[...p,{id:"custom_"+Date.now(),label:addCatName.trim(),emoji:"📌",color:"coastal",desc:""}]),setAddCatName(""),setShowAddCat(false))} placeholder="Category name..." style={{...inp({flex:1,fontSize:"0.85rem"})}} autoFocus/>
-              <button onClick={()=>{if(addCatName.trim()){setCustomCats(p=>[...p,{id:"custom_"+Date.now(),label:addCatName.trim(),emoji:"📌",color:"coastal",desc:""}]);setAddCatName("");setShowAddCat(false);}}} style={btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem"})}>Add</button>
-              <button onClick={()=>setShowAddCat(false)} style={btnS({fontSize:"0.82rem"})}>Cancel</button>
-            </div>
-          </div>
-        ):(
-          <button onClick={()=>setShowAddCat(true)} style={{background:"none",border:"1.5px dashed "+T.border,borderRadius:"0.75rem",padding:"0.55rem",color:T.textFaint,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit",width:"100%",marginBottom:"0.5rem"}}>+ Add category</button>
-        )}
-
-        {/* Done items */}
+        {/* Done */}
         {done.length>0&&(
-          <div style={{marginTop:"1rem"}}>
-            <div onClick={()=>toggleCat("_done")} style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem",cursor:"pointer"}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"0.9rem",fontWeight:700,color:T.textFaint,flex:1}}>✓ Done ({done.length})</span>
-              <span style={{fontSize:"0.7rem",color:T.textFaint}}>{collapsedCats["_done"]?"▶":"▼"}</span>
-            </div>
-            {!collapsedCats["_done"]&&done.map(item=>{
-              const cat=allCats.find(c=>c.id===item.cat)||allCats[0];
-              const{color,pale}=catTheme(cat);
-              return <BrainItemRow key={item.id} item={item} color={color} pale={pale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)} catId={item.cat}/>;
-            })}
+          <div style={{marginTop:"1rem",paddingTop:"0.75rem",borderTop:"1px dashed "+T.borderSoft}}>
+            <div style={{fontSize:"0.78rem",color:T.textFaint,fontWeight:700,marginBottom:"0.5rem"}}>✓ Done ({done.length})</div>
+            {done.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
           </div>
         )}
       </div>
@@ -5203,6 +5276,52 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             ))}
           </div>
+        </SettingSection>
+        <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false}>
+          {(function(){
+            var [editingCatId,setEditingCatId] = React.useState(null);
+            var [editCatName,setEditCatName] = React.useState("");
+            var [newCatName,setNewCatName] = React.useState("");
+            var [newCatEmoji,setNewCatEmoji] = React.useState("");
+            var [newCatColor,setNewCatColor] = React.useState("#7a9e8e");
+            var PRESETS=["#e05c5c","#e07c3a","#d4a82a","#5a9e6a","#3a8ab4","#6a6ab4","#b46aaa","#7a9e8e","#c8a97a","#888780"];
+            return (
+              <div>
+                <div style={{marginBottom:"1rem"}}>
+                  <div style={{fontSize:"0.78rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Add a category</div>
+                  <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
+                    <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} placeholder="Name…" style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
+                    <input value={newCatEmoji} onChange={function(e){setNewCatEmoji(e.target.value);}} placeholder="🏷️" style={{...inp({width:46,textAlign:"center",fontSize:"1rem"})}}/>
+                  </div>
+                  <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"0.5rem",alignItems:"center"}}>
+                    {PRESETS.map(function(c){return(
+                      <button key={c} onClick={function(){setNewCatColor(c);}} style={{width:22,height:22,borderRadius:"50%",background:c,border:newCatColor===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0,transition:"border 0.1s"}}/>
+                    );})}
+                    <input type="color" value={newCatColor} onChange={function(e){setNewCatColor(e.target.value);}} title="Custom color" style={{width:22,height:22,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none"}}/>
+                    <span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.25rem"}}>{newCatColor}</span>
+                  </div>
+                  <button onClick={function(){if(!newCatName.trim())return; setBrainCats(function(p){return[...p,{id:"cat_"+Date.now(),label:newCatName.trim(),emoji:newCatEmoji||"📌",color:newCatColor}];}); setNewCatName(""); setNewCatEmoji(""); setNewCatColor("#7a9e8e");}} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45})}}>Add Category</button>
+                </div>
+                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.75rem"}}>
+                  <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Your categories</div>
+                  {brainCats.map(function(cat){return(
+                    <div key={cat.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:T.surface,borderRadius:"0.65rem",marginBottom:"0.35rem",border:"1px solid "+T.borderSoft}}>
+                      <div style={{width:12,height:12,borderRadius:"50%",background:cat.color,flexShrink:0}}/>
+                      {editingCatId===cat.id?(
+                        <input value={editCatName} onChange={function(e){setEditCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,label:editCatName.trim()||c.label}:c;});});setEditingCatId(null);}if(e.key==="Escape")setEditingCatId(null);}} style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.2rem 0.45rem"})}} autoFocus/>
+                      ):(
+                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark}}>{cat.emoji} {cat.label}</span>
+                      )}
+                      <input type="color" value={cat.color} onChange={function(e){var nc=e.target.value; setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,color:nc}:c;});});}} title="Change color" style={{width:20,height:20,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none",flexShrink:0}}/>
+                      <button onClick={function(){setEditingCatId(cat.id);setEditCatName(cat.label);}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit"}}>rename</button>
+                      <button onClick={function(){setBrainCats(function(p){return p.filter(function(c){return c.id!==cat.id;});});}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+                    </div>
+                  );})}
+                  <div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.5rem"}}>Tap the color circle to change it inline</div>
+                </div>
+              </div>
+            );
+          })()}
         </SettingSection>
         <SettingSection id="members" title="👥 Household Members" defaultOpen={false}>
           {people.filter(p=>p&&p.id&&p.name).map(p=>(
@@ -6216,9 +6335,9 @@ function FlowWrapper({ onHome, onSignOut }) {
           <span style={{ fontSize: "15px" }}>⚓</span>
           <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
         </button>
-        <button onClick={() => { setShowAnchor(false); setActiveTab("anchor"); }} title="Flow" style={{ background: !showAnchor && activeTab === "anchor" ? "rgba(58,107,138,0.3)" : "rgba(58,107,138,0.08)", border: !showAnchor && activeTab === "anchor" ? "1px solid rgba(58,107,138,0.5)" : "1px solid rgba(58,107,138,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+        <button onClick={() => { setShowAnchor(false); setActiveTab("anchor"); }} title="Flow" style={{ background: !showAnchor && activeTab === "anchor" ? "rgba(200,169,122,0.2)" : "rgba(200,169,122,0.06)", border: !showAnchor && activeTab === "anchor" ? "1px solid rgba(200,169,122,0.45)" : "1px solid rgba(200,169,122,0.15)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
           <span style={{ fontSize: "15px" }}>🌊</span>
-          <span style={{ fontSize: "7px", color: !showAnchor && activeTab === "anchor" ? "#6ba3c4" : "rgba(107,163,196,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span>
+          <span style={{ fontSize: "7px", color: !showAnchor && activeTab === "anchor" ? "#c8a97a" : "rgba(200,169,122,0.45)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span>
         </button>
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {showAnchor ? (
@@ -6233,8 +6352,8 @@ function FlowWrapper({ onHome, onSignOut }) {
         ) : (
           NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
             <button key={item.id} onClick={() => { setShowAnchor(false); setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: activeTab === item.id ? 1 : 0.6 }}>{item.emoji}</span>
-              <span style={{ fontSize: "7px", color: activeTab === item.id ? "#c8a97a" : "rgba(250,248,244,0.55)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+              <span style={{ fontSize: "14px", lineHeight: 1, opacity: activeTab === item.id ? 1 : 0.5 }}>{item.emoji}</span>
+              <span style={{ fontSize: "7px", color: activeTab === item.id ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
             </button>
           ))
         )}

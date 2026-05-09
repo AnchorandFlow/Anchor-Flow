@@ -42,9 +42,19 @@ function TagPicker({ selected, onChange }) {
   )
 }
 
-function RecipeCard({ recipe, onDelete, onAddToShopping, onEditTags, open, setOpen }) {
+function RecipeCard({ recipe, onDelete, onAddToShopping, onAddToMealBank, onEditTags, open, setOpen }) {
+  const [bankAdded, setBankAdded] = useState(false)
   const tags = Array.isArray(recipe.tags) ? recipe.tags : (recipe.tags||"").split(",").map(t=>t.trim()).filter(Boolean)
   const tagMeta = tags.map(id => MEAL_TAGS.find(t=>t.id===id)||{ id, label:id, emoji:"🏷️" })
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : (recipe.ingredients||"").split("\n").filter(Boolean)
+
+  function handleAddToBank() {
+    if (!onAddToMealBank) return
+    onAddToMealBank(recipe.name, tags, ingredients)
+    setBankAdded(true)
+    setTimeout(function() { setBankAdded(false) }, 2500)
+  }
+
   return (
     <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, marginBottom:10, overflow:"hidden" }}>
       <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", alignItems:"center", gap:10, padding:"11px 14px", cursor:"pointer" }}>
@@ -65,16 +75,16 @@ function RecipeCard({ recipe, onDelete, onAddToShopping, onEditTags, open, setOp
         <div style={{ padding:"0 14px 14px", borderTop:"1px solid "+B.border }}>
           {recipe.notes && <div style={{ fontSize:12, color:B.muted, marginTop:10, marginBottom:8, fontStyle:"italic" }}>{recipe.notes}</div>}
           {recipe.source && <div style={{ fontSize:11, color:B.coastal, marginBottom:8 }}><a href={recipe.source} target="_blank" rel="noreferrer" style={{ color:B.coastal }}>View original recipe →</a></div>}
-          {recipe.ingredients && recipe.ingredients.length > 0 && (
+          {ingredients.length > 0 && (
             <div style={{ marginBottom:10 }}>
               <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Ingredients</div>
-              {(Array.isArray(recipe.ingredients) ? recipe.ingredients : recipe.ingredients.split("\n").filter(Boolean)).map((ing,i) => (
+              {ingredients.map((ing,i) => (
                 <div key={i} style={{ fontSize:13, color:B.navy, padding:"3px 0", borderBottom:"1px solid "+B.border, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span>{ing}</span>
                   <button onClick={()=>onAddToShopping&&onAddToShopping(ing)} style={{ background:"none", border:"none", fontSize:11, color:B.coastal, cursor:"pointer", padding:"0 4px" }}>+ list</button>
                 </div>
               ))}
-              <button onClick={()=>onAddToShopping&&(Array.isArray(recipe.ingredients)?recipe.ingredients:recipe.ingredients.split("\n").filter(Boolean)).forEach(i=>onAddToShopping(i))} style={{ background:B.sage, border:"none", borderRadius:7, padding:"6px 12px", color:"#fff", fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight:600, cursor:"pointer", marginTop:8 }}>Add all to shopping list</button>
+              <button onClick={()=>ingredients.forEach(i=>onAddToShopping&&onAddToShopping(i))} style={{ background:B.sage, border:"none", borderRadius:7, padding:"6px 12px", color:"#fff", fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight:600, cursor:"pointer", marginTop:8 }}>Add all to shopping list</button>
             </div>
           )}
           {recipe.steps && recipe.steps.length > 0 && (
@@ -92,12 +102,19 @@ function RecipeCard({ recipe, onDelete, onAddToShopping, onEditTags, open, setOp
             <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>Tags</div>
             <TagPicker selected={tags} onChange={newTags=>onEditTags(recipe.id, newTags)} />
           </div>
-          <button onClick={()=>onDelete(recipe.id)} style={{ background:"none", border:"1px solid #e74c3c44", borderRadius:7, padding:"5px 12px", color:"#e74c3c", fontSize:11, fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginTop:12 }}>Delete recipe</button>
+          <div style={{ display:"flex", gap:8, marginTop:14, flexWrap:"wrap" }}>
+            <button onClick={handleAddToBank} style={{ background: bankAdded ? B.sage : "rgba(122,158,142,0.1)", border:"1.5px solid "+(bankAdded ? B.sage : "rgba(122,158,142,0.4)"), borderRadius:7, padding:"6px 12px", color: bankAdded ? "#fff" : B.sage, fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight:600, cursor:"pointer", transition:"all 0.2s" }}>
+              {bankAdded ? "✓ Added to Meal Bank" : "📋 Add to Meal Bank"}
+            </button>
+            <button onClick={()=>onDelete(recipe.id)} style={{ background:"none", border:"1px solid #e74c3c44", borderRadius:7, padding:"5px 12px", color:"#e74c3c", fontSize:11, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>Delete recipe</button>
+          </div>
         </div>
       )}
     </div>
   )
-}const RecipesTab = React.memo(function RecipesTab({ onAddToShopping }) {
+}
+
+const RecipesTab = React.memo(function RecipesTab({ onAddToShopping, onAddToMealBank }) {
   const [recipes, setRecipes] = useState([])
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
@@ -160,10 +177,14 @@ function RecipeCard({ recipe, onDelete, onAddToShopping, onEditTags, open, setOp
 
   const usedTags = [...new Set(recipes.flatMap(r => Array.isArray(r.tags) ? r.tags : (r.tags||"").split(",").map(t=>t.trim()).filter(Boolean)))]
 
-  const filtered = activeFilter === "all" ? recipes : recipes.filter(r => {
-    const tags = Array.isArray(r.tags) ? r.tags : (r.tags||"").split(",").map(t=>t.trim()).filter(Boolean)
-    return tags.includes(activeFilter)
-  })
+  // Alphabetical sort
+  const sortedRecipes = recipes.slice().sort(function(a,b){ return a.name.localeCompare(b.name) })
+  const filtered = activeFilter === "all"
+    ? sortedRecipes
+    : sortedRecipes.filter(r => {
+        const tags = Array.isArray(r.tags) ? r.tags : (r.tags||"").split(",").map(t=>t.trim()).filter(Boolean)
+        return tags.includes(activeFilter)
+      })
 
   return (
     <div style={{ padding:"0 0 2rem" }}>
@@ -212,10 +233,10 @@ function RecipeCard({ recipe, onDelete, onAddToShopping, onEditTags, open, setOp
           </div>
         : <div>
             <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10 }}>
-              {filtered.length} recipe{filtered.length!==1?"s":""}
+              {filtered.length} recipe{filtered.length!==1?"s":""} · A–Z
               {activeFilter!=="all"&&<span style={{fontWeight:400}}> tagged {MEAL_TAGS.find(t=>t.id===activeFilter)?.label||activeFilter}</span>}
             </div>
-            {filtered.map(r => <RecipeCard key={r.id} recipe={r} onDelete={id=>save(recipes.filter(x=>x.id!==id))} onAddToShopping={onAddToShopping} onEditTags={editTags} open={!!openCards[r.id]} setOpen={v=>setOpenCard(r.id,v)}/>)}
+            {filtered.map(r => <RecipeCard key={r.id} recipe={r} onDelete={id=>save(recipes.filter(x=>x.id!==id))} onAddToShopping={onAddToShopping} onAddToMealBank={onAddToMealBank} onEditTags={editTags} open={!!openCards[r.id]} setOpen={v=>setOpenCard(r.id,v)}/>)}
           </div>
       }
     </div>
