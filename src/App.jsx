@@ -3510,7 +3510,8 @@ Respond ONLY in valid JSON:
               {filtered.map(function(meal){return(
                 <div key={meal.id} onClick={function(){handleSelect(meal);}} style={{padding:"0.5rem 0.75rem",fontSize:"0.83rem",color:T.textDark,cursor:"pointer",borderBottom:"1px solid "+T.borderSoft,display:"flex",justifyContent:"space-between",alignItems:"center"}}
                   onMouseEnter={function(e){e.currentTarget.style.background=T.bgAlt;}}
-                  onMouseLeave={function(e){e.currentTarget.style.background="";}}>\n                  <span>{meal.name}</span>
+                  onMouseLeave={function(e){e.currentTarget.style.background="";}}>
+                  <span>{meal.name}</span>
                   {(meal.ingredients||[]).length>0&&<span style={{fontSize:"0.65rem",color:T.textFaint}}>🥘</span>}
                 </div>
               );})}
@@ -4977,6 +4978,53 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  function BrainCatsEditor({brainCats, setBrainCats}) {
+    const [editingCatId,setEditingCatId] = useState(null);
+    const [editCatName,setEditCatName] = useState("");
+    const [newCatName,setNewCatName] = useState("");
+    const [newCatEmoji,setNewCatEmoji] = useState("");
+    const [newCatColor,setNewCatColor] = useState("#7a9e8e");
+    const PRESETS=["#e05c5c","#e07c3a","#d4a82a","#5a9e6a","#3a8ab4","#6a6ab4","#b46aaa","#7a9e8e","#c8a97a","#888780"];
+    function addCat(){ if(!newCatName.trim())return; setBrainCats(function(p){return[...p,{id:"cat_"+Date.now(),label:newCatName.trim(),emoji:newCatEmoji||"📌",color:newCatColor}];}); setNewCatName(""); setNewCatEmoji(""); setNewCatColor("#7a9e8e"); }
+    function saveEdit(cat){ setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,label:editCatName.trim()||c.label}:c;});}); setEditingCatId(null); }
+    return (
+      <div>
+        <div style={{marginBottom:"1rem"}}>
+          <div style={{fontSize:"0.78rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Add a category</div>
+          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
+            <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addCat();}} placeholder="Name…" style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
+            <input value={newCatEmoji} onChange={function(e){setNewCatEmoji(e.target.value);}} placeholder="🏷️" style={{...inp({width:46,textAlign:"center",fontSize:"1rem"})}}/>
+          </div>
+          <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"0.5rem",alignItems:"center"}}>
+            {PRESETS.map(function(c){return(
+              <button key={c} onClick={function(){setNewCatColor(c);}} style={{width:22,height:22,borderRadius:"50%",background:c,border:newCatColor===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0,transition:"border 0.1s"}}/>
+            );})}
+            <input type="color" value={newCatColor} onChange={function(e){setNewCatColor(e.target.value);}} title="Custom color" style={{width:22,height:22,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none"}}/>
+            <span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.25rem"}}>{newCatColor}</span>
+          </div>
+          <button onClick={addCat} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45})}}>Add Category</button>
+        </div>
+        <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.75rem"}}>
+          <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Your categories</div>
+          {brainCats.map(function(cat){return(
+            <div key={cat.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:T.surface,borderRadius:"0.65rem",marginBottom:"0.35rem",border:"1px solid "+T.borderSoft}}>
+              <div style={{width:12,height:12,borderRadius:"50%",background:cat.color,flexShrink:0}}/>
+              {editingCatId===cat.id?(
+                <input value={editCatName} onChange={function(e){setEditCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")saveEdit(cat); if(e.key==="Escape")setEditingCatId(null);}} style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.2rem 0.45rem"})}} autoFocus/>
+              ):(
+                <span style={{flex:1,fontSize:"0.85rem",color:T.textDark}}>{cat.emoji} {cat.label}</span>
+              )}
+              <input type="color" value={cat.color} onChange={function(e){var nc=e.target.value; setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,color:nc}:c;});});}} title="Change color" style={{width:20,height:20,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none",flexShrink:0}}/>
+              <button onClick={function(){setEditingCatId(cat.id);setEditCatName(cat.label);}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit"}}>rename</button>
+              <button onClick={function(){setBrainCats(function(p){return p.filter(function(c){return c.id!==cat.id;});});}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+            </div>
+          );})}
+          <div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.5rem"}}>Tap the color circle to change it inline</div>
+        </div>
+      </div>
+    );
+  }
+
   function SettingsTab(){
     const ONBOARD_QUESTIONS=[
       {key:"parentNames",q:"What should I call you?",placeholder:"e.g. Lindsey & Jake"},
@@ -5278,50 +5326,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </SettingSection>
         <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false}>
-          {(function(){
-            var [editingCatId,setEditingCatId] = React.useState(null);
-            var [editCatName,setEditCatName] = React.useState("");
-            var [newCatName,setNewCatName] = React.useState("");
-            var [newCatEmoji,setNewCatEmoji] = React.useState("");
-            var [newCatColor,setNewCatColor] = React.useState("#7a9e8e");
-            var PRESETS=["#e05c5c","#e07c3a","#d4a82a","#5a9e6a","#3a8ab4","#6a6ab4","#b46aaa","#7a9e8e","#c8a97a","#888780"];
-            return (
-              <div>
-                <div style={{marginBottom:"1rem"}}>
-                  <div style={{fontSize:"0.78rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Add a category</div>
-                  <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-                    <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} placeholder="Name…" style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
-                    <input value={newCatEmoji} onChange={function(e){setNewCatEmoji(e.target.value);}} placeholder="🏷️" style={{...inp({width:46,textAlign:"center",fontSize:"1rem"})}}/>
-                  </div>
-                  <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"0.5rem",alignItems:"center"}}>
-                    {PRESETS.map(function(c){return(
-                      <button key={c} onClick={function(){setNewCatColor(c);}} style={{width:22,height:22,borderRadius:"50%",background:c,border:newCatColor===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0,transition:"border 0.1s"}}/>
-                    );})}
-                    <input type="color" value={newCatColor} onChange={function(e){setNewCatColor(e.target.value);}} title="Custom color" style={{width:22,height:22,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none"}}/>
-                    <span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.25rem"}}>{newCatColor}</span>
-                  </div>
-                  <button onClick={function(){if(!newCatName.trim())return; setBrainCats(function(p){return[...p,{id:"cat_"+Date.now(),label:newCatName.trim(),emoji:newCatEmoji||"📌",color:newCatColor}];}); setNewCatName(""); setNewCatEmoji(""); setNewCatColor("#7a9e8e");}} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45})}}>Add Category</button>
-                </div>
-                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.75rem"}}>
-                  <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Your categories</div>
-                  {brainCats.map(function(cat){return(
-                    <div key={cat.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:T.surface,borderRadius:"0.65rem",marginBottom:"0.35rem",border:"1px solid "+T.borderSoft}}>
-                      <div style={{width:12,height:12,borderRadius:"50%",background:cat.color,flexShrink:0}}/>
-                      {editingCatId===cat.id?(
-                        <input value={editCatName} onChange={function(e){setEditCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,label:editCatName.trim()||c.label}:c;});});setEditingCatId(null);}if(e.key==="Escape")setEditingCatId(null);}} style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.2rem 0.45rem"})}} autoFocus/>
-                      ):(
-                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark}}>{cat.emoji} {cat.label}</span>
-                      )}
-                      <input type="color" value={cat.color} onChange={function(e){var nc=e.target.value; setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,color:nc}:c;});});}} title="Change color" style={{width:20,height:20,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none",flexShrink:0}}/>
-                      <button onClick={function(){setEditingCatId(cat.id);setEditCatName(cat.label);}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit"}}>rename</button>
-                      <button onClick={function(){setBrainCats(function(p){return p.filter(function(c){return c.id!==cat.id;});});}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>✕</button>
-                    </div>
-                  );})}
-                  <div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.5rem"}}>Tap the color circle to change it inline</div>
-                </div>
-              </div>
-            );
-          })()}
+          <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
         </SettingSection>
         <SettingSection id="members" title="👥 Household Members" defaultOpen={false}>
           {people.filter(p=>p&&p.id&&p.name).map(p=>(
