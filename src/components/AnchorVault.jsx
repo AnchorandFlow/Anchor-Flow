@@ -727,30 +727,30 @@ function InventorySection({ onAddToShopping }) {
                           <div
                             key={idx}
                             ref={function(el) { itemEls.current[idx] = el }}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.1)" : "transparent", borderLeft: isDragOver ? "2px solid #c8a97a" : "2px solid transparent", transition: "background 0.08s", opacity: isDragging ? 0.35 : 1, touchAction: "none" }}
+                            onPointerDown={function(e) {
+                              // Don't start drag on buttons or inputs
+                              if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return
+                              onHandlePointerDown(e, idx)
+                            }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: isDragging ? 0.3 : 1, cursor: "grab", userSelect: "none", touchAction: "none" }}
                           >
-                            {/* Drag handle */}
-                            <span
-                              onPointerDown={function(e) { onHandlePointerDown(e, idx) }}
-                              style={{ fontSize: 16, color: "rgba(250,248,244,0.3)", cursor: "grab", flexShrink: 0, lineHeight: 1, touchAction: "none", userSelect: "none", padding: "4px 6px" }}
-                            >⠿</span>
                             {/* Stocked checkbox */}
-                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                            <div onPointerDown={function(e) { e.stopPropagation() }} onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", touchAction: "auto" }}>
                               {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
                             </div>
                             {editing === idx ? (
-                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                              <input onPointerDown={function(e) { e.stopPropagation() }} value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", cursor: "text", userSelect: "text" }} />
                             ) : (
                               <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
                             )}
                             {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: "#c8834a", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>→ list</span>}
                             {editing === idx ? (
-                              <div style={{ display: "flex", gap: 6 }}>
+                              <div onPointerDown={function(e) { e.stopPropagation() }} style={{ display: "flex", gap: 6 }}>
                                 <button onClick={function() { renameItem(idx) }} style={{ background: "#7a9e8e", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer" }}>save</button>
                                 <button onClick={function() { setEditing(null) }} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
                               </div>
                             ) : (
-                              <div style={{ display: "flex", gap: 6 }}>
+                              <div onPointerDown={function(e) { e.stopPropagation() }} style={{ display: "flex", gap: 6 }}>
                                 <button onClick={function() { setEditing(idx); setEditVal(item.name) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.35)", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
                                 <button onClick={function() { deleteItem(idx) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(200,131,74,0.5)", cursor: "pointer", padding: "2px 4px" }}>✕</button>
                               </div>
