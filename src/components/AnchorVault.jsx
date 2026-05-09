@@ -1281,6 +1281,8 @@ function PetsSection() {
   const [medForm, setMedForm] = useState({ name: "", dose: "", freq: "", refill: "", notes: "" })
   const [editingField, setEditingField] = useState(null)
   const [editVal, setEditVal] = useState("")
+  const [addingDoc, setAddingDoc] = useState(false)
+  const docInputRef = React.useRef(null)
 
   function save(updated) {
     setPets(updated)
@@ -1324,6 +1326,53 @@ function PetsSection() {
     const reader = new FileReader()
     reader.onload = function() { updatePet(petId, { photo: reader.result }) }
     reader.readAsDataURL(file)
+  }
+
+  function handleDoc(e, petId) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const pet = pets.find(function(p) { return p.id === petId })
+    const existing = pet.documents || []
+    var loaded = 0
+    files.forEach(function(file) {
+      const reader = new FileReader()
+      reader.onload = function() {
+        loaded++
+        const doc = {
+          id: Date.now().toString() + loaded,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data: reader.result,
+          uploaded: new Date().toLocaleDateString()
+        }
+        // Need to read current state fresh each time
+        setPets(function(current) {
+          const updated = current.map(function(p) {
+            return p.id === petId ? { ...p, documents: [...(p.documents || []), doc] } : p
+          })
+          try { localStorage.setItem("af_pets", JSON.stringify(updated)) } catch {}
+          return updated
+        })
+      }
+      reader.readAsDataURL(file)
+    })
+    setAddingDoc(false)
+  }
+
+  function removeDoc(petId, docId) {
+    const updated = pets.map(function(p) {
+      return p.id === petId ? { ...p, documents: (p.documents || []).filter(function(d) { return d.id !== docId }) } : p
+    })
+    save(updated)
+  }
+
+  function openDoc(doc) {
+    // Open in new tab
+    const a = document.createElement("a")
+    a.href = doc.data
+    a.download = doc.name
+    a.click()
   }
 
   const now = new Date()
@@ -1564,6 +1613,56 @@ function PetsSection() {
             </div>
           )
         })}
+      </div>
+
+      {/* Documents */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif" }}>📄 Documents</div>
+          <label style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 7, padding: "3px 10px", fontSize: 11, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>
+            + Upload
+            <input ref={docInputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.heic,image/*" onChange={function(e) { handleDoc(e, activePet.id) }} style={{ display: "none" }} />
+          </label>
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>Vaccine records, vet summaries, insurance — any file.</div>
+        {(activePet.documents || []).length === 0 ? (
+          <label style={{ display: "block", border: "1.5px dashed rgba(200,169,122,0.2)", borderRadius: 10, padding: "20px", textAlign: "center", cursor: "pointer" }}>
+            <div style={{ fontSize: 24, marginBottom: 6 }}>📁</div>
+            <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>Tap to upload files</div>
+            <div style={{ fontSize: 10, color: "rgba(250,248,244,0.18)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>PDF, images, Word docs</div>
+            <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.heic,image/*" onChange={function(e) { handleDoc(e, activePet.id) }} style={{ display: "none" }} />
+          </label>
+        ) : (
+          <div>
+            {(activePet.documents || []).map(function(doc) {
+              const isImage = doc.type && doc.type.startsWith("image/")
+              const isPdf = doc.type === "application/pdf"
+              const icon = isImage ? "🖼️" : isPdf ? "📋" : "📄"
+              const kb = doc.size ? Math.round(doc.size / 1024) : null
+              return (
+                <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: cardBg, border: "1px solid " + border, borderRadius: 10, marginBottom: 6 }}>
+                  {isImage ? (
+                    <div style={{ width: 40, height: 40, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+                      <img src={doc.data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
+                  ) : (
+                    <div style={{ width: 40, height: 40, borderRadius: 6, background: "rgba(200,169,122,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{icon}</div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: warm, fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
+                    <div style={{ fontSize: 10, color: muted, fontFamily: "DM Sans,sans-serif" }}>{doc.uploaded}{kb ? " · " + kb + " KB" : ""}</div>
+                  </div>
+                  <button onClick={function() { openDoc(doc) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 6, padding: "4px 10px", fontSize: 10, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}>Open</button>
+                  <button onClick={function() { removeDoc(activePet.id, doc.id) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px", flexShrink: 0 }}>✕</button>
+                </div>
+              )
+            })}
+            <label style={{ display: "block", width: "100%", padding: "8px", background: "rgba(200,169,122,0.06)", border: "1px dashed rgba(200,169,122,0.2)", borderRadius: 8, fontSize: 11, color: "rgba(200,169,122,0.5)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 500, textAlign: "center", boxSizing: "border-box", marginTop: 4 }}>
+              + Add another file
+              <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.heic,image/*" onChange={function(e) { handleDoc(e, activePet.id) }} style={{ display: "none" }} />
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Notes */}
