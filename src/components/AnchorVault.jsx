@@ -323,11 +323,13 @@ function InventorySection({ onAddToShopping }) {
   const [inlineAdding, setInlineAdding] = useState({})
   const [inlineVal, setInlineVal] = useState({})
 
-  // drag state refs (no re-render needed mid-drag)
-  const dragGlobalIdx = React.useRef(null)
-  const dragOverGlobalIdx = React.useRef(null)
-  const [dragActive, setDragActive] = useState(false)
+  // Pointer-based drag state
+  const dragFromIdx = React.useRef(null)
+  const dragToIdx = React.useRef(null)
+  const dragClone = React.useRef(null)
+  const itemEls = React.useRef({})
   const [dragOverIdx, setDragOverIdx] = useState(null)
+  const [draggingIdx, setDraggingIdx] = useState(null)
 
   // collapsed subcategories: { "pantry:baking": true, ... }
   // Reset on mount so nothing is pre-hidden (clears any bad state from previous sessions)
@@ -428,30 +430,80 @@ function InventorySection({ onAddToShopping }) {
     setInlineAdding(function(p) { return { ...p, [key]: true } })
   }
 
-  // Drag handlers — reorder within the flat items[activeCat] array
-  function onDragStart(globalIdx) {
-    dragGlobalIdx.current = globalIdx
-    setDragActive(true)
-  }
-
-  function onDragEnter(globalIdx) {
-    dragOverGlobalIdx.current = globalIdx
+  // Pointer-based drag — reliable cross-browser reorder
+  function onHandlePointerDown(e, globalIdx) {
+    e.preventDefault()
+    dragFromIdx.current = globalIdx
+    dragToIdx.current = globalIdx
+    setDraggingIdx(globalIdx)
     setDragOverIdx(globalIdx)
-  }
 
-  function onDragEnd() {
-    const from = dragGlobalIdx.current
-    const to = dragOverGlobalIdx.current
-    if (from !== null && to !== null && from !== to) {
-      const arr = [...(items[activeCat] || [])]
-      const moved = arr.splice(from, 1)[0]
-      arr.splice(to, 0, moved)
-      save({ ...items, [activeCat]: arr })
+    // Create floating clone
+    var srcEl = itemEls.current[globalIdx]
+    var clone = null
+    if (srcEl) {
+      clone = srcEl.cloneNode(true)
+      clone.style.position = "fixed"
+      clone.style.pointerEvents = "none"
+      clone.style.opacity = "0.85"
+      clone.style.zIndex = "9999"
+      clone.style.width = srcEl.offsetWidth + "px"
+      clone.style.background = "#2a3a5c"
+      clone.style.borderRadius = "8px"
+      clone.style.boxShadow = "0 8px 24px rgba(0,0,0,0.5)"
+      var rect = srcEl.getBoundingClientRect()
+      clone.style.left = rect.left + "px"
+      clone.style.top = rect.top + "px"
+      document.body.appendChild(clone)
+      dragClone.current = clone
     }
-    dragGlobalIdx.current = null
-    dragOverGlobalIdx.current = null
-    setDragActive(false)
-    setDragOverIdx(null)
+
+    function onMove(me) {
+      var clientY = me.touches ? me.touches[0].clientY : me.clientY
+      var clientX = me.touches ? me.touches[0].clientX : me.clientX
+      if (dragClone.current) {
+        dragClone.current.style.top = (clientY - 20) + "px"
+        dragClone.current.style.left = clientX + "px"
+      }
+      // Find which item we're hovering over
+      var best = dragFromIdx.current
+      var bestDist = Infinity
+      Object.keys(itemEls.current).forEach(function(k) {
+        var el = itemEls.current[k]
+        if (!el) return
+        var r = el.getBoundingClientRect()
+        var midY = r.top + r.height / 2
+        var dist = Math.abs(clientY - midY)
+        if (dist < bestDist) { bestDist = dist; best = parseInt(k) }
+      })
+      if (best !== dragToIdx.current) {
+        dragToIdx.current = best
+        setDragOverIdx(best)
+      }
+    }
+
+    function onUp() {
+      document.removeEventListener("pointermove", onMove)
+      document.removeEventListener("pointerup", onUp)
+      document.removeEventListener("touchmove", onMove)
+      document.removeEventListener("touchend", onUp)
+      if (dragClone.current) { document.body.removeChild(dragClone.current); dragClone.current = null }
+      var from = dragFromIdx.current
+      var to = dragToIdx.current
+      if (from !== null && to !== null && from !== to) {
+        var arr = (items[activeCat] || []).slice()
+        var moved = arr.splice(from, 1)[0]
+        arr.splice(to, 0, moved)
+        save({ ...items, [activeCat]: arr })
+      }
+      dragFromIdx.current = null
+      dragToIdx.current = null
+      setDraggingIdx(null)
+      setDragOverIdx(null)
+    }
+
+    document.addEventListener("pointermove", onMove)
+    document.addEventListener("pointerup", onUp)
   }
 
   const totalLow = Object.values(items).flat().filter(function(x) { return !x.stocked }).length
@@ -650,19 +702,19 @@ function InventorySection({ onAddToShopping }) {
 
                       {subItems.map(function(s) {
                         const item = s.item; const idx = s.globalIdx
-                        const isDragOver = dragOverIdx === idx && dragGlobalIdx.current !== idx
+                        const isDragOver = dragOverIdx === idx && draggingIdx !== idx
+                        const isDragging = draggingIdx === idx
                         return (
                           <div
                             key={idx}
-                            draggable
-                            onDragStart={function() { onDragStart(idx) }}
-                            onDragEnter={function() { onDragEnter(idx) }}
-                            onDragOver={function(e) { e.preventDefault() }}
-                            onDragEnd={onDragEnd}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.08)" : "transparent", borderLeft: isDragOver ? "2px solid #c8a97a" : "2px solid transparent", transition: "background 0.1s, border 0.1s", opacity: dragActive && dragGlobalIdx.current === idx ? 0.4 : 1 }}
+                            ref={function(el) { itemEls.current[idx] = el }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.1)" : "transparent", borderLeft: isDragOver ? "2px solid #c8a97a" : "2px solid transparent", transition: "background 0.08s", opacity: isDragging ? 0.35 : 1 }}
                           >
                             {/* Drag handle */}
-                            <span style={{ fontSize: 12, color: "rgba(250,248,244,0.18)", cursor: "grab", flexShrink: 0, lineHeight: 1, marginRight: -4 }}>⠿</span>
+                            <span
+                              onPointerDown={function(e) { onHandlePointerDown(e, idx) }}
+                              style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", cursor: "grab", flexShrink: 0, lineHeight: 1, marginRight: -4, touchAction: "none", userSelect: "none", padding: "4px 2px" }}
+                            >⠿</span>
                             {/* Stocked checkbox */}
                             <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                               {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
