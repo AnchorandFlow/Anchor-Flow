@@ -293,6 +293,16 @@ function CelebrationsSection({ calEvents }) {
   const [celebType, setCelebType] = useState("birthday")
   const [form, setForm] = useState({ name: "", month: "", day: "", year: "", notes: "" })
   const [filter, setFilter] = useState("upcoming")
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
+
+  function saveEdit() {
+    if (!editForm.name.trim() || !editForm.month || !editForm.day) return
+    save(celebrations.map(function(c) {
+      return c.id === editingId ? { ...c, name: editForm.name.trim(), month: parseInt(editForm.month), day: parseInt(editForm.day), year: editForm.year ? parseInt(editForm.year) : null, notes: editForm.notes.trim(), type: editForm.type } : c
+    }))
+    setEditingId(null)
+  }
 
   function save(updated) {
     setCelebrations(updated)
@@ -344,18 +354,18 @@ function CelebrationsSection({ calEvents }) {
               )
             })}
           </div>
-          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none" }}>
-              <option value="">Month</option>
-              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744" }}>{m}</option> })}
+            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }}>
+              <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
+              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
             </select>
-            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
             {(celebType === "birthday" || celebType === "anniversary") && (
-              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
             )}
           </div>
-          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "#1e3060", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
             <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
@@ -376,7 +386,26 @@ function CelebrationsSection({ calEvents }) {
       {shown.map(function(e, i) {
         const isPast = e.diff < 0
         return (
-          <div key={e.id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: e.soon && !isPast ? "rgba(200,131,74,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 7, opacity: isPast ? 0.45 : 1 }}>
+          <div key={e.id || i} style={{ background: editingId===e.id ? "rgba(200,169,122,0.08)" : e.soon && !isPast ? "rgba(200,131,74,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid " + (editingId===e.id ? "rgba(200,169,122,0.3)" : e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 7, overflow: "hidden" }}>
+          {editingId === e.id ? (
+            <div style={{ padding: "12px 14px" }}>
+              <input value={editForm.name} onChange={function(ev){setEditForm(function(p){return{...p,name:ev.target.value}})}} placeholder="Name / occasion" style={{ width:"100%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 10px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none", marginBottom:8, boxSizing:"border-box" }}/>
+              <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                <select value={editForm.month} onChange={function(ev){setEditForm(function(p){return{...p,month:ev.target.value}})}} style={{ flex:2, background:"#1e3060", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 8px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}>
+                  <option value="">Month</option>
+                  {MONTHS.map(function(m,mi){return <option key={mi} value={mi+1} style={{background:"#1a2744"}}>{m}</option>})}
+                </select>
+                <input value={editForm.day} onChange={function(ev){setEditForm(function(p){return{...p,day:ev.target.value}})}} placeholder="Day" type="number" min="1" max="31" style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 8px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
+                <input value={editForm.year} onChange={function(ev){setEditForm(function(p){return{...p,year:ev.target.value}})}} placeholder="Year" type="number" style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 8px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
+              </div>
+              <input value={editForm.notes} onChange={function(ev){setEditForm(function(p){return{...p,notes:ev.target.value}})}} placeholder="Notes (optional)" style={{ width:"100%", background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 10px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none", marginBottom:10, boxSizing:"border-box" }}/>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={saveEdit} style={{ flex:1, background:"#c8a97a", border:"none", borderRadius:7, padding:"8px", fontSize:12, color:"#1a2744", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>Save</button>
+                <button onClick={function(){setEditingId(null)}} style={{ background:"rgba(255,255,255,0.07)", border:"none", borderRadius:7, padding:"8px 14px", fontSize:12, color:"rgba(250,248,244,0.5)", cursor:"pointer" }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", opacity: isPast ? 0.45 : 1 }}>
             <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
               <div style={{ fontSize: 18, lineHeight: 1 }}>{e.emoji}</div>
               {e.month && <div style={{ fontSize: 13, fontWeight: 700, color: e.soon && !isPast ? "#c8834a" : "rgba(200,169,122,0.6)", fontFamily: "Cormorant Garamond,serif" }}>{MONTHS[e.month-1]} {e.day}</div>}
@@ -391,8 +420,13 @@ function CelebrationsSection({ calEvents }) {
               : e.diff === 1 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#c8834a" }}>Tomorrow</span>
               : <span style={{ fontSize: 11, color: e.diff <= 7 ? "#c8834a" : "rgba(250,248,244,0.3)", fontWeight: e.diff <= 7 ? 600 : 400 }}>in {e.diff}d</span>}
             </div>
-            <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, padding: "2px 4px", color: "#faf8f4" }}>✕</button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+              <button onClick={function() { setEditingId(e.id); setEditForm({ name: e.name, month: String(e.month), day: String(e.day), year: e.year ? String(e.year) : "", notes: e.notes || "", type: e.type }); }} style={{ background: "rgba(200,169,122,0.12)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", fontWeight: 600 }}>Edit</button>
+              <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, padding: "2px 4px", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif" }}>✕</button>
+            </div>
           </div>
+          )}
+        </div>
         )
       })}
     </div>

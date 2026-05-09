@@ -1,12 +1,12 @@
 import { useState } from "react"
 
 const B = {
-  navy: "#1a2744", coastal: "#3a6b8a", sage: "#7a9e8e", sand: "#c8a97a",
-  warm: "#faf8f4", white: "#ffffff", border: "rgba(26,39,68,0.12)",
-  muted: "#7a8494", soft: "#f0ede8", rose: "#c97a7a", lavender: "#8878b8",
+  navy: "#faf8f4", coastal: "#6ba3c4", sage: "#7a9e8e", sand: "#c8a97a",
+  warm: "#faf8f4", white: "rgba(255,255,255,0.06)", border: "rgba(200,169,122,0.22)",
+  muted: "rgba(250,248,244,0.45)", soft: "rgba(255,255,255,0.05)", rose: "#c97a7a", lavender: "#9b8fd4",
 }
 
-const inp = (extra={}) => ({ border:"1.5px solid "+B.border, borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"DM Sans,sans-serif", width:"100%", boxSizing:"border-box", background:B.white, ...extra })
+const inp = (extra={}) => ({ border:"1.5px solid "+B.border, borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"DM Sans,sans-serif", width:"100%", boxSizing:"border-box", background:"#1e3060", color:"#faf8f4", ...extra })
 const uid = () => Math.random().toString(36).slice(2)
 
 const PACKING_CATEGORIES = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]

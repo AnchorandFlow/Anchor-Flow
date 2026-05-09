@@ -2701,37 +2701,51 @@ Respond ONLY in valid JSON:
     return (
       <div>
         {/* ── Hero greeting card ── */}
-        <div style={{background:"linear-gradient(150deg,"+T.blue+"22,"+T.bluePale+" 80%)",border:"2px solid "+T.blue+"40",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px "+T.blue+"12"}}>
+        <div style={{background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
             <div style={{flex:1}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
-                <div style={{fontSize:"0.62rem",color:T.blueDark,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
+                <div style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.85)",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
                 {weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];})?
-                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:T.white+"80",borderRadius:"50px",padding:"2px 8px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:"rgba(255,255,255,0.1)",borderRadius:"50px",padding:"2px 8px"}}>
                     <span style={{fontSize:"0.85rem"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).emoji}</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.textMid}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).high}°</span>
+                    <span style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(250,248,244,0.85)"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).high}°</span>
                   </div>
-                :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:T.blue,background:"none",border:"1px solid "+T.blue+"40",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
+                :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
               </div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:T.textDark,lineHeight:1.05}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:"#faf8f4",lineHeight:1.05}}>
                 {greeting}{authUser?.displayName ? ", " + authUser.displayName.split(" ")[0] : ""} {greetingEmoji}
               </div>
-              {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
-              {flowMode==="Survival"&&<div style={{color:T.rose,fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
+              {dayRhythm.theme&&<div style={{color:"rgba(250,248,244,0.65)",fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
+              {flowMode==="Survival"&&<div style={{color:"#f4a0a0",fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
             </div>
-            <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.35,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color={T.textMid}/></button>
+            <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color="#faf8f4"/></button>
           </div>
 
           {/* Flow mode chips */}
           <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
             {Object.entries(FM).map(([mode,m])=>(
-              <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":T.textMid,border:"2px solid "+(flowMode===mode?m.color:T.border),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
+              <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
             ))}
           </div>
           {flowMode!=="Survival"
-            ?<div style={{fontSize:"0.7rem",color:T.textFaint,marginBottom:"0.75rem",paddingLeft:"0.2rem",fontStyle:"italic"}}>Hard day? Tap 🛟 Survival — it's okay.</div>
+            ?<div style={{fontSize:"0.7rem",color:"rgba(250,248,244,0.45)",marginBottom:"0.75rem",paddingLeft:"0.2rem",fontStyle:"italic"}}>Hard day? Tap 🛟 Survival — it's okay.</div>
             :<div style={{marginBottom:"0.75rem"}}/>
           }
+          {flowMode==="Busy"&&(
+            <div style={{background:"rgba(200,169,122,0.12)",border:"1.5px solid rgba(200,169,122,0.3)",borderRadius:"0.9rem",padding:"0.7rem 0.9rem",marginBottom:"0.65rem",display:"flex",gap:"0.55rem",alignItems:"flex-start"}}>
+              <span style={{fontSize:"1.1rem",flexShrink:0}}>⚡</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:"0.82rem",color:"#c8a97a",marginBottom:"0.2rem"}}>Let's lighten the load</div>
+                <div style={{fontSize:"0.76rem",color:"rgba(250,248,244,0.65)",lineHeight:1.5}}>Pick just 1–2 things that actually matter today. Dinner can be simple. The rest can wait.</div>
+                <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginTop:"0.5rem"}}>
+                  {["Order takeout tonight","Dinner from the freezer","Ask for help with one task","Say no to one thing today"].map(function(s){return(
+                    <button key={s} onClick={function(){setTasks(function(p){return[...p,{id:uid(),text:s,day:TODAY_NAME,done:false,tier:"top3"}];});}} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(200,169,122,0.4)",borderRadius:"2rem",padding:"0.18rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit",color:"#c8a97a",transition:"all 0.12s"}}>{"+ "+s}</button>
+                  );})}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Primary CTA */}
           {!isEvening&&!dayOpen&&(
@@ -3459,7 +3473,7 @@ Respond ONLY in valid JSON:
     const [weekTypeKey,setWeekTypeKey]=useState(null);
     const [showWeekTypePicker,setShowWeekTypePicker]=useState(false);
     const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
-    const [nextWeekMealCount,setNextWeekMealCount]=useState(1);
+    const [nextWeekMealCount,setNextWeekMealCount]=useSaved("af_nwMealCount",1);
     var nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
     const [bankFilters,setBankFilters]=useState([]);
@@ -3561,7 +3575,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setRescueLoading(false);
     }
 
-    const subTabs=[{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"tonight",label:"Tonight",emoji:"🌙"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"Rescue",emoji:"🆘"}];
+    const subTabs=[{id:"bank",label:"Meal Bank",emoji:"📋"},{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"}];
 
     return (
       <div>
@@ -3873,7 +3887,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <p style={{color:T.textMid,fontSize:"0.83rem",marginBottom:"1rem"}}>Head to This Week to plan {TODAY_NAME}'s dinner, or use Rescue Mode.</p>
                 <div style={{display:"flex",gap:"0.5rem",justifyContent:"center",flexWrap:"wrap"}}>
                   <button onClick={()=>setMealSubTab("week")} style={btnP(T.sage)}>Plan This Week</button>
-                  <button onClick={()=>setMealSubTab("rescue")} style={btnP(T.rose)}>🆘 Rescue Mode</button>
+                  <button onClick={()=>setMealSubTab("rescue")} style={btnP(T.rose)}>🆘 SOS Mode</button>
                 </div>
               </div>
             )}
@@ -4600,8 +4614,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [activeFilter,setActiveFilter] = useState("all");
     const [addCatName,setAddCatName] = useState("");
     const [customCats,setCustomCats] = useSaved("brainCustomCats",[]);
-    const brainDragId = null;
-    const brainDropId = null;
+    const brainDragId = React.useRef(null);
+    const brainDragOver = React.useRef(null);
+
+    function handleBrainDrop(catId) {
+      const fromId = brainDragId.current;
+      const toId = brainDragOver.current;
+      if (!fromId || !toId || fromId === toId) { brainDragId.current=null; brainDragOver.current=null; return; }
+      setBrainItems(function(prev) {
+        const items = catId === "_unc"
+          ? prev.filter(function(b){return !b.cat||b.cat==="uncategorized";})
+          : prev.filter(function(b){return b.cat===catId&&!b.done;});
+        const fromIdx = items.findIndex(function(b){return b.id===fromId;});
+        const toIdx = items.findIndex(function(b){return b.id===toId;});
+        if(fromIdx===-1||toIdx===-1) return prev;
+        const reordered = [...items];
+        const [moved] = reordered.splice(fromIdx,1);
+        reordered.splice(toIdx,0,moved);
+        const otherItems = prev.filter(function(b){return items.findIndex(function(x){return x.id===b.id;})===-1;});
+        return [...otherItems,...reordered];
+      });
+      brainDragId.current=null; brainDragOver.current=null;
+    }
 
     const allCats = [...BRAIN_CATS, ...customCats];
 
@@ -4669,11 +4703,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleCat(id){ setCollapsedCats(p=>({...p,[id]:!p[id]})); }
     function moveItemToCat(itemId, catId){ setBrainItems(p=>p.map(x=>x.id===itemId?{...x,cat:catId}:x)); setMovingItem(null); }
 
-    function BrainItemRow({item,color,pale,onMove,isMoving}){
+    function BrainItemRow({item,color,pale,onMove,isMoving,catId}){
       const [editing,setEditing] = useState(false);
       const [val,setVal] = useState(item.text);
+      const [isDragOver,setIsDragOver] = useState(false);
       return (
-        <div style={{background:T.surface,borderRadius:"0.75rem",padding:"0.55rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+color+"20",display:"flex",alignItems:"flex-start",gap:"0.55rem"}}>
+        <div
+          draggable
+          onDragStart={function(){brainDragId.current=item.id;}}
+          onDragEnter={function(){brainDragOver.current=item.id;setIsDragOver(true);}}
+          onDragLeave={function(){setIsDragOver(false);}}
+          onDragOver={function(e){e.preventDefault();}}
+          onDrop={function(){setIsDragOver(false);handleBrainDrop(catId||"_unc");}}
+          onDragEnd={function(){setIsDragOver(false);}}
+          style={{background:isDragOver?color+"18":T.surface,borderRadius:"0.75rem",padding:"0.55rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+(isDragOver?color:color+"20"),display:"flex",alignItems:"flex-start",gap:"0.55rem",transition:"all 0.12s"}}>
           <div onClick={()=>setBrainItems(p=>p.map(x=>x.id===item.id?{...x,done:!x.done}:x))} style={{width:20,height:20,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:2}}>
             {item.done&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
           </div>
@@ -4755,7 +4798,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             {!collapsedCats["_unc"]&&(
               <div style={{paddingLeft:"0.35rem"}}>
-                {uncategorized.map(item=><BrainItemRow key={item.id} item={item} color={T.sand} pale={T.sandPale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)}/>)}
+                {uncategorized.map(item=><BrainItemRow key={item.id} item={item} color={T.sand} pale={T.sandPale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)} catId="_unc"/>)}
               </div>
             )}
           </div>
@@ -4790,7 +4833,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
               {!isCollapsed&&(
                 <div style={{paddingLeft:"0.35rem"}}>
-                  {items.map(item=><BrainItemRow key={item.id} item={item} color={color} pale={pale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)}/>)}
+                  {items.map(item=><BrainItemRow key={item.id} item={item} color={color} pale={pale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)} catId={cat.id}/>)}
                   {items.length===0&&<div style={{fontSize:"0.78rem",color:T.textFaint,fontStyle:"italic",padding:"0.3rem 0"}}>Nothing here yet</div>}
                 </div>
               )}
@@ -4822,7 +4865,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {!collapsedCats["_done"]&&done.map(item=>{
               const cat=allCats.find(c=>c.id===item.cat)||allCats[0];
               const{color,pale}=catTheme(cat);
-              return <BrainItemRow key={item.id} item={item} color={color} pale={pale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)}/>;
+              return <BrainItemRow key={item.id} item={item} color={color} pale={pale} isMoving={movingItem===item.id} onMove={id=>setMovingItem(movingItem===id?null:id)} catId={item.cat}/>;
             })}
           </div>
         )}
@@ -4956,55 +4999,89 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             ))}
           </SettingSection>
         )}
-        <SettingSection id="birthdays" title="🎂 Birthdays" defaultOpen={false}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-            <button onClick={function(){
-              var name=prompt("Name");if(!name||!name.trim())return;
-              var month=parseInt(prompt("Birth month (1-12)"));if(!month||month<1||month>12)return;
-              var day=parseInt(prompt("Birth day (1-31)"));if(!day||day<1||day>31)return;
-              var yearStr=prompt("Birth year (optional, for age)","");
-              var year=yearStr?parseInt(yearStr):null;
-              setBirthdays(function(p){return[...p,{id:uid(),name:name.trim(),month:month,day:day,year:year||null}];});
-            }} style={btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>+ Add</button>
-          </div>
-          {birthdays.length===0?(
-            <p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.5rem 0"}}>No birthdays yet — add them and they appear on your calendar each year.</p>
-          ):(
-            <div>
-              {(function(){
-                var BMONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                var nowB=new Date();nowB.setHours(0,0,0,0);
-                return birthdays.slice().sort(function(a,x){
-                  var da=new Date(nowB.getFullYear(),a.month-1,a.day);if(da<nowB)da.setFullYear(da.getFullYear()+1);
-                  var dx=new Date(nowB.getFullYear(),x.month-1,x.day);if(dx<nowB)dx.setFullYear(dx.getFullYear()+1);
-                  return da-dx;
-                }).map(function(b){
+        <SettingSection id="birthdays" title="🎂 Birthdays & Celebrations" defaultOpen={false}>
+          {(function(){
+            var BMONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            var [editingBday,setEditingBday] = React.useState(null);
+            var [editVals,setEditVals] = React.useState({});
+            var [showAddForm,setShowAddForm] = React.useState(false);
+            var [newBday,setNewBday] = React.useState({name:"",month:"",day:"",year:""});
+            function startEdit(b){ setEditingBday(b.id); setEditVals({name:b.name,month:String(b.month),day:String(b.day),year:b.year?String(b.year):""}); }
+            function saveEdit(id){ var m=parseInt(editVals.month),d=parseInt(editVals.day),y=editVals.year?parseInt(editVals.year):null; if(!editVals.name.trim()||!m||!d)return; setBirthdays(function(p){return p.map(function(b){return b.id===id?{...b,name:editVals.name.trim(),month:m,day:d,year:y}:b;})}); setEditingBday(null); }
+            function addNew(){ var m=parseInt(newBday.month),d=parseInt(newBday.day),y=newBday.year?parseInt(newBday.year):null; if(!newBday.name.trim()||!m||m<1||m>12||!d||d<1||d>31)return; setBirthdays(function(p){return[...p,{id:uid(),name:newBday.name.trim(),month:m,day:d,year:y||null}];}); setNewBday({name:"",month:"",day:"",year:""}); setShowAddForm(false); }
+            var nowB=new Date();nowB.setHours(0,0,0,0);
+            var sorted=birthdays.slice().sort(function(a,x){
+              var da=new Date(nowB.getFullYear(),a.month-1,a.day);if(da<nowB)da.setFullYear(da.getFullYear()+1);
+              var dx=new Date(nowB.getFullYear(),x.month-1,x.day);if(dx<nowB)dx.setFullYear(dx.getFullYear()+1);
+              return da-dx;
+            });
+            return (
+              <div>
+                {birthdays.length===0&&!showAddForm&&(
+                  <p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.5rem 0"}}>No birthdays yet — add them and they appear on your calendar each year.</p>
+                )}
+                {sorted.map(function(b){
                   var nextB=new Date(nowB.getFullYear(),b.month-1,b.day);
                   if(nextB<nowB)nextB.setFullYear(nextB.getFullYear()+1);
                   var diffB=Math.round((nextB-nowB)/86400000);
                   var soonB=diffB<=7;
+                  var isEditing=editingBday===b.id;
                   return(
-                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:soonB?T.sandPale:T.surface,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1px solid "+(soonB?T.sand+"60":T.borderSoft)}}>
-                      <span style={{fontSize:"1.1rem"}}>🎂</span>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{b.name}</div>
-                        <div style={{fontSize:"0.72rem",color:T.textFaint}}>{BMONTHS[b.month-1]} {b.day}{b.year?" · born "+b.year:""}</div>
-                      </div>
-                      <div style={{textAlign:"right",flexShrink:0}}>
-                        {diffB===0?<span style={{fontSize:"0.72rem",fontWeight:800,color:T.sand}}>Today! 🎉</span>
-                        :diffB===1?<span style={{fontSize:"0.72rem",fontWeight:700,color:T.sandDark}}>Tomorrow</span>
-                        :<span style={{fontSize:"0.72rem",color:soonB?T.sandDark:T.textFaint}}>{"in "+diffB+" days"}</span>}
-                      </div>
-                      <button onClick={function(){setBirthdays(function(p){return p.filter(function(x){return x.id!==b.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,opacity:0.35}}>
-                        <Icon name="trash" size={13} color={T.rose}/>
-                      </button>
+                    <div key={b.id} style={{background:soonB?T.sandPale:T.surface,borderRadius:"0.75rem",marginBottom:"0.4rem",border:"1px solid "+(soonB?T.sand+"60":T.borderSoft),overflow:"hidden"}}>
+                      {isEditing?(
+                        <div style={{padding:"0.65rem 0.75rem"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 60px 60px 72px",gap:"0.4rem",marginBottom:"0.5rem"}}>
+                            <input value={editVals.name} onChange={function(e){setEditVals(function(p){return{...p,name:e.target.value};});}} placeholder="Name" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.55rem"})}}/>
+                            <input value={editVals.month} onChange={function(e){setEditVals(function(p){return{...p,month:e.target.value};});}} placeholder="Mo" type="number" min="1" max="12" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
+                            <input value={editVals.day} onChange={function(e){setEditVals(function(p){return{...p,day:e.target.value};});}} placeholder="Day" type="number" min="1" max="31" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
+                            <input value={editVals.year} onChange={function(e){setEditVals(function(p){return{...p,year:e.target.value};});}} placeholder="Year" type="number" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
+                          </div>
+                          <div style={{display:"flex",gap:"0.4rem"}}>
+                            <button onClick={function(){saveEdit(b.id);}} style={{...btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}}>Save</button>
+                            <button onClick={function(){setEditingBday(null);}} style={{...btnS({fontSize:"0.74rem",padding:"0.3rem 0.65rem"})}}>Cancel</button>
+                            <div style={{flex:1}}/>
+                            <button onClick={function(){setBirthdays(function(p){return p.filter(function(x){return x.id!==b.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"0.3rem",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
+                          </div>
+                        </div>
+                      ):(
+                        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem"}}>
+                          <span style={{fontSize:"1.1rem"}}>🎂</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{b.name}</div>
+                            <div style={{fontSize:"0.72rem",color:T.textFaint}}>{BMONTHS[b.month-1]} {b.day}{b.year?" · born "+b.year:""}</div>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            {diffB===0?<span style={{fontSize:"0.72rem",fontWeight:800,color:T.sand}}>Today! 🎉</span>
+                            :diffB===1?<span style={{fontSize:"0.72rem",fontWeight:700,color:T.sandDark}}>Tomorrow</span>
+                            :<span style={{fontSize:"0.72rem",color:soonB?T.sandDark:T.textFaint}}>{"in "+diffB+" days"}</span>}
+                          </div>
+                          <button onClick={function(){startEdit(b);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.4rem",cursor:"pointer",padding:"3px 8px",fontSize:"0.68rem",color:T.textSoft,fontFamily:"inherit"}}>Edit</button>
+                        </div>
+                      )}
                     </div>
                   );
-                });
-              })()}
-              <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.5rem"}}>Birthdays show in pink on your calendar every year automatically.</p>
-            </div>
-          )}
+                })}
+                {showAddForm?(
+                  <div style={{background:T.bluePale,border:"1.5px solid "+T.blue+"40",borderRadius:"0.75rem",padding:"0.7rem 0.75rem",marginTop:"0.5rem"}}>
+                    <div style={{fontSize:"0.68rem",fontWeight:800,color:T.blue,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.4rem"}}>Add birthday</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 60px 60px 72px",gap:"0.4rem",marginBottom:"0.5rem"}}>
+                      <input value={newBday.name} onChange={function(e){setNewBday(function(p){return{...p,name:e.target.value};});}} placeholder="Name" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.55rem"})}}/>
+                      <input value={newBday.month} onChange={function(e){setNewBday(function(p){return{...p,month:e.target.value};});}} placeholder="Mo" type="number" min="1" max="12" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
+                      <input value={newBday.day} onChange={function(e){setNewBday(function(p){return{...p,day:e.target.value};});}} placeholder="Day" type="number" min="1" max="31" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
+                      <input value={newBday.year} onChange={function(e){setNewBday(function(p){return{...p,year:e.target.value};});}} placeholder="Year" type="number" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
+                    </div>
+                    <div style={{display:"flex",gap:"0.4rem"}}>
+                      <button onClick={addNew} style={{...btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}}>Add</button>
+                      <button onClick={function(){setShowAddForm(false);setNewBday({name:"",month:"",day:"",year:""}); }} style={{...btnS({fontSize:"0.74rem",padding:"0.3rem 0.65rem"})}}>Cancel</button>
+                    </div>
+                  </div>
+                ):(
+                  <button onClick={function(){setShowAddForm(true);}} style={{...btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",marginTop:"0.5rem"})}}>+ Add Birthday</button>
+                )}
+                <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.65rem"}}>Birthdays show in pink on your calendar every year automatically.</p>
+              </div>
+            );
+          })()}
         </SettingSection>
         <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
 
@@ -6100,14 +6177,14 @@ function FlowWrapper({ onHome, onSignOut }) {
   const [showAnchor, setShowAnchor] = React.useState(false)
   const [vaultSection, setVaultSection] = React.useState("health")
   const NAV = [
-    { id: "brain",    label: "Brain"    },
-    { id: "calendar", label: "Calendar" },
-    { id: "meals",    label: "Meals"    },
-    { id: "shop",     label: "Shopping" },
-    { id: "home",     label: "Home"     },
-    { id: "weekly",   label: "Weekly"   },
-    { id: "burnout",  label: "Survival" },
-    { id: "settings", label: "Settings" },
+    { id: "brain",    label: "Brain",    emoji: "🧠" },
+    { id: "calendar", label: "Calendar", emoji: "📆" },
+    { id: "meals",    label: "Meals",    emoji: "🍽️" },
+    { id: "shop",     label: "Shopping", emoji: "🛒" },
+    { id: "home",     label: "Home",     emoji: "🏡" },
+    { id: "weekly",   label: "Weekly",   emoji: "📅" },
+    { id: "burnout",  label: "Survival", emoji: "🛟" },
+    { id: "settings", label: "Settings", emoji: "⚙️" },
   ]
   const VAULT_NAV = [
     { id: "home",      label: "Home",      emoji: "🏡" },
@@ -6154,8 +6231,9 @@ function FlowWrapper({ onHome, onSignOut }) {
           ))
         ) : (
           NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
-            <button key={item.id} onClick={() => { setShowAnchor(false); setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", transition: "all 0.15s" }}>
-              <span style={{ fontSize: "9px", color: activeTab === item.id ? "#6ba3c4" : "rgba(250,248,244,0.5)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+            <button key={item.id} onClick={() => { setShowAnchor(false); setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
+              <span style={{ fontSize: "14px", lineHeight: 1, opacity: activeTab === item.id ? 1 : 0.6 }}>{item.emoji}</span>
+              <span style={{ fontSize: "7px", color: activeTab === item.id ? "#c8a97a" : "rgba(250,248,244,0.55)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
             </button>
           ))
         )}
