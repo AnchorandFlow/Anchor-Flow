@@ -1655,5 +1655,3 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
     </div>
   )
 }
-
-export { GiftsAndCelebrations, InventorySection, HealthSection, PetsSection, CelebrationsSection }

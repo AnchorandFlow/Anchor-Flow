@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
-import { GiftsAndCelebrations, InventorySection, HealthSection, PetsSection, CelebrationsSection as CelebSection } from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
@@ -2502,285 +2501,6 @@ Respond ONLY with valid JSON array, no markdown:
 
 
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
-  // ── Vault Dashboard Tab ──────────────────────────────────────────────────────
-  function VaultDashboardTab() {
-    const [vaultSub, setVaultSub] = useSaved("af_vaultSub", "home");
-    const [openCards, setOpenCards] = useSaved("af_vaultOpenCards", {});
-
-    function toggleCard(id) { setOpenCards(function(p) { return {...p, [id]: !p[id]}; }); }
-
-    // ── Data readers ─────────────────────────────────────────────────────────
-    function readCelebrations() {
-      try {
-        const saved = JSON.parse(localStorage.getItem("af_celebrations") || "[]");
-        const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]");
-        const migrated = bdays.filter(function(b) { return !saved.find(function(c) { return c.name===b.name&&c.type==="birthday"; }); })
-          .map(function(b) { return {id:b.id,type:"birthday",name:b.name,month:b.month,day:b.day,year:b.year||null,notes:""}; });
-        return [...saved, ...migrated];
-      } catch { return []; }
-    }
-    function readGifts() { try { return JSON.parse(localStorage.getItem("af_gifts") || "[]"); } catch { return []; } }
-    function readPets() { try { return JSON.parse(localStorage.getItem("af_pets") || "[]"); } catch { return []; } }
-    function readMoments() { try { return JSON.parse(localStorage.getItem("af_moments") || "[]"); } catch { return []; } }
-    function readHealth() { try { var s=localStorage.getItem("af_health"); return s?JSON.parse(s):{}; } catch { return {}; } }
-    function readInventory() { try { return JSON.parse(localStorage.getItem("af_inventory") || "null"); } catch { return null; } }
-
-    function daysUntil(month, day) {
-      var now=new Date(); now.setHours(0,0,0,0);
-      var next=new Date(now.getFullYear(),month-1,day);
-      if(next<now) next.setFullYear(next.getFullYear()+1);
-      return Math.round((next-now)/86400000);
-    }
-
-    // ── Summary builders ──────────────────────────────────────────────────────
-    function celebSummary() {
-      var list = readCelebrations();
-      var gifts = readGifts();
-      var now = new Date(); now.setHours(0,0,0,0);
-      var entries = list.map(function(c) {
-        var diff = daysUntil(c.month, c.day);
-        var age = (c.type==="birthday"&&c.year) ? (now.getFullYear()-c.year+(diff>0?1:0)) : null;
-        return {...c, diff, age};
-      }).sort(function(a,b){return a.diff-b.diff;});
-      // Gift occasions
-      var giftEntries = [];
-      gifts.forEach(function(person) {
-        (person.occasions||[]).forEach(function(occ) {
-          if(occ.date) {
-            var parts=occ.date.split("-");
-            var d=new Date(now.getFullYear(),parseInt(parts[1])-1,parseInt(parts[2]));
-            if(d<now) d.setFullYear(d.getFullYear()+1);
-            var days=Math.round((d-now)/86400000);
-            var unbought=(occ.gifts||[]).filter(function(g){return !g.bought;}).length;
-            giftEntries.push({name:person.name,type:occ.type,days,unbought});
-          }
-        });
-      });
-      giftEntries.sort(function(a,b){return a.days-b.days;});
-      var next = entries[0];
-      var alert = (next&&next.diff<=14) || giftEntries.some(function(g){return g.days<=30&&g.unbought>0;});
-      return { entries, giftEntries, count: list.length+giftEntries.length, alert,
-        highlight: next ? next.name+(next.age?" turns "+next.age:next.type==="anniversary"?" anniversary":"") : giftEntries[0]?giftEntries[0].name+" · "+giftEntries[0].type:null,
-        countdown: next ? (next.diff===0?"Today! 🎉":next.diff===1?"Tomorrow":"in "+next.diff+" days") : null };
-    }
-
-    function petsSummary() {
-      var pets = readPets();
-      if(!pets.length) return {highlight:null,countdown:null,count:0,entries:[]};
-      var now = new Date(); now.setHours(0,0,0,0);
-      var nextVaxDays=9999; var nextVax=null; var nextVaxPet=null;
-      pets.forEach(function(p) {
-        (p.vaccines||[]).forEach(function(v) {
-          if(v.due) {
-            var d=new Date(v.due+"T00:00:00"); var diff=Math.round((d-now)/86400000);
-            if(diff>=0&&diff<nextVaxDays){nextVaxDays=diff;nextVax=v;nextVaxPet=p.name;}
-          }
-        });
-      });
-      return { count:pets.length, highlight:pets.map(function(p){return p.name;}).join(", "),
-        countdown: nextVax?(nextVaxPet+" · "+nextVax.name+" due in "+nextVaxDays+"d"):"All up to date ✓",
-        alert: nextVax&&nextVaxDays<=14,
-        entries: pets.map(function(p) {
-          var nv=(p.vaccines||[]).filter(function(v){return v.due;}).map(function(v){var d=new Date(v.due+"T00:00:00");var now2=new Date();now2.setHours(0,0,0,0);return{name:v.name,days:Math.round((d-now2)/86400000)};}).filter(function(v){return v.days>=0;}).sort(function(a,b){return a.days-b.days;})[0];
-          return {label:p.name+(p.type?" · "+p.type:""),badge:nv?nv.name+" in "+nv.days+"d":null,badgeAlert:nv&&nv.days<=14};
-        })
-      };
-    }
-
-    function momentsSummary() {
-      var moments = readMoments();
-      if(!moments.length) return {highlight:null,countdown:null,count:0,entries:[]};
-      var now=new Date(); now.setHours(0,0,0,0);
-      var upcoming=moments.filter(function(m){return !m.date||new Date(m.date+"T00:00:00")>=now;})
-        .sort(function(a,b){if(!a.date)return 1;if(!b.date)return -1;return new Date(a.date+"T00:00:00")-new Date(b.date+"T00:00:00");});
-      var next=upcoming[0];
-      if(!next) return {highlight:moments[moments.length-1]?.name,countdown:"Past",count:moments.length,entries:[]};
-      var days=next.date?Math.round((new Date(next.date+"T00:00:00")-now)/86400000):null;
-      return {highlight:next.name,count:moments.length,alert:days!==null&&days<=7,
-        countdown:days===null?"No date set":days===0?"Today! ✈️":days===1?"Tomorrow!":"in "+days+" days",
-        entries:upcoming.slice(0,3).map(function(m){var d=m.date?Math.round((new Date(m.date+"T00:00:00")-now)/86400000):null;return{label:(m.type==="party"?"🎉":"✈️")+" "+m.name,badge:d===null?"":d===0?"Today!":d===1?"Tomorrow":"in "+d+"d",badgeAlert:d!==null&&d<=3};})};
-    }
-
-    function healthSummary() {
-      var h=readHealth(); var members=h.members||[];
-      if(!members.length) return {highlight:null,countdown:null,count:0,entries:[]};
-      var now=new Date(); now.setHours(0,0,0,0); var upcoming=[];
-      members.forEach(function(m){(m.appointments||[]).forEach(function(a){if(a.date){var d=new Date(a.date+"T00:00:00");var days=Math.round((d-now)/86400000);if(days>=0)upcoming.push({name:m.name,type:a.type||"Appointment",days});}});});
-      upcoming.sort(function(a,b){return a.days-b.days;});
-      return {count:members.length,highlight:members.map(function(m){return m.name;}).join(", "),
-        countdown:upcoming.length?upcoming[0].name+" · "+upcoming[0].type+" in "+upcoming[0].days+"d":"No upcoming appointments",
-        alert:upcoming.length>0&&upcoming[0].days<=7,
-        entries:upcoming.slice(0,3).map(function(e){return{label:e.name+" · "+e.type,badge:e.days===0?"Today":"in "+e.days+"d",badgeAlert:e.days<=3};})};
-    }
-
-    function inventorySummary() {
-      var inv=readInventory();
-      if(!inv) return {highlight:null,countdown:null,count:0,entries:[]};
-      var all=[]; var low=[];
-      Object.values(inv).forEach(function(cat){if(Array.isArray(cat))cat.forEach(function(item){all.push(item);if(!item.stocked)low.push(item);});});
-      return {count:all.length,highlight:all.length+" items tracked",alert:low.length>0,
-        countdown:low.length?low.length+" running low":"All stocked ✓",
-        entries:low.slice(0,4).map(function(i){return{label:i.name,badge:"Low",badgeAlert:true};})};
-    }
-
-    // ── Section detail views (inline) ─────────────────────────────────────────
-    if(vaultSub !== "home") {
-      return (
-        <div>
-          <button onClick={function(){setVaultSub("home");}} style={{display:"flex",alignItems:"center",gap:"0.5rem",background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontFamily:"inherit",fontSize:"0.84rem",padding:"0 0 1rem",marginBottom:"0.25rem"}}>
-            ← Back to Anchor
-          </button>
-          {vaultSub==="celebrations" && <CelebrationsSection calEvents={[]}/>}
-          {vaultSub==="inventory"    && <InventorySectionWrapper/>}
-          {vaultSub==="health"       && <HealthSectionWrapper/>}
-          {vaultSub==="pets"         && <PetsSectionWrapper/>}
-          {vaultSub==="moments"      && <MomentsSectionWrapper/>}
-        </div>
-      );
-    }
-
-    // ── Dashboard card ────────────────────────────────────────────────────────
-    function DashCard({id, icon, label, summary, children}) {
-      var isOpen = !!openCards[id];
-      var alertColor = "rgba(200,131,74,0.35)";
-      return (
-        <div style={{background:summary.alert?"rgba(200,131,74,0.04)":"rgba(255,255,255,0.02)",border:"1px solid "+(summary.alert?alertColor:"rgba(200,169,122,0.14)"),borderRadius:"1.1rem",marginBottom:"0.7rem",overflow:"hidden"}}>
-          <div onClick={function(){toggleCard(id);}} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.9rem 1rem",cursor:"pointer"}}>
-            <span style={{fontSize:"1.25rem",flexShrink:0}}>{icon}</span>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark}}>{label}</span>
-                {summary.count>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(200,169,122,0.7)",background:"rgba(200,169,122,0.1)",borderRadius:"2rem",padding:"1px 7px"}}>{summary.count}</span>}
-              </div>
-              {summary.highlight
-                ?<div style={{fontSize:"0.77rem",color:T.textSoft,marginTop:"0.1rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{summary.highlight}</div>
-                :<div style={{fontSize:"0.76rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.1rem"}}>Nothing added yet</div>}
-            </div>
-            {summary.countdown&&summary.count>0&&(
-              <div style={{fontSize:"0.72rem",fontWeight:700,color:summary.alert?"#c8834a":T.sand,flexShrink:0,textAlign:"right",marginRight:"0.3rem"}}>{summary.countdown}</div>
-            )}
-            <span style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0,transition:"transform 0.2s",display:"inline-block",transform:isOpen?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
-          </div>
-          {isOpen&&(
-            <div style={{borderTop:"1px solid "+T.borderSoft,padding:"0.6rem 1rem 1rem"}}>
-              {children}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    var celeb = celebSummary();
-    var pets = petsSummary();
-    var moments = momentsSummary();
-    var health = healthSummary();
-    var inv = inventorySummary();
-    var MNAMES=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-    return (
-      <div>
-        {/* Hero header */}
-        <div style={{background:"linear-gradient(150deg,#1a2744,#253660 80%)",borderRadius:"1.4rem",padding:"1.4rem 1.5rem",marginBottom:"1.1rem",boxShadow:"0 4px 24px rgba(26,39,68,0.3)"}}>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.75rem",fontWeight:700,color:"#faf8f4",lineHeight:1.1,marginBottom:"0.35rem"}}>⚓ Anchor</div>
-          <div style={{fontSize:"0.82rem",color:"rgba(200,169,122,0.8)",fontStyle:"italic",lineHeight:1.55}}>A place to hold what matters most — your people, your home, your story.</div>
-        </div>
-
-        {/* Celebrations + Gifts (merged) */}
-        <DashCard id="celebrations" icon="🎉" label="Celebrations & Gifts" summary={celeb}>
-          {celeb.entries.length>0&&(
-            <div style={{marginBottom:"0.6rem"}}>
-              {celeb.entries.slice(0,4).map(function(e,i){
-                var age=(e.type==="birthday"&&e.year)?(new Date().getFullYear()-e.year+(e.diff>0?1:0)):null;
-                return(
-                  <div key={e.id||i} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.4rem 0",borderBottom:i<Math.min(celeb.entries.length,4)-1?"1px solid "+T.borderSoft:"none"}}>
-                    <span style={{fontSize:"0.85rem"}}>{e.type==="birthday"?"🎂":e.type==="anniversary"?"💍":"🎉"}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:"0.83rem",fontWeight:600,color:T.textDark}}>{e.name}{age?" turns "+age:""}</div>
-                      <div style={{fontSize:"0.7rem",color:T.textFaint}}>{MNAMES[e.month-1]} {e.day}</div>
-                    </div>
-                    <span style={{fontSize:"0.7rem",fontWeight:700,color:e.diff<=7?T.rose:T.sand}}>{e.diff===0?"Today! 🎉":e.diff===1?"Tomorrow":"in "+e.diff+"d"}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {celeb.giftEntries.length>0&&(
-            <div style={{marginBottom:"0.6rem"}}>
-              <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>Gift Occasions</div>
-              {celeb.giftEntries.slice(0,3).map(function(g,i){
-                return(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.4rem 0",borderBottom:i<Math.min(celeb.giftEntries.length,3)-1?"1px solid "+T.borderSoft:"none"}}>
-                    <span style={{fontSize:"0.85rem"}}>🎁</span>
-                    <div style={{flex:1}}><div style={{fontSize:"0.83rem",fontWeight:600,color:T.textDark}}>{g.name} · {g.type}</div>{g.unbought>0&&<div style={{fontSize:"0.7rem",color:T.rose}}>{g.unbought} gift{g.unbought>1?"s":""} to buy</div>}</div>
-                    <span style={{fontSize:"0.7rem",fontWeight:700,color:g.days<=7?T.rose:T.sand}}>{g.days===0?"Today!":g.days===1?"Tomorrow":"in "+g.days+"d"}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <button onClick={function(){setVaultSub("celebrations");}} style={{...btnS({width:"100%",fontSize:"0.76rem",padding:"0.45rem",textAlign:"center",justifyContent:"center",display:"flex"})}}>Open Celebrations & Gifts →</button>
-        </DashCard>
-
-        {/* Inventory */}
-        <DashCard id="inventory" icon="📦" label="Inventory" summary={inv}>
-          {inv.entries.length>0&&(
-            <div style={{marginBottom:"0.6rem"}}>
-              <div style={{fontSize:"0.65rem",fontWeight:800,color:T.rose,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>Running low</div>
-              {inv.entries.map(function(e,i){return(<div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.35rem 0"}}><span style={{fontSize:"0.75rem"}}>⚠️</span><span style={{flex:1,fontSize:"0.82rem",color:T.textDark}}>{e.label}</span></div>);})}
-            </div>
-          )}
-          {inv.count===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.3rem 0"}}>No inventory tracked yet.</div>}
-          <button onClick={function(){setVaultSub("inventory");}} style={{...btnS({width:"100%",fontSize:"0.76rem",padding:"0.45rem",textAlign:"center",justifyContent:"center",display:"flex"})}}>Open Inventory →</button>
-        </DashCard>
-
-        {/* Health */}
-        <DashCard id="health" icon="🩺" label="Health" summary={health}>
-          {health.entries.length>0&&(
-            <div style={{marginBottom:"0.6rem"}}>
-              {health.entries.map(function(e,i){return(<div key={i} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.35rem 0",borderBottom:i<health.entries.length-1?"1px solid "+T.borderSoft:"none"}}><span style={{flex:1,fontSize:"0.82rem",color:T.textDark}}>{e.label}</span><span style={{fontSize:"0.7rem",fontWeight:700,color:e.badgeAlert?T.rose:T.sand}}>{e.badge}</span></div>);})}
-            </div>
-          )}
-          {health.count===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.3rem 0"}}>No health records yet.</div>}
-          <button onClick={function(){setVaultSub("health");}} style={{...btnS({width:"100%",fontSize:"0.76rem",padding:"0.45rem",textAlign:"center",justifyContent:"center",display:"flex"})}}>Open Health →</button>
-        </DashCard>
-
-        {/* Pets */}
-        <DashCard id="pets" icon="🐾" label="Pets" summary={pets}>
-          {pets.entries.length>0&&(
-            <div style={{marginBottom:"0.6rem"}}>
-              {pets.entries.map(function(e,i){return(<div key={i} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.35rem 0",borderBottom:i<pets.entries.length-1?"1px solid "+T.borderSoft:"none"}}><span style={{flex:1,fontSize:"0.82rem",color:T.textDark}}>{e.label}</span>{e.badge&&<span style={{fontSize:"0.7rem",fontWeight:700,color:e.badgeAlert?T.rose:T.sand}}>{e.badge}</span>}</div>);})}
-            </div>
-          )}
-          {pets.count===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.3rem 0"}}>No pets added yet.</div>}
-          <button onClick={function(){setVaultSub("pets");}} style={{...btnS({width:"100%",fontSize:"0.76rem",padding:"0.45rem",textAlign:"center",justifyContent:"center",display:"flex"})}}>Open Pets →</button>
-        </DashCard>
-
-        {/* Moments */}
-        <DashCard id="moments" icon="✨" label="Moments" summary={moments}>
-          {moments.entries.length>0&&(
-            <div style={{marginBottom:"0.6rem"}}>
-              {moments.entries.map(function(e,i){return(<div key={i} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.35rem 0",borderBottom:i<moments.entries.length-1?"1px solid "+T.borderSoft:"none"}}><span style={{flex:1,fontSize:"0.82rem",color:T.textDark}}>{e.label}</span><span style={{fontSize:"0.7rem",fontWeight:700,color:e.badgeAlert?T.rose:T.sand}}>{e.badge}</span></div>);})}
-            </div>
-          )}
-          {moments.count===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.3rem 0"}}>No moments yet — add a trip or celebration.</div>}
-          <button onClick={function(){setVaultSub("moments");}} style={{...btnS({width:"100%",fontSize:"0.76rem",padding:"0.45rem",textAlign:"center",justifyContent:"center",display:"flex"})}}>Open Moments →</button>
-        </DashCard>
-      </div>
-    );
-  }
-
-  // ── Thin wrappers to load vault section components inside the tab ──────────
-  function CelebrationsSection({calEvents}) { return React.createElement(CelebSection, {calEvents:calEvents||[]}); }
-  function InventorySectionWrapper() {
-    return React.createElement(InventorySection, {onAddToShopping:function(item){try{var ex=JSON.parse(localStorage.getItem("af_shoppingItems")||"[]");localStorage.setItem("af_shoppingItems",JSON.stringify([...ex,{id:Date.now().toString(),text:item,done:false,store:"Grocery",category:"grocery"}]));}catch{}}});
-  }
-  function HealthSectionWrapper() { return React.createElement(HealthSection, {}); }
-  function PetsSectionWrapper() { return React.createElement(PetsSection, {}); }
-  function MomentsSectionWrapper() {
-    const MomComp = React.lazy(function(){return import("./components/MomentsSection");});
-    return React.createElement(React.Suspense, {fallback:React.createElement("div",{style:{color:T.textFaint,fontSize:"0.85rem",padding:"1rem",textAlign:"center"}},"Loading…")}, React.createElement(MomComp,{}));
-  }
-
   function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
     const [showFlowIn,setShowFlowIn] = useState(false);
@@ -6201,11 +5921,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["vault","anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"].map(t=>{
+          {["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
-                {t==="vault"    && <VaultDashboardTab/>}
                 {t==="anchor"   && <AnchorTab/>}
                 {t==="calendar" && <CalendarTab/>}
                 {t==="weekly"   && <WeeklyTab/>}
@@ -6456,6 +6175,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("af-sections-changed", onStorage); }
   }, [])
   const [showAnchor, setShowAnchor] = React.useState(false)
+  const [vaultSection, setVaultSection] = React.useState("home")
   const NAV = [
     { id: "brain",    label: "Brain",    emoji: "🧠" },
     { id: "calendar", label: "Calendar", emoji: "📆" },
@@ -6465,6 +6185,16 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
     { id: "burnout",  label: "Survival", emoji: "🛟" },
     { id: "settings", label: "Settings", emoji: "⚙️" },
+  ]
+  const VAULT_NAV = [
+    { id: "inventory", label: "Inventory", emoji: "📦" },
+    { id: "systems",   label: "Systems",   emoji: "🏠" },
+    { id: "health",    label: "Health",    emoji: "🩺" },
+    { id: "career",    label: "Career",    emoji: "📋" },
+    { id: "subs",      label: "Subscript", emoji: "🔄", premium: true },
+    { id: "gifts",     label: "Celebrate", emoji: "🎉" },
+    { id: "pets",      label: "Pets",      emoji: "🐾" },
+    { id: "moments",   label: "Moments",   emoji: "✨" },
   ]
   React.useEffect(() => {
     window.dispatchEvent(new CustomEvent("af-set-tab", { detail: activeTab }))
@@ -6482,21 +6212,37 @@ function FlowWrapper({ onHome, onSignOut }) {
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
       
-        <button onClick={() => { setShowAnchor(false); setActiveTab("vault"); }} title="Anchor" style={{ background: activeTab === "vault" ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: activeTab === "vault" ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+        <button onClick={() => setShowAnchor(v => !v)} title="Anchor" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
           <span style={{ fontSize: "15px" }}>⚓</span>
-          <span style={{ fontSize: "7px", color: activeTab === "vault" ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
+          <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
         </button>
         <button onClick={() => { setShowAnchor(false); setActiveTab("anchor"); }} title="Flow" style={{ background: !showAnchor && activeTab === "anchor" ? "rgba(58,107,138,0.3)" : "rgba(58,107,138,0.08)", border: !showAnchor && activeTab === "anchor" ? "1px solid rgba(58,107,138,0.5)" : "1px solid rgba(58,107,138,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
           <span style={{ fontSize: "15px" }}>🌊</span>
           <span style={{ fontSize: "7px", color: !showAnchor && activeTab === "anchor" ? "#6ba3c4" : "rgba(107,163,196,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span>
         </button>
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
-          {NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
+        {showAnchor ? (
+          <>
+          <button onClick={() => setVaultSection("home")} title="Dashboard" style={{ background: vaultSection === "home" ? "rgba(200,169,122,0.2)" : "rgba(200,169,122,0.06)", border: "none", borderLeft: vaultSection === "home" ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", marginBottom: "2px" }}>
+            <span style={{ fontSize: "14px" }}>⚓</span>
+            <span style={{ fontSize: "7px", color: vaultSection === "home" ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: vaultSection === "home" ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Vault</span>
+          </button>
+          <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "3px" }} />
+          {VAULT_NAV.map(item => (
+            <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: vaultSection === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: vaultSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
+              <span style={{ fontSize: "14px", lineHeight: 1, opacity: item.premium ? 0.25 : 1 }}>{item.emoji}</span>
+              <span style={{ fontSize: "7px", color: item.premium ? "rgba(200,169,122,0.2)" : vaultSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: vaultSection === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+            </button>
+          ))}
+          </>
+        ) : (
+          NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
             <button key={item.id} onClick={() => { setShowAnchor(false); setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
               <span style={{ fontSize: "14px", lineHeight: 1, opacity: activeTab === item.id ? 1 : 0.6 }}>{item.emoji}</span>
               <span style={{ fontSize: "7px", color: activeTab === item.id ? "#c8a97a" : "rgba(250,248,244,0.55)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
             </button>
-          ))}
+          ))
+        )}
         <div style={{ marginTop: "auto" }}>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
         </div>
@@ -6512,6 +6258,7 @@ function FlowWrapper({ onHome, onSignOut }) {
             display: none !important;
           }
         `}</style>
+        {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
         <HomeFlow />
       </div>
     </div>
