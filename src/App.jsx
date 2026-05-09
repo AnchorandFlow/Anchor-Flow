@@ -4885,9 +4885,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
-            {brainCats.map(function(c){return(
-              <button key={c.id} onClick={function(){setNewCat(c.id);}} style={{background:newCat===c.id?c.color:"transparent",color:newCat===c.id?"#fff":T.textMid,border:"1.5px solid "+(newCat===c.id?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:newCat===c.id?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>
-            );})}
+            {brainCats.map(function(c){
+              var isSel=newCat===c.id;
+              return <button key={c.id} onClick={function(){setNewCat(c.id);}} style={{background:isSel?c.color:"transparent",color:isSel?"#fff":T.textMid,border:"1.5px solid "+(isSel?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:isSel?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
+            })}
           </div>
         </div>
 
