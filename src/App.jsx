@@ -6212,7 +6212,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
       
-        <button onClick={() => setShowAnchor(v => !v)} title="Anchor" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+        <button onClick={() => { setShowAnchor(v => !v); setVaultSection("home"); }} title="Anchor" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
           <span style={{ fontSize: "15px" }}>⚓</span>
           <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
         </button>
@@ -6223,11 +6223,6 @@ function FlowWrapper({ onHome, onSignOut }) {
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {showAnchor ? (
           <>
-          <button onClick={() => setVaultSection("home")} title="Dashboard" style={{ background: vaultSection === "home" ? "rgba(200,169,122,0.2)" : "rgba(200,169,122,0.06)", border: "none", borderLeft: vaultSection === "home" ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", marginBottom: "2px" }}>
-            <span style={{ fontSize: "14px" }}>⚓</span>
-            <span style={{ fontSize: "7px", color: vaultSection === "home" ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: vaultSection === "home" ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Vault</span>
-          </button>
-          <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "3px" }} />
           {VAULT_NAV.map(item => (
             <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: vaultSection === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: vaultSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
               <span style={{ fontSize: "14px", lineHeight: 1, opacity: item.premium ? 0.25 : 1 }}>{item.emoji}</span>
