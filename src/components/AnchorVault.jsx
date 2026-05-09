@@ -78,101 +78,191 @@ const SUBCATS = {
 }
 
 const DEFAULTS = {
-  pantry:      [
-    { name: "Flour",          subcat: "baking" },
-    { name: "Sugar",          subcat: "baking" },
-    { name: "Baking powder",  subcat: "baking" },
-    { name: "Vanilla extract",subcat: "baking" },
-    { name: "Salt",           subcat: "spices" },
-    { name: "Black pepper",   subcat: "spices" },
-    { name: "Garlic powder",  subcat: "spices" },
-    { name: "Cumin",          subcat: "spices" },
-    { name: "Italian seasoning",subcat: "spices" },
-    { name: "Pasta",          subcat: "dried" },
-    { name: "Rice",           subcat: "dried" },
-    { name: "Oats",           subcat: "dried" },
-    { name: "Lentils",        subcat: "dried" },
-    { name: "Quinoa",         subcat: "dried" },
-    { name: "Crackers",       subcat: "snacks" },
-    { name: "Peanut butter",  subcat: "snacks" },
-    { name: "Granola bars",   subcat: "snacks" },
-    { name: "Cereal",         subcat: "snacks" },
-    { name: "Canned tomatoes",subcat: "canned" },
-    { name: "Canned beans",   subcat: "canned" },
-    { name: "Broth",          subcat: "canned" },
-    { name: "Olive oil",      subcat: "condiments" },
-    { name: "Honey",          subcat: "condiments" },
-    { name: "Soy sauce",      subcat: "condiments" },
-    { name: "Coffee",         subcat: "drinks" },
+  pantry: [
+    { name: "All-purpose flour",   subcat: "baking" },
+    { name: "Granulated sugar",    subcat: "baking" },
+    { name: "Brown sugar",         subcat: "baking" },
+    { name: "Baking powder",       subcat: "baking" },
+    { name: "Baking soda",         subcat: "baking" },
+    { name: "Vanilla extract",     subcat: "baking" },
+    { name: "Cocoa powder",        subcat: "baking" },
+    { name: "Salt",                subcat: "spices" },
+    { name: "Black pepper",        subcat: "spices" },
+    { name: "Garlic powder",       subcat: "spices" },
+    { name: "Onion powder",        subcat: "spices" },
+    { name: "Cumin",               subcat: "spices" },
+    { name: "Paprika",             subcat: "spices" },
+    { name: "Italian seasoning",   subcat: "spices" },
+    { name: "Cinnamon",            subcat: "spices" },
+    { name: "Chili powder",        subcat: "spices" },
+    { name: "Red pepper flakes",   subcat: "spices" },
+    { name: "Pasta",               subcat: "dried" },
+    { name: "Rice",                subcat: "dried" },
+    { name: "Oats",                subcat: "dried" },
+    { name: "Quinoa",              subcat: "dried" },
+    { name: "Lentils",             subcat: "dried" },
+    { name: "Dried black beans",   subcat: "dried" },
+    { name: "Panko breadcrumbs",   subcat: "dried" },
+    { name: "Crackers",            subcat: "snacks" },
+    { name: "Peanut butter",       subcat: "snacks" },
+    { name: "Granola bars",        subcat: "snacks" },
+    { name: "Popcorn",             subcat: "snacks" },
+    { name: "Mixed nuts",          subcat: "snacks" },
+    { name: "Cereal",              subcat: "snacks" },
+    { name: "Canned tomatoes",     subcat: "canned" },
+    { name: "Canned black beans",  subcat: "canned" },
+    { name: "Canned chickpeas",    subcat: "canned" },
+    { name: "Chicken broth",       subcat: "canned" },
+    { name: "Coconut milk",        subcat: "canned" },
+    { name: "Tomato paste",        subcat: "canned" },
+    { name: "Canned tuna",         subcat: "canned" },
+    { name: "Olive oil",           subcat: "condiments" },
+    { name: "Vegetable oil",       subcat: "condiments" },
+    { name: "Honey",               subcat: "condiments" },
+    { name: "Soy sauce",           subcat: "condiments" },
+    { name: "Hot sauce",           subcat: "condiments" },
+    { name: "Apple cider vinegar", subcat: "condiments" },
+    { name: "Maple syrup",         subcat: "condiments" },
+    { name: "Coffee",              subcat: "drinks" },
+    { name: "Tea bags",            subcat: "drinks" },
   ],
   freezer: [
-    { name: "Chicken",             subcat: "meats" },
-    { name: "Ground beef",         subcat: "meats" },
-    { name: "Salmon",              subcat: "meats" },
-    { name: "Frozen vegetables",   subcat: "veggies" },
-    { name: "Edamame",             subcat: "veggies" },
-    { name: "Frozen fruit",        subcat: "fruits" },
-    { name: "Backup meals",        subcat: "meals" },
-    { name: "Ice cream",           subcat: "treats" },
+    { name: "Chicken breasts",      subcat: "meats" },
+    { name: "Ground beef",          subcat: "meats" },
+    { name: "Chicken thighs",       subcat: "meats" },
+    { name: "Salmon fillets",       subcat: "meats" },
+    { name: "Shrimp",               subcat: "meats" },
+    { name: "Italian sausage",      subcat: "meats" },
+    { name: "Ground turkey",        subcat: "meats" },
+    { name: "Frozen broccoli",      subcat: "veggies" },
+    { name: "Frozen peas",          subcat: "veggies" },
+    { name: "Frozen corn",          subcat: "veggies" },
+    { name: "Stir fry vegetables",  subcat: "veggies" },
+    { name: "Edamame",              subcat: "veggies" },
+    { name: "Frozen spinach",       subcat: "veggies" },
+    { name: "Frozen mixed berries", subcat: "fruits" },
+    { name: "Frozen mango chunks",  subcat: "fruits" },
+    { name: "Frozen banana slices", subcat: "fruits" },
+    { name: "Backup burritos",      subcat: "meals" },
+    { name: "Frozen pizza",         subcat: "meals" },
+    { name: "Leftovers container",  subcat: "meals" },
+    { name: "Frozen waffles",       subcat: "breads" },
+    { name: "Bread loaf",           subcat: "breads" },
+    { name: "Tortillas",            subcat: "breads" },
+    { name: "Ice cream",            subcat: "treats" },
+    { name: "Popsicles",            subcat: "treats" },
   ],
   fridge: [
-    { name: "Eggs",          subcat: "dairy" },
-    { name: "Butter",        subcat: "dairy" },
-    { name: "Milk",          subcat: "dairy" },
-    { name: "Cheese",        subcat: "dairy" },
-    { name: "Greek yogurt",  subcat: "dairy" },
-    { name: "Salad greens",  subcat: "produce" },
-    { name: "Carrots",       subcat: "produce" },
-    { name: "Lemons",        subcat: "produce" },
-    { name: "Condiments",    subcat: "condiments" },
+    { name: "Eggs",              subcat: "dairy" },
+    { name: "Butter",            subcat: "dairy" },
+    { name: "Whole milk",        subcat: "dairy" },
+    { name: "Shredded cheese",   subcat: "dairy" },
+    { name: "Greek yogurt",      subcat: "dairy" },
+    { name: "Cream cheese",      subcat: "dairy" },
+    { name: "Sour cream",        subcat: "dairy" },
+    { name: "Parmesan",          subcat: "dairy" },
+    { name: "Salad greens",      subcat: "produce" },
+    { name: "Carrots",           subcat: "produce" },
+    { name: "Bell peppers",      subcat: "produce" },
+    { name: "Celery",            subcat: "produce" },
+    { name: "Lemons",            subcat: "produce" },
+    { name: "Fresh garlic",      subcat: "produce" },
+    { name: "Yellow onions",     subcat: "produce" },
+    { name: "Apples",            subcat: "produce" },
+    { name: "Grapes",            subcat: "produce" },
+    { name: "Deli turkey",       subcat: "proteins" },
+    { name: "Bacon",             subcat: "proteins" },
+    { name: "Hummus",            subcat: "proteins" },
+    { name: "Orange juice",      subcat: "drinks" },
+    { name: "Ketchup",           subcat: "condiments" },
+    { name: "Mustard",           subcat: "condiments" },
+    { name: "Mayo",              subcat: "condiments" },
+    { name: "Salad dressing",    subcat: "condiments" },
+    { name: "Salsa",             subcat: "condiments" },
   ],
   medications: [
-    { name: "Ibuprofen",      subcat: "otc" },
-    { name: "Acetaminophen",  subcat: "otc" },
-    { name: "Cold medicine",  subcat: "otc" },
-    { name: "Allergy medicine",subcat: "otc" },
-    { name: "Vitamins",       subcat: "vitamins" },
-    { name: "Band-aids",      subcat: "firstaid" },
-    { name: "Thermometer",    subcat: "firstaid" },
+    { name: "Ibuprofen",          subcat: "otc" },
+    { name: "Acetaminophen",      subcat: "otc" },
+    { name: "Children's Tylenol", subcat: "otc" },
+    { name: "Cold medicine",      subcat: "otc" },
+    { name: "Allergy medicine",   subcat: "otc" },
+    { name: "Antacid (Tums)",     subcat: "otc" },
+    { name: "Cough syrup",        subcat: "otc" },
+    { name: "Multivitamin",       subcat: "vitamins" },
+    { name: "Vitamin D",          subcat: "vitamins" },
+    { name: "Fish oil / Omega-3", subcat: "vitamins" },
+    { name: "Magnesium",          subcat: "vitamins" },
+    { name: "Probiotics",         subcat: "vitamins" },
+    { name: "Band-aids (assorted)",subcat: "firstaid" },
+    { name: "Gauze pads",         subcat: "firstaid" },
+    { name: "Antiseptic spray",   subcat: "firstaid" },
+    { name: "Digital thermometer",subcat: "firstaid" },
+    { name: "Medical tape",       subcat: "firstaid" },
+    { name: "Instant ice pack",   subcat: "firstaid" },
   ],
   cosmetics: [
-    { name: "Shampoo",     subcat: "hair" },
-    { name: "Conditioner", subcat: "hair" },
-    { name: "Face wash",   subcat: "skin" },
-    { name: "Lotion",      subcat: "skin" },
-    { name: "Sunscreen",   subcat: "skin" },
-    { name: "Body wash",   subcat: "body" },
-    { name: "Deodorant",   subcat: "body" },
-    { name: "Toothpaste",  subcat: "dental" },
+    { name: "Shampoo",           subcat: "hair" },
+    { name: "Conditioner",       subcat: "hair" },
+    { name: "Dry shampoo",       subcat: "hair" },
+    { name: "Hair ties",         subcat: "hair" },
+    { name: "Face wash",         subcat: "skin" },
+    { name: "Moisturizer",       subcat: "skin" },
+    { name: "Sunscreen SPF 50",  subcat: "skin" },
+    { name: "Eye cream",         subcat: "skin" },
+    { name: "Lip balm",          subcat: "skin" },
+    { name: "Body wash",         subcat: "body" },
+    { name: "Body lotion",       subcat: "body" },
+    { name: "Deodorant",         subcat: "body" },
+    { name: "Razor / blades",    subcat: "body" },
+    { name: "Toothpaste",        subcat: "dental" },
+    { name: "Toothbrush",        subcat: "dental" },
+    { name: "Floss",             subcat: "dental" },
+    { name: "Mouthwash",         subcat: "dental" },
   ],
   cleaning: [
-    { name: "Dish soap",          subcat: "kitchen" },
-    { name: "All-purpose spray",  subcat: "surfaces" },
-    { name: "Laundry pods",       subcat: "laundry" },
-    { name: "Bleach",             subcat: "bathroom" },
-    { name: "Sponges",            subcat: "kitchen" },
-    { name: "Mop pads",           subcat: "surfaces" },
-    { name: "Toilet cleaner",     subcat: "bathroom" },
+    { name: "Dish soap",           subcat: "kitchen" },
+    { name: "Dishwasher pods",     subcat: "kitchen" },
+    { name: "Sponges",             subcat: "kitchen" },
+    { name: "Scrub brush",         subcat: "kitchen" },
+    { name: "Laundry detergent",   subcat: "laundry" },
+    { name: "Dryer sheets",        subcat: "laundry" },
+    { name: "Stain remover",       subcat: "laundry" },
+    { name: "Fabric softener",     subcat: "laundry" },
+    { name: "Toilet bowl cleaner", subcat: "bathroom" },
+    { name: "Shower spray",        subcat: "bathroom" },
+    { name: "Bleach",              subcat: "bathroom" },
+    { name: "All-purpose spray",   subcat: "surfaces" },
+    { name: "Glass cleaner",       subcat: "surfaces" },
+    { name: "Mop pads / Swiffer",  subcat: "surfaces" },
+    { name: "Microfiber cloths",   subcat: "surfaces" },
+    { name: "Vacuum bags / filter",subcat: "surfaces" },
   ],
   paper: [
-    { name: "Paper towels",  subcat: "paper" },
-    { name: "Toilet paper",  subcat: "paper" },
-    { name: "Napkins",       subcat: "paper" },
-    { name: "Trash bags",    subcat: "bags" },
-    { name: "Zip bags",      subcat: "bags" },
-    { name: "Foil",          subcat: "bags" },
-    { name: "Plastic wrap",  subcat: "bags" },
+    { name: "Paper towels",   subcat: "paper" },
+    { name: "Toilet paper",   subcat: "paper" },
+    { name: "Facial tissues", subcat: "paper" },
+    { name: "Napkins",        subcat: "paper" },
+    { name: "Trash bags (tall)",   subcat: "bags" },
+    { name: "Trash bags (small)",  subcat: "bags" },
+    { name: "Gallon zip bags",     subcat: "bags" },
+    { name: "Quart zip bags",      subcat: "bags" },
+    { name: "Aluminum foil",       subcat: "bags" },
+    { name: "Plastic wrap",        subcat: "bags" },
+    { name: "Parchment paper",     subcat: "bags" },
   ],
   pet: [
-    { name: "Dog food",       subcat: "food" },
-    { name: "Cat food",       subcat: "food" },
-    { name: "Pet treats",     subcat: "food" },
-    { name: "Litter",         subcat: "supplies" },
-    { name: "Poop bags",      subcat: "supplies" },
-    { name: "Flea treatment", subcat: "hygiene" },
-    { name: "Pet shampoo",    subcat: "hygiene" },
+    { name: "Dog food / Cat food", subcat: "food" },
+    { name: "Pet treats",          subcat: "food" },
+    { name: "Wet food (canned)",   subcat: "food" },
+    { name: "Pet water bowl",      subcat: "supplies" },
+    { name: "Poop bags",           subcat: "supplies" },
+    { name: "Cat litter",          subcat: "supplies" },
+    { name: "Pet shampoo",         subcat: "hygiene" },
+    { name: "Flea & tick treatment",subcat: "hygiene" },
+    { name: "Pet brush / comb",    subcat: "hygiene" },
   ],
 }
+
 
 const CATS = [
   { id: "pantry",      label: "Pantry",       icon: "🌾" },
@@ -323,23 +413,9 @@ function InventorySection({ onAddToShopping }) {
   const [inlineAdding, setInlineAdding] = useState({})
   const [inlineVal, setInlineVal] = useState({})
 
-  // Pointer-based drag state
-  const dragFromIdx = React.useRef(null)
-  const dragToIdx = React.useRef(null)
-  const dragClone = React.useRef(null)
-  const itemEls = React.useRef({})
-  const itemsRef = React.useRef(items)
-  const activeCatRef = React.useRef(activeCat)
+  // Simple HTML5 drag-to-reorder
+  const dragFrom = React.useRef(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
-  const [draggingIdx, setDraggingIdx] = useState(null)
-
-  // Keep refs in sync so drag closures always see latest values
-  React.useEffect(function() { itemsRef.current = items }, [items])
-  React.useEffect(function() {
-    activeCatRef.current = activeCat
-    // Clear el map when category changes so stale indices don't linger
-    itemEls.current = {}
-  }, [activeCat])
 
   // collapsed subcategories: { "pantry:baking": true, ... }
   // Reset on mount so nothing is pre-hidden (clears any bad state from previous sessions)
@@ -440,92 +516,36 @@ function InventorySection({ onAddToShopping }) {
     setInlineAdding(function(p) { return { ...p, [key]: true } })
   }
 
-  // Pointer-based drag — reliable cross-browser reorder
-  function onHandlePointerDown(e, globalIdx) {
-    e.preventDefault()
-    e.stopPropagation()
-
-    var srcEl = itemEls.current[globalIdx]
-    if (!srcEl) return
-
-    dragFromIdx.current = globalIdx
-    dragToIdx.current = globalIdx
-    setDraggingIdx(globalIdx)
-    setDragOverIdx(null)
-
-    // Floating clone that follows cursor
-    var rect = srcEl.getBoundingClientRect()
-    var startY = e.clientY
-    var offsetY = e.clientY - rect.top
-
-    var clone = srcEl.cloneNode(true)
-    clone.style.cssText = [
-      "position:fixed",
-      "pointer-events:none",
-      "z-index:9999",
-      "opacity:0.9",
-      "width:" + rect.width + "px",
-      "left:" + rect.left + "px",
-      "top:" + (e.clientY - offsetY) + "px",
-      "background:#2a3a5c",
-      "border-radius:8px",
-      "box-shadow:0 6px 20px rgba(0,0,0,0.5)",
-      "transform:scale(1.02)"
-    ].join(";")
-    document.body.appendChild(clone)
-    dragClone.current = clone
-
-    function onMove(me) {
-      var clientY = me.clientY
-      // Move clone
-      dragClone.current.style.top = (clientY - offsetY) + "px"
-
-      // Nearest item mid-point
-      var best = dragFromIdx.current
-      var bestDist = Infinity
-      var els = itemEls.current
-      Object.keys(els).forEach(function(k) {
-        var el = els[k]
-        if (!el) return
-        var r = el.getBoundingClientRect()
-        var mid = r.top + r.height / 2
-        var dist = Math.abs(clientY - mid)
-        if (dist < bestDist) { bestDist = dist; best = parseInt(k, 10) }
-      })
-      if (best !== dragToIdx.current) {
-        dragToIdx.current = best
-        setDragOverIdx(best)
-      }
-    }
-
-    function onUp() {
-      document.removeEventListener("pointermove", onMove)
-      document.removeEventListener("pointerup", onUp)
-      if (dragClone.current && dragClone.current.parentNode) {
-        dragClone.current.parentNode.removeChild(dragClone.current)
-        dragClone.current = null
-      }
-      var from = dragFromIdx.current
-      var to = dragToIdx.current
-      dragFromIdx.current = null
-      dragToIdx.current = null
-      setDraggingIdx(null)
-      setDragOverIdx(null)
-      if (from !== null && to !== null && from !== to) {
-        var cat = activeCatRef.current
-        var cur = itemsRef.current
-        var arr = (cur[cat] || []).slice()
-        var moved = arr.splice(from, 1)[0]
-        arr.splice(to, 0, moved)
-        save({ ...cur, [cat]: arr })
-      }
-    }
-
-    document.addEventListener("pointermove", onMove)
-    document.addEventListener("pointerup", onUp)
+  function onDragStart(e, idx) {
+    dragFrom.current = idx
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", String(idx))
   }
 
-  const totalLow = Object.values(items).flat().filter(function(x) { return !x.stocked }).length
+  function onDragOver(e, idx) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    if (idx !== dragOverIdx) setDragOverIdx(idx)
+  }
+
+  function onDrop(e, idx) {
+    e.preventDefault()
+    var from = dragFrom.current
+    if (from === null || from === idx) { setDragOverIdx(null); return }
+    var arr = (items[activeCat] || []).slice()
+    var moved = arr.splice(from, 1)[0]
+    arr.splice(idx, 0, moved)
+    save({ ...items, [activeCat]: arr })
+    dragFrom.current = null
+    setDragOverIdx(null)
+  }
+
+  function onDragEnd() {
+    dragFrom.current = null
+    setDragOverIdx(null)
+  }
+
+    const totalLow = Object.values(items).flat().filter(function(x) { return !x.stocked }).length
 
   return (
     <div>
@@ -721,36 +741,35 @@ function InventorySection({ onAddToShopping }) {
 
                       {subItems.map(function(s) {
                         const item = s.item; const idx = s.globalIdx
-                        const isDragOver = dragOverIdx === idx && draggingIdx !== idx
-                        const isDragging = draggingIdx === idx
+                        const isDragOver = dragOverIdx === idx && dragFrom.current !== idx
                         return (
                           <div
                             key={idx}
-                            ref={function(el) { itemEls.current[idx] = el }}
-                            onPointerDown={function(e) {
-                              // Don't start drag on buttons or inputs
-                              if (e.target.tagName === "BUTTON" || e.target.tagName === "INPUT") return
-                              onHandlePointerDown(e, idx)
-                            }}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: isDragging ? 0.3 : 1, cursor: "grab", userSelect: "none", touchAction: "none" }}
+                            draggable
+                            onDragStart={function(e) { onDragStart(e, idx) }}
+                            onDragOver={function(e) { onDragOver(e, idx) }}
+                            onDrop={function(e) { onDrop(e, idx) }}
+                            onDragEnd={onDragEnd}
+                            onDragLeave={function() { if (dragOverIdx === idx) setDragOverIdx(null) }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: dragFrom.current === idx ? 0.3 : 1, cursor: "grab" }}
                           >
                             {/* Stocked checkbox */}
-                            <div onPointerDown={function(e) { e.stopPropagation() }} onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", touchAction: "auto" }}>
+                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                               {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
                             </div>
                             {editing === idx ? (
-                              <input onPointerDown={function(e) { e.stopPropagation() }} value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", cursor: "text", userSelect: "text" }} />
+                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
                             ) : (
                               <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
                             )}
                             {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: "#c8834a", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>→ list</span>}
                             {editing === idx ? (
-                              <div onPointerDown={function(e) { e.stopPropagation() }} style={{ display: "flex", gap: 6 }}>
+                              <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={function() { renameItem(idx) }} style={{ background: "#7a9e8e", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer" }}>save</button>
                                 <button onClick={function() { setEditing(null) }} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
                               </div>
                             ) : (
-                              <div onPointerDown={function(e) { e.stopPropagation() }} style={{ display: "flex", gap: 6 }}>
+                              <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={function() { setEditing(idx); setEditVal(item.name) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.35)", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
                                 <button onClick={function() { deleteItem(idx) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(200,131,74,0.5)", cursor: "pointer", padding: "2px 4px" }}>✕</button>
                               </div>
