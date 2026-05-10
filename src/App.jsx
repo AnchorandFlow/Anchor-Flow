@@ -418,6 +418,8 @@ function Icon({name,size=16,color}){
 function getDaysInMonth(year,month){return new Date(year,month+1,0).getDate();}
 function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
 
+const homeFlowRef = { tab: "anchor", goTab: () => {} };
+
 function HomeFlow() {
 
   function useSaved(key, fallback) {
@@ -945,10 +947,12 @@ function HomeFlow() {
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
-  const [tab,setTab] = useState("home");
+  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
   const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"]));
-  function goTab(t) { visitedTabs.current.add(t); setTab(t); }
+  function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
+  homeFlowRef.tab = tab;
+  homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
@@ -3541,7 +3545,7 @@ Respond ONLY in valid JSON:
     }
     return (
       <div style={{position:"relative"}}>
-        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?T.sagePale:"",borderColor:open?T.sage:""})}}>\n          📋 {selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}\n        </button>
+        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?T.sagePale:"",borderColor:open?T.sage:""})}}>📋 {selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}</button>
         {open&&(
           <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.85rem",boxShadow:"0 4px 20px rgba(0,0,0,0.12)",width:"220px",overflow:"hidden"}}>
             <div style={{padding:"0.5rem 0.6rem",borderBottom:"1px solid "+T.borderSoft}}>
@@ -3827,13 +3831,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
                         <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
                         <input value={m[meal]||""} onChange={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
+                        <div style={{marginTop:"0.35rem"}}>
+                          <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
+                        </div>
                       </div>
                     );})}
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                    {nwMealsToShow.map(function(meal){return(
-                      <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
-                    );})}
+                  </div>
+                
                   </div>
                 </div>
               );
@@ -4322,21 +4327,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[editingCategories,setEditingCategories]=useState(false);
     const[newCatName,setNewCatName]=useState("");
     const[collapsedCats,setCollapsedCats]=useState({});
-
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
-
     function toggleCollapse(store){setCollapsedStores(p=>({...p,[store]:!p[store]}));}
     function toggleCatCollapse(key){setCollapsedCats(p=>({...p,[key]:!p[key]}));}
-
     function addItem(text,store,photoUrl){
       if(!text.trim())return;
       var s=store||newStore;
       setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null,category:""}]);
-      setNewItem("");
-      lastStore[1](s);
-      setNewStore(s);
+      setNewItem("");lastStore[1](s);setNewStore(s);
     }
     function addStore(){if(!newStoreName.trim())return;const ns=newStoreName.trim();setStores(p=>[...p,ns]);setNewStore(ns);lastStore[1](ns);setNewStoreName("");setAddingStore(false);}
     function renameStore(oldName,newName){
@@ -4349,182 +4349,97 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addInlineItem(store){
       if(!inlineText.trim())return;
       setShoppingItems(p=>[...p,{id:uid(),text:inlineText.trim(),store:store,done:false,photo:null,category:""}]);
-      setInlineText("");
-      lastStore[1](store);
+      setInlineText("");lastStore[1](store);
     }
-
-    // ── Auto-categorize via AI ────────────────────────────────────────────────
     async function autoCategorize(){
       var uncategorized=shoppingItems.filter(function(i){return !i.category||i.category===""||i.category==="grocery";});
       if(uncategorized.length===0){setAutoCatStatus("All items already have categories!");setTimeout(()=>setAutoCatStatus(""),2500);return;}
-      setIsAutoCategorizing(true);
-      setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
+      setIsAutoCategorizing(true);setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
       try{
-        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:600,
-          system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",
-          messages:[{role:"user",content:"Categories: "+shopCategories.join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]
-        })});
+        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCategories.join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
         var d=await r.json();
         var txt=d.content?.find(function(b){return b.type==="text";})||{};
         var parsed=JSON.parse((txt.text||"[]").replace(/```json|```/g,"").trim());
-        setShoppingItems(function(prev){
-          var map={};
-          parsed.forEach(function(x){map[x.id]=x.category;});
-          return prev.map(function(i){return map[i.id]?{...i,category:map[i.id]}:i;});
-        });
+        setShoppingItems(function(prev){var map={};parsed.forEach(function(x){map[x.id]=x.category;});return prev.map(function(i){return map[i.id]?{...i,category:map[i.id]}:i;});});
         setAutoCatStatus("✓ "+parsed.length+" items categorized");
-      }catch(e){
-        setAutoCatStatus("Could not auto-categorize. Try again.");
-      }
-      setIsAutoCategorizing(false);
-      setTimeout(()=>setAutoCatStatus(""),3000);
+      }catch(e){setAutoCatStatus("Could not auto-categorize. Try again.");}
+      setIsAutoCategorizing(false);setTimeout(()=>setAutoCatStatus(""),3000);
     }
-
-    // ── Drag ─────────────────────────────────────────────────────────────────
     const dragState=useRef({id:null,fromStore:null,clone:null,startY:0,startX:0,lastTarget:null});
     const [draggingId,setDraggingId]=useState(null);
     const [dragOverId,setDragOverId]=useState(null);
     const [dragOverStoreTarget,setDragOverStoreTarget]=useState(null);
-
-    function getItemEl(id){ return document.querySelector(`[data-shopid="${id}"]`); }
-
     function pointerDown(e,itemId,fromStore){
       if(e.button===1||e.button===2) return;
-      const ds=dragState.current;
-      ds.id=itemId; ds.fromStore=fromStore; ds.startY=e.clientY; ds.startX=e.clientX;
-      ds.lastTarget=null;
-      const el=getItemEl(itemId);
-      if(el){
-        const rect=el.getBoundingClientRect();
-        const clone=el.cloneNode(true);
-        clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;
-        clone.setAttribute("data-drag-clone","1");
-        document.body.appendChild(clone);
-        ds.clone=clone;
-      }
-      setDraggingId(itemId);
-      e.preventDefault();
+      const ds=dragState.current;ds.id=itemId;ds.fromStore=fromStore;ds.startY=e.clientY;ds.startX=e.clientX;ds.lastTarget=null;
+      const el=document.querySelector(`[data-shopid="${itemId}"]`);
+      if(el){const rect=el.getBoundingClientRect();const clone=el.cloneNode(true);clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;clone.setAttribute("data-drag-clone","1");document.body.appendChild(clone);ds.clone=clone;}
+      setDraggingId(itemId);e.preventDefault();
     }
-
     function pointerMove(e){
-      const ds=dragState.current;
-      if(!ds.id) return;
-      if(ds.clone){ ds.clone.style.left=(e.clientX-(ds.clone.offsetWidth/2))+"px"; ds.clone.style.top=(e.clientY-24)+"px"; }
+      const ds=dragState.current;if(!ds.id) return;
+      if(ds.clone){ds.clone.style.left=(e.clientX-(ds.clone.offsetWidth/2))+"px";ds.clone.style.top=(e.clientY-24)+"px";}
       if(ds.clone) ds.clone.style.display="none";
       const el=document.elementFromPoint(e.clientX,e.clientY);
       if(ds.clone) ds.clone.style.display="";
       if(!el) return;
-      const storeEl=el.closest("[data-shopstore]");
-      const itemEl=el.closest("[data-shopid]");
-      if(itemEl){
-        const overId=itemEl.getAttribute("data-shopid");
-        if(overId!==ds.id){ setDragOverId(overId); setDragOverStoreTarget(null); }
-      } else if(storeEl){
-        const overStore=storeEl.getAttribute("data-shopstore");
-        setDragOverStoreTarget(overStore); setDragOverId(null);
-      } else {
-        setDragOverId(null); setDragOverStoreTarget(null);
-      }
+      const storeEl=el.closest("[data-shopstore]");const itemEl=el.closest("[data-shopid]");
+      if(itemEl){const overId=itemEl.getAttribute("data-shopid");if(overId!==ds.id){setDragOverId(overId);setDragOverStoreTarget(null);}}
+      else if(storeEl){setDragOverStoreTarget(storeEl.getAttribute("data-shopstore"));setDragOverId(null);}
+      else{setDragOverId(null);setDragOverStoreTarget(null);}
     }
-
     function pointerUp(e){
-      const ds=dragState.current;
-      if(!ds.id){ return; }
-      if(ds.clone){ ds.clone.remove(); ds.clone=null; }
+      const ds=dragState.current;if(!ds.id){return;}
+      if(ds.clone){ds.clone.remove();ds.clone=null;}
       setDraggingId(null);
-      if(ds.clone) ds.clone.style.display="none";
       const el=document.elementFromPoint(e.clientX,e.clientY);
-      if(ds.clone) ds.clone.style.display="";
-      let targetItemId=dragOverId;
-      let targetStore=dragOverStoreTarget;
-      if(targetItemId){
-        const targetItem=shoppingItems.find(i=>i.id===targetItemId);
-        if(targetItem) targetStore=targetItem.store;
-      }
-      if((targetItemId||targetStore) && (targetItemId!==ds.id)){
+      let targetItemId=dragOverId;let targetStore=dragOverStoreTarget;
+      if(targetItemId){const targetItem=shoppingItems.find(i=>i.id===targetItemId);if(targetItem)targetStore=targetItem.store;}
+      if((targetItemId||targetStore)&&(targetItemId!==ds.id)){
         setShoppingItems(function(prev){
-          const items=[...prev];
-          const fromIdx=items.findIndex(i=>i.id===ds.id);
-          if(fromIdx===-1){ ds.id=null; return prev; }
-          const [moved]=items.splice(fromIdx,1);
-          const finalStore=targetStore||moved.store;
-          const movedItem={...moved,store:finalStore};
-          if(targetItemId){
-            const toIdx=items.findIndex(i=>i.id===targetItemId);
-            items.splice(toIdx,0,movedItem);
-          } else {
-            const lastInStore=items.reduce(function(acc,item,idx){return item.store===finalStore?idx:acc;},-1);
-            items.splice(lastInStore+1,0,movedItem);
-          }
+          const items=[...prev];const fromIdx=items.findIndex(i=>i.id===ds.id);if(fromIdx===-1){ds.id=null;return prev;}
+          const [moved]=items.splice(fromIdx,1);const finalStore=targetStore||moved.store;const movedItem={...moved,store:finalStore};
+          if(targetItemId){const toIdx=items.findIndex(i=>i.id===targetItemId);items.splice(toIdx,0,movedItem);}
+          else{const lastInStore=items.reduce(function(acc,item,idx){return item.store===finalStore?idx:acc;},-1);items.splice(lastInStore+1,0,movedItem);}
           return items;
         });
       }
-      ds.id=null; ds.fromStore=null; ds.lastTarget=null;
-      setDragOverId(null); setDragOverStoreTarget(null);
+      ds.id=null;ds.fromStore=null;ds.lastTarget=null;setDragOverId(null);setDragOverStoreTarget(null);
     }
-
     useEffect(()=>{
       if(!draggingId) return;
-      window.addEventListener("pointermove",pointerMove);
-      window.addEventListener("pointerup",pointerUp);
-      return ()=>{ window.removeEventListener("pointermove",pointerMove); window.removeEventListener("pointerup",pointerUp); };
+      window.addEventListener("pointermove",pointerMove);window.addEventListener("pointerup",pointerUp);
+      return ()=>{window.removeEventListener("pointermove",pointerMove);window.removeEventListener("pointerup",pointerUp);};
     // eslint-disable-next-line react-hooks/exhaustive-deps
     },[draggingId,dragOverId,dragOverStoreTarget,shoppingItems]);
-
     function startListening(){
-      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-      if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
-      const recognition=new SR();recognitionRef.current=recognition;
-      recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
+      const recognition=new SR();recognitionRef.current=recognition;recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
       recognition.onstart=()=>{setIsListening(true);setVoiceStatus("Listening… say your item");};
-      recognition.onresult=e=>{
-        const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");
-        setVoiceStatus(`Heard: "${transcript}"`);
-        if(e.results[0].isFinal){
-          const items=transcript.split(/\band\b/i).map(s=>s.trim()).filter(Boolean);
-          items.forEach(item=>addItem(item,newStore));
-          setIsListening(false);setVoiceStatus(`✓ Added ${items.length} item${items.length>1?"s":""}`);
-          setTimeout(()=>setVoiceStatus(""),2500);
-        }
-      };
+      recognition.onresult=e=>{const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");setVoiceStatus(`Heard: "${transcript}"`);if(e.results[0].isFinal){const items=transcript.split(/\band\b/i).map(s=>s.trim()).filter(Boolean);items.forEach(item=>addItem(item,newStore));setIsListening(false);setVoiceStatus(`✓ Added ${items.length} item${items.length>1?"s":""}`);setTimeout(()=>setVoiceStatus(""),2500);}};
       recognition.onerror=e=>{setIsListening(false);setVoiceStatus(e.error==="not-allowed"?"Microphone access denied.":`Error: ${e.error}`);setTimeout(()=>setVoiceStatus(""),3000);};
-      recognition.onend=()=>setIsListening(false);
-      recognition.start();
+      recognition.onend=()=>setIsListening(false);recognition.start();
     }
     function stopListening(){recognitionRef.current?.stop();setIsListening(false);}
-
     async function handlePhotoUpload(e){
       const file=e.target.files?.[0];if(!file)return;
       setIsAnalyzingPhoto(true);setPhotoStatus("Analyzing photo…");
       const base64=await new Promise(res=>{const reader=new FileReader();reader.onload=()=>res(reader.result.split(",")[1]);reader.readAsDataURL(file);});
       const photoUrl=URL.createObjectURL(file);
       try{
-        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:300,
-          system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCategories.join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,
-          messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]
-        })});
-        const d=await r.json();
-        const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
-        const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
-        const itemName=parsed.name||"Item from photo";
-        const itemCat=shopCategories.includes(parsed.category)?parsed.category:"";
-        setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);
-        setPhotoStatus(`✓ Added "${itemName}" with photo`);
-      }catch{
-        setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl,category:""}]);
-        setPhotoStatus("✓ Added item with photo");
-      }
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCategories.join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
+        const d=await r.json();const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
+        const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCategories.includes(parsed.category)?parsed.category:"";
+        setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
+      }catch{setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl,category:""}]);setPhotoStatus("✓ Added item with photo");}
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
     }
-
     return(
       <div>
         <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
         <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
-            <input ref={shopInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} onFocus={function(){window._shopInputFocused=true;}} onBlur={function(){window._shopInputFocused=false;}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
+            <input ref={shopInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
             <select value={newStore} onChange={e=>{setNewStore(e.target.value);lastStore[1](e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
               {stores.map(s=><option key={s} value={s}>{s}</option>)}
             </select>
@@ -4537,14 +4452,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={()=>photoInputRef.current?.click()} disabled={isAnalyzingPhoto} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAnalyzingPhoto?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAnalyzingPhoto?0.65:1,transition:"all 0.15s"}}>
               <span style={{fontSize:"1rem"}}>📷</span>{isAnalyzingPhoto?"Analyzing…":"Photo to List"}
             </button>
-            <button onClick={autoCategorize} disabled={isAutoCategorizing} style={{background:isAutoCategorizing?"#ccc":T.coastal||T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAutoCategorizing?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAutoCategorizing?0.7:1,transition:"all 0.15s"}}>
+            <button onClick={autoCategorize} disabled={isAutoCategorizing} style={{background:isAutoCategorizing?"#ccc":"#3a6b8a",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAutoCategorizing?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAutoCategorizing?0.7:1,transition:"all 0.15s"}}>
               <span style={{fontSize:"1rem"}}>✨</span>{isAutoCategorizing?"Sorting…":"Auto-sort"}
             </button>
             <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{display:"none"}}/>
-            <span style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:500}}>→ {newStore}</span>
           </div>
           {(voiceStatus||photoStatus||autoCatStatus)&&(
-            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.6rem",padding:"0.45rem 0.75rem",fontSize:"0.78rem",color:T.textMid,fontWeight:600,display:"flex",alignItems:"center",gap:"0.5rem"}}>
+            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.6rem",padding:"0.45rem 0.75rem",fontSize:"0.78rem",color:T.textMid,fontWeight:600,display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
               {(isListening||isAnalyzingPhoto||isAutoCategorizing)&&<div style={{width:8,height:8,borderRadius:"50%",background:isListening?T.rose:T.sage,animation:"bounce 0.8s infinite"}}/>}
               {autoCatStatus||voiceStatus||photoStatus}
             </div>
@@ -4563,8 +4477,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
           </div>
         </div>
-
-        {/* ── Category manager ── */}
         <div style={{marginBottom:"0.75rem"}}>
           <button onClick={()=>setEditingCategories(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.74rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
             <Icon name="edit" size={11} color={T.textSoft}/> {editingCategories?"Done editing":"Edit categories"}
@@ -4575,8 +4487,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.6rem"}}>
                 {shopCategories.map(function(cat){return(
                   <div key={cat} style={{display:"flex",alignItems:"center",gap:4,background:T.sandPale,border:`1.5px solid ${T.sand}55`,borderRadius:"2rem",padding:"3px 8px 3px 10px",fontSize:"0.73rem",fontWeight:600,color:T.sandDark}}>
-                    {cat}
-                    <button onClick={()=>setShopCategories(function(p){return p.filter(function(c){return c!==cat;});})} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontWeight:900,fontSize:"0.8rem",padding:"0 1px",lineHeight:1}}>×</button>
+                    {cat}<button onClick={()=>setShopCategories(function(p){return p.filter(function(c){return c!==cat;});})} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontWeight:900,fontSize:"0.8rem",padding:"0 1px",lineHeight:1}}>×</button>
                   </div>
                 );})}
               </div>
@@ -4587,45 +4498,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </div>
-
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem",justifyContent:"flex-end"}}>
           <button onClick={()=>setCollapsedStores(stores.reduce((a,s)=>({...a,[s]:true}),{}))} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
           <button onClick={()=>setCollapsedStores({})} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
         </div>
-
         {stores.map(function(store,si){
           var storeItems=shoppingItems.filter(function(i){return i.store===store;});
-          var accent=STORE_COLORS[si%STORE_COLORS.length];
-          var isCollapsed=!!collapsedStores[store];
-          var isDragTarget=dragOverStoreTarget===store;
-
-          // Group items by category
-          var categorized={};
-          var uncatKey="__uncat__";
-          storeItems.forEach(function(item){
-            var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;
-            if(!categorized[cat])categorized[cat]=[];
-            categorized[cat].push(item);
-          });
-          // Build ordered category list: named cats in shopCategories order, then uncategorized
+          var accent=STORE_COLORS[si%STORE_COLORS.length];var isCollapsed=!!collapsedStores[store];var isDragTarget=dragOverStoreTarget===store;
+          var categorized={};var uncatKey="__uncat__";
+          storeItems.forEach(function(item){var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;if(!categorized[cat])categorized[cat]=[];categorized[cat].push(item);});
           var orderedCats=shopCategories.filter(function(c){return categorized[c]&&categorized[c].length>0;});
           if(categorized[uncatKey]&&categorized[uncatKey].length>0)orderedCats.push(uncatKey);
-
           var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
-
           return(
-            <div key={store} data-shopstore={store}
-              style={{...card({borderLeft:"4px solid "+accent,padding:"0",outline:isDragTarget?"2px dashed "+accent:"none",outlineOffset:"2px"})}}>
+            <div key={store} data-shopstore={store} style={{...card({borderLeft:"4px solid "+accent,padding:"0",outline:isDragTarget?"2px dashed "+accent:"none",outlineOffset:"2px"})}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.9rem 1.1rem",cursor:"pointer",userSelect:"none"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"0.55rem",flex:1}} onClick={function(){toggleCollapse(store);}}>
                   <div style={{width:10,height:10,borderRadius:"50%",background:accent,flexShrink:0}}/>
                   {editingStoreName===store?(
-                    <input value={editStoreVal} onChange={function(e){setEditStoreVal(e.target.value);}}
-                      onBlur={function(){renameStore(store,editStoreVal);}}
-                      onKeyDown={function(e){if(e.key==="Enter")renameStore(store,editStoreVal);if(e.key==="Escape"){setEditingStoreName(null);}}}
-                      onClick={function(e){e.stopPropagation();}}
-                      autoFocus
-                      style={{...inp({fontSize:"0.88rem",padding:"0.2rem 0.4rem",flex:1,fontWeight:700})}}/>
+                    <input value={editStoreVal} onChange={function(e){setEditStoreVal(e.target.value);}} onBlur={function(){renameStore(store,editStoreVal);}} onKeyDown={function(e){if(e.key==="Enter")renameStore(store,editStoreVal);if(e.key==="Escape"){setEditingStoreName(null);}}} onClick={function(e){e.stopPropagation();}} autoFocus style={{...inp({fontSize:"0.88rem",padding:"0.2rem 0.4rem",flex:1,fontWeight:700})}}/>
                   ):(
                     <span style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem"}}>{store}</span>
                   )}
@@ -4633,10 +4524,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
                 <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
                   {storeItems.some(function(i){return i.done;})&&(
-                    <button onClick={function(e){e.stopPropagation();setShoppingItems(function(p){return p.filter(function(i){return i.store!==store||!i.done;});});}} title="Clear checked" style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",padding:"0.1rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",color:T.rose}}>Clear ✓</button>
+                    <button onClick={function(e){e.stopPropagation();setShoppingItems(function(p){return p.filter(function(i){return i.store!==store||!i.done;});});}} style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",padding:"0.1rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",color:T.rose}}>Clear ✓</button>
                   )}
-                  <button onClick={function(e){e.stopPropagation();setInlineStore(inlineStore===store?null:store);setInlineText("");}} title="Add item here" style={{background:"none",border:"1px solid "+accent+"60",borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:accent,fontSize:"1rem",fontWeight:300,lineHeight:1}}>+</button>
-                  <button onClick={function(e){e.stopPropagation();setEditingStoreName(store);setEditStoreVal(store);}} title="Rename store" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="edit" size={13} color={T.textMid}/></button>
+                  <button onClick={function(e){e.stopPropagation();setInlineStore(inlineStore===store?null:store);setInlineText("");}} style={{background:"none",border:"1px solid "+accent+"60",borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:accent,fontSize:"1rem",fontWeight:300,lineHeight:1}}>+</button>
+                  <button onClick={function(e){e.stopPropagation();setEditingStoreName(store);setEditStoreVal(store);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="edit" size={13} color={T.textMid}/></button>
                   <button onClick={function(e){e.stopPropagation();if(window.confirm("Remove "+store+" and all its items?")){{setStores(function(p){return p.filter(function(s){return s!==store;});});setShoppingItems(function(p){return p.filter(function(i){return i.store!==store;});});}}}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
                   <div onClick={function(){toggleCollapse(store);}} style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
                 </div>
@@ -4645,13 +4536,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{padding:"0 1.1rem 0.9rem",borderTop:"1px solid "+T.borderSoft}}>
                   {isDragTarget&&<div style={{padding:"0.4rem",marginBottom:"0.3rem",borderRadius:"0.5rem",background:accent+"15",border:"1.5px dashed "+accent,textAlign:"center",fontSize:"0.72rem",color:accent,fontWeight:700}}>Drop here to move to {store}</div>}
                   {storeItems.length===0&&!inlineStore&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet — tap + to add</p>}
-
-                  {/* ── Grouped by category ── */}
                   {orderedCats.map(function(cat){
-                    var catItems=categorized[cat]||[];
-                    var catKey=store+"__"+cat;
-                    var isCatCollapsed=!!collapsedCats[catKey];
-                    var isUncat=cat===uncatKey;
+                    var catItems=categorized[cat]||[];var catKey=store+"__"+cat;var isCatCollapsed=!!collapsedCats[catKey];var isUncat=cat===uncatKey;
                     return(
                       <div key={cat} style={{marginTop:orderedCats.length>1?"0.5rem":0}}>
                         {orderedCats.length>1&&(
@@ -4662,17 +4548,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                           </div>
                         )}
                         {!isCatCollapsed&&catItems.map(function(item){
-                          var isBeingDragged=draggingId===item.id;
-                          var isDropTarget=dragOverId===item.id;
+                          var isBeingDragged=draggingId===item.id;var isDropTarget=dragOverId===item.id;
                           return(
-                            <div key={item.id} data-shopid={item.id}
-                              onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,store);}}
-                              style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",
-                                outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",
-                                transition:"opacity 0.15s"}}>
-                              <ShopItemRow
-                                item={item}
-                                categories={shopCategories}
+                            <div key={item.id} data-shopid={item.id} onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,store);}} style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",transition:"opacity 0.15s"}}>
+                              <ShopItemRow item={item} categories={shopCategories}
                                 onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
                                 onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
                                 onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
@@ -4684,14 +4563,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       </div>
                     );
                   })}
-
                   {inlineStore===store&&(
                     <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem",alignItems:"center"}}>
-                      <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}}
-                        onKeyDown={function(e){if(e.key==="Enter"){addInlineItem(store);}if(e.key==="Escape"){setInlineStore(null);}}}
-                        placeholder={"Add to "+store+"…"}
-                        autoFocus
-                        style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
+                      <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addInlineItem(store);}if(e.key==="Escape"){setInlineStore(null);}}} placeholder={"Add to "+store+"…"} autoFocus style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
                       <button onClick={function(){addInlineItem(store);}} style={btnP(accent,{padding:"0.4rem 0.75rem",fontSize:"0.8rem"})}>Add</button>
                       <button onClick={function(){setInlineStore(null);}} style={btnS({padding:"0.4rem 0.6rem",fontSize:"0.8rem"})}>✕</button>
                     </div>
@@ -4705,324 +4579,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-    const shopInputRef=useRef(null);
-    const[addingStore,setAddingStore]=useState(false);
-    const[newStoreName,setNewStoreName]=useState("");
-    const[isListening,setIsListening]=useState(false);
-    const[voiceStatus,setVoiceStatus]=useState("");
-    const[isAnalyzingPhoto,setIsAnalyzingPhoto]=useState(false);
-    const[photoStatus,setPhotoStatus]=useState("");
-    const[editingStoreName,setEditingStoreName]=useState(null); // store name being edited
-    const[editStoreVal,setEditStoreVal]=useState("");
-    const[inlineStore,setInlineStore]=useState(null); // which store has inline add open
-    const[inlineText,setInlineText]=useState("");
-
-    const recognitionRef=useRef(null);
-    const photoInputRef=useRef(null);
-    const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
-
-    function toggleCollapse(store){setCollapsedStores(p=>({...p,[store]:!p[store]}));}
-    function addItem(text,store,photoUrl){
-      if(!text.trim())return;
-      var s=store||newStore;
-      setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null}]);
-      setNewItem("");
-      lastStore[1](s); // remember last used store
-      setNewStore(s);
-    }
-    function addStore(){if(!newStoreName.trim())return;const ns=newStoreName.trim();setStores(p=>[...p,ns]);setNewStore(ns);lastStore[1](ns);setNewStoreName("");setAddingStore(false);}
-    function renameStore(oldName,newName){
-      if(!newName.trim()||newName===oldName){setEditingStoreName(null);return;}
-      setStores(p=>p.map(s=>s===oldName?newName.trim():s));
-      setShoppingItems(p=>p.map(i=>i.store===oldName?{...i,store:newName.trim()}:i));
-      if(newStore===oldName)setNewStore(newName.trim());
-      setEditingStoreName(null);
-    }
-    function addInlineItem(store){
-      if(!inlineText.trim())return;
-      setShoppingItems(p=>[...p,{id:uid(),text:inlineText.trim(),store:store,done:false,photo:null}]);
-      setInlineText("");
-      lastStore[1](store);
-    }
-    // ── Unified drag: reorder within store + move between stores ─────────────
-    // Works on both desktop (mouse) and mobile (touch) via pointer events.
-    const dragState=useRef({id:null,fromStore:null,clone:null,startY:0,startX:0,lastTarget:null});
-    const [draggingId,setDraggingId]=useState(null);
-    const [dragOverId,setDragOverId]=useState(null); // item id being hovered over
-    const [dragOverStoreTarget,setDragOverStoreTarget]=useState(null); // store header being hovered
-
-    function getItemEl(id){ return document.querySelector(`[data-shopid="${id}"]`); }
-    function getStoreEl(store){ return document.querySelector(`[data-shopstore="${CSS.escape(store)}"]`); }
-
-    function pointerDown(e,itemId,fromStore){
-      if(e.button===1||e.button===2) return;
-      const ds=dragState.current;
-      ds.id=itemId; ds.fromStore=fromStore; ds.startY=e.clientY; ds.startX=e.clientX;
-      ds.lastTarget=null;
-      // Clone the row for visual drag ghost
-      const el=getItemEl(itemId);
-      if(el){
-        const rect=el.getBoundingClientRect();
-        const clone=el.cloneNode(true);
-        clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;
-      clone.setAttribute("data-drag-clone", "1");
-        document.body.appendChild(clone);
-        ds.clone=clone;
-      }
-      setDraggingId(itemId);
-      e.preventDefault();
-    }
-
-    function pointerMove(e){
-      const ds=dragState.current;
-      if(!ds.id) return;
-      if(ds.clone){ ds.clone.style.left=(e.clientX-(ds.clone.offsetWidth/2))+"px"; ds.clone.style.top=(e.clientY-24)+"px"; }
-      // Hit test: find what's under the pointer (excluding clone)
-      if(ds.clone) ds.clone.style.display="none";
-      const el=document.elementFromPoint(e.clientX,e.clientY);
-      if(ds.clone) ds.clone.style.display="";
-      if(!el) return;
-      // Check if over a store drop zone header
-      const storeEl=el.closest("[data-shopstore]");
-      const itemEl=el.closest("[data-shopid]");
-      if(itemEl){
-        const overId=itemEl.getAttribute("data-shopid");
-        if(overId!==ds.id){ setDragOverId(overId); setDragOverStoreTarget(null); }
-      } else if(storeEl){
-        const overStore=storeEl.getAttribute("data-shopstore");
-        setDragOverStoreTarget(overStore); setDragOverId(null);
-      } else {
-        setDragOverId(null); setDragOverStoreTarget(null);
-      }
-    }
-
-    function pointerUp(e){
-      const ds=dragState.current;
-      if(!ds.id){ return; }
-      if(ds.clone){ ds.clone.remove(); ds.clone=null; }
-      setDraggingId(null);
-
-      // Determine drop target
-      if(ds.clone) ds.clone.style.display="none";
-      const el=document.elementFromPoint(e.clientX,e.clientY);
-      if(ds.clone) ds.clone.style.display="";
-
-      let targetItemId=dragOverId;
-      let targetStore=dragOverStoreTarget;
-
-      // If dropped on an item, use that item's store
-      if(targetItemId){
-        const targetItem=shoppingItems.find(i=>i.id===targetItemId);
-        if(targetItem) targetStore=targetItem.store;
-      }
-
-      if((targetItemId||targetStore) && (targetItemId!==ds.id)){
-        setShoppingItems(prev=>{
-          const items=[...prev];
-          const fromIdx=items.findIndex(i=>i.id===ds.id);
-          if(fromIdx===-1){ ds.id=null; return prev; }
-          const [moved]=items.splice(fromIdx,1);
-          // Update store if moving between stores
-          const finalStore=targetStore||moved.store;
-          const movedItem={...moved,store:finalStore};
-          if(targetItemId){
-            // Insert before the target item
-            const toIdx=items.findIndex(i=>i.id===targetItemId);
-            items.splice(toIdx,0,movedItem);
-          } else {
-            // Dropped on store header — append to end of that store's items
-            const lastInStore=items.reduce((acc,item,idx)=>item.store===finalStore?idx:acc,-1);
-            items.splice(lastInStore+1,0,movedItem);
-          }
-          return items;
-        });
-      }
-
-      ds.id=null; ds.fromStore=null; ds.lastTarget=null;
-      setDragOverId(null); setDragOverStoreTarget(null);
-    }
-
-    // Attach global pointer move/up listeners while dragging
-    useEffect(()=>{
-      if(!draggingId) return;
-      window.addEventListener("pointermove",pointerMove);
-      window.addEventListener("pointerup",pointerUp);
-      return ()=>{ window.removeEventListener("pointermove",pointerMove); window.removeEventListener("pointerup",pointerUp); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[draggingId,dragOverId,dragOverStoreTarget,shoppingItems]);
-
-    function startListening(){
-      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-      if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
-      const recognition=new SR();recognitionRef.current=recognition;
-      recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
-      recognition.onstart=()=>{setIsListening(true);setVoiceStatus("Listening… say your item");};
-      recognition.onresult=e=>{
-        const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");
-        setVoiceStatus(`Heard: "${transcript}"`);
-        if(e.results[0].isFinal){
-          const items=transcript.split(/\band\b/i).map(s=>s.trim()).filter(Boolean);
-          items.forEach(item=>addItem(item,newStore));
-          setIsListening(false);setVoiceStatus(`✓ Added ${items.length} item${items.length>1?"s":""}`);
-          setTimeout(()=>setVoiceStatus(""),2500);
-        }
-      };
-      recognition.onerror=e=>{setIsListening(false);setVoiceStatus(e.error==="not-allowed"?"Microphone access denied.":`Error: ${e.error}`);setTimeout(()=>setVoiceStatus(""),3000);};
-      recognition.onend=()=>setIsListening(false);
-      recognition.start();
-    }
-    function stopListening(){recognitionRef.current?.stop();setIsListening(false);}
-
-    async function handlePhotoUpload(e){
-      const file=e.target.files?.[0];if(!file)return;
-      setIsAnalyzingPhoto(true);setPhotoStatus("Analyzing photo…");
-      const base64=await new Promise(res=>{const reader=new FileReader();reader.onload=()=>res(reader.result.split(",")[1]);reader.readAsDataURL(file);});
-      const photoUrl=URL.createObjectURL(file);
-      try{
-        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:300,
-          system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category: produce/protein/dairy/pantry/frozen/bakery/extras. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"extras"}.`,
-          messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]
-        })});
-        const d=await r.json();
-        const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"extras"}';
-        const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
-        const itemName=parsed.name||"Item from photo";
-        setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl}]);
-        setPhotoStatus(`✓ Added "${itemName}" with photo`);
-      }catch{
-        setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl}]);
-        setPhotoStatus("✓ Added item with photo");
-      }
-      setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
-    }
-
-    return(
-      <div>
-        <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
-{false&&(
-          <div onClick={()=>setShowAuthModal(true)} style={{background:T.sand+"22",border:"2px solid "+T.sand,borderRadius:"1rem",padding:"0.65rem 0.9rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
-            <span>⚠️</span>
-            <div style={{flex:1,fontSize:"0.8rem",color:T.sandDark,fontWeight:600}}>Not signed in — items won't sync. <span style={{color:T.blue}}>Sign in →</span></div>
-          </div>
-        )}
-        <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
-          <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
-            <input ref={shopInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} onFocus={function(){window._shopInputFocused=true;}} onBlur={function(){window._shopInputFocused=false;}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
-            <select value={newStore} onChange={e=>{setNewStore(e.target.value);lastStore[1](e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
-              {stores.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-            <button onClick={function(){if(shopInputRef.current&&shopInputRef.current.value.trim()){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} style={btnP(T.sand)}>Add</button>
-          </div>
-          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-            <button onClick={isListening?stopListening:startListening} style={{background:isListening?T.rose:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",transition:"all 0.15s",boxShadow:isListening?`0 0 0 3px ${T.rose}40`:"none"}}>
-              <span style={{fontSize:"1rem"}}>{isListening?"⏹":"🎙️"}</span>{isListening?"Stop":"Speak Item"}
-            </button>
-            <button onClick={()=>photoInputRef.current?.click()} disabled={isAnalyzingPhoto} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAnalyzingPhoto?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAnalyzingPhoto?0.65:1,transition:"all 0.15s"}}>
-              <span style={{fontSize:"1rem"}}>📷</span>{isAnalyzingPhoto?"Analyzing…":"Photo to List"}
-            </button>
-            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{display:"none"}}/>
-            <span style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:500}}>→ {newStore}</span>
-          </div>
-          {(voiceStatus||photoStatus)&&(
-            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.6rem",padding:"0.45rem 0.75rem",fontSize:"0.78rem",color:T.textMid,fontWeight:600,display:"flex",alignItems:"center",gap:"0.5rem"}}>
-              {(isListening||isAnalyzingPhoto)&&<div style={{width:8,height:8,borderRadius:"50%",background:isListening?T.rose:T.sage,animation:"bounce 0.8s infinite"}}/>}
-              {voiceStatus||photoStatus}
-            </div>
-          )}
-          <div style={{marginTop:"0.5rem"}}>
-            {addingStore?(
-              <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
-                <input value={newStoreName} onChange={e=>setNewStoreName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addStore();}} placeholder="Store name…" style={{...inp({flex:1})}} autoFocus/>
-                <button onClick={addStore} style={btnP(T.sage,{padding:"0.45rem 0.85rem"})}>Add</button>
-                <button onClick={()=>setAddingStore(false)} style={btnS({padding:"0.45rem 0.85rem"})}>Cancel</button>
-              </div>
-            ):(
-              <button onClick={()=>setAddingStore(true)} style={{background:"none",border:`1.5px dashed ${T.sand}`,color:T.sandDark,borderRadius:"0.6rem",padding:"0.28rem 0.7rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                <Icon name="plus" size={11} color={T.sandDark}/> Add Store
-              </button>
-            )}
-          </div>
-        </div>
-        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem",justifyContent:"flex-end"}}>
-          <button onClick={()=>setCollapsedStores(stores.reduce((a,s)=>({...a,[s]:true}),{}))} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
-          <button onClick={()=>setCollapsedStores({})} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
-        </div>
-        {stores.map(function(store,si){
-          var items=shoppingItems.filter(function(i){return i.store===store;});
-          var accent=STORE_COLORS[si%STORE_COLORS.length];
-          var isCollapsed=!!collapsedStores[store];
-          var pendingCount=items.filter(function(i){return !i.done;}).length;
-          var doneCount=items.filter(function(i){return i.done;}).length;
-
-          var isDragTarget=dragOverStoreTarget===store;
-          return(
-            <div key={store} data-shopstore={store}
-              style={{...card({borderLeft:"4px solid "+accent,padding:"0",outline:isDragTarget?"2px dashed "+accent:"none",outlineOffset:"2px"})}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.9rem 1.1rem",cursor:"pointer",userSelect:"none"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.55rem",flex:1}} onClick={function(){toggleCollapse(store);}}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:accent,flexShrink:0}}/>
-                  {editingStoreName===store?(
-                    <input value={editStoreVal} onChange={function(e){setEditStoreVal(e.target.value);}}
-                      onBlur={function(){renameStore(store,editStoreVal);}}
-                      onKeyDown={function(e){if(e.key==="Enter")renameStore(store,editStoreVal);if(e.key==="Escape"){setEditingStoreName(null);}}}
-                      onClick={function(e){e.stopPropagation();}}
-                      autoFocus
-                      style={{...inp({fontSize:"0.88rem",padding:"0.2rem 0.4rem",flex:1,fontWeight:700})}}/>
-                  ):(
-                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem"}}>{store}</span>
-                  )}
-                </div>
-                <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                  {items.some(function(i){return i.done;})&&(
-                    <button onClick={function(e){e.stopPropagation();setShoppingItems(function(p){return p.filter(function(i){return i.store!==store||!i.done;});});}} title="Clear checked" style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",padding:"0.1rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",color:T.rose}}>Clear ✓</button>
-                  )}
-                  <button onClick={function(e){e.stopPropagation();setInlineStore(inlineStore===store?null:store);setInlineText("");}} title="Add item here" style={{background:"none",border:"1px solid "+accent+"60",borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:accent,fontSize:"1rem",fontWeight:300,lineHeight:1}}>+</button>
-                  <button onClick={function(e){e.stopPropagation();setEditingStoreName(store);setEditStoreVal(store);}} title="Rename store" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="edit" size={13} color={T.textMid}/></button>
-                  <button onClick={function(e){e.stopPropagation();if(window.confirm("Remove "+store+" and all its items?")){{setStores(function(p){return p.filter(function(s){return s!==store;});});setShoppingItems(function(p){return p.filter(function(i){return i.store!==store;});});}}}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
-                  <div onClick={function(){toggleCollapse(store);}} style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
-                </div>
-              </div>
-              {!isCollapsed&&(
-                <div style={{padding:"0 1.1rem 0.9rem",borderTop:"1px solid "+T.borderSoft}}>
-                  {isDragTarget&&<div style={{padding:"0.4rem",marginBottom:"0.3rem",borderRadius:"0.5rem",background:accent+"15",border:"1.5px dashed "+accent,textAlign:"center",fontSize:"0.72rem",color:accent,fontWeight:700}}>Drop here to move to {store}</div>}
-                  {items.length===0&&!inlineStore&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet — tap + to add</p>}
-                  {items.map(function(item){
-                    var isBeingDragged=draggingId===item.id;
-                    var isDropTarget=dragOverId===item.id;
-                    return(
-                    <div key={item.id} data-shopid={item.id}
-                      onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,store);}}
-                      style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",
-                        outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",
-                        transition:"opacity 0.15s"}}>
-                      <ShopItemRow item={item}
-                        onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
-                        onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                        onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}/>
-                    </div>
-                  );})}
-                  {inlineStore===store&&(
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem",alignItems:"center"}}>
-                      <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}}
-                        onKeyDown={function(e){if(e.key==="Enter"){addInlineItem(store);}if(e.key==="Escape"){setInlineStore(null);}}}
-                        placeholder={"Add to "+store+"…"}
-                        autoFocus
-                        style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
-                      <button onClick={function(){addInlineItem(store);}} style={btnP(accent,{padding:"0.4rem 0.75rem",fontSize:"0.8rem"})}>Add</button>
-                      <button onClick={function(){setInlineStore(null);}} style={btnS({padding:"0.4rem 0.6rem",fontSize:"0.8rem"})}>✕</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {shoppingItems.some(i=>i.done)&&<button onClick={()=>setShoppingItems(p=>p.filter(i=>!i.done))} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700})}}>Clear completed items</button>}
-      </div>
-    );
-  }
-
   function HomeTab(){
     const SYSTEM_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#7ab8a8","#e8a838","#c878a8"];
     const[editingSystem,setEditingSystem]=useState(null);
@@ -5127,7 +4683,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [aiRecatLoading,setAiRecatLoading] = useState(false);
     const [patternMsg,setPatternMsg] = useState(null);
     const [patternLoading,setPatternLoading] = useState(false);
-    const [activeTab,setBrainActiveTab] = useState("unfiled");
+    const [activeTab,setBrainActiveTab] = useState(function(){try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}return brainCats&&brainCats.length>0?brainCats[0].id:"unfiled";});
+    var _setBrainActiveTab=function(v){setBrainActiveTab(v);try{sessionStorage.setItem("af_brainActiveTab",v);}catch{}};
     const [search,setBrainSearch] = useState("");
     const brainDragId = React.useRef(null);
     const brainDragOver = React.useRef(null);
@@ -5350,14 +4907,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* Tab bar */}
         <div style={{display:"flex",gap:0,overflowX:"auto",borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem",paddingBottom:"1px"}}>
-          <button onClick={function(){setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+          <button onClick={function(){_setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
             📥 Unfiled
             {unfiled.length>0&&<span style={{background:"#e05c5c",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{unfiled.length}</span>}
           </button>
           {personTabs.map(function(pt){
             var count=active.filter(function(b){var pname=people.find(function(p){return p.id===pt.id.replace("person_","");})?.name||""; return b.assignedTo===pname;}).length;
             return(
-              <button key={pt.id} onClick={function(){setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||T.blue):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||T.blue):T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+              <button key={pt.id} onClick={function(){_setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||T.blue):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||T.blue):T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
                 {pt.initials} {pt.label}
                 {count>0&&<span style={{background:pt.color||T.blue,color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>}
               </button>
@@ -5367,7 +4924,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             var count=active.filter(function(b){return b.cat===cat.id;}).length;
             if(count===0) return null;
             return(
-              <button key={cat.id} onClick={function(){setBrainActiveTab(cat.id);}} style={{background:"none",border:"none",borderBottom:activeTab===cat.id?"2.5px solid "+cat.color:"2.5px solid transparent",color:activeTab===cat.id?cat.color:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===cat.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+              <button key={cat.id} onClick={function(){_setBrainActiveTab(cat.id);}} style={{background:"none",border:"none",borderBottom:activeTab===cat.id?"2.5px solid "+cat.color:"2.5px solid transparent",color:activeTab===cat.id?cat.color:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===cat.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
                 <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block",flexShrink:0}}/>
                 {cat.label}
                 <span style={{background:cat.color+"22",color:cat.color,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>
@@ -6732,17 +6289,17 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 
 function FlowWrapper({ onHome, onSignOut }) {
-  const [activeTab, setActiveTab] = React.useState("anchor")
+  const [, forceUpdate] = React.useReducer(x => x+1, 0);
+  const activeTab = homeFlowRef.tab;
+  const _setActiveTab = React.useCallback((t) => { homeFlowRef.goTab(t); forceUpdate(); }, []);
   const [sections, setSections] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true} }
   })
-  // Keep sections in sync with localStorage changes (from Settings)
   React.useEffect(() => {
     const onStorage = () => {
       try { const s = JSON.parse(localStorage.getItem("af_sections") || "null"); if(s) setSections(s); } catch {}
     }
     window.addEventListener("storage", onStorage)
-    // Listen for a custom event dispatched when sections change in the same tab
     window.addEventListener("af-sections-changed", onStorage)
     return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("af-sections-changed", onStorage); }
   }, [])
@@ -6774,7 +6331,7 @@ function FlowWrapper({ onHome, onSignOut }) {
 
   React.useEffect(() => {
     if (activeTab !== "anchor" && activeTab !== "settings" && sections && sections[activeTab] === false) {
-      setActiveTab("anchor")
+      _setActiveTab("anchor")
     }
   }, [sections, activeTab])
   return (
@@ -6788,7 +6345,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           <span style={{ fontSize: "15px" }}>⚓</span>
           <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
         </button>
-        <button onClick={() => { setShowAnchor(false); setActiveTab("anchor"); }} title="Flow" style={{ background: !showAnchor && activeTab === "anchor" ? "rgba(200,169,122,0.2)" : "rgba(200,169,122,0.06)", border: !showAnchor && activeTab === "anchor" ? "1px solid rgba(200,169,122,0.45)" : "1px solid rgba(200,169,122,0.15)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+        <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Flow" style={{ background: !showAnchor && activeTab === "anchor" ? "rgba(200,169,122,0.2)" : "rgba(200,169,122,0.06)", border: !showAnchor && activeTab === "anchor" ? "1px solid rgba(200,169,122,0.45)" : "1px solid rgba(200,169,122,0.15)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
           <span style={{ fontSize: "15px" }}>🌊</span>
           <span style={{ fontSize: "7px", color: !showAnchor && activeTab === "anchor" ? "#c8a97a" : "rgba(200,169,122,0.45)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span>
         </button>
@@ -6804,7 +6361,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           </>
         ) : (
           NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
-            <button key={item.id} onClick={() => { setShowAnchor(false); setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
+            <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
               <span style={{ fontSize: "14px", lineHeight: 1, opacity: activeTab === item.id ? 1 : 0.5 }}>{item.emoji}</span>
               <span style={{ fontSize: "7px", color: activeTab === item.id ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
             </button>
