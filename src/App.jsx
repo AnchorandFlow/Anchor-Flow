@@ -647,7 +647,7 @@ function HomeFlow() {
       const displayName = data.user?.user_metadata?.full_name || data.user?.user_metadata?.name || data.user?.user_metadata?.displayName || email.split("@")[0];
 
       try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
-        localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
+      try { localStorage.setItem("af_authUser", JSON.stringify({ id: data.user.id, email: data.user.email, displayName })); } catch {}
       try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
 
@@ -674,7 +674,7 @@ function HomeFlow() {
           // No household owned by this user — check if they've joined someone else's.
           // joined_household_id is stored in Supabase user_metadata at join time.
           const joinedHhId = data.user?.user_metadata?.joined_household_id || null;
-          console.log("[AF] No owned household found. joined_household_id from metadata:", joinedHhId);
+          console.log("[AF] No owned household. joined_household_id from metadata:", joinedHhId);
           if (joinedHhId) {
             try {
               const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
@@ -690,8 +690,6 @@ function HomeFlow() {
                 console.log("[AF] Restored joined household on sign-in:", joinedHhId);
               }
             } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
-          } else {
-            console.log("[AF] No joined_household_id in metadata — user will need to join a household.");
           }
         }
       } catch(hhErr) {
@@ -783,7 +781,7 @@ function HomeFlow() {
       if (!rows || !rows.length) return { ok:false, error:"Household not found. Check the code and try again." };
       // Save householdId to localStorage BEFORE reload so it persists
       try { localStorage.setItem("af_householdId", JSON.stringify(joinCode)); } catch {}
-      // Write joined household ID into Supabase user_metadata so it survives logout/login
+      // Write joined household ID into Supabase user_metadata so it survives logout/login on any device
       try {
         await sbFetch("/auth/v1/user", {
           method: "PUT",
@@ -4279,34 +4277,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
-  // ── Grocery aisle subcategories ─────────────────────────────────────────────
-  const GROCERY_CATS = [
-    { id: "produce",  label: "Fresh Produce",    icon: "🥬" },
-    { id: "dairy",    label: "Dairy & Eggs",      icon: "🥛" },
-    { id: "meat",     label: "Meat & Seafood",    icon: "🥩" },
-    { id: "bakery",   label: "Bakery & Bread",    icon: "🍞" },
-    { id: "pantry",   label: "Pantry & Dry Goods",icon: "🫙" },
-    { id: "frozen",   label: "Frozen",            icon: "❄️" },
-    { id: "drinks",   label: "Drinks & Beverages",icon: "🧃" },
-    { id: "cleaning", label: "Cleaning & Home",   icon: "🧹" },
-    { id: "health",   label: "Health & Beauty",   icon: "💊" },
-    { id: "other",    label: "Other",             icon: "🛒" },
-  ]
-
-  function guessGroceryCat(name) {
-    var n = (name || "").toLowerCase()
-    if (/banana|apple|orange|grape|berry|strawberry|lemon|lime|lettuce|spinach|kale|carrot|celery|pepper|tomato|onion|garlic|broccoli|cucumber|avocado|herb|cilantro|parsley|mushroom|zucchini|corn|potato|ginger|mango|pineapple|peach|plum|cherry|salad|greens|arugula|fennel|radish|beet|asparagus|scallion|leek/.test(n)) return "produce"
-    if (/milk|egg|cheese|butter|yogurt|cream|sour cream|kefir|cottage|cheddar|mozzarella|parmesan|brie|feta|gouda|ricotta|half.half|creamer|whipped/.test(n)) return "dairy"
-    if (/chicken|beef|pork|salmon|shrimp|turkey|tuna|fish|steak|ground|sausage|bacon|ham|lamb|crab|lobster|scallop|tilapia|halibut|cod|deli|prosciutto|salami/.test(n)) return "meat"
-    if (/bread|bagel|bun|roll|muffin|croissant|tortilla|pita|naan|baguette|sourdough|loaf|english muffin/.test(n)) return "bakery"
-    if (/frozen|ice cream|popsicle|waffle|edamame|pizza|burrito|lasagna|ice /.test(n)) return "frozen"
-    if (/juice|soda|water|sparkling|coffee|tea|kombucha|lemonade|gatorade|energy drink|oat milk|almond milk|coconut milk|drink/.test(n)) return "drinks"
-    if (/soap|detergent|bleach|sponge|wipe|paper towel|toilet paper|trash bag|laundry|cleaner|dishwasher|scrub|tissue|napkin|foil|plastic wrap|zip bag|parchment/.test(n)) return "cleaning"
-    if (/vitamin|supplement|medicine|ibuprofen|tylenol|advil|aspirin|allergy|shampoo|conditioner|lotion|sunscreen|deodorant|toothpaste|floss|bandage|face wash|moisturizer/.test(n)) return "health"
-    if (/pasta|rice|oat|cereal|flour|sugar|oil|vinegar|sauce|salsa|ketchup|mustard|mayo|dressing|broth|stock|canned|bean|lentil|quinoa|couscous|cracker|chip|nut|peanut butter|honey|syrup|spice|seasoning|herb|extract|baking|cocoa|chocolate|snack|granola|popcorn|pretzel/.test(n)) return "pantry"
-    return "other"
-  }
-
   function ShoppingTab(){
     // Default to last used store
     const lastStore = useSaved("lastUsedStore", stores[0]);
@@ -4323,12 +4293,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[editStoreVal,setEditStoreVal]=useState("");
     const[inlineStore,setInlineStore]=useState(null); // which store has inline add open
     const[inlineText,setInlineText]=useState("");
-    // Grocery aisle filter + Ripple bulk-sort
-    const[groceryFilter,setGroceryFilter]=useState("all");
-    const[showRippleSort,setShowRippleSort]=useState(false);
-    const[rippleDump,setRippleDump]=useState("");
-    const[rippleSorting,setRippleSorting]=useState(false);
-    const[rippleStep,setRippleStep]=useState(0);
 
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
@@ -4338,8 +4302,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addItem(text,store,photoUrl){
       if(!text.trim())return;
       var s=store||newStore;
-      var gCat=s==="Grocery Store"?guessGroceryCat(text):undefined;
-      setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null,groceryCat:gCat}]);
+      setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null}]);
       setNewItem("");
       lastStore[1](s); // remember last used store
       setNewStore(s);
@@ -4511,57 +4474,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
     }
 
-    async function runRippleSort() {
-      if (!rippleDump.trim()) return
-      setRippleSorting(true); setRippleStep(0)
-      var steps = [0,33,66,100]
-      var iv = setInterval(function(){ setRippleStep(function(p){ var n=p+1; if(n>=steps.length){clearInterval(iv);} return n; }) }, 550)
-      // Parse raw dump into item names
-      var raw = rippleDump.split(/[,\n\r]+/).map(function(s){return s.trim();}).filter(Boolean)
-      try {
-        var r = await fetch("/api/claude", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1000,
-          system:`You are a grocery list assistant. Given a list of grocery items, categorize each one. Return ONLY a JSON array, no markdown, no explanation. Each element: {"name":"item name","cat":"category"}. Categories (use exactly): produce, dairy, meat, bakery, pantry, frozen, drinks, cleaning, health, other.`,
-          messages:[{role:"user",content:"Categorize these grocery items: " + raw.join(", ")}]
-        })})
-        var d = await r.json()
-        var txt = d.content?.find(function(b){return b.type==="text"})?.text || "[]"
-        var parsed = JSON.parse(txt.replace(/```json|```/g,"").trim())
-        clearInterval(iv)
-        parsed.forEach(function(item){
-          setShoppingItems(function(p){return [...p, {id:uid(), text:item.name, store:"Grocery Store", done:false, photo:null, groceryCat:item.cat||"other", isNew:true}]})
-        })
-      } catch(err) {
-        clearInterval(iv)
-        // Fallback: client-side guess
-        raw.forEach(function(name){
-          setShoppingItems(function(p){return [...p, {id:uid(), text:name, store:"Grocery Store", done:false, photo:null, groceryCat:guessGroceryCat(name), isNew:true}]})
-        })
-      }
-      setRippleDump(""); setRippleSorting(false); setRippleStep(0); setShowRippleSort(false)
-    }
-
-    var RIPPLE_STEPS = ["Reading your list…","Identifying items…","Sorting by aisle…","Done!"]
-    var RIPPLE_EMOJIS = ["✨","🛒","🥬","✅"]
-    // One-time migration: assign groceryCat to existing items that don't have one
-    useEffect(function(){
-      var needsMigration = shoppingItems.some(function(i){ return i.store==="Grocery Store" && !i.groceryCat })
-      if(!needsMigration) return
-      setShoppingItems(function(prev){
-        return prev.map(function(i){
-          if(i.store==="Grocery Store" && !i.groceryCat){
-            return {...i, groceryCat: guessGroceryCat(i.text||"")}
-          }
-          return i
-        })
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[])
-
-    var groceryItems = shoppingItems.filter(function(i){return i.store==="Grocery Store"})
-    var filteredGroceryItems = groceryFilter==="all" ? groceryItems : groceryItems.filter(function(i){return (i.groceryCat||"other")===groceryFilter})
-    var unsortedCount = groceryItems.filter(function(i){return !i.groceryCat}).length
-
     return(
       <div>
         <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
@@ -4609,140 +4521,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
           </div>
         </div>
-        {/* ── Ripple bulk-sort panel ── */}
-        {showRippleSort ? (
-          <div style={{...card({border:`1.5px solid ${T.sand}55`,padding:"0"})}}>
-            {rippleSorting ? (
-              <div style={{padding:"2rem 1.25rem",textAlign:"center"}}>
-                <div style={{fontSize:"1.8rem",marginBottom:"0.6rem"}}>{RIPPLE_EMOJIS[Math.min(rippleStep,RIPPLE_EMOJIS.length-1)]}</div>
-                <div style={{fontSize:"0.85rem",color:T.textMid,marginBottom:"0.9rem"}}>{RIPPLE_STEPS[Math.min(rippleStep,RIPPLE_STEPS.length-1)]}</div>
-                <div style={{height:4,background:T.borderSoft,borderRadius:4,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:`${(rippleStep/3)*100}%`,background:T.sand,borderRadius:4,transition:"width 0.4s ease"}}/>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{padding:"0.9rem 1.1rem",borderBottom:`1px solid ${T.borderSoft}`,display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                  <span style={{fontSize:"1rem"}}>✨</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:"0.85rem",fontWeight:700,color:T.text}}>Ripple — bulk add & sort</div>
-                    <div style={{fontSize:"0.72rem",color:T.textSoft}}>Dump your list, AI drops everything in the right aisle</div>
-                  </div>
-                  <button onClick={function(){setShowRippleSort(false);setRippleDump("");}} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontSize:"1rem"}}>✕</button>
-                </div>
-                <div style={{padding:"0.9rem 1.1rem"}}>
-                  <textarea value={rippleDump} onChange={function(e){setRippleDump(e.target.value);}} rows={4} placeholder={"milk eggs pasta dish soap bananas chicken laundry pods frozen broccoli cheddar…"} style={{width:"100%",background:T.bgSoft,border:`1.5px solid ${T.border}`,borderRadius:"0.6rem",padding:"0.6rem 0.8rem",fontSize:"0.85rem",color:T.text,fontFamily:"inherit",resize:"none",outline:"none",boxSizing:"border-box"}}/>
-                  <div style={{fontSize:"0.7rem",color:T.textFaint,marginTop:"0.3rem"}}>Separate by comma, space, or new line — added to Grocery Store</div>
-                </div>
-                <div style={{padding:"0 1.1rem 0.9rem",display:"flex",gap:"0.5rem"}}>
-                  <button onClick={runRippleSort} style={{...btnP(T.sand,{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"})}}>
-                    <span>✨</span> Sort with Ripple
-                  </button>
-                  <button onClick={function(){setShowRippleSort(false);setRippleDump("");}} style={btnS({padding:"0.5rem 0.9rem"})}>Cancel</button>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <button onClick={function(){setShowRippleSort(true);}} style={{...card({display:"flex",alignItems:"center",gap:"0.6rem",cursor:"pointer",background:T.sandPale,border:`1.5px solid ${T.sand}55`,padding:"0.65rem 0.9rem",marginBottom:"0.5rem"})}}>
-            <span style={{fontSize:"1.1rem"}}>✨</span>
-            <div style={{flex:1,textAlign:"left"}}>
-              <div style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark}}>Ripple sort</div>
-              <div style={{fontSize:"0.7rem",color:T.textSoft}}>Dump a list, AI sorts by aisle automatically</div>
-            </div>
-            {unsortedCount>0&&<span style={{fontSize:"0.7rem",background:T.sand,color:T.navy,borderRadius:20,padding:"1px 8px",fontWeight:700}}>{unsortedCount} unsorted</span>}
-          </button>
-        )}
-
-        {/* ── Grocery Store aisle view ── */}
-        {stores.includes("Grocery Store") && (
-          <div style={{...card({padding:"0",marginBottom:"0.5rem"})}}>
-            <div style={{padding:"0.7rem 1.1rem",borderBottom:`1px solid ${T.borderSoft}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                <div style={{width:10,height:10,borderRadius:"50%",background:T.sage}}/>
-                <span style={{fontSize:"0.9rem",fontWeight:700,color:T.text}}>Grocery Store</span>
-                <span style={{fontSize:"0.72rem",color:T.textSoft}}>{groceryItems.filter(function(i){return !i.done}).length} remaining</span>
-              </div>
-              <div style={{display:"flex",gap:"0.3rem",alignItems:"center"}}>
-                <button onClick={function(){setInlineStore(inlineStore==="Grocery Store"?null:"Grocery Store");setInlineText("");}} style={{background:"none",border:`1px solid ${T.sage}60`,borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:T.sage,fontSize:"1rem"}}>+</button>
-              </div>
-            </div>
-            {/* Aisle filter tabs */}
-            <div style={{display:"flex",overflowX:"auto",borderBottom:`1px solid ${T.borderSoft}`,padding:"0 4px"}}>
-              <div onClick={function(){setGroceryFilter("all")}} style={{padding:"6px 10px",fontSize:"0.7rem",fontWeight:groceryFilter==="all"?700:400,color:groceryFilter==="all"?T.sage:T.textSoft,borderBottom:groceryFilter==="all"?"2px solid "+T.sage:"2px solid transparent",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>All</div>
-              {GROCERY_CATS.map(function(cat){
-                var count = groceryItems.filter(function(i){return (i.groceryCat||"other")===cat.id&&!i.done}).length
-                if(count===0&&groceryFilter!==cat.id) return null
-                return(
-                  <div key={cat.id} onClick={function(){setGroceryFilter(cat.id)}} style={{padding:"6px 10px",fontSize:"0.7rem",fontWeight:groceryFilter===cat.id?700:400,color:groceryFilter===cat.id?T.sage:T.textSoft,borderBottom:groceryFilter===cat.id?"2px solid "+T.sage:"2px solid transparent",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,display:"flex",alignItems:"center",gap:3}}>
-                    {cat.icon} {cat.label}
-                    {count>0&&<span style={{fontSize:"0.6rem",color:groceryFilter===cat.id?T.sage:"rgba(0,0,0,0.25)"}}>{count}</span>}
-                  </div>
-                )
-              })}
-            </div>
-            {/* Items grouped by aisle */}
-            <div style={{padding:"0 1.1rem 0.7rem"}}>
-              {GROCERY_CATS.filter(function(cat){
-                return filteredGroceryItems.some(function(i){return (i.groceryCat||"other")===cat.id})
-              }).map(function(cat){
-                var catItems = filteredGroceryItems.filter(function(i){return (i.groceryCat||"other")===cat.id})
-                if(!catItems.length) return null
-                var newCount = catItems.filter(function(i){return i.isNew}).length
-                return(
-                  <div key={cat.id} style={{marginTop:"0.7rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.3rem"}}>
-                      <span style={{fontSize:"0.75rem"}}>{cat.icon}</span>
-                      <span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em"}}>{cat.label}</span>
-                      {newCount>0&&<span style={{fontSize:"0.62rem",background:T.sand+"33",color:T.sandDark,border:`1px solid ${T.sand}66`,borderRadius:10,padding:"1px 6px",fontWeight:700}}>+{newCount} new</span>}
-                    </div>
-                    {catItems.map(function(item){
-                      var isBeingDragged=draggingId===item.id
-                      var isDropTarget=dragOverId===item.id
-                      return(
-                        <div key={item.id} data-shopid={item.id}
-                          onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,"Grocery Store");}}
-                          style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",outline:isDropTarget?"2px dashed "+T.sage:"none",outlineOffset:"1px",transition:"opacity 0.15s"}}>
-                          <ShopItemRow item={item}
-                            onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done,isNew:false}:x;});});}}
-                            onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                            onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}/>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-              {filteredGroceryItems.filter(function(i){return !i.done}).length===0&&(
-                <p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>
-                  {groceryFilter==="all"?"Nothing here yet — tap Ripple sort or + to add":"Nothing in this aisle"}
-                </p>
-              )}
-              {inlineStore==="Grocery Store"&&(
-                <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem",alignItems:"center"}}>
-                  <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}}
-                    onKeyDown={function(e){if(e.key==="Enter"){setShoppingItems(function(p){return[...p,{id:uid(),text:inlineText.trim(),store:"Grocery Store",done:false,photo:null,groceryCat:guessGroceryCat(inlineText)}];});setInlineText("");}if(e.key==="Escape"){setInlineStore(null);}}}
-                    placeholder="Add to grocery list…" autoFocus style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
-                  <button onClick={function(){if(inlineText.trim()){setShoppingItems(function(p){return[...p,{id:uid(),text:inlineText.trim(),store:"Grocery Store",done:false,photo:null,groceryCat:guessGroceryCat(inlineText)}];});setInlineText("");}}} style={btnP(T.sage,{padding:"0.4rem 0.75rem",fontSize:"0.8rem"})}>Add</button>
-                  <button onClick={function(){setInlineStore(null);}} style={btnS({padding:"0.4rem 0.6rem",fontSize:"0.8rem"})}>✕</button>
-                </div>
-              )}
-              {groceryItems.some(function(i){return i.done})&&(
-                <button onClick={function(){setShoppingItems(function(p){return p.map(function(i){return i.store==="Grocery Store"?{...i,isNew:false}:i;}).filter(function(i){return !(i.store==="Grocery Store"&&i.done);});});}} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700,marginTop:"0.5rem",fontSize:"0.75rem"})}}>Clear completed grocery items</button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Other stores (non-Grocery) ── */}
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem",justifyContent:"flex-end"}}>
           <button onClick={()=>setCollapsedStores(stores.reduce((a,s)=>({...a,[s]:true}),{}))} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
           <button onClick={()=>setCollapsedStores({})} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
         </div>
-        {stores.filter(function(s){return s!=="Grocery Store";}).map(function(store,si){
+        {stores.map(function(store,si){
           var items=shoppingItems.filter(function(i){return i.store===store;});
-          var storeIdx=stores.indexOf(store);
-          var accent=STORE_COLORS[storeIdx%STORE_COLORS.length];
+          var accent=STORE_COLORS[si%STORE_COLORS.length];
           var isCollapsed=!!collapsedStores[store];
           var pendingCount=items.filter(function(i){return !i.done;}).length;
           var doneCount=items.filter(function(i){return i.done;}).length;
