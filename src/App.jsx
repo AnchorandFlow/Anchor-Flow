@@ -1050,6 +1050,7 @@ function HomeFlow() {
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
   const [collapsedStores,setCollapsedStores]   = useSaved("collapsedStores",{});
+  const [shopCategories,setShopCategories]     = useSaved("shopCategories",["Produce","Dairy","Meat & Seafood","Frozen","Canned & Pantry","Bakery","Beverages","Household","Other"]);
   const [familyProfile,setFamilyProfile]       = useSaved("familyProfile",null);
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
@@ -1943,10 +1944,12 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  function ShopItemRow({item, onToggle, onDelete, onSave}) {
+  function ShopItemRow({item, onToggle, onDelete, onSave, onSetCategory, categories=[]}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
+    const [showCatPicker, setShowCatPicker] = useState(false);
+    const hasCat = item.category && item.category !== "" && item.category !== "grocery";
     return (
       <div style={{borderBottom:`1px solid ${T.borderSoft}`}}>
         {editing ? (
@@ -1972,9 +1975,24 @@ Respond ONLY with valid JSON array, no markdown:
                 {item.text}
                 {item.photo&&<span style={{fontSize:"0.62rem",color:T.sage,fontWeight:700,marginLeft:"0.4rem"}}>📷</span>}
               </span>
+              {categories.length>0&&(
+                <button onClick={()=>setShowCatPicker(v=>!v)} title="Set category" style={{background:hasCat?T.sandPale:"none",border:hasCat?`1px solid ${T.sand}55`:"none",borderRadius:"2rem",padding:hasCat?"1px 6px":"2px",cursor:"pointer",fontSize:"0.65rem",color:hasCat?T.sandDark:T.textFaint,fontWeight:700,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                  {hasCat?item.category:"tag"}
+                </button>
+              )}
               <button onClick={()=>{setEditVal(item.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={12} color={T.textSoft}/></button>
               <button onClick={()=>onDelete(item.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
             </div>
+            {showCatPicker&&(
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",paddingBottom:"0.5rem",paddingLeft:"1.6rem"}}>
+                {categories.map(function(c){return(
+                  <button key={c} onClick={()=>{onSetCategory&&onSetCategory(item.id,c);setShowCatPicker(false);}} style={{background:item.category===c?T.sand:T.soft,border:`1px solid ${item.category===c?T.sand:T.border}`,borderRadius:"2rem",padding:"2px 9px",fontSize:"0.68rem",fontWeight:item.category===c?700:400,color:item.category===c?T.sandDark:T.textMid,cursor:"pointer",fontFamily:"inherit"}}>
+                    {c}
+                  </button>
+                );})}
+                {hasCat&&<button onClick={()=>{onSetCategory&&onSetCategory(item.id,"");setShowCatPicker(false);}} style={{background:"none",border:`1px solid ${T.rose}44`,borderRadius:"2rem",padding:"2px 9px",fontSize:"0.68rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>Remove</button>}
+              </div>
+            )}
             {showPhoto&&item.photo&&(
               <div style={{paddingBottom:"0.6rem"}}>
                 <img src={item.photo} alt={item.text} style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:"0.65rem",border:`2px solid ${T.sage}40`}}/>
@@ -4285,10 +4303,408 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
   function ShoppingTab(){
-    // Default to last used store
     const lastStore = useSaved("lastUsedStore", stores[0]);
     const[newItem,setNewItem]=useState("");
     const[newStore,setNewStore]=useState(lastStore[0]||stores[0]);
+    const shopInputRef=useRef(null);
+    const[addingStore,setAddingStore]=useState(false);
+    const[newStoreName,setNewStoreName]=useState("");
+    const[isListening,setIsListening]=useState(false);
+    const[voiceStatus,setVoiceStatus]=useState("");
+    const[isAnalyzingPhoto,setIsAnalyzingPhoto]=useState(false);
+    const[photoStatus,setPhotoStatus]=useState("");
+    const[editingStoreName,setEditingStoreName]=useState(null);
+    const[editStoreVal,setEditStoreVal]=useState("");
+    const[inlineStore,setInlineStore]=useState(null);
+    const[inlineText,setInlineText]=useState("");
+    const[isAutoCategorizing,setIsAutoCategorizing]=useState(false);
+    const[autoCatStatus,setAutoCatStatus]=useState("");
+    const[editingCategories,setEditingCategories]=useState(false);
+    const[newCatName,setNewCatName]=useState("");
+    const[collapsedCats,setCollapsedCats]=useState({});
+
+    const recognitionRef=useRef(null);
+    const photoInputRef=useRef(null);
+    const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
+
+    function toggleCollapse(store){setCollapsedStores(p=>({...p,[store]:!p[store]}));}
+    function toggleCatCollapse(key){setCollapsedCats(p=>({...p,[key]:!p[key]}));}
+
+    function addItem(text,store,photoUrl){
+      if(!text.trim())return;
+      var s=store||newStore;
+      setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null,category:""}]);
+      setNewItem("");
+      lastStore[1](s);
+      setNewStore(s);
+    }
+    function addStore(){if(!newStoreName.trim())return;const ns=newStoreName.trim();setStores(p=>[...p,ns]);setNewStore(ns);lastStore[1](ns);setNewStoreName("");setAddingStore(false);}
+    function renameStore(oldName,newName){
+      if(!newName.trim()||newName===oldName){setEditingStoreName(null);return;}
+      setStores(p=>p.map(s=>s===oldName?newName.trim():s));
+      setShoppingItems(p=>p.map(i=>i.store===oldName?{...i,store:newName.trim()}:i));
+      if(newStore===oldName)setNewStore(newName.trim());
+      setEditingStoreName(null);
+    }
+    function addInlineItem(store){
+      if(!inlineText.trim())return;
+      setShoppingItems(p=>[...p,{id:uid(),text:inlineText.trim(),store:store,done:false,photo:null,category:""}]);
+      setInlineText("");
+      lastStore[1](store);
+    }
+
+    // ── Auto-categorize via AI ────────────────────────────────────────────────
+    async function autoCategorize(){
+      var uncategorized=shoppingItems.filter(function(i){return !i.category||i.category===""||i.category==="grocery";});
+      if(uncategorized.length===0){setAutoCatStatus("All items already have categories!");setTimeout(()=>setAutoCatStatus(""),2500);return;}
+      setIsAutoCategorizing(true);
+      setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
+      try{
+        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",max_tokens:600,
+          system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",
+          messages:[{role:"user",content:"Categories: "+shopCategories.join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]
+        })});
+        var d=await r.json();
+        var txt=d.content?.find(function(b){return b.type==="text";})||{};
+        var parsed=JSON.parse((txt.text||"[]").replace(/```json|```/g,"").trim());
+        setShoppingItems(function(prev){
+          var map={};
+          parsed.forEach(function(x){map[x.id]=x.category;});
+          return prev.map(function(i){return map[i.id]?{...i,category:map[i.id]}:i;});
+        });
+        setAutoCatStatus("✓ "+parsed.length+" items categorized");
+      }catch(e){
+        setAutoCatStatus("Could not auto-categorize. Try again.");
+      }
+      setIsAutoCategorizing(false);
+      setTimeout(()=>setAutoCatStatus(""),3000);
+    }
+
+    // ── Drag ─────────────────────────────────────────────────────────────────
+    const dragState=useRef({id:null,fromStore:null,clone:null,startY:0,startX:0,lastTarget:null});
+    const [draggingId,setDraggingId]=useState(null);
+    const [dragOverId,setDragOverId]=useState(null);
+    const [dragOverStoreTarget,setDragOverStoreTarget]=useState(null);
+
+    function getItemEl(id){ return document.querySelector(`[data-shopid="${id}"]`); }
+
+    function pointerDown(e,itemId,fromStore){
+      if(e.button===1||e.button===2) return;
+      const ds=dragState.current;
+      ds.id=itemId; ds.fromStore=fromStore; ds.startY=e.clientY; ds.startX=e.clientX;
+      ds.lastTarget=null;
+      const el=getItemEl(itemId);
+      if(el){
+        const rect=el.getBoundingClientRect();
+        const clone=el.cloneNode(true);
+        clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;
+        clone.setAttribute("data-drag-clone","1");
+        document.body.appendChild(clone);
+        ds.clone=clone;
+      }
+      setDraggingId(itemId);
+      e.preventDefault();
+    }
+
+    function pointerMove(e){
+      const ds=dragState.current;
+      if(!ds.id) return;
+      if(ds.clone){ ds.clone.style.left=(e.clientX-(ds.clone.offsetWidth/2))+"px"; ds.clone.style.top=(e.clientY-24)+"px"; }
+      if(ds.clone) ds.clone.style.display="none";
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      if(ds.clone) ds.clone.style.display="";
+      if(!el) return;
+      const storeEl=el.closest("[data-shopstore]");
+      const itemEl=el.closest("[data-shopid]");
+      if(itemEl){
+        const overId=itemEl.getAttribute("data-shopid");
+        if(overId!==ds.id){ setDragOverId(overId); setDragOverStoreTarget(null); }
+      } else if(storeEl){
+        const overStore=storeEl.getAttribute("data-shopstore");
+        setDragOverStoreTarget(overStore); setDragOverId(null);
+      } else {
+        setDragOverId(null); setDragOverStoreTarget(null);
+      }
+    }
+
+    function pointerUp(e){
+      const ds=dragState.current;
+      if(!ds.id){ return; }
+      if(ds.clone){ ds.clone.remove(); ds.clone=null; }
+      setDraggingId(null);
+      if(ds.clone) ds.clone.style.display="none";
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      if(ds.clone) ds.clone.style.display="";
+      let targetItemId=dragOverId;
+      let targetStore=dragOverStoreTarget;
+      if(targetItemId){
+        const targetItem=shoppingItems.find(i=>i.id===targetItemId);
+        if(targetItem) targetStore=targetItem.store;
+      }
+      if((targetItemId||targetStore) && (targetItemId!==ds.id)){
+        setShoppingItems(function(prev){
+          const items=[...prev];
+          const fromIdx=items.findIndex(i=>i.id===ds.id);
+          if(fromIdx===-1){ ds.id=null; return prev; }
+          const [moved]=items.splice(fromIdx,1);
+          const finalStore=targetStore||moved.store;
+          const movedItem={...moved,store:finalStore};
+          if(targetItemId){
+            const toIdx=items.findIndex(i=>i.id===targetItemId);
+            items.splice(toIdx,0,movedItem);
+          } else {
+            const lastInStore=items.reduce(function(acc,item,idx){return item.store===finalStore?idx:acc;},-1);
+            items.splice(lastInStore+1,0,movedItem);
+          }
+          return items;
+        });
+      }
+      ds.id=null; ds.fromStore=null; ds.lastTarget=null;
+      setDragOverId(null); setDragOverStoreTarget(null);
+    }
+
+    useEffect(()=>{
+      if(!draggingId) return;
+      window.addEventListener("pointermove",pointerMove);
+      window.addEventListener("pointerup",pointerUp);
+      return ()=>{ window.removeEventListener("pointermove",pointerMove); window.removeEventListener("pointerup",pointerUp); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    },[draggingId,dragOverId,dragOverStoreTarget,shoppingItems]);
+
+    function startListening(){
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
+      const recognition=new SR();recognitionRef.current=recognition;
+      recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
+      recognition.onstart=()=>{setIsListening(true);setVoiceStatus("Listening… say your item");};
+      recognition.onresult=e=>{
+        const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");
+        setVoiceStatus(`Heard: "${transcript}"`);
+        if(e.results[0].isFinal){
+          const items=transcript.split(/\band\b/i).map(s=>s.trim()).filter(Boolean);
+          items.forEach(item=>addItem(item,newStore));
+          setIsListening(false);setVoiceStatus(`✓ Added ${items.length} item${items.length>1?"s":""}`);
+          setTimeout(()=>setVoiceStatus(""),2500);
+        }
+      };
+      recognition.onerror=e=>{setIsListening(false);setVoiceStatus(e.error==="not-allowed"?"Microphone access denied.":`Error: ${e.error}`);setTimeout(()=>setVoiceStatus(""),3000);};
+      recognition.onend=()=>setIsListening(false);
+      recognition.start();
+    }
+    function stopListening(){recognitionRef.current?.stop();setIsListening(false);}
+
+    async function handlePhotoUpload(e){
+      const file=e.target.files?.[0];if(!file)return;
+      setIsAnalyzingPhoto(true);setPhotoStatus("Analyzing photo…");
+      const base64=await new Promise(res=>{const reader=new FileReader();reader.onload=()=>res(reader.result.split(",")[1]);reader.readAsDataURL(file);});
+      const photoUrl=URL.createObjectURL(file);
+      try{
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",max_tokens:300,
+          system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCategories.join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,
+          messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]
+        })});
+        const d=await r.json();
+        const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
+        const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
+        const itemName=parsed.name||"Item from photo";
+        const itemCat=shopCategories.includes(parsed.category)?parsed.category:"";
+        setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);
+        setPhotoStatus(`✓ Added "${itemName}" with photo`);
+      }catch{
+        setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl,category:""}]);
+        setPhotoStatus("✓ Added item with photo");
+      }
+      setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
+    }
+
+    return(
+      <div>
+        <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
+        <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
+          <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
+            <input ref={shopInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} onFocus={function(){window._shopInputFocused=true;}} onBlur={function(){window._shopInputFocused=false;}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
+            <select value={newStore} onChange={e=>{setNewStore(e.target.value);lastStore[1](e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
+              {stores.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            <button onClick={function(){if(shopInputRef.current&&shopInputRef.current.value.trim()){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} style={btnP(T.sand)}>Add</button>
+          </div>
+          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+            <button onClick={isListening?stopListening:startListening} style={{background:isListening?T.rose:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",transition:"all 0.15s",boxShadow:isListening?`0 0 0 3px ${T.rose}40`:"none"}}>
+              <span style={{fontSize:"1rem"}}>{isListening?"⏹":"🎙️"}</span>{isListening?"Stop":"Speak Item"}
+            </button>
+            <button onClick={()=>photoInputRef.current?.click()} disabled={isAnalyzingPhoto} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAnalyzingPhoto?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAnalyzingPhoto?0.65:1,transition:"all 0.15s"}}>
+              <span style={{fontSize:"1rem"}}>📷</span>{isAnalyzingPhoto?"Analyzing…":"Photo to List"}
+            </button>
+            <button onClick={autoCategorize} disabled={isAutoCategorizing} style={{background:isAutoCategorizing?"#ccc":T.coastal||T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAutoCategorizing?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAutoCategorizing?0.7:1,transition:"all 0.15s"}}>
+              <span style={{fontSize:"1rem"}}>✨</span>{isAutoCategorizing?"Sorting…":"Auto-sort"}
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{display:"none"}}/>
+            <span style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:500}}>→ {newStore}</span>
+          </div>
+          {(voiceStatus||photoStatus||autoCatStatus)&&(
+            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.6rem",padding:"0.45rem 0.75rem",fontSize:"0.78rem",color:T.textMid,fontWeight:600,display:"flex",alignItems:"center",gap:"0.5rem"}}>
+              {(isListening||isAnalyzingPhoto||isAutoCategorizing)&&<div style={{width:8,height:8,borderRadius:"50%",background:isListening?T.rose:T.sage,animation:"bounce 0.8s infinite"}}/>}
+              {autoCatStatus||voiceStatus||photoStatus}
+            </div>
+          )}
+          <div style={{marginTop:"0.5rem"}}>
+            {addingStore?(
+              <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
+                <input value={newStoreName} onChange={e=>setNewStoreName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addStore();}} placeholder="Store name…" style={{...inp({flex:1})}} autoFocus/>
+                <button onClick={addStore} style={btnP(T.sage,{padding:"0.45rem 0.85rem"})}>Add</button>
+                <button onClick={()=>setAddingStore(false)} style={btnS({padding:"0.45rem 0.85rem"})}>Cancel</button>
+              </div>
+            ):(
+              <button onClick={()=>setAddingStore(true)} style={{background:"none",border:`1.5px dashed ${T.sand}`,color:T.sandDark,borderRadius:"0.6rem",padding:"0.28rem 0.7rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                <Icon name="plus" size={11} color={T.sandDark}/> Add Store
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Category manager ── */}
+        <div style={{marginBottom:"0.75rem"}}>
+          <button onClick={()=>setEditingCategories(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.74rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
+            <Icon name="edit" size={11} color={T.textSoft}/> {editingCategories?"Done editing":"Edit categories"}
+          </button>
+          {editingCategories&&(
+            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.8rem",padding:"0.75rem 1rem",marginTop:"0.4rem"}}>
+              <div style={{fontSize:"0.74rem",color:T.textMid,fontWeight:600,marginBottom:"0.5rem"}}>Shopping categories</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.6rem"}}>
+                {shopCategories.map(function(cat){return(
+                  <div key={cat} style={{display:"flex",alignItems:"center",gap:4,background:T.sandPale,border:`1.5px solid ${T.sand}55`,borderRadius:"2rem",padding:"3px 8px 3px 10px",fontSize:"0.73rem",fontWeight:600,color:T.sandDark}}>
+                    {cat}
+                    <button onClick={()=>setShopCategories(function(p){return p.filter(function(c){return c!==cat;});})} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontWeight:900,fontSize:"0.8rem",padding:"0 1px",lineHeight:1}}>×</button>
+                  </div>
+                );})}
+              </div>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <input value={newCatName} onChange={e=>setNewCatName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,newCatName.trim()];});setNewCatName("");}}} placeholder="New category…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
+                <button onClick={()=>{if(newCatName.trim()){setShopCategories(function(p){return[...p,newCatName.trim()];});setNewCatName("");}}} style={btnP(T.sand,{padding:"0.35rem 0.7rem",fontSize:"0.78rem"})}>Add</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem",justifyContent:"flex-end"}}>
+          <button onClick={()=>setCollapsedStores(stores.reduce((a,s)=>({...a,[s]:true}),{}))} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
+          <button onClick={()=>setCollapsedStores({})} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
+        </div>
+
+        {stores.map(function(store,si){
+          var storeItems=shoppingItems.filter(function(i){return i.store===store;});
+          var accent=STORE_COLORS[si%STORE_COLORS.length];
+          var isCollapsed=!!collapsedStores[store];
+          var isDragTarget=dragOverStoreTarget===store;
+
+          // Group items by category
+          var categorized={};
+          var uncatKey="__uncat__";
+          storeItems.forEach(function(item){
+            var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;
+            if(!categorized[cat])categorized[cat]=[];
+            categorized[cat].push(item);
+          });
+          // Build ordered category list: named cats in shopCategories order, then uncategorized
+          var orderedCats=shopCategories.filter(function(c){return categorized[c]&&categorized[c].length>0;});
+          if(categorized[uncatKey]&&categorized[uncatKey].length>0)orderedCats.push(uncatKey);
+
+          var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
+
+          return(
+            <div key={store} data-shopstore={store}
+              style={{...card({borderLeft:"4px solid "+accent,padding:"0",outline:isDragTarget?"2px dashed "+accent:"none",outlineOffset:"2px"})}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.9rem 1.1rem",cursor:"pointer",userSelect:"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.55rem",flex:1}} onClick={function(){toggleCollapse(store);}}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:accent,flexShrink:0}}/>
+                  {editingStoreName===store?(
+                    <input value={editStoreVal} onChange={function(e){setEditStoreVal(e.target.value);}}
+                      onBlur={function(){renameStore(store,editStoreVal);}}
+                      onKeyDown={function(e){if(e.key==="Enter")renameStore(store,editStoreVal);if(e.key==="Escape"){setEditingStoreName(null);}}}
+                      onClick={function(e){e.stopPropagation();}}
+                      autoFocus
+                      style={{...inp({fontSize:"0.88rem",padding:"0.2rem 0.4rem",flex:1,fontWeight:700})}}/>
+                  ):(
+                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem"}}>{store}</span>
+                  )}
+                  {pendingCount>0&&<span style={{fontSize:"0.7rem",color:accent,fontWeight:700,background:accent+"18",borderRadius:"2rem",padding:"1px 7px"}}>{pendingCount}</span>}
+                </div>
+                <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
+                  {storeItems.some(function(i){return i.done;})&&(
+                    <button onClick={function(e){e.stopPropagation();setShoppingItems(function(p){return p.filter(function(i){return i.store!==store||!i.done;});});}} title="Clear checked" style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",padding:"0.1rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",color:T.rose}}>Clear ✓</button>
+                  )}
+                  <button onClick={function(e){e.stopPropagation();setInlineStore(inlineStore===store?null:store);setInlineText("");}} title="Add item here" style={{background:"none",border:"1px solid "+accent+"60",borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:accent,fontSize:"1rem",fontWeight:300,lineHeight:1}}>+</button>
+                  <button onClick={function(e){e.stopPropagation();setEditingStoreName(store);setEditStoreVal(store);}} title="Rename store" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="edit" size={13} color={T.textMid}/></button>
+                  <button onClick={function(e){e.stopPropagation();if(window.confirm("Remove "+store+" and all its items?")){{setStores(function(p){return p.filter(function(s){return s!==store;});});setShoppingItems(function(p){return p.filter(function(i){return i.store!==store;});});}}}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
+                  <div onClick={function(){toggleCollapse(store);}} style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
+                </div>
+              </div>
+              {!isCollapsed&&(
+                <div style={{padding:"0 1.1rem 0.9rem",borderTop:"1px solid "+T.borderSoft}}>
+                  {isDragTarget&&<div style={{padding:"0.4rem",marginBottom:"0.3rem",borderRadius:"0.5rem",background:accent+"15",border:"1.5px dashed "+accent,textAlign:"center",fontSize:"0.72rem",color:accent,fontWeight:700}}>Drop here to move to {store}</div>}
+                  {storeItems.length===0&&!inlineStore&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet — tap + to add</p>}
+
+                  {/* ── Grouped by category ── */}
+                  {orderedCats.map(function(cat){
+                    var catItems=categorized[cat]||[];
+                    var catKey=store+"__"+cat;
+                    var isCatCollapsed=!!collapsedCats[catKey];
+                    var isUncat=cat===uncatKey;
+                    return(
+                      <div key={cat} style={{marginTop:orderedCats.length>1?"0.5rem":0}}>
+                        {orderedCats.length>1&&(
+                          <div onClick={()=>toggleCatCollapse(catKey)} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.25rem 0",cursor:"pointer",userSelect:"none",marginBottom:"0.2rem"}}>
+                            <span style={{fontSize:"0.67rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:isUncat?T.textFaint:accent}}>{isUncat?"Uncategorized":cat}</span>
+                            <div style={{flex:1,height:1,background:T.borderSoft}}/>
+                            <span style={{fontSize:"0.62rem",color:T.textFaint}}>{isCatCollapsed?"▶":"▼"}</span>
+                          </div>
+                        )}
+                        {!isCatCollapsed&&catItems.map(function(item){
+                          var isBeingDragged=draggingId===item.id;
+                          var isDropTarget=dragOverId===item.id;
+                          return(
+                            <div key={item.id} data-shopid={item.id}
+                              onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,store);}}
+                              style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",
+                                outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",
+                                transition:"opacity 0.15s"}}>
+                              <ShopItemRow
+                                item={item}
+                                categories={shopCategories}
+                                onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
+                                onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                                onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                                onSetCategory={function(id,cat){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,category:cat}:x;});});}}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+
+                  {inlineStore===store&&(
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem",alignItems:"center"}}>
+                      <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}}
+                        onKeyDown={function(e){if(e.key==="Enter"){addInlineItem(store);}if(e.key==="Escape"){setInlineStore(null);}}}
+                        placeholder={"Add to "+store+"…"}
+                        autoFocus
+                        style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
+                      <button onClick={function(){addInlineItem(store);}} style={btnP(accent,{padding:"0.4rem 0.75rem",fontSize:"0.8rem"})}>Add</button>
+                      <button onClick={function(){setInlineStore(null);}} style={btnS({padding:"0.4rem 0.6rem",fontSize:"0.8rem"})}>✕</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {shoppingItems.some(i=>i.done)&&<button onClick={()=>setShoppingItems(p=>p.filter(i=>!i.done))} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700})}}>Clear completed items</button>}
+      </div>
+    );
+  }
     const shopInputRef=useRef(null);
     const[addingStore,setAddingStore]=useState(false);
     const[newStoreName,setNewStoreName]=useState("");
