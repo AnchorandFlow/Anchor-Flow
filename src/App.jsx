@@ -4107,10 +4107,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
 
             {/* ── RECIPES inner tab ── */}
-            {bankInnerTab==="recipes"&&<RecipesTab onAddToShopping={addIngredientToShopping} onAddToMealBank={function(name,tags,ingredients){
-              var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
-              if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
-            }}/>}
+            {bankInnerTab==="recipes"&&<RecipesTab
+              recipes={recipes}
+              onSaveRecipe={function(r){setRecipes(function(p){return[...p,r];});}}
+              onDeleteRecipe={function(id){setRecipes(function(p){return p.filter(function(x){return x.id!==id;});});}}
+              onEditTags={function(id,tags){setRecipes(function(p){return p.map(function(r){return r.id===id?{...r,tags}:r;});});}}
+              onAddToShopping={addIngredientToShopping}
+              onAddToMealBank={function(name,tags,ingredients){
+                var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
+                if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
+              }}
+            />}
           </div>
         )}
 

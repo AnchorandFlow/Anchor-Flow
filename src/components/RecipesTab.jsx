@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 
 const MEAL_TAGS = [
   { id: "dairy-free",       label: "Dairy-free",       emoji: "🥛" },
@@ -114,8 +114,7 @@ function RecipeCard({ recipe, onDelete, onAddToShopping, onAddToMealBank, onEdit
   )
 }
 
-const RecipesTab = React.memo(function RecipesTab({ onAddToShopping, onAddToMealBank }) {
-  const [recipes, setRecipes] = useState([])
+const RecipesTab = React.memo(function RecipesTab({ recipes=[], onSaveRecipe, onDeleteRecipe, onEditTags, onAddToShopping, onAddToMealBank }) {
   const [url, setUrl] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -125,15 +124,6 @@ const RecipesTab = React.memo(function RecipesTab({ onAddToShopping, onAddToMeal
   const [activeFilter, setActiveFilter] = useState("all")
   const [openCards, setOpenCards] = useState(()=>{ try{ return JSON.parse(sessionStorage.getItem("af_openCards")||"{}") }catch{ return {} } })
   const setOpenCard = (id, val) => { const next = {...openCards, [id]:val}; setOpenCards(next); try{ sessionStorage.setItem("af_openCards", JSON.stringify(next)) }catch{} }
-
-  useEffect(() => {
-    try { setRecipes(JSON.parse(localStorage.getItem("af_recipes")||"[]")) } catch {}
-  }, [])
-
-  const save = (updated) => {
-    setRecipes(updated)
-    try { localStorage.setItem("af_recipes", JSON.stringify(updated)) } catch {}
-  }
 
   const extractFromUrl = async () => {
     if (!url.trim()) return
@@ -150,7 +140,7 @@ const RecipesTab = React.memo(function RecipesTab({ onAddToShopping, onAddToMeal
       const d = await res.json()
       const txt = d.content?.find(b=>b.type==="text")?.text||"{}"
       const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim())
-      save([...recipes, { ...parsed, id:Date.now().toString(), tags:newTags, savedAt:new Date().toISOString() }])
+      onSaveRecipe && onSaveRecipe({ ...parsed, id:Date.now().toString(), tags:newTags, savedAt:new Date().toISOString() })
       setUrl(""); setNewTags([])
     } catch { setError("Could not extract recipe. Try adding manually.") }
     setLoading(false)
@@ -158,21 +148,21 @@ const RecipesTab = React.memo(function RecipesTab({ onAddToShopping, onAddToMeal
 
   const addManual = () => {
     if (!mr.name) return
-    save([...recipes, {
+    onSaveRecipe && onSaveRecipe({
       id: Date.now().toString(),
       name: mr.name, time: mr.time,
       ingredients: mr.ingredients.split("\n").filter(Boolean),
       steps: mr.instructions.split("\n").filter(Boolean),
       tags: newTags,
       savedAt: new Date().toISOString()
-    }])
+    })
     setManual(false)
     setMr({ name:"", time:"", ingredients:"", instructions:"" })
     setNewTags([])
   }
 
   const editTags = (id, tags) => {
-    save(recipes.map(r => r.id===id ? {...r, tags} : r))
+    onEditTags && onEditTags(id, tags)
   }
 
   const usedTags = [...new Set(recipes.flatMap(r => Array.isArray(r.tags) ? r.tags : (r.tags||"").split(",").map(t=>t.trim()).filter(Boolean)))]
@@ -236,7 +226,7 @@ const RecipesTab = React.memo(function RecipesTab({ onAddToShopping, onAddToMeal
               {filtered.length} recipe{filtered.length!==1?"s":""} · A–Z
               {activeFilter!=="all"&&<span style={{fontWeight:400}}> tagged {MEAL_TAGS.find(t=>t.id===activeFilter)?.label||activeFilter}</span>}
             </div>
-            {filtered.map(r => <RecipeCard key={r.id} recipe={r} onDelete={id=>save(recipes.filter(x=>x.id!==id))} onAddToShopping={onAddToShopping} onAddToMealBank={onAddToMealBank} onEditTags={editTags} open={!!openCards[r.id]} setOpen={v=>setOpenCard(r.id,v)}/>)}
+            {filtered.map(r => <RecipeCard key={r.id} recipe={r} onDelete={id=>onDeleteRecipe&&onDeleteRecipe(id)} onAddToShopping={onAddToShopping} onAddToMealBank={onAddToMealBank} onEditTags={editTags} open={!!openCards[r.id]} setOpen={v=>setOpenCard(r.id,v)}/>)}
           </div>
       }
     </div>
