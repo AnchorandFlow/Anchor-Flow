@@ -351,6 +351,7 @@ const WEEK_TYPE_PRESETS = {
 const MEAL_TAG_FILTERS = [
   {id:"under-15",        label:"Under 15 min",     emoji:"⚡"},
   {id:"one-pan",         label:"One Pan",           emoji:"🍳"},
+  {id:"easy-cleanup",    label:"Easy Cleanup",      emoji:"🧹"},
   {id:"dairy-free",      label:"Dairy Free",        emoji:"🥛"},
   {id:"kid-friendly",    label:"Kid Friendly",      emoji:"⭐"},
   {id:"no-cook",         label:"No Cook",           emoji:"🧊"},
@@ -360,6 +361,8 @@ const MEAL_TAG_FILTERS = [
   {id:"protein-packed",  label:"Protein Packed",    emoji:"🥩"},
   {id:"vegetarian",      label:"Vegetarian",        emoji:"🥦"},
   {id:"no-thaw",         label:"No Thaw Needed",    emoji:"🥶"},
+  {id:"crockpot",        label:"Crockpot",          emoji:"🫕"},
+  {id:"paper-plates",    label:"Paper Plates OK",   emoji:"🧻"},
 ];
 
 const GTK_QUESTIONS = [
@@ -3836,6 +3839,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="nextweek"&&(
           <div>
+            {(flowMode==="Busy"||flowMode==="Survival")&&(
+              <div style={{...card({background:flowMode==="Survival"?T.rosePale:T.sandPale,border:`2px solid ${flowMode==="Survival"?T.rose:T.sand}55`,padding:"0.85rem 1rem",marginBottom:"0.75rem"})}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.35rem"}}>
+                  <span style={{fontSize:"1.1rem"}}>{flowMode==="Survival"?"🛟":"⚡"}</span>
+                  <span style={{fontWeight:700,fontSize:"0.88rem",color:flowMode==="Survival"?T.rose:T.sandDark}}>{flowMode==="Survival"?"Survival Mode Meals":"Busy Week Meals"}</span>
+                </div>
+                <p style={{fontSize:"0.78rem",color:T.textMid,lineHeight:1.5,marginBottom:"0.55rem"}}>
+                  {flowMode==="Survival"
+                    ?"Focus on zero-effort this week: frozen meals, paper plates, takeout, snack plates, and leftovers. You don't have to cook."
+                    :"Keep it simple: quick-cook, one-pan, crockpot, or pickup. Aim for minimal cleanup and max reuse."}
+                </p>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
+                  {(flowMode==="Survival"
+                    ?["Frozen burritos","Snack plate night","Takeout","Leftovers","Paper plates + sandwiches","Cereal for dinner — valid","Order pizza"]
+                    :["Crockpot meal","Sheet pan anything","Rotisserie chicken bowls","One-pot pasta","Leftovers night","Pickup on the way home","30-min max meals"]
+                  ).map(function(s){return(
+                    <span key={s} style={{background:"rgba(255,255,255,0.6)",border:`1px solid ${flowMode==="Survival"?T.rose:T.sand}40`,borderRadius:"2rem",padding:"3px 10px",fontSize:"0.72rem",fontWeight:600,color:T.textMid}}>{s}</span>
+                  );})}
+                </div>
+              </div>
+            )}
             <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
               <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
@@ -3854,7 +3878,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {nwMealsToShow.map(function(meal){return(
                       <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
                         <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
-                        <input value={m[meal]||""} onChange={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
+                        <input key={day+meal+(m[meal]||"")} defaultValue={m[meal]||""} onBlur={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                         <div style={{marginTop:"0.35rem"}}>
                           <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                         </div>
@@ -4166,35 +4190,108 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         )}
 
-        {mealSubTab==="prep"&&(
-          <div>
-            <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}55`,padding:"1.2rem",textAlign:"center"})}}>
-              <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🫙</div>
-              <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,margin:"0 0 0.35rem"}}>This Week's Prep</h2>
-              <p style={{color:T.textMid,fontSize:"0.83rem",lineHeight:1.6,maxWidth:280,margin:"0 auto"}}>20 minutes on Sunday changes everything.</p>
-            </div>
-            {activePrepTasks.map(t=>{
-              const done=prepChecked.includes(t.id);
-              return (
-                <button key={t.id} onClick={()=>setPrepChecked(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])} style={{...card({cursor:"pointer",display:"flex",alignItems:"center",gap:"0.9rem",padding:"1rem 1.1rem",background:done?`linear-gradient(135deg,${T.sagePale},${T.sage}15)`:T.surface,border:`2px solid ${done?T.sage:T.borderSoft}`,width:"100%",textAlign:"left",transition:"all 0.18s"})}}>
-                  <span style={{fontSize:"1.4rem"}}>{t.emoji}</span>
-                  <span style={{flex:1,fontWeight:600,color:done?T.sageDark:T.textDark,fontSize:"0.88rem",textDecoration:done?"line-through":"none"}}>{t.text}</span>
-                  <div style={{width:24,height:24,borderRadius:"50%",border:`2.5px solid ${done?T.sage:T.border}`,background:done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{done&&<Icon name="check" size={12} color="#fff"/>}</div>
-                </button>
-              );
-            })}
-            {prepChecked.length===activePrepTasks.length&&activePrepTasks.length>0&&(
-              <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,textAlign:"center",padding:"1.5rem"})}}>
-                <p style={{color:T.sageDark,fontWeight:700,fontSize:"1rem"}}>🌿 Prep complete. This week is going to be so much easier.</p>
-              </div>
-            )}
-            <div style={{...card({background:T.sandPale,border:`1.5px solid ${T.sand}40`,padding:"0.9rem"})}}>
-              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💡 Skip this if needed</div>
-              <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.58}}>Buy pre-cut produce, microwave rice pouches, and rotisserie chicken. No-prep weeks are valid weeks.</p>
-            </div>
-          </div>
-        )}
+        {mealSubTab==="prep"&&(function(){
+          var [prepAiTips,setPrepAiTips]=React.useState(null);
+          var [prepAiLoading,setPrepAiLoading]=React.useState(false);
+          var [prepAiError,setPrepAiError]=React.useState("");
+          var weekMealSummary=MEAL_DAYS.map(function(day){
+            var m=meals[day]||{};
+            var names=[m.breakfast,m.lunch,m.dinner].filter(Boolean);
+            if(!names.length)return null;
+            var bankMatches=names.map(function(n){return MEAL_BANK_DATA.find(function(b){return b.name.toLowerCase()===n.toLowerCase();});}).filter(Boolean);
+            return {day:day,meals:names,ingredients:bankMatches.flatMap(function(b){return b.ingredients||[];})};
+          }).filter(Boolean);
 
+          async function loadAiPrepTips(){
+            if(!weekMealSummary.length){setPrepAiError("Add some meals to This Week first.");return;}
+            setPrepAiLoading(true);setPrepAiError("");
+            try{
+              var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+                model:"claude-sonnet-4-20250514",max_tokens:800,
+                system:"You are a practical family meal prep assistant. Given a week of meals and their ingredients, generate smart prep tips. Focus on: shared ingredients that can be prepped once (e.g. chop all onions Sunday), leftover opportunities (e.g. swap meals to use leftovers), batch cooking ideas, and time-saving shortcuts. Also suggest if swapping 2 meals would create a leftover chain. Respond ONLY as JSON: {\"shared\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"swaps\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"batch\":[{\"tip\":\"string\",\"emoji\":\"string\"}]}. Max 3 items per category. Keep tips under 80 chars.",
+                messages:[{role:"user",content:"Flow mode: "+flowMode+"\n\nThis week's meals:\n"+weekMealSummary.map(function(d){return d.day+": "+d.meals.join(", ")+(d.ingredients.length?" (ingredients: "+d.ingredients.slice(0,6).join(", ")+")":"");}).join("\n")}]
+              })});
+              var d=await r.json();
+              var txt=(d.content?.find(function(b){return b.type==="text";})||{}).text||"{}";
+              var parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
+              setPrepAiTips(parsed);
+            }catch(e){setPrepAiError("Couldn't load tips. Try again.");}
+            setPrepAiLoading(false);
+          }
+
+          return(
+            <div>
+              <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}55`,padding:"1.2rem",textAlign:"center"})}}>
+                <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🫙</div>
+                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,margin:"0 0 0.35rem"}}>This Week's Prep</h2>
+                <p style={{color:T.textMid,fontSize:"0.83rem",lineHeight:1.6,maxWidth:280,margin:"0 auto 0.75rem"}}>20 minutes on Sunday changes everything.</p>
+                <button onClick={loadAiPrepTips} disabled={prepAiLoading} style={{...btnP(T.sage,{fontSize:"0.8rem",padding:"0.45rem 1.1rem",display:"inline-flex",alignItems:"center",gap:"0.4rem",opacity:prepAiLoading?0.6:1})}}>
+                  {prepAiLoading?"✨ Analyzing meals…":"✨ Get smart prep tips"}
+                </button>
+              </div>
+
+              {prepAiError&&<div style={{...card({background:T.rosePale,border:`1.5px solid ${T.rose}50`,textAlign:"center"})}}><p style={{color:T.rose,fontWeight:600,fontSize:"0.83rem",margin:0}}>{prepAiError}</p></div>}
+
+              {prepAiTips&&(
+                <div>
+                  {prepAiTips.shared&&prepAiTips.shared.length>0&&(
+                    <div style={{...card({borderLeft:`4px solid ${T.sage}`})}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:T.sage,marginBottom:"0.5rem"}}>🧅 Batch prep once</div>
+                      {prepAiTips.shared.map(function(t,i){return(
+                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.shared.length-1?"1px solid "+T.borderSoft:"none"}}>
+                          <span style={{fontSize:"1rem",flexShrink:0}}>{t.emoji||"🔪"}</span>
+                          <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
+                        </div>
+                      );})}
+                    </div>
+                  )}
+                  {prepAiTips.swaps&&prepAiTips.swaps.length>0&&(
+                    <div style={{...card({borderLeft:`4px solid ${T.sand}`})}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:T.sandDark,marginBottom:"0.5rem"}}>🔄 Leftover opportunities</div>
+                      {prepAiTips.swaps.map(function(t,i){return(
+                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.swaps.length-1?"1px solid "+T.borderSoft:"none"}}>
+                          <span style={{fontSize:"1rem",flexShrink:0}}>{t.emoji||"♻️"}</span>
+                          <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
+                        </div>
+                      );})}
+                    </div>
+                  )}
+                  {prepAiTips.batch&&prepAiTips.batch.length>0&&(
+                    <div style={{...card({borderLeft:`4px solid ${T.blue}`})}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:T.blue,marginBottom:"0.5rem"}}>⏱ Time savers</div>
+                      {prepAiTips.batch.map(function(t,i){return(
+                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.batch.length-1?"1px solid "+T.borderSoft:"none"}}>
+                          <span style={{fontSize:"1rem",flexShrink:0}}>{t.emoji||"⚡"}</span>
+                          <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
+                        </div>
+                      );})}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activePrepTasks.map(function(t){
+                var done=prepChecked.includes(t.id);
+                return (
+                  <button key={t.id} onClick={()=>setPrepChecked(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])} style={{...card({cursor:"pointer",display:"flex",alignItems:"center",gap:"0.9rem",padding:"1rem 1.1rem",background:done?`linear-gradient(135deg,${T.sagePale},${T.sage}15)`:T.surface,border:`2px solid ${done?T.sage:T.borderSoft}`,width:"100%",textAlign:"left",transition:"all 0.18s"})}}>
+                    <span style={{fontSize:"1.4rem"}}>{t.emoji}</span>
+                    <span style={{flex:1,fontWeight:600,color:done?T.sageDark:T.textDark,fontSize:"0.88rem",textDecoration:done?"line-through":"none"}}>{t.text}</span>
+                    <div style={{width:24,height:24,borderRadius:"50%",border:`2.5px solid ${done?T.sage:T.border}`,background:done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{done&&<Icon name="check" size={12} color="#fff"/>}</div>
+                  </button>
+                );
+              })}
+              {prepChecked.length===activePrepTasks.length&&activePrepTasks.length>0&&(
+                <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,textAlign:"center",padding:"1.5rem"})}}>
+                  <p style={{color:T.sageDark,fontWeight:700,fontSize:"1rem"}}>🌿 Prep complete. This week is going to be so much easier.</p>
+                </div>
+              )}
+              <div style={{...card({background:T.sandPale,border:`1.5px solid ${T.sand}40`,padding:"0.9rem"})}}>
+                <div style={{fontSize:"0.68rem",fontWeight:800,color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💡 Skip this if needed</div>
+                <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.58}}>Buy pre-cut produce, microwave rice pouches, and rotisserie chicken. No-prep weeks are valid weeks.</p>
+              </div>
+            </div>
+          );
+        })()}
         {mealSubTab==="rescue"&&(
           <div>
             <div style={{...card({background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}50`,padding:"1.2rem",textAlign:"center"})}}>
