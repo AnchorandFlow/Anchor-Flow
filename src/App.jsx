@@ -3732,21 +3732,96 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
           </button>}/>
 
-        {showWeekTypePicker&&(
-          <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,padding:"1.1rem"})}}>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>What kind of week is it?</p>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.55rem"}}>
-              {Object.entries(WEEK_TYPE_PRESETS).map(([key,wt])=>(
-                <button key={key} onClick={()=>applyWeekType(key)} style={{background:weekTypeKey===key?T.sage:T.white,color:weekTypeKey===key?"#fff":T.textDark,border:`2px solid ${weekTypeKey===key?T.sage:T.border}`,borderRadius:"0.9rem",padding:"0.75rem",cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.15s"}}>
-                  <div style={{fontSize:"1.3rem",marginBottom:"0.25rem"}}>{wt.emoji}</div>
-                  <div style={{fontWeight:700,fontSize:"0.84rem"}}>{wt.label}</div>
-                  <div style={{fontSize:"0.72rem",color:weekTypeKey===key?"rgba(255,255,255,0.8)":T.textSoft,fontWeight:500,marginTop:"0.15rem"}}>{wt.desc}</div>
-                </button>
-              ))}
+        {showWeekTypePicker&&(function(){
+          var [wtAiLoading,setWtAiLoading]=React.useState(false);
+          var [wtAiMeals,setWtAiMeals]=React.useState(null);
+          var [wtAiError,setWtAiError]=React.useState("");
+          var selectedWt=weekTypeKey?WEEK_TYPE_PRESETS[weekTypeKey]:null;
+          var isBusySurv=weekTypeKey==="busy"||weekTypeKey==="survival";
+
+          async function suggestMealsForMode(){
+            setWtAiLoading(true);setWtAiMeals(null);setWtAiError("");
+            var modeDesc=weekTypeKey==="survival"
+              ?"Survival mode — absolute minimum effort. Think: frozen meals, snack plates, paper plates, takeout, leftovers, cereal for dinner. Nothing that requires cooking or cleanup."
+              :"Busy week — quick-cook only. Under 30 min, minimal dishes. Crockpot ok. Leftovers encouraged. Pickup/takeout 1-2 nights is fine.";
+            var dietInfo=dietaryFilters&&dietaryFilters.length>0?"Dietary needs: "+dietaryFilters.join(", "):"No dietary restrictions.";
+            var bankNames=[...MEAL_BANK_DATA,...mealBankCustom].map(function(m){return m.name;}).join(", ");
+            try{
+              var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+                model:"claude-sonnet-4-20250514",max_tokens:700,
+                system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
+                messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
+              })});
+              var d=await r.json();
+              var txt=(d.content?.find(function(b){return b.type==="text";})||{}).text||"[]";
+              var parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
+              setWtAiMeals(parsed);
+            }catch(e){setWtAiError("Couldn't get suggestions. Try again.");}
+            setWtAiLoading(false);
+          }
+
+          function applyAiMeals(){
+            if(!wtAiMeals)return;
+            setNextWeekMeals(function(p){
+              var nd={...p};
+              wtAiMeals.forEach(function(item){
+                if(item.day&&item.meal){nd[item.day]={...(nd[item.day]||{}),dinner:item.meal};}
+              });
+              return nd;
+            });
+            setShowWeekTypePicker(false);
+            setMealSubTab("nextweek");
+          }
+
+          var effortColor={none:T.rose,minimal:T.sand,easy:T.sage};
+
+          return(
+            <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,padding:"1.1rem"})}}>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>What kind of week is it?</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.55rem",marginBottom:"0.65rem"}}>
+                {Object.entries(WEEK_TYPE_PRESETS).map(function([key,wt]){return(
+                  <button key={key} onClick={()=>{applyWeekType(key);setWtAiMeals(null);setWtAiError("");}} style={{background:weekTypeKey===key?T.sage:T.white,color:weekTypeKey===key?"#fff":T.textDark,border:`2px solid ${weekTypeKey===key?T.sage:T.border}`,borderRadius:"0.9rem",padding:"0.75rem",cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <div style={{fontSize:"1.3rem",marginBottom:"0.25rem"}}>{wt.emoji}</div>
+                    <div style={{fontWeight:700,fontSize:"0.84rem"}}>{wt.label}</div>
+                    <div style={{fontSize:"0.72rem",color:weekTypeKey===key?"rgba(255,255,255,0.8)":T.textSoft,fontWeight:500,marginTop:"0.15rem"}}>{wt.desc}</div>
+                  </button>
+                );})}
+              </div>
+
+              {isBusySurv&&(
+                <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.65rem"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
+                    <span style={{fontSize:"0.75rem",fontWeight:700,color:weekTypeKey==="survival"?T.rose:T.sandDark}}>{weekTypeKey==="survival"?"🛟 Survival meal ideas":"⚡ Busy week meal ideas"}</span>
+                    <button onClick={suggestMealsForMode} disabled={wtAiLoading} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sand,{fontSize:"0.72rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:wtAiLoading?0.6:1})}}>
+                      {wtAiLoading?"Thinking…":"✨ Suggest meals"}
+                    </button>
+                  </div>
+                  {wtAiError&&<p style={{fontSize:"0.75rem",color:T.rose,fontWeight:600,margin:"0 0 0.4rem"}}>{wtAiError}</p>}
+                  {wtAiMeals&&(
+                    <div>
+                      <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.6rem"}}>
+                        {wtAiMeals.map(function(item,i){var ec=effortColor[item.effort]||T.textSoft;return(
+                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",background:T.white,borderRadius:"0.55rem",padding:"0.4rem 0.6rem",border:`1px solid ${T.borderSoft}`}}>
+                            <span style={{fontSize:"0.72rem",fontWeight:800,color:T.textFaint,width:28,flexShrink:0}}>{item.day?.slice(0,3)}</span>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:"0.82rem",fontWeight:700,color:T.textDark}}>{item.meal}</div>
+                              {item.note&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"1px"}}>{item.note}</div>}
+                            </div>
+                            <span style={{fontSize:"0.62rem",fontWeight:700,color:ec,background:ec+"18",borderRadius:"2rem",padding:"2px 7px",flexShrink:0,whiteSpace:"nowrap"}}>{item.effort}</span>
+                          </div>
+                        );})}
+                      </div>
+                      <button onClick={applyAiMeals} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sage,{width:"100%",justifyContent:"center",display:"flex",fontSize:"0.8rem",padding:"0.5rem"})}}>
+                        → Load into Next Week
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button onClick={()=>setShowWeekTypePicker(false)} style={{...btnS({width:"100%",marginTop:"0.65rem",fontSize:"0.76rem"})}}>Close</button>
             </div>
-            <button onClick={()=>setShowWeekTypePicker(false)} style={{...btnS({width:"100%",marginTop:"0.65rem",fontSize:"0.76rem"})}}>Close</button>
-          </div>
-        )}
+          );
+        })()}
 
         <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${T.border}`,overflowX:"auto"}}>
           {subTabs.map(st=>(
@@ -3839,27 +3914,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="nextweek"&&(
           <div>
-            {(flowMode==="Busy"||flowMode==="Survival")&&(
-              <div style={{...card({background:flowMode==="Survival"?T.rosePale:T.sandPale,border:`2px solid ${flowMode==="Survival"?T.rose:T.sand}55`,padding:"0.85rem 1rem",marginBottom:"0.75rem"})}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.35rem"}}>
-                  <span style={{fontSize:"1.1rem"}}>{flowMode==="Survival"?"🛟":"⚡"}</span>
-                  <span style={{fontWeight:700,fontSize:"0.88rem",color:flowMode==="Survival"?T.rose:T.sandDark}}>{flowMode==="Survival"?"Survival Mode Meals":"Busy Week Meals"}</span>
-                </div>
-                <p style={{fontSize:"0.78rem",color:T.textMid,lineHeight:1.5,marginBottom:"0.55rem"}}>
-                  {flowMode==="Survival"
-                    ?"Focus on zero-effort this week: frozen meals, paper plates, takeout, snack plates, and leftovers. You don't have to cook."
-                    :"Keep it simple: quick-cook, one-pan, crockpot, or pickup. Aim for minimal cleanup and max reuse."}
-                </p>
-                <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
-                  {(flowMode==="Survival"
-                    ?["Frozen burritos","Snack plate night","Takeout","Leftovers","Paper plates + sandwiches","Cereal for dinner — valid","Order pizza"]
-                    :["Crockpot meal","Sheet pan anything","Rotisserie chicken bowls","One-pot pasta","Leftovers night","Pickup on the way home","30-min max meals"]
-                  ).map(function(s){return(
-                    <span key={s} style={{background:"rgba(255,255,255,0.6)",border:`1px solid ${flowMode==="Survival"?T.rose:T.sand}40`,borderRadius:"2rem",padding:"3px 10px",fontSize:"0.72rem",fontWeight:600,color:T.textMid}}>{s}</span>
-                  );})}
-                </div>
-              </div>
-            )}
             <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
               <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
