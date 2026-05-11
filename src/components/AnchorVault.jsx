@@ -12,6 +12,7 @@ const NAV = [
   { id: "gifts",     label: "Celebrate",    icon: "gift" },
   { id: "pets",      label: "Pets",         icon: "pet"  },
   { id: "moments",   label: "Moments",      icon: "mom"  },
+  { id: "settings",  label: "Settings",     icon: "set"  },
 ]
 
 // ── Subcategory definitions per main category ────────────────────────────────
@@ -2254,12 +2255,91 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
+
+// ── Anchor Settings ───────────────────────────────────────────────────────────
+const ANCHOR_SECTIONS = [
+  { id: "inventory", label: "Inventory",     emoji: "📦" },
+  { id: "systems",   label: "Home Systems",  emoji: "🏠" },
+  { id: "health",    label: "Health",        emoji: "🩺" },
+  { id: "career",    label: "Career",        emoji: "📋" },
+  { id: "subs",      label: "Subscriptions", emoji: "🔄" },
+  { id: "gifts",     label: "Celebrate",     emoji: "🎉" },
+  { id: "pets",      label: "Pets",          emoji: "🐾" },
+  { id: "moments",   label: "Moments",       emoji: "✨" },
+]
+
+function AnchorSettings() {
+  const [hidden, setHidden] = React.useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}") } catch { return {} }
+  })
+
+  function toggle(id) {
+    const next = { ...hidden, [id]: !hidden[id] }
+    setHidden(next)
+    try { localStorage.setItem("af_anchor_hidden", JSON.stringify(next)) } catch {}
+  }
+
+  const S = {
+    label: { fontSize: 13, fontFamily: "DM Sans,sans-serif", fontWeight: 600, color: "rgba(250,248,244,0.85)" },
+    sub:   { fontSize: 11, fontFamily: "DM Sans,sans-serif", color: "rgba(250,248,244,0.35)", marginTop: 1 },
+    row:   { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "0.5px solid rgba(255,255,255,0.06)" },
+    track: function(on) { return { width: 40, height: 22, borderRadius: 11, background: on ? "#7a9e8e" : "rgba(255,255,255,0.1)", position: "relative", cursor: "pointer", transition: "background 0.2s", border: "none", flexShrink: 0 } },
+    thumb: function(on) { return { position: "absolute", top: 3, left: on ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } },
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Anchor Settings</div>
+      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginBottom: 20, lineHeight: 1.5 }}>Customise which sections appear in your Anchor Vault.</div>
+
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "4px 16px" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.6)", textTransform: "uppercase", letterSpacing: "0.09em", padding: "12px 0 4px", fontFamily: "DM Sans,sans-serif" }}>Visible sections</div>
+        {ANCHOR_SECTIONS.map(function(sec) {
+          const on = !hidden[sec.id]
+          return (
+            <div key={sec.id} style={S.row}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>{sec.emoji}</span>
+                <div>
+                  <div style={S.label}>{sec.label}</div>
+                </div>
+              </div>
+              <button onClick={function() { toggle(sec.id) }} style={S.track(on)}>
+                <div style={S.thumb(on)} />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ marginTop: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "16px" }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(250,248,244,0.55)", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>About Anchor Vault</div>
+        <p style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.65, margin: 0 }}>
+          Anchor holds the steady, permanent parts of your home — inventory, health records, career docs, and milestones. Flow handles the daily rhythm. Together they give your home a complete system.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   calEvents = calEvents || []
   vaultSection = vaultSection || "home"
 
   const [activeSection, setActiveSection] = useState(vaultSection)
   useEffect(function() { setActiveSection(vaultSection) }, [vaultSection])
+
+  const [anchorHidden, setAnchorHidden] = React.useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}") } catch { return {} }
+  })
+  // Sync when settings change
+  React.useEffect(function() {
+    function onStorage() {
+      try { setAnchorHidden(JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}")) } catch {}
+    }
+    window.addEventListener("storage", onStorage)
+    return function() { window.removeEventListener("storage", onStorage) }
+  }, [])
 
   const [inventory, setInventory] = useState(function() {
     try { return JSON.parse(localStorage.getItem("af_inventory") || "null") } catch { return null }
@@ -2290,6 +2370,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
           {activeSection === "career" && <CareerSection />}
+          {activeSection === "settings" && <AnchorSettings />}
           {activeSection === "subs" && (
             <div style={{ textAlign: "center", padding: "48px 20px" }}>
               <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>🔒</div>

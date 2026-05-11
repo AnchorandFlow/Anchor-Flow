@@ -391,6 +391,52 @@ function AnchorLogo({size=40, color="#6A9BB5"}) {
   );
 }
 
+
+// ── ScrollTabs: horizontal tab bar with arrow nav on overflow ─────────────────
+function ScrollTabs({ children, style={} }) {
+  const ref = React.useRef(null)
+  const [canLeft,  setCanLeft]  = React.useState(false)
+  const [canRight, setCanRight] = React.useState(false)
+
+  function check() {
+    const el = ref.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 4)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }
+
+  React.useEffect(function() {
+    check()
+    const el = ref.current
+    if (!el) return
+    el.addEventListener("scroll", check, { passive: true })
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return function() { el.removeEventListener("scroll", check); ro.disconnect() }
+  }, [])
+
+  function scroll(dir) {
+    const el = ref.current
+    if (el) el.scrollBy({ left: dir * 120, behavior: "smooth" })
+  }
+
+  const arrowStyle = function(active) { return {
+    flexShrink: 0, background: "none", border: "none", cursor: active ? "pointer" : "default",
+    padding: "0 4px", fontSize: "0.8rem", color: active ? "inherit" : "transparent",
+    opacity: active ? 1 : 0, transition: "opacity 0.15s", lineHeight: 1,
+  }}
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 0, position: "relative", ...style }}>
+      <button onClick={function(){scroll(-1)}} style={arrowStyle(canLeft)} tabIndex={-1}>‹</button>
+      <div ref={ref} onScroll={check} style={{ flex: 1, display: "flex", overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}>
+        {children}
+      </div>
+      <button onClick={function(){scroll(1)}} style={arrowStyle(canRight)} tabIndex={-1}>›</button>
+    </div>
+  )
+}
+
 function Icon({name,size=16,color}){
   const s={width:size,height:size,display:"block",flexShrink:0};
   const p={fill:"none",stroke:color||"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"};
@@ -1038,6 +1084,10 @@ function HomeFlow() {
   const [mealThemes,setMealThemes]             = useSaved("mealThemes",DEFAULT_MEAL_THEMES);
   const [recipes,setRecipes]                   = useSaved("recipes",[]);
   const [mealBankCustom,setMealBankCustom]     = useSaved("mealBankCustom",[]);
+  const [wtAiMeals,setWtAiMeals]              = useState(null);
+  const [wtSelected,setWtSelected]            = useState([]);
+  const [weekTypeKey,setWeekTypeKey]           = useState(null);
+  const [showWeekTypePicker,setShowWeekTypePicker] = useState(false);
   const [shoppingItems,setShoppingItems]       = useSaved("shoppingItems",[]);
   const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
@@ -1057,11 +1107,33 @@ function HomeFlow() {
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
   const [collapsedStores,setCollapsedStores]   = useSaved("collapsedStores",{});
-  const [shopCategories,setShopCategories]     = useSaved("shopCategories",["Produce","Dairy","Meat & Seafood","Frozen","Canned & Pantry","Bakery","Beverages","Household","Other"]);
+  const [shopCategories,setShopCategories]     = useSaved("shopCategories",[
+    {id:"produce",   label:"Produce",        emoji:"🥦"},
+    {id:"dairy",     label:"Dairy",          emoji:"🥛"},
+    {id:"meat",      label:"Meat & Seafood", emoji:"🥩"},
+    {id:"frozen",    label:"Frozen",         emoji:"🧊"},
+    {id:"canned",    label:"Canned & Pantry",emoji:"🥫"},
+    {id:"bakery",    label:"Bakery",         emoji:"🍞"},
+    {id:"beverages", label:"Beverages",      emoji:"🧃"},
+    {id:"snacks",    label:"Snacks",         emoji:"🍿"},
+    {id:"deli",      label:"Deli",           emoji:"🧀"},
+    {id:"health",    label:"Health & Beauty",emoji:"🧴"},
+    {id:"household", label:"Household",      emoji:"🧹"},
+    {id:"baby",      label:"Baby & Kids",    emoji:"🍼"},
+    {id:"pets",      label:"Pet Supplies",   emoji:"🐾"},
+    {id:"other",     label:"Other",          emoji:"📦"},
+  ]);
+  // Helper: get category label string from id or legacy string
+  function catLabel(c){ if(!c)return ""; if(typeof c==="string") return c; return c.label||""; }
+  function catEmoji(c){ if(!c)return ""; if(typeof c==="string") return ""; return c.emoji||""; }
+  function catId(c){ if(!c)return ""; if(typeof c==="string") return c; return c.id||c.label||""; }
+  function shopCatLabels(){ return shopCategories.map(function(c){return catLabel(c);}); }
   const [calColorLabels,setCalColorLabels]     = useSaved("calColorLabels",{});
   const [familyProfile,setFamilyProfile]       = useSaved("familyProfile",null);
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
+  const [preferredName,setPreferredName]       = useSaved("preferredName","");
+  const [flowGreetingTone,setFlowGreetingTone] = useSaved("flowGreetingTone","warm");
   const [dailySummaryScheduled,setDailySummaryScheduled] = useSaved("dailySummaryScheduled",null);
   // Weather
   const [weatherData,setWeatherData]           = useState(null);
@@ -1309,6 +1381,7 @@ function HomeFlow() {
     const upcomingEvts7 = calEvents.filter(e=>next7.includes(e.date)).slice(0,6);
     const ctx = [
       "Family: "+(familyProfile?JSON.stringify(familyProfile):"not set"),
+      "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){return p.name+(p.role?" ("+p.role+")":"")+(p.age!=null?" age "+p.age:"")+(p.isMinor||(p.age!=null&&p.age<18)?" [minor]":"");}).join(", "),
       "Today: "+TODAY_NAME+", theme: "+(dayRhythm.theme||"none"),
       "Events today: "+(todayEvts.map(e=>(e.time||"all day")+" "+e.title).join(", ")||"none"),
       "Upcoming events next 7 days: "+(upcomingEvts7.map(e=>{const d=new Date(e.date+"T12:00:00");const dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dn+" "+e.date+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"),
@@ -1319,6 +1392,8 @@ function HomeFlow() {
       "Full brain dump (undone): "+brainPending.slice(0,12).map(b=>b.text).join(", ")||"none",
       "Tomorrow: "+tmrName+", theme="+(tmrRhythm.theme||"none")+", events: "+(tmrEvts.map(e=>e.title).join(", ")||"none")+", meal: "+(tmrMeal.dinner||"not planned"),
       "Flow mode: "+flowMode,
+      "Preferred name (use in greeting): "+(preferredName||familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||""),
+      "Greeting tone: "+(flowGreetingTone||"warm"),
     ].join(". ");
     const sysPrompt = `You are Ripple, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
     try {
@@ -1738,7 +1813,7 @@ Respond ONLY with valid JSON array, no markdown:
   // ── Calendar helpers ────────────────────────────────────────────────────────
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
-  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:"",repeat:""}); setCalFormMode("add"); setCalFormId(null); }
+  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"Blue",colorCustom:"",note:"",repeat:""}); setCalFormMode("add"); setCalFormId(null); }
   function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
   function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
 
@@ -3032,6 +3107,30 @@ Respond ONLY in valid JSON:
             </div>
 
 
+            {/* Brain items scheduled for today via Task Board — always visible bridge */}
+            {flowMode!=="Survival"&&(function(){
+              var scheduledToday=brainItems.filter(function(b){return b.scheduledDay===TODAY_NAME&&!b.done;});
+              var notYetTasks=scheduledToday.filter(function(b){return !allTaskTiers.some(function(t){return t.brainId===b.id||t.linkedTaskId===b.id||t.text===b.text;});});
+              if(notYetTasks.length===0) return null;
+              return(
+                <div style={{background:"linear-gradient(135deg,"+T.lavender+"10,"+T.surface+")",border:"1.5px solid "+T.lavender+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
+                    <span style={{fontSize:"0.9rem"}}>🧠</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Queued for today</span>
+                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>{notYetTasks.length} from brain dump</span>
+                  </div>
+                  {notYetTasks.map(function(b){return(
+                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.lavender+"25"}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
+                      <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:500}}>{b.text}</span>
+                      <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.lavender,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>+ Flow</button>
+                      <button onClick={function(){addQuickTask(b.text,"top3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.blue,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>Top</button>
+                    </div>
+                  );})}
+                </div>
+              );
+            })()}
+
             {/* Brain dump items for today — hidden in Survival mode */}
             {flowMode!=="Survival"&&!aiLoading&&aiSuggestions?.brain_items?.length>0&&(
               <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.surface+")",border:"1.5px solid "+T.sage+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
@@ -3481,24 +3580,41 @@ Respond ONLY in valid JSON:
               <option value="">Anyone</option>
               {people.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
             </select>
-            <button onClick={()=>{if(newTaskText.trim()){setTasks(p=>[...p,{id:uid(),text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson}]);setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
+            <button onClick={()=>{if(newTaskText.trim()){var nid=uid();setTasks(p=>[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
           </div>
         </div>
         {weekSubTab==="tasks"&&[...MEAL_DAYS,"Daily"].map(function(day,di){
           var dayTasks=tasks.filter(function(t){return t.day===day&&!t.archived;});
           var dr=rhythm[day];var accent=DAY_COLORS[di%DAY_COLORS.length];
+          var linkedTaskIds=dayTasks.filter(function(t){return t.fromBrain||t.brainId;}).map(function(t){return t.brainId||t.linkedTaskId;});
+          var brainQueued=brainItems.filter(function(b){return b.scheduledDay===day&&!b.done&&!linkedTaskIds.includes(b.id);});
+          var hasContent=dayTasks.length>0||brainQueued.length>0;
           return (
             <div key={day} style={{...card({borderLeft:"4px solid "+(day===TODAY_NAME?accent:T.borderSoft)})}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:dayTasks.length?"0.75rem":"0.1rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:hasContent?"0.75rem":"0.1rem"}}>
                 <span style={{fontSize:"1rem"}}>{(dr&&dr.emoji)||"📋"}</span>
                 <span style={{fontWeight:700,color:day===TODAY_NAME?accent:T.textDark,fontSize:"0.92rem"}}>{day}</span>
                 {dr&&dr.theme&&<span style={{color:T.textSoft,fontSize:"0.76rem",fontWeight:500}}>{"· "+dr.theme}</span>}
                 <div style={{flex:1}}/>
+                {brainQueued.length>0&&<span style={{fontSize:"0.62rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {brainQueued.length}</span>}
                 {day===TODAY_NAME&&<Pill label="Today" color={accent} tiny/>}
                 {day!=="Daily"&&<button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={T.textSoft}/> Edit Day</button>}
               </div>
               <DraggableTaskList tasks={dayTasks} setTasks={setTasks} accent={accent}/>
-              {dayTasks.length===0&&<p style={{color:T.textFaint,fontSize:"0.77rem",fontWeight:500}}>Nothing yet</p>}
+              {dayTasks.length===0&&brainQueued.length===0&&<p style={{color:T.textFaint,fontSize:"0.77rem",fontWeight:500}}>Nothing yet</p>}
+              {brainQueued.length>0&&(
+                <div style={{marginTop:dayTasks.length?"0.65rem":"0",padding:"0.55rem 0.65rem",background:T.lavender+"12",border:"1px dashed "+T.lavender+"55",borderRadius:"0.75rem"}}>
+                  <div style={{fontSize:"0.62rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>🧠 From Brain Dump</div>
+                  {brainQueued.map(function(b){return(
+                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",borderBottom:"1px solid "+T.lavender+"20"}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
+                      <span style={{fontSize:"0.8rem",color:T.textDark,flex:1,fontWeight:500}}>{b.text}</span>
+                      <button title="Move to tasks" onClick={function(){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:b.text,day:day,done:false,fromBrain:true,brainId:b.id}];});setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:day,linkedTaskId:nid}:x;});});}} style={{background:accent,border:"none",borderRadius:"0.4rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.65rem",color:"#fff",fontWeight:700,fontFamily:"inherit",flexShrink:0}}>+ Task</button>
+                      <button title="Clear from this day" onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:null}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+                    </div>
+                  );})}
+                </div>
+              )}
             </div>
           );
         })}
@@ -3506,19 +3622,43 @@ Respond ONLY in valid JSON:
         )}
 
         {/* Day Themes subtab */}
+        {weekSubTab==="rhythm"&&(
+          <div style={{...card({background:`linear-gradient(135deg,${T.sandPale},${T.lavPale})`,border:`1.5px solid ${T.sand}55`,padding:"0.85rem 1rem",marginBottom:"0.25rem"})}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
+              <span style={{fontSize:"1.3rem"}}>🌊</span>
+              <div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>Give each day a shape</div>
+                <div style={{fontSize:"0.75rem",color:T.textMid,fontWeight:500,marginTop:"0.15rem"}}>When the week has a rhythm, the days run themselves.</div>
+              </div>
+            </div>
+          </div>
+        )}
         {weekSubTab==="rhythm"&&MEAL_DAYS.map(function(day,di){
           var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
+          var dayTaskCount=tasks.filter(function(t){return t.day===day&&!t.done&&!t.archived;}).length;
+          var dayBrainCount=brainItems.filter(function(b){return b.scheduledDay===day&&!b.done;}).length;
+          var isToday=day===TODAY_NAME;
           return(
-            <div key={day} style={{...card({borderLeft:"4px solid "+accent+"60"})}}>
+            <div key={day} style={{...card({borderLeft:"4px solid "+(isToday?accent:accent+"60"),background:isToday?T.white:T.surface})}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1}}>
                   <span style={{fontSize:"1.2rem"}}>{dr.emoji||"📋"}</span>
-                  <div>
-                    <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{day}</div>
-                    {dr.theme&&<div style={{fontSize:"0.75rem",color:T.textMid}}>{dr.theme}</div>}
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                      <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.9rem"}}>{day}</span>
+                      {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Today</span>}
+                    </div>
+                    {dr.theme&&<div style={{fontSize:"0.75rem",color:T.textMid,fontWeight:500}}>{dr.theme}</div>}
+                    {dr.desc&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.1rem"}}>{dr.desc}</div>}
+                    {(dayTaskCount>0||dayBrainCount>0)&&(
+                      <div style={{display:"flex",gap:"0.5rem",marginTop:"0.35rem"}}>
+                        {dayTaskCount>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:accent,background:accent+"18",borderRadius:"2rem",padding:"1px 7px"}}>✅ {dayTaskCount} task{dayTaskCount!==1?"s":""}</span>}
+                        {dayBrainCount>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {dayBrainCount} queued</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
-                <button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+                <button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>Edit</button>
               </div>
             </div>
           );
@@ -3611,6 +3751,120 @@ Respond ONLY in valid JSON:
     );
   }
 
+  function WeekTypePicker({weekTypeKey,applyWeekType,setShowWeekTypePicker,flowMode,dietaryFilters,setNextWeekMeals,setMeals,setMealSubTab,mealBankCustom,targetWeek,wtAiMeals,setWtAiMeals,wtSelected,setWtSelected}){
+    var [wtAiLoading,setWtAiLoading]=useState(false);
+    var [wtAiError,setWtAiError]=useState("");
+    var isBusySurv=weekTypeKey==="busy"||weekTypeKey==="survival";
+    var effortColor={none:T.rose,minimal:T.sand,easy:T.sage};
+
+    async function suggestMealsForMode(){
+      setWtAiLoading(true);setWtAiMeals(null);setWtAiError("");
+      var modeDesc=weekTypeKey==="survival"
+        ?"Survival mode — absolute minimum effort. Frozen meals, snack plates, paper plates, takeout, leftovers, cereal for dinner. Nothing that requires real cooking or cleanup."
+        :"Busy week — quick-cook only. Under 30 min, minimal dishes. Crockpot ok. Leftovers encouraged. Pickup/takeout 1-2 nights is fine.";
+      var dietInfo=dietaryFilters&&dietaryFilters.length>0?"Dietary needs: "+dietaryFilters.join(", "):"No dietary restrictions.";
+      var bankNames=[...MEAL_BANK_DATA,...(mealBankCustom||[])].map(function(m){return m.name;}).join(", ");
+      try{
+        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",max_tokens:700,
+          system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
+          messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
+        })});
+        var d=await r.json();
+        var txt=(d.content?.find(function(b){return b.type==="text";})||{}).text||"[]";
+        var parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
+        setWtAiMeals(parsed);
+        setWtSelected(parsed.map(function(m){return m.day;}));
+      }catch(e){setWtAiError("Couldn't get suggestions. Try again.");}
+      setWtAiLoading(false);
+    }
+
+    function applyAiMeals(){
+      if(!wtAiMeals)return;
+      var toApply=wtAiMeals.filter(function(item){return wtSelected.includes(item.day);});
+      if(targetWeek==="this"){
+        setMeals(function(p){
+          var nd={...p};
+          toApply.forEach(function(item){
+            if(item.day&&item.meal){nd[item.day]={...(nd[item.day]||{}),dinner:item.meal};}
+          });
+          return nd;
+        });
+        setMealSubTab("week");
+      } else {
+        setNextWeekMeals(function(p){
+          var nd={...p};
+          toApply.forEach(function(item){
+            if(item.day&&item.meal){nd[item.day]={...(nd[item.day]||{}),dinner:item.meal};}
+          });
+          return nd;
+        });
+        setMealSubTab("nextweek");
+      }
+      setShowWeekTypePicker(false);
+    }
+
+    return(
+      <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,padding:"1.1rem"})}}>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>What kind of week is it?</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.55rem",marginBottom:"0.65rem"}}>
+          {Object.entries(WEEK_TYPE_PRESETS).map(function([key,wt]){return(
+            <button key={key} onClick={function(){applyWeekType(key);setWtAiMeals(null);setWtSelected([]);setWtAiError("");}} style={{background:weekTypeKey===key?T.sage:T.white,color:weekTypeKey===key?"#fff":T.textDark,border:`2px solid ${weekTypeKey===key?T.sage:T.border}`,borderRadius:"0.9rem",padding:"0.75rem",cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.15s"}}>
+              <div style={{fontSize:"1.3rem",marginBottom:"0.25rem"}}>{wt.emoji}</div>
+              <div style={{fontWeight:700,fontSize:"0.84rem"}}>{wt.label}</div>
+              <div style={{fontSize:"0.72rem",color:weekTypeKey===key?"rgba(255,255,255,0.8)":T.textSoft,fontWeight:500,marginTop:"0.15rem"}}>{wt.desc}</div>
+            </button>
+          );})}
+        </div>
+        {isBusySurv&&(
+          <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.65rem"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
+              <span style={{fontSize:"0.75rem",fontWeight:700,color:weekTypeKey==="survival"?T.rose:T.sandDark}}>{weekTypeKey==="survival"?"🛟 Survival meal ideas":"⚡ Busy week meal ideas"}</span>
+              <button onClick={suggestMealsForMode} disabled={wtAiLoading} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sand,{fontSize:"0.72rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:wtAiLoading?0.6:1})}}>
+                {wtAiLoading?"Thinking…":"✨ Suggest meals"}
+              </button>
+            </div>
+            {wtAiError&&<p style={{fontSize:"0.75rem",color:T.rose,fontWeight:600,margin:"0 0 0.4rem"}}>{wtAiError}</p>}
+            {wtAiMeals&&(
+              <div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.35rem"}}>
+                  <span style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:600}}>Tap to select</span>
+                  <div style={{display:"flex",gap:"0.4rem"}}>
+                    <button onClick={()=>setWtSelected(wtAiMeals.map(function(m){return m.day;}))} style={{fontSize:"0.67rem",background:"none",border:`1px solid ${T.border}`,borderRadius:"2rem",padding:"2px 8px",cursor:"pointer",fontFamily:"inherit",color:T.textMid}}>All</button>
+                    <button onClick={()=>setWtSelected([])} style={{fontSize:"0.67rem",background:"none",border:`1px solid ${T.border}`,borderRadius:"2rem",padding:"2px 8px",cursor:"pointer",fontFamily:"inherit",color:T.textMid}}>None</button>
+                  </div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.6rem"}}>
+                  {wtAiMeals.map(function(item,i){
+                    var ec=effortColor[item.effort]||T.textSoft;
+                    var sel=wtSelected.includes(item.day);
+                    return(
+                      <div key={i} onClick={()=>setWtSelected(function(p){return sel?p.filter(function(d){return d!==item.day;}):[...p,item.day];})} style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",background:sel?T.sagePale:T.white,borderRadius:"0.55rem",padding:"0.4rem 0.6rem",border:`1.5px solid ${sel?T.sage:T.borderSoft}`,cursor:"pointer",transition:"all 0.12s"}}>
+                        <div style={{width:16,height:16,borderRadius:"0.25rem",border:`2px solid ${sel?T.sage:T.border}`,background:sel?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
+                          {sel&&<span style={{color:"#fff",fontSize:"0.65rem",lineHeight:1}}>✓</span>}
+                        </div>
+                        <span style={{fontSize:"0.72rem",fontWeight:800,color:T.textFaint,width:28,flexShrink:0}}>{item.day&&item.day.slice(0,3)}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:"0.82rem",fontWeight:700,color:T.textDark}}>{item.meal}</div>
+                          {item.note&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"1px"}}>{item.note}</div>}
+                        </div>
+                        <span style={{fontSize:"0.62rem",fontWeight:700,color:ec,background:ec+"18",borderRadius:"2rem",padding:"2px 7px",flexShrink:0,whiteSpace:"nowrap"}}>{item.effort}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button onClick={applyAiMeals} disabled={wtSelected.length===0} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sage,{width:"100%",justifyContent:"center",display:"flex",fontSize:"0.8rem",padding:"0.5rem",opacity:wtSelected.length===0?0.4:1})}}>
+                  → Load {wtSelected.length} meal{wtSelected.length!==1?"s":""} into {targetWeek==="this"?"This Week":"Next Week"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        <button onClick={()=>setShowWeekTypePicker(false)} style={{...btnS({width:"100%",marginTop:"0.65rem",fontSize:"0.76rem"})}}>Close</button>
+      </div>
+    );
+  }
+
   function MealsTab() {
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
@@ -3618,8 +3872,6 @@ Respond ONLY in valid JSON:
     const [editingThemes,setEditingThemes]=useState(false);
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
-    const [weekTypeKey,setWeekTypeKey]=useState(null);
-    const [showWeekTypePicker,setShowWeekTypePicker]=useState(false);
     const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
     const [nextWeekMealCount,setNextWeekMealCount]=useSaved("af_nwMealCount",1);
     var nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
@@ -3682,8 +3934,13 @@ Respond ONLY in valid JSON:
     function rotateMeals(){const days=[...MEAL_DAYS];const cur={...meals};const rotated={};days.forEach((day,i)=>{const prev=days[(i-1+days.length)%days.length];rotated[day]={...cur[prev]};});setMeals(rotated);}
     function applyWeekType(key){
       const preset=WEEK_TYPE_PRESETS[key];if(!preset)return;
+      setWeekTypeKey(key);
+      if(key==="busy"||key==="survival"){
+        // Don't overwrite meals — just show AI suggestions
+        return;
+      }
       setMeals(p=>{const next={...p};Object.entries(preset.meals).forEach(([day,m])=>{next[day]={...(next[day]||{}),...m};});return next;});
-      setWeekTypeKey(key);setShowWeekTypePicker(false);
+      setShowWeekTypePicker(false);
     }
 
     const allBankMeals=[...MEAL_BANK_DATA,...mealBankCustom.map(m=>({...m,isCustom:true}))];const filteredBank=bankFilters.length===0?allBankMeals:allBankMeals.filter(m=>bankFilters.every(f=>(m.tags||[]).includes(f)));
@@ -3732,104 +3989,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
           </button>}/>
 
-        {showWeekTypePicker&&(function(){
-          var [wtAiLoading,setWtAiLoading]=React.useState(false);
-          var [wtAiMeals,setWtAiMeals]=React.useState(null);
-          var [wtAiError,setWtAiError]=React.useState("");
-          var selectedWt=weekTypeKey?WEEK_TYPE_PRESETS[weekTypeKey]:null;
-          var isBusySurv=weekTypeKey==="busy"||weekTypeKey==="survival";
+        {showWeekTypePicker&&<WeekTypePicker weekTypeKey={weekTypeKey} applyWeekType={applyWeekType} setShowWeekTypePicker={setShowWeekTypePicker} flowMode={flowMode} dietaryFilters={dietaryFilters} setNextWeekMeals={setNextWeekMeals} setMeals={setMeals} setMealSubTab={setMealSubTab} mealBankCustom={mealBankCustom} targetWeek={mealSubTab==="week"?"this":"next"} wtAiMeals={wtAiMeals} setWtAiMeals={setWtAiMeals} wtSelected={wtSelected} setWtSelected={setWtSelected}/>}
 
-          async function suggestMealsForMode(){
-            setWtAiLoading(true);setWtAiMeals(null);setWtAiError("");
-            var modeDesc=weekTypeKey==="survival"
-              ?"Survival mode — absolute minimum effort. Think: frozen meals, snack plates, paper plates, takeout, leftovers, cereal for dinner. Nothing that requires cooking or cleanup."
-              :"Busy week — quick-cook only. Under 30 min, minimal dishes. Crockpot ok. Leftovers encouraged. Pickup/takeout 1-2 nights is fine.";
-            var dietInfo=dietaryFilters&&dietaryFilters.length>0?"Dietary needs: "+dietaryFilters.join(", "):"No dietary restrictions.";
-            var bankNames=[...MEAL_BANK_DATA,...mealBankCustom].map(function(m){return m.name;}).join(", ");
-            try{
-              var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-                model:"claude-sonnet-4-20250514",max_tokens:700,
-                system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
-                messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
-              })});
-              var d=await r.json();
-              var txt=(d.content?.find(function(b){return b.type==="text";})||{}).text||"[]";
-              var parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
-              setWtAiMeals(parsed);
-            }catch(e){setWtAiError("Couldn't get suggestions. Try again.");}
-            setWtAiLoading(false);
-          }
-
-          function applyAiMeals(){
-            if(!wtAiMeals)return;
-            setNextWeekMeals(function(p){
-              var nd={...p};
-              wtAiMeals.forEach(function(item){
-                if(item.day&&item.meal){nd[item.day]={...(nd[item.day]||{}),dinner:item.meal};}
-              });
-              return nd;
-            });
-            setShowWeekTypePicker(false);
-            setMealSubTab("nextweek");
-          }
-
-          var effortColor={none:T.rose,minimal:T.sand,easy:T.sage};
-
-          return(
-            <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,padding:"1.1rem"})}}>
-              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>What kind of week is it?</p>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.55rem",marginBottom:"0.65rem"}}>
-                {Object.entries(WEEK_TYPE_PRESETS).map(function([key,wt]){return(
-                  <button key={key} onClick={()=>{applyWeekType(key);setWtAiMeals(null);setWtAiError("");}} style={{background:weekTypeKey===key?T.sage:T.white,color:weekTypeKey===key?"#fff":T.textDark,border:`2px solid ${weekTypeKey===key?T.sage:T.border}`,borderRadius:"0.9rem",padding:"0.75rem",cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all 0.15s"}}>
-                    <div style={{fontSize:"1.3rem",marginBottom:"0.25rem"}}>{wt.emoji}</div>
-                    <div style={{fontWeight:700,fontSize:"0.84rem"}}>{wt.label}</div>
-                    <div style={{fontSize:"0.72rem",color:weekTypeKey===key?"rgba(255,255,255,0.8)":T.textSoft,fontWeight:500,marginTop:"0.15rem"}}>{wt.desc}</div>
-                  </button>
-                );})}
-              </div>
-
-              {isBusySurv&&(
-                <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.65rem"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
-                    <span style={{fontSize:"0.75rem",fontWeight:700,color:weekTypeKey==="survival"?T.rose:T.sandDark}}>{weekTypeKey==="survival"?"🛟 Survival meal ideas":"⚡ Busy week meal ideas"}</span>
-                    <button onClick={suggestMealsForMode} disabled={wtAiLoading} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sand,{fontSize:"0.72rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:wtAiLoading?0.6:1})}}>
-                      {wtAiLoading?"Thinking…":"✨ Suggest meals"}
-                    </button>
-                  </div>
-                  {wtAiError&&<p style={{fontSize:"0.75rem",color:T.rose,fontWeight:600,margin:"0 0 0.4rem"}}>{wtAiError}</p>}
-                  {wtAiMeals&&(
-                    <div>
-                      <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.6rem"}}>
-                        {wtAiMeals.map(function(item,i){var ec=effortColor[item.effort]||T.textSoft;return(
-                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",background:T.white,borderRadius:"0.55rem",padding:"0.4rem 0.6rem",border:`1px solid ${T.borderSoft}`}}>
-                            <span style={{fontSize:"0.72rem",fontWeight:800,color:T.textFaint,width:28,flexShrink:0}}>{item.day?.slice(0,3)}</span>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:"0.82rem",fontWeight:700,color:T.textDark}}>{item.meal}</div>
-                              {item.note&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"1px"}}>{item.note}</div>}
-                            </div>
-                            <span style={{fontSize:"0.62rem",fontWeight:700,color:ec,background:ec+"18",borderRadius:"2rem",padding:"2px 7px",flexShrink:0,whiteSpace:"nowrap"}}>{item.effort}</span>
-                          </div>
-                        );})}
-                      </div>
-                      <button onClick={applyAiMeals} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sage,{width:"100%",justifyContent:"center",display:"flex",fontSize:"0.8rem",padding:"0.5rem"})}}>
-                        → Load into Next Week
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              <button onClick={()=>setShowWeekTypePicker(false)} style={{...btnS({width:"100%",marginTop:"0.65rem",fontSize:"0.76rem"})}}>Close</button>
-            </div>
-          );
-        })()}
-
-        <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${T.border}`,overflowX:"auto"}}>
+        <ScrollTabs style={{marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${T.border}`}}>
           {subTabs.map(st=>(
-            <button key={st.id} onClick={()=>setMealSubTab(st.id)} style={{flex:1,minWidth:"fit-content",background:mealSubTab===st.id?T.sage:"transparent",color:mealSubTab===st.id?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.4rem 0.55rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem",justifyContent:"center"}}>
+            <button key={st.id} onClick={()=>setMealSubTab(st.id)} style={{flexShrink:0,background:mealSubTab===st.id?T.sage:"transparent",color:mealSubTab===st.id?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.4rem 0.55rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem",justifyContent:"center"}}>
               {st.emoji} {st.label}
             </button>
           ))}
-        </div>
+        </ScrollTabs>
 
         {mealSubTab==="week"&&(
           <div>
@@ -4236,6 +4404,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               onDeleteRecipe={function(id){setRecipes(function(p){return p.filter(function(x){return x.id!==id;});});}}
               onEditTags={function(id,tags){setRecipes(function(p){return p.map(function(r){return r.id===id?{...r,tags}:r;});});}}
               onAddToShopping={addIngredientToShopping}
+              collapseAfterAdd={true}
               onAddToMealBank={function(name,tags,ingredients){
                 var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
                 if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
@@ -4500,6 +4669,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[editingCategories,setEditingCategories]=useState(false);
     const[newCatName,setNewCatName]=useState("");
     const[collapsedCats,setCollapsedCats]=useState({});
+    const[shopSubTab,setShopSubTab]=useState("list");
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
@@ -4529,7 +4699,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(uncategorized.length===0){setAutoCatStatus("All items already have categories!");setTimeout(()=>setAutoCatStatus(""),2500);return;}
       setIsAutoCategorizing(true);setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
       try{
-        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCategories.join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
+        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCatLabels().join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
         var d=await r.json();
         var txt=d.content?.find(function(b){return b.type==="text";})||{};
         var parsed=JSON.parse((txt.text||"[]").replace(/```json|```/g,"").trim());
@@ -4600,9 +4770,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const base64=await new Promise(res=>{const reader=new FileReader();reader.onload=()=>res(reader.result.split(",")[1]);reader.readAsDataURL(file);});
       const photoUrl=URL.createObjectURL(file);
       try{
-        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCategories.join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
         const d=await r.json();const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
-        const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCategories.includes(parsed.category)?parsed.category:"";
+        const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCatLabels().includes(parsed.category)?parsed.category:"";
         setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
       }catch{setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl,category:""}]);setPhotoStatus("✓ Added item with photo");}
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
@@ -4610,6 +4780,76 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div>
         <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
+        {/* Subtab nav */}
+        <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.75rem",background:T.surface,borderRadius:"0.8rem",padding:"0.3rem"}}>
+          {[{id:"list",emoji:"📋",label:"My Lists"},{id:"meals",emoji:"🍽️",label:"From Meals"}].map(function(st){return(
+            <button key={st.id} onClick={function(){setShopSubTab(st.id);}} style={{flex:1,padding:"0.45rem",border:"none",borderRadius:"0.55rem",background:shopSubTab===st.id?T.white:"transparent",color:shopSubTab===st.id?T.textDark:T.textSoft,fontWeight:shopSubTab===st.id?700:500,fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem",boxShadow:shopSubTab===st.id?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}}>
+              {st.emoji} {st.label}
+            </button>
+          );})}
+        </div>
+
+        {shopSubTab==="meals"&&(function(){
+          var weekMeals=MEAL_DAYS.map(function(day){
+            var mealObj=meals[day]||{};
+            var dinnerName=mealObj.dinner||"";
+            var bankMatch=MEAL_BANK_DATA.find(function(b){return b.name.toLowerCase()===dinnerName.toLowerCase();});
+            var customMatch=[...MEAL_BANK_DATA].find(function(b){return b.name.toLowerCase()===dinnerName.toLowerCase();});
+            return{day:day,dinner:dinnerName,ingredients:(bankMatch||customMatch)?((bankMatch||customMatch).ingredients||[]):[],isToday:day===TODAY_NAME};
+          }).filter(function(d){return d.dinner;});
+          function inList(ing){return shoppingItems.some(function(s){return s.text.toLowerCase()===ing.toLowerCase();});}
+          function addIng(ing,store){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:store||"Grocery Store",done:false,category:""}];});}
+          function addAll(ings){ings.forEach(function(ing){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:"Grocery Store",done:false,category:""}];});});}
+          return(
+            <div>
+              <div style={{...card({background:"linear-gradient(135deg,"+T.sagePale+","+T.surface+")",border:"2px solid "+T.sage+"50",padding:"0.85rem 1rem",marginBottom:"0.75rem"})}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                  <span style={{fontSize:"1.2rem"}}>🛒</span>
+                  <div>
+                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark}}>Meals → Shopping</div>
+                    <div style={{color:T.textSoft,fontSize:"0.75rem",marginTop:"0.1rem"}}>Tap ingredients to add them to your list, or pull everything at once.</div>
+                  </div>
+                </div>
+              </div>
+              {weekMeals.length===0?(
+                <div style={{...card({textAlign:"center",padding:"2rem"})}}>
+                  <p style={{color:T.textFaint,fontSize:"0.85rem"}}>No meals planned this week yet.</p>
+                </div>
+              ):weekMeals.map(function(d){
+                var allAdded=d.ingredients.length>0&&d.ingredients.every(function(ing){return inList(ing);});
+                return(
+                  <div key={d.day} style={{...card({borderLeft:"4px solid "+(d.isToday?T.sage:T.borderSoft),marginBottom:"0.55rem"})}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:d.ingredients.length?"0.55rem":"0"}}>
+                      <div>
+                        <div style={{fontSize:"0.62rem",fontWeight:800,textTransform:"uppercase",color:d.isToday?T.sage:T.textFaint,letterSpacing:"0.07em"}}>{d.day}{d.isToday?" · Tonight":""}</div>
+                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{d.dinner}</div>
+                      </div>
+                      {d.ingredients.length>0&&(
+                        <button onClick={function(){addAll(d.ingredients);}} disabled={allAdded} style={{...btnP(allAdded?"#aaa":T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.7rem",opacity:allAdded?0.6:1})}}>
+                          {allAdded?"✓ All added":"Add all"}
+                        </button>
+                      )}
+                    </div>
+                    {d.ingredients.length>0?(
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
+                        {d.ingredients.map(function(ing){
+                          var added=inList(ing);
+                          return(
+                            <button key={ing} onClick={function(){if(!added)addIng(ing);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1px solid "+(added?T.sage:T.border),background:added?T.sagePale:"transparent",color:added?T.sageDark:T.textMid,fontSize:"0.73rem",fontWeight:600,cursor:added?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                              {added?"✓ ":""}{ing}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ):<p style={{color:T.textFaint,fontSize:"0.78rem",fontStyle:"italic",marginTop:"0.35rem"}}>Not in meal bank — add ingredients manually.</p>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {shopSubTab==="list"&&(<>
         <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
             <input ref={shopInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
@@ -4655,18 +4895,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <Icon name="edit" size={11} color={T.textSoft}/> {editingCategories?"Done editing":"Edit categories"}
           </button>
           {editingCategories&&(
-            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.8rem",padding:"0.75rem 1rem",marginTop:"0.4rem"}}>
-              <div style={{fontSize:"0.74rem",color:T.textMid,fontWeight:600,marginBottom:"0.5rem"}}>Shopping categories</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.6rem"}}>
-                {shopCategories.map(function(cat){return(
-                  <div key={cat} style={{display:"flex",alignItems:"center",gap:4,background:T.sandPale,border:`1.5px solid ${T.sand}55`,borderRadius:"2rem",padding:"3px 8px 3px 10px",fontSize:"0.73rem",fontWeight:600,color:T.sandDark}}>
-                    {cat}<button onClick={()=>setShopCategories(function(p){return p.filter(function(c){return c!==cat;});})} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontWeight:900,fontSize:"0.8rem",padding:"0 1px",lineHeight:1}}>×</button>
-                  </div>
-                );})}
+            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginTop:"0.4rem"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.65rem"}}>
+                <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:700}}>Shopping categories</span>
+                <button onClick={function(){setShopCategories([{id:"produce",label:"Produce",emoji:"🥦"},{id:"dairy",label:"Dairy",emoji:"🥛"},{id:"meat",label:"Meat & Seafood",emoji:"🥩"},{id:"frozen",label:"Frozen",emoji:"🧊"},{id:"canned",label:"Canned & Pantry",emoji:"🥫"},{id:"bakery",label:"Bakery",emoji:"🍞"},{id:"beverages",label:"Beverages",emoji:"🧃"},{id:"snacks",label:"Snacks",emoji:"🍿"},{id:"deli",label:"Deli",emoji:"🧀"},{id:"health",label:"Health & Beauty",emoji:"🧴"},{id:"household",label:"Household",emoji:"🧹"},{id:"baby",label:"Baby & Kids",emoji:"🍼"},{id:"pets",label:"Pet Supplies",emoji:"🐾"},{id:"other",label:"Other",emoji:"📦"}]);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",fontSize:"0.68rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",padding:"1px 7px"}}>Reset</button>
               </div>
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <input value={newCatName} onChange={e=>setNewCatName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,newCatName.trim()];});setNewCatName("");}}} placeholder="New category…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
-                <button onClick={()=>{if(newCatName.trim()){setShopCategories(function(p){return[...p,newCatName.trim()];});setNewCatName("");}}} style={btnP(T.sand,{padding:"0.35rem 0.7rem",fontSize:"0.78rem"})}>Add</button>
+              <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.65rem"}}>
+                {shopCategories.map(function(cat,ci){
+                  var lbl=catLabel(cat);var emj=catEmoji(cat);var cid=catId(cat);
+                  return(
+                    <div key={cid||lbl} style={{display:"flex",alignItems:"center",gap:"0.4rem",background:T.surface,borderRadius:"0.6rem",padding:"0.3rem 0.5rem"}}>
+                      <input value={emj} onChange={function(e){setShopCategories(function(p){return p.map(function(c,i){return i===ci?(typeof c==="string"?{id:c,label:c,emoji:e.target.value}:{...c,emoji:e.target.value}):c;});});}} style={{width:32,border:"none",background:"transparent",fontSize:"1rem",textAlign:"center",cursor:"text",fontFamily:"inherit",padding:0}} placeholder="📦"/>
+                      <input value={lbl} onChange={function(e){setShopCategories(function(p){return p.map(function(c,i){return i===ci?(typeof c==="string"?{id:e.target.value,label:e.target.value,emoji:""}:{...c,label:e.target.value}):c;});});}} style={{flex:1,border:"none",background:"transparent",fontSize:"0.8rem",fontWeight:600,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none"}} placeholder="Category name"/>
+                      <button onClick={function(){setShopCategories(function(p){var a=[...p];if(ci>0){var t=a[ci-1];a[ci-1]=a[ci];a[ci]=t;}return a;});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"0 2px"}} title="Move up">↑</button>
+                      <button onClick={function(){setShopCategories(function(p){var a=[...p];if(ci<a.length-1){var t=a[ci+1];a[ci+1]=a[ci];a[ci]=t;}return a;});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"0 2px"}} title="Move down">↓</button>
+                      <button onClick={function(){setShopCategories(function(p){return p.filter(function(_,i){return i!==ci;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontWeight:900,fontSize:"0.85rem",padding:"0 2px",lineHeight:1}}>×</button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
+                <input value={newCatName} onChange={e=>setNewCatName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} placeholder="New category name…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
+                <button onClick={()=>{if(newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} style={btnP(T.sand,{padding:"0.35rem 0.75rem",fontSize:"0.78rem"})}>+ Add</button>
               </div>
             </div>
           )}
@@ -4680,7 +4930,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var accent=STORE_COLORS[si%STORE_COLORS.length];var isCollapsed=!!collapsedStores[store];var isDragTarget=dragOverStoreTarget===store;
           var categorized={};var uncatKey="__uncat__";
           storeItems.forEach(function(item){var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;if(!categorized[cat])categorized[cat]=[];categorized[cat].push(item);});
-          var orderedCats=shopCategories.filter(function(c){return categorized[c]&&categorized[c].length>0;});
+          // Order cats by shopCategories order, using label matching
+          var orderedCats=shopCategories.filter(function(c){var lbl=catLabel(c);return categorized[lbl]&&categorized[lbl].length>0;}).map(function(c){return catLabel(c);});
+          // Also include any legacy string cats not in current list
+          Object.keys(categorized).forEach(function(k){if(k!==uncatKey&&!orderedCats.includes(k))orderedCats.push(k);});
           if(categorized[uncatKey]&&categorized[uncatKey].length>0)orderedCats.push(uncatKey);
           var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
           return(
@@ -4711,12 +4964,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   {storeItems.length===0&&!inlineStore&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet — tap + to add</p>}
                   {orderedCats.map(function(cat){
                     var catItems=categorized[cat]||[];var catKey=store+"__"+cat;var isCatCollapsed=!!collapsedCats[catKey];var isUncat=cat===uncatKey;
+                    var catObj=shopCategories.find(function(c){return catLabel(c)===cat;});var catEmj=catObj?catEmoji(catObj):"";
                     return(
                       <div key={cat} style={{marginTop:orderedCats.length>1?"0.5rem":0}}>
                         {orderedCats.length>1&&(
                           <div onClick={()=>toggleCatCollapse(catKey)} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.25rem 0",cursor:"pointer",userSelect:"none",marginBottom:"0.2rem"}}>
+                            <span style={{fontSize:"0.8rem"}}>{isUncat?"📦":catEmj}</span>
                             <span style={{fontSize:"0.67rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:isUncat?T.textFaint:accent}}>{isUncat?"Uncategorized":cat}</span>
                             <div style={{flex:1,height:1,background:T.borderSoft}}/>
+                            <span style={{fontSize:"0.65rem",color:T.textFaint,fontWeight:600}}>{catItems.length}</span>
                             <span style={{fontSize:"0.62rem",color:T.textFaint}}>{isCatCollapsed?"▶":"▼"}</span>
                           </div>
                         )}
@@ -4749,6 +5005,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         })}
         {shoppingItems.some(i=>i.done)&&<button onClick={()=>setShoppingItems(p=>p.filter(i=>!i.done))} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700})}}>Clear completed items</button>}
+        </>)}
       </div>
     );
   }
@@ -5079,7 +5336,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         {/* Tab bar */}
-        <div style={{display:"flex",gap:0,overflowX:"auto",borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem",paddingBottom:"1px"}}>
+        <ScrollTabs style={{borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem"}}>
           <button onClick={function(){_setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
             📥 Unfiled
             {unfiled.length>0&&<span style={{background:"#e05c5c",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{unfiled.length}</span>}
@@ -5104,7 +5361,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             );
           })}
-        </div>
+        </ScrollTabs>
 
         {/* Items */}
         {tabItems.length===0&&(
@@ -5214,7 +5471,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {key:"cookingStyle",q:"How would you describe your cooking style?",placeholder:"e.g. Quick & simple"},
     ];
     const currentQ=ONBOARD_QUESTIONS[onboardStep];
-
     function saveSettingsProfile() {
       setFamilyProfile(onboardAnswers);
       if (onboardAnswers.parentNames) {
@@ -5243,27 +5499,42 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
       );
     }
+
+    // ── local state for new member input ───────────────────────────
+    const [newPersonName, setNewPersonNameLocal] = useState("");
+
     return(
       <div>
         <SecHead emoji="⚙️" title="Settings"/>
-        <SettingSection id="family" title="👥 Family Profile">
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-            <div style={{display:"flex",gap:"0.4rem"}}>
-              <button onClick={()=>setShowOnboardingWizard(true)} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>🔄 Setup wizard</button>
-              <button onClick={()=>setShowOnboarding(v=>!v)} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.78rem"})}>{familyProfile?"Edit":"Set up"}</button>
-            </div>
+
+        {/* ── FAMILY PROFILE ─────────────────────────────────────── */}
+        <SettingSection id="family" title="👤 Family Profile">
+          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
+            <button onClick={()=>setShowOnboardingWizard(true)} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>🔄 Setup wizard</button>
+            <button onClick={()=>setShowOnboarding(v=>!v)} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.78rem"})}>{familyProfile?"Edit profile":"Set up"}</button>
           </div>
+
           {familyProfile&&!showOnboarding&&(
-            <div style={{display:"flex",flexDirection:"column",gap:"0.35rem"}}>
-              {[["Names",familyProfile?.parentNames],["Kids",familyProfile?.numKids?`${familyProfile.numKids} (ages: ${familyProfile.kidAges||"?"})`:null],["Diet",familyProfile?.dietaryNeeds],["Challenge",familyProfile?.biggestChallenge],["Fav dinner",familyProfile?.favoriteDinner]].filter(([,v])=>v).map(([k,v])=>(
-                <div key={k} style={{display:"flex",gap:"0.5rem"}}>
-                  <span style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:80}}>{k}</span>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.32rem",marginBottom:"1rem"}}>
+              {[
+                ["Names",familyProfile?.parentNames],
+                ["Kids",familyProfile?.numKids?`${familyProfile.numKids} (ages: ${familyProfile.kidAges||"?"})`:null],
+                ["Diet",familyProfile?.dietaryNeeds],
+                ["Home vibe",familyProfile?.homeVibe],
+                ["Pets",familyProfile?.pets],
+                ["City",familyProfile?.city],
+                ["School schedule",familyProfile?.schoolSchedule],
+                ["Fav dinner",familyProfile?.favoriteDinner],
+              ].filter(([,v])=>v).map(([k,v])=>(
+                <div key={k} style={{display:"flex",gap:"0.5rem",alignItems:"baseline"}}>
+                  <span style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:96,flexShrink:0}}>{k}</span>
                   <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:600}}>{String(v)}</span>
                 </div>
               ))}
             </div>
           )}
-          {!familyProfile&&!showOnboarding&&<p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.6}}>Set up your family profile to get personalised meal ideas and AI support.</p>}
+          {!familyProfile&&!showOnboarding&&<p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.6,marginBottom:"0.75rem"}}>Set up your family profile to get personalised meal ideas and AI support.</p>}
+
           {showOnboarding&&(
             <div style={{marginTop:"0.75rem"}}>
               <div style={{width:"100%",height:4,background:T.borderSoft,borderRadius:"2rem",marginBottom:"1rem",overflow:"hidden"}}>
@@ -5283,70 +5554,245 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             </div>
           )}
-        </SettingSection>
-        {/* AI Memory */}
-        {Object.keys(aiMemory).length>0&&(
-          <SettingSection id="aimemory" title="🧠 What the AI Knows" defaultOpen={false}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-              <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
-            </div>
-            {Object.entries(aiMemory).map(([q,a],i)=>(
-              <div key={i} style={{padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-                <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{q}</div>
-                <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{a}</div>
+
+          {/* Extra profile fields — always editable inline */}
+          {!showOnboarding&&(
+            <div style={{marginTop:"0.75rem",borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.75rem"}}>
+              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.6rem"}}>Quick details</div>
+              <div style={{display:"flex",flexDirection:"column",gap:"0.45rem"}}>
+                {[
+                  {key:"homeVibe",placeholder:"Home vibe / values (e.g. calm, adventurous, faith-led)"},
+                  {key:"pets",placeholder:"Pets (e.g. 1 dog, 2 cats)"},
+                  {key:"city",placeholder:"City or region (for weather & context)"},
+                  {key:"schoolSchedule",placeholder:"School schedule note (e.g. M–F 8–3, homeschool)"},
+                  {key:"vehicles",placeholder:"Vehicles (e.g. 2019 Honda Pilot, minivan)"},
+                ].map(function(field){return(
+                  <div key={field.key} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                    <input
+                      value={(familyProfile&&familyProfile[field.key])||""}
+                      onChange={function(e){setFamilyProfile(function(p){return{...(p||{}),[field.key]:e.target.value};});}}
+                      placeholder={field.placeholder}
+                      style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.65rem"})}}
+                    />
+                  </div>
+                );})}
               </div>
-            ))}
-          </SettingSection>
-        )}
-        <SettingSection id="calcolors" title="🎨 Calendar Color Labels" defaultOpen={false}>
-          {(function(){
+            </div>
+          )}
+
+          {/* Household Members — merged here */}
+          {!showOnboarding&&(function(){
+            var [newMemberName,setNewMemberName]=useState("");
+            var [newMemberAge,setNewMemberAge]=useState("");
+            var [newMemberRole,setNewMemberRole]=useState("");
+            var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
+            function addMember(){
+              if(!newMemberName.trim())return;
+              var age=newMemberAge.trim()?parseInt(newMemberAge.trim(),10):null;
+              var isMinor=age!==null&&age<18;
+              setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:isMinor}];});
+              setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+            }
             return(
-              <div>
-                <p style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.75rem",lineHeight:1.55}}>Rename the color labels that appear on your calendar events.</p>
-                <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
-                  {CAL_COLOR_OPTIONS.map(function(opt){
-                    var currentLabel=calColorLabels[opt.color]||opt.label;
-                    return(
-                      <div key={opt.color} style={{display:"flex",alignItems:"center",gap:"0.6rem",background:T.surface,borderRadius:"0.65rem",padding:"0.4rem 0.65rem",border:`1px solid ${T.borderSoft}`}}>
-                        <div style={{width:18,height:18,borderRadius:"50%",background:opt.color,flexShrink:0}}/>
+              <div style={{marginTop:"0.9rem",borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.75rem"}}>
+                <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People living in this home</div>
+                {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
+                  var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
+                  return(
+                    <div key={p.id} style={{padding:"0.6rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+                      {/* Row 1: color dot + name + age badge + role badge + delete */}
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <div style={{width:12,height:12,borderRadius:"50%",background:p.color,flexShrink:0,marginTop:1}}/>
                         <input
-                          value={currentLabel}
-                          onChange={function(e){setCalColorLabels(function(p){return{...p,[opt.color]:e.target.value};});}}
-                          placeholder={opt.label}
-                          style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.25rem 0.5rem",border:"none",background:"transparent"})}}
+                          value={p.name}
+                          onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,name:e.target.value}:x;});});}}
+                          style={{flex:1,border:"none",background:"transparent",fontSize:"0.86rem",fontWeight:600,color:T.textDark,fontFamily:"inherit",padding:"0",outline:"none",minWidth:0}}
                         />
-                        {calColorLabels[opt.color]&&calColorLabels[opt.color]!==opt.label&&(
-                          <button onClick={function(){setCalColorLabels(function(p){var n={...p};delete n[opt.color];return n;});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontFamily:"inherit"}}>Reset</button>
+                        {p.age!=null&&(
+                          <span style={{fontSize:"0.68rem",fontWeight:700,color:isMinorFlag?T.sand:T.blue,background:isMinorFlag?T.sandPale:T.bluePale,borderRadius:"2rem",padding:"1px 7px",flexShrink:0,whiteSpace:"nowrap"}}>
+                            {isMinorFlag?"Age "+p.age:"Adult"}
+                          </span>
                         )}
+                        {p.role&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft,background:T.surface,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{p.role}</span>}
+                        <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px",display:"flex",flexShrink:0}}><Icon name="trash" size={13} color={T.textFaint}/></button>
                       </div>
-                    );
-                  })}
+                      {/* Row 2: age + role edit + color */}
+                      <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",paddingLeft:"1.4rem",marginTop:"0.4rem",alignItems:"center"}}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={120}
+                          value={p.age!=null?p.age:""}
+                          onChange={function(e){
+                            var v=e.target.value;
+                            var age=v===""?null:parseInt(v,10);
+                            setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,age:age,isMinor:age!=null&&age<18}:x;});});
+                          }}
+                          placeholder="Age"
+                          style={{...inp({width:52,fontSize:"0.75rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}
+                        />
+                        <select
+                          value={p.role||""}
+                          onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,role:e.target.value||null}:x;});});}}
+                          style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}
+                        >
+                          <option value="">Role…</option>
+                          {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+                        </select>
+                        <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
+                          {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
+                            <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?`3px solid ${T.textDark}`:`2px solid transparent`,cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+                          );})}
+                          <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${T.border}`,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}} >
+                            <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Add new member */}
+                <div style={{marginTop:"0.75rem",background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:`1px solid ${T.borderSoft}`}}>
+                  <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Add someone</div>
+                  <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
+                    <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+                    <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+                  </div>
+                  <div style={{display:"flex",gap:"0.4rem"}}>
+                    <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
+                      <option value="">Role (optional)</option>
+                      {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+                    </select>
+                    <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
+                  </div>
                 </div>
-                <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.65rem"}}>Labels appear under event dots in the calendar views.</p>
               </div>
             );
           })()}
         </SettingSection>
-        <SettingSection id="birthdays" title="🎂 Birthdays & Celebrations" defaultOpen={false}>
-          <div style={{background:T.sandPale,border:`1.5px solid ${T.sand}55`,borderRadius:"0.85rem",padding:"0.85rem 1rem"}}>
-            <div style={{fontWeight:700,fontSize:"0.88rem",color:T.sandDark,marginBottom:"0.35rem"}}>Birthdays live in Anchor Vault</div>
-            <p style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.55,margin:"0 0 0.65rem"}}>Add and manage birthdays from the Anchor side — they automatically appear on your calendar in pink each year.</p>
-            <button onClick={function(){window.dispatchEvent(new CustomEvent("af-open-anchor",{detail:"celebrations"}));}} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:"0.4rem"})}}>
-              ⚓ Go to Anchor Vault
-            </button>
+
+        {/* ── FLOW ───────────────────────────────────────────────── */}
+        <SettingSection id="flow" title="🌊 Flow" defaultOpen={false}>
+          <div style={{marginBottom:"1rem"}}>
+            <label style={lbl}>What should Ripple call you?</label>
+            <input
+              value={preferredName}
+              onChange={e=>setPreferredName(e.target.value)}
+              placeholder={familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||"e.g. Lindsey"}
+              style={inp()}
+            />
+            <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.3rem"}}>Used in your daily anchor greeting and AI messages.</p>
+          </div>
+          <div style={{marginBottom:"0.85rem"}}>
+            <label style={lbl}>Greeting tone</label>
+            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+              {[
+                {id:"warm",label:"Warm & encouraging",emoji:"🌿"},
+                {id:"calm",label:"Calm & minimal",emoji:"🌊"},
+                {id:"motivating",label:"Energising",emoji:"⚡"},
+                {id:"gentle",label:"Gentle & soft",emoji:"🕊️"},
+              ].map(function(tone){return(
+                <button key={tone.id} onClick={function(){setFlowGreetingTone(tone.id);}} style={{padding:"0.38rem 0.8rem",borderRadius:"2rem",border:`1.5px solid ${flowGreetingTone===tone.id?T.blue:T.border}`,background:flowGreetingTone===tone.id?T.bluePale:"transparent",color:flowGreetingTone===tone.id?T.blue:T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                  {tone.emoji} {tone.label}
+                </button>
+              );})}
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Flow mode default</label>
+            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+              {["Smooth","Busy","Survival"].map(function(mode){
+                var m=FM[mode];
+                return(
+                  <button key={mode} onClick={function(){setFlowMode(mode);}} style={{padding:"0.38rem 0.9rem",borderRadius:"2rem",border:`1.5px solid ${flowMode===mode?m.color:T.border}`,background:flowMode===mode?m.color+"22":"transparent",color:flowMode===mode?m.color:T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    {m.emoji} {mode}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </SettingSection>
+
+        {/* ── BRAIN DUMP CATEGORIES ──────────────────────────────── */}
+        <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false}>
+          <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
+        </SettingSection>
+
+        {/* ── WEEKLY / DAY THEMES ────────────────────────────────── */}
+        <SettingSection id="daythemes" title="📅 Day Themes" defaultOpen={false}>
+          <p style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.6,marginBottom:"0.85rem"}}>Give each day a focus. These themes guide Ripple's suggestions and appear across your weekly view.</p>
+          {(function(){
+            const [editingDayS, setEditingDayS] = useState(null);
+            const [editFormS, setEditFormS] = useState({theme:"",emoji:"",desc:""});
+            const DAY_COLORS_S=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
+            function openEdit(day){setEditingDayS(day);setEditFormS({...(rhythm[day]||{})});}
+            function saveEdit(){setRhythm(p=>({...p,[editingDayS]:{...editFormS}}));setEditingDayS(null);}
+            function applyP(preset){if(preset.theme==="Custom"){setEditFormS(p=>({...p,emoji:preset.emoji}));return;}setEditFormS({theme:preset.theme,emoji:preset.emoji,desc:preset.desc});}
+            return(
+              <div>
+                {MEAL_DAYS.map(function(day,di){
+                  var dr=rhythm[day]||{};var accent=DAY_COLORS_S[di%DAY_COLORS_S.length];
+                  var isToday=day===TODAY_NAME;
+                  return(
+                    <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.5rem",borderBottom:`1px solid ${T.borderSoft}`}}>
+                      <span style={{fontSize:"1.1rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                          <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.88rem"}}>{day}</span>
+                          {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
+                          {dr.theme&&<span style={{fontSize:"0.76rem",color:T.textSoft,fontWeight:500}}>· {dr.theme}</span>}
+                        </div>
+                        {dr.desc&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
+                      </div>
+                      <button onClick={()=>openEdit(day)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+                    </div>
+                  );
+                })}
+                {editingDayS&&(
+                  <ModalBox title={`Edit ${editingDayS}`} onClose={()=>setEditingDayS(null)}>
+                    <div style={{marginBottom:"0.75rem"}}>
+                      <label style={lbl}>Quick Presets</label>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
+                        {THEME_PRESETS.map((pr,i)=><button key={i} onClick={()=>applyP(pr)} style={{background:editFormS.theme===pr.theme?T.blue:T.white,color:editFormS.theme===pr.theme?"#fff":T.textMid,border:`1.5px solid ${editFormS.theme===pr.theme?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>)}
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
+                      <div><label style={lbl}>Emoji</label><input value={editFormS.emoji} onChange={e=>setEditFormS(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+                      <div><label style={lbl}>Theme</label><input value={editFormS.theme} onChange={e=>setEditFormS(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
+                    </div>
+                    <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input value={editFormS.desc} onChange={e=>setEditFormS(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
+                    <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                      <button onClick={()=>setEditingDayS(null)} style={btnS()}>Cancel</button>
+                      <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
+                    </div>
+                  </ModalBox>
+                )}
+              </div>
+            );
+          })()}
+        </SettingSection>
+
+        {/* ── APPEARANCE ─────────────────────────────────────────── */}
+        <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.65rem"}}>
+            {Object.entries(THEMES).map(([key,th])=>(
+              <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:`2px solid ${themeName===key?T.blue:T.border}`,borderRadius:"0.9rem",padding:"0.9rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
+                <div style={{fontSize:"1.5rem",marginBottom:"0.32rem"}}>{th.emoji}</div>
+                <div style={{fontWeight:700,fontSize:"0.82rem"}}>{th.label}</div>
+              </button>
+            ))}
+          </div>
+        </SettingSection>
+
+        {/* ── NOTIFICATIONS ──────────────────────────────────────── */}
         <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
-
-          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Anchor & Flow sends warm AI-powered notifications throughout your day — like having a family assistant checking in.</p>
-
-          {/* Notification types */}
+          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Anchor & Flow sends warm AI-powered check-ins throughout your day.</p>
           {[
-            {time:"7:00 am", emoji:"🌅", label:"Morning anchor", desc:"Your daily agenda, tasks & events"},
-            {time:"12:00 pm", emoji:"🌊", label:"Midday check-in", desc:"Progress update & encouragement"},
-            {time:"3:00 pm", emoji:"🍽️", label:"Dinner heads-up", desc:"Defrost reminders & meal prep"},
-            {time:"5:00 pm", emoji:"🌙", label:"Evening recap", desc:"Ripple-style day summary + tomorrow preview"},
-            {time:"2hrs before", emoji:"⏰", label:"Event nudges", desc:"Smart reminders before appointments"},
+            {time:"7:00 am",emoji:"🌅",label:"Morning anchor",desc:"Your daily agenda, tasks & events"},
+            {time:"12:00 pm",emoji:"🌊",label:"Midday check-in",desc:"Progress update & encouragement"},
+            {time:"3:00 pm",emoji:"🍽️",label:"Dinner heads-up",desc:"Defrost reminders & meal prep"},
+            {time:"5:00 pm",emoji:"🌙",label:"Evening recap",desc:"Ripple-style day summary + tomorrow preview"},
+            {time:"2hrs before",emoji:"⏰",label:"Event nudges",desc:"Smart reminders before appointments"},
           ].map((n,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
               <span style={{fontSize:"1.1rem",flexShrink:0}}>{n.emoji}</span>
@@ -5357,7 +5803,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <span style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:600,flexShrink:0}}>{n.time}</span>
             </div>
           ))}
-
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,marginTop:"0.25rem"}}>
             <span style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>Browser notifications</span>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
@@ -5365,24 +5810,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {notifPermission!=="granted"&&notifPermission!=="denied"&&<button onClick={requestNotifPermission} style={btnP(T.blue,{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>Enable</button>}
             </div>
           </div>
-
           {notifPermission==="granted"&&(
             <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginTop:"0.75rem"}}>
-              <button onClick={()=>{
-                const todayTasks=tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);
-                const todayMeal=(meals[TODAY_NAME]||{}).dinner;
-                const todayEvts=calEvents.filter(e=>e.date===TODAY.toISOString().split("T")[0]);
-                new Notification("⚓️ Your daily anchor is ready", {body:`${todayEvts.length>0?`First up: ${todayEvts[0].title}. `:""}${todayTasks.filter(t=>!t.done).length} tasks today.${todayMeal?` Dinner: ${todayMeal}.`:""}`, icon:"/favicon.svg"});
-              }} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Preview morning</button>
-              <button onClick={()=>{
-                const done=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&t.done&&!t.archived).length;
-                const pending=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.done&&!t.archived).length;
-                new Notification("🌙 Evening recap", {body:`${done>0?`${done} things done today.`:""} ${pending>0?`${pending} still on your list.`:""} Rest up — tomorrow is a fresh start.`, icon:"/favicon.svg"});
-              }} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Preview evening</button>
+              <button onClick={()=>{const todayTasks=tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);const todayMeal=(meals[TODAY_NAME]||{}).dinner;const todayEvts=calEvents.filter(e=>e.date===TODAY.toISOString().split("T")[0]);new Notification("⚓️ Your daily anchor is ready",{body:`${todayEvts.length>0?`First up: ${todayEvts[0].title}. `:""}${todayTasks.filter(t=>!t.done).length} tasks today.${todayMeal?` Dinner: ${todayMeal}.`:""}`,icon:"/favicon.svg"});}} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Preview morning</button>
+              <button onClick={()=>{const done=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&t.done&&!t.archived).length;const pending=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.done&&!t.archived).length;new Notification("🌙 Evening recap",{body:`${done>0?`${done} things done today.`:""} ${pending>0?`${pending} still on your list.`:""} Rest up — tomorrow is a fresh start.`,icon:"/favicon.svg"});}} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Preview evening</button>
               <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();}} style={btnP(T.blue,{fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Schedule today's</button>
             </div>
           )}
-
           {notifications.filter(n=>!n.fired).length>0&&(
             <div style={{marginTop:"0.85rem"}}>
               <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
@@ -5397,7 +5831,38 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </SettingSection>
-        <SettingSection id="sync" title="🔄 Family Sync">
+
+        {/* ── VISIBLE SECTIONS ───────────────────────────────────── */}
+        <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false}>
+          <p style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.75rem",lineHeight:1.55}}>Hide sections you don't use. You can bring them back any time.</p>
+          {TABS.filter(t=>t.id!=="settings"&&t.id!=="anchor").map(t=>(
+            <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+              <span style={{fontSize:"0.87rem",color:T.textDark,fontWeight:600}}>{t.emoji} {t.label}</span>
+              <button onClick={()=>{setSections(p=>{const next={...p,[t.id]:!p[t.id]};try{localStorage.setItem("af_sections",JSON.stringify(next));}catch{}window.dispatchEvent(new Event("af-sections-changed"));return next;})}} style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:sections[t.id]!==false?T.sage:T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}>
+                <div style={{position:"absolute",top:4,left:sections[t.id]!==false?22:4,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.22s",boxShadow:"0 1px 4px rgba(0,0,0,0.18)"}}/>
+              </button>
+            </div>
+          ))}
+        </SettingSection>
+
+        {/* ── AI MEMORY ──────────────────────────────────────────── */}
+        {Object.keys(aiMemory).length>0&&(
+          <SettingSection id="aimemory" title="🧠 What Ripple Knows" defaultOpen={false}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
+              <p style={{fontSize:"0.78rem",color:T.textSoft,margin:0}}>Things Ripple has learned about your household from conversations.</p>
+              <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
+            </div>
+            {Object.entries(aiMemory).map(([q,a],i)=>(
+              <div key={i} style={{padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+                <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{q}</div>
+                <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{a}</div>
+              </div>
+            ))}
+          </SettingSection>
+        )}
+
+        {/* ── SIGN IN / SYNC ─────────────────────────────────────── */}
+        <SettingSection id="sync" title="🔐 Sign In & Sync" defaultOpen={false}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
               <Icon name="sync" size={18} color={T.blueDark}/>
@@ -5406,18 +5871,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {syncStatus==="syncing"&&<span style={{fontSize:"0.72rem",color:T.sand,fontWeight:700}}>⟳ Syncing…</span>}
             {syncStatus==="error"&&<span style={{fontSize:"0.72rem",color:T.rose,fontWeight:700}}>⚠ Error</span>}
           </div>
-{false ? (
+          {false ? (
             <div>
               <p style={{color:T.textMid,fontSize:"0.82rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Sign in to sync your household across multiple devices and share with your partner.</p>
               <button onClick={()=>setShowAuthModal(true)} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.8rem",fontSize:"0.9rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem",marginBottom:"0.5rem"})}>
                 ⚓️ Sign in / Create account
               </button>
-              <div style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.75rem",padding:"0.65rem 0.85rem",fontSize:"0.72rem",color:T.textSoft}}>
-                <strong style={{color:T.textMid}}>Auth state debug:</strong><br/>
-                Token: {localStorage.getItem("af_authToken") ? "✓ stored" : "✗ none"}<br/>
-                User: {(()=>{ try { const u=JSON.parse(localStorage.getItem("af_authUser")||"null"); return u?.email||"none"; } catch { return "none"; } })()}<br/>
-                HH: {localStorage.getItem("af_householdId") || "none"}
-              </div>
             </div>
           ) : (
             <div>
@@ -5443,53 +5902,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </SettingSection>
-        <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false}>
-          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1rem"}}>
-            <Icon name="palette" size={18} color={T.blueDark}/>
 
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.65rem"}}>
-            {Object.entries(THEMES).map(([key,th])=>(
-              <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:`2px solid ${themeName===key?T.blue:T.border}`,borderRadius:"0.9rem",padding:"0.9rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
-                <div style={{fontSize:"1.5rem",marginBottom:"0.32rem"}}>{th.emoji}</div>
-                <div style={{fontWeight:700,fontSize:"0.82rem"}}>{th.label}</div>
-              </button>
-            ))}
-          </div>
-        </SettingSection>
-        <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false}>
-          <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
-        </SettingSection>
-        <SettingSection id="members" title="👥 Household Members" defaultOpen={false}>
-          {people.filter(p=>p&&p.id&&p.name).map(p=>(
-            <div key={p.id} style={{padding:"0.6rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.5rem"}}>
-                <div style={{width:12,height:12,borderRadius:"50%",background:p.color,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.87rem",color:T.textDark,fontWeight:600}}>{p.name}</span>
-                <button onClick={()=>setPeople(p2=>p2.filter(x=>x.id!==p.id))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.textFaint}/></button>
-              </div>
-              <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",paddingLeft:"1.5rem"}}>
-                {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(c=>(
-                  <button key={c} onClick={()=>setPeople(prev=>prev.map(x=>x.id===p.id?{...x,color:c}:x))} style={{width:22,height:22,borderRadius:"50%",background:c,border:p.color===c?`3px solid ${T.textDark}`:`2px solid transparent`,cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
-                ))}
-              </div>
-            </div>
-          ))}
-          <div style={{display:"flex",gap:"0.5rem",marginTop:"0.82rem"}}>
-            <input value={newPersonName} onChange={e=>setNewPersonName(e.target.value)} placeholder="Add person…" style={inp()}/>
-            <button onClick={()=>{if(newPersonName.trim()){setPeople(p=>[...p,{id:uid(),name:newPersonName.trim(),color:PC[p.length%PC.length]}]);setNewPersonName("");}}} style={btnP(T.sage)}>Add</button>
-          </div>
-        </SettingSection>
-        <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false}>
-          {TABS.filter(t=>t.id!=="settings"&&t.id!=="anchor").map(t=>(
-            <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-              <span style={{fontSize:"0.87rem",color:T.textDark,fontWeight:600}}>{t.emoji} {t.label}</span>
-              <button onClick={()=>{setSections(p=>{const next={...p,[t.id]:!p[t.id]};try{localStorage.setItem("af_sections",JSON.stringify(next));}catch{}window.dispatchEvent(new Event("af-sections-changed"));return next;})}} style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:sections[t.id]!==false?T.sage:T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}>
-                <div style={{position:"absolute",top:4,left:sections[t.id]!==false?22:4,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.22s",boxShadow:"0 1px 4px rgba(0,0,0,0.18)"}}/>
-              </button>
-            </div>
-          ))}
-        </SettingSection>
         <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`,textAlign:"center",padding:"1.8rem"})}}>
           <AnchorLogo size={44} color={T.blue}/>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
@@ -5982,7 +6395,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     if(!calFormMode)return null;
     function handleSave(){
       if(!f.title||!f.date)return;
-      const finalLabel=f.colorCustom.trim()||f.colorLabel;const ev={...f,colorLabel:finalLabel};
+      const resolvedLabel=calColorLabels[f.color]||f.colorCustom.trim()||f.colorLabel;const ev={...f,colorLabel:resolvedLabel};
       if(calFormMode==="add")setCalEvents(p=>[...p,{id:uid(),...ev}]);
       else setCalEvents(p=>p.map(e=>e.id===calFormId?{...ev,id:calFormId}:e));
       // Set reminder if provided
@@ -6017,12 +6430,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {CAL_COLOR_OPTIONS.map(({color,label})=>(
               <button key={color} onClick={()=>setF(p=>({...p,color,colorLabel:label,colorCustom:""}))} title={label} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.28rem",background:"none",border:"none",cursor:"pointer",padding:"0.2rem"}}>
                 <div style={{width:30,height:30,borderRadius:"50%",background:color,border:f.color===color?`3px solid ${T.textDark}`:`3px solid transparent`,transition:"border 0.15s"}}/>
-                <span style={{fontSize:"0.6rem",fontWeight:700,color:f.color===color?T.textDark:T.textSoft}}>{label}</span>
+                <span style={{fontSize:"0.6rem",fontWeight:700,color:f.color===color?T.textDark:T.textSoft}}>{calColorLabels[color]||label}</span>
               </button>
             ))}
           </div>
-          <input value={f.colorCustom||""} onChange={e=>setF(p=>({...p,colorCustom:e.target.value}))} placeholder="Label e.g. Kids, Work, School..." style={inp()}/>
-          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",marginTop:"0.5rem"}}>
+          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",marginTop:"0.35rem"}}>
             <input type="color" value={f.color||"#6A9BB5"} onChange={e=>setF(p=>({...p,color:e.target.value,colorLabel:"Custom",colorCustom:""}))} style={{width:36,height:36,border:"none",borderRadius:"0.5rem",cursor:"pointer",padding:2,background:"none"}}/>
             <span style={{fontSize:"0.72rem",color:T.textFaint}}>Pick any colour</span>
             <input value={f.color||""} onChange={e=>setF(p=>({...p,color:e.target.value,colorLabel:"Custom",colorCustom:""}))} placeholder="#hex" style={{...inp({flex:1,fontFamily:"monospace",fontSize:"0.8rem"})}}/>
@@ -6434,7 +6846,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 function FlowWrapper({ onHome, onSignOut }) {
   const [, forceUpdate] = React.useReducer(x => x+1, 0);
   const activeTab = homeFlowRef.tab;
-  const _setActiveTab = React.useCallback((t) => { homeFlowRef.goTab(t); forceUpdate(); }, []);
+  const _setActiveTab = React.useCallback((t) => { homeFlowRef.goTab(t); forceUpdate(); window.dispatchEvent(new CustomEvent("af-set-tab", { detail: t })); }, []);
   const [sections, setSections] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true} }
   })
@@ -6467,10 +6879,19 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "gifts",     label: "Celebrate", emoji: "🎉" },
     { id: "pets",      label: "Pets",      emoji: "🐾" },
     { id: "moments",   label: "Moments",   emoji: "✨" },
+    { id: "settings",  label: "Settings",  emoji: "⚙️" },
   ]
-  React.useEffect(() => {
-    window.dispatchEvent(new CustomEvent("af-set-tab", { detail: activeTab }))
-  }, [activeTab])
+  const [anchorHidden, setAnchorHidden] = React.useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}") } catch { return {} }
+  })
+  React.useEffect(function() {
+    function onAnchorStorage() {
+      try { setAnchorHidden(JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}")) } catch {}
+    }
+    window.addEventListener("storage", onAnchorStorage)
+    return function() { window.removeEventListener("storage", onAnchorStorage) }
+  }, [])
+  // af-set-tab now dispatched immediately in _setActiveTab — no useEffect needed
 
   React.useEffect(() => {
     if (activeTab !== "anchor" && activeTab !== "settings" && sections && sections[activeTab] === false) {
@@ -6495,7 +6916,7 @@ function FlowWrapper({ onHome, onSignOut }) {
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {showAnchor ? (
           <>
-          {VAULT_NAV.map(item => (
+          {VAULT_NAV.filter(item => item.id === "settings" || item.id === "home" || !anchorHidden[item.id]).map(item => (
             <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: vaultSection === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: vaultSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
               <span style={{ fontSize: "14px", lineHeight: 1, opacity: item.premium ? 0.25 : 1 }}>{item.emoji}</span>
               <span style={{ fontSize: "7px", color: item.premium ? "rgba(200,169,122,0.2)" : vaultSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: vaultSection === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
