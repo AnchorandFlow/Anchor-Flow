@@ -1055,6 +1055,7 @@ function HomeFlow() {
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
   const [collapsedStores,setCollapsedStores]   = useSaved("collapsedStores",{});
   const [shopCategories,setShopCategories]     = useSaved("shopCategories",["Produce","Dairy","Meat & Seafood","Frozen","Canned & Pantry","Bakery","Beverages","Household","Other"]);
+  const [calColorLabels,setCalColorLabels]     = useSaved("calColorLabels",{});
   const [familyProfile,setFamilyProfile]       = useSaved("familyProfile",null);
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
@@ -3199,7 +3200,25 @@ Respond ONLY in valid JSON:
     const year=calViewDate.getFullYear(), month=calViewDate.getMonth();
     const daysInMonth=getDaysInMonth(year,month);
     const firstDay=getFirstDayOfMonth(year,month);
-    function eventsForDay(d,m2,y2){const mm=m2!==undefined?m2:month,yy=y2!==undefined?y2:year;return calEvents.filter(e=>{if(!e.date)return false;const ed=new Date(e.date+"T00:00:00");return ed.getDate()===d&&ed.getMonth()===mm&&ed.getFullYear()===yy;}).sort((a,b)=>(a.time||"").localeCompare(b.time||""));}
+    function eventsForDay(d,m2,y2){
+      const mm=m2!==undefined?m2:month,yy=y2!==undefined?y2:year;
+      return calEvents.filter(e=>{
+        if(!e.date)return false;
+        const ed=new Date(e.date+"T00:00:00");
+        const baseMatch=ed.getDate()===d&&ed.getMonth()===mm&&ed.getFullYear()===yy;
+        if(baseMatch)return true;
+        if(!e.repeat)return false;
+        // Don't show recurring before the original date
+        const targetDate=new Date(yy,mm,d);
+        if(targetDate<ed)return false;
+        if(e.repeat==="weekly")return ed.getDay()===targetDate.getDay();
+        if(e.repeat==="biweekly"){const diffDays=Math.round((targetDate-ed)/(86400000));return ed.getDay()===targetDate.getDay()&&diffDays%14===0;}
+        if(e.repeat==="monthly")return ed.getDate()===d;
+        if(e.repeat==="yearly")return ed.getDate()===d&&ed.getMonth()===mm;
+        if(e.repeat==="dates"&&Array.isArray(e.repeatDates))return e.repeatDates.includes(d);
+        return false;
+      }).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+    }
     function getWeekDates(ref){const d=new Date(ref);const day=d.getDay();d.setDate(d.getDate()-day);return Array.from({length:7},(_,i)=>{const nd=new Date(d);nd.setDate(d.getDate()+i);return nd;});}
     const weekDates=getWeekDates(calViewDate);
     function navPrev(){if(calView==="month")setCalViewDate(new Date(year,month-1,1));else if(calView==="week"){const d=new Date(calViewDate);d.setDate(d.getDate()-7);setCalViewDate(d);}else{const d=new Date(calViewDate);d.setDate(d.getDate()-1);setCalViewDate(d);}}
@@ -3224,7 +3243,11 @@ Respond ONLY in valid JSON:
         </div>
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
           {["month","week","day"].map(v=>(
-            <button key={v} onClick={()=>{setCalView(v);if(v==="day")setCalViewDate(new Date(TODAY));}} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
+            <button key={v} onClick={()=>{
+              setCalView(v);
+              if(v==="week"&&selectedDay) setCalViewDate(new Date(selectedDay));
+              else if(v==="day") setCalViewDate(selectedDay?new Date(selectedDay):new Date(TODAY));
+            }} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
           ))}
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
@@ -3253,7 +3276,7 @@ Respond ONLY in valid JSON:
                 const isSelected=selectedDay&&selectedDay.getDate()===day&&selectedDay.getMonth()===month&&selectedDay.getFullYear()===year;
                 const isLastCol=(firstDay+i)%7===6;
                 return (
-                  <div key={day} onClick={()=>setSelectedDay(isSelected?null:thisDate)}
+                  <div key={day} onClick={()=>{const d=isSelected?null:thisDate;setSelectedDay(d);if(d)setCalViewDate(new Date(d));}}
                     style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
                     {/* Date number */}
                     <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
@@ -3310,7 +3333,7 @@ Respond ONLY in valid JSON:
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{e.title}</div>
-                  {e.colorLabel&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{e.colorCustom?.trim()||e.colorLabel}</div>}
+                  {e.colorLabel&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||e.colorCustom?.trim()||e.colorLabel}</div>}
                   {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
                   {notifications.some(n=>n.entityId===e.id)&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
                 </div>
@@ -3348,7 +3371,7 @@ Respond ONLY in valid JSON:
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
                   <div style={{width:11,height:11,borderRadius:"50%",background:e.color,marginTop:3}}/>
-                  <span style={{fontSize:"0.54rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",textAlign:"center"}}>{e.colorCustom?.trim()||e.colorLabel||""}</span>
+                  <span style={{fontSize:"0.54rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",textAlign:"center"}}>{calColorLabels[e.color]||e.colorCustom?.trim()||e.colorLabel||""}</span>
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{e.title}</div>
@@ -3793,7 +3816,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {MEALS_TO_SHOW.map(meal=>(
                       <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
                         <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.18rem"}}>{meal}</div>
-                        <div style={{fontSize:"0.82rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400}}>{m[meal]||"—"}</div>
+                        <div style={{fontSize:"0.82rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.3rem"}}>{m[meal]||"—"}</div>
+                        <MealBankDrawer mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                       </div>
                     ))}
                   </div>
@@ -3836,9 +3860,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         </div>
                       </div>
                     );})}
-                  </div>
-                  </div>
-                
                   </div>
                 </div>
               );
@@ -3890,9 +3911,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       {MEAL_DAYS.map(function(day){
                         var k="w"+(wi+1)+"_"+day;
                         return(
-                          <div key={day} style={{display:"grid",gridTemplateColumns:"70px 1fr",gap:"0.5rem",alignItems:"center",padding:"0.28rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                          <div key={day} style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:"0.5rem",alignItems:"center",padding:"0.28rem 0",borderBottom:"1px solid "+T.borderSoft}}>
                             <span style={{fontSize:"0.72rem",fontWeight:700,color:T.textFaint}}>{day.slice(0,3)}</span>
                             <input defaultValue={monthMeals[k]||""} onBlur={function(e){var d=getMonthMeals();d[k]=e.target.value;saveMonthMeals(d);}} placeholder="Dinner…" style={{...inp({padding:"0.28rem 0.5rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
+                            <MealBankDrawer mealType="dinner" allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){var d=getMonthMeals();d[k]=mb.name;saveMonthMeals(d);}} onAddToShopping={addIngredientToShopping}/>
                           </div>
                         );
                       })}
@@ -5125,89 +5147,43 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             ))}
           </SettingSection>
         )}
-        <SettingSection id="birthdays" title="🎂 Birthdays & Celebrations" defaultOpen={false}>
+        <SettingSection id="calcolors" title="🎨 Calendar Color Labels" defaultOpen={false}>
           {(function(){
-            var BMONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-            var [editingBday,setEditingBday] = React.useState(null);
-            var [editVals,setEditVals] = React.useState({});
-            var [showAddForm,setShowAddForm] = React.useState(false);
-            var [newBday,setNewBday] = React.useState({name:"",month:"",day:"",year:""});
-            function startEdit(b){ setEditingBday(b.id); setEditVals({name:b.name,month:String(b.month),day:String(b.day),year:b.year?String(b.year):""}); }
-            function saveEdit(id){ var m=parseInt(editVals.month),d=parseInt(editVals.day),y=editVals.year?parseInt(editVals.year):null; if(!editVals.name.trim()||!m||!d)return; setBirthdays(function(p){return p.map(function(b){return b.id===id?{...b,name:editVals.name.trim(),month:m,day:d,year:y}:b;})}); setEditingBday(null); }
-            function addNew(){ var m=parseInt(newBday.month),d=parseInt(newBday.day),y=newBday.year?parseInt(newBday.year):null; if(!newBday.name.trim()||!m||m<1||m>12||!d||d<1||d>31)return; setBirthdays(function(p){return[...p,{id:uid(),name:newBday.name.trim(),month:m,day:d,year:y||null}];}); setNewBday({name:"",month:"",day:"",year:""}); setShowAddForm(false); }
-            var nowB=new Date();nowB.setHours(0,0,0,0);
-            var sorted=birthdays.slice().sort(function(a,x){
-              var da=new Date(nowB.getFullYear(),a.month-1,a.day);if(da<nowB)da.setFullYear(da.getFullYear()+1);
-              var dx=new Date(nowB.getFullYear(),x.month-1,x.day);if(dx<nowB)dx.setFullYear(dx.getFullYear()+1);
-              return da-dx;
-            });
-            return (
+            return(
               <div>
-                {birthdays.length===0&&!showAddForm&&(
-                  <p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.5rem 0"}}>No birthdays yet — add them and they appear on your calendar each year.</p>
-                )}
-                {sorted.map(function(b){
-                  var nextB=new Date(nowB.getFullYear(),b.month-1,b.day);
-                  if(nextB<nowB)nextB.setFullYear(nextB.getFullYear()+1);
-                  var diffB=Math.round((nextB-nowB)/86400000);
-                  var soonB=diffB<=7;
-                  var isEditing=editingBday===b.id;
-                  return(
-                    <div key={b.id} style={{background:soonB?T.sandPale:T.surface,borderRadius:"0.75rem",marginBottom:"0.4rem",border:"1px solid "+(soonB?T.sand+"60":T.borderSoft),overflow:"hidden"}}>
-                      {isEditing?(
-                        <div style={{padding:"0.65rem 0.75rem"}}>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 60px 60px 72px",gap:"0.4rem",marginBottom:"0.5rem"}}>
-                            <input value={editVals.name} onChange={function(e){setEditVals(function(p){return{...p,name:e.target.value};});}} placeholder="Name" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.55rem"})}}/>
-                            <input value={editVals.month} onChange={function(e){setEditVals(function(p){return{...p,month:e.target.value};});}} placeholder="Mo" type="number" min="1" max="12" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
-                            <input value={editVals.day} onChange={function(e){setEditVals(function(p){return{...p,day:e.target.value};});}} placeholder="Day" type="number" min="1" max="31" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
-                            <input value={editVals.year} onChange={function(e){setEditVals(function(p){return{...p,year:e.target.value};});}} placeholder="Year" type="number" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
-                          </div>
-                          <div style={{display:"flex",gap:"0.4rem"}}>
-                            <button onClick={function(){saveEdit(b.id);}} style={{...btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}}>Save</button>
-                            <button onClick={function(){setEditingBday(null);}} style={{...btnS({fontSize:"0.74rem",padding:"0.3rem 0.65rem"})}}>Cancel</button>
-                            <div style={{flex:1}}/>
-                            <button onClick={function(){setBirthdays(function(p){return p.filter(function(x){return x.id!==b.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"0.3rem",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
-                          </div>
-                        </div>
-                      ):(
-                        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem"}}>
-                          <span style={{fontSize:"1.1rem"}}>🎂</span>
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{b.name}</div>
-                            <div style={{fontSize:"0.72rem",color:T.textFaint}}>{BMONTHS[b.month-1]} {b.day}{b.year?" · born "+b.year:""}</div>
-                          </div>
-                          <div style={{textAlign:"right",flexShrink:0}}>
-                            {diffB===0?<span style={{fontSize:"0.72rem",fontWeight:800,color:T.sand}}>Today! 🎉</span>
-                            :diffB===1?<span style={{fontSize:"0.72rem",fontWeight:700,color:T.sandDark}}>Tomorrow</span>
-                            :<span style={{fontSize:"0.72rem",color:soonB?T.sandDark:T.textFaint}}>{"in "+diffB+" days"}</span>}
-                          </div>
-                          <button onClick={function(){startEdit(b);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.4rem",cursor:"pointer",padding:"3px 8px",fontSize:"0.68rem",color:T.textSoft,fontFamily:"inherit"}}>Edit</button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {showAddForm?(
-                  <div style={{background:T.bluePale,border:"1.5px solid "+T.blue+"40",borderRadius:"0.75rem",padding:"0.7rem 0.75rem",marginTop:"0.5rem"}}>
-                    <div style={{fontSize:"0.68rem",fontWeight:800,color:T.blue,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.4rem"}}>Add birthday</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 60px 60px 72px",gap:"0.4rem",marginBottom:"0.5rem"}}>
-                      <input value={newBday.name} onChange={function(e){setNewBday(function(p){return{...p,name:e.target.value};});}} placeholder="Name" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.55rem"})}}/>
-                      <input value={newBday.month} onChange={function(e){setNewBday(function(p){return{...p,month:e.target.value};});}} placeholder="Mo" type="number" min="1" max="12" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
-                      <input value={newBday.day} onChange={function(e){setNewBday(function(p){return{...p,day:e.target.value};});}} placeholder="Day" type="number" min="1" max="31" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
-                      <input value={newBday.year} onChange={function(e){setNewBday(function(p){return{...p,year:e.target.value};});}} placeholder="Year" type="number" style={{...inp({fontSize:"0.82rem",padding:"0.3rem 0.4rem",textAlign:"center"})}}/>
-                    </div>
-                    <div style={{display:"flex",gap:"0.4rem"}}>
-                      <button onClick={addNew} style={{...btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}}>Add</button>
-                      <button onClick={function(){setShowAddForm(false);setNewBday({name:"",month:"",day:"",year:""}); }} style={{...btnS({fontSize:"0.74rem",padding:"0.3rem 0.65rem"})}}>Cancel</button>
-                    </div>
-                  </div>
-                ):(
-                  <button onClick={function(){setShowAddForm(true);}} style={{...btnP(T.blue,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",marginTop:"0.5rem"})}}>+ Add Birthday</button>
-                )}
-                <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.65rem"}}>Birthdays show in pink on your calendar every year automatically.</p>
+                <p style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.75rem",lineHeight:1.55}}>Rename the color labels that appear on your calendar events.</p>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                  {CAL_COLOR_OPTIONS.map(function(opt){
+                    var currentLabel=calColorLabels[opt.color]||opt.label;
+                    return(
+                      <div key={opt.color} style={{display:"flex",alignItems:"center",gap:"0.6rem",background:T.surface,borderRadius:"0.65rem",padding:"0.4rem 0.65rem",border:`1px solid ${T.borderSoft}`}}>
+                        <div style={{width:18,height:18,borderRadius:"50%",background:opt.color,flexShrink:0}}/>
+                        <input
+                          value={currentLabel}
+                          onChange={function(e){setCalColorLabels(function(p){return{...p,[opt.color]:e.target.value};});}}
+                          placeholder={opt.label}
+                          style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.25rem 0.5rem",border:"none",background:"transparent"})}}
+                        />
+                        {calColorLabels[opt.color]&&calColorLabels[opt.color]!==opt.label&&(
+                          <button onClick={function(){setCalColorLabels(function(p){var n={...p};delete n[opt.color];return n;});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontFamily:"inherit"}}>Reset</button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.65rem"}}>Labels appear under event dots in the calendar views.</p>
               </div>
             );
           })()}
+        </SettingSection>
+        <SettingSection id="birthdays" title="🎂 Birthdays & Celebrations" defaultOpen={false}>
+          <div style={{background:T.sandPale,border:`1.5px solid ${T.sand}55`,borderRadius:"0.85rem",padding:"0.85rem 1rem"}}>
+            <div style={{fontWeight:700,fontSize:"0.88rem",color:T.sandDark,marginBottom:"0.35rem"}}>Birthdays live in Anchor Vault</div>
+            <p style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.55,margin:"0 0 0.65rem"}}>Add and manage birthdays from the Anchor side — they automatically appear on your calendar in pink each year.</p>
+            <button onClick={function(){window.dispatchEvent(new CustomEvent("af-open-anchor",{detail:"celebrations"}));}} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:"0.4rem"})}}>
+              ⚓ Go to Anchor Vault
+            </button>
+          </div>
         </SettingSection>
         <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
 
@@ -5903,13 +5879,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
         <div style={{marginBottom:"0.9rem"}}>
           <label style={lbl}>Repeat</label>
-          <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-            {[{v:"",label:"None"},{v:"weekly",label:"Weekly"},{v:"biweekly",label:"Every 2 wks"},{v:"monthly",label:"Monthly"},{v:"yearly",label:"Yearly"}].map(o=>(
-              <button key={o.v} onClick={()=>setF(p=>({...p,repeat:o.v}))} style={{padding:"0.25rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(f.repeat===o.v?T.blue:T.border),background:f.repeat===o.v?T.bluePale:"transparent",color:f.repeat===o.v?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+          <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+            {[{v:"",label:"None"},{v:"weekly",label:"Weekly"},{v:"biweekly",label:"Every 2 wks"},{v:"monthly",label:"Monthly"},{v:"yearly",label:"Yearly"},{v:"dates",label:"Specific dates"}].map(o=>(
+              <button key={o.v} onClick={()=>setF(p=>({...p,repeat:o.v,repeatDates:o.v==="dates"?(p.repeatDates||[]):[]}))} style={{padding:"0.25rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(f.repeat===o.v?T.blue:T.border),background:f.repeat===o.v?T.bluePale:"transparent",color:f.repeat===o.v?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                 {o.label}
               </button>
             ))}
           </div>
+          {f.repeat==="dates"&&(
+            <div style={{background:T.bgAlt,borderRadius:"0.7rem",padding:"0.6rem 0.75rem",border:`1px solid ${T.border}`}}>
+              <div style={{fontSize:"0.72rem",color:T.textMid,fontWeight:700,marginBottom:"0.5rem"}}>Which days of the month?</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
+                {Array.from({length:31},(_,i)=>i+1).map(function(n){
+                  const active=(f.repeatDates||[]).includes(n);
+                  return(
+                    <button key={n} onClick={()=>setF(p=>{const cur=p.repeatDates||[];return{...p,repeatDates:active?cur.filter(x=>x!==n):[...cur,n].sort((a,b)=>a-b)};})} style={{width:32,height:32,borderRadius:"0.4rem",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                      {n}
+                    </button>
+                  );
+                })}
+              </div>
+              {(f.repeatDates||[]).length>0&&<div style={{fontSize:"0.7rem",color:T.textSoft,marginTop:"0.5rem"}}>Repeats on the {(f.repeatDates||[]).map(n=>{const s=n===1?"st":n===2?"nd":n===3?"rd":"th";return n+s;}).join(", ")} of each month</div>}
+            </div>
+          )}
         </div>
         <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
           <button onClick={closeCalForm} style={btnS()}>Cancel</button>
