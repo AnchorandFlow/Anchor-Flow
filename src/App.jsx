@@ -3110,6 +3110,8 @@ Respond ONLY in valid JSON:
             </button>
           )}
         </div>
+        {/* ── Ripple notification banner ── */}
+        <RippleNotificationBanner />
         {/* ── Ripple Insights ── */}
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
@@ -6826,7 +6828,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="brain"    && <BrainTab/>}
                 {t==="burnout"  && <BurnoutTab/>}
                 {t==="settings" && <SettingsTab/>}
-                {t==="ai" && <><RippleNotificationBanner /><RippleTab/></>}
+                {t==="ai" && <RippleTab/>}
               </div>
             );
           })}
