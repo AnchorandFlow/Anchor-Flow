@@ -47,6 +47,62 @@ function useRippleNotifications() {
   return { notifications, actionNotification, loading };
 }
 
+// ── PWA push notification hook ───────────────────────────────────────────────
+// VAPID public key — replace with your own from: npx web-push generate-vapid-keys
+const VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDkBNjLskvIwt74kS7p-9jJHHhVWjyIw_dZ8IJBhDxk";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+}
+
+function usePushNotifications() {
+  const [permission, setPermission] = React.useState(Notification.permission);
+  const [subscribed, setSubscribed] = React.useState(false);
+
+  const subscribe = React.useCallback(async () => {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      const reg = await navigator.serviceWorker.ready;
+      const perm = await Notification.requestPermission();
+      setPermission(perm);
+      if (perm !== "granted") return;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) { setSubscribed(true); return; }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+      await supabase.from("push_subscriptions").upsert({
+        endpoint: sub.endpoint,
+        subscription_json: JSON.stringify(sub),
+        household_id: localStorage.getItem("af_householdId"),
+        user_agent: navigator.userAgent.slice(0, 200),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "endpoint" });
+      setSubscribed(true);
+    } catch(e) { console.warn("[PWA] Push subscribe failed:", e); }
+  }, []);
+
+  React.useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.ready.then(reg => {
+      reg.pushManager.getSubscription().then(sub => setSubscribed(!!sub));
+    });
+    const onMessage = (e) => {
+      if (e.data && e.data.type === "NOTIF_ACTION") {
+        window.dispatchEvent(new CustomEvent("ripple-notif-action", { detail: e.data }));
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, []);
+
+  return { permission, subscribed, subscribe };
+}
+
 // Action label → { action key, touchpoint type }
 const RIPPLE_ACTION_MAP = {
   'Called her':       { action: 'called',   touchpoint: 'called' },
@@ -71,86 +127,89 @@ function getInitials(name = '') {
 
 function RippleNotificationBanner() {
   const { notifications, actionNotification } = useRippleNotifications();
-  if (notifications.length === 0) return null;
+  const { permission, subscribed, subscribe } = usePushNotifications();
+
+  const handleAction = (label) => {
+    const notif = notifications[0];
+    const mapped = RIPPLE_ACTION_MAP[label];
+    if (!mapped || !notif) return;
+    actionNotification(notif.id, mapped.action, mapped.touchpoint);
+  };
 
   const notif = notifications[0];
   const hasMore = notifications.length > 1;
 
-  const handleAction = (label) => {
-    const mapped = RIPPLE_ACTION_MAP[label];
-    if (!mapped) return;
-    actionNotification(notif.id, mapped.action, mapped.touchpoint);
-  };
-
   return (
-    <div style={{
-      background: 'rgba(250,248,244,0.97)',
-      border: '0.5px solid rgba(200,169,122,0.3)',
-      borderRadius: '14px',
-      padding: '14px 16px 12px',
-      margin: '12px 16px 0',
-    }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px 0' }}>
+      {/* Push opt-in prompt — shown once if not yet subscribed */}
+      {!subscribed && permission !== 'denied' && (
         <div style={{
-          width: 34, height: 34, borderRadius: '50%',
-          background: 'rgba(200,169,122,0.15)',
-          color: '#c8a97a',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 600, flexShrink: 0,
-          fontFamily: 'DM Sans, sans-serif',
+          background: 'rgba(200,169,122,0.08)',
+          border: '0.5px solid rgba(200,169,122,0.25)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          {notif.person_name ? getInitials(notif.person_name) : '✦'}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>
-            Ripple
-            {hasMore && (
-              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#8a8a9a' }}>
-                +{notifications.length - 1} more
-              </span>
-            )}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>Get Ripple on your phone</div>
+            <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>Morning follow-ups delivered as push notifications</div>
           </div>
-          <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif' }}>
-            {new Date(notif.scheduled_for).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-          </div>
-        </div>
-        <button
-          onClick={() => actionNotification(notif.id, 'dismissed')}
-          aria-label="Dismiss"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b0b0be', fontSize: 20, lineHeight: 1, padding: '2px 4px' }}
-        >×</button>
-      </div>
-
-      {/* Copy */}
-      <p style={{
-        fontSize: 14, color: '#2a2a38', lineHeight: 1.55,
-        margin: '0 0 10px', fontFamily: 'DM Sans, sans-serif',
-      }}>
-        {notif.generated_copy}
-      </p>
-
-      {/* Action buttons */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {(notif.action_labels || []).map((label, i) => (
           <button
-            key={label}
-            onClick={() => handleAction(label)}
+            onClick={subscribe}
             style={{
-              fontSize: 12,
-              padding: '5px 13px',
-              borderRadius: 20,
-              border: '0.5px solid',
-              borderColor: i === 0 ? 'rgba(200,169,122,0.6)' : 'rgba(90,90,106,0.25)',
-              background: i === 0 ? 'rgba(200,169,122,0.12)' : 'transparent',
-              color: i === 0 ? '#9a7a52' : '#5a5a6a',
-              cursor: 'pointer',
-              fontFamily: 'DM Sans, sans-serif',
-              whiteSpace: 'nowrap',
+              background: 'rgba(200,169,122,0.15)', border: '0.5px solid rgba(200,169,122,0.5)',
+              borderRadius: 20, padding: '6px 14px', fontSize: 12, color: '#9a7a52',
+              fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
             }}
-          >{label}</button>
-        ))}
-      </div>
+          >Turn on</button>
+        </div>
+      )}
+
+      {/* Notification card */}
+      {notif && (
+        <div style={{
+          background: 'rgba(250,248,244,0.97)',
+          border: '0.5px solid rgba(200,169,122,0.3)',
+          borderRadius: 14,
+          padding: '14px 16px 12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: 'rgba(200,169,122,0.15)', color: '#c8a97a',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 600, flexShrink: 0, fontFamily: 'DM Sans, sans-serif',
+            }}>
+              {notif.person_name ? getInitials(notif.person_name) : '✦'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>
+                Ripple
+                {hasMore && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#8a8a9a' }}>+{notifications.length - 1} more</span>}
+              </div>
+              <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif' }}>
+                {new Date(notif.scheduled_for).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+              </div>
+            </div>
+            <button onClick={() => actionNotification(notif.id, 'dismissed')} aria-label="Dismiss"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b0b0be', fontSize: 20, lineHeight: 1, padding: '2px 4px' }}>×</button>
+          </div>
+          <p style={{ fontSize: 14, color: '#2a2a38', lineHeight: 1.55, margin: '0 0 10px', fontFamily: 'DM Sans, sans-serif' }}>
+            {notif.generated_copy}
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {(notif.action_labels || []).map((label, i) => (
+              <button key={label} onClick={() => handleAction(label)} style={{
+                fontSize: 12, padding: '5px 13px', borderRadius: 20, border: '0.5px solid',
+                borderColor: i === 0 ? 'rgba(200,169,122,0.6)' : 'rgba(90,90,106,0.25)',
+                background: i === 0 ? 'rgba(200,169,122,0.12)' : 'transparent',
+                color: i === 0 ? '#9a7a52' : '#5a5a6a',
+                cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
+              }}>{label}</button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6767,7 +6826,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="brain"    && <BrainTab/>}
                 {t==="burnout"  && <BurnoutTab/>}
                 {t==="settings" && <SettingsTab/>}
-                {t==="ai" && <RippleTab/>}
+                {t==="ai" && <><RippleNotificationBanner /><RippleTab/></>}
               </div>
             );
           })}
@@ -7096,7 +7155,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           }
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
-        <RippleNotificationBanner />
+
         <HomeFlow />
       </div>
     </div>
