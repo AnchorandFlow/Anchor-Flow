@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
-import CareerSection from "./CareerSection"
+// CareerSection is defined inline below
 
 const NAV = [
   { id: "home",      label: "Home",         icon: "home" },
@@ -1675,6 +1675,339 @@ function PetsSection() {
   )
 }
 
+
+// ── Career Section ────────────────────────────────────────────────────────────
+var CAREER_GOLD  = "#c8a97a"
+var CAREER_NAVY  = "#1a2744"
+var CAREER_SURF  = "rgba(255,255,255,0.05)"
+var CAREER_SURF2 = "rgba(255,255,255,0.04)"
+var CAREER_BORD  = "0.5px solid rgba(255,255,255,0.1)"
+var CAREER_BORD2 = "0.5px solid rgba(255,255,255,0.08)"
+var CAREER_WHITE = "#faf8f4"
+
+var C_TABS = [
+  { id: "resume",    label: "Resume & Skills"  },
+  { id: "jobs",      label: "Job Tracker"      },
+  { id: "goals",     label: "Goals"            },
+  { id: "wins",      label: "Wins & Notes"     },
+  { id: "docs",      label: "Docs & Links"     },
+]
+
+function cuid() { return Math.random().toString(36).slice(2,9) }
+function cLoadCareer() { try { var s=localStorage.getItem("af_career"); return s?JSON.parse(s):{}; } catch(e){return {};} }
+function cSaveCareer(v) { try { localStorage.setItem("af_career",JSON.stringify(v)); } catch(e){} }
+function useCareer() {
+  var pair = useState(cLoadCareer); var val=pair[0]; var setRaw=pair[1];
+  function set(next) { setRaw(function(prev){ var r=typeof next==="function"?next(prev):next; cSaveCareer(r); return r; }); }
+  return [val, set];
+}
+
+// ── Shared Career UI primitives ───────────────────────────────────────────────
+function CCard(props) {
+  return React.createElement("div",{style:Object.assign({background:CAREER_SURF,border:CAREER_BORD,borderRadius:10,padding:"0.9rem 1.1rem"},props.style||{})},props.children)
+}
+function CHead(props) {
+  return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}},
+    React.createElement("span",{style:{fontSize:13,fontWeight:600,color:"rgba(250,248,244,0.75)",display:"flex",alignItems:"center",gap:6}},
+      React.createElement("span",{style:{fontSize:15}},props.icon), props.label),
+    props.onAdd&&React.createElement("button",{onClick:props.onAdd,style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer"}},"+ Add")
+  )
+}
+function CModal(props) {
+  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
+    React.createElement("div",{style:{background:"#1e2e52",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,92vw)",maxHeight:"85vh",overflowY:"auto"},onClick:function(e){e.stopPropagation();}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},
+        React.createElement("span",{style:{color:CAREER_WHITE,fontSize:15,fontWeight:600}},props.title),
+        React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
+      props.children))
+}
+function CInput(props) {
+  return React.createElement("div",{style:{marginBottom:"0.7rem"}},
+    props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
+    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}))
+}
+function CTextarea(props) {
+  return React.createElement("div",{style:{marginBottom:"0.7rem"}},
+    props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
+    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}}))
+}
+function CSelect(props) {
+  return React.createElement("div",{style:{marginBottom:"0.7rem"}},
+    props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
+    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
+      props.options.map(function(o){return React.createElement("option",{key:o.value,value:o.value},o.label);})))
+}
+function CSaveBtn(props) {
+  return React.createElement("button",{onClick:props.onClick,style:{width:"100%",background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:8,padding:"0.6rem",fontWeight:700,fontSize:13,fontFamily:"inherit",cursor:"pointer",marginTop:"0.5rem"}},props.label||"Save")
+}
+function CRow(props) {
+  return React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:CAREER_BORD2,gap:8}},
+    React.createElement("div",{style:{flex:1}},
+      React.createElement("p",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:500,margin:"0 0 2px"}},props.title),
+      props.sub&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",margin:0}},props.sub)),
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+      props.badge&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(200,169,122,0.12)",color:CAREER_GOLD,border:"0.5px solid rgba(200,169,122,0.25)",whiteSpace:"nowrap"}},props.badge),
+      props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕")))
+}
+function CEmpty(props) {
+  return React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic",textAlign:"center",padding:"1rem 0"}},props.text||"Nothing here yet")
+}
+
+// ── Resume & Skills tab ───────────────────────────────────────────────────────
+function CResumeTab({ pid, career, setCareer }) {
+  var pd = career[pid] || {}
+  var resume = pd.resume || {}
+  var skills = pd.skills || []
+  var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
+  var s1=useState({title:"",company:"",from:"",to:"",desc:""}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(""); var skillInput=s2[0]; var setSkillInput=s2[1];
+
+  function save() {
+    if(!form.title.trim()) return
+    var entry = {id:cuid(),...form}
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,resume:{...(p.resume||{}),history:[...((p.resume||{}).history||[]),entry]}}}})
+    setForm({title:"",company:"",from:"",to:"",desc:""}); setAdding(false)
+  }
+  function removeJob(id) { setCareer(function(c){var p=c[pid]||{}; var r=p.resume||{}; return{...c,[pid]:{...p,resume:{...r,history:(r.history||[]).filter(function(h){return h.id!==id})}}}}) }
+  function addSkill() {
+    if(!skillInput.trim()) return
+    var sk = {id:cuid(),label:skillInput.trim()}
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,skills:[...(p.skills||[]),sk]}}})
+    setSkillInput("")
+  }
+  function removeSkill(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,skills:(p.skills||[]).filter(function(s){return s.id!==id})}}}) }
+  function updateBio(v) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,resume:{...(p.resume||{}),bio:v}}}}) }
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.9rem"}},
+    React.createElement(CCard,null,
+      React.createElement(CHead,{icon:"📝",label:"Professional summary"}),
+      React.createElement("textarea",{value:resume.bio||"",onChange:function(e){updateBio(e.target.value);},placeholder:"A short bio or professional summary…",rows:4,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})),
+    React.createElement(CCard,null,
+      React.createElement(CHead,{icon:"💼",label:"Work history",onAdd:function(){setAdding(true)}}),
+      (resume.history||[]).length===0 ? React.createElement(CEmpty,{text:"No work history added yet"}) :
+        React.createElement("div",null,(resume.history||[]).map(function(h){
+          return React.createElement(CRow,{key:h.id,title:h.title+(h.company?" · "+h.company:""),sub:(h.from?h.from:"")+((h.from||h.to)?" – ":"")+(h.to||"present"),badge:null,onDelete:function(){removeJob(h.id)}})
+        }))),
+    React.createElement(CCard,null,
+      React.createElement(CHead,{icon:"⚡",label:"Skills"}),
+      React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:"0.65rem"}},
+        skills.length===0?React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic"}},"No skills added yet"):
+        skills.map(function(sk){return React.createElement("span",{key:sk.id,style:{display:"flex",alignItems:"center",gap:4,fontSize:12,padding:"3px 10px",borderRadius:12,background:"rgba(200,169,122,0.1)",color:CAREER_GOLD,border:"0.5px solid rgba(200,169,122,0.25)"}},sk.label,React.createElement("button",{onClick:function(){removeSkill(sk.id);},style:{background:"none",border:"none",color:"rgba(200,169,122,0.4)",cursor:"pointer",fontSize:12,padding:0,lineHeight:1,marginLeft:2}},"×"))})),
+      React.createElement("div",{style:{display:"flex",gap:6}},
+        React.createElement("input",{value:skillInput,onChange:function(e){setSkillInput(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")addSkill();},placeholder:"Add a skill…",style:{flex:1,background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.4rem 0.6rem",color:CAREER_WHITE,fontSize:12,fontFamily:"inherit",outline:"none"}}),
+        React.createElement("button",{onClick:addSkill,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.7rem",color:CAREER_GOLD,fontSize:12,cursor:"pointer",fontFamily:"inherit"}},"Add"))),
+    adding&&React.createElement(CModal,{title:"Add work history",onClose:function(){setAdding(false);}},
+      React.createElement(CInput,{label:"Job title",value:form.title,onChange:function(v){setForm(function(f){return{...f,title:v}});},placeholder:"e.g. Senior Designer"}),
+      React.createElement(CInput,{label:"Company",value:form.company,onChange:function(v){setForm(function(f){return{...f,company:v}});},placeholder:"e.g. Acme Co."}),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}},
+        React.createElement(CInput,{label:"From",value:form.from,onChange:function(v){setForm(function(f){return{...f,from:v}});},placeholder:"2020"}),
+        React.createElement(CInput,{label:"To",value:form.to,onChange:function(v){setForm(function(f){return{...f,to:v}});},placeholder:"2023 or present"})),
+      React.createElement(CTextarea,{label:"Notes",value:form.desc,onChange:function(v){setForm(function(f){return{...f,desc:v}});},placeholder:"What you built, led, or accomplished…",rows:3}),
+      React.createElement(CSaveBtn,{onClick:save}))
+  )
+}
+
+// ── Job Tracker tab ───────────────────────────────────────────────────────────
+var JOB_STATUSES = ["Interested","Applied","Phone screen","Interview","Offer","Rejected","Withdrawn"]
+
+function CJobsTab({ pid, career, setCareer }) {
+  var jobs = (career[pid]||{}).jobs || []
+  var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
+  var s1=useState({company:"",role:"",status:"Interested",date:"",url:"",notes:""}); var form=s1[0]; var setForm=s1[1];
+  var STATUS_COLORS = {"Interested":"rgba(200,169,122,0.8)","Applied":"rgba(122,154,184,0.8)","Phone screen":"rgba(122,184,168,0.8)","Interview":"rgba(184,156,100,0.9)","Offer":"rgba(122,184,122,0.8)","Rejected":"rgba(184,100,100,0.6)","Withdrawn":"rgba(150,150,150,0.5)"}
+
+  function save() {
+    if(!form.company.trim()&&!form.role.trim()) return
+    var job={id:cuid(),...form,addedAt:new Date().toISOString().split("T")[0]}
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,jobs:[...(p.jobs||[]),job]}}})
+    setForm({company:"",role:"",status:"Interested",date:"",url:"",notes:""}); setAdding(false)
+  }
+  function updateStatus(id,status) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,jobs:(p.jobs||[]).map(function(j){return j.id===id?{...j,status}:j})}}}) }
+  function removeJob(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,jobs:(p.jobs||[]).filter(function(j){return j.id!==id})}}}) }
+
+  var grouped = JOB_STATUSES.reduce(function(acc,s){acc[s]=jobs.filter(function(j){return j.status===s});return acc},{})
+  var active = JOB_STATUSES.filter(function(s){return s!=="Rejected"&&s!=="Withdrawn"})
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.75rem"}},
+    React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Track a job opportunity"),
+    jobs.length===0?React.createElement(CEmpty,{text:"No jobs tracked yet — add one above"}):
+    React.createElement("div",null,
+      active.map(function(status){
+        var list=grouped[status]||[]; if(!list.length) return null;
+        return React.createElement("div",{key:status,style:{marginBottom:"0.75rem"}},
+          React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}},status+" ("+list.length+")"),
+          React.createElement(CCard,null,list.map(function(job){
+            return React.createElement("div",{key:job.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
+              React.createElement("div",{style:{flex:1}},
+                React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}},(job.role||"Role")+" · "+job.company),
+                job.date&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:2}},"Applied: "+job.date),
+                job.notes&&React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",marginTop:3,lineHeight:1.5}}),job.url&&React.createElement("a",{href:job.url,target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"View posting →")),
+              React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}},
+                React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(255,255,255,0.1)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
+                React.createElement("button",{onClick:function(){removeJob(job.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕")))
+          })))
+      }),
+      (grouped["Rejected"]||[]).length>0||( grouped["Withdrawn"]||[]).length>0 ?
+        React.createElement("details",{style:{marginTop:"0.5rem"}},
+          React.createElement("summary",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",cursor:"pointer",userSelect:"none"}},"Archived ("+(((grouped["Rejected"]||[]).length+(grouped["Withdrawn"]||[]).length))+")")):null),
+    adding&&React.createElement(CModal,{title:"Track a job",onClose:function(){setAdding(false);}},
+      React.createElement(CInput,{label:"Role / title",value:form.role,onChange:function(v){setForm(function(f){return{...f,role:v}});},placeholder:"e.g. Product Designer"}),
+      React.createElement(CInput,{label:"Company",value:form.company,onChange:function(v){setForm(function(f){return{...f,company:v}});},placeholder:"e.g. Notion"}),
+      React.createElement(CSelect,{label:"Status",value:form.status,onChange:function(v){setForm(function(f){return{...f,status:v}});},options:JOB_STATUSES.map(function(s){return{value:s,label:s}})}),
+      React.createElement(CInput,{label:"Date applied",value:form.date,onChange:function(v){setForm(function(f){return{...f,date:v}});},placeholder:"e.g. May 12, 2026"}),
+      React.createElement(CInput,{label:"Job posting URL",value:form.url,onChange:function(v){setForm(function(f){return{...f,url:v}});},placeholder:"https://…"}),
+      React.createElement(CTextarea,{label:"Notes",value:form.notes,onChange:function(v){setForm(function(f){return{...f,notes:v}});},placeholder:"Recruiter name, salary range, interview notes…",rows:3}),
+      React.createElement(CSaveBtn,{onClick:save})))
+}
+
+// ── Goals tab ─────────────────────────────────────────────────────────────────
+var GOAL_AREAS = ["Career growth","Income","Skills","Work-life balance","Leadership","Entrepreneurship","Other"]
+
+function CGoalsTab({ pid, career, setCareer }) {
+  var goals = (career[pid]||{}).goals || []
+  var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
+  var s1=useState({goal:"",area:"Career growth",target:"",notes:"",done:false}); var form=s1[0]; var setForm=s1[1];
+
+  function save() {
+    if(!form.goal.trim()) return
+    var item={id:cuid(),...form,addedAt:new Date().toISOString().split("T")[0]}
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:[...(p.goals||[]),item]}}})
+    setForm({goal:"",area:"Career growth",target:"",notes:"",done:false}); setAdding(false)
+  }
+  function toggle(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:(p.goals||[]).map(function(g){return g.id===id?{...g,done:!g.done}:g})}}}) }
+  function remove(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:(p.goals||[]).filter(function(g){return g.id!==id})}}}) }
+
+  var active=goals.filter(function(g){return !g.done})
+  var done=goals.filter(function(g){return g.done})
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.75rem"}},
+    React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Add a goal"),
+    active.length===0&&done.length===0?React.createElement(CEmpty,{text:"No goals yet — what are you working toward?"}):
+      React.createElement("div",null,
+        active.length>0&&React.createElement(CCard,null,active.map(function(g){return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
+          React.createElement("button",{onClick:function(){toggle(g.id)},style:{width:18,height:18,borderRadius:4,border:"1.5px solid rgba(200,169,122,0.4)",background:"none",cursor:"pointer",flexShrink:0,marginTop:1}}),
+          React.createElement("div",{style:{flex:1}},
+            React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}}),g.goal,
+            React.createElement("div",{style:{fontSize:11,color:CAREER_GOLD,marginTop:2}}),g.area,
+            g.target&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2}},"Target: "+g.target)),
+          React.createElement("button",{onClick:function(){remove(g.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕"))})),
+        done.length>0&&React.createElement("div",{style:{marginTop:"0.5rem"}},
+          React.createElement("div",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}},"Achieved ("+done.length+")"),
+          done.map(function(g){return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"center",gap:8,padding:"0.35rem 0",opacity:0.5}},
+            React.createElement("span",{style:{fontSize:12,color:CAREER_GOLD}},"✓"),
+            React.createElement("span",{style:{fontSize:12,color:CAREER_WHITE,textDecoration:"line-through"}}),g.goal)}))),
+    adding&&React.createElement(CModal,{title:"Add a career goal",onClose:function(){setAdding(false);}},
+      React.createElement(CInput,{label:"Goal",value:form.goal,onChange:function(v){setForm(function(f){return{...f,goal:v}});},placeholder:"e.g. Lead my first product launch"}),
+      React.createElement(CSelect,{label:"Area",value:form.area,onChange:function(v){setForm(function(f){return{...f,area:v}});},options:GOAL_AREAS.map(function(a){return{value:a,label:a}})}),
+      React.createElement(CInput,{label:"Target date or milestone",value:form.target,onChange:function(v){setForm(function(f){return{...f,target:v}});},placeholder:"e.g. Q3 2026, or 'before next review'"}),
+      React.createElement(CTextarea,{label:"Notes",value:form.notes,onChange:function(v){setForm(function(f){return{...f,notes:v}});},placeholder:"What does success look like? What's in the way?",rows:3}),
+      React.createElement(CSaveBtn,{onClick:save})))
+}
+
+// ── Wins & Notes tab ──────────────────────────────────────────────────────────
+function CWinsTab({ pid, career, setCareer }) {
+  var wins = (career[pid]||{}).wins || []
+  var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
+  var s1=useState({title:"",date:"",body:"",type:"win"}); var form=s1[0]; var setForm=s1[1];
+
+  function save() {
+    if(!form.title.trim()) return
+    var item={id:cuid(),...form,addedAt:new Date().toISOString().split("T")[0]}
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,wins:[...(p.wins||[]),item]}}})
+    setForm({title:"",date:"",body:"",type:"win"}); setAdding(false)
+  }
+  function remove(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,wins:(p.wins||[]).filter(function(w){return w.id!==id})}}}) }
+  var TYPE_ICON = {win:"🏆",feedback:"💬",reflection:"💭",note:"📝"}
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.75rem"}},
+    React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Log a win or note"),
+    wins.length===0?React.createElement(CEmpty,{text:"Start logging wins — they add up fast."}):
+      React.createElement("div",null,wins.slice().reverse().map(function(w){
+        return React.createElement(CCard,{key:w.id,style:{marginBottom:"0.5rem"}},
+          React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:w.body?"0.4rem":0}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flex:1}},
+              React.createElement("span",{style:{fontSize:16,flexShrink:0}},TYPE_ICON[w.type]||"📝"),
+              React.createElement("span",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE}}),w.title),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,flexShrink:0}},
+              w.date&&React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}}),w.date,
+              React.createElement("button",{onClick:function(){remove(w.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕"))),
+          w.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.5)",lineHeight:1.6,margin:0,paddingLeft:24}}),w.body)})),
+    adding&&React.createElement(CModal,{title:"Log a win or note",onClose:function(){setAdding(false);}},
+      React.createElement(CSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return{...f,type:v}});},options:[{value:"win",label:"🏆 Win"},{value:"feedback",label:"💬 Feedback received"},{value:"reflection",label:"💭 Reflection"},{value:"note",label:"📝 Note"}]}),
+      React.createElement(CInput,{label:"Title",value:form.title,onChange:function(v){setForm(function(f){return{...f,title:v}});},placeholder:"e.g. Landed the Acme account"}),
+      React.createElement(CInput,{label:"Date",value:form.date,onChange:function(v){setForm(function(f){return{...f,date:v}});},placeholder:"e.g. May 2026"}),
+      React.createElement(CTextarea,{label:"Details",value:form.body,onChange:function(v){setForm(function(f){return{...f,body:v}});},placeholder:"What happened? What did you do well?",rows:4}),
+      React.createElement(CSaveBtn,{onClick:save})))
+}
+
+// ── Docs & Links tab ──────────────────────────────────────────────────────────
+function CDocsTab({ pid, career, setCareer }) {
+  var docs = (career[pid]||{}).docs || []
+  var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
+  var s1=useState({label:"",url:"",note:"",type:"resume"}); var form=s1[0]; var setForm=s1[1];
+  var DOC_TYPES = [{value:"resume",label:"Resume"},{value:"portfolio",label:"Portfolio"},{value:"linkedin",label:"LinkedIn"},{value:"cover",label:"Cover letter"},{value:"reference",label:"Reference"},{value:"cert",label:"Certification"},{value:"other",label:"Other"}]
+  var TYPE_ICON = {resume:"📄",portfolio:"🎨",linkedin:"🔗",cover:"✉️",reference:"👤",cert:"🏅",other:"📎"}
+
+  function save() {
+    if(!form.label.trim()) return
+    var item={id:cuid(),...form}
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,docs:[...(p.docs||[]),item]}}})
+    setForm({label:"",url:"",note:"",type:"resume"}); setAdding(false)
+  }
+  function remove(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,docs:(p.docs||[]).filter(function(d){return d.id!==id})}}}) }
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.75rem"}},
+    React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Add a doc or link"),
+    docs.length===0?React.createElement(CEmpty,{text:"Store links to your resume, portfolio, certs…"}):
+      React.createElement(CCard,null,docs.map(function(doc){
+        return React.createElement("div",{key:doc.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
+          React.createElement("span",{style:{fontSize:16,flexShrink:0,marginTop:1}},(TYPE_ICON[doc.type]||"📎")),
+          React.createElement("div",{style:{flex:1}},
+            React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}}),doc.label,
+            doc.url&&React.createElement("a",{href:doc.url,target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"Open →"),
+            doc.note&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:2}}),doc.note),
+          React.createElement("button",{onClick:function(){remove(doc.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕"))
+      })),
+    adding&&React.createElement(CModal,{title:"Add doc or link",onClose:function(){setAdding(false);}},
+      React.createElement(CSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return{...f,type:v}});},options:DOC_TYPES}),
+      React.createElement(CInput,{label:"Label",value:form.label,onChange:function(v){setForm(function(f){return{...f,label:v}});},placeholder:"e.g. My resume (2026 version)"}),
+      React.createElement(CInput,{label:"URL / link",value:form.url,onChange:function(v){setForm(function(f){return{...f,url:v}});},placeholder:"https://…"}),
+      React.createElement(CInput,{label:"Note",value:form.note,onChange:function(v){setForm(function(f){return{...f,note:v}});},placeholder:"e.g. Last updated May 2026"}),
+      React.createElement(CSaveBtn,{onClick:save})))
+}
+
+// ── CareerSection (main export) ───────────────────────────────────────────────
+function CareerSection() {
+  var people = hLoadPeople()
+  var careerPair = useCareer(); var career = careerPair[0]; var setCareer = careerPair[1];
+  var s0=useState(0); var personIdx=s0[0]; var setPersonIdx=s0[1];
+  var s1=useState("resume"); var careerTab=s1[0]; var setCareerTab=s1[1];
+  var person = people[personIdx]
+  if (!person) return null
+  var tp = { pid: person.id, career: career, setCareer: setCareer }
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
+    // Per-person tabs
+    React.createElement("div",{style:{display:"flex",borderBottom:CAREER_BORD,overflowX:"auto",flexShrink:0}},
+      people.map(function(p,i){
+        return React.createElement("button",{key:p.id,onClick:function(){setPersonIdx(i);},style:{padding:"0.65rem 1rem",fontSize:13,background:"none",border:"none",borderBottom:i===personIdx?"2px solid "+CAREER_GOLD:"2px solid transparent",color:i===personIdx?CAREER_GOLD:"rgba(250,248,244,0.45)",cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6,fontFamily:"inherit"}},
+          React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:i===personIdx?CAREER_GOLD:(p.color||"rgba(250,248,244,0.3)"),flexShrink:0,display:"inline-block"}}),
+          p.name)
+      })),
+    // Career subtabs
+    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0}},
+      C_TABS.map(function(t){
+        return React.createElement("button",{key:t.id,onClick:function(){setCareerTab(t.id);},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===careerTab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===careerTab?CAREER_WHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label)
+      })),
+    // Tab content
+    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 1.25rem",display:"flex",flexDirection:"column",gap:"0.9rem"}},
+      careerTab==="resume"   && React.createElement(CResumeTab,  tp),
+      careerTab==="jobs"     && React.createElement(CJobsTab,    tp),
+      careerTab==="goals"    && React.createElement(CGoalsTab,   tp),
+      careerTab==="wins"     && React.createElement(CWinsTab,    tp),
+      careerTab==="docs"     && React.createElement(CDocsTab,    tp)))
+}
+
 // ── Health Section ────────────────────────────────────────────────────────────
 var HGOLD  = "#c8a97a"
 var HWHITE = "#faf8f4"
@@ -2058,26 +2391,41 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
   function healthSummary() {
     var h = readHealth()
-    var members = h.members || []
-    if (!members.length) return { highlight: null, countdown: null, count: 0 }
+    // Health is stored as health[personId] = { appointments:[], medications:[], ... }
+    // Load people to resolve names
+    var people = hLoadPeople()
+    var now = new Date(); now.setHours(0,0,0,0)
     var upcoming = []
-    members.forEach(function(m) {
-      (m.appointments || []).forEach(function(a) {
-        if (a.date) {
-          var now = new Date(); now.setHours(0,0,0,0)
-          var d = new Date(a.date+"T00:00:00")
+    var totalMeds = 0
+    var trackedPeople = []
+    people.forEach(function(person) {
+      var pd = h[person.id] || {}
+      var appts = pd.appointments || pd.history || []
+      var meds = pd.medications || pd.meds || []
+      totalMeds += meds.length
+      var hasData = appts.length || meds.length || (pd.allergies||[]).length || (pd.immunizations||[]).length
+      if (hasData) trackedPeople.push(person.name)
+      appts.forEach(function(a) {
+        var dateStr = a.date || a.next || ""
+        if (dateStr) {
+          var d = new Date(dateStr.includes("T") ? dateStr : dateStr+"T00:00:00")
           var days = Math.round((d - now) / 86400000)
-          if (days >= 0) upcoming.push({ name: m.name, type: a.type || "Appointment", days: days })
+          if (days >= 0) upcoming.push({ name: person.name, type: a.type||a.title||"Appointment", days: days })
         }
       })
     })
     upcoming.sort(function(a,b) { return a.days - b.days })
-    var meds = members.reduce(function(sum, m) { return sum + (m.medications || []).length }, 0)
+    if (!trackedPeople.length && !upcoming.length && !totalMeds) return { highlight: null, countdown: null, count: 0 }
+    var count = trackedPeople.length || people.length
     return {
-      highlight: members.map(function(m) { return m.name }).join(", "),
-      countdown: upcoming.length ? upcoming[0].name + " · " + upcoming[0].type + " in " + upcoming[0].days + "d" : meds ? meds + " active med" + (meds !== 1 ? "s" : "") : "No upcoming appointments",
-      count: members.length,
-      entries: upcoming.slice(0,2)
+      highlight: trackedPeople.length ? trackedPeople.join(", ") : people.map(function(p){return p.name}).join(", "),
+      countdown: upcoming.length
+        ? upcoming[0].name + " · " + upcoming[0].type + " in " + upcoming[0].days + "d"
+        : totalMeds ? totalMeds + " active med" + (totalMeds !== 1 ? "s" : "") : "No upcoming appointments",
+      count: count,
+      entries: upcoming.slice(0,3).map(function(e){
+        return { label: e.name + " · " + e.type, badge: e.days === 0 ? "Today" : "in " + e.days + "d", badgeAlert: e.days <= 3 }
+      })
     }
   }
 
@@ -2100,6 +2448,28 @@ function AnchorDashboard({ onNavigate, calEvents }) {
       alert: lowItems.length > 0,
       entries: lowItems.slice(0,3).map(function(i) { return { name: i.name } })
     }
+  }
+
+  function careerSummary() {
+    try {
+      var c = JSON.parse(localStorage.getItem("af_career") || "{}")
+      var people = hLoadPeople()
+      var totalJobs = 0; var activeJobs = 0; var totalWins = 0; var recentWin = null
+      people.forEach(function(p) {
+        var pd = c[p.id] || {}
+        var jobs = pd.jobs || []; totalJobs += jobs.length
+        activeJobs += jobs.filter(function(j){return j.status!=="Rejected"&&j.status!=="Withdrawn"}).length
+        var wins = pd.wins || []; totalWins += wins.length
+        if (wins.length && (!recentWin)) recentWin = wins[wins.length-1]
+      })
+      if (!totalJobs && !totalWins) return { highlight: null, countdown: null, count: 0 }
+      return {
+        highlight: activeJobs ? activeJobs + " active application" + (activeJobs!==1?"s":"") : recentWin ? "Latest win: "+recentWin.title : null,
+        countdown: totalWins ? totalWins + " win" + (totalWins!==1?"s":""+" logged") : null,
+        count: totalJobs + totalWins,
+        entries: recentWin ? [{ label: "🏆 " + recentWin.title, badge: recentWin.date||null }] : []
+      }
+    } catch { return { highlight: null, countdown: null, count: 0 } }
   }
 
   // ── Card component ─────────────────────────────────────────────────────────
@@ -2171,6 +2541,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var moments = momentsSummary()
   var health = healthSummary()
   var inventory = inventorySummary()
+  var careerSum = careerSummary()
 
   // Format celebration entries for display
   var celebEntries = (celeb.entries || []).map(function(e) {
@@ -2211,13 +2582,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     }
   })
 
-  var healthEntries = (health.entries || []).map(function(e) {
-    return {
-      label: e.name + " · " + e.type,
-      badge: e.days === 0 ? "Today" : "in " + e.days + "d",
-      badgeAlert: e.days <= 3
-    }
-  })
+  var healthEntries = health.entries || [] // entries already formatted in healthSummary()
 
   var inventoryEntries = (inventory.entries || []).map(function(e) {
     return { label: e.name, badge: "Low", badgeAlert: true }
@@ -2244,6 +2609,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         defaultOpen={celeb.soon || gifts.alert} />
       <DashCard id="inventory" icon="📦" label="Inventory" onOpen={onNavigate}
         summary={{ ...inventory, entries: inventoryEntries }} defaultOpen={inventory.alert} />
+      <DashCard id="career" icon="📋" label="Career" onOpen={onNavigate}
+        summary={careerSum} />
       <DashCard id="health" icon="🩺" label="Health" onOpen={onNavigate}
         summary={{ ...health, entries: healthEntries }} />
       <DashCard id="pets" icon="🐾" label="Pets" onOpen={onNavigate}

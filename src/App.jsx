@@ -6,6 +6,155 @@ import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
 import HomeScreen from "./components/HomeScreen"
 
+// ── Ripple: day-after relationship notification hook ──────────────────────────
+function useRippleNotifications() {
+  const [notifications, setNotifications] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_pending_notifications');
+      if (!error && data) setNotifications(data);
+    } catch (e) {
+      // Silently fail — feature is additive, never blocks the app
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10 * 60 * 1000); // re-check every 10 min
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const actionNotification = React.useCallback(async (notifId, action, touchpointType = null) => {
+    // Optimistic — remove immediately so UI feels instant
+    setNotifications(prev => prev.filter(n => n.id !== notifId));
+    try {
+      await supabase.rpc('action_notification', {
+        notif_id: notifId,
+        action,
+        log_touchpoint: !['dismissed', 'snoozed'].includes(action),
+        touchpoint_type: touchpointType ?? action,
+        snooze_hours: 24,
+      });
+    } catch (e) {
+      fetchNotifications(); // Re-sync on failure
+    }
+  }, [fetchNotifications]);
+
+  return { notifications, actionNotification, loading };
+}
+
+// Action label → { action key, touchpoint type }
+const RIPPLE_ACTION_MAP = {
+  'Called her':       { action: 'called',   touchpoint: 'called' },
+  'Called':           { action: 'called',   touchpoint: 'called' },
+  'Texted':           { action: 'texted',   touchpoint: 'texted' },
+  'Texted them':      { action: 'texted',   touchpoint: 'texted' },
+  'Sent a gift':      { action: 'gifted',   touchpoint: 'gifted' },
+  'Reached out':      { action: 'texted',   touchpoint: 'texted' },
+  'Already sent one': { action: 'texted',   touchpoint: 'texted' },
+  'Already on it':    { action: 'actioned', touchpoint: 'other'  },
+  'I was there':      { action: 'visited',  touchpoint: 'visited'},
+  'Log notes →':      { action: 'actioned', touchpoint: 'other'  },
+  'All clear':        { action: 'actioned', touchpoint: 'other'  },
+  'All good':         { action: 'dismissed',touchpoint: null     },
+  'Skip':             { action: 'dismissed',touchpoint: null     },
+  'Snooze 1 day':     { action: 'snoozed',  touchpoint: null     },
+};
+
+function getInitials(name = '') {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function RippleNotificationBanner() {
+  const { notifications, actionNotification } = useRippleNotifications();
+  if (notifications.length === 0) return null;
+
+  const notif = notifications[0];
+  const hasMore = notifications.length > 1;
+
+  const handleAction = (label) => {
+    const mapped = RIPPLE_ACTION_MAP[label];
+    if (!mapped) return;
+    actionNotification(notif.id, mapped.action, mapped.touchpoint);
+  };
+
+  return (
+    <div style={{
+      background: 'rgba(250,248,244,0.97)',
+      border: '0.5px solid rgba(200,169,122,0.3)',
+      borderRadius: '14px',
+      padding: '14px 16px 12px',
+      margin: '12px 16px 0',
+    }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: '50%',
+          background: 'rgba(200,169,122,0.15)',
+          color: '#c8a97a',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, fontWeight: 600, flexShrink: 0,
+          fontFamily: 'DM Sans, sans-serif',
+        }}>
+          {notif.person_name ? getInitials(notif.person_name) : '✦'}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>
+            Ripple
+            {hasMore && (
+              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#8a8a9a' }}>
+                +{notifications.length - 1} more
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif' }}>
+            {new Date(notif.scheduled_for).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+          </div>
+        </div>
+        <button
+          onClick={() => actionNotification(notif.id, 'dismissed')}
+          aria-label="Dismiss"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b0b0be', fontSize: 20, lineHeight: 1, padding: '2px 4px' }}
+        >×</button>
+      </div>
+
+      {/* Copy */}
+      <p style={{
+        fontSize: 14, color: '#2a2a38', lineHeight: 1.55,
+        margin: '0 0 10px', fontFamily: 'DM Sans, sans-serif',
+      }}>
+        {notif.generated_copy}
+      </p>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {(notif.action_labels || []).map((label, i) => (
+          <button
+            key={label}
+            onClick={() => handleAction(label)}
+            style={{
+              fontSize: 12,
+              padding: '5px 13px',
+              borderRadius: 20,
+              border: '0.5px solid',
+              borderColor: i === 0 ? 'rgba(200,169,122,0.6)' : 'rgba(90,90,106,0.25)',
+              background: i === 0 ? 'rgba(200,169,122,0.12)' : 'transparent',
+              color: i === 0 ? '#9a7a52' : '#5a5a6a',
+              cursor: 'pointer',
+              fontFamily: 'DM Sans, sans-serif',
+              whiteSpace: 'nowrap',
+            }}
+          >{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Startup data sanitizer — runs before React mounts ───────────────────────
 // Cleans any null entries from localStorage arrays so they never reach render
 (function sanitizeLocalStorageOnLoad() {
@@ -6947,6 +7096,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           }
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
+        <RippleNotificationBanner />
         <HomeFlow />
       </div>
     </div>
