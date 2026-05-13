@@ -6992,7 +6992,11 @@ function FlowWrapper({ onHome, onSignOut }) {
       try { setAnchorHidden(JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}")) } catch {}
     }
     window.addEventListener("storage", onAnchorStorage)
-    return function() { window.removeEventListener("storage", onAnchorStorage) }
+    window.addEventListener("af-anchor-hidden-changed", onAnchorStorage)
+    return function() {
+      window.removeEventListener("storage", onAnchorStorage)
+      window.removeEventListener("af-anchor-hidden-changed", onAnchorStorage)
+    }
   }, [])
   // af-set-tab now dispatched immediately in _setActiveTab — no useEffect needed
 

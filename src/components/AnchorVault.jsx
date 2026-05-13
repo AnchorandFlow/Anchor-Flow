@@ -2644,6 +2644,7 @@ function AnchorSettings() {
     const next = { ...hidden, [id]: !hidden[id] }
     setHidden(next)
     try { localStorage.setItem("af_anchor_hidden", JSON.stringify(next)) } catch {}
+    window.dispatchEvent(new Event("af-anchor-hidden-changed"))
   }
 
   const S = {
