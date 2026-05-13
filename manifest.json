@@ -1,7 +1,7 @@
 {
   "name": "Anchor & Flow",
   "short_name": "Anchor & Flow",
-  "description": "A steadier home, in every season",
+  "description": "A steadier home, in every season.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#5f8fa3",
@@ -9,10 +9,10 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

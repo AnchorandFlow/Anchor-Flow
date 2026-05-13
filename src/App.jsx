@@ -4879,7 +4879,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[editingCategories,setEditingCategories]=useState(false);
     const[newCatName,setNewCatName]=useState("");
     const[collapsedCats,setCollapsedCats]=useState({});
-    const[shopSubTab,setShopSubTab]=useState("list");
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
@@ -4989,90 +4988,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
     return(
       <div>
-        <SecHead emoji="🛒" title="Shopping Lists" sub={`${shoppingItems.filter(i=>!i.done).length} items remaining`}/>
-        {/* Subtab nav */}
-        <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.75rem",background:T.surface,borderRadius:"0.8rem",padding:"0.3rem"}}>
-          {[{id:"list",emoji:"📋",label:"My Lists"},{id:"meals",emoji:"🍽️",label:"From Meals"}].map(function(st){return(
-            <button key={st.id} onClick={function(){setShopSubTab(st.id);}} style={{flex:1,padding:"0.45rem",border:"none",borderRadius:"0.55rem",background:shopSubTab===st.id?T.white:"transparent",color:shopSubTab===st.id?T.textDark:T.textSoft,fontWeight:shopSubTab===st.id?700:500,fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem",boxShadow:shopSubTab===st.id?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.15s"}}>
-              {st.emoji} {st.label}
-            </button>
-          );})}
-        </div>
-
-        {shopSubTab==="meals"&&(function(){
-          var weekMeals=MEAL_DAYS.map(function(day){
-            var mealObj=meals[day]||{};
-            var dinnerName=mealObj.dinner||"";
-            var bankMatch=MEAL_BANK_DATA.find(function(b){return b.name.toLowerCase()===dinnerName.toLowerCase();});
-            var customMatch=[...MEAL_BANK_DATA].find(function(b){return b.name.toLowerCase()===dinnerName.toLowerCase();});
-            return{day:day,dinner:dinnerName,ingredients:(bankMatch||customMatch)?((bankMatch||customMatch).ingredients||[]):[],isToday:day===TODAY_NAME};
-          }).filter(function(d){return d.dinner;});
-          function inList(ing){return shoppingItems.some(function(s){return s.text.toLowerCase()===ing.toLowerCase();});}
-          function addIng(ing,store){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:store||"Grocery Store",done:false,category:""}];});}
-          function addAll(ings){ings.forEach(function(ing){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:"Grocery Store",done:false,category:""}];});});}
-          return(
-            <div>
-              <div style={{...card({background:"linear-gradient(135deg,"+T.sagePale+","+T.surface+")",border:"2px solid "+T.sage+"50",padding:"0.85rem 1rem",marginBottom:"0.75rem"})}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                  <span style={{fontSize:"1.2rem"}}>🛒</span>
-                  <div>
-                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark}}>Meals → Shopping</div>
-                    <div style={{color:T.textSoft,fontSize:"0.75rem",marginTop:"0.1rem"}}>Tap ingredients to add them to your list, or pull everything at once.</div>
-                  </div>
-                </div>
-              </div>
-              {weekMeals.length===0?(
-                <div style={{...card({textAlign:"center",padding:"2rem"})}}>
-                  <p style={{color:T.textFaint,fontSize:"0.85rem"}}>No meals planned this week yet.</p>
-                </div>
-              ):weekMeals.map(function(d){
-                var allAdded=d.ingredients.length>0&&d.ingredients.every(function(ing){return inList(ing);});
-                return(
-                  <div key={d.day} style={{...card({borderLeft:"4px solid "+(d.isToday?T.sage:T.borderSoft),marginBottom:"0.55rem"})}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:d.ingredients.length?"0.55rem":"0"}}>
-                      <div>
-                        <div style={{fontSize:"0.62rem",fontWeight:800,textTransform:"uppercase",color:d.isToday?T.sage:T.textFaint,letterSpacing:"0.07em"}}>{d.day}{d.isToday?" · Tonight":""}</div>
-                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{d.dinner}</div>
-                      </div>
-                      {d.ingredients.length>0&&(
-                        <button onClick={function(){addAll(d.ingredients);}} disabled={allAdded} style={{...btnP(allAdded?"#aaa":T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.7rem",opacity:allAdded?0.6:1})}}>
-                          {allAdded?"✓ All added":"Add all"}
-                        </button>
-                      )}
-                    </div>
-                    {d.ingredients.length>0?(
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
-                        {d.ingredients.map(function(ing){
-                          var added=inList(ing);
-                          return(
-                            <button key={ing} onClick={function(){if(!added)addIng(ing);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1px solid "+(added?T.sage:T.border),background:added?T.sagePale:"transparent",color:added?T.sageDark:T.textMid,fontSize:"0.73rem",fontWeight:600,cursor:added?"default":"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                              {added?"✓ ":""}{ing}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ):<p style={{color:T.textFaint,fontSize:"0.78rem",fontStyle:"italic",marginTop:"0.35rem"}}>Not in meal bank — add ingredients manually.</p>}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-
-        {shopSubTab==="list"&&(<>
-        <div style={{...card({background:T.sandPale,border:`2px solid ${T.sand}55`})}}>
+        <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"}/>
+        {/* Add item card */}
+        <div style={{...card({background:T.sandPale,border:"2px solid "+T.sand+"55"})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
-            <input ref={shopInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
-            <select value={newStore} onChange={e=>{setNewStore(e.target.value);lastStore[1](e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
-              {stores.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
+            <input ref={shopInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
             <button onClick={function(){if(shopInputRef.current&&shopInputRef.current.value.trim()){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} style={btnP(T.sand)}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.5rem",alignItems:"center",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-            <button onClick={isListening?stopListening:startListening} style={{background:isListening?T.rose:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",transition:"all 0.15s",boxShadow:isListening?`0 0 0 3px ${T.rose}40`:"none"}}>
+            <button onClick={isListening?stopListening:startListening} style={{background:isListening?T.rose:T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",transition:"all 0.15s",boxShadow:isListening?"0 0 0 3px "+T.rose+"40":"none"}}>
               <span style={{fontSize:"1rem"}}>{isListening?"⏹":"🎙️"}</span>{isListening?"Stop":"Speak Item"}
             </button>
-            <button onClick={()=>photoInputRef.current?.click()} disabled={isAnalyzingPhoto} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAnalyzingPhoto?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAnalyzingPhoto?0.65:1,transition:"all 0.15s"}}>
+            <button onClick={function(){photoInputRef.current&&photoInputRef.current.click();}} disabled={isAnalyzingPhoto} style={{background:T.sage,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAnalyzingPhoto?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAnalyzingPhoto?0.65:1,transition:"all 0.15s"}}>
               <span style={{fontSize:"1rem"}}>📷</span>{isAnalyzingPhoto?"Analyzing…":"Photo to List"}
             </button>
             <button onClick={autoCategorize} disabled={isAutoCategorizing} style={{background:isAutoCategorizing?"#ccc":"#3a6b8a",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAutoCategorizing?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAutoCategorizing?0.7:1,transition:"all 0.15s"}}>
@@ -5081,31 +5008,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{display:"none"}}/>
           </div>
           {(voiceStatus||photoStatus||autoCatStatus)&&(
-            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.6rem",padding:"0.45rem 0.75rem",fontSize:"0.78rem",color:T.textMid,fontWeight:600,display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
+            <div style={{background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.6rem",padding:"0.45rem 0.75rem",fontSize:"0.78rem",color:T.textMid,fontWeight:600,display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
               {(isListening||isAnalyzingPhoto||isAutoCategorizing)&&<div style={{width:8,height:8,borderRadius:"50%",background:isListening?T.rose:T.sage,animation:"bounce 0.8s infinite"}}/>}
               {autoCatStatus||voiceStatus||photoStatus}
             </div>
           )}
-          <div style={{marginTop:"0.5rem"}}>
-            {addingStore?(
-              <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
-                <input value={newStoreName} onChange={e=>setNewStoreName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addStore();}} placeholder="Store name…" style={{...inp({flex:1})}} autoFocus/>
-                <button onClick={addStore} style={btnP(T.sage,{padding:"0.45rem 0.85rem"})}>Add</button>
-                <button onClick={()=>setAddingStore(false)} style={btnS({padding:"0.45rem 0.85rem"})}>Cancel</button>
-              </div>
-            ):(
-              <button onClick={()=>setAddingStore(true)} style={{background:"none",border:`1.5px dashed ${T.sand}`,color:T.sandDark,borderRadius:"0.6rem",padding:"0.28rem 0.7rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                <Icon name="plus" size={11} color={T.sandDark}/> Add Store
-              </button>
-            )}
-          </div>
         </div>
+        {/* Edit categories toggle */}
         <div style={{marginBottom:"0.75rem"}}>
-          <button onClick={()=>setEditingCategories(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.74rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
+          <button onClick={function(){setEditingCategories(function(v){return !v;});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.74rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
             <Icon name="edit" size={11} color={T.textSoft}/> {editingCategories?"Done editing":"Edit categories"}
           </button>
           {editingCategories&&(
-            <div style={{background:T.white,border:`1.5px solid ${T.border}`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginTop:"0.4rem"}}>
+            <div style={{background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginTop:"0.4rem"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.65rem"}}>
                 <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:700}}>Shopping categories</span>
                 <button onClick={function(){setShopCategories([{id:"produce",label:"Produce",emoji:"🥦"},{id:"dairy",label:"Dairy",emoji:"🥛"},{id:"meat",label:"Meat & Seafood",emoji:"🥩"},{id:"frozen",label:"Frozen",emoji:"🧊"},{id:"canned",label:"Canned & Pantry",emoji:"🥫"},{id:"bakery",label:"Bakery",emoji:"🍞"},{id:"beverages",label:"Beverages",emoji:"🧃"},{id:"snacks",label:"Snacks",emoji:"🍿"},{id:"deli",label:"Deli",emoji:"🧀"},{id:"health",label:"Health & Beauty",emoji:"🧴"},{id:"household",label:"Household",emoji:"🧹"},{id:"baby",label:"Baby & Kids",emoji:"🍼"},{id:"pets",label:"Pet Supplies",emoji:"🐾"},{id:"other",label:"Other",emoji:"📦"}]);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",fontSize:"0.68rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",padding:"1px 7px"}}>Reset</button>
@@ -5125,97 +5040,75 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 })}
               </div>
               <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                <input value={newCatName} onChange={e=>setNewCatName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} placeholder="New category name…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
-                <button onClick={()=>{if(newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} style={btnP(T.sand,{padding:"0.35rem 0.75rem",fontSize:"0.78rem"})}>+ Add</button>
+                <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} placeholder="New category name…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
+                <button onClick={function(){if(newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} style={btnP(T.sand,{padding:"0.35rem 0.75rem",fontSize:"0.78rem"})}>+ Add</button>
               </div>
             </div>
           )}
         </div>
+        {/* Collapse/expand all */}
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem",justifyContent:"flex-end"}}>
-          <button onClick={()=>setCollapsedStores(stores.reduce((a,s)=>({...a,[s]:true}),{}))} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
-          <button onClick={()=>setCollapsedStores({})} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
+          <button onClick={function(){var all={};shopCategories.forEach(function(c){all[catLabel(c)]=true;});all["__uncat__"]=true;setCollapsedCats(all);}} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
+          <button onClick={function(){setCollapsedCats({});}} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
         </div>
-        {stores.map(function(store,si){
-          var storeItems=shoppingItems.filter(function(i){return i.store===store;});
-          var accent=STORE_COLORS[si%STORE_COLORS.length];var isCollapsed=!!collapsedStores[store];var isDragTarget=dragOverStoreTarget===store;
-          var categorized={};var uncatKey="__uncat__";
-          storeItems.forEach(function(item){var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;if(!categorized[cat])categorized[cat]=[];categorized[cat].push(item);});
-          // Order cats by shopCategories order, using label matching
+        {/* Unified category-grouped list */}
+        {(function(){
+          var uncatKey="__uncat__";
+          var categorized={};
+          shoppingItems.forEach(function(item){
+            var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;
+            if(!categorized[cat])categorized[cat]=[];
+            categorized[cat].push(item);
+          });
           var orderedCats=shopCategories.filter(function(c){var lbl=catLabel(c);return categorized[lbl]&&categorized[lbl].length>0;}).map(function(c){return catLabel(c);});
-          // Also include any legacy string cats not in current list
           Object.keys(categorized).forEach(function(k){if(k!==uncatKey&&!orderedCats.includes(k))orderedCats.push(k);});
           if(categorized[uncatKey]&&categorized[uncatKey].length>0)orderedCats.push(uncatKey);
-          var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
-          return(
-            <div key={store} data-shopstore={store} style={{...card({borderLeft:"4px solid "+accent,padding:"0",outline:isDragTarget?"2px dashed "+accent:"none",outlineOffset:"2px"})}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"0.9rem 1.1rem",cursor:"pointer",userSelect:"none"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.55rem",flex:1}} onClick={function(){toggleCollapse(store);}}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:accent,flexShrink:0}}/>
-                  {editingStoreName===store?(
-                    <input value={editStoreVal} onChange={function(e){setEditStoreVal(e.target.value);}} onBlur={function(){renameStore(store,editStoreVal);}} onKeyDown={function(e){if(e.key==="Enter")renameStore(store,editStoreVal);if(e.key==="Escape"){setEditingStoreName(null);}}} onClick={function(e){e.stopPropagation();}} autoFocus style={{...inp({fontSize:"0.88rem",padding:"0.2rem 0.4rem",flex:1,fontWeight:700})}}/>
-                  ):(
-                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem"}}>{store}</span>
-                  )}
-                  {pendingCount>0&&<span style={{fontSize:"0.7rem",color:accent,fontWeight:700,background:accent+"18",borderRadius:"2rem",padding:"1px 7px"}}>{pendingCount}</span>}
-                </div>
-                <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                  {storeItems.some(function(i){return i.done;})&&(
-                    <button onClick={function(e){e.stopPropagation();setShoppingItems(function(p){return p.filter(function(i){return i.store!==store||!i.done;});});}} style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",padding:"0.1rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit",color:T.rose}}>Clear ✓</button>
-                  )}
-                  <button onClick={function(e){e.stopPropagation();setInlineStore(inlineStore===store?null:store);setInlineText("");}} style={{background:"none",border:"1px solid "+accent+"60",borderRadius:"50%",width:22,height:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:accent,fontSize:"1rem",fontWeight:300,lineHeight:1}}>+</button>
-                  <button onClick={function(e){e.stopPropagation();setEditingStoreName(store);setEditStoreVal(store);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="edit" size={13} color={T.textMid}/></button>
-                  <button onClick={function(e){e.stopPropagation();if(window.confirm("Remove "+store+" and all its items?")){{setStores(function(p){return p.filter(function(s){return s!==store;});});setShoppingItems(function(p){return p.filter(function(i){return i.store!==store;});});}}}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.4}}><Icon name="trash" size={13} color={T.rose}/></button>
-                  <div onClick={function(){toggleCollapse(store);}} style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
-                </div>
-              </div>
-              {!isCollapsed&&(
-                <div style={{padding:"0 1.1rem 0.9rem",borderTop:"1px solid "+T.borderSoft}}>
-                  {isDragTarget&&<div style={{padding:"0.4rem",marginBottom:"0.3rem",borderRadius:"0.5rem",background:accent+"15",border:"1.5px dashed "+accent,textAlign:"center",fontSize:"0.72rem",color:accent,fontWeight:700}}>Drop here to move to {store}</div>}
-                  {storeItems.length===0&&!inlineStore&&<p style={{color:T.textFaint,fontSize:"0.78rem",fontWeight:600,padding:"0.6rem 0"}}>Nothing here yet — tap + to add</p>}
-                  {orderedCats.map(function(cat){
-                    var catItems=categorized[cat]||[];var catKey=store+"__"+cat;var isCatCollapsed=!!collapsedCats[catKey];var isUncat=cat===uncatKey;
-                    var catObj=shopCategories.find(function(c){return catLabel(c)===cat;});var catEmj=catObj?catEmoji(catObj):"";
-                    return(
-                      <div key={cat} style={{marginTop:orderedCats.length>1?"0.5rem":0}}>
-                        {orderedCats.length>1&&(
-                          <div onClick={()=>toggleCatCollapse(catKey)} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.25rem 0",cursor:"pointer",userSelect:"none",marginBottom:"0.2rem"}}>
-                            <span style={{fontSize:"0.8rem"}}>{isUncat?"📦":catEmj}</span>
-                            <span style={{fontSize:"0.67rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:isUncat?T.textFaint:accent}}>{isUncat?"Uncategorized":cat}</span>
-                            <div style={{flex:1,height:1,background:T.borderSoft}}/>
-                            <span style={{fontSize:"0.65rem",color:T.textFaint,fontWeight:600}}>{catItems.length}</span>
-                            <span style={{fontSize:"0.62rem",color:T.textFaint}}>{isCatCollapsed?"▶":"▼"}</span>
-                          </div>
-                        )}
-                        {!isCatCollapsed&&catItems.map(function(item){
-                          var isBeingDragged=draggingId===item.id;var isDropTarget=dragOverId===item.id;
-                          return(
-                            <div key={item.id} data-shopid={item.id} onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,store);}} style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"1px",transition:"opacity 0.15s"}}>
-                              <ShopItemRow item={item} categories={shopCategories}
-                                onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
-                                onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                                onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
-                                onSetCategory={function(id,cat){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,category:cat}:x;});});}}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                  {inlineStore===store&&(
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem",alignItems:"center"}}>
-                      <input value={inlineText} onChange={function(e){setInlineText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addInlineItem(store);}if(e.key==="Escape"){setInlineStore(null);}}} placeholder={"Add to "+store+"…"} autoFocus style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
-                      <button onClick={function(){addInlineItem(store);}} style={btnP(accent,{padding:"0.4rem 0.75rem",fontSize:"0.8rem"})}>Add</button>
-                      <button onClick={function(){setInlineStore(null);}} style={btnS({padding:"0.4rem 0.6rem",fontSize:"0.8rem"})}>✕</button>
-                    </div>
-                  )}
-                </div>
-              )}
+          if(orderedCats.length===0)return(
+            <div style={{...card({textAlign:"center",padding:"2.5rem 1rem"})}}>
+              <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🛒</div>
+              <p style={{color:T.textFaint,fontSize:"0.88rem",fontWeight:600}}>Your list is empty</p>
+              <p style={{color:T.textFaint,fontSize:"0.78rem",marginTop:"0.25rem"}}>Add items above, or use Auto-sort to categorize what you have.</p>
             </div>
           );
-        })}
-        {shoppingItems.some(i=>i.done)&&<button onClick={()=>setShoppingItems(p=>p.filter(i=>!i.done))} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700})}}>Clear completed items</button>}
-        </>)}
+          return orderedCats.map(function(cat){
+            var catItems=categorized[cat]||[];
+            var isCatCollapsed=!!collapsedCats[cat];
+            var isUncat=cat===uncatKey;
+            var catObj=shopCategories.find(function(c){return catLabel(c)===cat;});
+            var catEmj=catObj?catEmoji(catObj):"📦";
+            var accent=catObj?T.blue:T.textFaint;
+            var pendingCount=catItems.filter(function(i){return !i.done;}).length;
+            return(
+              <div key={cat} style={{...card({padding:"0",marginBottom:"0.5rem",border:"1.5px solid "+T.borderSoft})}}>
+                <div onClick={function(){setCollapsedCats(function(p){return {...p,[cat]:!p[cat]};});}} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.75rem 1rem",cursor:"pointer",userSelect:"none"}}>
+                  <span style={{fontSize:"1.1rem"}}>{isUncat?"📦":catEmj}</span>
+                  <span style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem",flex:1}}>{isUncat?"Uncategorized":cat}</span>
+                  {pendingCount>0&&<span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700,background:T.surface,borderRadius:"2rem",padding:"1px 7px"}}>{pendingCount}</span>}
+                  <div style={{display:"flex",transition:"transform 0.2s",transform:isCatCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={15} color={T.textSoft}/></div>
+                </div>
+                {!isCatCollapsed&&(
+                  <div style={{padding:"0 1rem 0.85rem",borderTop:"1px solid "+T.borderSoft}}>
+                    {catItems.map(function(item){
+                      var isBeingDragged=draggingId===item.id;
+                      var isDropTarget=dragOverId===item.id;
+                      return(
+                        <div key={item.id} data-shopid={item.id} onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,item.store||"");}} style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",outline:isDropTarget?"2px dashed "+T.blue:"none",outlineOffset:"1px",transition:"opacity 0.15s"}}>
+                          <ShopItemRow item={item} categories={shopCategories}
+                            onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
+                            onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                            onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                            onSetCategory={function(id,cat){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,category:cat}:x;});});}}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          });
+        })()}
+        {shoppingItems.some(function(i){return i.done;})&&<button onClick={function(){setShoppingItems(function(p){return p.filter(function(i){return !i.done;});});}} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700})}}>Clear completed items</button>}
       </div>
     );
   }
