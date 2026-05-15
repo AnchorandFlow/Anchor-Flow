@@ -59,7 +59,7 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function usePushNotifications() {
-  const [permission, setPermission] = React.useState(Notification.permission);
+  const [permission, setPermission] = React.useState(typeof Notification !== "undefined" ? Notification.permission : "default");
   const [subscribed, setSubscribed] = React.useState(false);
 
   const subscribe = React.useCallback(async () => {
@@ -152,10 +152,15 @@ function RippleNotificationBanner() {
         }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>Get Ripple on your phone</div>
-            <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>Morning follow-ups delivered as push notifications</div>
+            <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>Morning briefing, midday check-in, dinner reminder & evening recap</div>
           </div>
           <button
-            onClick={subscribe}
+            onClick={function() {
+              // Try PWA push subscribe first
+              subscribe();
+              // Also fire the app-level permission request (which schedules all daily notifs)
+              window.dispatchEvent(new CustomEvent('af-request-notif-permission'));
+            }}
             style={{
               background: 'rgba(200,169,122,0.15)', border: '0.5px solid rgba(200,169,122,0.5)',
               borderRadius: 20, padding: '6px 14px', fontSize: 12, color: '#9a7a52',
@@ -516,11 +521,10 @@ const TABS = [
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Brain",    emoji:"🧠"},
-  {id:"burnout",  label:"Burnout",  emoji:"🛟"},
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
-const MORE_TABS    = ["weekly","home","brain","burnout","settings"];
+const MORE_TABS    = ["weekly","home","brain","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -1206,7 +1210,7 @@ function HomeFlow() {
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"]));
+  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
   homeFlowRef.goTab = goTab;
@@ -1300,6 +1304,7 @@ function HomeFlow() {
   const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
   const [brainCats,setBrainCats]               = useSaved("brainCats", [
+    {id:"personal",  label:"Personal",   emoji:"🙋", color:"#b47ab4"},
     {id:"household", label:"Household",  emoji:"🏠", color:"#7a9e8e"},
     {id:"errands",   label:"Errands",    emoji:"🚗", color:"#e05c5c"},
     {id:"calls",     label:"Phone Calls",emoji:"📞", color:"#6a6ab4"},
@@ -1310,7 +1315,7 @@ function HomeFlow() {
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
-  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true});
+  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true});
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
@@ -1399,6 +1404,9 @@ function HomeFlow() {
   const [notifPermission,setNotifPermission] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
+  const [notifSettings,setNotifSettings] = useSaved("notifSettings",{
+    morning:true, midday:true, dinner:true, evening:true, events:true, recurring:true
+  });
   const [inAppBanner,setInAppBanner] = useState(null); // {title, body} shown as in-app toast
 
   // ── New feature state (all useSaved first, then useState) ───────────────────
@@ -1428,6 +1436,7 @@ function HomeFlow() {
   const [insightsLoading,setInsightsLoading]       = useState(false);
   const [dismissedInsights,setDismissedInsights]   = useSaved("dismissedInsights",[]);
   const [expandedInsightReason,setExpandedInsightReason] = useState(null);
+  const [showRippleFeed,setShowRippleFeed]         = useState(false);
 
 
   // ── Handle password reset redirect from email link ───────────────────────
@@ -1582,13 +1591,25 @@ function HomeFlow() {
       return ed.getDate()===d.getDate()&&ed.getMonth()===d.getMonth()&&ed.getFullYear()===d.getFullYear();
     });
     const brainPending = brainItems.filter(b=>!b.done&&!b.scheduledDay);
-    const brainForTheme = BRAIN_CATS.find(c=>
-      c.suggestDay && dayRhythm.theme && c.suggestDay.toLowerCase()===dayRhythm.theme.toLowerCase()
-    );
     const next7 = Array.from({length:7},(_,i)=>{const d=new Date(TODAY);d.setDate(d.getDate()+i+1);return d.toISOString().split("T")[0];});
     const upcomingEvts7 = calEvents.filter(e=>next7.includes(e.date)).slice(0,6);
+    const THEME_TO_CATS_BRIEF = {
+      "reset":    ["household","errands"],
+      "errands":  ["errands","orders"],
+      "admin":    ["admin","calls","orders"],
+      "clean":    ["household"],
+      "prep":     ["household","errands"],
+      "family":   ["errands","household"],
+      "rest":     ["someday"],
+      "finance":  ["admin"],
+      "fitness":  ["errands"],
+      "batch cook":["household"],
+    };
+    const themeKeyBrief = (dayRhythm.theme||"").toLowerCase();
+    const matchedCatIds = Object.entries(THEME_TO_CATS_BRIEF).find(([k])=>themeKeyBrief.includes(k))?.[1] || [];
     const ctx = [
       "Family: "+(familyProfile?JSON.stringify(familyProfile):"not set"),
+      "Work situation: "+(familyProfile?.workSituation||"not set"),
       "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){return p.name+(p.role?" ("+p.role+")":"")+(p.age!=null?" age "+p.age:"")+(p.isMinor||(p.age!=null&&p.age<18)?" [minor]":"");}).join(", "),
       "Today: "+TODAY_NAME+", theme: "+(dayRhythm.theme||"none"),
       "Events today: "+(todayEvts.map(e=>(e.time||"all day")+" "+e.title).join(", ")||"none"),
@@ -1596,7 +1617,7 @@ function HomeFlow() {
       "Meals: "+(Object.entries(todayMealObj).map(([k,v])=>k+"="+v).join(", ")||"none"),
       "Carried tasks: "+(carried.map(t=>t.text).join(", ")||"none"),
       "Existing tasks: "+(existing.map(t=>t.text).join(", ")||"none"),
-      "Brain dump relevant to today's theme: "+(brainForTheme?brainPending.filter(b=>matchedCatIds.includes(b.cat)).map(b=>b.text).join(", "):"none"),
+      "Brain dump relevant to today's theme: "+(matchedCatIds.length?brainPending.filter(b=>matchedCatIds.includes(b.cat)).map(b=>b.text).join(", "):"none"),
       "Full brain dump (undone): "+brainPending.slice(0,12).map(b=>b.text).join(", ")||"none",
       "Tomorrow: "+tmrName+", theme="+(tmrRhythm.theme||"none")+", events: "+(tmrEvts.map(e=>e.title).join(", ")||"none")+", meal: "+(tmrMeal.dinner||"not planned"),
       "Flow mode: "+flowMode,
@@ -1904,7 +1925,7 @@ Respond ONLY with valid JSON array, no markdown:
     const todayEvts   = calEvents.filter(e => e.date === todayDateStr).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     const tmrName     = DAY_NAMES[new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).getDay()];
     const tmrMeal     = (meals[tmrName]||{}).dinner;
-    const familyCtx   = familyProfile ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids.` : "";
+    const familyCtx   = familyProfile ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids. Work: ${familyProfile.workSituation||"not set"}.` : "";
     const dataCtx     = `Tasks: ${pendingTasks.slice(0,4).map(t=>t.text).join(", ")||"none"}. Dinner: ${todayMeal||"not planned"}. Events: ${todayEvts.slice(0,3).map(e=>`${e.time||"all day"} ${e.title}`).join(", ")||"none"}. ${familyCtx}`;
 
     const now = new Date();
@@ -1920,7 +1941,7 @@ Respond ONLY with valid JSON array, no markdown:
 
     // ── 1. MORNING AGENDA (7am) — Ripple style ────────────────────────────────
     const morningTime = todayAt(7);
-    if (morningTime > now) {
+    if (morningTime > now && notifSettings.morning !== false) {
       // Build a structured body that always lists the actual schedule
       const body = scheduleLines.length > 0
         ? scheduleStr
@@ -1936,7 +1957,7 @@ Respond ONLY with valid JSON array, no markdown:
 
     // ── 2. MIDDAY CHECK-IN (12pm) ───────────────────────────────────────────
     const middayTime = todayAt(12);
-    if (middayTime > now) {
+    if (middayTime > now && notifSettings.midday !== false) {
       const afternoonEvts = todayEvts.filter(e => {
         if (!e.time) return false;
         const [h] = e.time.split(":").map(Number);
@@ -1951,7 +1972,7 @@ Respond ONLY with valid JSON array, no markdown:
 
     // ── 3. MEAL REMINDER — defrost alert (3pm if dinner needs it) ───────────
     const defrostTime = todayAt(15);
-    if (defrostTime > now && todayMeal && !["snack plate","freezer burrito","rotisserie","no-cook"].some(s=>todayMeal.toLowerCase().includes(s))) {
+    if (defrostTime > now && notifSettings.dinner !== false && todayMeal && !["snack plate","freezer burrito","rotisserie","no-cook"].some(s=>todayMeal.toLowerCase().includes(s))) {
       const msg = await generateAIMessage(
         `You are Ripple, the Anchor & Flow AI. Write a friendly 3pm meal prep reminder (max 120 chars). Mention the specific dinner and suggest one thing to do now (defrost, start slow cooker, etc). Warm tone.`,
         `Dinner tonight: ${todayMeal}. Family: ${familyProfile?.numKids||""} kids.`,
@@ -1962,7 +1983,7 @@ Respond ONLY with valid JSON array, no markdown:
 
     // ── 4. EVENING RECAP — Ripple-style (5pm) ─────────────────────────────────
     const eveningTime = todayAt(17);
-    if (eveningTime > now) {
+    if (eveningTime > now && notifSettings.evening !== false) {
       const tmrDateStr = new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).toISOString().split("T")[0];
       const tmrEvtsList = calEvents.filter(e=>e.date===tmrDateStr);
       const tmrStr = [
@@ -1978,7 +1999,7 @@ Respond ONLY with valid JSON array, no markdown:
     }
 
     // ── 5. SMART EVENT NUDGES — 2hrs before each appointment ────────────────
-    todayEvts.forEach(async (e) => {
+    if (notifSettings.events !== false) todayEvts.forEach(async (e) => {
       if (!e.time) return;
       const [h,m] = e.time.split(":").map(Number);
       const eventTime = todayAt(h, m);
@@ -1991,6 +2012,99 @@ Respond ONLY with valid JSON array, no markdown:
       );
       scheduleNotification(`⏰ Coming up: ${e.title}`, msg, nudgeTime);
     });
+
+    // ── 6. RECURRING REMINDERS (trash, HVAC, street sweeping, custom, etc.) ──
+    (function() {
+      try {
+        var recurList = JSON.parse(localStorage.getItem("af_recurring") || "null");
+        // Also check legacy af_trash and migrate on the fly if needed
+        if (!recurList || !recurList.length) {
+          var oldTrash = JSON.parse(localStorage.getItem("af_trash") || "null");
+          if (oldTrash) {
+            recurList = [];
+            if (oldTrash.trash && oldTrash.trash.day != null) recurList.push({ id:"legacy_trash", emoji:"🗑️", label:"Trash", type:"weekly_day", day:oldTrash.trash.day, freq:oldTrash.trash.freq||"weekly", lastDone:null, remindEvening:oldTrash.remindEvening!==false, remindMorning:oldTrash.remindMorning!==false, active:true });
+            if (oldTrash.recycling && oldTrash.recycling.day != null) recurList.push({ id:"legacy_recycling", emoji:"♻️", label:"Recycling", type:"weekly_day", day:oldTrash.recycling.day, freq:oldTrash.recycling.freq||"biweekly", lastDone:null, remindEvening:oldTrash.remindEvening!==false, remindMorning:oldTrash.remindMorning!==false, active:true });
+          }
+        }
+        if (!recurList || !recurList.length) return;
+
+        var FREQ_DAYS_R = { weekly:7, biweekly:14, every6wk:42, every2mo:61, every3mo:91, every6mo:182, yearly:365, monthly:30 };
+        var remindedKey = "af_recur_reminded_" + todayDateStr;
+        var alreadyRemindedStr = localStorage.getItem(remindedKey) || "";
+
+        function getNextDateR(r) {
+          var base = new Date(now); base.setHours(0,0,0,0);
+          if (r.type === "weekly_day") {
+            if (r.day == null) return null;
+            var diff = (r.day - base.getDay() + 7) % 7;
+            var d = new Date(base); d.setDate(d.getDate() + diff);
+            if (r.freq === "biweekly" && r.lastDone) {
+              var lp = new Date(r.lastDone); lp.setHours(0,0,0,0);
+              var ws = Math.round((d - lp) / (7 * 86400000));
+              if (ws % 2 !== 0) d.setDate(d.getDate() + 7);
+            }
+            if (r.freq === "monthly") {
+              var first = new Date(base.getFullYear(), base.getMonth(), 1);
+              d = new Date(first); d.setDate(1 + (r.day - first.getDay() + 7) % 7);
+              if (d < base) { d.setMonth(d.getMonth()+1); d.setDate(1); var b2=new Date(d); d.setDate(1+(r.day-b2.getDay()+7)%7); }
+            }
+            return d;
+          } else {
+            // interval-based
+            var days = FREQ_DAYS_R[r.freq] || 90;
+            if (r.lastDone) {
+              var last = new Date(r.lastDone); last.setHours(0,0,0,0);
+              var next = new Date(last); next.setDate(next.getDate() + days);
+              return next;
+            }
+            return base; // no lastDone = due now
+          }
+        }
+
+        function daysUntilR(r) {
+          var next = getNextDateR(r); if (!next) return null;
+          var base = new Date(now); base.setHours(0,0,0,0);
+          return Math.round((next - base) / 86400000);
+        }
+
+        var toFire = [];
+        recurList.filter(function(r){return r.active!==false;}).forEach(function(r) {
+          var days = daysUntilR(r);
+          if (days == null) return;
+          var alreadyFired = alreadyRemindedStr.includes(r.id);
+          if (r.remindEvening && days === 1 && !alreadyFired) {
+            toFire.push({ r:r, when:"evening" });
+          }
+          if (r.remindMorning && days === 0) {
+            toFire.push({ r:r, when:"morning" });
+          }
+        });
+
+        toFire.forEach(function(item) {
+          var r = item.r;
+          var fireTime = item.when === "evening" ? todayAt(19, 30) : todayAt(7, 15);
+          if (fireTime <= now) {
+            if (item.when === "morning" && now.getHours() < 10) fireTime = now;
+            else if (item.when === "evening" && now.getHours() < 21) fireTime = now;
+            else return;
+          }
+          var title = item.when === "evening"
+            ? r.emoji + " " + r.label + " — tomorrow"
+            : r.emoji + " " + r.label + " — today!";
+          var body = item.when === "evening"
+            ? "Heads up — " + r.label + " is due tomorrow. Get ahead of it tonight."
+            : r.type === "weekly_day"
+              ? "Today is " + r.label + " day. Don't forget!"
+              : "Time to take care of: " + r.label + ". Mark it done when finished.";
+          scheduleNotification(title, body, fireTime);
+        });
+
+        if (toFire.filter(function(i){return i.when==="evening";}).length) {
+          var firedIds = toFire.map(function(i){return i.r.id;}).join(",");
+          localStorage.setItem(remindedKey, firedIds);
+        }
+      } catch(e) { console.error("Recurring reminder error:", e); }
+    })();
   }
 
   // ── Legacy alias ─────────────────────────────────────────────────────────────
@@ -2006,6 +2120,13 @@ Respond ONLY with valid JSON array, no markdown:
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifPermission]);
+
+  // Listen for the banner's "Turn on" button — triggers full permission + scheduling
+  useEffect(() => {
+    function handleNotifRequest() { requestNotifPermission(); }
+    window.addEventListener("af-request-notif-permission", handleNotifRequest);
+    return () => window.removeEventListener("af-request-notif-permission", handleNotifRequest);
+  }, []); // eslint-disable-line
 
   // Sync household data when key state changes
   useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems]); // eslint-disable-line
@@ -2351,7 +2472,7 @@ Respond ONLY with valid JSON array, no markdown:
     ).current;
 
     const profileCtx = familyProfile
-      ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids (ages ${familyProfile.kidAges}), dietary: ${familyProfile.dietaryNeeds}, challenge: ${familyProfile.biggestChallenge}, fav dinner: ${familyProfile.favoriteDinner}.`
+      ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids (ages ${familyProfile.kidAges}), dietary: ${familyProfile.dietaryNeeds}, challenge: ${familyProfile.biggestChallenge}, fav dinner: ${familyProfile.favoriteDinner}, work: ${familyProfile.workSituation||"not set"}.`
       : "";
     const memoryCtx = Object.entries(aiMemory).slice(-8).map(([q,a])=>`Q: ${q} A: ${a}`).join(" | ");
     const appCtx = `Today: ${TODAY_NAME}, flow mode: ${flowMode}, dietary filters: ${dietaryFilters.join(", ")||"none"}.`;
@@ -2845,7 +2966,6 @@ Respond ONLY with valid JSON array, no markdown:
   function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
     const [showFlowIn,setShowFlowIn] = useState(false);
-    const [showRippleFeed,setShowRippleFeed] = useState(false);
     const [fullDayDismissed,setFullDayDismissed] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -3055,7 +3175,7 @@ Respond ONLY in valid JSON:
                 :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
               </div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:"#faf8f4",lineHeight:1.05}}>
-                {greeting}{authUser?.displayName ? ", " + authUser.displayName.split(" ")[0] : ""} {greetingEmoji}
+                {greeting}{(preferredName||authUser?.displayName)?", "+(preferredName||authUser.displayName.split(" ")[0]):""} {greetingEmoji}
               </div>
               {dayRhythm.theme&&<div style={{color:"rgba(250,248,244,0.65)",fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
               {flowMode==="Survival"&&<div style={{color:"#f4a0a0",fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
@@ -3098,7 +3218,7 @@ Respond ONLY in valid JSON:
             <div style={{background:"linear-gradient(135deg,#e8f0ec,#eef3f7)",border:"1.5px solid rgba(122,158,142,0.3)",borderRadius:"1.2rem",padding:"1rem 1.2rem"}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
                 <span style={{fontSize:"1.2rem"}}>🌙</span>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{authUser?.displayName?", "+authUser.displayName.split(" ")[0]:""}</div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{(preferredName||authUser?.displayName)?", "+(preferredName||authUser.displayName.split(" ")[0]):""}</div>
               </div>
               <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
               <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"rgba(122,158,142,0.15)",border:"1.5px solid rgba(122,158,142,0.35)",borderRadius:"0.8rem",padding:"0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",color:"#4a7a68"}}>🌙 Wind down my day</button>
@@ -3195,22 +3315,44 @@ Respond ONLY in valid JSON:
               )}
             </div>
 
-            {/* Survival mode quick-access banner */}
+            {/* Survival mode inline */}
             {flowMode==="Survival"&&(
-              <button onClick={()=>goTab("burnout")} style={{background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}55`,borderRadius:"1.1rem",padding:"0.85rem 1.1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.75rem",width:"100%",textAlign:"left",fontFamily:"inherit"}}>
-                <span style={{fontSize:"1.5rem"}}>🛟</span>
-                <div>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>You're in Survival Mode</div>
-                  <div style={{color:T.textSoft,fontSize:"0.77rem",marginTop:"0.1rem"}}>Tap to open your 3 essentials — that's all you need today.</div>
+              <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
+                <div style={{background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}55`,borderRadius:"1.2rem",padding:"1.4rem 1.3rem",textAlign:"center"}}>
+                  <div style={{fontSize:"2.2rem",marginBottom:"0.4rem"}}>🛟</div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,marginBottom:"0.4rem"}}>Survival Mode</div>
+                  <p style={{color:T.textMid,fontSize:"0.85rem",lineHeight:1.65,margin:"0 0 0.2rem",fontWeight:600}}>You are not behind. You are not failing.</p>
+                  <p style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.65,margin:0,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>Some days, just getting through is the win.</p>
                 </div>
-              </button>
+                <div style={{background:T.surface,border:`1.5px solid ${T.borderSoft}`,borderRadius:"1rem",padding:"0.8rem 1rem",textAlign:"center"}}>
+                  <p style={{color:T.textSoft,fontSize:"0.82rem",margin:0,lineHeight:1.6,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>Only three things matter today. Check them off and you're done.</p>
+                </div>
+                {BURNOUT_TASKS.map(function(t){const checked=burnoutChecked.includes(t.id);return(
+                  <button key={t.id} onClick={function(){setBurnoutChecked(function(p){return p.includes(t.id)?p.filter(function(x){return x!==t.id;}):[...p,t.id];});}} style={{background:checked?`linear-gradient(135deg,${T.sagePale},${T.sage}18)`:T.surface,border:`2px solid ${checked?T.sage:T.borderSoft}`,borderRadius:"1rem",padding:"1rem 1.2rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"1rem",width:"100%",textAlign:"left",fontFamily:"inherit",transition:"all 0.18s"}}>
+                    <span style={{fontSize:"1.5rem"}}>{t.emoji}</span>
+                    <span style={{flex:1,fontWeight:700,color:checked?T.sageDark:T.textDark,fontSize:"0.95rem",textDecoration:checked?"line-through":"none"}}>{t.label}</span>
+                    <div style={{width:26,height:26,borderRadius:"50%",border:`2.5px solid ${checked?T.sage:T.border}`,background:checked?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{checked&&<Icon name="check" size={13} color="#fff"/>}</div>
+                  </button>
+                );})}
+                {burnoutChecked.length===3&&(
+                  <div style={{background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,borderRadius:"1.1rem",padding:"1.3rem",textAlign:"center"}}>
+                    <div style={{fontSize:"1.8rem",marginBottom:"0.35rem"}}>🌿</div>
+                    <p style={{color:T.sageDark,fontWeight:700,fontSize:"1rem",margin:"0 0 0.35rem"}}>You did it. That's everything.</p>
+                    <p style={{fontWeight:500,fontSize:"0.84rem",color:T.textMid,margin:0}}>Rest now. You showed up today — that matters.</p>
+                  </div>
+                )}
+                <div style={{background:"transparent",border:`1.5px dashed ${T.borderSoft}`,borderRadius:"1rem",padding:"0.9rem",textAlign:"center"}}>
+                  <p style={{color:T.textFaint,fontSize:"0.77rem",margin:"0 0 0.5rem",fontStyle:"italic"}}>You don't have to do everything. Just enough.</p>
+                  <button onClick={function(){setFlowMode("Smooth");}} style={{background:"none",border:`1.5px solid ${T.border}`,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.73rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600}}>✨ Back to a full day when ready</button>
+                </div>
+              </div>
             )}
 
             {/* Today's tasks */}
             <div style={{background:T.surface,border:"3px solid "+T.blue,borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:"0 4px 20px "+T.blue+"14"}}>
-              {people.length>1&&(
+              {people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!["Kid","Teen","Baby"].includes(p.role);}).length>0&&(
                 <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
-                  {[{id:"all",name:"Everyone"},...people].map(function(p){
+                  {[{id:"all",name:"Everyone"},...people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!["Kid","Teen","Baby"].includes(p.role);})].map(function(p){
                     return <button key={p.id} onClick={function(){setPersonFilter(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(personFilter===p.id?(p.color||T.blue):T.border),background:personFilter===p.id?(p.color||T.blue)+"22":"transparent",color:personFilter===p.id?(p.color||T.blue):T.textMid,fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
                   })}
                 </div>
@@ -3337,6 +3479,47 @@ Respond ONLY in valid JSON:
                       <button onClick={function(){addQuickTask(b.text,"top3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.blue,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>Top</button>
                     </div>
                   );})}
+                </div>
+              );
+            })()}
+
+            {/* Brain dump ideas & unscheduled suggestions — pull relevant items */}
+            {flowMode!=="Survival"&&(function(){
+              var MINOR_ROLES_T=["Kid","Teen","Baby"];
+              var adultNames=people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES_T.includes(p.role);}).map(function(p){return p.name;});
+              // Items assigned to adults or unassigned, not done, not already scheduled, not already a task today
+              var ideasPool=brainItems.filter(function(b){
+                if(b.done) return false;
+                if(b.scheduledDay&&b.scheduledDay!=="") return false; // already queued (shown above)
+                if(allTaskTiers.some(function(t){return t.text===b.text||t.brainId===b.id;})) return false;
+                if(b.assignedTo&&!adultNames.includes(b.assignedTo)) return false; // skip kids-only items
+                return true;
+              });
+              // Prioritize: items matching day theme category, then errands/admin/household, cap at 4
+              var THEME_TO_CATS_T={"reset":["household","errands"],"errands":["errands","orders"],"admin":["admin","calls","orders"],"clean":["household"],"prep":["household","errands"],"family":["errands","household"],"rest":["someday"],"finance":["admin"],"fitness":["errands"],"batch cook":["household"]};
+              var themeKeyT=(dayRhythm.theme||"").toLowerCase();
+              var themedCats=Object.entries(THEME_TO_CATS_T).find(function(kv){return themeKeyT.includes(kv[0]);})?.[1]||[];
+              var themedItems=ideasPool.filter(function(b){return themedCats.includes(b.cat);});
+              var otherItems=ideasPool.filter(function(b){return !themedCats.includes(b.cat)&&["errands","admin","household","calls","orders"].includes(b.cat);});
+              var suggestions=[...themedItems,...otherItems].slice(0,4);
+              if(suggestions.length===0) return null;
+              return(
+                <div style={{background:"linear-gradient(135deg,"+T.bluePale+","+T.surface+")",border:"1.5px solid "+T.blue+"35",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
+                    <span style={{fontSize:"0.9rem"}}>💡</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Ideas from brain dump</span>
+                    {dayRhythm.theme&&themedItems.length>0&&<span style={{fontSize:"0.65rem",background:T.blue+"20",color:T.blueDark,fontWeight:700,padding:"2px 8px",borderRadius:"2rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</span>}
+                  </div>
+                  {suggestions.map(function(b){
+                    var cat=brainCats.find(function(c){return c.id===b.cat;});
+                    return(
+                      <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.blue+"20"}}>
+                        {cat&&<span style={{fontSize:"0.85rem",flexShrink:0}}>{cat.emoji}</span>}
+                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:500,lineHeight:1.35}}>{b.text}</span>
+                        <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.blue,{fontSize:"0.68rem",padding:"0.22rem 0.6rem",flexShrink:0})}}>+ Add</button>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -4153,7 +4336,7 @@ Respond ONLY in valid JSON:
       setShowWeekTypePicker(false);
     }
 
-    const allBankMeals=[...MEAL_BANK_DATA,...mealBankCustom.map(m=>({...m,isCustom:true}))];const filteredBank=bankFilters.length===0?allBankMeals:allBankMeals.filter(m=>bankFilters.every(f=>(m.tags||[]).includes(f)));
+    const allBankMeals=[...MEAL_BANK_DATA,...mealBankCustom.map(m=>({...m,isCustom:true}))].slice().sort(function(a,b){return a.name.localeCompare(b.name);});const filteredBank=bankFilters.length===0?allBankMeals:allBankMeals.filter(m=>bankFilters.every(f=>(m.tags||[]).includes(f)));
 
     async function findRescueMeals(){
       if(!rescueInput.trim())return;
@@ -4503,8 +4686,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
 
             {/* ── MEALS inner tab ── */}
-            {bankInnerTab==="meals"&&(
-              <div>
+            <div style={{display:bankInnerTab==="meals"?"block":"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
                   <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
                   <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
@@ -4604,22 +4786,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                   </ModalBox>
                 )}
-              </div>
-            )}
+            </div>
 
             {/* ── RECIPES inner tab ── */}
-            {bankInnerTab==="recipes"&&<RecipesTab
-              recipes={recipes}
-              onSaveRecipe={function(r){setRecipes(function(p){return[...p,r];});}}
-              onDeleteRecipe={function(id){setRecipes(function(p){return p.filter(function(x){return x.id!==id;});});}}
-              onEditTags={function(id,tags){setRecipes(function(p){return p.map(function(r){return r.id===id?{...r,tags}:r;});});}}
-              onAddToShopping={addIngredientToShopping}
-              collapseAfterAdd={true}
-              onAddToMealBank={function(name,tags,ingredients){
-                var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
-                if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
-              }}
-            />}
+            <div style={{display:bankInnerTab==="recipes"?"block":"none"}}>
+              <RecipesTab
+                recipes={recipes}
+                onSaveRecipe={function(r){setRecipes(function(p){return[...p,r];});}}
+                onDeleteRecipe={function(id){setRecipes(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                onEditTags={function(id,tags){setRecipes(function(p){return p.map(function(r){return r.id===id?{...r,tags}:r;});});}}
+                onAddToShopping={addIngredientToShopping}
+                onAddToMealBank={function(name,tags,ingredients){
+                  var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
+                  if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -5212,11 +5394,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function BrainTab(){
     const [newText,setNewText] = useState("");
-    const [newCat,setNewCat] = useState("errands");
+    const [newCat,setNewCat] = useState("personal");
     const [aiRecatLoading,setAiRecatLoading] = useState(false);
     const [patternMsg,setPatternMsg] = useState(null);
     const [patternLoading,setPatternLoading] = useState(false);
-    const [activeTab,setBrainActiveTab] = useState(function(){try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}return brainCats&&brainCats.length>0?brainCats[0].id:"unfiled";});
+    const brainInputRef = React.useRef(null);
+    const [activeTab,setBrainActiveTab] = useState(function(){try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}return "all";});
     var _setBrainActiveTab=function(v){setBrainActiveTab(v);try{sessionStorage.setItem("af_brainActiveTab",v);}catch{}};
     const [search,setBrainSearch] = useState("");
     const brainDragId = React.useRef(null);
@@ -5257,14 +5440,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(/paperwork|schedule|book|appoint|form|file|tax|insurance|admin|renewal|register|submit|sign|fill out|apply|renew/.test(t)) return "admin";
       if(/someday|maybe|eventually|would be nice|idea|dream|wish|research|look into|consider|explore/.test(t)) return "someday";
       if(/clean|fix|repair|organize|tidy|laundry|dishes|vacuum|wipe|declutter|home|house|mow|sweep|mop|bathroom|kitchen/.test(t)) return "household";
+      if(/self|me time|read|journal|meditat|workout|gym|exercise|hobby|personal|hair|nails|skin|therapy/.test(t)) return "personal";
       return null;
     }
 
     function addItem(){
       if(!newText.trim()) return;
-      const cat = smartCat(newText.trim()) || (newCat!=="unfiled"?newCat:null);
+      const detected = smartCat(newText.trim());
+      const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
       setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
       setNewText("");
+      setTimeout(function(){if(brainInputRef.current)brainInputRef.current.focus();},0);
     }
 
     function scheduleItem(id, day){
@@ -5323,12 +5509,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const unfiled = active.filter(function(b){return !b.cat||b.cat==="uncategorized"||!brainCats.find(function(c){return c.id===b.cat;});});
 
     // Build person tabs from people state
-    var personTabs = people.map(function(p){ return {id:"person_"+p.id, label:p.name, initials:p.name[0].toUpperCase(), color:p.color||T.blue}; });
+    var MINOR_ROLES=["Kid","Teen","Baby"];
+    var personTabs = people.filter(function(p){ return !p.isMinor && !(p.age!=null && p.age<18) && !MINOR_ROLES.includes(p.role); }).map(function(p){ return {id:"person_"+p.id, label:p.name, initials:p.name[0].toUpperCase(), color:p.color||T.blue}; });
 
     // Items for current tab
     function getTabItems(){
       var items;
-      if(activeTab==="unfiled") items=unfiled;
+      if(activeTab==="all") items=active;
+      else if(activeTab==="unfiled") items=unfiled;
       else if(activeTab.startsWith("person_")){
         var pid=activeTab.replace("person_","");
         var pname=people.find(function(p){return p.id===pid;})?.name||"";
@@ -5387,7 +5575,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {DAY_NAMES_SHORT.map(function(d){return <option key={d} value={d}>{d.slice(0,3)}</option>;})}
             </select>
             <div style={{flex:1}}/>
-            {people.map(function(p){
+            {people.filter(function(p){ return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
               var isAssigned=item.assignedTo===p.name;
               return(
                 <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
@@ -5418,7 +5606,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Input */}
         <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <input value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addItem();}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}}/>
+            <input ref={brainInputRef} value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}} autoFocus/>
             <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
@@ -5440,6 +5628,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* Tab bar */}
         <ScrollTabs style={{borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem"}}>
+          <button onClick={function(){_setBrainActiveTab("all");}} style={{background:"none",border:"none",borderBottom:activeTab==="all"?"2.5px solid "+T.blue:"2.5px solid transparent",color:activeTab==="all"?T.blue:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="all"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+            🗂 All
+            <span style={{background:T.blue+"22",color:T.blue,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{active.length}</span>
+          </button>
           <button onClick={function(){_setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
             📥 Unfiled
             {unfiled.length>0&&<span style={{background:"#e05c5c",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{unfiled.length}</span>}
@@ -5469,7 +5661,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Items */}
         {tabItems.length===0&&(
           <div style={{textAlign:"center",padding:"2rem 1rem",color:T.textFaint,fontStyle:"italic",fontSize:"0.84rem"}}>
-            {activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
+            {activeTab==="all"?"Nothing in your brain dump yet ✓":activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
           </div>
         )}
         {tabItems.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
@@ -5563,227 +5755,377 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  function SettingSection({id, title, children, defaultOpen=true, settingsOpen, toggleSetting}){
+    const isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
+    return (
+      <div style={card()}>
+        <div onClick={function(){toggleSetting(id);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none",marginBottom:isOpen?"0.85rem":0}}>
+          <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>{title}</h2>
+          <div style={{display:"flex",transition:"transform 0.2s",transform:isOpen?"rotate(0deg)":"rotate(-90deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
+        </div>
+        {isOpen&&<div>{children}</div>}
+      </div>
+    );
+  }
+
+  function CareerTab(){
+    var ADULT_ROLES=["Mom","Dad","Guardian","Roommate","Other"];
+    var MINOR_ROLES=["Kid","Teen","Baby"];
+    var adults = people.filter(function(p){
+      if(!p||!p.name) return false;
+      if(MINOR_ROLES.includes(p.role)) return false;
+      if(p.isMinor) return false;
+      if(p.age!=null && p.age<18) return false;
+      // Only include if they have an explicit adult role OR age>=18
+      if(ADULT_ROLES.includes(p.role)) return true;
+      if(p.age!=null && p.age>=18) return true;
+      // No role, no age — exclude to be safe
+      return false;
+    });
+    var [activeCareerPerson, setActiveCareerPerson] = useState(function(){ return adults[0]?.id||null; });
+    var activePerson = adults.find(function(p){ return p.id===activeCareerPerson; })||adults[0]||null;
+
+    return(
+      <div>
+        <SecHead emoji="📋" title="Career"/>
+
+        {/* Person tabs — adults only */}
+        {adults.length>0?(
+          <div style={{display:"flex",gap:"0.4rem",marginBottom:"1.25rem",flexWrap:"wrap"}}>
+            {adults.map(function(p){
+              var active=p.id===activeCareerPerson;
+              return(
+                <button key={p.id} onClick={function(){setActiveCareerPerson(p.id);}}
+                  style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.38rem 0.85rem",borderRadius:"2rem",border:active?"none":"1px solid "+T.borderSoft,background:active?p.color||T.blue:"transparent",color:active?"#fff":T.textSoft,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:active?700:500,cursor:"pointer",transition:"all 0.15s"}}>
+                  <span style={{width:20,height:20,borderRadius:"50%",background:active?"rgba(255,255,255,0.3)":p.color||T.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.65rem",fontWeight:800,color:"#fff",flexShrink:0}}>{p.name[0].toUpperCase()}</span>
+                  {p.name}
+                </button>
+              );
+            })}
+          </div>
+        ):(
+          <p style={{color:T.textSoft,fontSize:"0.85rem",marginBottom:"1rem"}}>Add adults in Settings → People living in this home.</p>
+        )}
+
+        {/* Placeholder content — build out per person here */}
+        {activePerson&&(
+          <div style={{background:T.surface,borderRadius:"1rem",padding:"1.25rem",border:"1px solid "+T.borderSoft,color:T.textSoft,fontSize:"0.85rem",textAlign:"center"}}>
+            <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>📋</div>
+            <div style={{fontWeight:600,color:T.textDark,marginBottom:"0.25rem"}}>{activePerson.name}'s Career</div>
+            <div>Goals, notes, and career tracking coming here.</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function SettingsTab(){
-    const ONBOARD_QUESTIONS=[
-      {key:"parentNames",q:"What should I call you?",placeholder:"e.g. Lindsey & Jake"},
-      {key:"numKids",q:"How many little ones are in your home?",placeholder:"e.g. 3"},
-      {key:"kidAges",q:"What are their ages?",placeholder:"e.g. 7, 4, infant"},
-      {key:"dietaryNeeds",q:"Any dietary needs I should always know?",placeholder:"e.g. Dairy-free, nut-free"},
-      {key:"biggestChallenge",q:"Your biggest home management challenge?",placeholder:"e.g. Keeping up with meals"},
-      {key:"favoriteDinner",q:"A dinner your family loves on repeat?",placeholder:"e.g. Tacos, pasta"},
-      {key:"cookingStyle",q:"How would you describe your cooking style?",placeholder:"e.g. Quick & simple"},
-    ];
-    const currentQ=ONBOARD_QUESTIONS[onboardStep];
-    function saveSettingsProfile() {
-      setFamilyProfile(onboardAnswers);
-      if (onboardAnswers.parentNames) {
-        const nameParts = onboardAnswers.parentNames.split(/[&,]/).map(function(s){ return s.trim(); }).filter(Boolean);
-        setPeople(function(prev) {
-          const updated = [...prev];
-          if (nameParts[0] && updated[0]) updated[0] = {...updated[0], name: nameParts[0]};
-          if (nameParts[1] && updated[1]) updated[1] = {...updated[1], name: nameParts[1]};
-          return updated;
-        });
-      }
-      setShowOnboarding(false);
-      setOnboardStep(0);
-    }
     const [settingsOpen, setSettingsOpen] = useState({});
     function toggleSetting(key){ setSettingsOpen(p=>({...p,[key]:!p[key]})); }
-    function SettingSection({id, title, children, defaultOpen=true}){
-      const isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
-      return (
-        <div style={card()}>
-          <div onClick={()=>toggleSetting(id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none",marginBottom:isOpen?"0.85rem":0}}>
-            <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark}}>{title}</h2>
-            <div style={{display:"flex",transition:"transform 0.2s",transform:isOpen?"rotate(0deg)":"rotate(-90deg)"}}><Icon name="chevD" size={16} color={T.textSoft}/></div>
-          </div>
-          {isOpen&&<div>{children}</div>}
-        </div>
-      );
-    }
 
     // ── local state for new member input ───────────────────────────
     const [newPersonName, setNewPersonNameLocal] = useState("");
+    var [newMemberName,setNewMemberName]=useState("");
+    var [newMemberAge,setNewMemberAge]=useState("");
+    var [newMemberRole,setNewMemberRole]=useState("");
+    var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
+    function addMember(){
+      if(!newMemberName.trim())return;
+      var age=newMemberAge.trim()?parseInt(newMemberAge.trim(),10):null;
+      var isMinor=age!==null&&age<18;
+      setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:isMinor}];});
+      setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+    }
 
     return(
       <div>
         <SecHead emoji="⚙️" title="Settings"/>
 
         {/* ── FAMILY PROFILE ─────────────────────────────────────── */}
-        <SettingSection id="family" title="👤 Family Profile">
-          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
-            <button onClick={()=>setShowOnboardingWizard(true)} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>🔄 Setup wizard</button>
-            <button onClick={()=>setShowOnboarding(v=>!v)} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.78rem"})}>{familyProfile?"Edit profile":"Set up"}</button>
-          </div>
+        <SettingSection id="family" title="👤 Family Profile" settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
+          <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>This tells Ripple who you are — used for meal suggestions, daily briefings, and AI context. Fill in what you know and tap <strong>Apply to your app</strong> to populate meals, pets, vehicles, and household automatically.</p>
 
-          {familyProfile&&!showOnboarding&&(
-            <div style={{display:"flex",flexDirection:"column",gap:"0.32rem",marginBottom:"1rem"}}>
-              {[
-                ["Names",familyProfile?.parentNames],
-                ["Kids",familyProfile?.numKids?`${familyProfile.numKids} (ages: ${familyProfile.kidAges||"?"})`:null],
-                ["Diet",familyProfile?.dietaryNeeds],
-                ["Home vibe",familyProfile?.homeVibe],
-                ["Pets",familyProfile?.pets],
-                ["City",familyProfile?.city],
-                ["School schedule",familyProfile?.schoolSchedule],
-                ["Fav dinner",familyProfile?.favoriteDinner],
-              ].filter(([,v])=>v).map(([k,v])=>(
-                <div key={k} style={{display:"flex",gap:"0.5rem",alignItems:"baseline"}}>
-                  <span style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",minWidth:96,flexShrink:0}}>{k}</span>
-                  <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:600}}>{String(v)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {!familyProfile&&!showOnboarding&&<p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.6,marginBottom:"0.75rem"}}>Set up your family profile to get personalised meal ideas and AI support.</p>}
-
-          {showOnboarding&&(
-            <div style={{marginTop:"0.75rem"}}>
-              <div style={{width:"100%",height:4,background:T.borderSoft,borderRadius:"2rem",marginBottom:"1rem",overflow:"hidden"}}>
-                <div style={{width:`${((onboardStep+1)/ONBOARD_QUESTIONS.length)*100}%`,height:"100%",background:T.blue,borderRadius:"2rem",transition:"width 0.3s"}}/>
-              </div>
-              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:600,color:T.textDark,marginBottom:"0.75rem"}}>{currentQ.q}</p>
-              <input value={onboardAnswers[currentQ.key]||""} onChange={e=>setOnboardAnswers(p=>({...p,[currentQ.key]:e.target.value}))} placeholder={currentQ.placeholder} style={{...inp({marginBottom:"0.75rem"})}} autoFocus
-                onKeyDown={e=>{if(e.key==="Enter"){if(onboardStep<ONBOARD_QUESTIONS.length-1){setOnboardStep(s=>s+1);}else{saveSettingsProfile();}}}}/>
-              <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
-                <div style={{display:"flex",gap:"0.45rem"}}>
-                  {onboardStep>0&&<button onClick={()=>setOnboardStep(s=>s-1)} style={btnS({padding:"0.5rem 1rem"})}>← Back</button>}
-                  <button onClick={()=>setShowOnboarding(false)} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.76rem",fontFamily:"inherit",padding:"0.5rem"}}>Skip</button>
-                </div>
-                <button onClick={()=>{if(onboardStep<ONBOARD_QUESTIONS.length-1){setOnboardStep(s=>s+1);}else{saveSettingsProfile();}}} style={btnP(T.blue,{padding:"0.5rem 1.2rem"})}>
-                  {onboardStep<ONBOARD_QUESTIONS.length-1?"Continue →":"Save ✨"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Extra profile fields — always editable inline */}
-          {!showOnboarding&&(
-            <div style={{marginTop:"0.75rem",borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.75rem"}}>
-              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.6rem"}}>Quick details</div>
-              <div style={{display:"flex",flexDirection:"column",gap:"0.45rem"}}>
-                {[
-                  {key:"homeVibe",placeholder:"Home vibe / values (e.g. calm, adventurous, faith-led)"},
-                  {key:"pets",placeholder:"Pets (e.g. 1 dog, 2 cats)"},
-                  {key:"city",placeholder:"City or region (for weather & context)"},
-                  {key:"schoolSchedule",placeholder:"School schedule note (e.g. M–F 8–3, homeschool)"},
-                  {key:"vehicles",placeholder:"Vehicles (e.g. 2019 Honda Pilot, minivan)"},
-                ].map(function(field){return(
-                  <div key={field.key} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+          {/* Core profile fields */}
+          {(function(){
+            var PROFILE_FIELDS = [
+              {key:"parentNames",    label:"Your name(s)",              placeholder:"e.g. Lindsey  or  Lindsey & Jake"},
+              {key:"workSituation",  label:"Work situation",            placeholder:"e.g. SAHM, remote full-time, part-time, travels for work"},
+              {key:"numKids",        label:"Number of kids",            placeholder:"e.g. 3"},
+              {key:"kidAges",        label:"Kid ages",                  placeholder:"e.g. 7, 4, infant"},
+              {key:"kidNames",       label:"Kid names",                 placeholder:"e.g. Emma, Liam, Mia"},
+              {key:"dietaryNeeds",   label:"Dietary needs",             placeholder:"e.g. Dairy-free, nut allergy"},
+              {key:"favoriteDinner", label:"Go-to dinners",             placeholder:"e.g. Tacos, sheet pan chicken, pasta (separate with commas)"},
+              {key:"cookingStyle",   label:"Cooking style",             placeholder:"e.g. Quick & simple, batch cook weekends"},
+              {key:"homeVibe",       label:"Home vibe / values",        placeholder:"e.g. calm, adventurous, faith-led"},
+              {key:"city",           label:"City or region",            placeholder:"e.g. Colorado Springs (for weather & context)"},
+              {key:"schoolSchedule", label:"School schedule",           placeholder:"e.g. Homeschool M–F, public school 8–3"},
+              {key:"pets",           label:"Pets",                      placeholder:"e.g. 1 golden retriever named Biscuit, 2 cats"},
+              {key:"vehicles",       label:"Vehicles",                  placeholder:"e.g. 2019 Honda Pilot, 2017 Toyota Camry"},
+              {key:"biggestChallenge",label:"Biggest home challenge",   placeholder:"e.g. Keeping up with meals, managing schedules"},
+            ];
+            return(
+              <div style={{display:"flex",flexDirection:"column",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                {PROFILE_FIELDS.map(function(field){return(
+                  <div key={field.key}>
+                    <label style={{...lbl,marginBottom:"0.18rem",display:"block"}}>{field.label}</label>
                     <input
                       value={(familyProfile&&familyProfile[field.key])||""}
                       onChange={function(e){setFamilyProfile(function(p){return{...(p||{}),[field.key]:e.target.value};});}}
                       placeholder={field.placeholder}
-                      style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.65rem"})}}
+                      style={inp({fontSize:"0.82rem",padding:"0.38rem 0.65rem"})}
                     />
                   </div>
                 );})}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
-          {/* Household Members — merged here */}
-          {!showOnboarding&&(function(){
-            var [newMemberName,setNewMemberName]=useState("");
-            var [newMemberAge,setNewMemberAge]=useState("");
-            var [newMemberRole,setNewMemberRole]=useState("");
-            var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
-            function addMember(){
-              if(!newMemberName.trim())return;
-              var age=newMemberAge.trim()?parseInt(newMemberAge.trim(),10):null;
-              var isMinor=age!==null&&age<18;
-              setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:isMinor}];});
-              setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+          {/* ── Apply to your app preview ── */}
+          {(function(){
+            var fp = familyProfile || {};
+
+            // ── Parse helpers ──
+            function parseMeals(str) {
+              if(!str) return [];
+              return str.split(/[,;\/]/).map(function(s){return s.trim();}).filter(function(s){return s.length>2;});
             }
+
+            function parsePets(str) {
+              if(!str) return [];
+              // patterns: "1 golden retriever named Biscuit", "2 cats", "dog named Rex"
+              var results = [];
+              var parts = str.split(/,|;|and /i).map(function(s){return s.trim();}).filter(Boolean);
+              parts.forEach(function(part) {
+                var nameMatch = part.match(/named\s+([A-Z][a-z]+)/i);
+                var petName = nameMatch ? nameMatch[1] : null;
+                var typeMatch = part.match(/\b(dog|cat|rabbit|bird|hamster|fish|guinea pig|horse|turtle|lizard|snake|ferret|goldendoodle|labrador|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer)\b/i);
+                var petType = typeMatch ? (["cat","rabbit","bird","fish","hamster","guinea pig","horse","turtle","lizard","snake","ferret"].includes(typeMatch[1].toLowerCase())?"Cat":["dog","goldendoodle","labrador","retriever","poodle","bulldog","beagle","shepherd","husky","dachshund","chihuahua","pug","boxer"].includes(typeMatch[1].toLowerCase())?"Dog":"Dog") : "Dog";
+                var breedMatch = part.match(/\b(golden retriever|labrador|golden|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer|goldendoodle|siamese|persian|maine coon)\b/i);
+                var breed = breedMatch ? breedMatch[1].replace(/\b\w/g,function(c){return c.toUpperCase();}) : "";
+                if(petName || petType) {
+                  results.push({name: petName || petType, type: petType, breed: breed});
+                }
+              });
+              return results;
+            }
+
+            function parseVehicles(str) {
+              if(!str) return [];
+              return str.split(/,|;|and /i).map(function(s){return s.trim();}).filter(function(s){return s.length>2;});
+            }
+
+            function parseKids(names, ages) {
+              if(!names && !ages) return [];
+              var nameList = names ? names.split(/[,;]/).map(function(s){return s.trim();}).filter(Boolean) : [];
+              var ageList  = ages  ? ages.split(/[,;]/).map(function(s){return s.trim();}).filter(Boolean) : [];
+              var count    = Math.max(nameList.length, ageList.length);
+              var kids = [];
+              for(var i=0;i<count;i++){
+                var name = nameList[i] || ("Kid "+(i+1));
+                var ageStr = ageList[i] || "";
+                var ageNum = ageStr.match(/\d+/) ? parseInt(ageStr.match(/\d+/)[0]) : null;
+                var isInfant = /infant|baby|newborn/i.test(ageStr);
+                var role = isInfant ? "Baby" : (ageNum!=null&&ageNum<=12) ? "Kid" : (ageNum!=null&&ageNum<18) ? "Teen" : "Kid";
+                kids.push({name:name, age:isInfant?0:ageNum, role:role, isMinor:true});
+              }
+              return kids;
+            }
+
+            // ── What will be applied ──
+            var mealsToAdd   = parseMeals(fp.favoriteDinner).filter(function(m){
+              return !mealBankCustom.some(function(x){return x.name.toLowerCase()===m.toLowerCase();});
+            });
+            var petsToAdd    = parsePets(fp.pets).filter(function(pet){
+              try { var existing=JSON.parse(localStorage.getItem("af_pets")||"[]"); return !existing.some(function(x){return x.name.toLowerCase()===(pet.name||"").toLowerCase();}); } catch{return true;}
+            });
+            var vehiclesToAdd = parseVehicles(fp.vehicles).filter(function(v){
+              return !homeSystems.some(function(s){return s.label.toLowerCase()===v.toLowerCase();});
+            });
+            var kidsToAdd    = parseKids(fp.kidNames, fp.kidAges).filter(function(k){
+              return !people.some(function(p){return p.name.toLowerCase()===k.name.toLowerCase();});
+            });
+            var isSchoolAge  = fp.kidAges && /[5-9]|1[0-7]/.test(fp.kidAges);
+            var isHomeschool = fp.schoolSchedule && /homeschool/i.test(fp.schoolSchedule);
+
+            var hasAnything  = mealsToAdd.length||petsToAdd.length||vehiclesToAdd.length||kidsToAdd.length;
+
+            if(!fp.parentNames && !fp.favoriteDinner && !fp.pets && !fp.vehicles && !fp.kidNames) return null;
+
+            function applyToApp() {
+              // Meals → mealBankCustom
+              if(mealsToAdd.length) {
+                setMealBankCustom(function(p){
+                  var next=[...p];
+                  mealsToAdd.forEach(function(m){
+                    next.push({id:"fp_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),name:m,tags:["family-favorite"],notes:"Added from family profile",isCustom:true});
+                  });
+                  return next;
+                });
+              }
+              // Pets → af_pets localStorage (AnchorVault reads directly)
+              if(petsToAdd.length) {
+                try {
+                  var existingPets = JSON.parse(localStorage.getItem("af_pets")||"[]");
+                  var newPets = [...existingPets, ...petsToAdd.map(function(pet){
+                    return {id:Date.now().toString()+Math.random().toString(36).slice(2,5), name:pet.name, type:pet.type, breed:pet.breed, color:"", dob:"", photo:null, vaccines:[], medications:[], tags:{rabies:"",chip:"",registration:""}, notes:""};
+                  })];
+                  localStorage.setItem("af_pets", JSON.stringify(newPets));
+                } catch(e){}
+              }
+              // Vehicles → homeSystems as a Vehicles card
+              if(vehiclesToAdd.length) {
+                setHomeSystems(function(p){
+                  var hasVehicle = p.some(function(s){return s.id==="vehicles"||s.emoji==="🚗";});
+                  if(hasVehicle) {
+                    return p.map(function(s){
+                      if(s.id==="vehicles"||s.emoji==="🚗") return {...s,items:[...s.items,...vehiclesToAdd.filter(function(v){return !s.items.includes(v);})]};
+                      return s;
+                    });
+                  }
+                  return [...p, {id:"vehicles",label:"Vehicles",emoji:"🚗",items:vehiclesToAdd}];
+                });
+              }
+              // Kids → people
+              if(kidsToAdd.length) {
+                var PC2=["#e8a838","#b87265","#8878b8","#7ab8a8","#c878a8","#6b9e6b"];
+                setPeople(function(p){
+                  var next=[...p];
+                  kidsToAdd.forEach(function(k,i){
+                    next.push({id:uid(),name:k.name,age:k.age,role:k.role,isMinor:true,color:PC2[i%PC2.length]});
+                  });
+                  return next;
+                });
+              }
+              // Mark applied
+              setFamilyProfile(function(p){return{...(p||{}),_applied:Date.now()};});
+            }
+
             return(
-              <div style={{marginTop:"0.9rem",borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.75rem"}}>
-                <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People living in this home</div>
-                {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
-                  var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
-                  return(
-                    <div key={p.id} style={{padding:"0.6rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-                      {/* Row 1: color dot + name + age badge + role badge + delete */}
-                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                        <div style={{width:12,height:12,borderRadius:"50%",background:p.color,flexShrink:0,marginTop:1}}/>
-                        <input
-                          value={p.name}
-                          onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,name:e.target.value}:x;});});}}
-                          style={{flex:1,border:"none",background:"transparent",fontSize:"0.86rem",fontWeight:600,color:T.textDark,fontFamily:"inherit",padding:"0",outline:"none",minWidth:0}}
-                        />
-                        {p.age!=null&&(
-                          <span style={{fontSize:"0.68rem",fontWeight:700,color:isMinorFlag?T.sand:T.blue,background:isMinorFlag?T.sandPale:T.bluePale,borderRadius:"2rem",padding:"1px 7px",flexShrink:0,whiteSpace:"nowrap"}}>
-                            {isMinorFlag?"Age "+p.age:"Adult"}
-                          </span>
-                        )}
-                        {p.role&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft,background:T.surface,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{p.role}</span>}
-                        <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px",display:"flex",flexShrink:0}}><Icon name="trash" size={13} color={T.textFaint}/></button>
-                      </div>
-                      {/* Row 2: age + role edit + color */}
-                      <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",paddingLeft:"1.4rem",marginTop:"0.4rem",alignItems:"center"}}>
-                        <input
-                          type="number"
-                          min={0}
-                          max={120}
-                          value={p.age!=null?p.age:""}
-                          onChange={function(e){
-                            var v=e.target.value;
-                            var age=v===""?null:parseInt(v,10);
-                            setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,age:age,isMinor:age!=null&&age<18}:x;});});
-                          }}
-                          placeholder="Age"
-                          style={{...inp({width:52,fontSize:"0.75rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}
-                        />
-                        <select
-                          value={p.role||""}
-                          onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,role:e.target.value||null}:x;});});}}
-                          style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}
-                        >
-                          <option value="">Role…</option>
-                          {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-                        </select>
-                        <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
-                          {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
-                            <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?`3px solid ${T.textDark}`:`2px solid transparent`,cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
-                          );})}
-                          <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${T.border}`,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}} >
-                            <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
-                          </label>
-                        </div>
-                      </div>
+              <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:"1.5px solid "+T.sage+"40",borderRadius:"1rem",padding:"1rem 1.1rem",marginBottom:"0.85rem"}}>
+                <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,marginBottom:"0.5rem"}}>✨ Apply to your app</div>
+                {hasAnything ? (
+                  <div>
+                    <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem",lineHeight:1.6}}>Here's what we'll add based on your profile:</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.85rem"}}>
+                      {mealsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🍽️</span><span><strong>Meal Bank:</strong> {mealsToAdd.join(", ")}</span></div>}
+                      {petsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🐾</span><span><strong>Pets (Anchor Vault):</strong> {petsToAdd.map(function(p){return p.name+(p.type&&p.type!==p.name?" ("+p.type+")":"")+(p.breed?" "+p.breed:"");}).join(", ")}</span></div>}
+                      {vehiclesToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🚗</span><span><strong>Vehicles:</strong> {vehiclesToAdd.join(", ")}</span></div>}
+                      {kidsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🧒</span><span><strong>Household members:</strong> {kidsToAdd.map(function(k){return k.name+(k.age!=null?" ("+k.age+")":"");}).join(", ")}</span></div>}
                     </div>
-                  );
-                })}
-                {/* Add new member */}
-                <div style={{marginTop:"0.75rem",background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:`1px solid ${T.borderSoft}`}}>
-                  <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Add someone</div>
-                  <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                    <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-                    <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+                    <button onClick={applyToApp} style={{...btnP(T.sage,{width:"100%",justifyContent:"center",fontSize:"0.85rem",padding:"0.6rem"})}}>Apply to my app →</button>
                   </div>
-                  <div style={{display:"flex",gap:"0.4rem"}}>
-                    <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
-                      <option value="">Role (optional)</option>
-                      {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-                    </select>
-                    <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
+                ) : (
+                  <div style={{fontSize:"0.78rem",color:T.textMid,lineHeight:1.6}}>
+                    {fp.parentNames || fp.favoriteDinner || fp.pets || fp.vehicles || fp.kidNames
+                      ? "Everything from your profile is already in the app. Update any field above to add more."
+                      : "Fill in go-to dinners, pets, vehicles, and kid names above — then we'll populate the app automatically."}
                   </div>
-                </div>
+                )}
+                {isSchoolAge&&!isHomeschool&&(
+                  <div style={{marginTop:"0.65rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.sage+"30",fontSize:"0.77rem",color:T.textMid,lineHeight:1.6}}>
+                    📚 Looks like you have school-age kids — check out the <strong>Weekly Rhythm</strong> tab to set up school schedules and day themes.
+                  </div>
+                )}
+                {isHomeschool&&(
+                  <div style={{marginTop:"0.65rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.sage+"30",fontSize:"0.77rem",color:T.textMid,lineHeight:1.6}}>
+                    📚 Homeschool family! Use <strong>Weekly Rhythm → Day Themes</strong> to build your school week structure and let Ripple plan around it.
+                  </div>
+                )}
               </div>
             );
           })()}
+
+          <div style={{fontSize:"0.71rem",color:T.textFaint,marginBottom:"0.85rem",lineHeight:1.5}}>Profile fields save as you type. Hit "Apply" whenever you update meals, pets, or vehicles to sync them across the app.</div>
+
+          {/* Household Members */}
+          <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.75rem",marginTop:"0.25rem"}}>
+            <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People living in this home</div>
+            {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
+              var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
+              return(
+                <div key={p.id} style={{padding:"0.6rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                    <div style={{width:12,height:12,borderRadius:"50%",background:p.color,flexShrink:0,marginTop:1}}/>
+                    <input
+                      key={p.id+"_name"}
+                      defaultValue={p.name}
+                      onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,name:e.target.value}:x;});});}}
+                      style={{flex:1,border:"none",background:"transparent",fontSize:"0.86rem",fontWeight:600,color:T.textDark,fontFamily:"inherit",padding:"0",outline:"none",minWidth:0}}
+                    />
+                    {p.age!=null&&(
+                      <span style={{fontSize:"0.68rem",fontWeight:700,color:isMinorFlag?T.sand:T.blue,background:isMinorFlag?T.sandPale:T.bluePale,borderRadius:"2rem",padding:"1px 7px",flexShrink:0,whiteSpace:"nowrap"}}>
+                        {isMinorFlag?"Age "+p.age:"Adult"}
+                      </span>
+                    )}
+                    {p.role&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft,background:T.surface,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{p.role}</span>}
+                    <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px",display:"flex",flexShrink:0}}><Icon name="trash" size={13} color={T.textFaint}/></button>
+                  </div>
+                  <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",paddingLeft:"1.4rem",marginTop:"0.4rem",alignItems:"center"}}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={p.age!=null?p.age:""}
+                      onChange={function(e){
+                        var v=e.target.value;
+                        var age=v===""?null:parseInt(v,10);
+                        setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,age:age,isMinor:age!=null&&age<18}:x;});});
+                      }}
+                      placeholder="Age"
+                      style={{...inp({width:52,fontSize:"0.75rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}
+                    />
+                    <select
+                      value={p.role||""}
+                      onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,role:e.target.value||null}:x;});});}}
+                      style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}
+                    >
+                      <option value="">Role…</option>
+                      {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+                    </select>
+                    <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
+                      {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
+                        <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?`3px solid ${T.textDark}`:`2px solid transparent`,cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+                      );})}
+                      <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${T.border}`,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                        <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Add new member */}
+            <div style={{marginTop:"0.75rem",background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:`1px solid ${T.borderSoft}`}}>
+              <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Add someone</div>
+              <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
+                <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+                <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+              </div>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
+                  <option value="">Role (optional)</option>
+                  {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+                </select>
+                <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
+              </div>
+            </div>
+          </div>
         </SettingSection>
 
         {/* ── FLOW ───────────────────────────────────────────────── */}
-        <SettingSection id="flow" title="🌊 Flow" defaultOpen={false}>
+        <SettingSection id="flow" title="🌊 Flow" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <div style={{marginBottom:"1rem"}}>
             <label style={lbl}>What should Ripple call you?</label>
-            <input
-              value={preferredName}
-              onChange={e=>setPreferredName(e.target.value)}
-              placeholder={familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||"e.g. Lindsey"}
-              style={inp()}
-            />
+            <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
+              <input
+                value={preferredName}
+                onChange={function(e){setPreferredName(e.target.value);}}
+                onKeyDown={function(e){if(e.key==="Enter"){var updated={...authUser,displayName:preferredName.trim()||authUser?.displayName};setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch(err){};}}}
+                placeholder={familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||"e.g. Lindsey"}
+                style={{...inp({flex:1})}}
+              />
+              <button onClick={function(){var updated={...authUser,displayName:preferredName.trim()||authUser?.displayName};setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch(err){};}} style={btnP(T.sage,{padding:"0.42rem 0.9rem",fontSize:"0.78rem",flexShrink:0})}>Save</button>
+            </div>
             <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.3rem"}}>Used in your daily anchor greeting and AI messages.</p>
           </div>
           <div style={{marginBottom:"0.85rem"}}>
@@ -5817,12 +6159,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </SettingSection>
 
         {/* ── BRAIN DUMP CATEGORIES ──────────────────────────────── */}
-        <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false}>
+        <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
         </SettingSection>
 
         {/* ── WEEKLY / DAY THEMES ────────────────────────────────── */}
-        <SettingSection id="daythemes" title="📅 Day Themes" defaultOpen={false}>
+        <SettingSection id="daythemes" title="📅 Day Themes" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <p style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.6,marginBottom:"0.85rem"}}>Give each day a focus. These themes guide Ripple's suggestions and appear across your weekly view.</p>
           {(function(){
             const [editingDayS, setEditingDayS] = useState(null);
@@ -5876,7 +6218,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </SettingSection>
 
         {/* ── APPEARANCE ─────────────────────────────────────────── */}
-        <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false}>
+        <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.65rem"}}>
             {Object.entries(THEMES).map(([key,th])=>(
               <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:`2px solid ${themeName===key?T.blue:T.border}`,borderRadius:"0.9rem",padding:"0.9rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
@@ -5888,38 +6230,89 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </SettingSection>
 
         {/* ── NOTIFICATIONS ──────────────────────────────────────── */}
-        <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false}>
-          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Anchor & Flow sends warm AI-powered check-ins throughout your day.</p>
-          {[
-            {time:"7:00 am",emoji:"🌅",label:"Morning anchor",desc:"Your daily agenda, tasks & events"},
-            {time:"12:00 pm",emoji:"🌊",label:"Midday check-in",desc:"Progress update & encouragement"},
-            {time:"3:00 pm",emoji:"🍽️",label:"Dinner heads-up",desc:"Defrost reminders & meal prep"},
-            {time:"5:00 pm",emoji:"🌙",label:"Evening recap",desc:"Ripple-style day summary + tomorrow preview"},
-            {time:"2hrs before",emoji:"⏰",label:"Event nudges",desc:"Smart reminders before appointments"},
-          ].map((n,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-              <span style={{fontSize:"1.1rem",flexShrink:0}}>{n.emoji}</span>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,color:T.textDark,fontSize:"0.85rem"}}>{n.label}</div>
-                <div style={{color:T.textSoft,fontSize:"0.72rem"}}>{n.desc}</div>
-              </div>
-              <span style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:600,flexShrink:0}}>{n.time}</span>
-            </div>
-          ))}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,marginTop:"0.25rem"}}>
-            <span style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>Browser notifications</span>
-            <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-              <span style={{fontSize:"0.74rem",color:notifPermission==="granted"?T.sage:T.textSoft,fontWeight:700}}>{notifPermission==="granted"?"Enabled":notifPermission==="denied"?"Blocked":"Not enabled"}</span>
-              {notifPermission!=="granted"&&notifPermission!=="denied"&&<button onClick={requestNotifPermission} style={btnP(T.blue,{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>Enable</button>}
-            </div>
-          </div>
-          {notifPermission==="granted"&&(
-            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginTop:"0.75rem"}}>
-              <button onClick={()=>{const todayTasks=tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);const todayMeal=(meals[TODAY_NAME]||{}).dinner;const todayEvts=calEvents.filter(e=>e.date===TODAY.toISOString().split("T")[0]);new Notification("⚓️ Your daily anchor is ready",{body:`${todayEvts.length>0?`First up: ${todayEvts[0].title}. `:""}${todayTasks.filter(t=>!t.done).length} tasks today.${todayMeal?` Dinner: ${todayMeal}.`:""}`,icon:"/favicon.svg"});}} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Preview morning</button>
-              <button onClick={()=>{const done=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&t.done&&!t.archived).length;const pending=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.done&&!t.archived).length;new Notification("🌙 Evening recap",{body:`${done>0?`${done} things done today.`:""} ${pending>0?`${pending} still on your list.`:""} Rest up — tomorrow is a fresh start.`,icon:"/favicon.svg"});}} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Preview evening</button>
-              <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();}} style={btnP(T.blue,{fontSize:"0.73rem",padding:"0.32rem 0.75rem"})}>Schedule today's</button>
+        <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
+          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Ripple sends warm AI-powered check-ins throughout your day. Turn each one on or off below.</p>
+
+          {/* ── Permission status banner ── */}
+          {notifPermission==="denied"&&(
+            <div style={{background:T.rose+"18",border:`1.5px solid ${T.rose}40`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.85rem"}}>
+              <div style={{fontWeight:700,fontSize:"0.85rem",color:T.rose,marginBottom:"0.25rem"}}>🚫 Notifications are blocked</div>
+              <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55}}>Your browser has blocked notifications for this site. To fix it, open your browser settings → Site permissions → Notifications → find anchorandflowapp.com → Allow.</div>
             </div>
           )}
+          {notifPermission==="default"&&(
+            <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:`1.5px solid ${T.sage}40`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.85rem"}}>
+              <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,marginBottom:"0.3rem"}}>Enable Ripple notifications</div>
+              <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>You'll get a morning briefing at 7am, midday check-in, dinner reminder, and evening recap — all written by Ripple AI for your day.</div>
+              <button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.85rem",padding:"0.55rem 1.3rem",width:"100%",justifyContent:"center"})}}>🔔 Turn on Ripple notifications</button>
+            </div>
+          )}
+          {notifPermission==="granted"&&(
+            <div style={{background:T.sage+"15",border:`1.5px solid ${T.sage}40`,borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.65rem"}}>
+              <span style={{fontSize:"1.1rem"}}>✅</span>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:"0.85rem",color:T.sage}}>Notifications are on</div>
+                <div style={{fontSize:"0.73rem",color:T.textSoft}}>Ripple will check in with you throughout the day.</div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Per-notification toggles ── */}
+          {(function(){
+            var NOTIF_LIST = [
+              {key:"morning", time:"7:00 am",     emoji:"🌅", label:"Morning anchor",      desc:"Your agenda, tasks & events for the day"},
+              {key:"midday",  time:"12:00 pm",    emoji:"🌊", label:"Midday check-in",     desc:"Progress update & encouragement"},
+              {key:"dinner",  time:"3:00 pm",     emoji:"🍽️", label:"Dinner heads-up",     desc:"Defrost reminder & meal prep nudge"},
+              {key:"evening", time:"5:00 pm",     emoji:"🌙", label:"Evening recap",       desc:"Day summary + tomorrow preview"},
+              {key:"events",  time:"2hrs before", emoji:"⏰", label:"Event nudges",        desc:"Smart reminder before each appointment"},
+              {key:"recurring",time:"varies",     emoji:"🔁", label:"Recurring reminders", desc:"Trash, HVAC, street sweeping, custom"},
+            ];
+            return(
+              <div style={{borderRadius:"0.9rem",border:`1px solid ${T.borderSoft}`,overflow:"hidden",marginBottom:"0.85rem"}}>
+                {NOTIF_LIST.map(function(n,i){
+                  var on = notifSettings[n.key] !== false;
+                  return(
+                    <div key={n.key} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.65rem 0.9rem",borderBottom:i<NOTIF_LIST.length-1?`1px solid ${T.borderSoft}`:"none",background:on?"transparent":T.bgAlt+"60"}}>
+                      <span style={{fontSize:"1.1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,color:on?T.textDark:T.textFaint,fontSize:"0.85rem"}}>{n.label}</div>
+                        <div style={{color:T.textSoft,fontSize:"0.72rem"}}>{n.desc} · <span style={{color:T.textFaint}}>{n.time}</span></div>
+                      </div>
+                      <button
+                        onClick={function(){setNotifSettings(function(p){var next={...(p||{})};next[n.key]=!on;return next;});setTimeout(function(){setDailySummaryScheduled(null);scheduleAllDailyNotifications();},100);}}
+                        style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:on?T.sage:T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}
+                      >
+                        <div style={{position:"absolute",top:3,left:on?23:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* ── Actions ── */}
+          {notifPermission==="granted"&&(
+            <div style={{marginTop:"0.85rem",display:"flex",flexDirection:"column",gap:"0.45rem"}}>
+              <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();setSaved&&setSaved(true);}} style={btnP(T.blue,{fontSize:"0.8rem",padding:"0.45rem 1rem",width:"100%",justifyContent:"center"})}>🔄 Reschedule today's notifications</button>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <button onClick={()=>{
+                  const todayTasks=tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);
+                  const todayMeal=(meals[TODAY_NAME]||{}).dinner;
+                  const todayEvts=calEvents.filter(e=>e.date===TODAY.toISOString().split("T")[0]);
+                  showInAppBanner("🌅 Morning anchor preview",`${todayEvts.length>0?`First up: ${todayEvts[0].title}. `:""}`+`${todayTasks.filter(t=>!t.done).length} tasks today.${todayMeal?` Dinner: ${todayMeal}`:""}`);
+                }} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem",flex:1})}>Preview morning</button>
+                <button onClick={()=>{
+                  const done=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&t.done&&!t.archived).length;
+                  const pending=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.done&&!t.archived).length;
+                  showInAppBanner("🌙 Evening recap preview",`${done>0?`${done} things done. `:""}${pending>0?`${pending} still on your list. `:""}Rest up — tomorrow is a fresh start.`);
+                }} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem",flex:1})}>Preview evening</button>
+              </div>
+              <div style={{fontSize:"0.72rem",color:T.textFaint,textAlign:"center",lineHeight:1.5}}>Previews show as in-app banners. Native push arrives at the scheduled times.</div>
+            </div>
+          )}
+
+          {/* ── Upcoming reminders ── */}
           {notifications.filter(n=>!n.fired).length>0&&(
             <div style={{marginTop:"0.85rem"}}>
               <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
@@ -5936,7 +6329,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </SettingSection>
 
         {/* ── VISIBLE SECTIONS ───────────────────────────────────── */}
-        <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false}>
+        <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <p style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.75rem",lineHeight:1.55}}>Hide sections you don't use. You can bring them back any time.</p>
           {TABS.filter(t=>t.id!=="settings"&&t.id!=="anchor").map(t=>(
             <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
@@ -5950,7 +6343,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ── AI MEMORY ──────────────────────────────────────────── */}
         {Object.keys(aiMemory).length>0&&(
-          <SettingSection id="aimemory" title="🧠 What Ripple Knows" defaultOpen={false}>
+          <SettingSection id="aimemory" title="🧠 What Ripple Knows" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
               <p style={{fontSize:"0.78rem",color:T.textSoft,margin:0}}>Things Ripple has learned about your household from conversations.</p>
               <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
@@ -5965,7 +6358,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
 
         {/* ── SIGN IN / SYNC ─────────────────────────────────────── */}
-        <SettingSection id="sync" title="🔐 Sign In & Sync" defaultOpen={false}>
+        <SettingSection id="sync" title="🔐 Sign In & Sync" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
               <Icon name="sync" size={18} color={T.blueDark}/>
@@ -6708,7 +7101,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","calendar","weekly","meals","shop","home","brain","burnout","settings","ai"].map(t=>{
+          {["anchor","calendar","weekly","meals","shop","home","brain","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -6719,7 +7112,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="shop"     && <ShoppingTab/>}
                 {t==="home"     && <HomeTab/>}
                 {t==="brain"    && <BrainTab/>}
-                {t==="burnout"  && <BurnoutTab/>}
+                {t==="career"   && <CareerTab/>}
                 {t==="settings" && <SettingsTab/>}
                 {t==="ai" && <RippleTab/>}
               </div>
@@ -6951,7 +7344,7 @@ function FlowWrapper({ onHome, onSignOut }) {
   const activeTab = homeFlowRef.tab;
   const _setActiveTab = React.useCallback((t) => { homeFlowRef.goTab(t); forceUpdate(); window.dispatchEvent(new CustomEvent("af-set-tab", { detail: t })); }, []);
   const [sections, setSections] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,burnout:true} }
+    try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true} }
   })
   React.useEffect(() => {
     const onStorage = () => {
@@ -6970,7 +7363,6 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "shop",     label: "Shopping", emoji: "🛒" },
     { id: "home",     label: "Home",     emoji: "🏡" },
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
-    { id: "burnout",  label: "Survival", emoji: "🛟" },
     { id: "settings", label: "Settings", emoji: "⚙️" },
   ]
   const VAULT_NAV = [
@@ -6992,11 +7384,7 @@ function FlowWrapper({ onHome, onSignOut }) {
       try { setAnchorHidden(JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}")) } catch {}
     }
     window.addEventListener("storage", onAnchorStorage)
-    window.addEventListener("af-anchor-hidden-changed", onAnchorStorage)
-    return function() {
-      window.removeEventListener("storage", onAnchorStorage)
-      window.removeEventListener("af-anchor-hidden-changed", onAnchorStorage)
-    }
+    return function() { window.removeEventListener("storage", onAnchorStorage) }
   }, [])
   // af-set-tab now dispatched immediately in _setActiveTab — no useEffect needed
 
