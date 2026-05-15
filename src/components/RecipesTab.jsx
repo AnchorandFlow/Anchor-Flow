@@ -122,6 +122,7 @@ const RecipesTab = React.memo(function RecipesTab({ recipes=[], onSaveRecipe, on
   const [mr, setMr] = useState({ name:"", time:"", ingredients:"", instructions:"" })
   const [newTags, setNewTags] = useState([])
   const [activeFilter, setActiveFilter] = useState("all")
+  const [savedMsg, setSavedMsg] = useState("")
   const [openCards, setOpenCards] = useState(()=>{ try{ return JSON.parse(sessionStorage.getItem("af_openCards")||"{}") }catch{ return {} } })
   const setOpenCard = (id, val) => { const next = {...openCards, [id]:val}; setOpenCards(next); try{ sessionStorage.setItem("af_openCards", JSON.stringify(next)) }catch{} }
 
@@ -156,9 +157,10 @@ const RecipesTab = React.memo(function RecipesTab({ recipes=[], onSaveRecipe, on
       tags: newTags,
       savedAt: new Date().toISOString()
     })
-    setManual(false)
+    setSavedMsg("\u2713 " + mr.name + " saved!")
     setMr({ name:"", time:"", ingredients:"", instructions:"" })
     setNewTags([])
+    setTimeout(function(){ setSavedMsg("") }, 3000)
   }
 
   const editTags = (id, tags) => {
@@ -194,6 +196,7 @@ const RecipesTab = React.memo(function RecipesTab({ recipes=[], onSaveRecipe, on
             <input value={mr.time} onChange={e=>setMr(p=>({...p,time:e.target.value}))} placeholder="Cook time (e.g. 30 min)" style={inp()}/>
             <textarea value={mr.ingredients} onChange={e=>setMr(p=>({...p,ingredients:e.target.value}))} placeholder="Ingredients (one per line)" rows={4} style={{...inp(),resize:"vertical"}}/>
             <textarea value={mr.instructions} onChange={e=>setMr(p=>({...p,instructions:e.target.value}))} placeholder="Instructions (one step per line)" rows={4} style={{...inp(),resize:"vertical"}}/>
+            {savedMsg && <div style={{ fontSize:12, color:B.sage, fontWeight:600, padding:"6px 0" }}>{savedMsg}</div>}
             <button onClick={addManual} disabled={!mr.name} style={{ background:B.sage, border:"none", borderRadius:8, padding:9, color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:600, cursor:"pointer", opacity:mr.name?1:0.5 }}>Save Recipe</button>
           </div>
         )}

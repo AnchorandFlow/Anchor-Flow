@@ -1976,36 +1976,148 @@ function CDocsTab({ pid, career, setCareer }) {
       React.createElement(CSaveBtn,{onClick:save})))
 }
 
-// ── CareerSection (main export) ───────────────────────────────────────────────
+// ── CareerSection (dashboard + drill-in) ─────────────────────────────────────
 function CareerSection() {
-  var people = hLoadPeople()
-  var careerPair = useCareer(); var career = careerPair[0]; var setCareer = careerPair[1];
-  var s0=useState(0); var personIdx=s0[0]; var setPersonIdx=s0[1];
-  var s1=useState("resume"); var careerTab=s1[0]; var setCareerTab=s1[1];
-  var person = people[personIdx]
-  if (!person) return null
-  var tp = { pid: person.id, career: career, setCareer: setCareer }
+  var s_people=useState(hLoadPeople()); var people=s_people[0]; var setPeople=s_people[1];
+  var careerPair=useCareer(); var career=careerPair[0]; var setCareer=careerPair[1];
+  // detail: null = dashboard, {pid, tab} = person detail
+  var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
+  var s_addP=useState(false); var addingPerson=s_addP[0]; var setAddingPerson=s_addP[1];
+  var s_name=useState(""); var newPersonName=s_name[0]; var setNewPersonName=s_name[1];
+  // person-level tab selection persisted in detail state
+  var s_pidx=useState(0); var personIdx=s_pidx[0]; var setPersonIdx=s_pidx[1];
+
+  function savePerson() {
+    var name=newPersonName.trim(); if(!name) return;
+    var color=PERSON_COLORS[people.length%PERSON_COLORS.length];
+    var newP={id:"p_"+Math.random().toString(36).slice(2,9),name:name,color:color};
+    var updated=people.concat([newP]);
+    setPeople(updated); hSavePeople(updated);
+    setNewPersonName(""); setAddingPerson(false);
+  }
+
+  function removePerson(idx) {
+    if(people.length<=1) return;
+    var updated=people.filter(function(_,i){return i!==idx;});
+    hSavePeople(updated); setPeople(updated);
+    setPersonIdx(Math.max(0,idx-1));
+    if(detail&&detail.pid===updated[Math.max(0,idx-1)]&&!updated.find(function(p){return p.id===detail.pid;})) setDetail(null);
+  }
+
+  // helper: compute stats for a person
+  function getStats(pid) {
+    var d=career[pid]||{};
+    var jobs=(d.jobs||[]);
+    var activeJobs=jobs.filter(function(j){return j.status==="Interview"||j.status==="Applied"||j.status==="Offer";}).length;
+    var goals=(d.goals||[]).filter(function(g){return !g.done;}).length;
+    var skills=(d.skills||[]).length;
+    var wins=(d.wins||[]).length;
+    var interviews=jobs.filter(function(j){return j.status==="Interview";}).length;
+    var goalsDone=(d.goals||[]).filter(function(g){return g.done;}).length;
+    var lastWin=(d.wins||[])[0];
+    return {activeJobs:activeJobs,goals:goals,skills:skills,wins:wins,interviews:interviews,goalsDone:goalsDone,lastWin:lastWin,jobs:jobs.slice(0,3),goalList:(d.goals||[]).filter(function(g){return !g.done;}).slice(0,2)};
+  }
+
+  var CSURF="rgba(255,255,255,0.05)";
+  var CSURF2="rgba(255,255,255,0.04)";
+  var CBORD2="0.5px solid rgba(255,255,255,0.08)";
+  var STATUS_COLOR={"Interview":"#85B7EB","Applied":"#EF9F27","Offer":"#97C459","Researching":"rgba(250,248,244,0.4)","Rejected":"rgba(250,248,244,0.25)"};
+
+  // ── Dashboard overview ────────────────────────────────────────────────────
+  if(!detail) {
+    return React.createElement("div",null,
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:CAREER_WHITE}},"Career"),
+        React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
+      ),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
+      React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
+        people.map(function(p,i){
+          var stats=getStats(p.id);
+          var initials=p.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+          return React.createElement("div",{key:p.id,onClick:function(){setPersonIdx(i);setDetail({pid:p.id,tab:"resume"});},style:{background:CSURF,border:CAREER_BORD,borderRadius:12,padding:"14px 16px",cursor:"pointer"}},
+            // person header
+            React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+                React.createElement("div",{style:{width:34,height:34,borderRadius:"50%",background:p.color||CAREER_GOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:CAREER_NAVY,flexShrink:0}},initials),
+                React.createElement("span",{style:{fontSize:14,fontWeight:500,color:CAREER_WHITE}},p.name)
+              ),
+              React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},">")
+            ),
+            // 4 stat grid
+            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:stats.jobs.length||stats.goalList.length?12:0}},
+              React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
+                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Active apps"),
+                React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.activeJobs)
+              ),
+              React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
+                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Interviews"),
+                React.createElement("p",{style:{fontSize:17,fontWeight:500,color:stats.interviews>0?CAREER_GOLD:CAREER_WHITE,margin:0}},stats.interviews)
+              ),
+              React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
+                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Goals"),
+                React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.goals)
+              ),
+              React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
+                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Skills"),
+                React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.skills)
+              )
+            ),
+            // preview: top jobs
+            stats.jobs.length>0&&React.createElement("div",{style:{borderTop:CBORD2,paddingTop:8}},
+              stats.jobs.map(function(j,ji){
+                return React.createElement("div",{key:ji,style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}},
+                  React.createElement("span",{style:{color:"rgba(250,248,244,0.6)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"65%"}},(j.company||"Company")+(j.role?" — "+j.role:"")),
+                  React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(255,255,255,0.06)",color:STATUS_COLOR[j.status]||"rgba(250,248,244,0.4)",border:"0.5px solid rgba(255,255,255,0.1)",whiteSpace:"nowrap"}},j.status||"—")
+                );
+              })
+            )
+          );
+        }),
+        // add card
+        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(255,255,255,0.02)",border:"0.5px dashed rgba(255,255,255,0.15)",borderRadius:12,minHeight:60,display:"flex",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer"}},
+          React.createElement("span",{style:{fontSize:18,color:"rgba(250,248,244,0.2)"}},"+"),
+          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}},"Add person")
+        )
+      ),
+      addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
+        React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Twyla, Ellie, Sam"}),
+        React.createElement(HSaveBtn,{onClick:savePerson,label:"Add person"})
+      )
+    );
+  }
+
+  // ── Person detail view ────────────────────────────────────────────────────
+  var person=people[personIdx];
+  if(!person) { setDetail(null); return null; }
+  var tp={pid:person.id,career:career,setCareer:setCareer};
+  var initials=person.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
-    // Per-person tabs
-    React.createElement("div",{style:{display:"flex",borderBottom:CAREER_BORD,overflowX:"auto",flexShrink:0}},
-      people.map(function(p,i){
-        return React.createElement("button",{key:p.id,onClick:function(){setPersonIdx(i);},style:{padding:"0.65rem 1rem",fontSize:13,background:"none",border:"none",borderBottom:i===personIdx?"2px solid "+CAREER_GOLD:"2px solid transparent",color:i===personIdx?CAREER_GOLD:"rgba(250,248,244,0.45)",cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6,fontFamily:"inherit"}},
-          React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:i===personIdx?CAREER_GOLD:(p.color||"rgba(250,248,244,0.3)"),flexShrink:0,display:"inline-block"}}),
-          p.name)
-      })),
-    // Career subtabs
+    // back + person header + person switcher
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
+      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
+      React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||CAREER_GOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:CAREER_NAVY,flexShrink:0}},initials),
+      React.createElement("span",{style:{fontSize:15,fontWeight:500,color:CAREER_WHITE,flex:1}},person.name),
+      personIdx>0&&React.createElement("button",{onClick:function(){removePerson(personIdx);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
+    ),
+    // subtabs
     React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0}},
       C_TABS.map(function(t){
-        return React.createElement("button",{key:t.id,onClick:function(){setCareerTab(t.id);},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===careerTab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===careerTab?CAREER_WHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label)
+        return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?CAREER_WHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label)
       })),
-    // Tab content
-    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 1.25rem",display:"flex",flexDirection:"column",gap:"0.9rem"}},
-      careerTab==="resume"   && React.createElement(CResumeTab,  tp),
-      careerTab==="jobs"     && React.createElement(CJobsTab,    tp),
-      careerTab==="goals"    && React.createElement(CGoalsTab,   tp),
-      careerTab==="wins"     && React.createElement(CWinsTab,    tp),
-      careerTab==="docs"     && React.createElement(CDocsTab,    tp)))
+    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 0",display:"flex",flexDirection:"column",gap:"0.9rem"}},
+      detail.tab==="resume" && React.createElement(CResumeTab,tp),
+      detail.tab==="jobs"   && React.createElement(CJobsTab,  tp),
+      detail.tab==="goals"  && React.createElement(CGoalsTab, tp),
+      detail.tab==="wins"   && React.createElement(CWinsTab,  tp),
+      detail.tab==="docs"   && React.createElement(CDocsTab,  tp)
+    ),
+    addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
+      React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Twyla, Ellie, Sam"}),
+      React.createElement(HSaveBtn,{onClick:savePerson,label:"Add person"})
+    )
+  );
 }
 
 // ── Health Section ────────────────────────────────────────────────────────────
@@ -2064,6 +2176,8 @@ function hLoadPeople() {
   try { var r=localStorage.getItem("af_people"); if(!r) return [{id:"default",name:"You",color:"#6A9BB5"}]; var p=JSON.parse(r); if(Array.isArray(p)&&p.length>0) return p; } catch(e){}
   return [{id:"default",name:"You",color:"#6A9BB5"}];
 }
+function hSavePeople(list) { try { localStorage.setItem("af_people", JSON.stringify(list)); } catch(e){} }
+var PERSON_COLORS = ["#6A9BB5","#c8a97a","#7a9e8e","#a07ab5","#d98a6e","#6ab5a0","#b5856a","#8e8eb5"]
 
 function HBadge(props) { var b=HBADGE[props.type]||HBADGE.gray; return React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:12,whiteSpace:"nowrap",background:b.bg,color:b.color,border:"0.5px solid "+b.border}},props.label); }
 function HCondPill(props) { var p=HPILL[props.type]||HPILL.other; return React.createElement("span",{style:{fontSize:11,padding:"2px 9px",borderRadius:12,background:p.bg,color:p.color,border:"0.5px solid "+p.border}},props.label); }
@@ -2237,33 +2351,1041 @@ function HNotesTab(props) {
   );
 }
 
-function HealthSection() {
-  var people=hLoadPeople();
-  var hPair=useHealth(); var health=hPair[0]; var setHealth=hPair[1];
-  var s0=useState(0); var personIdx=s0[0]; var setPersonIdx=s0[1];
-  var s1=useState("history"); var healthTab=s1[0]; var setHealthTab=s1[1];
-  var person=people[personIdx];
-  if(!person) return null;
-  var tp={personId:person.id,health:health,setHealth:setHealth};
-  return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
-    React.createElement("div",{style:{display:"flex",borderBottom:HBORD,overflowX:"auto",flexShrink:0}},
-      people.map(function(p,i){return React.createElement("button",{key:p.id,onClick:function(){setPersonIdx(i);},style:{padding:"0.65rem 1rem",fontSize:13,background:"none",border:"none",borderBottom:i===personIdx?"2px solid "+HGOLD:"2px solid transparent",color:i===personIdx?HGOLD:"rgba(250,248,244,0.45)",cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:6,fontFamily:"inherit"}},React.createElement("span",{style:{width:7,height:7,borderRadius:"50%",background:i===personIdx?HGOLD:(p.color||"rgba(250,248,244,0.3)"),flexShrink:0,display:"inline-block"}}),p.name);})
+// ── Health person card (used in dashboard overview) ───────────────────────────
+function HPersonCard(props) {
+  var p=props.person; var health=props.health; var onOpen=props.onOpen;
+  var pid=p.id;
+  var d=health[pid]||{};
+  var meds=(d.meds||[]).length;
+  var allergies=(d.allergies||[]).length;
+  var immunizations=d.immunizations||[];
+  var dueVax=immunizations.filter(function(v){return v.status==="due"||v.status==="overdue";}).length;
+  var vaxColor=dueVax>0?"#d85a30":"#1d9e75";
+  var vaxLabel=dueVax>0?(dueVax+" due"):"All clear";
+  var initials=p.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+  // first overdue vax
+  var firstDue=immunizations.find(function(v){return v.status==="overdue";}) || immunizations.find(function(v){return v.status==="due";});
+  // first allergy
+  var firstAllergy=(d.allergies||[])[0];
+  var SURF="rgba(255,255,255,0.05)";
+  var SURF2="rgba(255,255,255,0.04)";
+  var BORD2="0.5px solid rgba(255,255,255,0.08)";
+  return React.createElement("div",{onClick:function(){onOpen(pid);},style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}},
+    // header
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        React.createElement("div",{style:{width:34,height:34,borderRadius:"50%",background:p.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
+        React.createElement("span",{style:{fontSize:14,fontWeight:500,color:HWHITE}},p.name)
+      ),
+      React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},">")
     ),
-    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0}},
-      H_TABS.map(function(t){return React.createElement("button",{key:t.id,onClick:function(){setHealthTab(t.id);},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===healthTab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===healthTab?HWHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label);})
+    // 3 mini stats
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
+      React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
+        React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Meds"),
+        React.createElement("p",{style:{fontSize:17,fontWeight:500,color:HWHITE,margin:0}},meds)
+      ),
+      React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
+        React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Allergies"),
+        React.createElement("p",{style:{fontSize:17,fontWeight:500,color:HWHITE,margin:0}},allergies)
+      ),
+      React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
+        React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Vaccines"),
+        React.createElement("p",{style:{fontSize:14,fontWeight:500,color:vaxColor,margin:0}},vaxLabel)
+      )
     ),
-    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 1.25rem",display:"flex",flexDirection:"column",gap:"0.9rem"}},
-      healthTab==="history"   &&React.createElement(HHistoryTab,  tp),
-      healthTab==="immunize"  &&React.createElement(HImmunizeTab, tp),
-      healthTab==="meds"      &&React.createElement(HMedsTab,     tp),
-      healthTab==="allergies" &&React.createElement(HAllergiesTab,tp),
-      healthTab==="family"    &&React.createElement(HFamilyTab,   tp),
-      healthTab==="notes"     &&React.createElement(HNotesTab,    tp)
+    // preview rows
+    React.createElement("div",{style:{borderTop:BORD2,paddingTop:8,display:"flex",flexDirection:"column",gap:4}},
+      firstDue&&React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12}},
+        React.createElement("span",{style:{color:"rgba(250,248,244,0.6)"}},firstDue.name||"Vaccine"),
+        React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(216,90,48,0.15)",color:"#f0997b",border:"0.5px solid rgba(216,90,48,0.25)"}},firstDue.status==="overdue"?"Overdue":"Due")
+      ),
+      firstAllergy&&React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12}},
+        React.createElement("span",{style:{color:"rgba(250,248,244,0.6)"}},firstAllergy.substance||firstAllergy.name||"Allergy"),
+        React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(216,90,48,0.1)",color:"#f0997b",border:"0.5px solid rgba(216,90,48,0.2)"}},firstAllergy.severity||"Allergy")
+      ),
+      !firstDue&&!firstAllergy&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.28)",margin:0,textAlign:"center",padding:"2px 0"}},"Tap to add records")
     )
   );
 }
 
-// ── Anchor Dashboard ──────────────────────────────────────────────────────────
+function HealthSection() {
+  var s_people=useState(hLoadPeople()); var people=s_people[0]; var setPeople=s_people[1];
+  var hPair=useHealth(); var health=hPair[0]; var setHealth=hPair[1];
+  // "detail" view state: null = dashboard, {pid, tab} = person detail
+  var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
+  var s_addP=useState(false); var addingPerson=s_addP[0]; var setAddingPerson=s_addP[1];
+  var s_name=useState(""); var newPersonName=s_name[0]; var setNewPersonName=s_name[1];
+
+  function savePerson() {
+    var name=newPersonName.trim(); if(!name) return;
+    var color=PERSON_COLORS[people.length%PERSON_COLORS.length];
+    var newP={id:"p_"+Math.random().toString(36).slice(2,9),name:name,color:color};
+    var updated=people.concat([newP]);
+    setPeople(updated); hSavePeople(updated);
+    setNewPersonName(""); setAddingPerson(false);
+  }
+
+  function removePerson(pid) {
+    if(people.length<=1) return;
+    var updated=people.filter(function(p){return p.id!==pid;});
+    hSavePeople(updated); setPeople(updated);
+    if(detail&&detail.pid===pid) setDetail(null);
+  }
+
+  // ── Dashboard overview ────────────────────────────────────────────────────
+  if(!detail) {
+    return React.createElement("div",null,
+      // header
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"Health"),
+        React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
+      ),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
+      // 2-column person card grid
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}},
+        people.map(function(p){
+          return React.createElement(HPersonCard,{key:p.id,person:p,health:health,onOpen:function(pid){setDetail({pid:pid,tab:"history"});}});
+        }),
+        // add card
+        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(255,255,255,0.02)",border:"0.5px dashed rgba(255,255,255,0.15)",borderRadius:12,minHeight:140,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer"}},
+          React.createElement("span",{style:{fontSize:22,color:"rgba(250,248,244,0.2)"}},"+"),
+          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}},"Add person")
+        )
+      ),
+      addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
+        React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Twyla, Ellie, Sam"}),
+        React.createElement(HSaveBtn,{onClick:savePerson,label:"Add person"})
+      )
+    );
+  }
+
+  // ── Person detail view ────────────────────────────────────────────────────
+  var person=people.find(function(p){return p.id===detail.pid;});
+  if(!person) { setDetail(null); return null; }
+  var tp={personId:person.id,health:health,setHealth:setHealth};
+  var initials=person.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+
+  return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
+    // back + person header
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
+      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
+      React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
+      React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},person.name),
+      people.indexOf(person)>0&&React.createElement("button",{onClick:function(){removePerson(person.id);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
+    ),
+    // subtabs
+    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0,marginBottom:0}},
+      H_TABS.map(function(t){return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?HWHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label);})
+    ),
+    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 0",display:"flex",flexDirection:"column",gap:"0.9rem"}},
+      detail.tab==="history"   &&React.createElement(HHistoryTab,  tp),
+      detail.tab==="immunize"  &&React.createElement(HImmunizeTab, tp),
+      detail.tab==="meds"      &&React.createElement(HMedsTab,     tp),
+      detail.tab==="allergies" &&React.createElement(HAllergiesTab,tp),
+      detail.tab==="family"    &&React.createElement(HFamilyTab,   tp),
+      detail.tab==="notes"     &&React.createElement(HNotesTab,    tp)
+    )
+  );
+}
+
+// ── Home Systems Section ──────────────────────────────────────────────────────
+var SYS_ICONS = [
+  {id:"hvac",    label:"HVAC",           emoji:"🌬️"},
+  {id:"water",   label:"Water heater",   emoji:"💧"},
+  {id:"electric",label:"Electrical",     emoji:"⚡"},
+  {id:"roof",    label:"Roof",           emoji:"🏠"},
+  {id:"gutters", label:"Gutters",        emoji:"🌿"},
+  {id:"plumb",   label:"Plumbing",       emoji:"🔧"},
+  {id:"pest",    label:"Pest control",   emoji:"🐛"},
+  {id:"appliance",label:"Appliance",     emoji:"🫧"},
+  {id:"other",   label:"Other",          emoji:"🔩"},
+]
+var SYS_FREQ = [
+  {id:"1m",  label:"Monthly"},
+  {id:"3m",  label:"Every 3 months"},
+  {id:"6m",  label:"Every 6 months"},
+  {id:"1y",  label:"Yearly"},
+  {id:"2y",  label:"Every 2 years"},
+  {id:"5y",  label:"Every 5 years"},
+  {id:"once",label:"One-time"},
+]
+
+function sysLoadSystems() {
+  try { var s=localStorage.getItem("af_homeSystems"); return s?JSON.parse(s):[]; } catch(e){return [];}
+}
+function sysSaveSystems(v) { try { localStorage.setItem("af_homeSystems",JSON.stringify(v)); } catch(e){} }
+
+function sysDaysUntil(dateStr) {
+  if(!dateStr) return null;
+  var now=new Date(); now.setHours(0,0,0,0);
+  var d=new Date(dateStr+"T00:00:00");
+  return Math.round((d-now)/86400000);
+}
+
+function sysNextDate(lastDone, freqId) {
+  if(!lastDone||!freqId||freqId==="once") return null;
+  var d=new Date(lastDone+"T00:00:00");
+  var map={
+    "1m":function(x){x.setMonth(x.getMonth()+1);},
+    "3m":function(x){x.setMonth(x.getMonth()+3);},
+    "6m":function(x){x.setMonth(x.getMonth()+6);},
+    "1y":function(x){x.setFullYear(x.getFullYear()+1);},
+    "2y":function(x){x.setFullYear(x.getFullYear()+2);},
+    "5y":function(x){x.setFullYear(x.getFullYear()+5);},
+  };
+  if(map[freqId]) map[freqId](d);
+  return d.toISOString().slice(0,10);
+}
+
+function sysStatus(system) {
+  var due = system.nextDue || sysNextDate(system.lastDone, system.freq);
+  if(!due) return "ok";
+  var days=sysDaysUntil(due);
+  if(days===null) return "ok";
+  if(days<0) return "overdue";
+  if(days<=30) return "soon";
+  return "ok";
+}
+
+function sysStatusColor(status) {
+  if(status==="overdue") return "#e24b4a";
+  if(status==="soon") return "#ef9f27";
+  return "#1d9e75";
+}
+
+function sysStatusLabel(system) {
+  var due = system.nextDue || sysNextDate(system.lastDone, system.freq);
+  var status=sysStatus(system);
+  if(!due) return system.lastDone ? ("Done "+system.lastDone) : "Not logged";
+  var days=sysDaysUntil(due);
+  if(days===null) return "Scheduled";
+  if(days<0) return Math.abs(days)+"d overdue";
+  if(days===0) return "Due today";
+  if(days===1) return "Due tomorrow";
+  return "Due in "+days+"d";
+}
+
+// ── House File (Records) ──────────────────────────────────────────────────────
+var HF_CATS = [
+  { id:"home",    label:"Home specs",       emoji:"🏠", desc:"Paint colors, flooring, fixtures, utility accounts" },
+  { id:"vehicle", label:"Vehicles",         emoji:"🚗", desc:"VIN, insurance, registration, service history" },
+  { id:"warranty",label:"Warranties",       emoji:"🛡️", desc:"Appliances, systems, electronics" },
+  { id:"tax",     label:"Tax file",         emoji:"📄", desc:"Annual checklists and year summaries" },
+  { id:"legal",   label:"Legal & financial",emoji:"⚖️", desc:"Wills, insurance policies, mortgage, emergency contacts" },
+  { id:"other",   label:"Other",            emoji:"📋", desc:"Anything that doesn't fit elsewhere" },
+]
+
+// Card types: "note" (freeform fields), "checklist" (items with checkboxes)
+// Each card: { id, catId, type, title, fields:[{label,value}], items:[{id,text,done}], notes }
+
+function hfLoad() { try { var s=localStorage.getItem("af_houseFile"); return s?JSON.parse(s):[]; } catch(e){return [];} }
+function hfSave(v) { try { localStorage.setItem("af_houseFile",JSON.stringify(v)); } catch(e){} }
+
+var HF_FIELD_TEMPLATES = {
+  home: [
+    {label:"Room / area",value:""},
+    {label:"Paint brand",value:""},
+    {label:"Paint color name",value:""},
+    {label:"Paint code",value:""},
+    {label:"Finish",value:""},
+  ],
+  vehicle: [
+    {label:"Year / Make / Model",value:""},
+    {label:"Color",value:""},
+    {label:"VIN",value:""},
+    {label:"License plate",value:""},
+    {label:"Insurance carrier",value:""},
+    {label:"Policy number",value:""},
+    {label:"Registration expires",value:""},
+    {label:"Tire size",value:""},
+  ],
+  warranty: [
+    {label:"Item",value:""},
+    {label:"Brand / model",value:""},
+    {label:"Purchase date",value:""},
+    {label:"Warranty expires",value:""},
+    {label:"Serial number",value:""},
+    {label:"Retailer",value:""},
+    {label:"Support contact",value:""},
+  ],
+  tax: [],
+  legal: [
+    {label:"Document type",value:""},
+    {label:"Institution / carrier",value:""},
+    {label:"Account / policy number",value:""},
+    {label:"Location of document",value:""},
+    {label:"Contact / attorney",value:""},
+    {label:"Notes",value:""},
+  ],
+  other: [
+    {label:"Details",value:""},
+  ],
+}
+
+var TAX_CHECKLIST_DEFAULTS = [
+  "W-2 from employer(s)",
+  "1099-NEC (freelance / contract income)",
+  "1099-INT (bank interest)",
+  "1099-DIV (dividends)",
+  "1099-B (investment sales)",
+  "1099-R (retirement distributions)",
+  "SSA-1099 (Social Security)",
+  "Mortgage interest statement (1098)",
+  "Property tax statement",
+  "Charitable donation receipts",
+  "Medical expense receipts",
+  "Childcare provider EIN + amount paid",
+  "Student loan interest (1098-E)",
+  "Prior year tax return",
+  "Health insurance 1095-A / 1095-B / 1095-C",
+]
+
+function HouseFileSection() {
+  var s_cards=useState(hfLoad); var cards=s_cards[0]; var setCards=s_cards[1];
+  var s_cat=useState("home"); var activeCat=s_cat[0]; var setActiveCat=s_cat[1];
+  var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
+  var s_adding=useState(false); var adding=s_adding[0]; var setAdding=s_adding[1];
+  var s_cardType=useState("note"); var cardType=s_cardType[0]; var setCardType=s_cardType[1];
+  var s_title=useState(""); var cardTitle=s_title[0]; var setCardTitle=s_title[1];
+  var s_fields=useState([]); var cardFields=s_fields[0]; var setCardFields=s_fields[1];
+  var s_items=useState([]); var cardItems=s_items[0]; var setCardItems=s_items[1];
+  var s_newItem=useState(""); var newItem=s_newItem[0]; var setNewItem=s_newItem[1];
+  var s_notes=useState(""); var cardNotes=s_notes[0]; var setCardNotes=s_notes[1];
+  var s_editing=useState(null); var editingId=s_editing[0]; var setEditingId=s_editing[1];
+  var s_fieldEdit=useState(null); var fieldEdit=s_fieldEdit[0]; var setFieldEdit=s_fieldEdit[1];
+
+  function saveCards(updated) { setCards(updated); hfSave(updated); }
+
+  var catCards=cards.filter(function(c){return c.catId===activeCat;});
+  var cat=HF_CATS.find(function(c){return c.id===activeCat;})||HF_CATS[0];
+
+  function openAdd() {
+    var tmpl=HF_FIELD_TEMPLATES[activeCat]||[];
+    var isChecklist=activeCat==="tax";
+    setCardType(isChecklist?"checklist":"note");
+    setCardTitle("");
+    setCardFields(tmpl.map(function(f){return Object.assign({},f);}));
+    setCardItems(isChecklist?TAX_CHECKLIST_DEFAULTS.map(function(t){return {id:huid(),text:t,done:false};}): []);
+    setCardNotes("");
+    setEditingId(null);
+    setAdding(true);
+  }
+
+  function openEdit(card) {
+    setCardType(card.type||"note");
+    setCardTitle(card.title||"");
+    setCardFields((card.fields||[]).map(function(f){return Object.assign({},f);}));
+    setCardItems((card.items||[]).map(function(i){return Object.assign({},i);}));
+    setCardNotes(card.notes||"");
+    setEditingId(card.id);
+    setAdding(true);
+    setDetail(null);
+  }
+
+  function saveCard() {
+    if(!cardTitle.trim()) return;
+    var entry={id:editingId||huid(),catId:activeCat,type:cardType,title:cardTitle.trim(),fields:cardFields,items:cardItems,notes:cardNotes};
+    if(editingId) {
+      saveCards(cards.map(function(c){return c.id===editingId?entry:c;}));
+    } else {
+      saveCards(cards.concat([entry]));
+    }
+    setAdding(false); setEditingId(null); setDetail(entry.id);
+  }
+
+  function deleteCard(id) {
+    saveCards(cards.filter(function(c){return c.id!==id;}));
+    setDetail(null);
+  }
+
+  function toggleItem(cardId, itemId) {
+    saveCards(cards.map(function(c){
+      if(c.id!==cardId) return c;
+      return Object.assign({},c,{items:(c.items||[]).map(function(it){return it.id===itemId?Object.assign({},it,{done:!it.done}):it;})});
+    }));
+    // also update detail view items if open
+    setCardItems(function(prev){return prev.map(function(it){return it.id===itemId?Object.assign({},it,{done:!it.done}):it;});});
+  }
+
+  function addChecklistItem() {
+    if(!newItem.trim()) return;
+    var item={id:huid(),text:newItem.trim(),done:false};
+    setCardItems(function(prev){return prev.concat([item]);});
+    setNewItem("");
+  }
+
+  function removeChecklistItem(id) {
+    setCardItems(function(prev){return prev.filter(function(i){return i.id!==id;});});
+  }
+
+  var SURF="rgba(255,255,255,0.05)";
+  var SURF2="rgba(255,255,255,0.04)";
+  var BORD2="0.5px solid rgba(255,255,255,0.08)";
+
+  // ── Detail card view ───────────────────────────────────────────────────────
+  if(detail) {
+    var card=cards.find(function(c){return c.id===detail;});
+    if(!card) { setDetail(null); return null; }
+    var cardCat=HF_CATS.find(function(c){return c.id===card.catId;})||HF_CATS[0];
+    var doneCount=(card.items||[]).filter(function(i){return i.done;}).length;
+    var totalCount=(card.items||[]).length;
+    return React.createElement("div",null,
+      // back + actions
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16}},
+        React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 Back"),
+        React.createElement("span",{style:{fontSize:15}},cardCat.emoji),
+        React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},card.title),
+        React.createElement("button",{onClick:function(){openEdit(card);},style:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Edit"),
+        React.createElement("button",{onClick:function(){if(window.confirm("Delete this record?")){deleteCard(card.id);}},style:{fontSize:11,color:"rgba(240,153,123,0.6)",background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.15)",borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Delete")
+      ),
+      // checklist
+      card.type==="checklist"&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",marginBottom:12}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
+          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif"}},(doneCount+" of "+totalCount+" collected")),
+          doneCount===totalCount&&totalCount>0&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:10,background:"rgba(29,158,117,0.15)",color:"#5dcaa5",border:"0.5px solid rgba(29,158,117,0.25)"}},"Complete \u2713")
+        ),
+        // progress bar
+        totalCount>0&&React.createElement("div",{style:{height:3,background:"rgba(255,255,255,0.07)",borderRadius:2,marginBottom:12}},
+          React.createElement("div",{style:{width:Math.round((doneCount/totalCount)*100)+"%",height:3,borderRadius:2,background:"#1d9e75",transition:"width 0.2s"}})
+        ),
+        (card.items||[]).map(function(item){
+          return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:BORD2,cursor:"pointer"},onClick:function(){toggleItem(card.id,item.id);}},
+            React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"0.5px solid "+(item.done?"rgba(29,158,117,0.6)":"rgba(255,255,255,0.2)"),background:item.done?"rgba(29,158,117,0.2)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+              item.done&&React.createElement("span",{style:{fontSize:10,color:"#5dcaa5"}},"\u2713")
+            ),
+            React.createElement("span",{style:{fontSize:13,color:item.done?"rgba(250,248,244,0.3)":"rgba(250,248,244,0.8)",textDecoration:item.done?"line-through":"none",flex:1}},item.text)
+          );
+        })
+      ),
+      // fields
+      card.type==="note"&&(card.fields||[]).filter(function(f){return f.value;}).length>0&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",marginBottom:12}},
+        (card.fields||[]).map(function(f,i){
+          if(!f.value) return null;
+          return React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:BORD2,gap:12}},
+            React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",flexShrink:0,paddingTop:1}},f.label),
+            React.createElement("span",{style:{fontSize:13,color:HWHITE,textAlign:"right",wordBreak:"break-word"}},f.value)
+          );
+        })
+      ),
+      // notes
+      card.notes&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",marginBottom:12}},
+        React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 6px"}},"Notes"),
+        React.createElement("p",{style:{fontSize:13,color:"rgba(250,248,244,0.7)",lineHeight:1.65,margin:0}},card.notes)
+      )
+    );
+  }
+
+  // ── Category list + cards ──────────────────────────────────────────────────
+  return React.createElement("div",null,
+    // header
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}},
+      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"House File"),
+      React.createElement("button",{onClick:openAdd,style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add record")
+    ),
+    // category pills
+    React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}},
+      HF_CATS.map(function(c){
+        var count=cards.filter(function(r){return r.catId===c.id;}).length;
+        return React.createElement("button",{key:c.id,onClick:function(){setActiveCat(c.id);},style:{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",fontSize:12,borderRadius:20,border:"0.5px solid "+(activeCat===c.id?"rgba(200,169,122,0.45)":"rgba(255,255,255,0.1)"),background:activeCat===c.id?"rgba(200,169,122,0.12)":"rgba(255,255,255,0.03)",color:activeCat===c.id?HGOLD:"rgba(250,248,244,0.45)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+          React.createElement("span",null,c.emoji),
+          React.createElement("span",null,c.label),
+          count>0&&React.createElement("span",{style:{fontSize:10,background:"rgba(200,169,122,0.2)",color:HGOLD,borderRadius:10,padding:"0 5px",lineHeight:"16px"}},count)
+        );
+      })
+    ),
+    // category description
+    React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif",marginBottom:14,marginTop:-6}},cat.desc),
+    // cards in active category
+    catCards.length===0
+      ? React.createElement("div",{style:{textAlign:"center",padding:"36px 20px",color:"rgba(250,248,244,0.28)",fontSize:13,fontFamily:"DM Sans,sans-serif",background:SURF2,border:"0.5px dashed rgba(255,255,255,0.1)",borderRadius:12}},
+          React.createElement("div",{style:{fontSize:28,marginBottom:8}},cat.emoji),
+          React.createElement("div",{style:{marginBottom:4}},"No "+cat.label+" records yet"),
+          React.createElement("button",{onClick:openAdd,style:{marginTop:10,fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:7,padding:"6px 14px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add first record")
+        )
+      : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          catCards.map(function(card){
+            var doneC=(card.items||[]).filter(function(i){return i.done;}).length;
+            var totalC=(card.items||[]).length;
+            var filledFields=(card.fields||[]).filter(function(f){return f.value;}).length;
+            return React.createElement("div",{key:card.id,onClick:function(){setDetail(card.id);},style:{background:SURF,border:HBORD,borderRadius:10,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}},
+              React.createElement("span",{style:{fontSize:20,flexShrink:0}},cat.emoji),
+              React.createElement("div",{style:{flex:1,minWidth:0}},
+                React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},card.title),
+                card.type==="checklist"
+                  ? React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                      React.createElement("div",{style:{flex:1,height:3,background:"rgba(255,255,255,0.08)",borderRadius:2,maxWidth:100}},
+                        React.createElement("div",{style:{width:totalC>0?Math.round((doneC/totalC)*100)+"%":"0%",height:3,borderRadius:2,background:"#1d9e75"}})
+                      ),
+                      React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}},(doneC+"/"+totalC))
+                    )
+                  : React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",margin:0}},(filledFields>0?(filledFields+" field"+(filledFields===1?"":"s")+" filled"):"Tap to view"))
+              ),
+              React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.25)",flexShrink:0}},">")
+            );
+          })
+        ),
+
+    // ── Add / edit modal ──────────────────────────────────────────────────
+    adding&&React.createElement(HModal,{title:(editingId?"Edit":"New")+" "+cat.label+" record",onClose:function(){setAdding(false);setEditingId(null);}},
+      // type toggle (skip for tax — always checklist)
+      activeCat!=="tax"&&React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12}},
+        React.createElement("button",{onClick:function(){setCardType("note");},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="note"?"rgba(200,169,122,0.4)":"rgba(255,255,255,0.1)"),background:cardType==="note"?"rgba(200,169,122,0.12)":"rgba(255,255,255,0.03)",color:cardType==="note"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Fields"),
+        React.createElement("button",{onClick:function(){setCardType("checklist");if(cardItems.length===0)setCardItems([{id:huid(),text:"",done:false}]);},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="checklist"?"rgba(200,169,122,0.4)":"rgba(255,255,255,0.1)"),background:cardType==="checklist"?"rgba(200,169,122,0.12)":"rgba(255,255,255,0.03)",color:cardType==="checklist"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Checklist")
+      ),
+      React.createElement(HInput,{label:"Title",value:cardTitle,onChange:setCardTitle,placeholder:activeCat==="tax"?"e.g. 2024 Tax Docs":activeCat==="vehicle"?"e.g. 2018 Honda CR-V":activeCat==="home"?"e.g. Living room paint":"Title"}),
+      // fields mode
+      cardType==="note"&&React.createElement("div",null,
+        cardFields.map(function(f,i){
+          return React.createElement("div",{key:i,style:{marginBottom:8}},
+            React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},f.label),
+            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.5rem 0.7rem",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
+          );
+        }),
+        // add custom field
+        fieldEdit!==null
+          ? React.createElement("div",{style:{display:"flex",gap:6,marginTop:6}},
+              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.45rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+              React.createElement("button",{onClick:function(){if(fieldEdit.trim()){setCardFields(function(prev){return prev.concat([{label:fieldEdit.trim(),value:""}]);});setFieldEdit(null);}},style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.45rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"Add"),
+              React.createElement("button",{onClick:function(){setFieldEdit(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.45rem 0.8rem",color:"rgba(250,248,244,0.35)",cursor:"pointer",fontSize:12}},"Cancel")
+            )
+          : React.createElement("button",{onClick:function(){setFieldEdit("");},style:{fontSize:11,color:"rgba(250,248,244,0.35)",background:"none",border:"0.5px dashed rgba(255,255,255,0.12)",borderRadius:7,padding:"4px 10px",cursor:"pointer",marginTop:4,fontFamily:"DM Sans,sans-serif"}},"\u002B Add custom field")
+      ),
+      // checklist mode
+      cardType==="checklist"&&React.createElement("div",null,
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Items"),
+        cardItems.map(function(item,i){
+          return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:6,marginBottom:4}},
+            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+            React.createElement("button",{onClick:function(){removeChecklistItem(item.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1,flexShrink:0}},"✕")
+          );
+        }),
+        React.createElement("div",{style:{display:"flex",gap:6,marginTop:4}},
+          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+          React.createElement("button",{onClick:addChecklistItem,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"\u002B")
+        )
+      ),
+      React.createElement(HTextarea,{label:"Notes (optional)",value:cardNotes,onChange:setCardNotes,placeholder:"Anything else worth remembering…",rows:2}),
+      React.createElement(HSaveBtn,{onClick:saveCard,label:editingId?"Save changes":"Add record"})
+    )
+  );
+}
+
+// ── Home section wrapper (Systems + House File tabs) ──────────────────────────
+function HomeSection() {
+  var s_tab=useState("systems"); var homeTab=s_tab[0]; var setHomeTab=s_tab[1];
+  return React.createElement("div",null,
+    // top tab row
+    React.createElement("div",{style:{display:"flex",gap:0,borderBottom:HBORD,marginBottom:20}},
+      React.createElement("button",{onClick:function(){setHomeTab("systems");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="systems"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="systems"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="systems"?600:400}},"🏠 Systems"),
+      React.createElement("button",{onClick:function(){setHomeTab("file");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="file"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="file"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="file"?600:400}},"📁 House File")
+    ),
+    homeTab==="systems"&&React.createElement(HomeSystemsSection,null),
+    homeTab==="file"&&React.createElement(HouseFileSection,null)
+  );
+}
+
+function HomeSystemsSection() {
+  var s_sys=useState(sysLoadSystems); var systems=s_sys[0]; var setSystems=s_sys[1];
+  var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
+  var s_adding=useState(false); var adding=s_adding[0]; var setAdding=s_adding[1];
+  var s_form=useState({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""}); var form=s_form[0]; var setForm=s_form[1];
+  var s_editIdx=useState(null); var editIdx=s_editIdx[0]; var setEditIdx=s_editIdx[1];
+
+  function saveSystems(updated) { setSystems(updated); sysSaveSystems(updated); }
+
+  function saveForm() {
+    if(!form.name.trim()) return;
+    var entry={id:huid(),name:form.name.trim(),type:form.type,freq:form.freq,lastDone:form.lastDone,nextDue:form.nextDue||sysNextDate(form.lastDone,form.freq)||"",notes:form.notes};
+    if(editIdx!==null) {
+      var updated=systems.map(function(s,i){return i===editIdx?entry:s;});
+      saveSystems(updated); setEditIdx(null);
+    } else {
+      saveSystems(systems.concat([entry]));
+    }
+    setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});
+    setAdding(false);
+  }
+
+  function markDone(idx) {
+    var today=new Date().toISOString().slice(0,10);
+    var updated=systems.map(function(s,i){
+      if(i!==idx) return s;
+      var next=sysNextDate(today,s.freq)||"";
+      return Object.assign({},s,{lastDone:today,nextDue:next});
+    });
+    saveSystems(updated);
+  }
+
+  function deleteSystem(idx) { saveSystems(systems.filter(function(_,i){return i!==idx;})); }
+
+  // alerts
+  var overdue=systems.filter(function(s){return sysStatus(s)==="overdue";});
+  var soon=systems.filter(function(s){return sysStatus(s)==="soon";});
+  var SURF="rgba(255,255,255,0.05)";
+  var SURF2="rgba(255,255,255,0.04)";
+
+  return React.createElement("div",null,
+    // header
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
+      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"Home Systems"),
+      React.createElement("button",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add system")
+    ),
+    React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Track maintenance schedules for every part of your home"),
+
+    // alert banners
+    overdue.length>0&&React.createElement("div",{style:{background:"rgba(226,75,74,0.08)",border:"0.5px solid rgba(226,75,74,0.2)",borderRadius:10,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#f0997b",marginBottom:10}},
+      React.createElement("span",{style:{fontSize:15}},"\u26a0\ufe0f"),
+      overdue.length===1
+        ? (overdue[0].name+" is overdue")
+        : (overdue.length+" systems are overdue")
+    ),
+    soon.length>0&&React.createElement("div",{style:{background:"rgba(239,159,39,0.08)",border:"0.5px solid rgba(239,159,39,0.18)",borderRadius:10,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#ef9f27",marginBottom:10}},
+      React.createElement("span",{style:{fontSize:15}},"\u23f0"),
+      soon.length===1
+        ? (soon[0].name+" due soon")
+        : (soon.length+" systems due within 30 days")
+    ),
+
+    // system grid
+    systems.length===0
+      ? React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",color:"rgba(250,248,244,0.3)",fontSize:13,fontFamily:"DM Sans,sans-serif"}},
+          React.createElement("div",{style:{fontSize:32,marginBottom:10}},"🏠"),
+          React.createElement("div",null,"No systems added yet."),
+          React.createElement("div",{style:{marginTop:4,fontSize:12}},"Track HVAC filters, water heaters, and anything that needs regular maintenance.")
+        )
+      : React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}},
+          systems.map(function(sys,i){
+            var status=sysStatus(sys);
+            var statusColor=sysStatusColor(status);
+            var typeIcon=(SYS_ICONS.find(function(s){return s.id===sys.type;})||SYS_ICONS[SYS_ICONS.length-1]).emoji;
+            return React.createElement("div",{key:sys.id||i,style:{background:SURF,border:HBORD,borderRadius:10,padding:"12px 12px 10px",display:"flex",flexDirection:"column",gap:6,cursor:"pointer"},
+              onClick:function(){setDetail(i);}},
+              React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
+                React.createElement("span",{style:{fontSize:20}},typeIcon),
+                React.createElement("span",{style:{width:8,height:8,borderRadius:"50%",background:statusColor,display:"inline-block",flexShrink:0,marginTop:3}})
+              ),
+              React.createElement("p",{style:{fontSize:12,fontWeight:500,color:HWHITE,margin:0,lineHeight:1.3}},sys.name),
+              React.createElement("p",{style:{fontSize:11,color:statusColor,margin:0}},sysStatusLabel(sys))
+            );
+          }),
+          // add tile
+          React.createElement("div",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{background:"rgba(255,255,255,0.02)",border:"0.5px dashed rgba(255,255,255,0.13)",borderRadius:10,minHeight:90,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer"}},
+            React.createElement("span",{style:{fontSize:20,color:"rgba(250,248,244,0.18)"}},"+"),
+            React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.28)",fontFamily:"DM Sans,sans-serif"}},"Add")
+          )
+        ),
+
+    // detail drawer (shows below grid)
+    detail!==null&&systems[detail]&&function(){
+      var sys=systems[detail];
+      var status=sysStatus(sys);
+      var freqLabel=(SYS_FREQ.find(function(f){return f.id===sys.freq;})||{label:sys.freq||"—"}).label;
+      return React.createElement("div",{style:{background:SURF2,border:HBORD,borderRadius:12,padding:"16px",marginTop:4}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
+          React.createElement("span",{style:{fontSize:14,fontWeight:500,color:HWHITE}},sys.name),
+          React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+            React.createElement("button",{onClick:function(){setEditIdx(detail);setForm({name:sys.name,type:sys.type||"other",freq:sys.freq||"1y",lastDone:sys.lastDone||"",nextDue:sys.nextDue||"",notes:sys.notes||""});setAdding(true);setDetail(null);},style:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"3px 9px",cursor:"pointer"}},"Edit"),
+            React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.3)",cursor:"pointer",fontSize:16,padding:"0 2px"}},"✕")
+          )
+        ),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
+          React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Frequency"),
+            React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},freqLabel)
+          ),
+          React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Status"),
+            React.createElement("p",{style:{fontSize:13,color:sysStatusColor(status),margin:0}},sysStatusLabel(sys))
+          ),
+          sys.lastDone&&React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Last done"),
+            React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.lastDone)
+          ),
+          (sys.nextDue||sysNextDate(sys.lastDone,sys.freq))&&React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Next due"),
+            React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.nextDue||sysNextDate(sys.lastDone,sys.freq))
+          )
+        ),
+        sys.notes&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",lineHeight:1.6,margin:"0 0 12px",fontStyle:"italic"}},sys.notes),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("button",{onClick:function(){markDone(detail);},style:{flex:1,background:"rgba(29,158,117,0.12)",border:"0.5px solid rgba(29,158,117,0.25)",borderRadius:8,padding:"8px",color:"#5dcaa5",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:500}},"\u2713 Mark done today"),
+          React.createElement("button",{onClick:function(){if(window.confirm("Delete "+sys.name+"?")){deleteSystem(detail);setDetail(null);}},style:{background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.18)",borderRadius:8,padding:"8px 12px",color:"rgba(240,153,123,0.7)",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Delete")
+        )
+      );
+    }(),
+
+    // add / edit modal
+    adding&&React.createElement(HModal,{title:editIdx!==null?"Edit system":"Add system",onClose:function(){setAdding(false);setEditIdx(null);}},
+      React.createElement(HInput,{label:"System name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. HVAC filter, Water heater flush"}),
+      React.createElement("div",{style:{marginBottom:"0.75rem"}},
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Type"),
+        React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},
+          SYS_ICONS.map(function(s){
+            return React.createElement("button",{key:s.id,onClick:function(){setForm(function(f){return Object.assign({},f,{type:s.id});});},style:{background:form.type===s.id?"rgba(200,169,122,0.18)":"rgba(255,255,255,0.04)",border:"0.5px solid "+(form.type===s.id?"rgba(200,169,122,0.4)":"rgba(255,255,255,0.1)"),borderRadius:8,padding:"5px 8px",fontSize:11,color:form.type===s.id?HGOLD:"rgba(250,248,244,0.5)",cursor:"pointer"}},s.emoji+" "+s.label);
+          })
+        )
+      ),
+      React.createElement("div",{style:{marginBottom:"0.75rem"}},
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Frequency"),
+        React.createElement("select",{value:form.freq,onChange:function(e){setForm(function(f){return Object.assign({},f,{freq:e.target.value});});},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:HBORD,borderRadius:8,padding:"0.5rem 0.7rem",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none"}},
+          SYS_FREQ.map(function(f){return React.createElement("option",{key:f.id,value:f.id},f.label);})
+        )
+      ),
+      React.createElement(HInput,{label:"Last completed (optional)",value:form.lastDone,onChange:function(v){setForm(function(f){return Object.assign({},f,{lastDone:v});});},placeholder:"YYYY-MM-DD",type:"date"}),
+      React.createElement(HTextarea,{label:"Notes (optional)",value:form.notes,onChange:function(v){setForm(function(f){return Object.assign({},f,{notes:v});});},placeholder:"Filter size, service provider, warranty info...",rows:2}),
+      React.createElement(HSaveBtn,{onClick:saveForm,label:editIdx!==null?"Save changes":"Add system"})
+    )
+  );
+}
+
+
+// ── Recurring Reminders helpers ───────────────────────────────────────────────
+var DAY_LABELS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+
+var FREQ_OPTIONS = [
+  { id:"weekly",     label:"Every week" },
+  { id:"biweekly",   label:"Every other week" },
+  { id:"monthly",    label:"Monthly" },
+  { id:"every6wk",   label:"Every 6 weeks" },
+  { id:"every2mo",   label:"Every 2 months" },
+  { id:"every3mo",   label:"Every 3 months" },
+  { id:"every6mo",   label:"Every 6 months" },
+  { id:"yearly",     label:"Once a year" },
+]
+
+// Built-in reminder templates — shown as quick-add suggestions
+var BUILTIN_REMINDERS = [
+  { id:"trash",       emoji:"🗑️",  label:"Trash",               type:"weekly_day",   defaultFreq:"weekly",   hint:"Which day is trash pickup?" },
+  { id:"recycling",   emoji:"♻️",  label:"Recycling",            type:"weekly_day",   defaultFreq:"biweekly", hint:"Which day is recycling pickup?" },
+  { id:"yard_waste",  emoji:"🌿",  label:"Yard Waste Pickup",    type:"weekly_day",   defaultFreq:"weekly",   hint:"Pickup day (often seasonal)" },
+  { id:"bulk_pickup", emoji:"🛋️",  label:"Bulk / Heavy Trash",   type:"weekly_day",   defaultFreq:"monthly",  hint:"Large item pickup day" },
+  { id:"street_sweep",emoji:"🚗",  label:"Street Sweeping",      type:"weekly_day",   defaultFreq:"weekly",   hint:"Move your car — ticketing day" },
+  { id:"hvac_filter", emoji:"💨",  label:"HVAC Filter Change",   type:"interval",     defaultFreq:"every3mo", hint:"Every 1–3 months depending on filter type" },
+  { id:"water_filter",emoji:"💧",  label:"Water Filter",         type:"interval",     defaultFreq:"every3mo", hint:"Fridge, under-sink, or pitcher" },
+  { id:"smoke_detect",emoji:"🔋",  label:"Smoke Detector Batteries", type:"interval", defaultFreq:"every6mo", hint:"Test & replace batteries twice a year" },
+  { id:"gutters",     emoji:"🏠",  label:"Gutter Cleaning",      type:"interval",     defaultFreq:"every6mo", hint:"Spring and fall" },
+  { id:"septic",      emoji:"🔩",  label:"Septic Tank Service",  type:"interval",     defaultFreq:"yearly",   hint:"Every 3–5 years — set to yearly and note it" },
+]
+
+function recurLoad() {
+  try { var s = localStorage.getItem("af_recurring"); return s ? JSON.parse(s) : [] } catch { return [] }
+}
+function recurSave(v) {
+  try { localStorage.setItem("af_recurring", JSON.stringify(v)) } catch {}
+}
+function recurId() { return "r" + Math.random().toString(36).slice(2,9) }
+
+// Returns next Date for a weekly-day reminder
+function nextWeeklyDay(dayOfWeek, freq, lastDone) {
+  if (dayOfWeek == null) return null
+  var now = new Date(); now.setHours(0,0,0,0)
+  var diff = (dayOfWeek - now.getDay() + 7) % 7
+  var d = new Date(now); d.setDate(d.getDate() + diff)
+  if (freq === "biweekly" && lastDone) {
+    var lp = new Date(lastDone); lp.setHours(0,0,0,0)
+    var weeksSince = Math.round((d - lp) / (7 * 86400000))
+    if (weeksSince % 2 !== 0) d.setDate(d.getDate() + 7)
+  }
+  if (freq === "monthly") {
+    var first = new Date(now.getFullYear(), now.getMonth(), 1)
+    d = new Date(first); d.setDate(1 + (dayOfWeek - first.getDay() + 7) % 7)
+    if (d < now) { d.setMonth(d.getMonth()+1); d.setDate(1); var b=new Date(d); d.setDate(1+(dayOfWeek-b.getDay()+7)%7) }
+  }
+  return d
+}
+
+var FREQ_DAYS = { weekly:7, biweekly:14, every6wk:42, every2mo:61, every3mo:91, every6mo:182, yearly:365, monthly:30 }
+
+// Returns next Date for an interval reminder (based on lastDone)
+function nextInterval(freq, lastDone) {
+  var days = FREQ_DAYS[freq] || 90
+  if (lastDone) {
+    var last = new Date(lastDone); last.setHours(0,0,0,0)
+    var next = new Date(last); next.setDate(next.getDate() + days)
+    return next
+  }
+  // No lastDone — due now/soon
+  var now = new Date(); now.setHours(0,0,0,0)
+  return now
+}
+
+function daysUntilReminder(r) {
+  var now = new Date(); now.setHours(0,0,0,0)
+  var next
+  if (r.type === "weekly_day") {
+    next = nextWeeklyDay(r.day, r.freq, r.lastDone)
+  } else {
+    next = nextInterval(r.freq, r.lastDone)
+  }
+  if (!next) return null
+  return Math.round((next - now) / 86400000)
+}
+
+function nextDateLabel(days) {
+  if (days == null) return null
+  if (days < 0) return "Overdue"
+  if (days === 0) return "Today"
+  if (days === 1) return "Tomorrow"
+  if (days <= 6) return "in " + days + "d"
+  if (days <= 13) return "next week"
+  if (days <= 30) return "in ~" + Math.round(days/7) + " wk"
+  if (days <= 60) return "in ~" + Math.round(days/30) + " mo"
+  return "in " + Math.round(days/30) + " months"
+}
+
+// ── Recurring Reminders Section ───────────────────────────────────────────────
+function RecurringRemindersSection() {
+  var NAVY="#1a2744"; var GOLD="#c8a97a"; var FAINT="rgba(250,248,244,0.35)"; var SOFT="rgba(250,248,244,0.65)"
+
+  var [reminders, setReminders] = useState(function() {
+    // Migrate old af_trash data if present
+    var existing = recurLoad()
+    if (existing.length) return existing
+    try {
+      var old = JSON.parse(localStorage.getItem("af_trash") || "null")
+      if (old) {
+        var migrated = []
+        if (old.trash && old.trash.day != null) migrated.push({ id:recurId(), builtinId:"trash", emoji:"🗑️", label:"Trash", type:"weekly_day", day:old.trash.day, freq:old.trash.freq||"weekly", lastDone:null, remindEvening:old.remindEvening!==false, remindMorning:old.remindMorning!==false, active:true })
+        if (old.recycling && old.recycling.day != null) migrated.push({ id:recurId(), builtinId:"recycling", emoji:"♻️", label:"Recycling", type:"weekly_day", day:old.recycling.day, freq:old.recycling.freq||"biweekly", lastDone:null, remindEvening:old.remindEvening!==false, remindMorning:old.remindMorning!==false, active:true })
+        if (migrated.length) { recurSave(migrated); return migrated }
+      }
+    } catch {}
+    return []
+  })
+
+  var [editing, setEditing] = useState(null) // null | "new" | reminder id
+  var [draft, setDraft] = useState(null)
+  var [showBuiltins, setShowBuiltins] = useState(false)
+  var [saved, setSaved] = useState(false)
+
+  function save(list) { setReminders(list); recurSave(list) }
+
+  function openNew(template) {
+    var base = template ? {
+      id: recurId(), builtinId: template.id, emoji: template.emoji, label: template.label,
+      type: template.type, freq: template.defaultFreq, day: null, lastDone: null,
+      remindEvening: true, remindMorning: true, active: true, custom: false
+    } : {
+      id: recurId(), builtinId: null, emoji: "⏰", label: "", type: "interval",
+      freq: "monthly", day: null, lastDone: null, remindEvening: true, remindMorning: false,
+      active: true, custom: true
+    }
+    setDraft(base); setEditing("new"); setShowBuiltins(false)
+  }
+
+  function openEdit(r) { setDraft(JSON.parse(JSON.stringify(r))); setEditing(r.id) }
+
+  function saveDraft() {
+    if (!draft.label.trim()) return
+    var updated = editing === "new"
+      ? [...reminders, draft]
+      : reminders.map(function(r) { return r.id === editing ? draft : r })
+    save(updated); setEditing(null); setDraft(null)
+    setSaved(true); setTimeout(function(){setSaved(false)}, 2000)
+  }
+
+  function deleteDraft() {
+    save(reminders.filter(function(r){return r.id !== editing}))
+    setEditing(null); setDraft(null)
+  }
+
+  function markDone(id) {
+    var today = new Date().toISOString().split("T")[0]
+    save(reminders.map(function(r){ return r.id===id ? {...r, lastDone:today} : r }))
+  }
+
+  var activeReminders = reminders.filter(function(r){return r.active!==false})
+  var sorted = activeReminders.slice().sort(function(a,b){
+    var da = daysUntilReminder(a); var db = daysUntilReminder(b)
+    if (da==null) return 1; if (db==null) return -1; return da-db
+  })
+
+  var existingBuiltinIds = reminders.map(function(r){return r.builtinId}).filter(Boolean)
+  var availableBuiltins = BUILTIN_REMINDERS.filter(function(b){return !existingBuiltinIds.includes(b.id)})
+
+  var S = {
+    card: { background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.18)", borderRadius:12, padding:"14px 16px", marginBottom:8 },
+    lbl: { fontSize:11, fontWeight:700, color:"rgba(200,169,122,0.65)", textTransform:"uppercase", letterSpacing:"0.09em", marginBottom:6, display:"block", fontFamily:"DM Sans,sans-serif" },
+    inp: { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.9)", fontFamily:"DM Sans,sans-serif", marginBottom:12, boxSizing:"border-box" },
+    sel: { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.85)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:12, boxSizing:"border-box" },
+    toggle: function(on){ return { width:36, height:20, borderRadius:10, background:on?"#7a9e8e":"rgba(255,255,255,0.1)", border:"none", position:"relative", cursor:"pointer", flexShrink:0, transition:"background 0.2s" } },
+    thumb: function(on){ return { position:"absolute", top:2, left:on?18:2, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.3)" } },
+    trow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 0", borderBottom:"0.5px solid rgba(255,255,255,0.06)" },
+  }
+
+  // ── Edit / New form ──────────────────────────────────────────────────────────
+  if (editing && draft) {
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+          <button onClick={function(){setEditing(null);setDraft(null)}} style={{background:"none",border:"none",color:GOLD,fontSize:20,cursor:"pointer",padding:0}}>←</button>
+          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:700,color:"#faf8f4"}}>
+            {editing==="new"?"Add Reminder":"Edit Reminder"}
+          </div>
+        </div>
+
+        <div style={S.card}>
+          {/* Emoji + Label */}
+          <div style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:10,marginBottom:2}}>
+            <div>
+              <label style={S.lbl}>Icon</label>
+              <input value={draft.emoji} onChange={function(e){setDraft(function(p){return {...p,emoji:e.target.value}})}} style={{...S.inp,textAlign:"center",fontSize:18,padding:"6px"}} maxLength={2}/>
+            </div>
+            <div>
+              <label style={S.lbl}>Name</label>
+              <input value={draft.label} onChange={function(e){setDraft(function(p){return {...p,label:e.target.value}})}} placeholder="e.g. Trash, HVAC Filter..." style={S.inp} autoFocus/>
+            </div>
+          </div>
+
+          {/* Type toggle */}
+          <label style={S.lbl}>Reminder type</label>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {[{id:"weekly_day",label:"📅 Specific day"},{id:"interval",label:"⏱ After X days"}].map(function(t){
+              return <button key={t.id} onClick={function(){setDraft(function(p){return {...p,type:t.id,day:null}})}} style={{flex:1,background:draft.type===t.id?"rgba(200,169,122,0.2)":"rgba(255,255,255,0.04)",border:"1px solid "+(draft.type===t.id?"rgba(200,169,122,0.5)":"rgba(255,255,255,0.1)"),borderRadius:8,padding:"7px",fontSize:12,color:draft.type===t.id?GOLD:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:draft.type===t.id?700:400}}>{t.label}</button>
+            })}
+          </div>
+
+          {/* Day selector (weekly_day only) */}
+          {draft.type==="weekly_day"&&(
+            <>
+              <label style={S.lbl}>Pickup / service day</label>
+              <select value={draft.day!=null?draft.day:""} onChange={function(e){setDraft(function(p){return {...p,day:e.target.value!==""?parseInt(e.target.value):null}})}} style={S.sel}>
+                <option value="">Not set</option>
+                {DAY_LABELS.map(function(d,i){return <option key={i} value={i}>{d}</option>})}
+              </select>
+            </>
+          )}
+
+          {/* Frequency */}
+          <label style={S.lbl}>Frequency</label>
+          <select value={draft.freq} onChange={function(e){setDraft(function(p){return {...p,freq:e.target.value}})}} style={S.sel}>
+            {FREQ_OPTIONS.filter(function(f){
+              if(draft.type==="weekly_day") return ["weekly","biweekly","monthly"].includes(f.id)
+              return true
+            }).map(function(f){return <option key={f.id} value={f.id}>{f.label}</option>})}
+          </select>
+
+          {/* Last done (interval only) */}
+          {draft.type==="interval"&&(
+            <>
+              <label style={S.lbl}>Last completed (optional)</label>
+              <input type="date" value={draft.lastDone||""} onChange={function(e){setDraft(function(p){return {...p,lastDone:e.target.value||null}})}} style={S.inp}/>
+            </>
+          )}
+        </div>
+
+        {/* Reminder toggles */}
+        <div style={S.card}>
+          <div style={{fontSize:11,fontWeight:700,color:"rgba(200,169,122,0.65)",textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,fontFamily:"DM Sans,sans-serif"}}>🔔 Reminders</div>
+          <div style={S.trow}>
+            <div>
+              <div style={{fontSize:13,fontFamily:"DM Sans,sans-serif",fontWeight:600,color:"rgba(250,248,244,0.85)"}}>Evening before</div>
+              <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif"}}>Night before it's due</div>
+            </div>
+            <button onClick={function(){setDraft(function(p){return {...p,remindEvening:!p.remindEvening}})}} style={S.toggle(draft.remindEvening)}>
+              <div style={S.thumb(draft.remindEvening)}/>
+            </button>
+          </div>
+          <div style={{...S.trow,borderBottom:"none"}}>
+            <div>
+              <div style={{fontSize:13,fontFamily:"DM Sans,sans-serif",fontWeight:600,color:"rgba(250,248,244,0.85)"}}>Morning of</div>
+              <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif"}}>Day it's due</div>
+            </div>
+            <button onClick={function(){setDraft(function(p){return {...p,remindMorning:!p.remindMorning}})}} style={S.toggle(draft.remindMorning)}>
+              <div style={S.thumb(draft.remindMorning)}/>
+            </button>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10,marginTop:4}}>
+          {editing!=="new"&&<button onClick={deleteDraft} style={{background:"rgba(220,80,80,0.1)",border:"1px solid rgba(220,80,80,0.25)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#e07070",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Delete</button>}
+          <button onClick={function(){setEditing(null);setDraft(null)}} style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,padding:"10px",fontSize:13,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Cancel</button>
+          <button onClick={saveDraft} disabled={!draft.label.trim()} style={{flex:2,background:GOLD,border:"none",borderRadius:10,padding:"10px",fontSize:13,color:NAVY,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:700,opacity:draft.label.trim()?1:0.5}}>Save</button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Main list view ───────────────────────────────────────────────────────────
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:22}}>🔁</span>
+          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:700,color:"#faf8f4"}}>Recurring Reminders</div>
+        </div>
+        <button onClick={function(){openNew(null)}} style={{background:"rgba(200,169,122,0.12)",border:"1px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:GOLD,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>+ Custom</button>
+      </div>
+      <div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:16,lineHeight:1.5}}>Set it once, never forget it again.</div>
+
+      {/* Built-in quick-adds */}
+      {availableBuiltins.length>0&&(
+        <div style={{marginBottom:14}}>
+          <button onClick={function(){setShowBuiltins(function(p){return !p})}} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"7px 14px",fontSize:12,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span>➕ Add from common reminders</span>
+            <span style={{opacity:0.5,fontSize:10}}>{showBuiltins?"▲":"▼"}</span>
+          </button>
+          {showBuiltins&&(
+            <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
+              {availableBuiltins.map(function(b){
+                return(
+                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px",cursor:"pointer",textAlign:"left"}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:"rgba(250,248,244,0.9)",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
+                      <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
+                    </div>
+                    <span style={{fontSize:11,color:GOLD,fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {sorted.length===0&&(
+        <div style={{textAlign:"center",padding:"32px 20px",background:"rgba(255,255,255,0.02)",border:"1px dashed rgba(200,169,122,0.2)",borderRadius:14}}>
+          <div style={{fontSize:32,marginBottom:10}}>🔁</div>
+          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:18,color:"#faf8f4",marginBottom:6}}>No reminders yet</div>
+          <div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:18,lineHeight:1.6}}>Add trash day, HVAC filters, street sweeping — anything that repeats.</div>
+          <button onClick={function(){setShowBuiltins(true);setTimeout(function(){document.querySelector("[data-builtin-list]")&&document.querySelector("[data-builtin-list]").scrollIntoView({behavior:"smooth"})},50)}} style={{background:GOLD,border:"none",borderRadius:10,padding:"10px 24px",fontSize:13,color:NAVY,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:700}}>Add from common reminders</button>
+        </div>
+      )}
+
+      {/* Reminder rows */}
+      {sorted.map(function(r){
+        var days = daysUntilReminder(r)
+        var badge = nextDateLabel(days)
+        var alert = days!=null&&days<=1
+        var overdue = days!=null&&days<0
+        return(
+          <div key={r.id} style={{background:alert?"rgba(200,131,74,0.07)":"rgba(255,255,255,0.03)",border:"1px solid "+(overdue?"rgba(220,80,80,0.35)":alert?"rgba(200,131,74,0.35)":"rgba(200,169,122,0.15)"),borderRadius:12,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:700,color:"rgba(250,248,244,0.92)",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
+              <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif",marginTop:1}}>
+                {r.type==="weekly_day"&&r.day!=null?DAY_LABELS[r.day]+"s":""}{" "}
+                {FREQ_OPTIONS.find(function(f){return f.id===r.freq})?FREQ_OPTIONS.find(function(f){return f.id===r.freq}).label:""}
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+              {badge&&<span style={{fontSize:11,fontWeight:700,color:overdue?"#e07070":alert?"#c8834a":GOLD}}>{badge}</span>}
+              <button onClick={function(){markDone(r.id)}} title="Mark done / reset timer" style={{background:"rgba(122,158,142,0.15)",border:"1px solid rgba(122,158,142,0.3)",borderRadius:6,padding:"4px 8px",fontSize:11,color:"#7a9e8e",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>✓ Done</button>
+              <button onClick={function(){openEdit(r)}} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,padding:"4px 8px",fontSize:11,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>Edit</button>
+            </div>
+          </div>
+        )
+      })}
+
+      {saved&&<div style={{marginTop:10,textAlign:"center",fontSize:12,color:"#7a9e8e",fontFamily:"DM Sans,sans-serif",fontWeight:600}}>✓ Saved</div>}
+    </div>
+  )
+}
+
+
 function AnchorDashboard({ onNavigate, calEvents }) {
   calEvents = calEvents || []
 
@@ -2450,6 +3572,29 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     }
   }
 
+  function recurringDashSummary() {
+    var list = recurLoad()
+    if (!list || !list.length) return { highlight:null, countdown:null, count:0 }
+    var active = list.filter(function(r){return r.active!==false})
+    if (!active.length) return { highlight:null, countdown:null, count:0 }
+    var withDays = active.map(function(r){ return {...r, days:daysUntilReminder(r)} }).sort(function(a,b){
+      if(a.days==null) return 1; if(b.days==null) return -1; return a.days-b.days
+    })
+    var soon = withDays.filter(function(r){return r.days!=null&&r.days<=1})
+    var soonest = withDays[0]
+    var soonestBadge = soonest&&soonest.days!=null ? nextDateLabel(soonest.days) : null
+    var entries = withDays.slice(0,4).map(function(r){
+      return { label:r.emoji+" "+r.label, badge:nextDateLabel(r.days), badgeAlert:r.days!=null&&r.days<=1 }
+    })
+    return {
+      highlight: withDays.map(function(r){return r.emoji+" "+r.label}).slice(0,3).join(" · "),
+      countdown: soonest ? soonest.emoji+" "+soonest.label+" — "+(soonestBadge||"") : null,
+      count: active.length,
+      alert: soon.length>0,
+      entries: entries
+    }
+  }
+
   function careerSummary() {
     try {
       var c = JSON.parse(localStorage.getItem("af_career") || "{}")
@@ -2542,6 +3687,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var health = healthSummary()
   var inventory = inventorySummary()
   var careerSum = careerSummary()
+  var trashSum = recurringDashSummary()
 
   // Format celebration entries for display
   var celebEntries = (celeb.entries || []).map(function(e) {
@@ -2595,6 +3741,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         <div style={{ fontSize: 13, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif", marginTop: 4, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
       </div>
 
+      <DashCard id="recurring" icon="🔁" label="Recurring Reminders" onOpen={onNavigate}
+        summary={trashSum} defaultOpen={trashSum.alert} />
       <DashCard id="gifts" icon="🎉" label="Celebrations & Gifts" onOpen={onNavigate}
         summary={{
           count: celeb.count + gifts.count,
@@ -2726,13 +3874,9 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
       <div style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
+          {activeSection === "recurring" && <RecurringRemindersSection />}
           {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
-          {activeSection === "systems" && (
-            <div style={{ color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
-              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, marginBottom: 16 }}>Home Systems</div>
-              <div style={{ fontSize: 13, color: "rgba(250,248,244,0.5)", lineHeight: 1.6 }}>Your home system rhythms live here. Add them in the Flow Anchor tab and they will appear here too.</div>
-            </div>
-          )}
+          {activeSection === "systems" && <HomeSection />}
           {activeSection === "health" && <HealthSection />}
           {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} />}
           {activeSection === "pets" && <PetsSection />}
