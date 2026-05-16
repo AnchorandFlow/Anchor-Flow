@@ -49,7 +49,7 @@ function useRippleNotifications() {
 
 // ── PWA push notification hook ───────────────────────────────────────────────
 // VAPID public key — replace with your own from: npx web-push generate-vapid-keys
-const VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDkBNjLskvIwt74kS7p-9jJHHhVWjyIw_dZ8IJBhDxk";
+const VAPID_PUBLIC_KEY = "BKG2-qApAc3JjW9hBeAqKIOwE0ATMfoIksjGCrgd18bMWGC622J-JF-3PR0oNkXGxJ_eFYsaTvDZLkssZ8QSXJw";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -127,7 +127,7 @@ function getInitials(name = '') {
 
 function RippleNotificationBanner() {
   const { notifications, actionNotification } = useRippleNotifications();
-  const { permission, subscribed, subscribe } = usePushNotifications();
+  const { permission, subscribed, subscribe, subError } = usePushNotifications();
 
   const handleAction = (label) => {
     const notif = notifications[0];
@@ -155,10 +155,8 @@ function RippleNotificationBanner() {
             <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>Morning briefing, midday check-in, dinner reminder & evening recap</div>
           </div>
           <button
-            onClick={function() {
-              // Try PWA push subscribe first
-              subscribe();
-              // Also fire the app-level permission request (which schedules all daily notifs)
+            onClick={async function() {
+              await subscribe();
               window.dispatchEvent(new CustomEvent('af-request-notif-permission'));
             }}
             style={{
@@ -166,7 +164,8 @@ function RippleNotificationBanner() {
               borderRadius: 20, padding: '6px 14px', fontSize: 12, color: '#9a7a52',
               fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
             }}
-          >Turn on</button>
+          >{subscribed ? '✓ On' : 'Turn on'}</button>
+          {subError && <div style={{fontSize:10,color:'#c05050',marginTop:4,fontFamily:'DM Sans,sans-serif'}}>{subError}</div>}
         </div>
       )}
 

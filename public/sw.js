@@ -1,59 +1,35 @@
-const CACHE = 'anchor-flow-v6';
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
-self.addEventListener('install', e => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+self.addEventListener('push', function(event) {
+  let data = { title: 'Ripple', body: 'You have a new message from Anchor & Flow.' };
+  try {
+    if (event.data) { const parsed = event.data.json(); data = { ...data, ...parsed }; }
+  } catch (e) { try { data.body = event.data?.text() || data.body; } catch {} }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/favicon.svg',
+      badge: '/favicon.svg',
+      data: data.data || {},
+      vibrate: [100, 50, 100],
+      tag: data.data?.type || 'ripple',
+      renotify: true,
+      actions: [{ action: 'open', title: 'Open app' }, { action: 'dismiss', title: 'Dismiss' }],
+    })
   );
 });
 
-self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
-  );
-});
-
-self.addEventListener('push', e => {
-  if (!e.data) return;
-  let payload;
-  try { payload = e.data.json(); } catch { payload = { title: 'Ripple', body: e.data.text() }; }
-
-  const title = payload.title || 'Ripple';
-  const options = {
-    body: payload.body || '',
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    tag: payload.tag || 'ripple-notif',
-    renotify: true,
-    data: payload.data || {},
-    actions: (payload.actions || []).slice(0, 2).map(a => ({ action: a.action, title: a.title })),
-  };
-
-  e.waitUntil(self.registration.showNotification(title, options));
-});
-
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  const action = e.action;
-  const data = e.notification.data || {};
-
-  e.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      const existing = list.find(c => c.url.includes('anchorandflowapp.com') && 'focus' in c);
-      if (existing) {
-        existing.focus();
-        existing.postMessage({ type: 'NOTIF_ACTION', action, data });
-      } else {
-        clients.openWindow('/').then(w => {
-          if (w) w.postMessage({ type: 'NOTIF_ACTION', action, data });
-        });
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
+  const urlToOpen = event.notification.data?.url || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) return client.focus();
       }
+      if (self.clients.openWindow) return self.clients.openWindow(urlToOpen);
     })
   );
 });
