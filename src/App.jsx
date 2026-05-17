@@ -390,7 +390,7 @@ async function sbSignOut(token) {
 }
 
 // Household data keys that get synced to Supabase
-const SYNC_KEYS = ["tasks","meals","mealsWeekOf","nextWeekMeals","calEvents","shoppingItems","rhythm","people","familyProfile","brainItems","inventory","health"];
+const SYNC_KEYS = ["tasks","meals","mealsWeekOf","nextWeekMeals","calEvents","shoppingItems","rhythm","people","familyProfile","brainItems","inventory","health","schoolData"];
 
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -534,10 +534,11 @@ const TABS = [
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Brain",    emoji:"🧠"},
+  {id:"school",   label:"School",   emoji:"🏫"},
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
-const MORE_TABS    = ["weekly","home","brain","settings"];
+const MORE_TABS    = ["weekly","home","brain","school","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -947,10 +948,16 @@ function HomeFlow() {
             try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
           }
         } else {
-          // No household owned by this user — check if they've joined someone else's.
-          // joined_household_id is stored in Supabase user_metadata at join time.
-          const joinedHhId = data.user?.user_metadata?.joined_household_id || null;
-          console.log("[AF] No owned household. joined_household_id from metadata:", joinedHhId);
+          // No household owned by this user — re-fetch their user record fresh from Supabase
+          // so we get the latest metadata (local data.user may be stale from the login response).
+          let joinedHhId = data.user?.user_metadata?.joined_household_id || null;
+          try {
+            const freshUser = await sbFetch("/auth/v1/user", { _token: token });
+            if (freshUser?.user_metadata?.joined_household_id) {
+              joinedHhId = freshUser.user_metadata.joined_household_id;
+            }
+          } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
+          console.log("[AF] No owned household. joined_household_id:", joinedHhId);
           if (joinedHhId) {
             try {
               const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
@@ -1053,6 +1060,7 @@ function HomeFlow() {
     // joinCode is the householdId shared by the other person
     try {
       setSyncStatus("syncing");
+      // Fetch the target household to verify it exists
       const rows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
       if (!rows || !rows.length) return { ok:false, error:"Household not found. Check the code and try again." };
       // Save householdId to localStorage BEFORE reload so it persists
@@ -1064,15 +1072,21 @@ function HomeFlow() {
           _token: token,
           body: JSON.stringify({ data: { joined_household_id: joinCode } })
         });
-        console.log("[AF] Saved joined_household_id to user metadata:", joinCode);
+        // Immediately re-read user to confirm metadata was saved
+        const verify = await sbFetch("/auth/v1/user", { _token: token });
+        console.log("[AF] Verified joined_household_id in metadata:", verify?.user_metadata?.joined_household_id);
       } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
-      if (rows[0].data) {
-        const clean2 = sanitizeHouseholdData(rows[0].data);
+      // Pull the FRESHEST data from Supabase for this household (re-fetch after metadata save)
+      const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
+      const sourceRow = (freshRows && freshRows.length > 0) ? freshRows[0] : rows[0];
+      if (sourceRow.data) {
+        const clean2 = sanitizeHouseholdData(sourceRow.data);
         SYNC_KEYS.forEach(k => {
           if (clean2[k] !== undefined) {
             try { localStorage.setItem("af_"+k, JSON.stringify(clean2[k])); } catch {}
           }
         });
+        try { localStorage.setItem("af_lastHHSync", sourceRow.updated_at || Date.now().toString()); } catch {}
       }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
@@ -1085,10 +1099,25 @@ function HomeFlow() {
     if (!authToken || !householdId) return;
     try {
       setSyncStatus("syncing");
-      // Push-only — called after user changes local state.
-      // Pulling (and reloading) only happens in the startup useEffect below,
-      // so user edits are never clobbered by a mid-session server overwrite.
+      // Push our current local state up first
       await pushHouseholdData(authToken, householdId);
+      // Then pull back from server to confirm and get any changes from the other user
+      const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
+      if (rows && rows.length > 0 && rows[0].data) {
+        const lastSync = localStorage.getItem("af_lastHHSync");
+        if (lastSync !== (rows[0].updated_at || "")) {
+          const clean = sanitizeHouseholdData(rows[0].data);
+          SYNC_KEYS.forEach(k => {
+            if (clean[k] !== undefined) {
+              try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+            }
+          });
+          try { localStorage.setItem("af_lastHHSync", rows[0].updated_at || Date.now().toString()); } catch {}
+          sessionStorage.removeItem("af_synced_this_session");
+          window.location.reload();
+          return;
+        }
+      }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
     } catch { setSyncStatus("error"); }
@@ -1223,7 +1252,7 @@ function HomeFlow() {
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai"]));
+  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
   homeFlowRef.goTab = goTab;
@@ -5906,6 +5935,951 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  function SchoolTab() {
+    var [schoolData, setSchoolData] = useSaved("schoolData", {});
+    var [activeChild, setActiveChild] = React.useState(null);
+    var [subTab, setSubTab] = React.useState("overview");
+    var [showTeacherModal, setShowTeacherModal] = React.useState(false);
+    var [editingTeacher, setEditingTeacher] = React.useState(null);
+    var [showEventModal, setShowEventModal] = React.useState(false);
+    var [editingEvent, setEditingEvent] = React.useState(null);
+    var [showCurriculumModal, setShowCurriculumModal] = React.useState(false);
+    var [editingCurriculum, setEditingCurriculum] = React.useState(null);
+    var [showLessonModal, setShowLessonModal] = React.useState(false);
+    var [editingLesson, setEditingLesson] = React.useState(null);
+    var [showActivityModal, setShowActivityModal] = React.useState(false);
+    var [editingActivity, setEditingActivity] = React.useState(null);
+    var [showSpiritModal, setShowSpiritModal] = React.useState(false);
+    var [editingSpirit, setEditingSpirit] = React.useState(null);
+    var [showTypeModal, setShowTypeModal] = React.useState(false);
+    var [teacherForm, setTeacherForm] = React.useState({ name: "", subject: "", email: "", phone: "", notes: "" });
+    var [eventForm, setEventForm] = React.useState({ title: "", date: "", type: "event", notes: "" });
+    var [curriculumForm, setCurriculumForm] = React.useState({ subject: "", name: "", website: "", notes: "" });
+    var [lessonForm, setLessonForm] = React.useState({ date: "", subject: "", title: "", description: "", resources: "", duration: "" });
+    var [activityForm, setActivityForm] = React.useState({ title: "", date: "", time: "", location: "", notes: "" });
+    var [spiritForm, setSpiritForm] = React.useState({ date: "", theme: "", notes: "" });
+
+    var schoolKids = people.filter(function(p) { return p && p.name && (p.isMinor || (p.age != null && p.age < 18)); });
+
+    React.useEffect(function() {
+      if (!activeChild && schoolKids.length > 0) { setActiveChild(schoolKids[0].id); }
+    }, [schoolKids.length]);
+
+    var child = schoolKids.find(function(p) { return p.id === activeChild; });
+    var childData = (activeChild && schoolData[activeChild]) || { type: null, public: { teachers: [], calEvents: [], spiritDays: [], teacherAppWeek: {}, schedule: "", notes: "" }, homeschool: { umbrella: {}, curricula: [], lessons: [], activities: [], attendance: {} } };
+
+    function saveChildData(patch) {
+      setSchoolData(function(prev) {
+        var existing = prev[activeChild] || { type: null, public: { teachers: [], calEvents: [], spiritDays: [], teacherAppWeek: {}, schedule: "", notes: "" }, homeschool: { umbrella: {}, curricula: [], lessons: [], activities: [], attendance: {} } };
+        var next = Object.assign({}, prev);
+        next[activeChild] = Object.assign({}, existing, patch);
+        return next;
+      });
+    }
+    function savePub(patch) { saveChildData({ public: Object.assign({}, childData.public, patch) }); }
+    function saveHS(patch)  { saveChildData({ homeschool: Object.assign({}, childData.homeschool, patch) }); }
+    function suid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+    var isPublic = childData.type === "public";
+    var isHomeschool = childData.type === "homeschool";
+    var todayISO = new Date().toISOString().slice(0, 10);
+    var attendance = childData.homeschool.attendance || {};
+    var totalPresent = Object.values(attendance).filter(function(v) { return v === "present"; }).length;
+    var totalAbsent  = Object.values(attendance).filter(function(v) { return v === "absent"; }).length;
+
+    function toggleAttendance(dateStr) {
+      var current = attendance[dateStr];
+      var next = Object.assign({}, attendance);
+      if (!current) next[dateStr] = "present";
+      else if (current === "present") next[dateStr] = "absent";
+      else delete next[dateStr];
+      saveHS({ attendance: next });
+    }
+
+    function getCalendarDays() {
+      var now = new Date();
+      var year = now.getFullYear();
+      var month = now.getMonth();
+      var firstDay = new Date(year, month, 1).getDay();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+      var days = [];
+      for (var i = 0; i < firstDay; i++) days.push(null);
+      for (var d = 1; d <= daysInMonth; d++) {
+        var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+        days.push({ day: d, iso: iso });
+      }
+      return days;
+    }
+
+    var PUB_TABS = [
+      { id: "overview", label: "Overview",  emoji: "🏫" },
+      { id: "teachers", label: "Teachers",  emoji: "👩‍🏫" },
+      { id: "schedule", label: "Schedule",  emoji: "⏰" },
+      { id: "calendar", label: "Calendar",  emoji: "📆" },
+      { id: "spirit",   label: "Spirit",    emoji: "🎉" },
+    ];
+    var HS_TABS = [
+      { id: "overview",   label: "Overview",   emoji: "🏡" },
+      { id: "umbrella",   label: "Umbrella",   emoji: "☂️" },
+      { id: "curricula",  label: "Curricula",  emoji: "📚" },
+      { id: "lessons",    label: "Lessons",    emoji: "✏️" },
+      { id: "attendance", label: "Attendance", emoji: "📋" },
+      { id: "activities", label: "Activities", emoji: "🌟" },
+    ];
+    var activeTabs = isPublic ? PUB_TABS : isHomeschool ? HS_TABS : [];
+
+    if (schoolKids.length === 0) {
+      return (
+        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🏫</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>School</div>
+          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
+          <button onClick={function() { goTab("settings"); }} style={btnP(T.blue)}>Go to Settings</button>
+        </div>
+      );
+    }
+
+    function TypePicker() {
+      return (
+        <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ background: T.surface, borderRadius: "1.2rem", padding: "2rem", width: "min(360px,100%)", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.4rem", textAlign: "center" }}>
+              School type for {child ? child.name : ""}?
+            </div>
+            <div style={{ color: T.textMid, fontSize: "0.82rem", textAlign: "center", marginBottom: "1.5rem" }}>You can change this anytime.</div>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button onClick={function() { saveChildData({ type: "public" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: T.bluePale, border: "2px solid " + T.blue, borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
+                <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🏫</div>
+                <div style={{ fontWeight: 700, color: T.blue, fontSize: "0.88rem" }}>Public / Private</div>
+                <div style={{ color: T.textMid, fontSize: "0.75rem", marginTop: "0.25rem" }}>Teachers, calendar, schedule</div>
+              </button>
+              <button onClick={function() { saveChildData({ type: "homeschool" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: T.sagePale, border: "2px solid " + T.sage, borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
+                <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🏡</div>
+                <div style={{ fontWeight: 700, color: T.sage, fontSize: "0.88rem" }}>Homeschool</div>
+                <div style={{ color: T.textMid, fontSize: "0.75rem", marginTop: "0.25rem" }}>Curricula, lessons, attendance</div>
+              </button>
+            </div>
+            <button onClick={function() { setShowTypeModal(false); }} style={Object.assign({}, btnS(), { width: "100%", marginTop: "1rem" })}>Cancel</button>
+          </div>
+        </div>
+      );
+    }
+
+    function PublicOverview() {
+      var [notes, setNotes] = React.useState(childData.public.notes || "");
+      return (
+        <div>
+          <div style={card()}>
+            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>📝 Important Notes</div>
+            <textarea value={notes} onChange={function(e) { setNotes(e.target.value); }} onBlur={function() { savePub({ notes: notes }); }} placeholder="Allergies, accommodations, drop-off details, nurse info..." style={Object.assign({}, inp(), { minHeight: "90px", resize: "vertical" })} />
+          </div>
+          <div style={card({ background: T.bluePale, border: "1.5px solid " + T.blue + "40" })}>
+            <div style={{ fontWeight: 700, color: T.blue, marginBottom: "0.5rem" }}>👩‍🏫 Teacher Appreciation Week</div>
+            <div style={{ marginBottom: "0.5rem" }}>
+              <label style={lbl}>Week of</label>
+              <input type="date" value={childData.public.teacherAppWeek ? childData.public.teacherAppWeek.start || "" : ""} onChange={function(e) { var v = e.target.value; savePub({ teacherAppWeek: Object.assign({}, childData.public.teacherAppWeek, { start: v }) }); }} style={inp()} />
+            </div>
+            <label style={lbl}>Gift ideas / plan</label>
+            <textarea value={childData.public.teacherAppWeek ? childData.public.teacherAppWeek.ideas || "" : ""} onChange={function(e) { var v = e.target.value; savePub({ teacherAppWeek: Object.assign({}, childData.public.teacherAppWeek, { ideas: v }) }); }} placeholder="Cards, donations, treats per teacher..." style={Object.assign({}, inp(), { minHeight: "60px", resize: "vertical" })} />
+          </div>
+          <button onClick={function() { setShowTypeModal(true); }} style={Object.assign({}, btnS(), { width: "100%", fontSize: "0.78rem" })}>🔄 Change school type</button>
+        </div>
+      );
+    }
+
+    function PublicTeachers() {
+      var teachers = childData.public.teachers || [];
+      return (
+        <div>
+          <button onClick={function() { setTeacherForm({ name: "", subject: "", email: "", phone: "", notes: "" }); setEditingTeacher(null); setShowTeacherModal(true); }} style={Object.assign({}, btnP(T.blue), { width: "100%", marginBottom: "0.85rem" })}>+ Add Teacher</button>
+          {teachers.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No teachers added yet</div>}
+          {teachers.map(function(t) {
+            return (
+              <div key={t.id} style={card()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.95rem" }}>{t.name}</div>
+                    {t.subject && <div style={{ color: T.blue, fontSize: "0.78rem", fontWeight: 600, marginTop: "0.1rem" }}>{t.subject}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button onClick={function() { setTeacherForm({ name: t.name, subject: t.subject, email: t.email, phone: t.phone, notes: t.notes }); setEditingTeacher(t.id); setShowTeacherModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                    <button onClick={function() { savePub({ teachers: teachers.filter(function(x) { return x.id !== t.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                  </div>
+                </div>
+                {t.email && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.4rem" }}>✉️ {t.email}</div>}
+                {t.phone && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📞 {t.phone}</div>}
+                {t.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{t.notes}</div>}
+              </div>
+            );
+          })}
+          {showTeacherModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0.5rem 0.5rem", padding: "1.5rem", width: "min(480px,100%)", maxHeight: "85vh", overflowY: "auto" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</div>
+                {[["name","Name","text"],["subject","Subject / Class","text"],["email","Email","email"],["phone","Phone","tel"]].map(function(f) {
+                  return (
+                    <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
+                      <label style={lbl}>{f[1]}</label>
+                      <input type={f[2]} value={teacherForm[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setTeacherForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+                    </div>
+                  );
+                })}
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes</label>
+                  <textarea value={teacherForm.notes} onChange={function(e) { var v = e.target.value; setTeacherForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "60px" })} />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() {
+                    if (!teacherForm.name.trim()) return;
+                    var current = childData.public.teachers || [];
+                    if (editingTeacher) {
+                      savePub({ teachers: current.map(function(t) { return t.id === editingTeacher ? Object.assign({}, teacherForm, { id: t.id }) : t; }) });
+                    } else {
+                      savePub({ teachers: current.concat([Object.assign({}, teacherForm, { id: suid() })]) });
+                    }
+                    setShowTeacherModal(false);
+                  }} style={btnP(T.blue, { flex: 1 })}>Save</button>
+                  <button onClick={function() { setShowTeacherModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function PublicSchedule() {
+      var [localSched, setLocalSched] = React.useState(childData.public.schedule || "");
+      return (
+        <div style={card()}>
+          <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>⏰ Weekly Schedule</div>
+          <textarea value={localSched} onChange={function(e) { setLocalSched(e.target.value); }} onBlur={function() { savePub({ schedule: localSched }); }} placeholder={"7:45 — Drop-off\n8:00 — Math\n11:30 — Lunch\n2:45 — Pick-up"} style={Object.assign({}, inp(), { minHeight: "200px", resize: "vertical", fontFamily: "monospace", fontSize: "0.82rem", lineHeight: 1.7 })} />
+          <div style={{ textAlign: "right", marginTop: "0.5rem" }}>
+            <button onClick={function() { savePub({ schedule: localSched }); }} style={btnP(T.blue, { fontSize: "0.78rem", padding: "0.4rem 0.9rem" })}>Save</button>
+          </div>
+        </div>
+      );
+    }
+
+    function PublicCalendar() {
+      var events = (childData.public.calEvents || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+      var EVENT_TYPES = [
+        { id: "event",   label: "School Event",        color: T.blue },
+        { id: "holiday", label: "Holiday / No School",  color: T.sage },
+        { id: "early",   label: "Early Release",        color: T.sand },
+        { id: "field",   label: "Field Trip",           color: T.rose },
+        { id: "other",   label: "Other",                color: T.lavender },
+      ];
+      return (
+        <div>
+          <button onClick={function() { setEventForm({ title: "", date: "", type: "event", notes: "" }); setEditingEvent(null); setShowEventModal(true); }} style={Object.assign({}, btnP(T.blue), { width: "100%", marginBottom: "0.85rem" })}>+ Add Calendar Item</button>
+          {events.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No calendar items yet</div>}
+          {events.map(function(ev) {
+            var typeInfo = EVENT_TYPES.find(function(t) { return t.id === ev.type; }) || EVENT_TYPES[0];
+            return (
+              <div key={ev.id} style={card({ borderLeft: "3px solid " + typeInfo.color })}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{ev.title}</div>
+                    <div style={{ color: typeInfo.color, fontSize: "0.72rem", fontWeight: 600, marginTop: "0.15rem" }}>{typeInfo.label}</div>
+                    {ev.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(ev.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button onClick={function() { setEventForm({ title: ev.title, date: ev.date, type: ev.type, notes: ev.notes }); setEditingEvent(ev.id); setShowEventModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                    <button onClick={function() { savePub({ calEvents: events.filter(function(x) { return x.id !== ev.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                  </div>
+                </div>
+                {ev.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{ev.notes}</div>}
+              </div>
+            );
+          })}
+          {showEventModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0.5rem 0.5rem", padding: "1.5rem", width: "min(480px,100%)" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingEvent ? "Edit Item" : "Add Calendar Item"}</div>
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Title</label>
+                  <input value={eventForm.title} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Spring Concert, Picture Day..." />
+                </div>
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Date</label>
+                  <input type="date" value={eventForm.date} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
+                </div>
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Type</label>
+                  <select value={eventForm.type} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { type: v }); }); }} style={inp()}>
+                    {[["event","School Event"],["holiday","Holiday / No School"],["early","Early Release"],["field","Field Trip"],["other","Other"]].map(function(o) { return <option key={o[0]} value={o[0]}>{o[1]}</option>; })}
+                  </select>
+                </div>
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes</label>
+                  <textarea value={eventForm.notes} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() {
+                    if (!eventForm.title.trim()) return;
+                    var current = childData.public.calEvents || [];
+                    if (editingEvent) {
+                      savePub({ calEvents: current.map(function(e) { return e.id === editingEvent ? Object.assign({}, eventForm, { id: e.id }) : e; }) });
+                    } else {
+                      savePub({ calEvents: current.concat([Object.assign({}, eventForm, { id: suid() })]) });
+                    }
+                    setShowEventModal(false);
+                  }} style={btnP(T.blue, { flex: 1 })}>Save</button>
+                  <button onClick={function() { setShowEventModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function SpiritDays() {
+      var spiritDays = (childData.public.spiritDays || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+      return (
+        <div>
+          <button onClick={function() { setSpiritForm({ date: "", theme: "", notes: "" }); setEditingSpirit(null); setShowSpiritModal(true); }} style={Object.assign({}, btnP(T.rose), { width: "100%", marginBottom: "0.85rem" })}>+ Add Spirit Day</button>
+          {spiritDays.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No spirit days added yet</div>}
+          {spiritDays.map(function(s) {
+            return (
+              <div key={s.id} style={card({ background: T.rosePale, borderColor: T.rose + "40" })}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>🎉 {s.theme}</div>
+                    {s.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(s.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button onClick={function() { setSpiritForm({ date: s.date, theme: s.theme, notes: s.notes }); setEditingSpirit(s.id); setShowSpiritModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                    <button onClick={function() { savePub({ spiritDays: spiritDays.filter(function(x) { return x.id !== s.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                  </div>
+                </div>
+                {s.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{s.notes}</div>}
+              </div>
+            );
+          })}
+          {showSpiritModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0.5rem 0.5rem", padding: "1.5rem", width: "min(480px,100%)" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingSpirit ? "Edit Spirit Day" : "Add Spirit Day"}</div>
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Theme</label>
+                  <input value={spiritForm.theme} onChange={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { theme: v }); }); }} style={inp()} placeholder="Pajama Day, Decade Day, Color Wars..." />
+                </div>
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Date</label>
+                  <input type="date" value={spiritForm.date} onChange={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
+                </div>
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes</label>
+                  <textarea value={spiritForm.notes} onChange={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} placeholder="What to wear, items to bring..." />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() {
+                    if (!spiritForm.theme.trim()) return;
+                    var current = childData.public.spiritDays || [];
+                    if (editingSpirit) {
+                      savePub({ spiritDays: current.map(function(s) { return s.id === editingSpirit ? Object.assign({}, spiritForm, { id: s.id }) : s; }) });
+                    } else {
+                      savePub({ spiritDays: current.concat([Object.assign({}, spiritForm, { id: suid() })]) });
+                    }
+                    setShowSpiritModal(false);
+                  }} style={btnP(T.rose, { flex: 1 })}>Save</button>
+                  <button onClick={function() { setShowSpiritModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function HSOverview() {
+      return (
+        <div>
+          <div style={card({ background: T.sagePale, borderColor: T.sage + "40" })}>
+            <div style={{ fontWeight: 700, color: T.sage, fontSize: "1rem", marginBottom: "0.75rem" }}>📊 Attendance This Year</div>
+            <div style={{ display: "flex", gap: "1.5rem" }}>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.sage }}>{totalPresent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Present</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.rose }}>{totalAbsent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Absent</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.blue }}>{totalPresent + totalAbsent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Total Logged</div></div>
+            </div>
+          </div>
+          <div style={card()}>
+            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>📚 Active Curricula</div>
+            {(childData.homeschool.curricula || []).length === 0
+              ? <div style={{ color: T.textFaint, fontSize: "0.82rem" }}>No curricula added yet</div>
+              : (childData.homeschool.curricula || []).map(function(c) { return <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "0.35rem 0", borderBottom: "1px solid " + T.borderSoft, fontSize: "0.84rem", color: T.textDark }}><span>{c.subject}</span><span style={{ color: T.textMid }}>{c.name}</span></div>; })
+            }
+          </div>
+          <div style={card()}>
+            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>✏️ Recent Lessons</div>
+            {(childData.homeschool.lessons || []).length === 0
+              ? <div style={{ color: T.textFaint, fontSize: "0.82rem" }}>No lessons yet</div>
+              : (childData.homeschool.lessons || []).slice(-3).reverse().map(function(l) {
+                  return <div key={l.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid " + T.borderSoft }}><div style={{ fontSize: "0.84rem", color: T.textDark, fontWeight: 600 }}>{l.title}</div><div style={{ fontSize: "0.72rem", color: T.textMid }}>{l.subject} · {l.date}</div></div>;
+                })
+            }
+          </div>
+          <button onClick={function() { setShowTypeModal(true); }} style={Object.assign({}, btnS(), { width: "100%", fontSize: "0.78rem" })}>🔄 Change school type</button>
+        </div>
+      );
+    }
+
+    function HSUmbrella() {
+      var umbrella = childData.homeschool.umbrella || {};
+      var [form, setForm] = React.useState({ name: umbrella.name || "", contact: umbrella.contact || "", email: umbrella.email || "", daysRequired: umbrella.daysRequired || "", notes: umbrella.notes || "" });
+      return (
+        <div style={card()}>
+          <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.85rem" }}>☂️ Umbrella School Info</div>
+          {[["name","School Name"],["contact","Contact Person"],["email","Email"],["daysRequired","Required Days / Year"]].map(function(f) {
+            return (
+              <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
+                <label style={lbl}>{f[1]}</label>
+                <input value={form[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+              </div>
+            );
+          })}
+          <div style={{ marginBottom: "0.85rem" }}>
+            <label style={lbl}>Notes / Requirements</label>
+            <textarea value={form.notes} onChange={function(e) { var v = e.target.value; setForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} />
+          </div>
+          <button onClick={function() { saveHS({ umbrella: form }); }} style={btnP(T.sage, { width: "100%" })}>Save</button>
+        </div>
+      );
+    }
+
+    function HSCurricula() {
+      var curricula = childData.homeschool.curricula || [];
+      return (
+        <div>
+          <button onClick={function() { setCurriculumForm({ subject: "", name: "", website: "", notes: "" }); setEditingCurriculum(null); setShowCurriculumModal(true); }} style={Object.assign({}, btnP(T.sage), { width: "100%", marginBottom: "0.85rem" })}>+ Add Curriculum</button>
+          {curricula.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No curricula added yet</div>}
+          {curricula.map(function(c) {
+            return (
+              <div key={c.id} style={card()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{c.subject}</div>
+                    <div style={{ color: T.sage, fontSize: "0.78rem", fontWeight: 600 }}>{c.name}</div>
+                    {c.website && <a href={c.website.startsWith("http") ? c.website : "https://" + c.website} target="_blank" rel="noreferrer" style={{ color: T.blue, fontSize: "0.75rem", display: "block", marginTop: "0.2rem" }}>🔗 {c.website}</a>}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button onClick={function() { setCurriculumForm({ subject: c.subject, name: c.name, website: c.website, notes: c.notes }); setEditingCurriculum(c.id); setShowCurriculumModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                    <button onClick={function() { saveHS({ curricula: curricula.filter(function(x) { return x.id !== c.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                  </div>
+                </div>
+                {c.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{c.notes}</div>}
+              </div>
+            );
+          })}
+          {showCurriculumModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0.5rem 0.5rem", padding: "1.5rem", width: "min(480px,100%)" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
+                {[["subject","Subject","text"],["name","Curriculum Name","text"],["website","Website","url"]].map(function(f) {
+                  return (
+                    <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
+                      <label style={lbl}>{f[1]}</label>
+                      <input type={f[2]} value={curriculumForm[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setCurriculumForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+                    </div>
+                  );
+                })}
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes</label>
+                  <textarea value={curriculumForm.notes} onChange={function(e) { var v = e.target.value; setCurriculumForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() {
+                    if (!curriculumForm.subject.trim()) return;
+                    var current = childData.homeschool.curricula || [];
+                    if (editingCurriculum) {
+                      saveHS({ curricula: current.map(function(c) { return c.id === editingCurriculum ? Object.assign({}, curriculumForm, { id: c.id }) : c; }) });
+                    } else {
+                      saveHS({ curricula: current.concat([Object.assign({}, curriculumForm, { id: suid() })]) });
+                    }
+                    setShowCurriculumModal(false);
+                  }} style={btnP(T.sage, { flex: 1 })}>Save</button>
+                  <button onClick={function() { setShowCurriculumModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function HSLessons() {
+      // ── Week plan structure: { Monday: { subjects: [{id,name,title,todo,notes,done}], dayNotes: "" }, ... }
+      var weekPlan = childData.homeschool.weekPlan || {};
+      var curricula = childData.homeschool.curricula || [];
+      var SCHOOL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+      var [lessonSubTab, setLessonSubTab] = React.useState("week");
+      var [editingDay, setEditingDay] = React.useState(null);    // day name being edited
+      var [editingSubjectIdx, setEditingSubjectIdx] = React.useState(null); // index in subjects array
+      var [subjectModal, setSubjectModal] = React.useState(false);
+      var [subjectForm, setSubjectForm] = React.useState({ name: "", title: "", todo: "", notes: "" });
+      var [expandedDays, setExpandedDays] = React.useState({});
+      var [copySourceDay, setCopySourceDay] = React.useState("");
+      var [showCopyModal, setShowCopyModal] = React.useState(false);
+
+      function getDayPlan(day) {
+        return weekPlan[day] || { subjects: [], dayNotes: "" };
+      }
+
+      function saveDayPlan(day, patch) {
+        var current = getDayPlan(day);
+        var next = Object.assign({}, weekPlan);
+        next[day] = Object.assign({}, current, patch);
+        saveHS({ weekPlan: next });
+      }
+
+      function openAddSubject(day) {
+        setEditingDay(day);
+        setEditingSubjectIdx(null);
+        setSubjectForm({ name: curricula.length > 0 ? curricula[0].subject : "", title: "", todo: "", notes: "" });
+        setSubjectModal(true);
+      }
+
+      function openEditSubject(day, idx) {
+        var s = getDayPlan(day).subjects[idx];
+        setEditingDay(day);
+        setEditingSubjectIdx(idx);
+        setSubjectForm({ name: s.name || "", title: s.title || "", todo: s.todo || "", notes: s.notes || "" });
+        setSubjectModal(true);
+      }
+
+      function saveSubject() {
+        if (!subjectForm.name.trim()) return;
+        var plan = getDayPlan(editingDay);
+        var subjects = (plan.subjects || []).slice();
+        if (editingSubjectIdx !== null) {
+          subjects[editingSubjectIdx] = Object.assign({}, subjects[editingSubjectIdx], subjectForm);
+        } else {
+          subjects.push(Object.assign({}, subjectForm, { id: suid(), done: false }));
+        }
+        saveDayPlan(editingDay, { subjects: subjects });
+        setSubjectModal(false);
+      }
+
+      function deleteSubject(day, idx) {
+        var plan = getDayPlan(day);
+        var subjects = (plan.subjects || []).filter(function(_, i) { return i !== idx; });
+        saveDayPlan(day, { subjects: subjects });
+      }
+
+      function toggleSubjectDone(day, idx) {
+        var plan = getDayPlan(day);
+        var subjects = (plan.subjects || []).slice();
+        subjects[idx] = Object.assign({}, subjects[idx], { done: !subjects[idx].done });
+        saveDayPlan(day, { subjects: subjects });
+      }
+
+      function clearWeek() {
+        var next = {};
+        SCHOOL_DAYS.forEach(function(d) { next[d] = { subjects: [], dayNotes: "" }; });
+        saveHS({ weekPlan: next });
+      }
+
+      function copyDayToAll(sourceDay) {
+        var source = getDayPlan(sourceDay);
+        var next = Object.assign({}, weekPlan);
+        SCHOOL_DAYS.forEach(function(d) {
+          if (d !== sourceDay) {
+            next[d] = { subjects: source.subjects.map(function(s) { return Object.assign({}, s, { id: suid(), done: false }); }), dayNotes: "" };
+          }
+        });
+        saveHS({ weekPlan: next });
+        setShowCopyModal(false);
+      }
+
+      // Summary counts
+      var totalSubjects = SCHOOL_DAYS.reduce(function(acc, d) { return acc + (getDayPlan(d).subjects || []).length; }, 0);
+      var totalDone = SCHOOL_DAYS.reduce(function(acc, d) { return acc + (getDayPlan(d).subjects || []).filter(function(s) { return s.done; }).length; }, 0);
+
+      var LESSON_TABS = [
+        { id: "week",    label: "This Week", emoji: "📆" },
+        { id: "history", label: "Past Plans", emoji: "🗂️" },
+      ];
+
+      return (
+        <div>
+          {/* Sub-tab bar */}
+          <ScrollTabs style={{ marginBottom: "0.85rem", background: T.bgAlt, borderRadius: "0.8rem", padding: "0.28rem", border: "1px solid " + T.border }}>
+            {LESSON_TABS.map(function(st) {
+              return (
+                <button key={st.id} onClick={function() { setLessonSubTab(st.id); }} style={{ flexShrink: 0, background: lessonSubTab === st.id ? T.sage : "transparent", color: lessonSubTab === st.id ? "#fff" : T.textMid, border: "none", borderRadius: "0.55rem", padding: "0.4rem 0.7rem", cursor: "pointer", fontSize: "0.73rem", fontWeight: 700, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}>
+                  {st.emoji} {st.label}
+                </button>
+              );
+            })}
+          </ScrollTabs>
+
+          {lessonSubTab === "week" && (
+            <div>
+              {/* Week summary bar */}
+              <div style={card({ background: T.sagePale, border: "1.5px solid " + T.sage + "40", padding: "0.85rem 1rem", marginBottom: "0.85rem" })}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <div style={{ display: "flex", gap: "1.5rem" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.sage }}>{totalSubjects}</div>
+                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Planned</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.sageDark }}>{totalDone}</div>
+                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Done</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.blue }}>{totalSubjects - totalDone}</div>
+                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Left</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button onClick={function() { setShowCopyModal(true); }} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem" })}>📋 Copy Day</button>
+                    <button onClick={clearWeek} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem", color: T.rose })}>🗑 Clear Week</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Day cards */}
+              {SCHOOL_DAYS.map(function(day) {
+                var plan = getDayPlan(day);
+                var subjects = plan.subjects || [];
+                var isToday = day === TODAY_NAME;
+                var expanded = expandedDays[day] !== false; // default expanded
+                var doneCount = subjects.filter(function(s) { return s.done; }).length;
+                return (
+                  <div key={day} style={card({ borderLeft: "4px solid " + (isToday ? T.sage : T.borderSoft), background: isToday ? "linear-gradient(to right," + T.sagePale + "," + T.surface + ")" : T.surface, marginBottom: "0.75rem" })}>
+                    {/* Day header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: expanded ? "0.75rem" : 0 }}>
+                      <button onClick={function() { setExpandedDays(function(p) { var n = Object.assign({}, p); n[day] = !expanded; return n; }); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", padding: 0, fontFamily: "inherit" }}>
+                        <span style={{ fontWeight: 700, color: isToday ? T.sageDark : T.textDark, fontSize: "0.95rem" }}>{day}</span>
+                        {isToday && <span style={{ background: T.sage, color: "#fff", fontSize: "0.58rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Today</span>}
+                        {subjects.length > 0 && <span style={{ color: T.textFaint, fontSize: "0.72rem" }}>{doneCount}/{subjects.length}</span>}
+                        <span style={{ color: T.textFaint, fontSize: "0.7rem" }}>{expanded ? "▾" : "▸"}</span>
+                      </button>
+                      <button onClick={function() { openAddSubject(day); }} style={btnS({ fontSize: "0.72rem", padding: "0.28rem 0.65rem", display: "flex", alignItems: "center", gap: "0.25rem" })}>
+                        + Subject
+                      </button>
+                    </div>
+
+                    {expanded && (
+                      <div>
+                        {/* Subject rows */}
+                        {subjects.length === 0 && (
+                          <div style={{ color: T.textFaint, fontSize: "0.8rem", textAlign: "center", padding: "0.75rem 0", fontStyle: "italic" }}>No subjects planned — tap + Subject to add</div>
+                        )}
+                        {subjects.map(function(s, idx) {
+                          return (
+                            <div key={s.id || idx} style={{ background: s.done ? T.bgAlt : T.white, border: "1.5px solid " + (s.done ? T.border : T.borderSoft), borderRadius: "0.65rem", padding: "0.6rem 0.75rem", marginBottom: "0.45rem", opacity: s.done ? 0.65 : 1, transition: "all 0.15s" }}>
+                              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                                {/* Done checkbox */}
+                                <button onClick={function() { toggleSubjectDone(day, idx); }} style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "0.35rem", border: "2px solid " + (s.done ? T.sage : T.border), background: s.done ? T.sage : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: "1px", transition: "all 0.15s" }}>
+                                  {s.done && <span style={{ color: "#fff", fontSize: "0.65rem", fontWeight: 900 }}>✓</span>}
+                                </button>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  {/* Subject name badge + title */}
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", marginBottom: s.todo || s.notes ? "0.3rem" : 0 }}>
+                                    <span style={{ background: T.sagePale, color: T.sageDark, fontSize: "0.65rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 8px", border: "1px solid " + T.sage + "30", flexShrink: 0, textDecoration: s.done ? "line-through" : "none" }}>{s.name}</span>
+                                    {s.title && <span style={{ color: s.done ? T.textFaint : T.textDark, fontSize: "0.82rem", fontWeight: 600, textDecoration: s.done ? "line-through" : "none" }}>{s.title}</span>}
+                                  </div>
+                                  {/* To-do */}
+                                  {s.todo && <div style={{ color: T.textMid, fontSize: "0.76rem", marginBottom: "0.15rem", lineHeight: 1.45 }}>📌 {s.todo}</div>}
+                                  {/* Notes */}
+                                  {s.notes && <div style={{ color: T.textSoft, fontSize: "0.73rem", fontStyle: "italic" }}>💬 {s.notes}</div>}
+                                </div>
+                                {/* Edit / delete */}
+                                <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
+                                  <button onClick={function() { openEditSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textFaint, fontSize: "0.72rem" }}>✏️</button>
+                                  <button onClick={function() { deleteSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.rose, fontSize: "0.72rem" }}>✕</button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Day notes */}
+                        <div style={{ marginTop: "0.5rem" }}>
+                          <textarea
+                            value={plan.dayNotes || ""}
+                            onChange={function(e) { var v = e.target.value; saveDayPlan(day, { dayNotes: v }); }}
+                            placeholder="Day notes — field trips, appointments, special plans..."
+                            style={Object.assign({}, inp({ fontSize: "0.76rem", padding: "0.45rem 0.65rem" }), { minHeight: "44px", resize: "none", color: T.textMid })}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {lessonSubTab === "history" && (
+            <div>
+              <div style={card()}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>🗂️ Past Lesson Plans</div>
+                <div style={{ color: T.textMid, fontSize: "0.82rem", lineHeight: 1.6 }}>
+                  Past plans are saved automatically each week when you clear or plan a new week. This feature is coming soon — for now your current week plan persists until you clear it.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Subject add/edit modal */}
+          {subjectModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0.5rem 0.5rem", padding: "1.5rem", width: "min(480px,100%)", maxHeight: "88vh", overflowY: "auto" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem", fontSize: "1rem" }}>
+                  {editingSubjectIdx !== null ? "Edit Subject" : "Add Subject"} — {editingDay}
+                </div>
+                {/* Subject / curriculum picker */}
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Subject</label>
+                  {curricula.length > 0
+                    ? <select value={subjectForm.name} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { name: v }); }); }} style={inp()}>
+                        <option value="">Select subject...</option>
+                        {curricula.map(function(c) { return <option key={c.id} value={c.subject}>{c.subject}</option>; })}
+                        <option value="Other">Other</option>
+                      </select>
+                    : <input value={subjectForm.name} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { name: v }); }); }} style={inp()} placeholder="Math, Reading, Science..." />
+                  }
+                </div>
+                {/* Lesson / unit title */}
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Lesson / Unit Title</label>
+                  <input value={subjectForm.title} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Chapter 4: Fractions, Timeline of WWI..." />
+                </div>
+                {/* What to do */}
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>What to do / pages / objectives</label>
+                  <textarea value={subjectForm.todo} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { todo: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} placeholder="Workbook pp. 42-45, watch Khan Academy video, complete worksheet 3..." />
+                </div>
+                {/* Notes */}
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes / Resources</label>
+                  <input value={subjectForm.notes} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={inp()} placeholder="Manipulatives needed, print pages 8-9, video link..." />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={saveSubject} style={btnP(T.sage, { flex: 1 })}>Save</button>
+                  <button onClick={function() { setSubjectModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Copy day modal */}
+          {showCopyModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem", padding: "1.5rem", width: "min(340px,100%)" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.4rem" }}>📋 Copy Day to All Days</div>
+                <div style={{ color: T.textMid, fontSize: "0.82rem", marginBottom: "1rem" }}>Pick a day to copy its subjects to all other school days.</div>
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Copy from</label>
+                  <select value={copySourceDay} onChange={function(e) { setCopySourceDay(e.target.value); }} style={inp()}>
+                    <option value="">Select a day...</option>
+                    {SCHOOL_DAYS.map(function(d) { return <option key={d} value={d}>{d}</option>; })}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() { if (copySourceDay) copyDayToAll(copySourceDay); }} style={btnP(T.sage, { flex: 1 })} disabled={!copySourceDay}>Copy</button>
+                  <button onClick={function() { setShowCopyModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function HSAttendance() {
+      var now = new Date();
+      var calDays = getCalendarDays();
+      var monthName = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      return (
+        <div>
+          <div style={card()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+              <div style={{ fontWeight: 700, color: T.textDark }}>{monthName}</div>
+              <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.72rem" }}>
+                <span style={{ color: T.sage, fontWeight: 700 }}>✓ {Object.values(attendance).filter(function(v) { return v === "present"; }).length} present</span>
+                <span style={{ color: T.rose, fontWeight: 700 }}>✗ {Object.values(attendance).filter(function(v) { return v === "absent"; }).length} absent</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "0.5rem" }}>
+              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d) {
+                return <div key={d} style={{ textAlign: "center", fontSize: "0.62rem", color: T.textFaint, fontWeight: 700, padding: "0.2rem 0" }}>{d}</div>;
+              })}
+              {calDays.map(function(dayObj, i) {
+                if (!dayObj) return <div key={"e" + i} />;
+                var status = attendance[dayObj.iso];
+                var isToday = dayObj.iso === todayISO;
+                var dow = new Date(dayObj.iso + "T12:00:00").getDay();
+                var isWeekend = dow === 0 || dow === 6;
+                return (
+                  <button key={dayObj.iso} onClick={function() { if (!isWeekend) toggleAttendance(dayObj.iso); }} style={{ padding: "0.22rem 0", border: isToday ? "2px solid " + T.blue : "1.5px solid " + (status ? "transparent" : T.borderSoft), borderRadius: "0.4rem", cursor: isWeekend ? "default" : "pointer", background: status === "present" ? T.sage : status === "absent" ? T.rose : isWeekend ? T.bgAlt : T.surface, color: status ? "#fff" : isWeekend ? T.textFaint : T.textDark, fontSize: "0.7rem", fontWeight: isToday ? 800 : 500, fontFamily: "inherit", transition: "all 0.12s" }}>
+                    {status === "present" ? "✓" : status === "absent" ? "✗" : dayObj.day}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: "0.72rem", color: T.textFaint, textAlign: "center" }}>Tap a weekday to cycle: unmarked → present → absent → clear</div>
+          </div>
+          <div style={card({ background: T.sagePale, borderColor: T.sage + "40" })}>
+            <div style={{ fontWeight: 700, color: T.sage, marginBottom: "0.5rem" }}>📊 Year-to-Date</div>
+            <div style={{ display: "flex", gap: "2rem" }}>
+              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.sage }}>{totalPresent}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Present</div></div>
+              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.rose }}>{totalAbsent}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Absent</div></div>
+              {childData.homeschool.umbrella && childData.homeschool.umbrella.daysRequired && (
+                <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.blue }}>{Math.max(0, parseInt(childData.homeschool.umbrella.daysRequired) - totalPresent)}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Days left to goal</div></div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function HSActivities() {
+      var activities = (childData.homeschool.activities || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
+      var upcoming = activities.filter(function(a) { return a.date >= todayISO; });
+      var past = activities.filter(function(a) { return a.date < todayISO; });
+      return (
+        <div>
+          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
+          {upcoming.length > 0 && (
+            <div style={{ marginBottom: "0.5rem" }}>
+              <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Upcoming</div>
+              {upcoming.map(function(a) {
+                return (
+                  <div key={a.id} style={card({ borderLeft: "3px solid " + T.lavender })}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{a.title}</div>
+                        {a.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}{a.time ? " · " + a.time : ""}</div>}
+                        {a.location && <div style={{ color: T.textMid, fontSize: "0.75rem" }}>📍 {a.location}</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: "0.4rem" }}>
+                        <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                        <button onClick={function() { saveHS({ activities: activities.filter(function(x) { return x.id !== a.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                      </div>
+                    </div>
+                    {a.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{a.notes}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {past.length > 0 && (
+            <div>
+              <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Past</div>
+              {past.slice(-5).reverse().map(function(a) {
+                return (
+                  <div key={a.id} style={card({ opacity: 0.65 })}>
+                    <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
+                    {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {activities.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No activities yet — add field trips, co-ops, classes</div>}
+          {showActivityModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "1rem" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0.5rem 0.5rem", padding: "1.5rem", width: "min(480px,100%)" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingActivity ? "Edit Activity" : "Add Activity"}</div>
+                {[["title","Title","text"],["date","Date","date"],["time","Time","time"],["location","Location","text"]].map(function(f) {
+                  return (
+                    <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
+                      <label style={lbl}>{f[1]}</label>
+                      <input type={f[2]} value={activityForm[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setActivityForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+                    </div>
+                  );
+                })}
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes</label>
+                  <textarea value={activityForm.notes} onChange={function(e) { var v = e.target.value; setActivityForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() {
+                    if (!activityForm.title.trim()) return;
+                    var current = childData.homeschool.activities || [];
+                    if (editingActivity) {
+                      saveHS({ activities: current.map(function(a) { return a.id === editingActivity ? Object.assign({}, activityForm, { id: a.id }) : a; }) });
+                    } else {
+                      saveHS({ activities: current.concat([Object.assign({}, activityForm, { id: suid() })]) });
+                    }
+                    setShowActivityModal(false);
+                  }} style={btnP(T.lavender, { flex: 1 })}>Save</button>
+                  <button onClick={function() { setShowActivityModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ paddingBottom: "4rem" }}>
+        {showTypeModal && <TypePicker />}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🏫 School</div>
+        </div>
+        {schoolKids.length > 1 && (
+          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", overflowX: "auto", paddingBottom: "2px" }}>
+            {schoolKids.map(function(k) {
+              var isActive = k.id === activeChild;
+              return (
+                <button key={k.id} onClick={function() { setActiveChild(k.id); setSubTab("overview"); }} style={{ background: isActive ? (k.color || T.blue) : "transparent", color: isActive ? "#fff" : T.textMid, border: "1.5px solid " + (isActive ? (k.color || T.blue) : T.border), borderRadius: "2rem", padding: "0.3rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                  {k.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {!childData.type && (
+          <div style={card({ textAlign: "center", padding: "2.5rem 1rem" })}>
+            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>👋</div>
+            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.4rem", fontSize: "1rem" }}>Set up school for {child ? child.name : ""}</div>
+            <div style={{ color: T.textMid, fontSize: "0.84rem", marginBottom: "1.25rem" }}>Choose the type of school to see the right tools.</div>
+            <button onClick={function() { setShowTypeModal(true); }} style={btnP(T.blue, { margin: "0 auto" })}>Get Started</button>
+          </div>
+        )}
+        {childData.type && activeTabs.length > 0 && (
+          <div style={{ display: "flex", gap: "0.25rem", overflowX: "auto", paddingBottom: "3px", marginBottom: "0.85rem" }}>
+            {activeTabs.map(function(t) {
+              var isActive = subTab === t.id;
+              return (
+                <button key={t.id} onClick={function() { setSubTab(t.id); }} style={{ background: isActive ? T.blue : "transparent", color: isActive ? "#fff" : T.textMid, border: "1.5px solid " + (isActive ? T.blue : T.border), borderRadius: "2rem", padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                  {t.emoji} {t.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {childData.type === "public" && (
+          <React.Fragment>
+            {subTab === "overview" && <PublicOverview />}
+            {subTab === "teachers" && <PublicTeachers />}
+            {subTab === "schedule" && <PublicSchedule />}
+            {subTab === "calendar" && <PublicCalendar />}
+            {subTab === "spirit"   && <SpiritDays />}
+          </React.Fragment>
+        )}
+        {childData.type === "homeschool" && (
+          <React.Fragment>
+            {subTab === "overview"   && <HSOverview />}
+            {subTab === "umbrella"   && <HSUmbrella />}
+            {subTab === "curricula"  && <HSCurricula />}
+            {subTab === "lessons"    && <HSLessons />}
+            {subTab === "attendance" && <HSAttendance />}
+            {subTab === "activities" && <HSActivities />}
+          </React.Fragment>
+        )}
+      </div>
+    );
+  }
+
   function SettingsTab(){
     const [settingsOpen, setSettingsOpen] = useState({});
     function toggleSetting(key){ setSettingsOpen(p=>({...p,[key]:!p[key]})); }
@@ -7189,7 +8163,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","calendar","weekly","meals","shop","home","brain","settings","ai"].map(t=>{
+          {["anchor","calendar","weekly","meals","shop","home","brain","school","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -7200,6 +8174,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="shop"     && <ShoppingTab/>}
                 {t==="home"     && <HomeTab/>}
                 {t==="brain"    && <BrainTab/>}
+                {t==="school"   && <SchoolTab/>}
                 {t==="career"   && <CareerTab/>}
                 {t==="settings" && <SettingsTab/>}
                 {t==="ai" && <RippleTab/>}
@@ -7432,7 +8407,7 @@ function FlowWrapper({ onHome, onSignOut }) {
   const activeTab = homeFlowRef.tab;
   const _setActiveTab = React.useCallback((t) => { homeFlowRef.goTab(t); forceUpdate(); window.dispatchEvent(new CustomEvent("af-set-tab", { detail: t })); }, []);
   const [sections, setSections] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true} }
+    try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} }
   })
   React.useEffect(() => {
     const onStorage = () => {
@@ -7451,6 +8426,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "shop",     label: "Shopping", emoji: "🛒" },
     { id: "home",     label: "Home",     emoji: "🏡" },
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
+    { id: "school",   label: "School",   emoji: "🏫" },
     { id: "settings", label: "Settings", emoji: "⚙️" },
   ]
   const VAULT_NAV = [
