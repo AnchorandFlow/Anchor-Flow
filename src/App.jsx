@@ -1558,6 +1558,34 @@ function HomeFlow() {
   }
   useEffect(function(){if(weatherLocation&&weatherLocation.lat)fetchWeather(weatherLocation.lat,weatherLocation.lng);},[]);//eslint-disable-line
 
+  // ── ZIP code → lat/lng/timezone/weather ──────────────────────────────────────
+  useEffect(function(){
+    var zip = familyProfile&&familyProfile.zipcode;
+    if(!zip||zip.length<5) return;
+    var timeout = setTimeout(async function(){
+      try {
+        // 1. Get lat/lng from zip
+        var geoRes = await fetch("https://api.zippopotam.us/us/"+zip.trim());
+        if(!geoRes.ok) return;
+        var geoData = await geoRes.json();
+        var lat = parseFloat(geoData.places[0].latitude);
+        var lng = parseFloat(geoData.places[0].longitude);
+        var city = geoData.places[0]["place name"]+", "+geoData.places[0]["state abbreviation"];
+        // 2. Get timezone from Open-Meteo (already used for weather)
+        var tzRes = await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lng+"&timezone=auto&daily=weathercode&forecast_days=1");
+        var tzData = await tzRes.json();
+        var timezone = tzData.timezone || "America/Denver";
+        var utcOffset = tzData.utc_offset_seconds ? Math.round(tzData.utc_offset_seconds/3600) : -6;
+        // 3. Save to weatherLocation and familyProfile
+        setWeatherLocation({lat:lat,lng:lng,city:city,timezone:timezone,utcOffset:utcOffset});
+        setFamilyProfile(function(p){return{...(p||{}),city:city,timezone:timezone,utcOffsetHours:utcOffset};});
+        fetchWeather(lat,lng);
+        console.log("[AF] ZIP",zip,"→",city,timezone,"UTC"+utcOffset);
+      } catch(e){ console.warn("[AF] ZIP lookup failed:",e); }
+    }, 800);
+    return function(){ clearTimeout(timeout); };
+  },[familyProfile&&familyProfile.zipcode]); // eslint-disable-line
+
   // ── Derived / constants ─────────────────────────────────────────────────────
   const todayDateStr       = TODAY.toISOString().split("T")[0];
   const briefingReadyToday = briefingBuilt === todayDateStr && !!dayBriefing;
@@ -5407,13 +5435,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function BrainTab(){
     const [newText,setNewText] = useState("");
-    const [newCat,setNewCat] = useState("personal");
+    const [newCat,setNewCat] = useState(function(){try{var s=sessionStorage.getItem("af_brainNewCat");if(s)return s;}catch{}return "personal";});
     const [aiRecatLoading,setAiRecatLoading] = useState(false);
     const [patternMsg,setPatternMsg] = useState(null);
     const [patternLoading,setPatternLoading] = useState(false);
     const brainInputRef = React.useRef(null);
     const [activeTab,setBrainActiveTab] = useState(function(){try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}return "all";});
-    var _setBrainActiveTab=function(v){setBrainActiveTab(v);try{sessionStorage.setItem("af_brainActiveTab",v);}catch{}};
+    var _setBrainActiveTab=function(v){
+      setBrainActiveTab(v);
+      try{sessionStorage.setItem("af_brainActiveTab",v);}catch{}
+      if(v!=="all"&&v!=="unfiled"&&!v.startsWith("person_")){
+        setNewCat(v);
+        try{sessionStorage.setItem("af_brainNewCat",v);}catch{}
+      }
+    };
     const [search,setBrainSearch] = useState("");
     const brainDragId = React.useRef(null);
     const brainDragOver = React.useRef(null);
@@ -5581,12 +5616,51 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <option value="uncategorized">📁 Unfiled</option>
               {brainCats.map(function(c){return <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>;})}
             </select>
-            <select value={item.scheduledDay||""} onChange={function(e){scheduleItem(item.id,e.target.value||null);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
-              <option value="">📅 Date</option>
-              <option value={TODAY_NAME}>Today</option>
-              <option value={DAY_NAMES_SHORT[(new Date(TODAY).getDay()+1)%7]}>Tomorrow</option>
-              {DAY_NAMES_SHORT.map(function(d){return <option key={d} value={d}>{d.slice(0,3)}</option>;})}
-            </select>
+            {(function(){
+              var [dateOpen,setDateOpen] = useState(false);
+              var tomorrowName = DAY_NAMES_SHORT[(new Date(TODAY).getDay()+1)%7];
+              var quickDays = [{label:"Today",val:TODAY_NAME},{label:"Tomorrow",val:tomorrowName}];
+              var remainingDays = DAY_NAMES_SHORT.filter(function(d){return d!==TODAY_NAME&&d!==tomorrowName;});
+              var hasDate = !!item.scheduledDay;
+              return (
+                <div style={{position:"relative",display:"inline-block"}}>
+                  <button onClick={function(){setDateOpen(function(v){return !v;});}} style={{fontSize:"0.7rem",padding:"2px 7px",borderRadius:5,border:"0.5px solid "+(hasDate?color:color+"50"),background:hasDate?color+"18":"rgba(255,255,255,0.6)",color:hasDate?color:T.textMid,fontFamily:"inherit",cursor:"pointer",display:"flex",alignItems:"center",gap:"3px",fontWeight:hasDate?700:400}}>
+                    📅 {hasDate?item.scheduledDay:"Date"}
+                    {hasDate&&<span onClick={function(e){e.stopPropagation();scheduleItem(item.id,null);}} style={{marginLeft:2,opacity:0.6,fontWeight:900,fontSize:"0.8rem",lineHeight:1}}>×</span>}
+                  </button>
+                  {dateOpen&&(
+                    <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,zIndex:200,background:T.surface,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",boxShadow:"0 8px 32px rgba(0,0,0,0.14)",minWidth:220}}>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Quick pick</div>
+                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
+                        {quickDays.map(function(q){
+                          var isSel=item.scheduledDay===q.val;
+                          return <button key={q.val} onClick={function(){scheduleItem(item.id,q.val);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 9px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{q.label}</button>;
+                        })}
+                      </div>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>This week</div>
+                      <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
+                        {remainingDays.map(function(d){
+                          var isSel=item.scheduledDay===d;
+                          return <button key={d} onClick={function(){scheduleItem(item.id,d);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 8px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{d.slice(0,3)}</button>;
+                        })}
+                      </div>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Specific date</div>
+                      <input type="date" defaultValue={item.scheduledExactDate||""} onChange={function(e){
+                        var raw=e.target.value;
+                        if(!raw){scheduleItem(item.id,null);return;}
+                        var d=new Date(raw+"T12:00:00");
+                        var dayName=DAY_NAMES_SHORT[d.getDay()];
+                        var mo=d.toLocaleString("default",{month:"short"});
+                        var label=mo+" "+d.getDate();
+                        setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,scheduledDay:label,scheduledExactDate:raw}:x;});});
+                        setDateOpen(false);
+                      }} style={{...inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}}/>
+                      {hasDate&&<button onClick={function(){scheduleItem(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.rose,fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div style={{flex:1}}/>
             {people.filter(function(p){ return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
               var isAssigned=item.assignedTo===p.name;
@@ -5625,7 +5699,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
             {brainCats.map(function(c){
               var isSel=newCat===c.id;
-              return <button key={c.id} onClick={function(){setNewCat(c.id);}} style={{background:isSel?c.color:"transparent",color:isSel?"#fff":T.textMid,border:"1.5px solid "+(isSel?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:isSel?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
+              return <button key={c.id} onClick={function(){setNewCat(c.id);try{sessionStorage.setItem("af_brainNewCat",c.id);}catch{}_setBrainActiveTab(c.id);}} style={{background:isSel?c.color:"transparent",color:isSel?"#fff":T.textMid,border:"1.5px solid "+(isSel?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:isSel?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
             })}
           </div>
         </div>
@@ -5871,6 +5945,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {key:"cookingStyle",   label:"Cooking style",             placeholder:"e.g. Quick & simple, batch cook weekends"},
               {key:"homeVibe",       label:"Home vibe / values",        placeholder:"e.g. calm, adventurous, faith-led"},
               {key:"city",           label:"City or region",            placeholder:"e.g. Colorado Springs (for weather & context)"},
+              {key:"zipcode",        label:"ZIP code",                  placeholder:"e.g. 80903 — used for local weather & notification timing"},
               {key:"schoolSchedule", label:"School schedule",           placeholder:"e.g. Homeschool M–F, public school 8–3"},
               {key:"pets",           label:"Pets",                      placeholder:"e.g. 1 golden retriever named Biscuit, 2 cats"},
               {key:"vehicles",       label:"Vehicles",                  placeholder:"e.g. 2019 Honda Pilot, 2017 Toyota Camry"},
