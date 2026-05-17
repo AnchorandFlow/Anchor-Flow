@@ -1013,21 +1013,13 @@ function HomeFlow() {
     const payload = {};
     SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
     const updatedAt = new Date().toISOString();
+    const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
+    const ownerId = authUser?.id || null;
     try {
-      // return=representation so Supabase gives us back the actual row with
-      // the server-stamped updated_at. We store that value (not our client
-      // timestamp) so the startup sync check never sees a false mismatch.
-      const rows = await sbFetch("/rest/v1/households", {
-        method: "POST",
-        _token: token,
-        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify({ id: hid, owner_id: (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id||null; } catch { return null; } })(), data: payload, updated_at: updatedAt })
-      });
-      const serverTs = (rows && rows[0] && rows[0].updated_at) ? rows[0].updated_at : updatedAt;
-      try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-    } catch {
-      // Fallback: try PATCH if POST fails
-      try {
+      // Check if row exists first to decide POST vs PATCH
+      const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id&limit=1`, { _token: token });
+      if (existing && existing.length > 0) {
+        // Row exists — always PATCH (avoids 409 conflict)
         const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
           method: "PATCH",
           _token: token,
@@ -1036,7 +1028,19 @@ function HomeFlow() {
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-      } catch {}
+      } else {
+        // Row does not exist — INSERT (first time only)
+        const insertRows = await sbFetch("/rest/v1/households", {
+          method: "POST",
+          _token: token,
+          headers: { "Prefer": "return=representation" },
+          body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
+        });
+        const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
+        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+      }
+    } catch(e) {
+      console.warn("[AF] pushHouseholdData failed:", e.message);
     }
   }
 
