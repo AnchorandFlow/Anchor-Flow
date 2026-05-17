@@ -61,29 +61,43 @@ function urlBase64ToUint8Array(base64String) {
 function usePushNotifications() {
   const [permission, setPermission] = React.useState(typeof Notification !== "undefined" ? Notification.permission : "default");
   const [subscribed, setSubscribed] = React.useState(false);
+  const [subError, setSubError] = React.useState(null);
 
   const subscribe = React.useCallback(async () => {
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-      const reg = await navigator.serviceWorker.ready;
+      setSubError(null);
+      if (!("serviceWorker" in navigator)) { setSubError("Service workers not supported."); return; }
+      if (!("PushManager" in window)) { setSubError("Push not supported in this browser."); return; }
       const perm = await Notification.requestPermission();
       setPermission(perm);
-      if (perm !== "granted") return;
-      const existing = await reg.pushManager.getSubscription();
-      if (existing) { setSubscribed(true); return; }
-      const sub = await reg.pushManager.subscribe({
+      if (perm !== "granted") { setSubError("Permission denied — allow notifications in browser settings."); return; }
+      const reg = await navigator.serviceWorker.ready;
+      // Always unsubscribe first to force fresh subscription with current VAPID key
+      let sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
-      await supabase.from("push_subscriptions").upsert({
-        endpoint: sub.endpoint,
-        subscription_json: JSON.stringify(sub),
-        household_id: localStorage.getItem("af_householdId"),
-        user_agent: navigator.userAgent.slice(0, 200),
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "endpoint" });
+      // Use sbFetch (same as rest of app) — NOT supabase.from()
+      const householdId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch { return null; } })();
+      await sbFetch("/rest/v1/push_subscriptions", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify({
+          endpoint: sub.endpoint,
+          subscription_json: JSON.stringify(sub),
+          household_id: householdId,
+          user_agent: navigator.userAgent.slice(0, 200),
+          updated_at: new Date().toISOString(),
+        }),
+      });
       setSubscribed(true);
-    } catch(e) { console.warn("[PWA] Push subscribe failed:", e); }
+      console.log("[AF] Push subscription saved ✓ household:", householdId);
+    } catch(e) {
+      console.error("[PWA] Push subscribe failed:", e);
+      setSubError(e.message || "Something went wrong — try again.");
+    }
   }, []);
 
   React.useEffect(() => {
@@ -100,7 +114,7 @@ function usePushNotifications() {
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
   }, []);
 
-  return { permission, subscribed, subscribe };
+  return { permission, subscribed, subscribe, subError };
 }
 
 // Action label → { action key, touchpoint type }
