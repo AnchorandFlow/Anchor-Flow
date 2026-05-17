@@ -951,8 +951,12 @@ function HomeFlow() {
           // No household owned by this user — re-fetch their user record fresh from Supabase
           // so we get the latest metadata (local data.user may be stale from the login response).
           let joinedHhId = data.user?.user_metadata?.joined_household_id || null;
+          // Re-fetch user fresh using raw fetch (no apikey header) to get latest metadata
           try {
-            const freshUser = await sbFetch("/auth/v1/user", { _token: token });
+            const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
+              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
+            });
+            const freshUser = await freshResp.json();
             if (freshUser?.user_metadata?.joined_household_id) {
               joinedHhId = freshUser.user_metadata.joined_household_id;
             }
@@ -1065,16 +1069,16 @@ function HomeFlow() {
       if (!rows || !rows.length) return { ok:false, error:"Household not found. Check the code and try again." };
       // Save householdId to localStorage BEFORE reload so it persists
       try { localStorage.setItem("af_householdId", JSON.stringify(joinCode)); } catch {}
-      // Write joined household ID into Supabase user_metadata so it survives logout/login on any device
+      // Write joined household ID into Supabase user_metadata
+      // Must use raw fetch — sbFetch includes apikey header which causes 403 on auth endpoints
       try {
-        await sbFetch("/auth/v1/user", {
+        const metaResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
           method: "PUT",
-          _token: token,
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
           body: JSON.stringify({ data: { joined_household_id: joinCode } })
         });
-        // Immediately re-read user to confirm metadata was saved
-        const verify = await sbFetch("/auth/v1/user", { _token: token });
-        console.log("[AF] Verified joined_household_id in metadata:", verify?.user_metadata?.joined_household_id);
+        const metaBody = await metaResp.json();
+        console.log("[AF] Metadata write status:", metaResp.status, "joined_household_id:", metaBody?.user_metadata?.joined_household_id);
       } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
       // Pull the FRESHEST data from Supabase for this household (re-fetch after metadata save)
       const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
