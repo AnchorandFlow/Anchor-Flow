@@ -2698,7 +2698,7 @@ Respond ONLY with valid JSON array, no markdown:
       onComplete();
     }
     const s = steps[step];
-    var progBar = <div style={{height:3,background:T.border,borderRadius:2,marginBottom:"1.4rem",overflow:"hidden"}}><div style={{height:"100%",width:(prog*100)+"%",background:"linear-gradient(90deg,"+T.sage+","+T.blue+")",transition:"width 0.4s"}}/></div>;
+    var progBar = null; // rendered inline below
     function renderBtns(canNext, nextLabel, onNext, skipLabel) {
       if(canNext===undefined)canNext=true;
       if(!nextLabel)nextLabel="Next →";
@@ -2707,7 +2707,7 @@ Respond ONLY with valid JSON array, no markdown:
           {step>0&&<button onClick={function(){setStep(function(x){return x-1;});}} style={btnS({padding:"0.6rem 1rem",fontSize:"0.82rem"})}>← Back</button>}
           <div style={{flex:1}}/>
           {skipLabel&&<button onClick={function(){setStep(function(x){return x+1;});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",padding:"0.6rem 0.9rem",fontFamily:"inherit"}}>{skipLabel}</button>}
-          <button onClick={onNext||function(){setStep(function(x){return x+1;});}} disabled={!canNext} style={{...btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem",opacity:canNext?1:0.4,cursor:canNext?"pointer":"not-allowed"})}}>
+          <button onClick={onNext||function(){setStep(function(x){return x+1;});}} disabled={!canNext} style={btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem",opacity:canNext?1:0.4,cursor:canNext?"pointer":"not-allowed"})}>
             {nextLabel}
           </button>
         </div>
@@ -2716,7 +2716,7 @@ Respond ONLY with valid JSON array, no markdown:
     return (
       <div style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(16px)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
         <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.6rem",padding:"2rem 1.8rem",width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 40px 120px "+T.cardShadow}}>
-          {progBar}
+          <div style={{height:3,background:T.border,borderRadius:2,marginBottom:"1.4rem",overflow:"hidden"}}><div style={{height:"100%",width:(prog*100)+"%",background:"linear-gradient(90deg,"+T.sage+","+T.blue+")",transition:"width 0.4s"}}/></div>
           {s==="welcome"&&(<div>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>⚓️</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Welcome to Anchor & Flow</div>
@@ -3497,7 +3497,7 @@ Respond ONLY in valid JSON:
                   <input ref={newTaskRef} defaultValue=""
                     onKeyDown={e=>{if(e.key==="Enter"){const v=newTaskRef.current?.value||"";addQuickTask(v,addingTask);if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}if(e.key==="Escape"){if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}}}
                     placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
-                    style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
+                    style={inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})} autoFocus/>
                   <button onClick={()=>{const v=newTaskRef.current?.value||"";addQuickTask(v,addingTask);if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
                 </div>
               )}
@@ -4047,7 +4047,7 @@ Respond ONLY in valid JSON:
           <div>
             <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
-            <input ref={newTaskInputRef} defaultValue="" placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}
+            <input ref={newTaskInputRef} defaultValue="" placeholder="Add a task…" style={inp({flex:1,minWidth:120})}
               onKeyDown={e=>{if(e.key==="Enter"){const v=newTaskInputRef.current?.value?.trim()||"";if(v){var nid=uid();setTasks(p=>[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);if(newTaskInputRef.current)newTaskInputRef.current.value="";}}}}/>
             <select value={taskDay} onChange={e=>setTaskDay(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
               {[...MEAL_DAYS,"Daily"].map(d=><option key={d} value={d}>{d}</option>)}
@@ -5060,8 +5060,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 ))}
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input ref={groceryInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"){const v=groceryInputRef.current?.value?.trim()||"";if(v){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),v]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} placeholder="Add grocery item…" style={{...inp({flex:1,fontSize:"0.82rem"})}}/>
-                  <button onClick={()=>{const v=groceryInputRef.current?.value?.trim()||"";if(v){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),v]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
+                  <input ref={groceryInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"){const v=groceryInputRef.current?.value?.trim()||"";if(v){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),v]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} placeholder="Add grocery item…" style={inp({flex:1,fontSize:"0.82rem"})}/>                  <button onClick={()=>{const v=groceryInputRef.current?.value?.trim()||"";if(v){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),v]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
                 </div>
               </div>
             </div>
@@ -5457,13 +5456,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     opacity:editDragIdx===i?0.35:1,
                     outline:editDropIdx===i?`2px dashed ${T.blue}`:"none",outlineOffset:"1px"}}>
                   <div style={{opacity:0.35,flexShrink:0}}><Icon name="drag" size={13} color={T.textSoft}/></div>
-                  <input key={String(i)+"_"+item} defaultValue={item} onBlur={e=>setEditForm(p=>({...p,items:p.items.map((x,j)=>j===i?e.target.value:x)}))} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem",border:"none",background:"transparent"})}}/>
+                  <input key={String(i)+"_"+item} defaultValue={item} onBlur={e=>setEditForm(p=>({...p,items:p.items.map((x,j)=>j===i?e.target.value:x)}))} style={inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem",border:"none",background:"transparent"})}/>
                   <button onClick={()=>setEditForm(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
                 </div>
               ))}
             </div>
             <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.2rem"}}>
-              <input ref={newItemInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter")addEditItem();}} placeholder="Add an item…" style={{...inp({flex:1})}}/>
+              <input ref={newItemInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter")addEditItem();}} placeholder="Add an item…" style={inp({flex:1})}/>
               <button onClick={addEditItem} style={btnP(T.sage,{padding:"0.5rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem"})}><Icon name="plus" size={14} color="#fff"/> Add</button>
             </div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
@@ -5505,7 +5504,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{flex:1,minWidth:0}}>
             {editing?(
               <div style={{display:"flex",gap:"0.3rem"}}>
-                <input value={val} onChange={function(e){setVal(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){updateFn(item.id,{text:val});setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.25rem 0.45rem",fontSize:"0.84rem"})}} autoFocus/>
+                <input value={val} onChange={function(e){setVal(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){updateFn(item.id,{text:val});setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={inp({flex:1,padding:"0.25rem 0.45rem",fontSize:"0.84rem"})} autoFocus/>
                 <button onClick={function(){updateFn(item.id,{text:val});setEditing(false);}} style={btnP(color,{fontSize:"0.7rem",padding:"0.25rem 0.5rem"})}>✓</button>
               </div>
             ):(
@@ -5543,7 +5542,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   var label=mo+" "+d.getDate();
                   updateFn(item.id,{scheduledDay:label,scheduledExactDate:raw});
                   setDateOpen(false);
-                }} style={{...inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}}/>
+                }} style={inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}/>
                 {hasDate&&<button onClick={function(){scheduleFn(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.rose,fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
               </div>
             )}
@@ -5725,7 +5724,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Input */}
         <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <input ref={brainInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}}/>
+            <input ref={brainInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="What's on your mind..." style={inp({flex:1,fontSize:"0.88rem"})}/>
             <button onClick={addItem} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem"})}}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
