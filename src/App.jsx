@@ -5060,8 +5060,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 ))}
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input ref={groceryInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){var gr=groceryInputRef.current;if(gr&&gr.value.trim()){setEditMeal(function(p){return{...p,groceryItems:[...(p.groceryItems||[]),gr.value.trim()]};});gr.value="";}}} placeholder="Add grocery item…" style={inp({flex:1,fontSize:"0.82rem"})}/>
-                  <button onClick={function(){var gr=groceryInputRef.current;if(gr&&gr.value.trim()){setEditMeal(function(p){return{...p,groceryItems:[...(p.groceryItems||[]),gr.value.trim()]};});gr.value="";}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
+                  <input ref={groceryInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){var gr=groceryInputRef.current;if(gr&&gr.value.trim()){setEditMeal(function(p){return{...p,groceryItems:[...(p.groceryItems||[]),gr.value.trim()]};});gr.value="";}}} placeholder="Add grocery item…" style={{flex:1,fontSize:"0.82rem",width:"100%",background:"var(--input-bg,#fff)",border:"1.5px solid #d4cfc8",borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:"#2d2820",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+                  <button onClick={function(){var gr=groceryInputRef.current;if(gr&&gr.value.trim()){setEditMeal(function(p){return{...p,groceryItems:[...(p.groceryItems||[]),gr.value.trim()]};});gr.value="";}}} style={{background:"#c8a97a",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.35rem 0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.78rem",fontFamily:"inherit"}}>Add</button>
                 </div>
               </div>
             </div>
