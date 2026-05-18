@@ -3495,10 +3495,10 @@ Respond ONLY in valid JSON:
               {addingTask&&(
                 <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
                   <input ref={newTaskRef} defaultValue=""
-                    onKeyDown={e=>{if(e.key==="Enter"){var v=newTaskRef.current?newTaskRef.current.value:"";addQuickTask(v,addingTask);if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}if(e.key==="Escape"){if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}}}
+                    onKeyDown={function(e){if(e.key==="Enter"){var nr=newTaskRef.current;addQuickTask(nr&&nr.value||"",addingTask);if(nr)nr.value="";setAddingTask(null);}if(e.key==="Escape"){var nr2=newTaskRef.current;if(nr2)nr2.value="";setAddingTask(null);}}}
                     placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
                     style={inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})} autoFocus/>
-                  <button onClick={function(){var v=newTaskRef.current?newTaskRef.current.value:"";addQuickTask(v,addingTask);if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
+                  <button onClick={function(){var nr=newTaskRef.current;addQuickTask(nr&&nr.value||"",addingTask);if(nr)nr.value="";setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
                 </div>
               )}
               {!addingTask&&(
@@ -4048,7 +4048,7 @@ Respond ONLY in valid JSON:
             <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
             <input ref={newTaskInputRef} defaultValue="" placeholder="Add a task…" style={inp({flex:1,minWidth:120})}
-              onKeyDown={function(e){if(e.key==="Enter"){var v=newTaskInputRef.current?newTaskInputRef.current.value.trim():"";if(v){var nid=uid();setTasks(p=>[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);if(newTaskInputRef.current)newTaskInputRef.current.value="";}}}}/>
+              onKeyDown={function(e){if(e.key==="Enter"){var ni=newTaskInputRef.current;var v=ni&&ni.value.trim()||"";if(v){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});if(ni)ni.value="";}}}}/>
             <select value={taskDay} onChange={e=>setTaskDay(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
               {[...MEAL_DAYS,"Daily"].map(d=><option key={d} value={d}>{d}</option>)}
             </select>
@@ -4056,7 +4056,7 @@ Respond ONLY in valid JSON:
               <option value="">Anyone</option>
               {people.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
             </select>
-            <button onClick={function(){var v=newTaskInputRef.current?newTaskInputRef.current.value.trim():"";if(v){var nid=uid();setTasks(p=>[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);if(newTaskInputRef.current)newTaskInputRef.current.value="";}}} style={btnP(T.blue)}>Add</button>
+            <button onClick={function(){var ni=newTaskInputRef.current;var v=ni&&ni.value.trim()||"";if(v){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});if(ni)ni.value="";}}} style={btnP(T.blue)}>Add</button>
           </div>
         </div>
         {weekSubTab==="tasks"&&[...MEAL_DAYS,"Daily"].map(function(day,di){
@@ -5060,8 +5060,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 ))}
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input ref={groceryInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){var gv=groceryInputRef.current?groceryInputRef.current.value.trim():"";if(gv){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),gv]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} placeholder="Add grocery item…" style={inp({flex:1,fontSize:"0.82rem"})}/>
-                  <button onClick={function(){var gv=groceryInputRef.current?groceryInputRef.current.value.trim():"";if(gv){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),gv]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
+                  <input ref={groceryInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){var gr=groceryInputRef.current;if(gr&&gr.value.trim()){setEditMeal(function(p){return{...p,groceryItems:[...(p.groceryItems||[]),gr.value.trim()]};});gr.value="";}}} placeholder="Add grocery item…" style={inp({flex:1,fontSize:"0.82rem"})}/>
+                  <button onClick={function(){var gr=groceryInputRef.current;if(gr&&gr.value.trim()){setEditMeal(function(p){return{...p,groceryItems:[...(p.groceryItems||[]),gr.value.trim()]};});gr.value="";}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
                 </div>
               </div>
             </div>
@@ -5414,7 +5414,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function openEdit(sys){setEditingSystem(sys.id);setEditForm({label:sys.label,emoji:sys.emoji,items:[...sys.items]});if(newItemInputRef.current)newItemInputRef.current.value="";}
     function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});if(newItemInputRef.current)newItemInputRef.current.value="";}
     function saveSystem(){if(!editForm.label.trim())return;if(editingSystem==="new")setHomeSystems(p=>[...p,{id:uid(),label:editForm.label.trim(),emoji:editForm.emoji,items:editForm.items}]);else setHomeSystems(p=>p.map(s=>s.id===editingSystem?{...s,label:editForm.label,emoji:editForm.emoji,items:editForm.items}:s));setEditingSystem(null);}
-    function addEditItem(){var text=newItemInputRef.current?newItemInputRef.current.value.trim():"";if(!text)return;setEditForm(p=>({...p,items:[...p.items,text]}));if(newItemInputRef.current)newItemInputRef.current.value="";}
+    function addEditItem(){var ni=newItemInputRef.current;var text=ni&&ni.value.trim()||"";if(!text)return;setEditForm(function(p){return{...p,items:[...p.items,text]};});if(ni)ni.value="";}
     return(
       <div>
         <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life running" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
@@ -5623,13 +5623,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function addItem(){
-      var text = brainInputRef.current ? brainInputRef.current.value.trim() : "";
+      var bi=brainInputRef.current;var text=bi?bi.value.trim():"";
       if(!text) return;
       const detected = smartCat(text);
       const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
       setBrainItems(p=>[...p,{id:uid(),text:text,cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
-      if(brainInputRef.current) brainInputRef.current.value = "";
-      setTimeout(function(){if(brainInputRef.current)brainInputRef.current.focus();},0);
+      if(bi)bi.value="";
+      setTimeout(function(){var b=brainInputRef.current;if(b)b.focus();},0);
     }
 
     function scheduleItem(id, day){
