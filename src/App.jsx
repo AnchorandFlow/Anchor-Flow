@@ -2698,21 +2698,25 @@ Respond ONLY with valid JSON array, no markdown:
       onComplete();
     }
     const s = steps[step];
-    const ProgBar = () => <div style={{height:3,background:T.border,borderRadius:2,marginBottom:"1.4rem",overflow:"hidden"}}><div style={{height:"100%",width:(prog*100)+"%",background:"linear-gradient(90deg,"+T.sage+","+T.blue+")",transition:"width 0.4s"}}/></div>;
-    const Btns = ({canNext=true,nextLabel="Next →",onNext,skipLabel}) => (
-      <div style={{display:"flex",gap:"0.5rem",marginTop:"1.4rem",paddingTop:"0.9rem",borderTop:"1px solid "+T.borderSoft}}>
-        {step>0&&<button onClick={()=>setStep(s=>s-1)} style={btnS({padding:"0.6rem 1rem",fontSize:"0.82rem"})}>← Back</button>}
-        <div style={{flex:1}}/>
-        {skipLabel&&<button onClick={()=>setStep(s=>s+1)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",padding:"0.6rem 0.9rem",fontFamily:"inherit"}}>{skipLabel}</button>}
-        <button onClick={onNext||(()=>setStep(s=>s+1))} disabled={!canNext} style={{...btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem",opacity:canNext?1:0.4,cursor:canNext?"pointer":"not-allowed"})}}>
-          {nextLabel}
-        </button>
-      </div>
-    );
+    var progBar = <div style={{height:3,background:T.border,borderRadius:2,marginBottom:"1.4rem",overflow:"hidden"}}><div style={{height:"100%",width:(prog*100)+"%",background:"linear-gradient(90deg,"+T.sage+","+T.blue+")",transition:"width 0.4s"}}/></div>;
+    function renderBtns(canNext, nextLabel, onNext, skipLabel) {
+      if(canNext===undefined)canNext=true;
+      if(!nextLabel)nextLabel="Next →";
+      return (
+        <div style={{display:"flex",gap:"0.5rem",marginTop:"1.4rem",paddingTop:"0.9rem",borderTop:"1px solid "+T.borderSoft}}>
+          {step>0&&<button onClick={function(){setStep(function(x){return x-1;});}} style={btnS({padding:"0.6rem 1rem",fontSize:"0.82rem"})}>← Back</button>}
+          <div style={{flex:1}}/>
+          {skipLabel&&<button onClick={function(){setStep(function(x){return x+1;});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",padding:"0.6rem 0.9rem",fontFamily:"inherit"}}>{skipLabel}</button>}
+          <button onClick={onNext||function(){setStep(function(x){return x+1;});}} disabled={!canNext} style={{...btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem",opacity:canNext?1:0.4,cursor:canNext?"pointer":"not-allowed"})}}>
+            {nextLabel}
+          </button>
+        </div>
+      );
+    }
     return (
       <div style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(16px)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
         <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.6rem",padding:"2rem 1.8rem",width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 40px 120px "+T.cardShadow}}>
-          <ProgBar/>
+          {progBar}
           {s==="welcome"&&(<div>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>⚓️</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Welcome to Anchor & Flow</div>
@@ -2720,14 +2724,14 @@ Respond ONLY with valid JSON array, no markdown:
             <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",borderRadius:"0.9rem",padding:"0.9rem 1rem",fontSize:"0.82rem",color:T.textMid,lineHeight:1.8}}>
               👨‍👩‍👧 Your family &nbsp;·&nbsp; 📆 Calendar &nbsp;·&nbsp; 🍽️ Favorite meals &nbsp;·&nbsp; 🛒 Grocery &nbsp;·&nbsp; 🧠 Brain dump
             </div>
-            <Btns nextLabel="Let's go →"/>
+            {renderBtns(true,"Let's go →")}
           </div>)}
           {s==="family"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>👨‍👩‍👧 Your family</div>
             <div style={{color:T.textSoft,fontSize:"0.83rem",marginBottom:"1rem"}}>This helps personalise everything — from meal suggestions to daily rhythms.</div>
             <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-              <div><label style={lbl}>Your name</label><input value={d.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. Lindsey" style={inp()} autoFocus/></div>
-              <div><label style={lbl}>Partner's name (optional)</label><input value={d.partner} onChange={e=>set("partner",e.target.value)} placeholder="e.g. Jake" style={inp()}/></div>
+              <div><label style={lbl}>Your name</label><input defaultValue={d.name} onBlur={function(e){set("name",e.target.value);}} placeholder="e.g. Lindsey" style={inp()} autoFocus/></div>
+              <div><label style={lbl}>Partner's name (optional)</label><input defaultValue={d.partner} onBlur={function(e){set("partner",e.target.value);}} placeholder="e.g. Jake" style={inp()}/></div>
               <div><label style={lbl}>Biggest home management challenge</label>
                 <select value={d.challenge} onChange={e=>set("challenge",e.target.value)} style={inp()}>
                   <option value="">Choose one…</option>
@@ -2735,7 +2739,7 @@ Respond ONLY with valid JSON array, no markdown:
                 </select>
               </div>
             </div>
-            <Btns canNext={!!d.name} skipLabel="Skip"/>
+            {renderBtns(!!d.name,undefined,undefined,"Skip")}
           </div>)}
           {s==="kids"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>🧒 The little ones</div>
@@ -2746,10 +2750,10 @@ Respond ONLY with valid JSON array, no markdown:
                   {["1","2","3","4","5+"].map(n=><button key={n} onClick={()=>set("numKids",n)} style={{background:d.numKids===n?T.blue:T.white,color:d.numKids===n?"#fff":T.textMid,border:"1.5px solid "+(d.numKids===n?T.blue:T.border),borderRadius:"0.6rem",padding:"0.5rem 1rem",cursor:"pointer",fontSize:"0.9rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{n}</button>)}
                 </div>
               </div>
-              <div><label style={lbl}>Their ages</label><input value={d.kidAges} onChange={e=>set("kidAges",e.target.value)} placeholder="e.g. 7, 4, infant" style={inp()}/></div>
-              <div><label style={lbl}>Names (optional)</label><input value={d.kidNames} onChange={e=>set("kidNames",e.target.value)} placeholder="e.g. Emma, Liam, baby Mia" style={inp()}/></div>
+              <div><label style={lbl}>Their ages</label><input defaultValue={d.kidAges} onBlur={function(e){set("kidAges",e.target.value);}} placeholder="e.g. 7, 4, infant" style={inp()}/></div>
+              <div><label style={lbl}>Names (optional)</label><input defaultValue={d.kidNames} onBlur={function(e){set("kidNames",e.target.value);}} placeholder="e.g. Emma, Liam, baby Mia" style={inp()}/></div>
             </div>
-            <Btns skipLabel="Skip"/>
+            {renderBtns(true,undefined,undefined,"Skip")}
           </div>)}
           {s==="dietary"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>🥗 Dietary needs</div>
@@ -2757,8 +2761,8 @@ Respond ONLY with valid JSON array, no markdown:
             <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.75rem"}}>
               {["Dairy-free","Gluten-free","Nut-free","Vegetarian","Vegan","No restrictions"].map(x=><button key={x} onClick={()=>set("dietary",d.dietary===x?"":x)} style={{background:d.dietary===x?T.sage:T.white,color:d.dietary===x?"#fff":T.textMid,border:"1.5px solid "+(d.dietary===x?T.sage:T.border),borderRadius:"2rem",padding:"0.38rem 0.85rem",cursor:"pointer",fontSize:"0.82rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{x}</button>)}
             </div>
-            <div><label style={lbl}>Other (type it in)</label><input value={d.dietary.includes("-")||["Dairy-free","Gluten-free","Nut-free","Vegetarian","Vegan","No restrictions"].includes(d.dietary)?"":d.dietary} onChange={e=>set("dietary",e.target.value)} placeholder="e.g. Egg-free" style={inp()}/></div>
-            <Btns skipLabel="Skip"/>
+            <div><label style={lbl}>Other (type it in)</label><input defaultValue={d.dietary.includes("-")||["Dairy-free","Gluten-free","Nut-free","Vegetarian","Vegan","No restrictions"].includes(d.dietary)?"":d.dietary} onBlur={function(e){set("dietary",e.target.value);}} placeholder="e.g. Egg-free" style={inp()}/></div>
+            {renderBtns(true,undefined,undefined,"Skip")}
           </div>)}
           {s==="calendar"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>📆 Connect your calendar</div>
@@ -2773,49 +2777,49 @@ Respond ONLY with valid JSON array, no markdown:
                 </div>;
               })}
             </div>
-            <Btns skipLabel="Skip for now"/>
+            {renderBtns(true,undefined,undefined,"Skip for now")}
           </div>)}
           {s==="meal1"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>🍽️ A meal your family loves</div>
             <div style={{color:T.textSoft,fontSize:"0.83rem",marginBottom:"1rem"}}>I'll suggest it when planning your week.</div>
             <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-              <div><label style={lbl}>Meal name</label><input value={d.m1name} onChange={e=>set("m1name",e.target.value)} placeholder="e.g. Sheet Pan Chicken Fajitas" style={inp()} autoFocus/></div>
+              <div><label style={lbl}>Meal name</label><input defaultValue={d.m1name} onBlur={function(e){set("m1name",e.target.value);}} placeholder="e.g. Sheet Pan Chicken Fajitas" style={inp()} autoFocus/></div>
               <div><label style={lbl}>Cook time</label>
                 <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
                   {["10","15","20","30","45","60+"].map(t=><button key={t} onClick={()=>set("m1time",t)} style={{background:d.m1time===t?T.blue:T.white,color:d.m1time===t?"#fff":T.textMid,border:"1.5px solid "+(d.m1time===t?T.blue:T.border),borderRadius:"0.6rem",padding:"0.38rem 0.8rem",cursor:"pointer",fontSize:"0.82rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{t} min</button>)}
                 </div>
               </div>
-              <div><label style={lbl}>Tags (optional)</label><input value={d.m1tags} onChange={e=>set("m1tags",e.target.value)} placeholder="e.g. kid-friendly, dairy-free" style={inp()}/></div>
+              <div><label style={lbl}>Tags (optional)</label><input defaultValue={d.m1tags} onBlur={function(e){set("m1tags",e.target.value);}} placeholder="e.g. kid-friendly, dairy-free" style={inp()}/></div>
             </div>
-            <Btns canNext={!!d.m1name} skipLabel="Skip meals"/>
+            {renderBtns(!!d.m1name,undefined,undefined,"Skip meals")}
           </div>)}
           {s==="meal2"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>🍳 One more favourite?</div>
             <div style={{color:T.textSoft,fontSize:"0.83rem",marginBottom:"1rem"}}>Optional — the more I know the better I can plan.</div>
             <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-              <div><label style={lbl}>Meal name</label><input value={d.m2name} onChange={e=>set("m2name",e.target.value)} placeholder="e.g. One-Pot Spaghetti" style={inp()} autoFocus/></div>
+              <div><label style={lbl}>Meal name</label><input defaultValue={d.m2name} onBlur={function(e){set("m2name",e.target.value);}} placeholder="e.g. One-Pot Spaghetti" style={inp()} autoFocus/></div>
               <div><label style={lbl}>Cook time</label>
                 <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
                   {["10","15","20","30","45","60+"].map(t=><button key={t} onClick={()=>set("m2time",t)} style={{background:d.m2time===t?T.blue:T.white,color:d.m2time===t?"#fff":T.textMid,border:"1.5px solid "+(d.m2time===t?T.blue:T.border),borderRadius:"0.6rem",padding:"0.38rem 0.8rem",cursor:"pointer",fontSize:"0.82rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{t} min</button>)}
                 </div>
               </div>
             </div>
-            <Btns skipLabel="Skip"/>
+            {renderBtns(true,undefined,undefined,"Skip")}
           </div>)}
           {s==="grocery"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>🛒 Anything you need?</div>
             <div style={{color:T.textSoft,fontSize:"0.83rem",marginBottom:"1rem"}}>I'll add it to your shopping list right now.</div>
             <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-              <div><label style={lbl}>Item 1</label><input value={d.g1} onChange={e=>set("g1",e.target.value)} placeholder="e.g. Milk" style={inp()} autoFocus/></div>
-              <div><label style={lbl}>Item 2</label><input value={d.g2} onChange={e=>set("g2",e.target.value)} placeholder="e.g. Chicken thighs" style={inp()}/></div>
+              <div><label style={lbl}>Item 1</label><input defaultValue={d.g1} onBlur={function(e){set("g1",e.target.value);}} placeholder="e.g. Milk" style={inp()} autoFocus/></div>
+              <div><label style={lbl}>Item 2</label><input defaultValue={d.g2} onBlur={function(e){set("g2",e.target.value);}} placeholder="e.g. Chicken thighs" style={inp()}/></div>
             </div>
-            <Btns skipLabel="Skip"/>
+            {renderBtns(true,undefined,undefined,"Skip")}
           </div>)}
           {s==="brain"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>🧠 What's on your mind?</div>
             <div style={{color:T.textSoft,fontSize:"0.83rem",marginBottom:"1rem"}}>Dump it all here. Tasks, worries, ideas — we'll sort it later.</div>
-            <textarea value={d.brain} onChange={e=>set("brain",e.target.value)} placeholder={"Call doctor\nPick up dry cleaning\nEmail teacher…"} rows={5} style={{...inp({resize:"none",fontSize:"0.88rem",lineHeight:1.65})}}/>
-            <Btns skipLabel="Skip"/>
+            <textarea defaultValue={d.brain} onBlur={function(e){set("brain",e.target.value);}} placeholder={"Call doctor\nPick up dry cleaning\nEmail teacher…"} rows={5} style={{...inp({resize:"none",fontSize:"0.88rem",lineHeight:1.65})}}/>
+            {renderBtns(true,undefined,undefined,"Skip")}
           </div>)}
           {s==="done"&&(<div>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🌿</div>
@@ -2829,7 +2833,7 @@ Respond ONLY with valid JSON array, no markdown:
               {(d.g1||d.g2)&&<div>🛒 {[d.g1,d.g2].filter(Boolean).join(" · ")} added</div>}
               {d.brain&&<div>🧠 Brain dump saved</div>}
             </div>
-            <Btns nextLabel="Build my first day →" onNext={finish}/>
+            {renderBtns(true,"Build my first day →",finish)}
           </div>)}
         </div>
       </div>
@@ -3042,7 +3046,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
   function AnchorTab() {
-    const [newTask,setNewTask]   = useState("");
+    const newTaskRef = useRef(null);
     const [showFlowIn,setShowFlowIn] = useState(false);
     const [fullDayDismissed,setFullDayDismissed] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState(null);
@@ -3490,11 +3494,11 @@ Respond ONLY in valid JSON:
               )}
               {addingTask&&(
                 <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
-                  <input value={newTask} onChange={e=>setNewTask(e.target.value)}
-                    onKeyDown={e=>{if(e.key==="Enter"){addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setAddingTask(null);}}}
+                  <input ref={newTaskRef} defaultValue=""
+                    onKeyDown={e=>{if(e.key==="Enter"){const v=newTaskRef.current?.value||"";addQuickTask(v,addingTask);if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}if(e.key==="Escape"){if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}}}
                     placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
                     style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
-                  <button onClick={()=>{addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
+                  <button onClick={()=>{const v=newTaskRef.current?.value||"";addQuickTask(v,addingTask);if(newTaskRef.current)newTaskRef.current.value="";setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
                 </div>
               )}
               {!addingTask&&(
@@ -3973,7 +3977,7 @@ Respond ONLY in valid JSON:
 
   // ── Weekly Tab ──────────────────────────────────────────────────────────────
   function WeeklyTab() {
-    const [newTaskText,setNewTaskText]=useState("");
+    const newTaskInputRef=useRef(null);
     const [taskDay,setTaskDay]=useState(TODAY_NAME);
     const [taskPerson,setTaskPerson]=useState("");
     const [editingDay,setEditingDay]=useState(null);
@@ -4043,7 +4047,8 @@ Respond ONLY in valid JSON:
           <div>
             <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`})}}>
           <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
-            <input value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
+            <input ref={newTaskInputRef} defaultValue="" placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}
+              onKeyDown={e=>{if(e.key==="Enter"){const v=newTaskInputRef.current?.value?.trim()||"";if(v){var nid=uid();setTasks(p=>[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);if(newTaskInputRef.current)newTaskInputRef.current.value="";}}}}/>
             <select value={taskDay} onChange={e=>setTaskDay(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
               {[...MEAL_DAYS,"Daily"].map(d=><option key={d} value={d}>{d}</option>)}
             </select>
@@ -4051,7 +4056,7 @@ Respond ONLY in valid JSON:
               <option value="">Anyone</option>
               {people.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
             </select>
-            <button onClick={()=>{if(newTaskText.trim()){var nid=uid();setTasks(p=>[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
+            <button onClick={()=>{const v=newTaskInputRef.current?.value?.trim()||"";if(v){var nid=uid();setTasks(p=>[...p,{id:nid,text:v,day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:v,cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);if(newTaskInputRef.current)newTaskInputRef.current.value="";}}} style={btnP(T.blue)}>Add</button>
           </div>
         </div>
         {weekSubTab==="tasks"&&[...MEAL_DAYS,"Daily"].map(function(day,di){
@@ -4144,10 +4149,10 @@ Respond ONLY in valid JSON:
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-              <div><label style={lbl}>Emoji</label><input value={editForm.emoji} onChange={e=>setEditForm(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
-              <div><label style={lbl}>Theme Name</label><input value={editForm.theme} onChange={e=>setEditForm(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
+              <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={e=>setEditForm(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+              <div><label style={lbl}>Theme Name</label><input defaultValue={editForm.theme} onBlur={e=>setEditForm(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
             </div>
-            <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input value={editForm.desc} onChange={e=>setEditForm(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
+            <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={e=>setEditForm(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
               <button onClick={()=>setEditingDay(null)} style={btnS()}>Cancel</button>
               <button onClick={saveEditDay} style={btnP(T.sage)}>Save</button>
@@ -4339,6 +4344,7 @@ Respond ONLY in valid JSON:
   function MealsTab() {
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
+    const groceryInputRef=useRef(null);
     const [showRecipes,setShowRecipes]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
@@ -4354,6 +4360,9 @@ Respond ONLY in valid JSON:
     const [newBankMeal,setNewBankMeal]=useState({name:"",tags:[],notes:""});
     const [addToBankMealName,setAddToBankMealName]=useState("");
     const [prepChecked,setPrepChecked]=useState([]);
+    const [prepAiTips,setPrepAiTips]=useState(null);
+    const [prepAiLoading,setPrepAiLoading]=useState(false);
+    const [prepAiError,setPrepAiError]=useState("");
     const [rescueInput,setRescueInput]=useState("");
     const [rescueResults,setRescueResults]=useState(null);
     const [rescueLoading,setRescueLoading]=useState(false);
@@ -4842,11 +4851,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <ModalBox title="Add to Meal Bank" onClose={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:""});}}>
                     <div style={{marginBottom:"0.85rem"}}>
                       <label style={lbl}>Meal name *</label>
-                      <input value={newBankMeal.name} onChange={function(e){setNewBankMeal(function(p){return{...p,name:e.target.value};});}} placeholder="e.g. Hamburgers" style={inp()} autoFocus/>
+                      <input defaultValue={newBankMeal.name} onBlur={function(e){setNewBankMeal(function(p){return{...p,name:e.target.value};});}} placeholder="e.g. Hamburgers" style={inp()} autoFocus/>
                     </div>
                     <div style={{marginBottom:"0.85rem"}}>
                       <label style={lbl}>Notes (optional)</label>
-                      <textarea value={newBankMeal.notes} onChange={function(e){setNewBankMeal(function(p){return{...p,notes:e.target.value};});}} placeholder="Any notes, variations, family preferences…" style={{...inp({height:65,resize:"none"})}}/>
+                      <textarea defaultValue={newBankMeal.notes} onBlur={function(e){setNewBankMeal(function(p){return{...p,notes:e.target.value};});}} placeholder="Any notes, variations, family preferences…" style={{...inp({height:65,resize:"none"})}}/>
                     </div>
                     <div style={{marginBottom:"1rem"}}>
                       <label style={lbl}>Tags</label>
@@ -4884,9 +4893,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
 
         {mealSubTab==="prep"&&(function(){
-          var [prepAiTips,setPrepAiTips]=React.useState(null);
-          var [prepAiLoading,setPrepAiLoading]=React.useState(false);
-          var [prepAiError,setPrepAiError]=React.useState("");
           var weekMealSummary=MEAL_DAYS.map(function(day){
             var m=meals[day]||{};
             var names=[m.breakfast,m.lunch,m.dinner].filter(Boolean);
@@ -5034,7 +5040,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div key={m} style={{marginBottom:"0.9rem"}}>
                 <label style={lbl}>{m}</label>
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input value={editMeal[m]||""} onChange={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1})}}/>
+                  <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1})}}/>
                   {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"auto",flex:"none",fontSize:"0.74rem"})}}>
                     <option value="">From recipes…</option>
                     {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
@@ -5043,7 +5049,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               </div>
             ))}
-            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea value={editMeal.notes||""} onChange={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none"})}}/></div>
+            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea defaultValue={editMeal.notes||""} onBlur={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none"})}}/></div>
             <div style={{marginBottom:"0.9rem"}}>
               <label style={lbl}>Grocery items needed</label>
               <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
@@ -5054,15 +5060,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 ))}
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input value={editMeal.groceryInput||""} onChange={e=>setEditMeal(p=>({...p,groceryInput:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&(editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} placeholder="Add grocery item…" style={{...inp({flex:1,fontSize:"0.82rem"})}}/>
-                  <button onClick={()=>{if((editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
+                  <input ref={groceryInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter"){const v=groceryInputRef.current?.value?.trim()||"";if(v){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),v]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} placeholder="Add grocery item…" style={{...inp({flex:1,fontSize:"0.82rem"})}}/>
+                  <button onClick={()=>{const v=groceryInputRef.current?.value?.trim()||"";if(v){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),v]}));if(groceryInputRef.current)groceryInputRef.current.value="";}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
                 </div>
               </div>
             </div>
             <div style={{marginBottom:"0.9rem",background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.65rem 0.8rem"}}>
               <label style={{...lbl,color:T.sandDark,marginBottom:"0.4rem"}}>📋 Save a meal to Meal Bank</label>
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <input value={addToBankMealName} onChange={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:T.white})}}/>
+                <input defaultValue={addToBankMealName} onBlur={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:T.white})}}/>
                 <button disabled={!addToBankMealName.trim()} onClick={function(){if(!addToBankMealName.trim())return;var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===addToBankMealName.trim().toLowerCase();});if(!already){setMealBankCustom(function(p){return[...p,{id:"c"+Date.now(),name:addToBankMealName.trim(),tags:[],notes:"",isCustom:true}];});}setAddToBankMealName("");}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.7rem",opacity:addToBankMealName.trim()?1:0.5})}>Add</button>
               </div>
             </div>
@@ -5376,7 +5382,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const SYSTEM_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#7ab8a8","#e8a838","#c878a8"];
     const[editingSystem,setEditingSystem]=useState(null);
     const[editForm,setEditForm]=useState({label:"",emoji:"",items:[]});
-    const[newItemText,setNewItemText]=useState("");
+    const newItemInputRef=useRef(null);
     const {draggingId:sysDragId, dragOverId:sysDropId, pointerDown:sysPointerDown} =
       usePointerDrag(homeSystems, setHomeSystems, {dataAttr:"data-sysid"});
     // editForm item drag (plain strings, not objects — handled with simple index refs)
@@ -5405,10 +5411,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       window.addEventListener("pointerup",onUp,{once:true});
       e.preventDefault();
     }
-    function openEdit(sys){setEditingSystem(sys.id);setEditForm({label:sys.label,emoji:sys.emoji,items:[...sys.items]});setNewItemText("");}
-    function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});setNewItemText("");}
+    function openEdit(sys){setEditingSystem(sys.id);setEditForm({label:sys.label,emoji:sys.emoji,items:[...sys.items]});if(newItemInputRef.current)newItemInputRef.current.value="";}
+    function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});if(newItemInputRef.current)newItemInputRef.current.value="";}
     function saveSystem(){if(!editForm.label.trim())return;if(editingSystem==="new")setHomeSystems(p=>[...p,{id:uid(),label:editForm.label.trim(),emoji:editForm.emoji,items:editForm.items}]);else setHomeSystems(p=>p.map(s=>s.id===editingSystem?{...s,label:editForm.label,emoji:editForm.emoji,items:editForm.items}:s));setEditingSystem(null);}
-    function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
+    function addEditItem(){var text=newItemInputRef.current?newItemInputRef.current.value.trim():"";if(!text)return;setEditForm(p=>({...p,items:[...p.items,text]}));if(newItemInputRef.current)newItemInputRef.current.value="";}
     return(
       <div>
         <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life running" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
@@ -5437,8 +5443,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {editingSystem&&(
           <ModalBox title={editingSystem==="new"?"New System":`Edit: ${editForm.label||"System"}`} onClose={()=>setEditingSystem(null)} wide>
             <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-              <div><label style={lbl}>Emoji</label><input value={editForm.emoji} onChange={e=>setEditForm(p=>({...p,emoji:e.target.value}))} style={{...inp({textAlign:"center",fontSize:"1.3rem",padding:"0.5rem"})}}/></div>
-              <div><label style={lbl}>System Name</label><input value={editForm.label} onChange={e=>setEditForm(p=>({...p,label:e.target.value}))} placeholder="e.g. Morning Routine" style={inp()} autoFocus/></div>
+              <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={e=>setEditForm(p=>({...p,emoji:e.target.value}))} style={{...inp({textAlign:"center",fontSize:"1.3rem",padding:"0.5rem"})}}/></div>
+              <div><label style={lbl}>System Name</label><input defaultValue={editForm.label} onBlur={e=>setEditForm(p=>({...p,label:e.target.value}))} placeholder="e.g. Morning Routine" style={inp()} autoFocus/></div>
             </div>
             <label style={lbl}>Items</label>
             <div style={{marginBottom:"0.7rem",border:`1.5px solid ${T.border}`,borderRadius:"0.8rem",overflow:"hidden"}}>
@@ -5451,13 +5457,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     opacity:editDragIdx===i?0.35:1,
                     outline:editDropIdx===i?`2px dashed ${T.blue}`:"none",outlineOffset:"1px"}}>
                   <div style={{opacity:0.35,flexShrink:0}}><Icon name="drag" size={13} color={T.textSoft}/></div>
-                  <input value={item} onChange={e=>setEditForm(p=>({...p,items:p.items.map((x,j)=>j===i?e.target.value:x)}))} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem",border:"none",background:"transparent"})}}/>
+                  <input key={String(i)+"_"+item} defaultValue={item} onBlur={e=>setEditForm(p=>({...p,items:p.items.map((x,j)=>j===i?e.target.value:x)}))} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem",border:"none",background:"transparent"})}}/>
                   <button onClick={()=>setEditForm(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
                 </div>
               ))}
             </div>
             <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.2rem"}}>
-              <input value={newItemText} onChange={e=>setNewItemText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addEditItem();}} placeholder="Add an item…" style={{...inp({flex:1})}}/>
+              <input ref={newItemInputRef} defaultValue="" onKeyDown={e=>{if(e.key==="Enter")addEditItem();}} placeholder="Add an item…" style={{...inp({flex:1})}}/>
               <button onClick={addEditItem} style={btnP(T.sage,{padding:"0.5rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem"})}><Icon name="plus" size={14} color="#fff"/> Add</button>
             </div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
@@ -5466,6 +5472,93 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           </ModalBox>
         )}
+      </div>
+    );
+  }
+
+  function BrainTabItemRow({item, catId, brainCats, people, setCatFn, scheduleFn, assignFn, deleteFn, updateFn, dragStartFn, dragEnterFn, dropFn, getCatColorFn, inp, btnP, T}) {
+    const [editing,setEditing] = useState(false);
+    const [val,setVal] = useState(item.text);
+    const [isDragOver,setIsDragOver] = useState(false);
+    const [dateOpen,setDateOpen] = useState(false);
+    const color = getCatColorFn(item.cat);
+    const tint = color+"18";
+    const tomorrowName = DAY_NAMES_SHORT[(new Date(TODAY).getDay()+1)%7];
+    const quickDays = [{label:"Today",val:TODAY_NAME},{label:"Tomorrow",val:tomorrowName}];
+    const remainingDays = DAY_NAMES_SHORT.filter(function(d){return d!==TODAY_NAME&&d!==tomorrowName;});
+    const hasDate = !!item.scheduledDay;
+    const adults = people.filter(function(p){ return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); });
+    return (
+      <div
+        draggable
+        onDragStart={function(){dragStartFn(item.id);}}
+        onDragEnter={function(){dragEnterFn(item.id);setIsDragOver(true);}}
+        onDragLeave={function(){setIsDragOver(false);}}
+        onDragOver={function(e){e.preventDefault();}}
+        onDrop={function(){setIsDragOver(false);dropFn(catId||"_unc");}}
+        onDragEnd={function(){setIsDragOver(false);}}
+        style={{background:isDragOver?color+"30":tint,borderRadius:"0.75rem",padding:"0.6rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+(isDragOver?color:color+"30"),transition:"all 0.12s"}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",marginBottom:"0.45rem"}}>
+          <div onClick={function(){updateFn(item.id,{done:!item.done});}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:2}}>
+            {item.done&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            {editing?(
+              <div style={{display:"flex",gap:"0.3rem"}}>
+                <input value={val} onChange={function(e){setVal(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){updateFn(item.id,{text:val});setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.25rem 0.45rem",fontSize:"0.84rem"})}} autoFocus/>
+                <button onClick={function(){updateFn(item.id,{text:val});setEditing(false);}} style={btnP(color,{fontSize:"0.7rem",padding:"0.25rem 0.5rem"})}>✓</button>
+              </div>
+            ):(
+              <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
+            )}
+          </div>
+          <button onClick={function(){deleteFn(item.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
+          <select value={item.cat||"uncategorized"} onChange={function(e){setCatFn(item.id,e.target.value);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
+            <option value="uncategorized">📁 Unfiled</option>
+            {brainCats.map(function(c){return <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>;})}
+          </select>
+          <div style={{position:"relative",display:"inline-block"}}>
+            <button onClick={function(){setDateOpen(function(v){return !v;});}} style={{fontSize:"0.7rem",padding:"2px 7px",borderRadius:5,border:"0.5px solid "+(hasDate?color:color+"50"),background:hasDate?color+"18":"rgba(255,255,255,0.6)",color:hasDate?color:T.textMid,fontFamily:"inherit",cursor:"pointer",display:"flex",alignItems:"center",gap:"3px",fontWeight:hasDate?700:400}}>
+              📅 {hasDate?item.scheduledDay:"Date"}
+              {hasDate&&<span onClick={function(e){e.stopPropagation();scheduleFn(item.id,null);}} style={{marginLeft:2,opacity:0.6,fontWeight:900,fontSize:"0.8rem",lineHeight:1}}>×</span>}
+            </button>
+            {dateOpen&&(
+              <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,zIndex:200,background:T.surface,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",boxShadow:"0 8px 32px rgba(0,0,0,0.14)",minWidth:220}}>
+                <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Quick pick</div>
+                <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
+                  {quickDays.map(function(q){var isSel=item.scheduledDay===q.val;return <button key={q.val} onClick={function(){scheduleFn(item.id,q.val);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 9px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{q.label}</button>;})}
+                </div>
+                <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>This week</div>
+                <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
+                  {remainingDays.map(function(d){var isSel=item.scheduledDay===d;return <button key={d} onClick={function(){scheduleFn(item.id,d);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 8px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{d.slice(0,3)}</button>;})}
+                </div>
+                <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Specific date</div>
+                <input type="date" defaultValue={item.scheduledExactDate||""} onChange={function(e){
+                  var raw=e.target.value;
+                  if(!raw){scheduleFn(item.id,null);setDateOpen(false);return;}
+                  var d=new Date(raw+"T12:00:00");
+                  var mo=d.toLocaleString("default",{month:"short"});
+                  var label=mo+" "+d.getDate();
+                  updateFn(item.id,{scheduledDay:label,scheduledExactDate:raw});
+                  setDateOpen(false);
+                }} style={{...inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}}/>
+                {hasDate&&<button onClick={function(){scheduleFn(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.rose,fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
+              </div>
+            )}
+          </div>
+          <div style={{flex:1}}/>
+          {adults.map(function(p){
+            var isAssigned=item.assignedTo===p.name;
+            return(
+              <button key={p.id} onClick={function(){assignFn(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
+                {p.name[0].toUpperCase()}
+              </button>
+            );
+          })}
+        </div>
+        {item.scheduledDay&&<div style={{fontSize:"0.65rem",color:color,fontWeight:600,marginTop:"0.3rem"}}>📅 {item.scheduledDay}</div>}
       </div>
     );
   }
@@ -5530,11 +5623,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function addItem(){
-      if(!newText.trim()) return;
-      const detected = smartCat(newText.trim());
+      var text = brainInputRef.current ? brainInputRef.current.value.trim() : "";
+      if(!text) return;
+      const detected = smartCat(text);
       const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
-      setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
-      setNewText("");
+      setBrainItems(p=>[...p,{id:uid(),text:text,cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
+      if(brainInputRef.current) brainInputRef.current.value = "";
       setTimeout(function(){if(brainInputRef.current)brainInputRef.current.focus();},0);
     }
 
@@ -5614,105 +5708,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
     var tabItems = getTabItems();
 
-    function BrainItemRow({item, catId}){
-      const [editing,setEditing] = useState(false);
-      const [val,setVal] = useState(item.text);
-      const [isDragOver,setIsDragOver] = useState(false);
-      const color = getCatColor(item.cat);
-      const tint = color+"18";
-      return (
-        <div
-          draggable
-          onDragStart={function(){brainDragId.current=item.id;}}
-          onDragEnter={function(){brainDragOver.current=item.id;setIsDragOver(true);}}
-          onDragLeave={function(){setIsDragOver(false);}}
-          onDragOver={function(e){e.preventDefault();}}
-          onDrop={function(){setIsDragOver(false);handleBrainDrop(catId||"_unc");}}
-          onDragEnd={function(){setIsDragOver(false);}}
-          style={{background:isDragOver?color+"30":tint,borderRadius:"0.75rem",padding:"0.6rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+(isDragOver?color:color+"30"),transition:"all 0.12s"}}>
-          {/* Task text */}
-          <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",marginBottom:"0.45rem"}}>
-            <div onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,done:!x.done}:x;});});}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:2}}>
-              {item.done&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              {editing?(
-                <div style={{display:"flex",gap:"0.3rem"}}>
-                  <input value={val} onChange={function(e){setVal(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.25rem 0.45rem",fontSize:"0.84rem"})}} autoFocus/>
-                  <button onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}} style={btnP(color,{fontSize:"0.7rem",padding:"0.25rem 0.5rem"})}>✓</button>
-                </div>
-              ):(
-                <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
-              )}
-            </div>
-            <button onClick={function(){setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
-          </div>
-          {/* Controls row: File · Date · Initials */}
-          <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
-            <select value={item.cat||"uncategorized"} onChange={function(e){fileItem(item.id,e.target.value);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
-              <option value="uncategorized">📁 Unfiled</option>
-              {brainCats.map(function(c){return <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>;})}
-            </select>
-            {(function(){
-              var [dateOpen,setDateOpen] = useState(false);
-              var tomorrowName = DAY_NAMES_SHORT[(new Date(TODAY).getDay()+1)%7];
-              var quickDays = [{label:"Today",val:TODAY_NAME},{label:"Tomorrow",val:tomorrowName}];
-              var remainingDays = DAY_NAMES_SHORT.filter(function(d){return d!==TODAY_NAME&&d!==tomorrowName;});
-              var hasDate = !!item.scheduledDay;
-              return (
-                <div style={{position:"relative",display:"inline-block"}}>
-                  <button onClick={function(){setDateOpen(function(v){return !v;});}} style={{fontSize:"0.7rem",padding:"2px 7px",borderRadius:5,border:"0.5px solid "+(hasDate?color:color+"50"),background:hasDate?color+"18":"rgba(255,255,255,0.6)",color:hasDate?color:T.textMid,fontFamily:"inherit",cursor:"pointer",display:"flex",alignItems:"center",gap:"3px",fontWeight:hasDate?700:400}}>
-                    📅 {hasDate?item.scheduledDay:"Date"}
-                    {hasDate&&<span onClick={function(e){e.stopPropagation();scheduleItem(item.id,null);}} style={{marginLeft:2,opacity:0.6,fontWeight:900,fontSize:"0.8rem",lineHeight:1}}>×</span>}
-                  </button>
-                  {dateOpen&&(
-                    <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,zIndex:200,background:T.surface,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",boxShadow:"0 8px 32px rgba(0,0,0,0.14)",minWidth:220}}>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Quick pick</div>
-                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
-                        {quickDays.map(function(q){
-                          var isSel=item.scheduledDay===q.val;
-                          return <button key={q.val} onClick={function(){scheduleItem(item.id,q.val);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 9px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{q.label}</button>;
-                        })}
-                      </div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>This week</div>
-                      <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
-                        {remainingDays.map(function(d){
-                          var isSel=item.scheduledDay===d;
-                          return <button key={d} onClick={function(){scheduleItem(item.id,d);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 8px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{d.slice(0,3)}</button>;
-                        })}
-                      </div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Specific date</div>
-                      <input type="date" defaultValue={item.scheduledExactDate||""} onChange={function(e){
-                        var raw=e.target.value;
-                        if(!raw){scheduleItem(item.id,null);return;}
-                        var d=new Date(raw+"T12:00:00");
-                        var dayName=DAY_NAMES_SHORT[d.getDay()];
-                        var mo=d.toLocaleString("default",{month:"short"});
-                        var label=mo+" "+d.getDate();
-                        setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,scheduledDay:label,scheduledExactDate:raw}:x;});});
-                        setDateOpen(false);
-                      }} style={{...inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}}/>
-                      {hasDate&&<button onClick={function(){scheduleItem(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.rose,fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            <div style={{flex:1}}/>
-            {people.filter(function(p){ return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
-              var isAssigned=item.assignedTo===p.name;
-              return(
-                <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
-                  {p.name[0].toUpperCase()}
-                </button>
-              );
-            })}
-          </div>
-          {item.scheduledDay&&<div style={{fontSize:"0.65rem",color:color,fontWeight:600,marginTop:"0.3rem"}}>📅 {item.scheduledDay}</div>}
-        </div>
-      );
-    }
-
     return (
       <div style={{paddingBottom:"2rem"}}>
         {/* AI Pattern banner */}
@@ -5730,8 +5725,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Input */}
         <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <input ref={brainInputRef} value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}} autoFocus/>
-            <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
+            <input ref={brainInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}}/>
+            <button onClick={addItem} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem"})}}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
             {brainCats.map(function(c){
@@ -5788,13 +5783,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {activeTab==="all"?"Nothing in your brain dump yet ✓":activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
           </div>
         )}
-        {tabItems.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
+        {tabItems.map(function(item){return <BrainTabItemRow key={item.id} item={item} catId={item.cat||"_unc"} brainCats={brainCats} people={people} getCatColorFn={getCatColor} setCatFn={fileItem} scheduleFn={scheduleItem} assignFn={assignItem} deleteFn={function(id){setBrainItems(function(p){return p.filter(function(x){return x.id!==id;});});}} updateFn={function(id,patch){setBrainItems(function(p){return p.map(function(x){return x.id===id?{...x,...patch}:x;});});}} dragStartFn={function(id){brainDragId.current=id;}} dragEnterFn={function(id){brainDragOver.current=id;}} dropFn={handleBrainDrop} inp={inp} btnP={btnP} T={T}/>;}) }
 
         {/* Done */}
         {done.length>0&&(
           <div style={{marginTop:"1rem",paddingTop:"0.75rem",borderTop:"1px dashed "+T.borderSoft}}>
             <div style={{fontSize:"0.78rem",color:T.textFaint,fontWeight:700,marginBottom:"0.5rem"}}>✓ Done ({done.length})</div>
-            {done.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
+            {done.map(function(item){return <BrainTabItemRow key={item.id} item={item} catId={item.cat||"_unc"} brainCats={brainCats} people={people} getCatColorFn={getCatColor} setCatFn={fileItem} scheduleFn={scheduleItem} assignFn={assignItem} deleteFn={function(id){setBrainItems(function(p){return p.filter(function(x){return x.id!==id;});});}} updateFn={function(id,patch){setBrainItems(function(p){return p.map(function(x){return x.id===id?{...x,...patch}:x;});});}} dragStartFn={function(id){brainDragId.current=id;}} dragEnterFn={function(id){brainDragOver.current=id;}} dropFn={handleBrainDrop} inp={inp} btnP={btnP} T={T}/>;}) }
           </div>
         )}
       </div>
@@ -6128,13 +6123,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
                       <label style={lbl}>{f[1]}</label>
-                      <input type={f[2]} value={teacherForm[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setTeacherForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+                      <input type={f[2]} key={f[0]+"_"+( editingTeacher?editingTeacher.id:"new")} defaultValue={teacherForm[f[0]]} onBlur={function(e) { var v = e.target.value; var fk = f[0]; setTeacherForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
                     </div>
                   );
                 })}
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
-                  <textarea value={teacherForm.notes} onChange={function(e) { var v = e.target.value; setTeacherForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "60px" })} />
+                  <textarea defaultValue={teacherForm.notes} onBlur={function(e) { var v = e.target.value; setTeacherForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "60px" })} />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button onClick={function() {
@@ -6207,11 +6202,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingEvent ? "Edit Item" : "Add Calendar Item"}</div>
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Title</label>
-                  <input value={eventForm.title} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Spring Concert, Picture Day..." />
+                  <input defaultValue={eventForm.title} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Spring Concert, Picture Day..." />
                 </div>
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Date</label>
-                  <input type="date" value={eventForm.date} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
+                  <input type="date" defaultValue={eventForm.date} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
                 </div>
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Type</label>
@@ -6221,7 +6216,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
-                  <textarea value={eventForm.notes} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} />
+                  <textarea defaultValue={eventForm.notes} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button onClick={function() {
@@ -6272,15 +6267,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingSpirit ? "Edit Spirit Day" : "Add Spirit Day"}</div>
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Theme</label>
-                  <input value={spiritForm.theme} onChange={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { theme: v }); }); }} style={inp()} placeholder="Pajama Day, Decade Day, Color Wars..." />
+                  <input defaultValue={spiritForm.theme} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { theme: v }); }); }} style={inp()} placeholder="Pajama Day, Decade Day, Color Wars..." />
                 </div>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Date</label>
-                  <input type="date" value={spiritForm.date} onChange={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
+                  <input type="date" defaultValue={spiritForm.date} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
                 </div>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
-                  <textarea value={spiritForm.notes} onChange={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} placeholder="What to wear, items to bring..." />
+                  <textarea defaultValue={spiritForm.notes} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} placeholder="What to wear, items to bring..." />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button onClick={function() {
@@ -6389,13 +6384,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
                       <label style={lbl}>{f[1]}</label>
-                      <input type={f[2]} value={curriculumForm[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setCurriculumForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+                      <input type={f[2]} key={f[0]+"_"+(editingCurriculum?editingCurriculum.id:"new")} defaultValue={curriculumForm[f[0]]} onBlur={function(e) { var v = e.target.value; var fk = f[0]; setCurriculumForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
                     </div>
                   );
                 })}
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
-                  <textarea value={curriculumForm.notes} onChange={function(e) { var v = e.target.value; setCurriculumForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
+                  <textarea defaultValue={curriculumForm.notes} onBlur={function(e) { var v = e.target.value; setCurriculumForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button onClick={function() {
@@ -6609,8 +6604,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         {/* Day notes */}
                         <div style={{ marginTop: "0.5rem" }}>
                           <textarea
-                            value={plan.dayNotes || ""}
-                            onChange={function(e) { var v = e.target.value; saveDayPlan(day, { dayNotes: v }); }}
+                            key={day+"_notes"}
+                            defaultValue={plan.dayNotes || ""}
+                            onBlur={function(e) { var v = e.target.value; saveDayPlan(day, { dayNotes: v }); }}
                             placeholder="Day notes — field trips, appointments, special plans..."
                             style={Object.assign({}, inp({ fontSize: "0.76rem", padding: "0.45rem 0.65rem" }), { minHeight: "44px", resize: "none", color: T.textMid })}
                           />
@@ -6650,23 +6646,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         {curricula.map(function(c) { return <option key={c.id} value={c.subject}>{c.subject}</option>; })}
                         <option value="Other">Other</option>
                       </select>
-                    : <input value={subjectForm.name} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { name: v }); }); }} style={inp()} placeholder="Math, Reading, Science..." />
+                    : <input defaultValue={subjectForm.name} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { name: v }); }); }} style={inp()} placeholder="Math, Reading, Science..." />
                   }
                 </div>
                 {/* Lesson / unit title */}
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Lesson / Unit Title</label>
-                  <input value={subjectForm.title} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Chapter 4: Fractions, Timeline of WWI..." />
+                  <input defaultValue={subjectForm.title} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Chapter 4: Fractions, Timeline of WWI..." />
                 </div>
                 {/* What to do */}
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>What to do / pages / objectives</label>
-                  <textarea value={subjectForm.todo} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { todo: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} placeholder="Workbook pp. 42-45, watch Khan Academy video, complete worksheet 3..." />
+                  <textarea defaultValue={subjectForm.todo} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { todo: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} placeholder="Workbook pp. 42-45, watch Khan Academy video, complete worksheet 3..." />
                 </div>
                 {/* Notes */}
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes / Resources</label>
-                  <input value={subjectForm.notes} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={inp()} placeholder="Manipulatives needed, print pages 8-9, video link..." />
+                  <input defaultValue={subjectForm.notes} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={inp()} placeholder="Manipulatives needed, print pages 8-9, video link..." />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button onClick={saveSubject} style={btnP(T.sage, { flex: 1 })}>Save</button>
@@ -6799,13 +6795,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
                       <label style={lbl}>{f[1]}</label>
-                      <input type={f[2]} value={activityForm[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setActivityForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
+                      <input type={f[2]} key={f[0]+"_"+(editingActivity?editingActivity.id:"new")} defaultValue={activityForm[f[0]]} onBlur={function(e) { var v = e.target.value; var fk = f[0]; setActivityForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
                     </div>
                   );
                 })}
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
-                  <textarea value={activityForm.notes} onChange={function(e) { var v = e.target.value; setActivityForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
+                  <textarea defaultValue={activityForm.notes} onBlur={function(e) { var v = e.target.value; setActivityForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button onClick={function() {
@@ -6939,8 +6935,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div key={field.key}>
                     <label style={{...lbl,marginBottom:"0.18rem",display:"block"}}>{field.label}</label>
                     <input
-                      value={(familyProfile&&familyProfile[field.key])||""}
-                      onChange={function(e){setFamilyProfile(function(p){return{...(p||{}),[field.key]:e.target.value};});}}
+                      key={field.key+"_"+(familyProfile?JSON.stringify(familyProfile[field.key]):"empty")}
+                      defaultValue={(familyProfile&&familyProfile[field.key])||""}
+                      onBlur={function(e){setFamilyProfile(function(p){return{...(p||{}),[field.key]:e.target.value};});}}
                       placeholder={field.placeholder}
                       style={inp({fontSize:"0.82rem",padding:"0.38rem 0.65rem"})}
                     />
@@ -7168,8 +7165,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{marginTop:"0.75rem",background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:`1px solid ${T.borderSoft}`}}>
               <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Add someone</div>
               <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-                <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+                <input defaultValue={newMemberName} onBlur={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+                <input type="number" min={0} max={120} defaultValue={newMemberAge} onBlur={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
               </div>
               <div style={{display:"flex",gap:"0.4rem"}}>
                 <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
@@ -7188,9 +7185,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <label style={lbl}>What should Ripple call you?</label>
             <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
               <input
-                value={preferredName}
-                onChange={function(e){setPreferredName(e.target.value);}}
-                onKeyDown={function(e){if(e.key==="Enter"){var updated={...authUser,displayName:preferredName.trim()||authUser?.displayName};setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch(err){};}}}
+                defaultValue={preferredName}
+                onBlur={function(e){setPreferredName(e.target.value);}}
+                onKeyDown={function(e){if(e.key==="Enter"){var v=e.target.value.trim()||authUser?.displayName;var updated={...authUser,displayName:v};setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch(err){}}}}
                 placeholder={familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||"e.g. Lindsey"}
                 style={{...inp({flex:1})}}
               />
@@ -7272,10 +7269,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       </div>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-                      <div><label style={lbl}>Emoji</label><input value={editFormS.emoji} onChange={e=>setEditFormS(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
-                      <div><label style={lbl}>Theme</label><input value={editFormS.theme} onChange={e=>setEditFormS(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
+                      <div><label style={lbl}>Emoji</label><input defaultValue={editFormS.emoji} onBlur={e=>setEditFormS(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+                      <div><label style={lbl}>Theme</label><input defaultValue={editFormS.theme} onBlur={e=>setEditFormS(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
                     </div>
-                    <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input value={editFormS.desc} onChange={e=>setEditFormS(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
+                    <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editFormS.desc} onBlur={e=>setEditFormS(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
                     <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
                       <button onClick={()=>setEditingDayS(null)} style={btnS()}>Cancel</button>
                       <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
