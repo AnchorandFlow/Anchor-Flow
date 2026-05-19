@@ -2,6 +2,27 @@ import React, { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
 // CareerSection is defined inline below
 
+// ── Global input/select color fix (prevents browser black-text override) ──────
+const VAULT_INPUT_STYLE = `
+  .af-vault input, .af-vault select, .af-vault textarea {
+    color: #faf8f4 !important;
+    caret-color: #c8a97a !important;
+  }
+  .af-vault input::placeholder, .af-vault textarea::placeholder {
+    color: rgba(250,248,244,0.35) !important;
+  }
+  .af-vault select option {
+    background: #1a2744;
+    color: #faf8f4;
+  }
+  .af-vault input:-webkit-autofill,
+  .af-vault input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #faf8f4 !important;
+    -webkit-box-shadow: 0 0 0px 1000px #1e3360 inset !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+`
+
 const NAV = [
   { id: "home",      label: "Home",         icon: "home" },
   { id: "inventory", label: "Inventory",    icon: "inv"  },
@@ -590,7 +611,7 @@ function InventorySection({ onAddToShopping }) {
                       )
                     })}
                   </div>
-                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
+                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
                 </div>
               </div>
 
@@ -604,10 +625,10 @@ function InventorySection({ onAddToShopping }) {
               </div>
 
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
-                <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
               </div>
-              <input value={favForm.notes} onChange={function(e) { setFavForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (opt)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <input value={favForm.notes} onChange={function(e) { setFavForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (opt)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={function() {
                   if (!favForm.name.trim()) return
@@ -759,7 +780,7 @@ function InventorySection({ onAddToShopping }) {
                               {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
                             </div>
                             {editing === idx ? (
-                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
                             ) : (
                               <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
                             )}
@@ -791,7 +812,7 @@ function InventorySection({ onAddToShopping }) {
                               if (e.key === "Escape") { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }
                             }}
                             placeholder={"Add to " + sub.label + "…"}
-                            style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                            style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
                           />
                           <button onClick={function() { addInlineItem(sub.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
                           <button onClick={function() { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }} style={{ background: "none", border: "none", fontSize: 13, color: "rgba(250,248,244,0.3)", cursor: "pointer", padding: "2px" }}>✕</button>
@@ -835,6 +856,8 @@ function CelebrationsSection({ calEvents }) {
   const [celebType, setCelebType] = useState("birthday")
   const [form, setForm] = useState({ name: "", month: "", day: "", year: "", notes: "" })
   const [filter, setFilter] = useState("upcoming")
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
 
   function save(updated) {
     setCelebrations(updated)
@@ -846,6 +869,20 @@ function CelebrationsSection({ calEvents }) {
     save([...celebrations, { id: Date.now().toString(), type: celebType, name: form.name.trim(), month: parseInt(form.month), day: parseInt(form.day), year: form.year ? parseInt(form.year) : null, notes: form.notes.trim() }])
     setForm({ name: "", month: "", day: "", year: "", notes: "" })
     setAdding(false)
+  }
+
+  function startEdit(c) {
+    setEditingId(c.id)
+    setEditForm({ name: c.name, month: String(c.month), day: String(c.day), year: c.year ? String(c.year) : "", notes: c.notes || "", type: c.type })
+  }
+
+  function saveEdit() {
+    if (!editForm.name.trim() || !editForm.month || !editForm.day) return
+    save(celebrations.map(function(c) {
+      if (c.id !== editingId) return c
+      return { ...c, name: editForm.name.trim(), month: parseInt(editForm.month), day: parseInt(editForm.day), year: editForm.year ? parseInt(editForm.year) : null, notes: editForm.notes.trim(), type: editForm.type }
+    }))
+    setEditingId(null)
   }
 
   const now = new Date(); now.setHours(0,0,0,0)
@@ -886,18 +923,18 @@ function CelebrationsSection({ calEvents }) {
               )
             })}
           </div>
-          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none" }}>
-              <option value="">Month</option>
-              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744" }}>{m}</option> })}
+            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none", WebkitAppearance: "none", appearance: "none" }}>
+              <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
+              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
             </select>
-            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
             {(celebType === "birthday" || celebType === "anniversary") && (
-              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
             )}
           </div>
-          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
             <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
@@ -917,6 +954,37 @@ function CelebrationsSection({ calEvents }) {
       {shown.length === 0 && <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
       {shown.map(function(e, i) {
         const isPast = e.diff < 0
+        if (editingId === e.id) {
+          return (
+            <div key={e.id || i} style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "14px", marginBottom: 7 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                {CELEBRATION_TYPES.map(function(t) {
+                  return (
+                    <button key={t.id} onClick={function() { setEditForm(function(p) { return {...p, type: t.id} }) }} style={{ background: editForm.type === t.id ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (editForm.type === t.id ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 20, padding: "4px 10px", fontSize: 11, color: editForm.type === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: editForm.type === t.id ? 700 : 400 }}>
+                      {t.emoji} {t.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 11px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none", WebkitAppearance: "none", appearance: "none" }}>
+                  <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
+                  {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
+                </select>
+                <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                {(editForm.type === "birthday" || editForm.type === "anniversary") && (
+                  <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                )}
+              </div>
+              <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 11px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
+                <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+              </div>
+            </div>
+          )
+        }
         return (
           <div key={e.id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: e.soon && !isPast ? "rgba(200,131,74,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 7, opacity: isPast ? 0.45 : 1 }}>
             <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
@@ -933,6 +1001,7 @@ function CelebrationsSection({ calEvents }) {
               : e.diff === 1 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#c8834a" }}>Tomorrow</span>
               : <span style={{ fontSize: 11, color: e.diff <= 7 ? "#c8834a" : "rgba(250,248,244,0.3)", fontWeight: e.diff <= 7 ? 600 : 400 }}>in {e.diff}d</span>}
             </div>
+            <button onClick={function() { startEdit(e) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.4, fontSize: 13, padding: "2px 4px", color: "#c8a97a" }} title="Edit">✏️</button>
             <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, padding: "2px 4px", color: "#faf8f4" }}>✕</button>
           </div>
         )
@@ -961,8 +1030,9 @@ function formatOccDate(dateStr) {
   return months[parseInt(parts[1])-1]+" "+parseInt(parts[2])
 }
 
-function GiftsSection({ people, isPremium, calEvents }) {
+function GiftsSection({ people, celebrations, isPremium, calEvents }) {
   people = people || []
+  celebrations = celebrations || []
   isPremium = isPremium || false
   calEvents = calEvents || []
 
@@ -977,9 +1047,9 @@ function GiftsSection({ people, isPremium, calEvents }) {
   const [addingGift, setAddingGift] = useState(false)
   const [newPerson, setNewPerson] = useState({ name: "", relation: "" })
   const [newOccasion, setNewOccasion] = useState({ type: "Birthday", date: "" })
-  const [newGift, setNewGift] = useState({ item: "", cost: "", url: "" })
+  const [newGift, setNewGift] = useState({ item: "", cost: "", url: "", photo: "" })
   const [editingGift, setEditingGift] = useState(null)
-  const [editGiftVal, setEditGiftVal] = useState({ item: "", cost: "" })
+  const [editGiftVal, setEditGiftVal] = useState({ item: "", cost: "", url: "", photo: "" })
 
   function gUid() { return Math.random().toString(36).slice(2,9) }
 
@@ -988,8 +1058,13 @@ function GiftsSection({ people, isPremium, calEvents }) {
     try { localStorage.setItem("af_gifts", JSON.stringify(updated)) } catch {}
   }
 
+  const celebPeople = celebrations.map(function(c) {
+    return { id: "celeb_" + c.id, name: c.name, relation: c.type.charAt(0).toUpperCase() + c.type.slice(1), fromCeleb: true, celebMonth: c.month, celebDay: c.day, celebYear: c.year }
+  })
+
   const allPeople = [
     ...people.map(function(p) { return { id: p.id, name: p.name, relation: "Family", fromApp: true } }),
+    ...celebPeople.filter(function(cp) { return !gifts.find(function(g) { return g.id === cp.id }) && !people.find(function(p) { return p.name === cp.name }) }),
     ...gifts.filter(function(g) { return !people.find(function(p) { return p.id === g.id }) })
   ]
 
@@ -1026,7 +1101,9 @@ function GiftsSection({ people, isPremium, calEvents }) {
     const exists = gifts.find(function(p) { return p.id === personId })
     if (!exists) {
       const appP = people.find(function(p) { return p.id === personId })
+      const celebP = celebPeople.find(function(p) { return p.id === personId })
       if (appP) saveGifts([...gifts, { id: personId, name: appP.name, relation: "Family", occasions: [occ] }])
+      else if (celebP) saveGifts([...gifts, { id: personId, name: celebP.name, relation: celebP.relation, occasions: [occ] }])
     } else {
       saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:[...(p.occasions||[]),occ]} : p }))
     }
@@ -1037,9 +1114,9 @@ function GiftsSection({ people, isPremium, calEvents }) {
 
   function addGiftItem(personId, occId) {
     if (!newGift.item.trim()) return
-    const item = { id: gUid(), item: newGift.item.trim(), cost: newGift.cost ? parseFloat(newGift.cost) : null, url: newGift.url || "", bought: false }
+    const item = { id: gUid(), item: newGift.item.trim(), cost: newGift.cost ? parseFloat(newGift.cost) : null, url: newGift.url || "", photo: newGift.photo || "", bought: false }
     saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:[...(o.gifts||[]),item]} : o })} : p }))
-    setNewGift({ item: "", cost: "", url: "" })
+    setNewGift({ item: "", cost: "", url: "", photo: "" })
     setAddingGift(false)
   }
 
@@ -1052,7 +1129,7 @@ function GiftsSection({ people, isPremium, calEvents }) {
   }
 
   function saveEditGift(personId, occId, giftId) {
-    saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:(o.gifts||[]).map(function(g) { return g.id===giftId?{...g,item:editGiftVal.item,cost:editGiftVal.cost?parseFloat(editGiftVal.cost):null}:g })} : o })} : p }))
+    saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:(o.gifts||[]).map(function(g) { return g.id===giftId?{...g,item:editGiftVal.item,cost:editGiftVal.cost?parseFloat(editGiftVal.cost):null,url:editGiftVal.url||"",photo:editGiftVal.photo||""}:g })} : o })} : p }))
     setEditingGift(null)
   }
 
@@ -1061,7 +1138,7 @@ function GiftsSection({ people, isPremium, calEvents }) {
 
   const gS = {
     card:{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, padding:"12px 14px", marginBottom:10 },
-    inp:{ width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" },
+    inp:{ width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#faf8f4", WebkitTextFillColor:"#faf8f4", caretColor:"#c8a97a", fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" },
     btn:{ background:"#c8a97a", border:"none", borderRadius:8, padding:"8px 14px", fontSize:12, color:"#1a2744", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 },
     ghost:{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:12, color:"rgba(250,248,244,0.5)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" },
   }
@@ -1081,39 +1158,84 @@ function GiftsSection({ people, isPremium, calEvents }) {
           {giftList.length===0&&<div style={{padding:14,fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}}>No gift ideas yet</div>}
           {giftList.map(function(g){
             return (
-              <div key={g.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-                <div onClick={function(){toggleBought(currentPerson.id,currentOccasion.id,g.id)}} style={{width:20,height:20,borderRadius:5,border:"1.5px solid "+(g.bought?"#7a9e8e":"rgba(255,255,255,0.2)"),background:g.bought?"#7a9e8e":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
-                  {g.bought&&<span style={{color:"#fff",fontSize:11}}>✓</span>}
-                </div>
-                {editingGift===g.id?(
-                  <div style={{flex:1,display:"flex",gap:6}}>
-                    <input value={editGiftVal.item} onChange={function(e){setEditGiftVal(function(v){return{...v,item:e.target.value}})}} style={{...gS.inp,flex:2,padding:"4px 8px"}}/>
-                    <input value={editGiftVal.cost} onChange={function(e){setEditGiftVal(function(v){return{...v,cost:e.target.value}})}} placeholder="$" style={{...gS.inp,flex:1,padding:"4px 8px"}}/>
-                    <button onClick={function(){saveEditGift(currentPerson.id,currentOccasion.id,g.id)}} style={{...gS.btn,padding:"4px 8px",fontSize:11}}>save</button>
-                    <button onClick={function(){setEditingGift(null)}} style={{...gS.ghost,padding:"4px 8px",fontSize:11}}>✕</button>
+              <div key={g.id} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px"}}>
+                  {g.photo&&<img src={g.photo} alt="" style={{width:44,height:44,borderRadius:6,objectFit:"cover",flexShrink:0,border:"1px solid rgba(255,255,255,0.1)"}}/>}
+                  <div onClick={function(){toggleBought(currentPerson.id,currentOccasion.id,g.id)}} style={{width:20,height:20,borderRadius:5,border:"1.5px solid "+(g.bought?"#7a9e8e":"rgba(255,255,255,0.2)"),background:g.bought?"#7a9e8e":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer",marginTop:2}}>
+                    {g.bought&&<span style={{color:"#fff",fontSize:11}}>✓</span>}
                   </div>
-                ):(
-                  <React.Fragment>
-                    <span style={{flex:1,fontSize:13,color:g.bought?"rgba(250,248,244,0.4)":"rgba(250,248,244,0.8)",fontFamily:"DM Sans,sans-serif",textDecoration:g.bought?"line-through":"none"}}>{g.item}</span>
-                    {g.cost&&<span style={{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}}>${g.cost.toFixed(2)}</span>}
-                    {g.url&&<a href={g.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#6ba3c4",textDecoration:"none"}}>🔗</a>}
-                    <button onClick={function(){setEditingGift(g.id);setEditGiftVal({item:g.item,cost:g.cost?String(g.cost):""})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(250,248,244,0.25)",cursor:"pointer",padding:"2px 4px"}}>✏️</button>
-                    <button onClick={function(){deleteGiftItem(currentPerson.id,currentOccasion.id,g.id)}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.4)",cursor:"pointer",padding:"2px 4px"}}>✕</button>
-                  </React.Fragment>
-                )}
+                  {editingGift===g.id?(
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",gap:6,marginBottom:6}}>
+                        <input value={editGiftVal.item} onChange={function(e){setEditGiftVal(function(v){return{...v,item:e.target.value}})}} style={{...gS.inp,flex:2,padding:"4px 8px"}}/>
+                        <input value={editGiftVal.cost} onChange={function(e){setEditGiftVal(function(v){return{...v,cost:e.target.value}})}} placeholder="$" style={{...gS.inp,flex:1,padding:"4px 8px"}}/>
+                      </div>
+                      <input value={editGiftVal.url||""} onChange={function(e){setEditGiftVal(function(v){return{...v,url:e.target.value}})}} placeholder="Link (optional)" style={{...gS.inp,marginBottom:6,padding:"4px 8px"}}/>
+                      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+                        <label style={{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:6,padding:"4px 10px"}}>
+                          📷 {editGiftVal.photo?"Change photo":"Add photo"}
+                          <input type="file" accept="image/*" style={{display:"none"}} onChange={function(e){
+                            var file=e.target.files[0]; if(!file)return
+                            var reader=new FileReader()
+                            reader.onload=function(ev){setEditGiftVal(function(v){return{...v,photo:ev.target.result}})}
+                            reader.readAsDataURL(file)
+                          }}/>
+                        </label>
+                        {editGiftVal.photo&&<button onClick={function(){setEditGiftVal(function(v){return{...v,photo:""}})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.5)",cursor:"pointer",padding:"2px"}}>✕ remove</button>}
+                      </div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={function(){saveEditGift(currentPerson.id,currentOccasion.id,g.id)}} style={{...gS.btn,padding:"4px 10px",fontSize:11}}>Save</button>
+                        <button onClick={function(){setEditingGift(null)}} style={{...gS.ghost,padding:"4px 8px",fontSize:11}}>Cancel</button>
+                      </div>
+                    </div>
+                  ):(
+                    <React.Fragment>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,color:g.bought?"rgba(250,248,244,0.4)":"rgba(250,248,244,0.85)",fontFamily:"DM Sans,sans-serif",textDecoration:g.bought?"line-through":"none",wordBreak:"break-word"}}>{g.item}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:3,flexWrap:"wrap"}}>
+                          {g.cost&&<span style={{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}}>${g.cost.toFixed(2)}</span>}
+                          {g.url&&<a href={g.url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#6ba3c4",textDecoration:"none",display:"flex",alignItems:"center",gap:2}}>🔗 <span style={{textDecoration:"underline",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"inline-block",verticalAlign:"middle"}}>{g.url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</span></a>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:4,flexShrink:0}}>
+                        <button onClick={function(){setEditingGift(g.id);setEditGiftVal({item:g.item,cost:g.cost?String(g.cost):"",url:g.url||"",photo:g.photo||""})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(250,248,244,0.25)",cursor:"pointer",padding:"2px 4px"}}>✏️</button>
+                        <button onClick={function(){deleteGiftItem(currentPerson.id,currentOccasion.id,g.id)}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.4)",cursor:"pointer",padding:"2px 4px"}}>✕</button>
+                      </div>
+                    </React.Fragment>
+                  )}
+                </div>
               </div>
             )
           })}
         </div>
         {addingGift?(
-          <div style={{marginBottom:12}}>
+          <div style={{...gS.card,marginBottom:12}}>
             <div style={{display:"flex",gap:8,marginBottom:8}}>
               <input value={newGift.item} onChange={function(e){setNewGift(function(v){return{...v,item:e.target.value}})}} onKeyDown={function(e){if(e.key==="Enter")addGiftItem(currentPerson.id,currentOccasion.id)}} placeholder="Gift idea..." autoFocus style={{...gS.inp,flex:2}}/>
-              <input value={newGift.cost} onChange={function(e){setNewGift(function(v){return{...v,cost:e.target.value}})}} placeholder="$" style={{...gS.inp,flex:1}}/>
-              <button onClick={function(){addGiftItem(currentPerson.id,currentOccasion.id)}} style={gS.btn}>Add</button>
-              <button onClick={function(){setAddingGift(false)}} style={gS.ghost}>✕</button>
+              <input value={newGift.cost} onChange={function(e){setNewGift(function(v){return{...v,cost:e.target.value}})}} placeholder="$" type="number" style={{...gS.inp,flex:1}}/>
             </div>
-            <input value={newGift.url} onChange={function(e){setNewGift(function(v){return{...v,url:e.target.value}})}} placeholder="Link (optional)" style={{...gS.inp}}/>
+            <input value={newGift.url} onChange={function(e){setNewGift(function(v){return{...v,url:e.target.value}})}} placeholder="Link / URL (optional)" style={{...gS.inp,marginBottom:8}}/>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <label style={{fontSize:12,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:7,padding:"7px 14px",display:"flex",alignItems:"center",gap:6}}>
+                📷 {newGift.photo?"Photo added ✓":"Add photo"}
+                <input type="file" accept="image/*" style={{display:"none"}} onChange={function(e){
+                  var file=e.target.files[0]; if(!file)return
+                  var reader=new FileReader()
+                  reader.onload=function(ev){setNewGift(function(v){return{...v,photo:ev.target.result}})}
+                  reader.readAsDataURL(file)
+                }}/>
+              </label>
+              {newGift.photo&&(
+                <React.Fragment>
+                  <img src={newGift.photo} alt="" style={{width:36,height:36,borderRadius:5,objectFit:"cover",border:"1px solid rgba(200,169,122,0.3)"}}/>
+                  <button onClick={function(){setNewGift(function(v){return{...v,photo:""}})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.5)",cursor:"pointer"}}>✕</button>
+                </React.Fragment>
+              )}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={function(){addGiftItem(currentPerson.id,currentOccasion.id)}} style={gS.btn}>Add gift</button>
+              <button onClick={function(){setAddingGift(false);setNewGift({item:"",cost:"",url:"",photo:""})}} style={gS.ghost}>Cancel</button>
+            </div>
           </div>
         ):(
           <button onClick={function(){setAddingGift(true)}} style={{width:"100%",padding:10,background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:8,fontSize:12,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:"pointer",marginBottom:12}}>+ Add gift idea</button>
@@ -1125,11 +1247,23 @@ function GiftsSection({ people, isPremium, calEvents }) {
   if (activePerson && currentPerson) {
     const personData = gifts.find(function(p){return p.id===activePerson})
     const occasions = (personData && personData.occasions) || []
+    const celebSource = celebPeople.find(function(p){return p.id===activePerson})
+    // Build a suggested date string from celeb data if available
+    var celebSuggestedDate = ""
+    if (celebSource && celebSource.celebMonth && celebSource.celebDay) {
+      var yr = celebSource.celebYear ? celebSource.celebYear : new Date().getFullYear()
+      celebSuggestedDate = yr + "-" + String(celebSource.celebMonth).padStart(2,"0") + "-" + String(celebSource.celebDay).padStart(2,"0")
+    }
     return (
       <div>
         <button onClick={function(){setActivePerson(null);setView("people")}} style={{...gS.ghost,marginBottom:16,fontSize:11}}>← Back</button>
         <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:600,color:"#faf8f4",marginBottom:2}}>{currentPerson.name}</div>
         <div style={{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:16}}>{currentPerson.relation}</div>
+        {celebSource && occasions.length===0 && (
+          <div style={{background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"rgba(250,248,244,0.6)",fontFamily:"DM Sans,sans-serif"}}>
+            🎂 From your Celebrations list — tap <span style={{color:"#c8a97a",fontWeight:600}}>+ Add occasion</span> below to start tracking gifts for their birthday.
+          </div>
+        )}
         {occasions.length===0&&<div style={{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif",marginBottom:16}}>No occasions yet</div>}
         {occasions.map(function(occ){
           const days=daysUntil(occ.date)
@@ -1159,7 +1293,7 @@ function GiftsSection({ people, isPremium, calEvents }) {
             </div>
           </div>
         ):(
-          <button onClick={function(){setAddingOccasion(true)}} style={{width:"100%",padding:10,background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:8,fontSize:12,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>+ Add occasion</button>
+          <button onClick={function(){ setAddingOccasion(true); if(celebSuggestedDate) setNewOccasion({ type: "Birthday", date: celebSuggestedDate }) }} style={{width:"100%",padding:10,background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:8,fontSize:12,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>+ Add occasion</button>
         )}
       </div>
     )
@@ -1219,7 +1353,10 @@ function GiftsSection({ people, isPremium, calEvents }) {
               <div key={person.id} onClick={function(){setActivePerson(person.id);setView("person")}} style={{...gS.card,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
                 <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(200,169,122,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",fontWeight:700,flexShrink:0}}>{person.name[0]}</div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:500,color:"#faf8f4",fontFamily:"DM Sans,sans-serif"}}>{person.name}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:13,fontWeight:500,color:"#faf8f4",fontFamily:"DM Sans,sans-serif"}}>{person.name}</span>
+                    {person.fromCeleb && totalOcc===0 && <span style={{fontSize:9,background:"rgba(200,169,122,0.15)",color:"#c8a97a",borderRadius:4,padding:"1px 5px",fontFamily:"DM Sans,sans-serif",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>from celebrations</span>}
+                  </div>
                   <div style={{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2}}>{totalOcc===0?"No occasions added":totalOcc+" occasion"+(totalOcc>1?"s":"")}{days!==null&&days<=30?<span style={{color:days<=7?"#c8834a":"#c8a97a",marginLeft:6}}>· next in {days}d</span>:null}</div>
                 </div>
                 <span style={{fontSize:12,color:"rgba(200,169,122,0.35)"}}>→</span>
@@ -1249,18 +1386,30 @@ function GiftsSection({ people, isPremium, calEvents }) {
 function GiftsAndCelebrations({ calEvents }) {
   calEvents = calEvents || []
   const [tab, setTab] = useState("celebrations")
+  const [celebrations, setCelebrations] = useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_celebrations") || "[]") } catch { return [] }
+  })
+
+  // Refresh celebrations from localStorage when switching to gifts tab
+  function handleTabChange(v) {
+    if (v === "gifts") {
+      try { setCelebrations(JSON.parse(localStorage.getItem("af_celebrations") || "[]")) } catch {}
+    }
+    setTab(v)
+  }
+
   return (
     <div>
       <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.1)", marginBottom: 20 }}>
         {[["celebrations","🎉 Celebrations"],["gifts","🎁 Gifts"]].map(function(pair) {
           const v = pair[0]; const l = pair[1]
           return (
-            <button key={v} onClick={function() { setTab(v) }} style={{ background: "none", border: "none", borderBottom: tab===v ? "2px solid #c8a97a" : "2px solid transparent", padding: "9px 16px", fontSize: 13, color: tab===v ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: tab===v ? 700 : 400 }}>{l}</button>
+            <button key={v} onClick={function() { handleTabChange(v) }} style={{ background: "none", border: "none", borderBottom: tab===v ? "2px solid #c8a97a" : "2px solid transparent", padding: "9px 16px", fontSize: 13, color: tab===v ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: tab===v ? 700 : 400 }}>{l}</button>
           )
         })}
       </div>
       {tab === "celebrations" && <CelebrationsSection calEvents={calEvents} />}
-      {tab === "gifts" && <GiftsSection people={[]} isPremium={false} calEvents={calEvents} />}
+      {tab === "gifts" && <GiftsSection people={[]} celebrations={celebrations} isPremium={false} calEvents={calEvents} />}
     </div>
   )
 }
@@ -1721,15 +1870,16 @@ function CModal(props) {
         React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children))
 }
+var C_INP_STYLE = {width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,WebkitTextFillColor:CAREER_WHITE,caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
 function CInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}))
+    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:C_INP_STYLE}))
 }
 function CTextarea(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}}))
+    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:Object.assign({},C_INP_STYLE,{resize:"vertical"})}))
 }
 function CSelect(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
@@ -1761,48 +1911,135 @@ function CResumeTab({ pid, career, setCareer }) {
   var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
   var s1=useState({title:"",company:"",from:"",to:"",desc:""}); var form=s1[0]; var setForm=s1[1];
   var s2=useState(""); var skillInput=s2[0]; var setSkillInput=s2[1];
+  var s3=useState(""); var skillDate=s3[0]; var setSkillDate=s3[1];
+  var s4=useState(null); var expandedJob=s4[0]; var setExpandedJob=s4[1];
+  var s5=useState(null); var editingJob=s5[0]; var setEditingJob=s5[1];
+  var s6=useState({title:"",company:"",from:"",to:"",desc:""}); var editForm=s6[0]; var setEditForm=s6[1];
+  var s7=useState(null); var editingSkill=s7[0]; var setEditingSkill=s7[1];
+  var s8=useState({label:"",since:""}); var editSkillForm=s8[0]; var setEditSkillForm=s8[1];
 
   function save() {
     if(!form.title.trim()) return
-    var entry = {id:cuid(),...form}
+    var entry = {id:cuid(),title:form.title,company:form.company,from:form.from,to:form.to,desc:form.desc}
     setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,resume:{...(p.resume||{}),history:[...((p.resume||{}).history||[]),entry]}}}})
     setForm({title:"",company:"",from:"",to:"",desc:""}); setAdding(false)
   }
-  function removeJob(id) { setCareer(function(c){var p=c[pid]||{}; var r=p.resume||{}; return{...c,[pid]:{...p,resume:{...r,history:(r.history||[]).filter(function(h){return h.id!==id})}}}}) }
+  function removeJob(id) {
+    setCareer(function(c){var p=c[pid]||{}; var r=p.resume||{}; return{...c,[pid]:{...p,resume:{...r,history:(r.history||[]).filter(function(h){return h.id!==id})}}}})
+    if(expandedJob===id) setExpandedJob(null)
+  }
+  function startEditJob(h) {
+    setEditingJob(h.id)
+    setEditForm({title:h.title||"",company:h.company||"",from:h.from||"",to:h.to||"",desc:h.desc||""})
+  }
+  function saveEditJob() {
+    setCareer(function(c){var p=c[pid]||{}; var r=p.resume||{}; return{...c,[pid]:{...p,resume:{...r,history:(r.history||[]).map(function(h){return h.id===editingJob?{...h,...editForm}:h})}}}})
+    setEditingJob(null)
+  }
   function addSkill() {
     if(!skillInput.trim()) return
-    var sk = {id:cuid(),label:skillInput.trim()}
+    var sk = {id:cuid(),label:skillInput.trim(),since:skillDate.trim()}
     setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,skills:[...(p.skills||[]),sk]}}})
-    setSkillInput("")
+    setSkillInput(""); setSkillDate("")
   }
   function removeSkill(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,skills:(p.skills||[]).filter(function(s){return s.id!==id})}}}) }
+  function startEditSkill(sk) { setEditingSkill(sk.id); setEditSkillForm({label:sk.label||"",since:sk.since||""}) }
+  function saveEditSkill() {
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,skills:(p.skills||[]).map(function(s){return s.id===editingSkill?{...s,...editSkillForm}:s})}}})
+    setEditingSkill(null)
+  }
   function updateBio(v) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,resume:{...(p.resume||{}),bio:v}}}}) }
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.9rem"}},
     React.createElement(CCard,null,
       React.createElement(CHead,{icon:"📝",label:"Professional summary"}),
-      React.createElement("textarea",{value:resume.bio||"",onChange:function(e){updateBio(e.target.value);},placeholder:"A short bio or professional summary…",rows:4,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})),
+      React.createElement("textarea",{value:resume.bio||"",onChange:function(e){updateBio(e.target.value);},placeholder:"A short bio or professional summary…",rows:4,style:Object.assign({},C_INP_STYLE,{resize:"vertical"})})),
+
+    // Work history — mobile-friendly cards
     React.createElement(CCard,null,
       React.createElement(CHead,{icon:"💼",label:"Work history",onAdd:function(){setAdding(true)}}),
       (resume.history||[]).length===0 ? React.createElement(CEmpty,{text:"No work history added yet"}) :
-        React.createElement("div",null,(resume.history||[]).map(function(h){
-          return React.createElement(CRow,{key:h.id,title:h.title+(h.company?" · "+h.company:""),sub:(h.from?h.from:"")+((h.from||h.to)?" – ":"")+(h.to||"present"),badge:null,onDelete:function(){removeJob(h.id)}})
-        }))),
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          (resume.history||[]).map(function(h){
+            var isExpanded = expandedJob===h.id
+            var isEditing = editingJob===h.id
+            return React.createElement("div",{key:h.id,style:{background:"rgba(255,255,255,0.04)",border:CAREER_BORD,borderRadius:10,overflow:"hidden"}},
+              // Header row — always visible, tappable
+              !isEditing&&React.createElement("div",{onClick:function(){setExpandedJob(isExpanded?null:h.id)},style:{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}},
+                React.createElement("div",{style:{flex:1,minWidth:0}},
+                  React.createElement("div",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},h.title||(h.company||"Role")),
+                  React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.45)",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},(h.company||"")+(h.from||h.to?" · "+(h.from||"")+"–"+(h.to||"present"):"")),
+                ),
+                React.createElement("span",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",flexShrink:0,transform:isExpanded?"rotate(180deg)":"rotate(0deg)",display:"inline-block",transition:"transform 0.2s"}},"\u25BE")
+              ),
+              // Expanded detail
+              isExpanded&&!isEditing&&React.createElement("div",{style:{padding:"0 12px 12px",borderTop:CAREER_BORD2}},
+                h.desc&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.6)",lineHeight:1.6,margin:"10px 0 0"}}),h.desc,
+                React.createElement("div",{style:{display:"flex",gap:8,marginTop:10}},
+                  React.createElement("button",{onClick:function(e){e.stopPropagation();startEditJob(h)},style:{fontSize:11,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"✏️ Edit"),
+                  React.createElement("button",{onClick:function(e){e.stopPropagation();removeJob(h.id)},style:{fontSize:11,color:"rgba(250,248,244,0.3)",background:"rgba(255,255,255,0.04)",border:CAREER_BORD2,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"Remove")
+                )
+              ),
+              // Inline edit form
+              isEditing&&React.createElement("div",{style:{padding:"12px"},onClick:function(e){e.stopPropagation()}},
+                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+                  React.createElement("input",{value:editForm.title,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{title:e.target.value})})},placeholder:"Job title",style:C_INP_STYLE}),
+                  React.createElement("input",{value:editForm.company,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{company:e.target.value})})},placeholder:"Company",style:C_INP_STYLE})
+                ),
+                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+                  React.createElement("input",{value:editForm.from,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{from:e.target.value})})},placeholder:"From (e.g. 2022)",style:C_INP_STYLE}),
+                  React.createElement("input",{value:editForm.to,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{to:e.target.value})})},placeholder:"To (or 'present')",style:C_INP_STYLE})
+                ),
+                React.createElement("textarea",{value:editForm.desc,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{desc:e.target.value})})},placeholder:"What you built, led, or accomplished…",rows:3,style:Object.assign({},C_INP_STYLE,{resize:"vertical",marginBottom:8})}),
+                React.createElement("div",{style:{display:"flex",gap:8}},
+                  React.createElement("button",{onClick:saveEditJob,style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"7px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Save"),
+                  React.createElement("button",{onClick:function(){setEditingJob(null)},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                )
+              )
+            )
+          })
+        )
+    ),
+
+    // Skills with date
     React.createElement(CCard,null,
       React.createElement(CHead,{icon:"⚡",label:"Skills"}),
-      React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6,marginBottom:"0.65rem"}},
-        skills.length===0?React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic"}},"No skills added yet"):
-        skills.map(function(sk){return React.createElement("span",{key:sk.id,style:{display:"flex",alignItems:"center",gap:4,fontSize:12,padding:"3px 10px",borderRadius:12,background:"rgba(200,169,122,0.1)",color:CAREER_GOLD,border:"0.5px solid rgba(200,169,122,0.25)"}},sk.label,React.createElement("button",{onClick:function(){removeSkill(sk.id);},style:{background:"none",border:"none",color:"rgba(200,169,122,0.4)",cursor:"pointer",fontSize:12,padding:0,lineHeight:1,marginLeft:2}},"×"))})),
-      React.createElement("div",{style:{display:"flex",gap:6}},
-        React.createElement("input",{value:skillInput,onChange:function(e){setSkillInput(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")addSkill();},placeholder:"Add a skill…",style:{flex:1,background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.4rem 0.6rem",color:CAREER_WHITE,fontSize:12,fontFamily:"inherit",outline:"none"}}),
-        React.createElement("button",{onClick:addSkill,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.7rem",color:CAREER_GOLD,fontSize:12,cursor:"pointer",fontFamily:"inherit"}},"Add"))),
+      skills.length===0
+        ? React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic",marginBottom:8}},"No skills added yet")
+        : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6,marginBottom:"0.65rem"}},
+            skills.map(function(sk){
+              if(editingSkill===sk.id) {
+                return React.createElement("div",{key:sk.id,style:{display:"flex",gap:6,alignItems:"center",background:"rgba(200,169,122,0.06)",borderRadius:8,padding:"6px 8px"}},
+                  React.createElement("input",{value:editSkillForm.label,onChange:function(e){setEditSkillForm(function(f){return Object.assign({},f,{label:e.target.value})})},placeholder:"Skill",style:Object.assign({},C_INP_STYLE,{flex:2,padding:"4px 8px",marginBottom:0})}),
+                  React.createElement("input",{value:editSkillForm.since,onChange:function(e){setEditSkillForm(function(f){return Object.assign({},f,{since:e.target.value})})},placeholder:"Since (e.g. 2021)",style:Object.assign({},C_INP_STYLE,{flex:1,padding:"4px 8px",marginBottom:0})}),
+                  React.createElement("button",{onClick:saveEditSkill,style:{background:CAREER_GOLD,border:"none",borderRadius:6,padding:"4px 8px",fontSize:11,color:CAREER_NAVY,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}},"✓"),
+                  React.createElement("button",{onClick:function(){setEditingSkill(null)},style:{background:"none",border:"none",fontSize:13,color:"rgba(250,248,244,0.3)",cursor:"pointer",padding:"2px"}},"✕")
+                )
+              }
+              return React.createElement("div",{key:sk.id,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"rgba(200,169,122,0.07)",borderRadius:8,border:"0.5px solid rgba(200,169,122,0.18)"}},
+                React.createElement("div",{style:{flex:1}},
+                  React.createElement("span",{style:{fontSize:13,color:CAREER_GOLD,fontWeight:500}}),sk.label,
+                  sk.since&&React.createElement("span",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",marginLeft:8}},"since "+sk.since)
+                ),
+                React.createElement("button",{onClick:function(){startEditSkill(sk)},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"0 3px"}},"✏️"),
+                React.createElement("button",{onClick:function(){removeSkill(sk.id)},style:{background:"none",border:"none",fontSize:13,color:"rgba(250,248,244,0.2)",cursor:"pointer",padding:"0 3px"}},"×")
+              )
+            })
+          ),
+      React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+        React.createElement("input",{value:skillInput,onChange:function(e){setSkillInput(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")addSkill();},placeholder:"Add a skill…",style:Object.assign({},C_INP_STYLE,{flex:"2 1 120px",marginBottom:0})}),
+        React.createElement("input",{value:skillDate,onChange:function(e){setSkillDate(e.target.value);},placeholder:"Since (opt)",style:Object.assign({},C_INP_STYLE,{flex:"1 1 90px",marginBottom:0})}),
+        React.createElement("button",{onClick:addSkill,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.7rem",color:CAREER_GOLD,fontSize:12,cursor:"pointer",fontFamily:"inherit",flexShrink:0}},"Add")
+      )
+    ),
+
     adding&&React.createElement(CModal,{title:"Add work history",onClose:function(){setAdding(false);}},
-      React.createElement(CInput,{label:"Job title",value:form.title,onChange:function(v){setForm(function(f){return{...f,title:v}});},placeholder:"e.g. Senior Designer"}),
-      React.createElement(CInput,{label:"Company",value:form.company,onChange:function(v){setForm(function(f){return{...f,company:v}});},placeholder:"e.g. Acme Co."}),
+      React.createElement(CInput,{label:"Job title",value:form.title,onChange:function(v){setForm(function(f){return Object.assign({},f,{title:v})});},placeholder:"e.g. Senior Designer"}),
+      React.createElement(CInput,{label:"Company",value:form.company,onChange:function(v){setForm(function(f){return Object.assign({},f,{company:v})});},placeholder:"e.g. Acme Co."}),
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}},
-        React.createElement(CInput,{label:"From",value:form.from,onChange:function(v){setForm(function(f){return{...f,from:v}});},placeholder:"2020"}),
-        React.createElement(CInput,{label:"To",value:form.to,onChange:function(v){setForm(function(f){return{...f,to:v}});},placeholder:"2023 or present"})),
-      React.createElement(CTextarea,{label:"Notes",value:form.desc,onChange:function(v){setForm(function(f){return{...f,desc:v}});},placeholder:"What you built, led, or accomplished…",rows:3}),
+        React.createElement(CInput,{label:"From",value:form.from,onChange:function(v){setForm(function(f){return Object.assign({},f,{from:v})});},placeholder:"2020"}),
+        React.createElement(CInput,{label:"To",value:form.to,onChange:function(v){setForm(function(f){return Object.assign({},f,{to:v})});},placeholder:"2023 or present"})),
+      React.createElement(CTextarea,{label:"Notes",value:form.desc,onChange:function(v){setForm(function(f){return Object.assign({},f,{desc:v})});},placeholder:"What you built, led, or accomplished…",rows:3}),
       React.createElement(CSaveBtn,{onClick:save}))
   )
 }
@@ -1863,44 +2100,153 @@ function CJobsTab({ pid, career, setCareer }) {
 // ── Goals tab ─────────────────────────────────────────────────────────────────
 var GOAL_AREAS = ["Career growth","Income","Skills","Work-life balance","Leadership","Entrepreneurship","Other"]
 
-function CGoalsTab({ pid, career, setCareer }) {
+function cWriteGoalToCalendar(goal, personName) {
+  if (!goal.targetDate) return
+  try {
+    var events = JSON.parse(localStorage.getItem("af_calEvents") || "[]")
+    var goalId = "career_goal_" + goal.id
+    events = events.filter(function(e){ return e.id !== goalId })
+    events.push({
+      id: goalId,
+      title: "🎯 " + (personName ? personName + ": " : "") + goal.goal,
+      date: goal.targetDate,
+      color: "#c8a97a",
+      notes: goal.notes || "",
+      _careerGoal: true
+    })
+    localStorage.setItem("af_calEvents", JSON.stringify(events))
+  } catch(e) {}
+}
+
+function cRemoveGoalFromCalendar(goalId) {
+  try {
+    var events = JSON.parse(localStorage.getItem("af_calEvents") || "[]")
+    localStorage.setItem("af_calEvents", JSON.stringify(events.filter(function(e){ return e.id !== "career_goal_"+goalId })))
+  } catch(e) {}
+}
+
+function CGoalsTab({ pid, career, setCareer, personName }) {
   var goals = (career[pid]||{}).goals || []
   var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
-  var s1=useState({goal:"",area:"Career growth",target:"",notes:"",done:false}); var form=s1[0]; var setForm=s1[1];
+  var s1=useState({goal:"",area:"Career growth",targetDate:"",notes:"",done:false}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(null); var editingId=s2[0]; var setEditingId=s2[1];
+  var s3=useState({goal:"",area:"Career growth",targetDate:"",notes:""}); var editForm=s3[0]; var setEditForm=s3[1];
 
   function save() {
     if(!form.goal.trim()) return
-    var item={id:cuid(),...form,addedAt:new Date().toISOString().split("T")[0]}
+    var item = {id:cuid(),goal:form.goal,area:form.area,targetDate:form.targetDate,notes:form.notes,done:false,addedAt:new Date().toISOString().split("T")[0]}
     setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:[...(p.goals||[]),item]}}})
-    setForm({goal:"",area:"Career growth",target:"",notes:"",done:false}); setAdding(false)
+    if(form.targetDate) cWriteGoalToCalendar(item, personName)
+    setForm({goal:"",area:"Career growth",targetDate:"",notes:"",done:false}); setAdding(false)
   }
-  function toggle(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:(p.goals||[]).map(function(g){return g.id===id?{...g,done:!g.done}:g})}}}) }
-  function remove(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:(p.goals||[]).filter(function(g){return g.id!==id})}}}) }
+  function toggle(id) {
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:(p.goals||[]).map(function(g){return g.id===id?Object.assign({},g,{done:!g.done}):g})}}})
+  }
+  function remove(id) {
+    setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,goals:(p.goals||[]).filter(function(g){return g.id!==id})}}})
+    cRemoveGoalFromCalendar(id)
+  }
+  function startEdit(g) {
+    setEditingId(g.id)
+    setEditForm({goal:g.goal||"",area:g.area||"Career growth",targetDate:g.targetDate||"",notes:g.notes||""})
+  }
+  function saveEdit() {
+    var updated = null
+    setCareer(function(c){
+      var p=c[pid]||{}
+      var newGoals = (p.goals||[]).map(function(g){
+        if(g.id!==editingId) return g
+        updated = Object.assign({},g,editForm)
+        return updated
+      })
+      return Object.assign({},c,{[pid]:Object.assign({},p,{goals:newGoals})})
+    })
+    if(editForm.targetDate) setTimeout(function(){ cWriteGoalToCalendar(Object.assign({id:editingId},editForm), personName) }, 100)
+    else cRemoveGoalFromCalendar(editingId)
+    setEditingId(null)
+  }
+
+  function daysUntilDate(d) {
+    if(!d) return null
+    var now=new Date(); now.setHours(0,0,0,0)
+    var target=new Date(d+"T00:00:00")
+    return Math.round((target-now)/86400000)
+  }
+  function fmtDate(d) {
+    if(!d) return ""
+    var parts=d.split("-"); var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    return months[parseInt(parts[1])-1]+" "+parseInt(parts[2])+", "+parts[0]
+  }
 
   var active=goals.filter(function(g){return !g.done})
   var done=goals.filter(function(g){return g.done})
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.75rem"}},
     React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Add a goal"),
+
     active.length===0&&done.length===0?React.createElement(CEmpty,{text:"No goals yet — what are you working toward?"}):
       React.createElement("div",null,
-        active.length>0&&React.createElement(CCard,null,active.map(function(g){return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
-          React.createElement("button",{onClick:function(){toggle(g.id)},style:{width:18,height:18,borderRadius:4,border:"1.5px solid rgba(200,169,122,0.4)",background:"none",cursor:"pointer",flexShrink:0,marginTop:1}}),
-          React.createElement("div",{style:{flex:1}},
-            React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}}),g.goal,
-            React.createElement("div",{style:{fontSize:11,color:CAREER_GOLD,marginTop:2}}),g.area,
-            g.target&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2}},"Target: "+g.target)),
-          React.createElement("button",{onClick:function(){remove(g.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕"))})),
+        active.length>0&&React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+          active.map(function(g){
+            var days = daysUntilDate(g.targetDate)
+            var isEditing = editingId===g.id
+            return React.createElement("div",{key:g.id,style:{background:CAREER_SURF,border:CAREER_BORD,borderRadius:10,overflow:"hidden"}},
+              !isEditing&&React.createElement("div",{style:{padding:"10px 12px"}},
+                React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:10}},
+                  React.createElement("button",{onClick:function(){toggle(g.id)},style:{width:18,height:18,borderRadius:4,border:"1.5px solid rgba(200,169,122,0.4)",background:"none",cursor:"pointer",flexShrink:0,marginTop:2}}),
+                  React.createElement("div",{style:{flex:1,minWidth:0}},
+                    React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600,lineHeight:1.4}}),g.goal,
+                    React.createElement("div",{style:{fontSize:11,color:CAREER_GOLD,marginTop:3}}),g.area,
+                    g.targetDate&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:4}},
+                      React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.5)"}},"📅 "+fmtDate(g.targetDate)),
+                      days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"rgba(250,248,244,0.3)":days<=14?"#c8834a":CAREER_GOLD,background:days<0?"rgba(255,255,255,0.04)":days<=14?"rgba(200,131,74,0.1)":"rgba(200,169,122,0.1)",borderRadius:8,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
+                    ),
+                    g.targetDate&&React.createElement("div",{style:{fontSize:10,color:"rgba(122,158,142,0.7)",marginTop:3}},"\u2713 Added to calendar · Ripple will remind you")
+                  ),
+                  React.createElement("div",{style:{display:"flex",gap:4,flexShrink:0}},
+                    React.createElement("button",{onClick:function(){startEdit(g)},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"2px 4px"}},"✏️"),
+                    React.createElement("button",{onClick:function(){remove(g.id)},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.2)",cursor:"pointer",padding:"2px 4px"}},"✕")
+                  )
+                ),
+                g.notes&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",lineHeight:1.5,margin:"6px 0 0",paddingLeft:28}}),g.notes
+              ),
+              isEditing&&React.createElement("div",{style:{padding:"12px"}},
+                React.createElement("input",{value:editForm.goal,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{goal:e.target.value})})},placeholder:"Goal",style:Object.assign({},C_INP_STYLE,{marginBottom:8})}),
+                React.createElement("select",{value:editForm.area,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{area:e.target.value})})},style:Object.assign({},C_INP_STYLE,{marginBottom:8,background:"rgba(30,46,82,0.95)"})},
+                  GOAL_AREAS.map(function(a){return React.createElement("option",{key:a,value:a},a)})
+                ),
+                React.createElement("div",{style:{marginBottom:8}},
+                  React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date"),
+                  React.createElement("input",{type:"date",value:editForm.targetDate,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{targetDate:e.target.value})})},style:C_INP_STYLE})
+                ),
+                React.createElement("textarea",{value:editForm.notes,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{notes:e.target.value})})},placeholder:"Notes…",rows:2,style:Object.assign({},C_INP_STYLE,{resize:"vertical",marginBottom:8})}),
+                React.createElement("div",{style:{display:"flex",gap:8}},
+                  React.createElement("button",{onClick:saveEdit,style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"7px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Save"),
+                  React.createElement("button",{onClick:function(){setEditingId(null)},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                )
+              )
+            )
+          })
+        ),
         done.length>0&&React.createElement("div",{style:{marginTop:"0.5rem"}},
           React.createElement("div",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}},"Achieved ("+done.length+")"),
           done.map(function(g){return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"center",gap:8,padding:"0.35rem 0",opacity:0.5}},
-            React.createElement("span",{style:{fontSize:12,color:CAREER_GOLD}},"✓"),
-            React.createElement("span",{style:{fontSize:12,color:CAREER_WHITE,textDecoration:"line-through"}}),g.goal)}))),
+            React.createElement("span",{style:{fontSize:12,color:CAREER_GOLD,cursor:"pointer"},onClick:function(){toggle(g.id)}},"✓"),
+            React.createElement("span",{style:{fontSize:12,color:CAREER_WHITE,textDecoration:"line-through"}}),g.goal,
+            React.createElement("button",{onClick:function(){remove(g.id)},style:{background:"none",border:"none",fontSize:11,color:"rgba(250,248,244,0.2)",cursor:"pointer",marginLeft:"auto",padding:0}},"✕")
+          )})
+        )
+      ),
+
     adding&&React.createElement(CModal,{title:"Add a career goal",onClose:function(){setAdding(false);}},
-      React.createElement(CInput,{label:"Goal",value:form.goal,onChange:function(v){setForm(function(f){return{...f,goal:v}});},placeholder:"e.g. Lead my first product launch"}),
-      React.createElement(CSelect,{label:"Area",value:form.area,onChange:function(v){setForm(function(f){return{...f,area:v}});},options:GOAL_AREAS.map(function(a){return{value:a,label:a}})}),
-      React.createElement(CInput,{label:"Target date or milestone",value:form.target,onChange:function(v){setForm(function(f){return{...f,target:v}});},placeholder:"e.g. Q3 2026, or 'before next review'"}),
-      React.createElement(CTextarea,{label:"Notes",value:form.notes,onChange:function(v){setForm(function(f){return{...f,notes:v}});},placeholder:"What does success look like? What's in the way?",rows:3}),
+      React.createElement(CInput,{label:"Goal",value:form.goal,onChange:function(v){setForm(function(f){return Object.assign({},f,{goal:v})});},placeholder:"e.g. Lead my first product launch"}),
+      React.createElement(CSelect,{label:"Area",value:form.area,onChange:function(v){setForm(function(f){return Object.assign({},f,{area:v})});},options:GOAL_AREAS.map(function(a){return{value:a,label:a}})}),
+      React.createElement("div",{style:{marginBottom:"0.7rem"}},
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date (adds to your calendar)"),
+        React.createElement("input",{type:"date",value:form.targetDate,onChange:function(e){setForm(function(f){return Object.assign({},f,{targetDate:e.target.value})})},style:C_INP_STYLE})
+      ),
+      form.targetDate&&React.createElement("div",{style:{fontSize:11,color:"rgba(122,158,142,0.8)",background:"rgba(122,158,142,0.08)",borderRadius:7,padding:"6px 10px",marginBottom:"0.7rem"}},"\u2713 This goal will appear on your calendar and Ripple will remind you as the date approaches."),
+      React.createElement(CTextarea,{label:"Notes",value:form.notes,onChange:function(v){setForm(function(f){return Object.assign({},f,{notes:v})});},placeholder:"What does success look like? What's in the way?",rows:3}),
       React.createElement(CSaveBtn,{onClick:save})))
 }
 
@@ -1944,36 +2290,91 @@ function CWinsTab({ pid, career, setCareer }) {
 function CDocsTab({ pid, career, setCareer }) {
   var docs = (career[pid]||{}).docs || []
   var s0=useState(false); var adding=s0[0]; var setAdding=s0[1];
-  var s1=useState({label:"",url:"",note:"",type:"resume"}); var form=s1[0]; var setForm=s1[1];
+  var s1=useState({label:"",url:"",note:"",type:"resume",file:"",fileName:"",fileType:""}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(false); var uploading=s2[0]; var setUploading=s2[1];
   var DOC_TYPES = [{value:"resume",label:"Resume"},{value:"portfolio",label:"Portfolio"},{value:"linkedin",label:"LinkedIn"},{value:"cover",label:"Cover letter"},{value:"reference",label:"Reference"},{value:"cert",label:"Certification"},{value:"other",label:"Other"}]
   var TYPE_ICON = {resume:"📄",portfolio:"🎨",linkedin:"🔗",cover:"✉️",reference:"👤",cert:"🏅",other:"📎"}
 
+  function handleFile(e) {
+    var file = e.target.files[0]; if(!file) return
+    setUploading(true)
+    var reader = new FileReader()
+    reader.onload = function(ev) {
+      setForm(function(f){ return Object.assign({},f,{file:ev.target.result,fileName:file.name,fileType:file.type,label:f.label||file.name.replace(/\.[^.]+$/,"")}) })
+      setUploading(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
   function save() {
     if(!form.label.trim()) return
-    var item={id:cuid(),...form}
+    var item = {id:cuid(),label:form.label,url:form.url,note:form.note,type:form.type,file:form.file,fileName:form.fileName,fileType:form.fileType}
     setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,docs:[...(p.docs||[]),item]}}})
-    setForm({label:"",url:"",note:"",type:"resume"}); setAdding(false)
+    setForm({label:"",url:"",note:"",type:"resume",file:"",fileName:"",fileType:""}); setAdding(false)
   }
   function remove(id) { setCareer(function(c){var p=c[pid]||{}; return{...c,[pid]:{...p,docs:(p.docs||[]).filter(function(d){return d.id!==id})}}}) }
 
+  function openFile(doc) {
+    if(doc.file) {
+      var a=document.createElement("a"); a.href=doc.file; a.download=doc.fileName||"document"; a.click()
+    } else if(doc.url) {
+      window.open(doc.url,"_blank","noreferrer")
+    }
+  }
+
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:"0.75rem"}},
-    React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Add a doc or link"),
-    docs.length===0?React.createElement(CEmpty,{text:"Store links to your resume, portfolio, certs…"}):
+    React.createElement("button",{onClick:function(){setAdding(true)},style:{width:"100%",background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:10,padding:"0.6rem",color:CAREER_GOLD,fontSize:13,fontFamily:"inherit",cursor:"pointer",fontWeight:600}},"+ Add doc, file, or link"),
+
+    docs.length===0?React.createElement(CEmpty,{text:"Store your resume, portfolio, certs, and more"}):
       React.createElement(CCard,null,docs.map(function(doc){
-        return React.createElement("div",{key:doc.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
-          React.createElement("span",{style:{fontSize:16,flexShrink:0,marginTop:1}},(TYPE_ICON[doc.type]||"📎")),
-          React.createElement("div",{style:{flex:1}},
+        return React.createElement("div",{key:doc.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 0",borderBottom:CAREER_BORD2}},
+          React.createElement("span",{style:{fontSize:18,flexShrink:0,marginTop:1}},(TYPE_ICON[doc.type]||"📎")),
+          React.createElement("div",{style:{flex:1,minWidth:0}},
             React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}}),doc.label,
-            doc.url&&React.createElement("a",{href:doc.url,target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"Open →"),
-            doc.note&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:2}}),doc.note),
-          React.createElement("button",{onClick:function(){remove(doc.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕"))
+            doc.fileName&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},"📎 "+doc.fileName),
+            React.createElement("div",{style:{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}},
+              (doc.file||doc.url)&&React.createElement("button",{onClick:function(){openFile(doc)},style:{fontSize:11,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"3px 9px",cursor:"pointer",fontFamily:"inherit"}},doc.file?"⬇ Download":"Open →"),
+              doc.note&&React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}}),doc.note
+            )
+          ),
+          React.createElement("button",{onClick:function(){remove(doc.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0,flexShrink:0}},"✕")
+        )
       })),
-    adding&&React.createElement(CModal,{title:"Add doc or link",onClose:function(){setAdding(false);}},
-      React.createElement(CSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return{...f,type:v}});},options:DOC_TYPES}),
-      React.createElement(CInput,{label:"Label",value:form.label,onChange:function(v){setForm(function(f){return{...f,label:v}});},placeholder:"e.g. My resume (2026 version)"}),
-      React.createElement(CInput,{label:"URL / link",value:form.url,onChange:function(v){setForm(function(f){return{...f,url:v}});},placeholder:"https://…"}),
-      React.createElement(CInput,{label:"Note",value:form.note,onChange:function(v){setForm(function(f){return{...f,note:v}});},placeholder:"e.g. Last updated May 2026"}),
-      React.createElement(CSaveBtn,{onClick:save})))
+
+    adding&&React.createElement(CModal,{title:"Add doc, file, or link",onClose:function(){setAdding(false);}},
+      React.createElement(CSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return Object.assign({},f,{type:v})});},options:DOC_TYPES}),
+      React.createElement(CInput,{label:"Label",value:form.label,onChange:function(v){setForm(function(f){return Object.assign({},f,{label:v})});},placeholder:"e.g. My resume (2026 version)"}),
+
+      // File upload zone
+      React.createElement("div",{style:{marginBottom:"0.7rem"}},
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Upload a file"),
+        React.createElement("label",{style:{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.05)",border:form.file?"0.5px solid rgba(122,158,142,0.4)":"0.5px dashed rgba(255,255,255,0.2)",borderRadius:10,padding:"12px 14px",cursor:"pointer"}},
+          React.createElement("span",{style:{fontSize:20}}),form.file?"✅":"📂",
+          React.createElement("div",null,
+            form.file
+              ? React.createElement("div",null,
+                  React.createElement("div",{style:{fontSize:12,color:"rgba(122,158,142,0.9)",fontWeight:600}}),form.fileName,
+                  React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",marginTop:2}},"Tap to replace")
+                )
+              : React.createElement("div",null,
+                  React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.6)",fontWeight:500}},uploading?"Uploading…":"Choose a file"),
+                  React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",marginTop:2}},"PDF, Word, image — any file type")
+                )
+          ),
+          React.createElement("input",{type:"file",accept:"*/*",style:{display:"none"},onChange:handleFile})
+        )
+      ),
+
+      // OR a URL
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:"0.7rem"}},
+        React.createElement("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}),
+        React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},"or"),
+        React.createElement("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.1)"}})
+      ),
+      React.createElement(CInput,{label:"Link / URL",value:form.url,onChange:function(v){setForm(function(f){return Object.assign({},f,{url:v})});},placeholder:"https://…"}),
+      React.createElement(CInput,{label:"Note (optional)",value:form.note,onChange:function(v){setForm(function(f){return Object.assign({},f,{note:v})});},placeholder:"e.g. Last updated May 2026"}),
+      React.createElement(CSaveBtn,{onClick:save}))
+  )
 }
 
 // ── CareerSection (dashboard + drill-in) ─────────────────────────────────────
@@ -2090,7 +2491,7 @@ function CareerSection() {
   // ── Person detail view ────────────────────────────────────────────────────
   var person=people[personIdx];
   if(!person) { setDetail(null); return null; }
-  var tp={pid:person.id,career:career,setCareer:setCareer};
+  var tp={pid:person.id,career:career,setCareer:setCareer,personName:person.name};
   var initials=person.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
@@ -3870,7 +4271,8 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   }
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
+    <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
+      <style>{VAULT_INPUT_STYLE}</style>
       <div style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
