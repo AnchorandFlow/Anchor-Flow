@@ -109,6 +109,10 @@ function usePushNotifications() {
       if (e.data && e.data.type === "NOTIF_ACTION") {
         window.dispatchEvent(new CustomEvent("ripple-notif-action", { detail: e.data }));
       }
+      if (e.data && e.data.type === "NOTIF_CLICK") {
+        try { localStorage.setItem("af_open_ripple", "1"); } catch {}
+        window.dispatchEvent(new CustomEvent("ripple-notif-action", { detail: e.data }));
+      }
     };
     navigator.serviceWorker.addEventListener("message", onMessage);
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
@@ -1260,6 +1264,43 @@ function HomeFlow() {
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
+  // ── Ripple push notification click → open anchor tab + expand Ripple feed ──
+  React.useEffect(() => {
+    // Handle notification click while app is open (SW sends message)
+    function handleRippleNotifAction() {
+      goTab("anchor");
+      setShowRippleFeed(true);
+      try { localStorage.removeItem("af_open_ripple"); } catch {}
+      setTimeout(function() {
+        if (window._rippleBannerEl) {
+          window._rippleBannerEl.scrollIntoView({behavior:"smooth", block:"start"});
+        }
+      }, 300);
+    }
+    window.addEventListener("ripple-notif-action", handleRippleNotifAction);
+    // Handle app opened fresh from notification click
+    // Check both localStorage flag (set by SW) and URL param ?ripple=1 (set by SW in open URL)
+    try {
+      var needsRipple = localStorage.getItem("af_open_ripple") === "1";
+      try {
+        var sp = new URLSearchParams(window.location.search);
+        if (sp.get("ripple") === "1") { needsRipple = true; window.history.replaceState(null,"",window.location.pathname); }
+      } catch {}
+      if (needsRipple) {
+        setTimeout(function() {
+          goTab("anchor");
+          setShowRippleFeed(true);
+          try { localStorage.removeItem("af_open_ripple"); } catch {}
+          setTimeout(function() {
+            if (window._rippleBannerEl) {
+              window._rippleBannerEl.scrollIntoView({behavior:"smooth", block:"start"});
+            }
+          }, 300);
+        }, 400);
+      }
+    } catch {}
+    return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
+  }, []);
   const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
@@ -3309,7 +3350,9 @@ Respond ONLY in valid JSON:
           )}
         </div>
         {/* ── Ripple notification banner ── */}
-        <RippleNotificationBanner />
+        <div ref={function(el){if(el)window._rippleBannerEl=el;}}>
+          <RippleNotificationBanner />
+        </div>
         {/* ── Ripple Insights ── */}
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
