@@ -3850,7 +3850,15 @@ function AnchorDashboard({ onNavigate, calEvents }) {
       }).map(function(b) {
         return { id: b.id, type: "birthday", name: b.name, month: b.month, day: b.day, year: b.year || null, notes: "" }
       })
-      return [...saved, ...migrated]
+      var combined = [...saved, ...migrated]
+      // Deduplicate by name+month+day (keep first occurrence)
+      var seen = {}
+      return combined.filter(function(c) {
+        var key = (c.name||"").toLowerCase().trim() + "_" + c.month + "_" + c.day
+        if (seen[key]) return false
+        seen[key] = true
+        return true
+      })
     } catch { return [] }
   }
 
@@ -4151,7 +4159,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           ? (new Date().getFullYear() - e.year)          // birthday upcoming this year: turning currentYear - birthYear
           : (new Date().getFullYear() + 1 - e.year))     // birthday already passed: next year's age
       : null
-    var giftNote = e.giftCount > 0 ? (e.unbought > 0 ? " 🎁 " + e.unbought + " to get" : " 🎁 ✓") : ""
+    var giftNote = e.giftCount > 0 ? " 🎁" : ""
     return {
       label: e.name + (age ? " turns " + age : e.type === "anniversary" ? " anniversary" : "") + giftNote,
       badge: e.diff === 0 ? "Today! 🎉" : e.diff === 1 ? "Tomorrow" : "in " + e.diff + "d",
