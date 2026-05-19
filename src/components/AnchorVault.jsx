@@ -858,6 +858,32 @@ function CelebrationsSection({ calEvents }) {
   const [filter, setFilter] = useState("upcoming")
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
+  const [expandedGifts, setExpandedGifts] = useState(null) // celebId with gift panel open
+  const [newGiftText, setNewGiftText] = useState("")
+
+  // Load/save gifts keyed by celebId
+  const [giftMap, setGiftMap] = useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_celebgifts") || "{}") } catch { return {} }
+  })
+  function saveGiftMap(updated) {
+    setGiftMap(updated)
+    try { localStorage.setItem("af_celebgifts", JSON.stringify(updated)) } catch {}
+  }
+  function addGift(celebId) {
+    if (!newGiftText.trim()) return
+    var existing = giftMap[celebId] || []
+    var item = { id: Date.now().toString(), text: newGiftText.trim(), bought: false }
+    saveGiftMap(Object.assign({}, giftMap, { [celebId]: [...existing, item] }))
+    setNewGiftText("")
+  }
+  function toggleGift(celebId, giftId) {
+    var existing = (giftMap[celebId] || []).map(function(g) { return g.id === giftId ? Object.assign({}, g, { bought: !g.bought }) : g })
+    saveGiftMap(Object.assign({}, giftMap, { [celebId]: existing }))
+  }
+  function removeGift(celebId, giftId) {
+    var existing = (giftMap[celebId] || []).filter(function(g) { return g.id !== giftId })
+    saveGiftMap(Object.assign({}, giftMap, { [celebId]: existing }))
+  }
 
   function save(updated) {
     setCelebrations(updated)
@@ -866,9 +892,11 @@ function CelebrationsSection({ calEvents }) {
 
   function addCelebration() {
     if (!form.name.trim() || !form.month || !form.day) return
-    save([...celebrations, { id: Date.now().toString(), type: celebType, name: form.name.trim(), month: parseInt(form.month), day: parseInt(form.day), year: form.year ? parseInt(form.year) : null, notes: form.notes.trim() }])
+    var newId = Date.now().toString()
+    save([...celebrations, { id: newId, type: celebType, name: form.name.trim(), month: parseInt(form.month), day: parseInt(form.day), year: form.year ? parseInt(form.year) : null, notes: form.notes.trim() }])
     setForm({ name: "", month: "", day: "", year: "", notes: "" })
     setAdding(false)
+    setExpandedGifts(newId) // auto-open gift panel after adding
   }
 
   function startEdit(c) {
@@ -888,6 +916,7 @@ function CelebrationsSection({ calEvents }) {
   const now = new Date(); now.setHours(0,0,0,0)
   const year = now.getFullYear()
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+  const INP = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
 
   const celebEntries = celebrations.map(function(c) {
     const typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPES[6]
@@ -923,18 +952,18 @@ function CelebrationsSection({ calEvents }) {
               )
             })}
           </div>
-          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+          <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none", WebkitAppearance: "none", appearance: "none" }}>
+            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
               <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
               {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
             </select>
-            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+            <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
             {(celebType === "birthday" || celebType === "anniversary") && (
-              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+              <input value={form.year} onChange={function(e) { setForm(function(p) { return {...p, year: e.target.value} }) }} placeholder="Year (opt)" type="number" style={Object.assign({}, INP, { flex: 1 })} />
             )}
           </div>
-          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 12, boxSizing: "border-box" }} />
+          <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 12})} />
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
             <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
@@ -954,6 +983,11 @@ function CelebrationsSection({ calEvents }) {
       {shown.length === 0 && <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
       {shown.map(function(e, i) {
         const isPast = e.diff < 0
+        const gifts = giftMap[e.id] || []
+        const boughtCount = gifts.filter(function(g) { return g.bought }).length
+        const hasGifts = gifts.length > 0
+        const isGiftOpen = expandedGifts === e.id
+
         if (editingId === e.id) {
           return (
             <div key={e.id || i} style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "14px", marginBottom: 7 }}>
@@ -966,18 +1000,18 @@ function CelebrationsSection({ calEvents }) {
                   )
                 })}
               </div>
-              <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 11px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 8, boxSizing: "border-box" }} />
+              <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={{ flex: 2, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", outline: "none", WebkitAppearance: "none", appearance: "none" }}>
+                <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
                   <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
                   {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
                 </select>
-                <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
                 {(editForm.type === "birthday" || editForm.type === "anniversary") && (
-                  <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                  <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={Object.assign({}, INP, { flex: 1 })} />
                 )}
               </div>
-              <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 11px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 10})} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
                 <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
@@ -985,30 +1019,72 @@ function CelebrationsSection({ calEvents }) {
             </div>
           )
         }
+
         return (
-          <div key={e.id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: e.soon && !isPast ? "rgba(200,131,74,0.07)" : "rgba(255,255,255,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 7, opacity: isPast ? 0.45 : 1 }}>
-            <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
-              <div style={{ fontSize: 18, lineHeight: 1 }}>{e.emoji}</div>
-              {e.month && <div style={{ fontSize: 13, fontWeight: 700, color: e.soon && !isPast ? "#c8834a" : "rgba(200,169,122,0.6)", fontFamily: "Cormorant Garamond,serif" }}>{MONTHS[e.month-1]} {e.day}</div>}
+          <div key={e.id || i} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 8, opacity: isPast ? 0.5 : 1, overflow: "hidden" }}>
+            {/* Main row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" }}>
+              <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
+                <div style={{ fontSize: 18, lineHeight: 1 }}>{e.emoji}</div>
+                {e.month && <div style={{ fontSize: 11, fontWeight: 700, color: e.soon && !isPast ? "#c8834a" : "rgba(200,169,122,0.6)", fontFamily: "Cormorant Garamond,serif" }}>{MONTHS[e.month-1]} {e.day}</div>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: isPast ? "rgba(250,248,244,0.45)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
+                  {hasGifts && <span style={{ fontSize: 12 }} title={boughtCount + "/" + gifts.length + " bought"}>🎁</span>}
+                  {hasGifts && boughtCount < gifts.length && <span style={{ fontSize: 9, background: "rgba(200,131,74,0.2)", color: "#c8834a", borderRadius: 8, padding: "1px 5px", fontFamily: "DM Sans,sans-serif", fontWeight: 700 }}>{gifts.length - boughtCount} to get</span>}
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{e.typeInfo && e.typeInfo.label}{e.notes ? " · " + e.notes : ""}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <div style={{ textAlign: "right" }}>
+                  {isPast ? <span style={{ fontSize: 10, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif" }}>passed</span>
+                  : e.diff === 0 ? <span style={{ fontSize: 11, fontWeight: 800, color: "#c8834a" }}>Today!</span>
+                  : e.diff === 1 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#c8834a" }}>Tomorrow</span>
+                  : <span style={{ fontSize: 11, color: e.diff <= 7 ? "#c8834a" : "rgba(250,248,244,0.3)", fontWeight: e.diff <= 7 ? 600 : 400 }}>in {e.diff}d</span>}
+                </div>
+                <button onClick={function() { setExpandedGifts(isGiftOpen ? null : e.id); setNewGiftText("") }} style={{ background: "rgba(200,169,122,0.1)", border: "0.5px solid rgba(200,169,122,0.25)", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }} title="Gifts">🎁</button>
+                <button onClick={function() { startEdit(e) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(200,169,122,0.4)" }}>✏️</button>
+                <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)" }}>✕</button>
+              </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: isPast ? "rgba(250,248,244,0.45)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{e.label}</div>
-              <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>{e.typeInfo && e.typeInfo.label}{e.notes ? " · " + e.notes : ""}</div>
-            </div>
-            <div style={{ flexShrink: 0, textAlign: "right" }}>
-              {isPast ? <span style={{ fontSize: 10, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif" }}>passed</span>
-              : e.diff === 0 ? <span style={{ fontSize: 11, fontWeight: 800, color: "#c8834a" }}>Today! 🎉</span>
-              : e.diff === 1 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#c8834a" }}>Tomorrow</span>
-              : <span style={{ fontSize: 11, color: e.diff <= 7 ? "#c8834a" : "rgba(250,248,244,0.3)", fontWeight: e.diff <= 7 ? 600 : 400 }}>in {e.diff}d</span>}
-            </div>
-            <button onClick={function() { startEdit(e) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.4, fontSize: 13, padding: "2px 4px", color: "#c8a97a" }} title="Edit">✏️</button>
-            <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, padding: "2px 4px", color: "#faf8f4" }}>✕</button>
+
+            {/* Gift panel — inline, no extra navigation */}
+            {isGiftOpen && (
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "10px 14px 12px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(250,248,244,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, fontFamily: "DM Sans,sans-serif" }}>Gift ideas for {e.name}</div>
+                {gifts.map(function(g) {
+                  return (
+                    <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <div onClick={function() { toggleGift(e.id, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.bought ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: g.bought ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                        {g.bought && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
+                      </div>
+                      <span style={{ flex: 1, fontSize: 12, color: g.bought ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.8)", fontFamily: "DM Sans,sans-serif", textDecoration: g.bought ? "line-through" : "none" }}>{g.text}</span>
+                      <button onClick={function() { removeGift(e.id, g.id) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.2)", cursor: "pointer", padding: "0 2px" }}>✕</button>
+                    </div>
+                  )
+                })}
+                {gifts.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet</div>}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <input
+                    value={newGiftText}
+                    onChange={function(ev) { setNewGiftText(ev.target.value) }}
+                    onKeyDown={function(ev) { if (ev.key === "Enter") addGift(e.id) }}
+                    placeholder="Add a gift idea…"
+                    autoFocus={isGiftOpen}
+                    style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 7, padding: "7px 10px", fontSize: 12, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                  />
+                  <button onClick={function() { addGift(e.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "7px 13px", fontSize: 12, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                </div>
+              </div>
+            )}
           </div>
         )
       })}
     </div>
   )
 }
+
 
 // ── Gifts Section ─────────────────────────────────────────────────────────────
 const OCCASION_TYPES = ["Birthday","Anniversary","Christmas","Mother's Day","Father's Day","Valentine's Day","Graduation","Wedding","Baby Shower","Hanukkah","Easter","Other"]
@@ -1385,33 +1461,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
 
 function GiftsAndCelebrations({ calEvents }) {
   calEvents = calEvents || []
-  const [tab, setTab] = useState("celebrations")
-  const [celebrations, setCelebrations] = useState(function() {
-    try { return JSON.parse(localStorage.getItem("af_celebrations") || "[]") } catch { return [] }
-  })
-
-  // Refresh celebrations from localStorage when switching to gifts tab
-  function handleTabChange(v) {
-    if (v === "gifts") {
-      try { setCelebrations(JSON.parse(localStorage.getItem("af_celebrations") || "[]")) } catch {}
-    }
-    setTab(v)
-  }
-
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.1)", marginBottom: 20 }}>
-        {[["celebrations","🎉 Celebrations"],["gifts","🎁 Gifts"]].map(function(pair) {
-          const v = pair[0]; const l = pair[1]
-          return (
-            <button key={v} onClick={function() { handleTabChange(v) }} style={{ background: "none", border: "none", borderBottom: tab===v ? "2px solid #c8a97a" : "2px solid transparent", padding: "9px 16px", fontSize: 13, color: tab===v ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: tab===v ? 700 : 400 }}>{l}</button>
-          )
-        })}
-      </div>
-      {tab === "celebrations" && <CelebrationsSection calEvents={calEvents} />}
-      {tab === "gifts" && <GiftsSection people={[]} celebrations={celebrations} isPremium={false} calEvents={calEvents} />}
-    </div>
-  )
+  return <CelebrationsSection calEvents={calEvents} />
 }
 
 // ── Pets Section ──────────────────────────────────────────────────────────────
@@ -3833,17 +3883,22 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     var list = readCelebrations()
     if (!list.length) return { highlight: null, countdown: null, count: 0 }
     var now = new Date(); now.setHours(0,0,0,0)
+    var giftMap = {}
+    try { giftMap = JSON.parse(localStorage.getItem("af_celebgifts") || "{}") } catch {}
     var entries = list.map(function(c) {
       var next = new Date(now.getFullYear(), c.month-1, c.day)
       if (next < now) next.setFullYear(next.getFullYear()+1)
       var diff = Math.round((next - now) / 86400000)
       var age = (c.type === "birthday" && c.year) ? (next.getFullYear() - c.year) : null
-      return { ...c, diff, age }
+      var gifts = giftMap[c.id] || []
+      var unbought = gifts.filter(function(g) { return !g.bought }).length
+      return { ...c, diff, age, giftCount: gifts.length, unbought }
     }).sort(function(a,b) { return a.diff - b.diff })
     var next = entries[0]
     var label = next.name + (next.age ? " turns " + next.age : next.type === "anniversary" ? " anniversary" : "")
     var countdown = next.diff === 0 ? "Today! 🎉" : next.diff === 1 ? "Tomorrow" : "in " + next.diff + " days"
-    return { highlight: label, countdown: countdown, count: list.length, soon: next.diff <= 14, entries: entries.slice(0, 3) }
+    var hasUnbought = entries.some(function(e) { return e.diff <= 30 && e.unbought > 0 })
+    return { highlight: label, countdown: countdown, count: list.length, soon: next.diff <= 14, alert: hasUnbought, entries: entries.slice(0, 4), giftMap: giftMap }
   }
 
   function petsSummary() {
@@ -4083,18 +4138,18 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   // ── Build summaries ────────────────────────────────────────────────────────
   var celeb = celebSummary()
   var pets = petsSummary()
-  var gifts = giftsSummary()
   var moments = momentsSummary()
   var health = healthSummary()
   var inventory = inventorySummary()
   var careerSum = careerSummary()
   var trashSum = recurringDashSummary()
 
-  // Format celebration entries for display
+  // Format celebration entries for display — include 🎁 if gifts recorded
   var celebEntries = (celeb.entries || []).map(function(e) {
     var age = (e.type === "birthday" && e.year) ? (new Date().getFullYear() - e.year + (e.diff > 0 ? 1 : 0)) : null
+    var giftNote = e.giftCount > 0 ? (e.unbought > 0 ? " 🎁 " + e.unbought + " to get" : " 🎁 ✓") : ""
     return {
-      label: e.name + (age ? " turns " + age : e.type === "anniversary" ? " anniversary" : ""),
+      label: e.name + (age ? " turns " + age : e.type === "anniversary" ? " anniversary" : "") + giftNote,
       badge: e.diff === 0 ? "Today! 🎉" : e.diff === 1 ? "Tomorrow" : "in " + e.diff + "d",
       badgeAlert: e.diff <= 7
     }
@@ -4108,15 +4163,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
       label: p.name + (p.type ? " · " + p.type : ""),
       badge: nextVax ? nextVax.name + " due in " + nextVax.days + "d" : null,
       badgeAlert: nextVax && nextVax.days <= 14
-    }
-  })
-
-  var giftEntries = (gifts.entries || []).map(function(e) {
-    return {
-      label: e.name + " — " + e.type,
-      badge: e.days === 0 ? "Today!" : e.days === 1 ? "Tomorrow" : "in " + e.days + "d",
-      badgeAlert: e.days <= 7,
-      sub: e.unbought > 0 ? e.unbought + " to buy" : null
     }
   })
 
@@ -4146,16 +4192,13 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         summary={trashSum} defaultOpen={trashSum.alert} />
       <DashCard id="gifts" icon="🎉" label="Celebrations & Gifts" onOpen={onNavigate}
         summary={{
-          count: celeb.count + gifts.count,
-          highlight: celeb.highlight || gifts.highlight,
-          countdown: celeb.countdown || gifts.countdown,
-          alert: celeb.soon || gifts.alert,
-          entries: [
-            ...celebEntries,
-            ...giftEntries.map(function(g) { return { ...g, label: "🎁 " + g.label } })
-          ]
+          count: celeb.count,
+          highlight: celeb.highlight,
+          countdown: celeb.countdown,
+          alert: celeb.soon || celeb.alert,
+          entries: celebEntries
         }}
-        defaultOpen={celeb.soon || gifts.alert} />
+        defaultOpen={celeb.soon || celeb.alert} />
       <DashCard id="inventory" icon="📦" label="Inventory" onOpen={onNavigate}
         summary={{ ...inventory, entries: inventoryEntries }} defaultOpen={inventory.alert} />
       <DashCard id="career" icon="📋" label="Career" onOpen={onNavigate}
