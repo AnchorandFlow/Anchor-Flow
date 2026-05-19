@@ -4146,7 +4146,11 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
   // Format celebration entries for display — include 🎁 if gifts recorded
   var celebEntries = (celeb.entries || []).map(function(e) {
-    var age = (e.type === "birthday" && e.year) ? (new Date().getFullYear() - e.year + (e.diff > 0 ? 1 : 0)) : null
+    var age = (e.type === "birthday" && e.year)
+      ? (e.diff >= 0
+          ? (new Date().getFullYear() - e.year)          // birthday upcoming this year: turning currentYear - birthYear
+          : (new Date().getFullYear() + 1 - e.year))     // birthday already passed: next year's age
+      : null
     var giftNote = e.giftCount > 0 ? (e.unbought > 0 ? " 🎁 " + e.unbought + " to get" : " 🎁 ✓") : ""
     return {
       label: e.name + (age ? " turns " + age : e.type === "anniversary" ? " anniversary" : "") + giftNote,
