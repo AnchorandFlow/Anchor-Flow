@@ -5985,14 +5985,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [flyName, setFlyName] = useState("");
     var [flyPts, setFlyPts] = useState(1);
 
-    // Persist to coveData whenever kids changes
-    useEffect(function(){ setCoveData(kids); }, [kids]);
 
     var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
 
     function updateKid(patch) {
       setKids(function(prev){
-        return prev.map(function(k,i){ return i===selIdx?Object.assign({},k,patch):k; });
+        var next = prev.map(function(k,i){ return i===selIdx?Object.assign({},k,patch):k; });
+        setCoveData(next);
+        return next;
       });
     }
 
