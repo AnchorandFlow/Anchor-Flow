@@ -2604,6 +2604,7 @@ var H_TABS = [
   { id:"allergies", label:"Allergies"       },
   { id:"family",    label:"Family history"  },
   { id:"notes",     label:"Appt notes"      },
+  { id:"appts",     label:"Appointments"    },
 ]
 var H_REL_ROLES = ["Maternal grandmother","Maternal grandfather","Mother","Maternal aunt","Maternal uncle","Paternal grandmother","Paternal grandfather","Father","Paternal aunt","Paternal uncle","Sibling","Other"]
 var H_COND_TYPES = [
@@ -2622,6 +2623,64 @@ function useHealth() {
   var pair = useState(hLoadHealth); var val=pair[0]; var setRaw=pair[1];
   function set(next) { setRaw(function(prev){ var r=typeof next==="function"?next(prev):next; hSaveHealth(r); return r; }); }
   return [val, set];
+}
+
+// ── Private PIN helpers ───────────────────────────────────────────────────────
+function hGetPrivatePin() { try { return localStorage.getItem("af_health_pin")||null; } catch{return null;} }
+function hSetPrivatePin(pin) { try { localStorage.setItem("af_health_pin",pin); } catch{} }
+
+// HPrivateLock: wraps content behind a PIN gate. Set pin=null to prompt setup.
+function HPrivateLock(props) {
+  var storedPin=hGetPrivatePin();
+  var s0=useState(false); var unlocked=s0[0]; var setUnlocked=s0[1];
+  var s1=useState(""); var entered=s1[0]; var setEntered=s1[1];
+  var s2=useState(""); var confirm=s2[0]; var setConfirm=s2[1];
+  var s3=useState(false); var setting=s3[0]; var setSetting=s3[1];
+  var s4=useState(null); var err=s4[0]; var setErr=s4[1];
+  var inputStyle={width:"100%",background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:18,letterSpacing:"0.4em",textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  if(unlocked) return React.createElement(React.Fragment,null,
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:"0.6rem"}},
+      React.createElement("span",{style:{fontSize:11,color:HGOLD,opacity:0.7}},"🔒 Private"),
+      React.createElement("button",{onClick:function(){setUnlocked(false);setEntered("");},style:{fontSize:11,color:"rgba(250,248,244,0.35)",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}},"Lock")
+    ),
+    props.children
+  );
+  if(!storedPin||setting) return React.createElement("div",{style:{textAlign:"center",padding:"1.5rem 0.5rem"}},
+    React.createElement("div",{style:{fontSize:28,marginBottom:8}},"🔒"),
+    React.createElement("div",{style:{fontSize:14,color:HWHITE,fontWeight:500,marginBottom:4}},"Set a PIN for private notes"),
+    React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",marginBottom:16,lineHeight:1.5}})  ,
+    React.createElement("div",{style:{marginBottom:10}},
+      React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Choose a PIN"),
+      React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,value:entered,onChange:function(e){setEntered(e.target.value);setErr(null);},style:inputStyle})
+    ),
+    React.createElement("div",{style:{marginBottom:14}},
+      React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Confirm PIN"),
+      React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,value:confirm,onChange:function(e){setConfirm(e.target.value);setErr(null);},style:inputStyle})
+    ),
+    err&&React.createElement("p",{style:{fontSize:12,color:"#f0997b",marginBottom:8}},err),
+    React.createElement("button",{onClick:function(){
+      if(!entered.trim()){setErr("Please enter a PIN.");return;}
+      if(entered!==confirm){setErr("PINs don't match.");return;}
+      hSetPrivatePin(entered); setSetting(false); setUnlocked(true); setEntered(""); setConfirm("");
+    },style:{background:HGOLD,color:HNAVY,border:"none",borderRadius:8,padding:"0.6rem 1.5rem",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",width:"100%"}},"Set PIN & unlock")
+  );
+  return React.createElement("div",{style:{textAlign:"center",padding:"1.5rem 0.5rem"}},
+    React.createElement("div",{style:{fontSize:28,marginBottom:8}},"🔒"),
+    React.createElement("div",{style:{fontSize:14,color:HWHITE,fontWeight:500,marginBottom:4}},"Private — my eyes only"),
+    React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",marginBottom:16,lineHeight:1.5}})  ,
+    React.createElement("div",{style:{marginBottom:14}},
+      React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Enter PIN"),
+      React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,autoFocus:true,value:entered,onKeyDown:function(e){if(e.key==="Enter"&&entered===storedPin){setUnlocked(true);setEntered("");setErr(null);}},onChange:function(e){setEntered(e.target.value);setErr(null);},style:inputStyle})
+    ),
+    err&&React.createElement("p",{style:{fontSize:12,color:"#f0997b",marginBottom:8}},err),
+    React.createElement("div",{style:{display:"flex",gap:8}},
+      React.createElement("button",{onClick:function(){
+        if(entered===storedPin){setUnlocked(true);setEntered("");setErr(null);}
+        else{setErr("Incorrect PIN — try again.");}
+      },style:{flex:1,background:HGOLD,color:HNAVY,border:"none",borderRadius:8,padding:"0.6rem",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}},"Unlock"),
+      React.createElement("button",{onClick:function(){setSetting(true);setEntered("");setConfirm("");setErr(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.6rem 0.9rem",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:12,fontFamily:"inherit"}},"Reset PIN")
+    )
+  );
 }
 function hLoadPeople() {
   try { var r=localStorage.getItem("af_people"); if(!r) return [{id:"default",name:"You",color:"#6A9BB5"}]; var p=JSON.parse(r); if(Array.isArray(p)&&p.length>0) return p; } catch(e){}
@@ -2642,12 +2701,15 @@ function HCardHead(props) {
 function HItemRow(props) {
   return React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",padding:"0.45rem 0",borderBottom:HBORD2,gap:8}},
     React.createElement("div",{style:{flex:1}},React.createElement("p",{style:{fontSize:13,color:HWHITE,fontWeight:500,margin:"0 0 2px"}},props.name),props.detail&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",margin:0}},props.detail)),
-    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},props.badge&&React.createElement(HBadge,{type:props.badge,label:props.badgeLabel}),props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕"))
+    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+      props.badge&&React.createElement(HBadge,{type:props.badge,label:props.badgeLabel}),
+      props.onEdit&&React.createElement("button",{onClick:props.onEdit,style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
+      props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕"))
   );
 }
 function HModal(props) {
-  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,92vw)",maxHeight:"85vh",overflowY:"auto"},onClick:function(e){e.stopPropagation();}},
+  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
+    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,92vw)",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HWHITE,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
     )
@@ -2681,63 +2743,140 @@ function HHistoryTab(props) {
   var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
   var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
   var s1=useState({name:"",detail:"",status:"Stable"}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(null); var editId=s2[0]; var setEditId=s2[1];
   var items=(health[pid]&&health[pid].history)||[];
-  function add(){if(!form.name.trim())return;var next=Object.assign({},health);if(!next[pid])next[pid]={};next[pid].history=(next[pid].history||[]).concat([{id:huid(),name:form.name,detail:form.detail,status:form.status}]);setHealth(next);setForm({name:"",detail:"",status:"Stable"});setOpen(false);}
-  function remove(id){var next=Object.assign({},health);next[pid].history=next[pid].history.filter(function(x){return x.id!==id;});setHealth(next);}
   var STATUS=["Stable","Managed","Active Rx","Monitoring","Resolved"].map(function(v){return{value:v,label:v};});
+  function add(){
+    if(!form.name.trim())return;
+    var next=Object.assign({},health);if(!next[pid])next[pid]={};
+    if(editId){
+      next[pid].history=(next[pid].history||[]).map(function(x){return x.id===editId?Object.assign({},x,{name:form.name,detail:form.detail,status:form.status}):x;});
+    } else {
+      next[pid].history=(next[pid].history||[]).concat([{id:huid(),name:form.name,detail:form.detail,status:form.status}]);
+    }
+    setHealth(next);setForm({name:"",detail:"",status:"Stable"});setOpen(false);setEditId(null);
+  }
+  function startEdit(it){setForm({name:it.name,detail:it.detail||"",status:it.status||"Stable"});setEditId(it.id);setOpen(true);}
+  function remove(id){var next=Object.assign({},health);next[pid].history=next[pid].history.filter(function(x){return x.id!==id;});setHealth(next);}
   return React.createElement(React.Fragment,null,
-    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"🩺",label:"Conditions & diagnoses",onAdd:function(){setOpen(true);}}),items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No conditions added yet"),items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.detail,badge:"ok",badgeLabel:it.status,onDelete:function(){remove(it.id);}});})),
-    open&&React.createElement(HModal,{title:"Add condition / diagnosis",onClose:function(){setOpen(false);}},React.createElement(HInput,{label:"Condition name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Asthma"}),React.createElement(HInput,{label:"Details",value:form.detail,onChange:function(v){setForm(function(f){return Object.assign({},f,{detail:v});});},placeholder:"e.g. Diagnosed 2008"}),React.createElement(HSelect,{label:"Status",value:form.status,onChange:function(v){setForm(function(f){return Object.assign({},f,{status:v});});},options:STATUS}),React.createElement(HSaveBtn,{onClick:add}))
+    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"🩺",label:"Conditions & diagnoses",onAdd:function(){setForm({name:"",detail:"",status:"Stable"});setEditId(null);setOpen(true);}}),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No conditions added yet"),
+      items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.detail,badge:"ok",badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
+    open&&React.createElement(HModal,{title:editId?"Edit condition":"Add condition / diagnosis",onClose:function(){setOpen(false);setEditId(null);}},
+      React.createElement(HInput,{label:"Condition name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Asthma"}),
+      React.createElement(HInput,{label:"Details",value:form.detail,onChange:function(v){setForm(function(f){return Object.assign({},f,{detail:v});});},placeholder:"e.g. Diagnosed 2008"}),
+      React.createElement(HSelect,{label:"Status",value:form.status,onChange:function(v){setForm(function(f){return Object.assign({},f,{status:v});});},options:STATUS}),
+      React.createElement(HSaveBtn,{onClick:add,label:editId?"Save changes":"Add condition"}))
   );
 }
 function HImmunizeTab(props) {
   var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
   var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
   var s1=useState({name:"",date:"",status:"Up to date"}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(null); var editId=s2[0]; var setEditId=s2[1];
   var items=(health[pid]&&health[pid].immunizations)||[];
-  function add(){if(!form.name.trim())return;var next=Object.assign({},health);if(!next[pid])next[pid]={};next[pid].immunizations=(next[pid].immunizations||[]).concat([{id:huid(),name:form.name,date:form.date,status:form.status}]);setHealth(next);setForm({name:"",date:"",status:"Up to date"});setOpen(false);}
-  function remove(id){var next=Object.assign({},health);next[pid].immunizations=next[pid].immunizations.filter(function(x){return x.id!==id;});setHealth(next);}
   var STATUS=["Up to date","Due soon","Overdue","Declined"].map(function(v){return{value:v,label:v};});
+  function add(){
+    if(!form.name.trim())return;
+    var next=Object.assign({},health);if(!next[pid])next[pid]={};
+    if(editId){
+      next[pid].immunizations=(next[pid].immunizations||[]).map(function(x){return x.id===editId?Object.assign({},x,{name:form.name,date:form.date,status:form.status}):x;});
+    } else {
+      next[pid].immunizations=(next[pid].immunizations||[]).concat([{id:huid(),name:form.name,date:form.date,status:form.status}]);
+    }
+    setHealth(next);setForm({name:"",date:"",status:"Up to date"});setOpen(false);setEditId(null);
+  }
+  function startEdit(it){setForm({name:it.name,date:it.date||"",status:it.status||"Up to date"});setEditId(it.id);setOpen(true);}
+  function remove(id){var next=Object.assign({},health);next[pid].immunizations=next[pid].immunizations.filter(function(x){return x.id!==id;});setHealth(next);}
   return React.createElement(React.Fragment,null,
-    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💉",label:"Immunizations",onAdd:function(){setOpen(true);}}),items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No immunizations added yet"),items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.date,badge:it.status==="Up to date"?"ok":"due",badgeLabel:it.status,onDelete:function(){remove(it.id);}});})),
-    open&&React.createElement(HModal,{title:"Add immunization",onClose:function(){setOpen(false);}},React.createElement(HInput,{label:"Vaccine name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Flu shot"}),React.createElement(HInput,{label:"Date received",value:form.date,onChange:function(v){setForm(function(f){return Object.assign({},f,{date:v});});},placeholder:"e.g. Oct 2024"}),React.createElement(HSelect,{label:"Status",value:form.status,onChange:function(v){setForm(function(f){return Object.assign({},f,{status:v});});},options:STATUS}),React.createElement(HSaveBtn,{onClick:add}))
+    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💉",label:"Immunizations",onAdd:function(){setForm({name:"",date:"",status:"Up to date"});setEditId(null);setOpen(true);}}),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No immunizations added yet"),
+      items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.date,badge:it.status==="Up to date"?"ok":"due",badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
+    open&&React.createElement(HModal,{title:editId?"Edit immunization":"Add immunization",onClose:function(){setOpen(false);setEditId(null);}},
+      React.createElement(HInput,{label:"Vaccine name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Flu shot"}),
+      React.createElement(HInput,{label:"Date received",value:form.date,onChange:function(v){setForm(function(f){return Object.assign({},f,{date:v});});},placeholder:"e.g. Oct 2024"}),
+      React.createElement(HSelect,{label:"Status",value:form.status,onChange:function(v){setForm(function(f){return Object.assign({},f,{status:v});});},options:STATUS}),
+      React.createElement(HSaveBtn,{onClick:add,label:editId?"Save changes":"Add immunization"}))
   );
 }
 function HMedsTab(props) {
   var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
   var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
   var s1=useState({name:"",dose:"",frequency:"",type:"Rx"}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(null); var editId=s2[0]; var setEditId=s2[1];
   var items=(health[pid]&&health[pid].medications)||[];
-  function add(){if(!form.name.trim())return;var next=Object.assign({},health);if(!next[pid])next[pid]={};next[pid].medications=(next[pid].medications||[]).concat([{id:huid(),name:form.name,dose:form.dose,frequency:form.frequency,type:form.type}]);setHealth(next);setForm({name:"",dose:"",frequency:"",type:"Rx"});setOpen(false);}
-  function remove(id){var next=Object.assign({},health);next[pid].medications=next[pid].medications.filter(function(x){return x.id!==id;});setHealth(next);}
   var TYPES=["Rx","OTC","Supplement","PRN"].map(function(v){return{value:v,label:v};});
+  function add(){
+    if(!form.name.trim())return;
+    var next=Object.assign({},health);if(!next[pid])next[pid]={};
+    if(editId){
+      next[pid].medications=(next[pid].medications||[]).map(function(x){return x.id===editId?Object.assign({},x,{name:form.name,dose:form.dose,frequency:form.frequency,type:form.type}):x;});
+    } else {
+      next[pid].medications=(next[pid].medications||[]).concat([{id:huid(),name:form.name,dose:form.dose,frequency:form.frequency,type:form.type}]);
+    }
+    setHealth(next);setForm({name:"",dose:"",frequency:"",type:"Rx"});setOpen(false);setEditId(null);
+  }
+  function startEdit(it){setForm({name:it.name,dose:it.dose||"",frequency:it.frequency||"",type:it.type||"Rx"});setEditId(it.id);setOpen(true);}
+  function remove(id){var next=Object.assign({},health);next[pid].medications=next[pid].medications.filter(function(x){return x.id!==id;});setHealth(next);}
   return React.createElement(React.Fragment,null,
-    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💊",label:"Medications",onAdd:function(){setOpen(true);}}),items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No medications added yet"),items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:[it.dose,it.frequency].filter(Boolean).join(" · "),badge:"rx",badgeLabel:it.type,onDelete:function(){remove(it.id);}});})),
-    open&&React.createElement(HModal,{title:"Add medication",onClose:function(){setOpen(false);}},React.createElement(HInput,{label:"Medication name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Albuterol"}),React.createElement(HInput,{label:"Dose",value:form.dose,onChange:function(v){setForm(function(f){return Object.assign({},f,{dose:v});});},placeholder:"e.g. 10mg"}),React.createElement(HInput,{label:"Frequency",value:form.frequency,onChange:function(v){setForm(function(f){return Object.assign({},f,{frequency:v});});},placeholder:"e.g. Daily, PRN"}),React.createElement(HSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return Object.assign({},f,{type:v});});},options:TYPES}),React.createElement(HSaveBtn,{onClick:add}))
+    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💊",label:"Medications",onAdd:function(){setForm({name:"",dose:"",frequency:"",type:"Rx"});setEditId(null);setOpen(true);}}),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No medications added yet"),
+      items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:[it.dose,it.frequency].filter(Boolean).join(" · "),badge:"rx",badgeLabel:it.type,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
+    open&&React.createElement(HModal,{title:editId?"Edit medication":"Add medication",onClose:function(){setOpen(false);setEditId(null);}},
+      React.createElement(HInput,{label:"Medication name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Albuterol"}),
+      React.createElement(HInput,{label:"Dose",value:form.dose,onChange:function(v){setForm(function(f){return Object.assign({},f,{dose:v});});},placeholder:"e.g. 10mg"}),
+      React.createElement(HInput,{label:"Frequency",value:form.frequency,onChange:function(v){setForm(function(f){return Object.assign({},f,{frequency:v});});},placeholder:"e.g. Daily, PRN"}),
+      React.createElement(HSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return Object.assign({},f,{type:v});});},options:TYPES}),
+      React.createElement(HSaveBtn,{onClick:add,label:editId?"Save changes":"Add medication"}))
   );
 }
 function HAllergiesTab(props) {
   var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
   var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
   var s1=useState({name:"",type:"Drug",severity:"Moderate"}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(null); var editId=s2[0]; var setEditId=s2[1];
   var items=(health[pid]&&health[pid].allergies)||[];
-  function add(){if(!form.name.trim())return;var next=Object.assign({},health);if(!next[pid])next[pid]={};next[pid].allergies=(next[pid].allergies||[]).concat([{id:huid(),name:form.name,type:form.type,severity:form.severity}]);setHealth(next);setForm({name:"",type:"Drug",severity:"Moderate"});setOpen(false);}
-  function remove(id){var next=Object.assign({},health);next[pid].allergies=next[pid].allergies.filter(function(x){return x.id!==id;});setHealth(next);}
   var TYPES=["Drug","Food","Environmental","Contact","Other"].map(function(v){return{value:v,label:v};});
   var SEVS=["Mild","Moderate","Severe","Life-threatening"].map(function(v){return{value:v,label:v};});
+  function add(){
+    if(!form.name.trim())return;
+    var next=Object.assign({},health);if(!next[pid])next[pid]={};
+    if(editId){
+      next[pid].allergies=(next[pid].allergies||[]).map(function(x){return x.id===editId?Object.assign({},x,{name:form.name,type:form.type,severity:form.severity}):x;});
+    } else {
+      next[pid].allergies=(next[pid].allergies||[]).concat([{id:huid(),name:form.name,type:form.type,severity:form.severity}]);
+    }
+    setHealth(next);setForm({name:"",type:"Drug",severity:"Moderate"});setOpen(false);setEditId(null);
+  }
+  function startEdit(it){setForm({name:it.name,type:it.type||"Drug",severity:it.severity||"Moderate"});setEditId(it.id);setOpen(true);}
+  function remove(id){var next=Object.assign({},health);next[pid].allergies=next[pid].allergies.filter(function(x){return x.id!==id;});setHealth(next);}
   return React.createElement(React.Fragment,null,
-    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"⚠️",label:"Allergies",onAdd:function(){setOpen(true);}}),items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No allergies added yet"),items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.type,badge:"allergy",badgeLabel:it.severity,onDelete:function(){remove(it.id);}});})),
-    open&&React.createElement(HModal,{title:"Add allergy",onClose:function(){setOpen(false);}},React.createElement(HInput,{label:"Allergen",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Penicillin"}),React.createElement(HSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return Object.assign({},f,{type:v});});},options:TYPES}),React.createElement(HSelect,{label:"Severity",value:form.severity,onChange:function(v){setForm(function(f){return Object.assign({},f,{severity:v});});},options:SEVS}),React.createElement(HSaveBtn,{onClick:add}))
+    React.createElement(HCard,null,React.createElement(HCardHead,{icon:"⚠️",label:"Allergies",onAdd:function(){setForm({name:"",type:"Drug",severity:"Moderate"});setEditId(null);setOpen(true);}}),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No allergies added yet"),
+      items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.type,badge:"allergy",badgeLabel:it.severity,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
+    open&&React.createElement(HModal,{title:editId?"Edit allergy":"Add allergy",onClose:function(){setOpen(false);setEditId(null);}},
+      React.createElement(HInput,{label:"Allergen",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Penicillin"}),
+      React.createElement(HSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return Object.assign({},f,{type:v});});},options:TYPES}),
+      React.createElement(HSelect,{label:"Severity",value:form.severity,onChange:function(v){setForm(function(f){return Object.assign({},f,{severity:v});});},options:SEVS}),
+      React.createElement(HSaveBtn,{onClick:add,label:editId?"Save changes":"Add allergy"}))
   );
 }
 function HFamilyTab(props) {
   var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
+  var maternalSourceId=props.maternalSourceId||null;
+  var allPeople=props.allPeople||[];
   var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
   var s1=useState({role:"Mother",name:"",years:"",living:"Living",conditions:[],note:""}); var form=s1[0]; var setForm=s1[1];
   var s2=useState({type:"heart",label:""}); var condIn=s2[0]; var setCondIn=s2[1];
-  var relatives=(health[pid]&&health[pid].familyHistory)||[];
+  var ownRelatives=(health[pid]&&health[pid].familyHistory)||[];
+  // If linked to a maternal source, pull their family history as our maternal side
+  var maternalSource=maternalSourceId?allPeople.find(function(p){return p.id===maternalSourceId;}):null;
+  var inheritedMaternalEntries=maternalSource?(health[maternalSourceId]&&health[maternalSourceId].familyHistory)||[]:[];
+  // Own entries (not-overridden) + inherited maternal entries shown in maternal column
+  var relatives=ownRelatives;
   var riskMap={};
   relatives.forEach(function(r){(r.conditions||[]).forEach(function(c){riskMap[c.type]=(riskMap[c.type]||0)+1;});});
+  inheritedMaternalEntries.forEach(function(r){(r.conditions||[]).forEach(function(c){riskMap[c.type]=(riskMap[c.type]||0)+1;});});
   var RISKS=[{key:"heart",label:"Cardiovascular",color:"#F0997B"},{key:"cancer",label:"Cancer",color:"#ED93B1"},{key:"diabetes",label:"Diabetes",color:"#EF9F27"},{key:"neuro",label:"Neurological",color:"#5DCAA5"},{key:"mental",label:"Mental health",color:"#AFA9EC"}];
   var maxCount=Math.max.apply(null,RISKS.map(function(r){return riskMap[r.key]||0;}).concat([1]));
   function addCond(){if(!condIn.label.trim())return;setForm(function(f){return Object.assign({},f,{conditions:f.conditions.concat([{type:condIn.type,label:condIn.label}])});});setCondIn(function(c){return Object.assign({},c,{label:""});});}
@@ -2747,13 +2886,30 @@ function HFamilyTab(props) {
   var maternal=relatives.filter(function(r){return ["Maternal grandmother","Maternal grandfather","Mother","Maternal aunt","Maternal uncle"].indexOf(r.role)>=0;});
   var paternal=relatives.filter(function(r){return ["Paternal grandmother","Paternal grandfather","Father","Paternal aunt","Paternal uncle"].indexOf(r.role)>=0;});
   var other=relatives.filter(function(r){return maternal.indexOf(r)<0&&paternal.indexOf(r)<0;});
+  // Merge inherited maternal entries (read-only, from linked source)
+  var maternalAll=maternal.concat(inheritedMaternalEntries.map(function(r){return Object.assign({},r,{_inherited:true,_sourceName:maternalSource?maternalSource.name:""});}));
   var ROLE_OPTS=H_REL_ROLES.map(function(v){return{value:v,label:v};});
   var LIVE_OPTS=["Living","Deceased"].map(function(v){return{value:v,label:v};});
-  function RelCard(rp){var rel=rp.rel;return React.createElement("div",{style:{background:HSURF2,border:HBORD2,borderRadius:8,padding:"0.7rem 0.9rem",marginBottom:"0.5rem"}},React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.45rem"}},React.createElement("div",null,React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},rel.role+(rel.name?" — "+rel.name:"")),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",margin:0}},rel.years)),React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},React.createElement(HBadge,{type:rel.living==="Living"?"alive":"deceased",label:rel.living}),React.createElement("button",{onClick:function(){remove(rel.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕"))),rel.conditions&&rel.conditions.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:rel.note?"0.4rem":0}},rel.conditions.map(function(c,i){return React.createElement(HCondPill,{key:i,type:c.type,label:c.label});})),rel.note&&React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",margin:"0.35rem 0 0",fontStyle:"italic"}},rel.note));}
-  function SideCard(sp){return React.createElement(HCard,null,React.createElement(HCardHead,{icon:sp.icon,label:sp.title,onAdd:function(){setOpen(true);}}),sp.rels.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0"}},"None added yet"),sp.rels.map(function(r){return React.createElement(RelCard,{key:r.id,rel:r});}));}
+  function RelCard(rp){
+    var rel=rp.rel;
+    return React.createElement("div",{style:{background:rel._inherited?"rgba(200,169,122,0.04)":HSURF2,border:rel._inherited?"0.5px solid rgba(200,169,122,0.15)":HBORD2,borderRadius:8,padding:"0.7rem 0.9rem",marginBottom:"0.5rem"}},
+      rel._inherited&&React.createElement("div",{style:{fontSize:10,color:"rgba(200,169,122,0.5)",marginBottom:4,letterSpacing:"0.05em",textTransform:"uppercase"}},"Inherited from "+rel._sourceName),
+      React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.45rem"}},
+        React.createElement("div",null,React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},rel.role+(rel.name?" — "+rel.name:"")),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",margin:0}},rel.years)),
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+          React.createElement(HBadge,{type:rel.living==="Living"?"alive":"deceased",label:rel.living}),
+          !rel._inherited&&React.createElement("button",{onClick:function(){remove(rel.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
+        )
+      ),
+      rel.conditions&&rel.conditions.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:rel.note?"0.4rem":0}},rel.conditions.map(function(c,i){return React.createElement(HCondPill,{key:i,type:c.type,label:c.label});})),
+      rel.note&&React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",margin:"0.35rem 0 0",fontStyle:"italic"}},rel.note)
+    );
+  }
+  function SideCard(sp){return React.createElement(HCard,null,React.createElement(HCardHead,{icon:sp.icon,label:sp.title,onAdd:function(){setOpen(true);}}),sp.rels.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0"}},"None added yet"),sp.rels.map(function(r){return React.createElement(RelCard,{key:r.id+(r._inherited?"_i":""),rel:r});}));}
   return React.createElement(React.Fragment,null,
-    relatives.length>0&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.65)",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(255,255,255,0.07)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.25)",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
-    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.9rem"}},React.createElement(SideCard,{title:"Maternal side",icon:"👩",rels:maternal}),React.createElement(SideCard,{title:"Paternal side",icon:"👨",rels:paternal})),
+    maternalSource&&React.createElement("div",{style:{background:"rgba(200,169,122,0.06)",border:"0.5px solid rgba(200,169,122,0.2)",borderRadius:8,padding:"0.55rem 0.85rem",fontSize:12,color:"rgba(200,169,122,0.7)",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:6}},"🔗 Maternal side inherited from ",React.createElement("strong",null,maternalSource.name)," · updates automatically"),
+    (relatives.length>0||inheritedMaternalEntries.length>0)&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.65)",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(255,255,255,0.07)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.25)",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.9rem"}},React.createElement(SideCard,{title:"Maternal side",icon:"👩",rels:maternalAll}),React.createElement(SideCard,{title:"Paternal side",icon:"👨",rels:paternal})),
     other.length>0&&React.createElement(HCard,{style:{marginTop:"0.9rem"}},React.createElement(HCardHead,{icon:"👤",label:"Other relatives"}),other.map(function(r){return React.createElement(RelCard,{key:r.id,rel:r});})),
     open&&React.createElement(HModal,{title:"Add family member",onClose:function(){setOpen(false);}},
       React.createElement(HSelect,{label:"Relationship",value:form.role,onChange:function(v){setForm(function(f){return Object.assign({},f,{role:v});});},options:ROLE_OPTS}),
@@ -2776,29 +2932,111 @@ function HFamilyTab(props) {
 }
 function HNotesTab(props) {
   var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
+  var personName=props.personName||"";
   var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
-  var s1=useState({title:"",date:"",provider:"",location:"",body:"",tags:""}); var form=s1[0]; var setForm=s1[1];
+  var s1=useState({title:"",date:"",provider:"",location:"",body:"",tags:"",addToCalendar:false}); var form=s1[0]; var setForm=s1[1];
   var s2=useState(false); var editGen=s2[0]; var setEditGen=s2[1];
   var s3=useState(""); var genDraft=s3[0]; var setGenDraft=s3[1];
+  var s4=useState(null); var editId=s4[0]; var setEditId=s4[1];
+  var s5=useState(null); var calToast=s5[0]; var setCalToast=s5[1];
   var notes=(health[pid]&&health[pid].apptNotes)||[];
   var general=(health[pid]&&health[pid].generalNote)||"";
-  function addNote(){if(!form.title.trim())return;var next=Object.assign({},health);if(!next[pid])next[pid]={};var tags=form.tags.split(",").map(function(t){return t.trim();}).filter(Boolean);next[pid].apptNotes=[{id:huid(),title:form.title,date:form.date,provider:form.provider,location:form.location,body:form.body,tags:tags}].concat(next[pid].apptNotes||[]);setHealth(next);setForm({title:"",date:"",provider:"",location:"",body:"",tags:""});setOpen(false);}
+  var LOC_OPTS=["In-person","Telehealth","Urgent care","ER","Specialist","Other"].map(function(v){return{value:v,label:v};});
+
+  function injectCalendar(note) {
+    if(!note.date) return;
+    try {
+      var events=JSON.parse(localStorage.getItem("af_calEvents")||"[]");
+      // parse note.date - accept YYYY-MM-DD or "Mar 14, 2025" style
+      var dateStr=note.date;
+      var parsed=new Date(note.date);
+      if(!isNaN(parsed.getTime())) dateStr=parsed.toISOString().slice(0,10);
+      var label=(personName?personName+"'s ":"")+note.title+(note.provider?" · "+note.provider:"");
+      var calId="health_appt_"+note.id;
+      var exists=events.some(function(e){return e.id===calId;});
+      if(!exists) {
+        events.push({id:calId,title:"🩺 "+label,date:dateStr,color:"#6A9BB5",notes:"Added from Health records"});
+        localStorage.setItem("af_calEvents",JSON.stringify(events));
+        setCalToast("Added to calendar!");
+        setTimeout(function(){setCalToast(null);},2500);
+      }
+    } catch(e){}
+  }
+
+  function addNote(){
+    if(!form.title.trim())return;
+    var next=Object.assign({},health);if(!next[pid])next[pid]={};
+    var tags=form.tags.split(",").map(function(t){return t.trim();}).filter(Boolean);
+    var note={id:editId||huid(),title:form.title,date:form.date,provider:form.provider,location:form.location,body:form.body,tags:tags};
+    if(editId){
+      next[pid].apptNotes=(next[pid].apptNotes||[]).map(function(x){return x.id===editId?note:x;});
+    } else {
+      next[pid].apptNotes=[note].concat(next[pid].apptNotes||[]);
+    }
+    setHealth(next);
+    if(form.addToCalendar) injectCalendar(note);
+    setForm({title:"",date:"",provider:"",location:"",body:"",tags:"",addToCalendar:false});
+    setOpen(false);setEditId(null);
+  }
+
+  function startEdit(n){
+    setForm({title:n.title,date:n.date||"",provider:n.provider||"",location:n.location||"",body:n.body||"",tags:(n.tags||[]).join(", "),addToCalendar:false});
+    setEditId(n.id);setOpen(true);
+  }
   function removeNote(id){var next=Object.assign({},health);next[pid].apptNotes=next[pid].apptNotes.filter(function(x){return x.id!==id;});setHealth(next);}
   function saveGen(){var next=Object.assign({},health);if(!next[pid])next[pid]={};next[pid].generalNote=genDraft;setHealth(next);setEditGen(false);}
-  var LOC_OPTS=["In-person","Telehealth","Urgent care","ER","Specialist","Other"].map(function(v){return{value:v,label:v};});
+
   return React.createElement(React.Fragment,null,
-    React.createElement(HCard,null,
-      React.createElement(HCardHead,{icon:"📝",label:"Standing health notes",onAdd:editGen?null:function(){setGenDraft(general);setEditGen(true);}}),
-      editGen
-        ?React.createElement(React.Fragment,null,React.createElement(HTextarea,{value:genDraft,onChange:setGenDraft,rows:4,placeholder:"Allergies, provider preferences, insurance notes..."}),React.createElement("div",{style:{display:"flex",gap:8}},React.createElement(HSaveBtn,{onClick:saveGen,label:"Save note"}),React.createElement("button",{onClick:function(){setEditGen(false);},style:{flex:1,background:"transparent",border:HBORD,borderRadius:8,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontSize:13,fontFamily:"inherit"}},"Cancel")))
-        :general?React.createElement("p",{style:{fontSize:13,color:"rgba(250,248,244,0.6)",lineHeight:1.7,margin:0,cursor:"pointer"},onClick:function(){setGenDraft(general);setEditGen(true);}},general):React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0",cursor:"pointer"},onClick:function(){setGenDraft("");setEditGen(true);}},"Tap to add standing notes…")
+    calToast&&React.createElement("div",{style:{background:"rgba(106,155,181,0.2)",border:"0.5px solid rgba(106,155,181,0.4)",borderRadius:8,padding:"0.5rem 0.9rem",fontSize:12,color:"#6A9BB5",marginBottom:"0.75rem",textAlign:"center"}},"📅 "+calToast),
+    // Standing notes — private locked
+    React.createElement(HCard,{style:{marginBottom:"0.9rem"}},
+      React.createElement(HCardHead,{icon:"📝",label:"Standing health notes · private",onAdd:null}),
+      React.createElement(HPrivateLock,null,
+        editGen
+          ?React.createElement(React.Fragment,null,
+            React.createElement(HTextarea,{value:genDraft,onChange:setGenDraft,rows:4,placeholder:"Insurance info, provider preferences, sensitive notes…"}),
+            React.createElement("div",{style:{display:"flex",gap:8}},
+              React.createElement(HSaveBtn,{onClick:saveGen,label:"Save"}),
+              React.createElement("button",{onClick:function(){setEditGen(false);},style:{flex:1,background:"transparent",border:HBORD,borderRadius:8,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontSize:13,fontFamily:"inherit"}},"Cancel")))
+          :general
+            ?React.createElement("p",{style:{fontSize:13,color:"rgba(250,248,244,0.6)",lineHeight:1.7,margin:0,cursor:"pointer"},onClick:function(){setGenDraft(general);setEditGen(true);}},general)
+            :React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0",cursor:"pointer"},onClick:function(){setGenDraft("");setEditGen(true);}},"Tap to add private standing notes…")
+      )
     ),
+    // Appointment notes
     React.createElement(HCard,null,
-      React.createElement(HCardHead,{icon:"🗒️",label:"Appointment notes",onAdd:function(){setOpen(true);}}),
+      React.createElement(HCardHead,{icon:"🗒️",label:"Appointment notes",onAdd:function(){setForm({title:"",date:"",provider:"",location:"",body:"",tags:"",addToCalendar:false});setEditId(null);setOpen(true);}}),
       notes.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No appointment notes yet"),
-      notes.map(function(n){return React.createElement("div",{key:n.id,style:{background:HSURF2,border:HBORD2,borderRadius:8,padding:"0.75rem 0.9rem",marginBottom:"0.5rem"}},React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.35rem"}},React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE}},n.title),React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}},n.date),React.createElement("button",{onClick:function(){removeNote(n.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕"))),(n.provider||n.location)&&React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 0.4rem"}},"🏥 "+[n.provider,n.location].filter(Boolean).join(" · ")),n.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.55)",lineHeight:1.65,margin:"0 0 0.45rem"}},n.body),n.tags&&n.tags.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},n.tags.map(function(t,i){return React.createElement("span",{key:i,style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(255,255,255,0.05)",color:"rgba(250,248,244,0.4)",border:HBORD2}},t);})));})
+      notes.map(function(n){
+        return React.createElement("div",{key:n.id,style:{background:HSURF2,border:HBORD2,borderRadius:8,padding:"0.75rem 0.9rem",marginBottom:"0.5rem"}},
+          React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.35rem"}},
+            React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE}},n.title),
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+              React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}},n.date),
+              React.createElement("button",{onClick:function(){startEdit(n);},style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
+              React.createElement("button",{onClick:function(){injectCalendar(n);},title:"Add to calendar",style:{background:"rgba(106,155,181,0.1)",border:"0.5px solid rgba(106,155,181,0.25)",borderRadius:5,color:"#6A9BB5",cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"📅"),
+              React.createElement("button",{onClick:function(){removeNote(n.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
+            )
+          ),
+          (n.provider||n.location)&&React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 0.4rem"}},"🏥 "+[n.provider,n.location].filter(Boolean).join(" · ")),
+          n.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.55)",lineHeight:1.65,margin:"0 0 0.45rem"}},n.body),
+          n.tags&&n.tags.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},n.tags.map(function(t,i){return React.createElement("span",{key:i,style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(255,255,255,0.05)",color:"rgba(250,248,244,0.4)",border:HBORD2}},t);}))
+        );
+      })
     ),
-    open&&React.createElement(HModal,{title:"Add appointment note",onClose:function(){setOpen(false);}},React.createElement(HInput,{label:"Visit title",value:form.title,onChange:function(v){setForm(function(f){return Object.assign({},f,{title:v});});},placeholder:"e.g. Annual physical"}),React.createElement(HInput,{label:"Date",value:form.date,onChange:function(v){setForm(function(f){return Object.assign({},f,{date:v});});},placeholder:"e.g. Mar 14, 2025"}),React.createElement(HInput,{label:"Provider",value:form.provider,onChange:function(v){setForm(function(f){return Object.assign({},f,{provider:v});});},placeholder:"e.g. Dr. Reyes"}),React.createElement(HSelect,{label:"Visit type",value:form.location,onChange:function(v){setForm(function(f){return Object.assign({},f,{location:v});});},options:LOC_OPTS}),React.createElement(HTextarea,{label:"Notes from visit",value:form.body,onChange:function(v){setForm(function(f){return Object.assign({},f,{body:v});});},placeholder:"What was discussed, prescribed, or ordered…",rows:5}),React.createElement(HInput,{label:"Tags (comma-separated)",value:form.tags,onChange:function(v){setForm(function(f){return Object.assign({},f,{tags:v});});},placeholder:"e.g. blood pressure, A1C, follow-up"}),React.createElement(HSaveBtn,{onClick:addNote,label:"Save note"}))
+    open&&React.createElement(HModal,{title:editId?"Edit appointment note":"Add appointment note",onClose:function(){setOpen(false);setEditId(null);}},
+      React.createElement(HInput,{label:"Visit title",value:form.title,onChange:function(v){setForm(function(f){return Object.assign({},f,{title:v});});},placeholder:"e.g. Annual physical"}),
+      React.createElement(HInput,{label:"Date",value:form.date,onChange:function(v){setForm(function(f){return Object.assign({},f,{date:v});});},placeholder:"e.g. 2025-03-14"}),
+      React.createElement(HInput,{label:"Provider",value:form.provider,onChange:function(v){setForm(function(f){return Object.assign({},f,{provider:v});});},placeholder:"e.g. Dr. Reyes"}),
+      React.createElement(HSelect,{label:"Visit type",value:form.location,onChange:function(v){setForm(function(f){return Object.assign({},f,{location:v});});},options:LOC_OPTS}),
+      React.createElement(HTextarea,{label:"Notes from visit",value:form.body,onChange:function(v){setForm(function(f){return Object.assign({},f,{body:v});});},placeholder:"What was discussed, prescribed, or ordered…",rows:5}),
+      React.createElement(HInput,{label:"Tags (comma-separated)",value:form.tags,onChange:function(v){setForm(function(f){return Object.assign({},f,{tags:v});});},placeholder:"e.g. blood pressure, A1C, follow-up"}),
+      form.date&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:"0.75rem",padding:"0.5rem 0.75rem",background:"rgba(106,155,181,0.08)",borderRadius:8,border:"0.5px solid rgba(106,155,181,0.2)",cursor:"pointer"},onClick:function(){setForm(function(f){return Object.assign({},f,{addToCalendar:!f.addToCalendar});});}},
+        React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"1.5px solid rgba(106,155,181,0.5)",background:form.addToCalendar?"rgba(106,155,181,0.4)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#6A9BB5"}},form.addToCalendar?"✓":""),
+        React.createElement("span",{style:{fontSize:12,color:"rgba(106,155,181,0.9)",fontFamily:"inherit"}},"📅 Add this appointment to calendar")
+      ),
+      React.createElement(HSaveBtn,{onClick:addNote,label:editId?"Save changes":"Save note"})
+    )
   );
 }
 
@@ -2860,6 +3098,108 @@ function HPersonCard(props) {
   );
 }
 
+// ── Appointments tab (upcoming + past, with calendar push) ───────────────────
+function HAppointmentsTab(props) {
+  var pid=props.personId; var health=props.health; var setHealth=props.setHealth;
+  var personName=props.personName||"";
+  var s0=useState(false); var open=s0[0]; var setOpen=s0[1];
+  var s1=useState({title:"",date:"",time:"",provider:"",location:"",body:"",addToCalendar:true}); var form=s1[0]; var setForm=s1[1];
+  var s2=useState(null); var editId=s2[0]; var setEditId=s2[1];
+  var s3=useState(null); var toast=s3[0]; var setToast=s3[1];
+  var appts=(health[pid]&&health[pid].appointments)||[];
+  var today=new Date().toISOString().slice(0,10);
+  var upcoming=appts.filter(function(a){return a.date>=today;}).sort(function(a,b){return a.date<b.date?-1:1;});
+  var past=appts.filter(function(a){return a.date<today;}).sort(function(a,b){return a.date<b.date?1:-1;});
+
+  function injectCal(appt) {
+    try {
+      var events=JSON.parse(localStorage.getItem("af_calEvents")||"[]");
+      var calId="health_appt_"+appt.id;
+      if(!events.some(function(e){return e.id===calId;})) {
+        var label=(personName?personName+"'s ":"")+appt.title+(appt.provider?" · "+appt.provider:"");
+        events.push({id:calId,title:"🩺 "+label,date:appt.date,time:appt.time||"",color:"#6A9BB5",notes:appt.body||""});
+        localStorage.setItem("af_calEvents",JSON.stringify(events));
+        return true;
+      }
+    } catch(e){}
+    return false;
+  }
+
+  function save() {
+    if(!form.title.trim()||!form.date)return;
+    var next=Object.assign({},health);if(!next[pid])next[pid]={};
+    var appt={id:editId||huid(),title:form.title,date:form.date,time:form.time,provider:form.provider,location:form.location,body:form.body};
+    if(editId){
+      next[pid].appointments=(next[pid].appointments||[]).map(function(x){return x.id===editId?appt:x;});
+    } else {
+      next[pid].appointments=(next[pid].appointments||[]).concat([appt]);
+    }
+    setHealth(next);
+    if(form.addToCalendar) {
+      var added=injectCal(appt);
+      if(added){setToast("Added to calendar!");setTimeout(function(){setToast(null);},2500);}
+    }
+    setForm({title:"",date:"",time:"",provider:"",location:"",body:"",addToCalendar:true});
+    setOpen(false);setEditId(null);
+  }
+
+  function startEdit(a){
+    setForm({title:a.title,date:a.date||"",time:a.time||"",provider:a.provider||"",location:a.location||"",body:a.body||"",addToCalendar:false});
+    setEditId(a.id);setOpen(true);
+  }
+  function remove(id){
+    var next=Object.assign({},health);
+    next[pid].appointments=(next[pid].appointments||[]).filter(function(x){return x.id!==id;});
+    setHealth(next);
+  }
+
+  function ApptRow(ap) {
+    var a=ap.appt;
+    var isPast=a.date<today;
+    return React.createElement("div",{style:{background:HSURF2,border:HBORD2,borderRadius:8,padding:"0.7rem 0.9rem",marginBottom:"0.5rem"}},
+      React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},a.title),
+          React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 2px"}},[a.date,a.time].filter(Boolean).join(" · ")+(a.provider?" · "+a.provider:"")),
+          a.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",margin:0,lineHeight:1.5}},a.body)
+        ),
+        React.createElement("div",{style:{display:"flex",gap:5,flexShrink:0,marginLeft:6}},
+          !isPast&&React.createElement("button",{onClick:function(){injectCal(a);setToast("Added to calendar!");setTimeout(function(){setToast(null);},2500);},title:"Push to calendar",style:{background:"rgba(106,155,181,0.1)",border:"0.5px solid rgba(106,155,181,0.25)",borderRadius:5,color:"#6A9BB5",cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"📅"),
+          React.createElement("button",{onClick:function(){startEdit(a);},style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
+          React.createElement("button",{onClick:function(){remove(a.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
+        )
+      )
+    );
+  }
+
+  var LOC_OPTS=["In-person","Telehealth","Urgent care","ER","Specialist","Lab","Other"].map(function(v){return{value:v,label:v};});
+  return React.createElement(React.Fragment,null,
+    toast&&React.createElement("div",{style:{background:"rgba(106,155,181,0.2)",border:"0.5px solid rgba(106,155,181,0.4)",borderRadius:8,padding:"0.5rem 0.9rem",fontSize:12,color:"#6A9BB5",marginBottom:"0.75rem",textAlign:"center"}},"📅 "+toast),
+    React.createElement(HCard,null,
+      React.createElement(HCardHead,{icon:"📅",label:"Upcoming appointments",onAdd:function(){setForm({title:"",date:"",time:"",provider:"",location:"",body:"",addToCalendar:true});setEditId(null);setOpen(true);}}),
+      upcoming.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No upcoming appointments"),
+      upcoming.map(function(a){return React.createElement(ApptRow,{key:a.id,appt:a});})
+    ),
+    past.length>0&&React.createElement(HCard,{style:{marginTop:"0.9rem"}},
+      React.createElement(HCardHead,{icon:"🗓️",label:"Past appointments"}),
+      past.map(function(a){return React.createElement(ApptRow,{key:a.id,appt:a});})
+    ),
+    open&&React.createElement(HModal,{title:editId?"Edit appointment":"Add appointment",onClose:function(){setOpen(false);setEditId(null);}},
+      React.createElement(HInput,{label:"Appointment title",value:form.title,onChange:function(v){setForm(function(f){return Object.assign({},f,{title:v});});},placeholder:"e.g. Annual physical, Cardiology follow-up"}),
+      React.createElement(HInput,{label:"Date",value:form.date,type:"date",onChange:function(v){setForm(function(f){return Object.assign({},f,{date:v});});},placeholder:""}),
+      React.createElement(HInput,{label:"Time (optional)",value:form.time,onChange:function(v){setForm(function(f){return Object.assign({},f,{time:v});});},placeholder:"e.g. 10:30 AM"}),
+      React.createElement(HInput,{label:"Provider",value:form.provider,onChange:function(v){setForm(function(f){return Object.assign({},f,{provider:v});});},placeholder:"e.g. Dr. Reyes"}),
+      React.createElement(HSelect,{label:"Visit type",value:form.location,onChange:function(v){setForm(function(f){return Object.assign({},f,{location:v});});},options:LOC_OPTS}),
+      React.createElement(HTextarea,{label:"Notes",value:form.body,onChange:function(v){setForm(function(f){return Object.assign({},f,{body:v});});},placeholder:"Reason for visit, instructions, prep notes…",rows:3}),
+      form.date&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:"0.75rem",padding:"0.5rem 0.75rem",background:"rgba(106,155,181,0.08)",borderRadius:8,border:"0.5px solid rgba(106,155,181,0.2)",cursor:"pointer"},onClick:function(){setForm(function(f){return Object.assign({},f,{addToCalendar:!f.addToCalendar});});}},
+        React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"1.5px solid rgba(106,155,181,0.5)",background:form.addToCalendar?"rgba(106,155,181,0.4)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#6A9BB5"}},form.addToCalendar?"✓":""),
+        React.createElement("span",{style:{fontSize:12,color:"rgba(106,155,181,0.9)",fontFamily:"inherit"}},"📅 Add to app calendar")
+      ),
+      React.createElement(HSaveBtn,{onClick:save,label:editId?"Save changes":"Add appointment"})
+    )
+  );
+}
+
 function HealthSection() {
   var s_people=useState(hLoadPeople()); var people=s_people[0]; var setPeople=s_people[1];
   var hPair=useHealth(); var health=hPair[0]; var setHealth=hPair[1];
@@ -2914,7 +3254,7 @@ function HealthSection() {
   // ── Person detail view ────────────────────────────────────────────────────
   var person=people.find(function(p){return p.id===detail.pid;});
   if(!person) { setDetail(null); return null; }
-  var tp={personId:person.id,health:health,setHealth:setHealth};
+  var tp={personId:person.id,health:health,setHealth:setHealth,personName:person.name,allPeople:people};
   var initials=person.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
 
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
@@ -2923,6 +3263,21 @@ function HealthSection() {
       React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
       React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
       React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},person.name),
+      // maternal link pill — show on non-"You" people when the first person exists
+      people.length>1&&people.indexOf(person)>0&&React.createElement("div",{style:{position:"relative"}},
+        React.createElement("button",{onClick:function(){setDetail(function(d){return Object.assign({},d,{showLink:!d.showLink});});},title:"Link family history",style:{fontSize:11,color:"rgba(250,248,244,0.4)",background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:7,padding:"4px 9px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Hx link"),
+        detail.showLink&&React.createElement("div",{style:{position:"absolute",right:0,top:"calc(100% + 4px)",background:"#1e2e52",border:HBORD,borderRadius:10,padding:"0.75rem",zIndex:99,minWidth:220,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
+          React.createElement("p",{style:{fontSize:12,color:HWHITE,fontWeight:500,marginBottom:4}},"Inherit family history from:"),
+          React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginBottom:10,lineHeight:1.5}},"Their history becomes this person's maternal side. Updates automatically."),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+            React.createElement("button",{onClick:function(){var next=Object.assign({},health);if(!next[person.id])next[person.id]={};next[person.id].maternalSourceId=null;setHealth(next);setDetail(function(d){return Object.assign({},d,{showLink:false});});},style:{fontSize:11,padding:"5px 10px",borderRadius:6,background:(!health[person.id]||!health[person.id].maternalSourceId)?"rgba(200,169,122,0.15)":"transparent",border:HBORD,color:HGOLD,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}},"None (use own entries)"),
+            people.filter(function(p){return p.id!==person.id;}).map(function(p){
+              var isLinked=health[person.id]&&health[person.id].maternalSourceId===p.id;
+              return React.createElement("button",{key:p.id,onClick:function(){var next=Object.assign({},health);if(!next[person.id])next[person.id]={};next[person.id].maternalSourceId=p.id;setHealth(next);setDetail(function(d){return Object.assign({},d,{showLink:false});});},style:{fontSize:11,padding:"5px 10px",borderRadius:6,background:isLinked?"rgba(200,169,122,0.15)":"transparent",border:HBORD,color:isLinked?HGOLD:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}},p.name+(isLinked?" ✓":""));
+            })
+          )
+        )
+      ),
       people.indexOf(person)>0&&React.createElement("button",{onClick:function(){removePerson(person.id);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
     ),
     // subtabs
@@ -2934,8 +3289,9 @@ function HealthSection() {
       detail.tab==="immunize"  &&React.createElement(HImmunizeTab, tp),
       detail.tab==="meds"      &&React.createElement(HMedsTab,     tp),
       detail.tab==="allergies" &&React.createElement(HAllergiesTab,tp),
-      detail.tab==="family"    &&React.createElement(HFamilyTab,   tp),
-      detail.tab==="notes"     &&React.createElement(HNotesTab,    tp)
+      detail.tab==="family"    &&React.createElement(HFamilyTab,   Object.assign({},tp,{maternalSourceId:health[person.id]&&health[person.id].maternalSourceId})),
+      detail.tab==="notes"     &&React.createElement(HNotesTab,    tp),
+      detail.tab==="appts"     &&React.createElement(HAppointmentsTab, tp)
     )
   );
 }
