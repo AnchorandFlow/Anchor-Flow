@@ -8877,6 +8877,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "calendar", label: "Calendar", emoji: "📆" },
     { id: "meals",    label: "Meals",    emoji: "🍽️" },
     { id: "shop",     label: "Shopping", emoji: "🛒" },
+    { id: "cove",     label: "The Cove", emoji: "🏝️" },
     { id: "home",     label: "Home",     emoji: "🏡" },
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
     { id: "school",   label: "School",   emoji: "🏫" },
