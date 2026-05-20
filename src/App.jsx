@@ -5841,6 +5841,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.78rem",color:T.textFaint,fontWeight:700}}>✓ Done ({done.length})</div>
               <button onClick={function(){setBrainItems(function(p){return p.filter(function(b){return !b.done;});});}} style={{fontSize:"0.72rem",color:T.rose||"#d85a30",background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"2rem",padding:"0.18rem 0.65rem",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🗑 Clear completed</button>
+            </div>
             {done.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
           </div>
         )}
