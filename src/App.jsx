@@ -535,13 +535,14 @@ const TABS = [
   {id:"calendar", label:"Calendar", emoji:"📆"},
   {id:"meals",    label:"Meals",    emoji:"🍽️"},
   {id:"shop",     label:"Shopping", emoji:"🛒"},
+  {id:"cove",     label:"The Cove", emoji:"🏝️"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Brain",    emoji:"🧠"},
   {id:"school",   label:"School",   emoji:"🏫"},
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
-const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
+const PRIMARY_TABS = ["anchor","calendar","meals","shop","cove"];
 const MORE_TABS    = ["weekly","home","brain","school","settings"];
 
 const CAL_SOURCES = [
@@ -1301,7 +1302,7 @@ function HomeFlow() {
     } catch {}
     return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
   }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school"]));
+  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","cove"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
   homeFlowRef.goTab = goTab;
@@ -1406,7 +1407,8 @@ function HomeFlow() {
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
-  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true});
+  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,cove:true});
+  const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
@@ -5922,6 +5924,273 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── The Cove ────────────────────────────────────────────────────────────────
+  const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
+  const COVE_MIN_OPEN  = 10;
+
+  function getDefaultCoveData() {
+    var kids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
+    if(kids.length===0) kids = [{id:"k1",name:"Child 1"}];
+    return kids.map(function(k){
+      return {
+        kidId: k.id,
+        kidName: k.name,
+        shells: 0,
+        chores: [
+          {id:uid(),name:"Make bed",pts:1,done:false},
+          {id:uid(),name:"Clear dishes",pts:1,done:false},
+          {id:uid(),name:"Read 20 mins",pts:1,done:false},
+        ],
+        treasures: [
+          {id:uid(),name:"Extra screen time",icon:"📱",cost:10},
+          {id:uid(),name:"Pick dinner",icon:"🍕",cost:15},
+          {id:uid(),name:"Movie night pick",icon:"🎬",cost:20},
+          {id:uid(),name:"Stay up late",icon:"🌙",cost:25},
+          {id:uid(),name:"Special outing",icon:"🎡",cost:35},
+        ],
+      };
+    });
+  }
+
+  function CoveTab() {
+    var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
+    if(rawKids.length===0) rawKids = [{id:"k1",name:"Child 1",color:"#c8a97a"}];
+
+    // Merge persisted coveData with current people list
+    var [kids, setKids] = useState(function(){
+      var saved = coveData;
+      if(!saved||!saved.length) return getDefaultCoveData();
+      // Reconcile: keep saved data, add new kids, remove gone kids
+      var merged = rawKids.map(function(p){
+        var existing = saved.find(function(d){ return d.kidId===p.id; });
+        if(existing) return existing;
+        return {kidId:p.id,kidName:p.name,shells:0,chores:[
+          {id:uid(),name:"Make bed",pts:1,done:false},
+          {id:uid(),name:"Clear dishes",pts:1,done:false},
+        ],treasures:[
+          {id:uid(),name:"Extra screen time",icon:"📱",cost:10},
+          {id:uid(),name:"Pick dinner",icon:"🍕",cost:15},
+          {id:uid(),name:"Movie night pick",icon:"🎬",cost:20},
+          {id:uid(),name:"Stay up late",icon:"🌙",cost:25},
+          {id:uid(),name:"Special outing",icon:"🎡",cost:35},
+        ]};
+      });
+      return merged;
+    });
+
+    var [selIdx, setSelIdx] = useState(0);
+    var [chestOpen, setChestOpen] = useState(false);
+    var [selectedTreasure, setSelectedTreasure] = useState(null);
+    var [claimed, setClaimed] = useState(null);
+    var [flyName, setFlyName] = useState("");
+    var [flyPts, setFlyPts] = useState(1);
+
+    // Persist to coveData whenever kids changes
+    useEffect(function(){ setCoveData(kids); }, [kids]);
+
+    var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
+
+    function updateKid(patch) {
+      setKids(function(prev){
+        return prev.map(function(k,i){ return i===selIdx?Object.assign({},k,patch):k; });
+      });
+    }
+
+    function toggleChore(choreId) {
+      var ch = kid.chores.find(function(c){ return c.id===choreId; });
+      if(!ch) return;
+      var newShells = ch.done ? Math.max(0, kid.shells - ch.pts) : kid.shells + ch.pts;
+      updateKid({
+        shells: newShells,
+        chores: kid.chores.map(function(c){ return c.id===choreId?Object.assign({},c,{done:!c.done}):c; })
+      });
+    }
+
+    function giveShell() {
+      if(!flyName.trim()) return;
+      updateKid({shells: kid.shells + flyPts});
+      setFlyName("");
+    }
+
+    function openChest() {
+      if(kid.shells < COVE_MIN_OPEN) return;
+      setChestOpen(true);
+      setSelectedTreasure(null);
+      setClaimed(null);
+    }
+
+    function claimTreasure() {
+      if(!selectedTreasure || kid.shells < selectedTreasure.cost) return;
+      var t = selectedTreasure;
+      updateKid({shells: kid.shells - t.cost});
+      setClaimed(t);
+      setSelectedTreasure(null);
+    }
+
+    function closeChest() {
+      setChestOpen(false);
+      setSelectedTreasure(null);
+      setClaimed(null);
+    }
+
+    var shellCount = kid.shells;
+    var ready = shellCount >= COVE_MIN_OPEN;
+    var shellSlots = Math.max(COVE_MIN_OPEN, shellCount);
+    var sortedTreasures = (kid.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;});
+
+    var navyHex = "#1a2744";
+    var sandHex = "#c8a97a";
+    var tealHex = "#1d9e75";
+
+    return (
+      <div>
+        <div style={{textAlign:"center",marginBottom:"1.25rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ The Cove</div>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+        </div>
+
+        {/* Kid selector */}
+        {kids.length > 1 && (
+          <div style={{display:"flex",justifyContent:"center",gap:"0.5rem",marginBottom:"1.25rem",flexWrap:"wrap"}}>
+            {kids.map(function(k,i){
+              return (
+                <button key={k.kidId} onClick={function(){setSelIdx(i);setChestOpen(false);setSelectedTreasure(null);setClaimed(null);}}
+                  style={{padding:"0.35rem 1.1rem",borderRadius:"99px",border:"1.5px solid "+(i===selIdx?navyHex:T.border),background:i===selIdx?navyHex:"transparent",color:i===selIdx?"#faf8f4":T.textMid,fontSize:"0.82rem",cursor:"pointer",fontFamily:"inherit",fontWeight:i===selIdx?700:500,transition:"all 0.15s"}}>
+                  {k.kidName}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Shell counter + Chest */}
+        <div style={{textAlign:"center",marginBottom:"1rem"}}>
+          <div style={{fontSize:"0.8rem",color:T.textSoft,marginBottom:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"}}>
+            <span style={{fontSize:"1.1rem"}}>🐚</span>
+            <span style={{fontSize:"1.5rem",fontWeight:700,color:navyHex,fontFamily:"'Cormorant Garamond',serif"}}>{shellCount}</span>
+            <span style={{fontSize:"0.8rem"}}>shells</span>
+          </div>
+
+          {/* SVG Chest */}
+          <div onClick={ready&&!chestOpen?openChest:undefined}
+            style={{display:"inline-block",cursor:ready&&!chestOpen?"pointer":"default",transition:"transform 0.12s",userSelect:"none"}}
+            title={ready&&!chestOpen?"Open the chest!":""}>
+            <svg width="140" height="112" viewBox="0 0 160 128" xmlns="http://www.w3.org/2000/svg">
+              {/* Body */}
+              <rect x="10" y="58" width="140" height="60" rx="8" fill="#8B5E2A" stroke="#5c3a0e" strokeWidth="1.5"/>
+              <rect x="10" y="58" width="140" height="14" rx="0" fill="#6b4720"/>
+              {[66,73,80,87,94].map(function(y){ return <rect key={y} x="22" y={y} width="116" height="3" rx="1.5" fill={sandHex} opacity="0.5"/>; })}
+              {/* Lid */}
+              <rect x="10" y={chestOpen?6:24} width="140" height="38" rx="8" fill="#a06c30" stroke="#5c3a0e" strokeWidth="1.5"
+                style={{transition:"y 0.3s ease"}}
+                transform={chestOpen?"rotate(-20,80,62)":undefined}/>
+              <rect x="10" y="54" width="140" height="8" rx="0" fill="#8B5E2A"/>
+              {[30,37,44].map(function(y){ return <rect key={y} x="22" y={y} width="116" height="3" rx="1.5" fill={sandHex} opacity="0.45"/>; })}
+              {/* Lock — hidden when open */}
+              {!chestOpen && <>
+                <rect x="67" y="46" width="26" height="20" rx="4" fill={sandHex} stroke="#8a6a2a" strokeWidth="1"/>
+                <path d="M73 46 Q73 36 80 36 Q87 36 87 46" fill="none" stroke={sandHex} strokeWidth="3" strokeLinecap="round"/>
+                <circle cx="80" cy="57" r="3.5" fill="#8B5E2A"/>
+              </>}
+            </svg>
+          </div>
+
+          <div style={{fontSize:"0.8rem",marginTop:"0.4rem",minHeight:"1.2rem",fontWeight:ready&&!chestOpen?700:400,color:ready&&!chestOpen?tealHex:T.textSoft}}>
+            {chestOpen?"":ready?"Tap the chest to open it!":`${COVE_MIN_OPEN-shellCount} more shell${COVE_MIN_OPEN-shellCount===1?"":"s"} to open`}
+          </div>
+        </div>
+
+        {/* Shell beach */}
+        <div style={{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:"5px",maxWidth:460,margin:"0 auto 1.25rem"}}>
+          {Array.from({length:shellSlots}).map(function(_,i){
+            return (
+              <div key={i} style={{width:32,height:32,borderRadius:"50%",border:"1.5px "+(i<shellCount?"solid":"dashed")+" "+sandHex,background:i<shellCount?"#fdf5e8":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"16px",transition:"all 0.2s"}}>
+                {i<shellCount?"🐚":""}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Treasure chest panel */}
+        {chestOpen && (
+          <div style={{...card({background:"#fdf5e8",border:"1.5px solid "+sandHex}),marginBottom:"1rem"}}>
+            {claimed ? (
+              <div style={{textAlign:"center",padding:"0.5rem 0"}}>
+                <div style={{fontSize:"2.5rem",marginBottom:"0.4rem"}}>{claimed.icon}</div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:"#412402",marginBottom:"0.2rem"}}>{kid.kidName} claimed: {claimed.name}!</div>
+                <div style={{fontSize:"0.8rem",color:"#633806",marginBottom:"0.85rem"}}>You still have {kid.shells} shell{kid.shells===1?"":"s"} — keep collecting!</div>
+                <button onClick={closeChest} style={{...btnS(),fontSize:"0.8rem",border:"1px solid "+sandHex,color:"#854f0b"}}>Close chest</button>
+              </div>
+            ) : (
+              <>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.25rem"}}>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#412402"}}>The chest is open!</div>
+                  <button onClick={closeChest} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",color:"#854f0b",padding:"2px 4px"}}>✕</button>
+                </div>
+                <div style={{fontSize:"0.78rem",color:"#633806",marginBottom:"1rem"}}>{selectedTreasure?"Nice choice! Tap \"Claim treasure\" to spend your shells.":"Pick your treasure — or close and keep saving for something bigger."}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:"0.5rem",marginBottom:"0.85rem"}}>
+                  {sortedTreasures.map(function(t){
+                    var canAfford = kid.shells >= t.cost;
+                    var isSel = selectedTreasure&&selectedTreasure.id===t.id;
+                    return (
+                      <div key={t.id}
+                        onClick={canAfford?function(){setSelectedTreasure(isSel?null:t);}:undefined}
+                        style={{background:"#fffdf8",border:(isSel?"2px solid "+navyHex:"1px solid #e8d8b8"),borderRadius:"0.75rem",padding:"0.7rem 0.5rem",textAlign:"center",cursor:canAfford?"pointer":"default",opacity:canAfford?1:0.42,transition:"all 0.15s"}}>
+                        <div style={{fontSize:"1.5rem",marginBottom:"0.3rem"}}>{t.icon}</div>
+                        <div style={{fontSize:"0.76rem",fontWeight:600,color:"#412402",marginBottom:"0.2rem",lineHeight:1.3}}>{t.name}</div>
+                        <div style={{fontSize:"0.7rem",color:canAfford?tealHex:"#b4b2a9"}}>{t.cost} 🐚{!canAfford?" · "+(t.cost-kid.shells)+" more":""}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                  <button onClick={closeChest} style={{...btnS(),fontSize:"0.8rem",border:"1px solid "+sandHex,color:"#854f0b",padding:"0.45rem 1rem"}}>Keep saving</button>
+                  <button onClick={claimTreasure} disabled={!selectedTreasure}
+                    style={{...btnP(navyHex),fontSize:"0.8rem",padding:"0.45rem 1rem",opacity:selectedTreasure?1:0.35,cursor:selectedTreasure?"pointer":"default"}}>Claim treasure</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Chores */}
+        <div style={card()}>
+          <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",marginBottom:"0.75rem"}}>Today's chores</div>
+          {(kid.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.82rem",marginBottom:"0.65rem"}}>No chores yet — add some in Settings.</div>}
+          {(kid.chores||[]).map(function(ch){
+            return (
+              <div key={ch.id} onClick={function(){toggleChore(ch.id);}}
+                style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",borderRadius:"0.65rem",border:"1px solid "+(ch.done?T.sage+"60":T.border),background:ch.done?T.sagePale:T.white,marginBottom:"0.45rem",cursor:"pointer",transition:"all 0.15s"}}>
+                <div style={{width:20,height:20,borderRadius:"50%",border:"1.5px solid "+(ch.done?tealHex:sandHex),background:ch.done?tealHex:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:"11px",color:ch.done?"#fff":"transparent",transition:"all 0.15s"}}>
+                  {ch.done?"✓":""}
+                </div>
+                <div style={{flex:1,fontSize:"0.85rem",color:ch.done?T.textSoft:T.textDark,textDecoration:ch.done?"line-through":"none"}}>{ch.name}</div>
+                <div style={{fontSize:"0.76rem",color:"#8a6a3a",fontWeight:600}}>+{ch.pts} 🐚</div>
+              </div>
+            );
+          })}
+
+          {/* On-the-fly shell */}
+          <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:"1px solid "+T.borderSoft}}>
+            <div style={{fontSize:"0.7rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>On-the-fly shell</div>
+            <div style={{display:"flex",gap:"0.4rem"}}>
+              <input value={flyName} onChange={function(e){setFlyName(e.target.value);}}
+                placeholder="Something helpful they did..."
+                style={{...inp({fontSize:"0.8rem",padding:"0.42rem 0.65rem",flex:1})}}/>
+              <select value={flyPts} onChange={function(e){setFlyPts(parseInt(e.target.value));}}
+                style={{...inp({width:72,padding:"0.42rem 0.4rem",fontSize:"0.8rem"})}}>
+                <option value={1}>+1 🐚</option>
+                <option value={2}>+2 🐚</option>
+                <option value={3}>+3 🐚</option>
+              </select>
+              <button onClick={giveShell} style={{...btnP(T.sand),fontSize:"0.8rem",padding:"0.42rem 0.85rem",whiteSpace:"nowrap"}}>Give shell</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function SettingSection({id, title, children, defaultOpen=true, settingsOpen, toggleSetting}){
     const isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
     return (
@@ -7472,6 +7741,136 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </SettingSection>
         )}
 
+        {/* ── THE COVE ──────────────────────────────────────────── */}
+        <SettingSection id="cove" title="🏝️ The Cove" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
+          <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>Set up each child's chores and treasures. Every child can have their own treasure list.</p>
+          {(function(){
+            var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
+            if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem"}}>Add children in Family Profile above to set up The Cove.</div>;
+
+            var saved = coveData || [];
+            var [sKidIdx, setSKidIdx] = useState(0);
+            var [sTab, setSTab] = useState("chores");
+            var [newChoreName, setNewChoreName] = useState("");
+            var [newChorePts, setNewChorePts] = useState(1);
+            var [newTreasureName, setNewTreasureName] = useState("");
+            var [newTreasureCost, setNewTreasureCost] = useState("");
+
+            var sKid = rawKids[Math.min(sKidIdx, rawKids.length-1)];
+            var sKidData = saved.find(function(d){ return d.kidId===sKid.id; }) || {kidId:sKid.id,kidName:sKid.name,shells:0,chores:[],treasures:[]};
+            var sKidIdx2 = saved.findIndex(function(d){ return d.kidId===sKid.id; });
+
+            function updateSaved(patch) {
+              setCoveData(function(prev){
+                var arr = (prev||[]).slice();
+                if(sKidIdx2>=0) arr[sKidIdx2]=Object.assign({},arr[sKidIdx2],patch);
+                else arr.push(Object.assign({},sKidData,patch));
+                return arr;
+              });
+            }
+
+            function sDeleteChore(choreId) {
+              updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==choreId;})});
+            }
+            function sAddChore() {
+              if(!newChoreName.trim()) return;
+              updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});
+              setNewChoreName("");
+            }
+            function sDeleteTreasure(tid) {
+              updateSaved({treasures:(sKidData.treasures||[]).filter(function(t){return t.id!==tid;})});
+            }
+            function sAddTreasure() {
+              var cost = parseInt(newTreasureCost);
+              if(!newTreasureName.trim()||!cost||cost<1) return;
+              var icon = TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];
+              updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});
+              setNewTreasureName(""); setNewTreasureCost("");
+            }
+            function sCopyFrom(fromKidId) {
+              var fromData = saved.find(function(d){return d.kidId===fromKidId;});
+              if(!fromData) return;
+              var copies = (fromData.treasures||[]).map(function(t){ return Object.assign({},t,{id:uid()}); });
+              updateSaved({treasures:copies});
+            }
+
+            return (
+              <div>
+                {/* Kid selector */}
+                <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",flexWrap:"wrap"}}>
+                  {rawKids.map(function(k,i){
+                    return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.blue:T.white,color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.blue:T.border}}>{k.name}</button>;
+                  })}
+                </div>
+
+                {/* Sub-tabs */}
+                <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.75rem"}}>
+                  {["chores","treasures"].map(function(t){
+                    return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
+                  })}
+                </div>
+
+                {sTab==="chores" && (
+                  <div>
+                    {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet.</div>}
+                    {(sKidData.chores||[]).map(function(ch){
+                      return (
+                        <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.35rem",fontSize:"0.83rem"}}>
+                          <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
+                          <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
+                          <button onClick={function(){sDeleteChore(ch.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
+                      <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} placeholder="New chore..."
+                        style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                      <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}}
+                        style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
+                        <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
+                      </select>
+                      <button onClick={sAddChore} style={{...btnP(T.textDark,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}}>Add</button>
+                    </div>
+                  </div>
+                )}
+
+                {sTab==="treasures" && (
+                  <div>
+                    {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet.</div>}
+                    {(sKidData.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;}).map(function(t){
+                      return (
+                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.35rem",fontSize:"0.83rem"}}>
+                          <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
+                          <span style={{flex:1,color:T.textDark}}>{t.name}</span>
+                          <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
+                          <button onClick={function(){sDeleteTreasure(t.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
+                      <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure..."
+                        style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                      <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚"
+                        style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
+                      <button onClick={sAddTreasure} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}}>Add</button>
+                    </div>
+                    {rawKids.length>1&&(
+                      <div style={{marginTop:"0.85rem",paddingTop:"0.75rem",borderTop:"1px solid "+T.borderSoft}}>
+                        <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:700,marginBottom:"0.45rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
+                        <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                          {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
+                            return <button key={k.id} onClick={function(){sCopyFrom(k.id);}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </SettingSection>
+
         {/* ── SIGN IN / SYNC ─────────────────────────────────────── */}
         <SettingSection id="sync" title="🔐 Sign In & Sync" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
@@ -8216,7 +8615,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","calendar","weekly","meals","shop","home","brain","school","settings","ai"].map(t=>{
+          {["anchor","calendar","weekly","meals","shop","cove","home","brain","school","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -8225,6 +8624,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="weekly"   && <WeeklyTab/>}
                 {t==="meals"    && <MealsTab/>}
                 {t==="shop"     && <ShoppingTab/>}
+                {t==="cove"     && <CoveTab/>}
                 {t==="home"     && <HomeTab/>}
                 {t==="brain"    && <BrainTab/>}
                 {t==="school"   && <SchoolTab/>}
