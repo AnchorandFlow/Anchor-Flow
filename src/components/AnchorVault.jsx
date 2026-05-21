@@ -2430,8 +2430,8 @@ function CHead(props) {
   )
 }
 function CModal(props) {
-  return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:99999},onClick:props.onClose},
+    React.createElement("div",{style:{background:"#1e2e52",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},
         React.createElement("span",{style:{color:CAREER_WHITE,fontSize:15,fontWeight:600}},props.title),
         React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
@@ -3225,8 +3225,8 @@ function HItemRow(props) {
   );
 }
 function HModal(props) {
-  return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:99999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
+    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HWHITE,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
     )
