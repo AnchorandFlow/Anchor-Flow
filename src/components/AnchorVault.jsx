@@ -32,7 +32,7 @@ const NAV = [
   { id: "subs",      label: "Subscriptions",icon: "sub",  premium: true },
   { id: "gifts",     label: "Celebrate",    icon: "gift" },
   { id: "pets",      label: "Pets",         icon: "pet"  },
-  { id: "moments",   label: "Moments",      icon: "mom"  },
+  { id: "moments",   label: "Ripples",      icon: "mom"  },
   { id: "travel",    label: "Travel",       icon: "trv"  },
   { id: "settings",  label: "Settings",     icon: "set"  },
 ]
@@ -2768,7 +2768,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                       React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.5)"}},"📅 "+fmtDate(g.targetDate)),
                       days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"rgba(250,248,244,0.3)":days<=14?"#c8834a":CAREER_GOLD,background:days<0?"rgba(255,255,255,0.04)":days<=14?"rgba(200,131,74,0.1)":"rgba(200,169,122,0.1)",borderRadius:8,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
                     ),
-                    g.targetDate&&React.createElement("div",{style:{fontSize:10,color:"rgba(122,158,142,0.7)",marginTop:3}},"\u2713 Added to calendar · Ripple will remind you")
+                    g.targetDate&&React.createElement("div",{style:{fontSize:10,color:"rgba(122,158,142,0.7)",marginTop:3}},"\u2713 Added to calendar · Compass will remind you")
                   ),
                   React.createElement("div",{style:{display:"flex",gap:4,flexShrink:0}},
                     React.createElement("button",{onClick:function(){startEdit(g)},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"2px 4px"}},"✏️"),
@@ -2812,7 +2812,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date (adds to your calendar)"),
         React.createElement("input",{type:"date",value:form.targetDate,onChange:function(e){setForm(function(f){return Object.assign({},f,{targetDate:e.target.value})})},style:C_INP_STYLE})
       ),
-      form.targetDate&&React.createElement("div",{style:{fontSize:11,color:"rgba(122,158,142,0.8)",background:"rgba(122,158,142,0.08)",borderRadius:7,padding:"6px 10px",marginBottom:"0.7rem"}},"\u2713 This goal will appear on your calendar and Ripple will remind you as the date approaches."),
+      form.targetDate&&React.createElement("div",{style:{fontSize:11,color:"rgba(122,158,142,0.8)",background:"rgba(122,158,142,0.08)",borderRadius:7,padding:"6px 10px",marginBottom:"0.7rem"}},"\u2713 This goal will appear on your calendar and Compass will remind you as the date approaches."),
       React.createElement(CTextarea,{label:"Notes",value:form.notes,onChange:function(v){setForm(function(f){return Object.assign({},f,{notes:v})});},placeholder:"What does success look like? What's in the way?",rows:3}),
       React.createElement(CSaveBtn,{onClick:save})))
 }
@@ -5129,7 +5129,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         summary={{ ...pets, entries: petEntries }} />
       <DashCard id="travel" icon="✈️" label="Travel Profile" onOpen={onNavigate}
         summary={travelSum} defaultOpen={travelSum.alert} />
-      <DashCard id="moments" icon="✨" label="Moments" onOpen={onNavigate}
+      <DashCard id="moments" icon="✨" label="Ripples" onOpen={onNavigate}
         summary={{ ...moments, entries: momentEntries }} />
     </div>
   )
@@ -5146,7 +5146,7 @@ const ANCHOR_SECTIONS = [
   { id: "subs",      label: "Subscriptions", emoji: "🔄" },
   { id: "gifts",     label: "Celebrate",     emoji: "🎉" },
   { id: "pets",      label: "Pets",          emoji: "🐾" },
-  { id: "moments",   label: "Moments",       emoji: "✨" },
+  { id: "moments",   label: "Ripples",       emoji: "✨" },
   { id: "travel",    label: "Travel",        emoji: "✈️" },
 ]
 

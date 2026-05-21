@@ -169,7 +169,7 @@ function RippleNotificationBanner() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>Get Ripple on your phone</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>Get Compass on your phone</div>
             <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>Morning briefing, midday check-in, dinner reminder & evening recap</div>
           </div>
           <button
@@ -206,7 +206,7 @@ function RippleNotificationBanner() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>
-                Ripple
+                Compass
                 {hasMore && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: '#8a8a9a' }}>+{notifications.length - 1} more</span>}
               </div>
               <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif' }}>
@@ -1480,8 +1480,7 @@ function HomeFlow() {
       var store = e.detail && e.detail.store;
       if(!text) return;
       setShoppingItems(function(prev) {
-        var defaultStore = (stores && stores[0]) ? stores[0] : "Grocery Store";
-        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||defaultStore, category:"grocery"}]);
+        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||"Grocery", category:"grocery"}]);
       });
     }
     window.addEventListener("af-shopping-add", onAddToShopping);
@@ -1766,7 +1765,7 @@ function HomeFlow() {
       "Preferred name (use in greeting): "+(preferredName||familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||""),
       "Greeting tone: "+(flowGreetingTone||"warm"),
     ].join(". ");
-    const sysPrompt = `You are Ripple, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
+    const sysPrompt = `You are Compass, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
     try {
       const res = await fetch("/api/claude",{
         method:"POST",
@@ -1896,7 +1895,7 @@ function HomeFlow() {
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
-          system:`You are Ripple, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
+          system:`You are Compass, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
 
 INSIGHT CATEGORIES (use exactly these ids):
 - "calendar" — scheduling conflicts, tight transitions, prep needed for upcoming events
@@ -2090,7 +2089,7 @@ Respond ONLY with valid JSON array, no markdown:
         : `${pendingTasks.length} tasks today. ${todayMeal ? `Dinner: ${todayMeal}.` : "No dinner planned yet."} You've got this ⚓️`;
       // Also get a warm AI greeting for the title
       const title = await generateAIMessage(
-        `You are Ripple, the Anchor & Flow AI. Write a warm good morning greeting — max 50 chars, no punctuation at end. Start with "Good morning" and optionally one warm word. Examples: "Good morning, lovely day ahead", "Good morning — let's do this".`,
+        `You are Compass, the Anchor & Flow AI. Write a warm good morning greeting — max 50 chars, no punctuation at end. Start with "Good morning" and optionally one warm word. Examples: "Good morning, lovely day ahead", "Good morning — let's do this".`,
         dataCtx,
         "Good morning ⚓️ Here's your day"
       );
@@ -2116,7 +2115,7 @@ Respond ONLY with valid JSON array, no markdown:
     const defrostTime = todayAt(15);
     if (defrostTime > now && notifSettings.dinner !== false && todayMeal && !["snack plate","freezer burrito","rotisserie","no-cook"].some(s=>todayMeal.toLowerCase().includes(s))) {
       const msg = await generateAIMessage(
-        `You are Ripple, the Anchor & Flow AI. Write a friendly 3pm meal prep reminder (max 120 chars). Mention the specific dinner and suggest one thing to do now (defrost, start slow cooker, etc). Warm tone.`,
+        `You are Compass, the Anchor & Flow AI. Write a friendly 3pm meal prep reminder (max 120 chars). Mention the specific dinner and suggest one thing to do now (defrost, start slow cooker, etc). Warm tone.`,
         `Dinner tonight: ${todayMeal}. Family: ${familyProfile?.numKids||""} kids.`,
         `🍽️ Dinner reminder — ${todayMeal} tonight. Good time to check if anything needs defrosting!`
       );
@@ -2133,7 +2132,7 @@ Respond ONLY with valid JSON array, no markdown:
         ...(tmrMeal?[`Dinner: ${tmrMeal}`]:[])
       ].join(" · ");
       const body = await generateAIMessage(
-        `You are Ripple, the Anchor & Flow AI — warm and real. Write an evening recap (max 160 chars). Acknowledge what they did, mention tomorrow briefly. Caring tone, not corporate.`,
+        `You are Compass, the Anchor & Flow AI — warm and real. Write an evening recap (max 160 chars). Acknowledge what they did, mention tomorrow briefly. Caring tone, not corporate.`,
         `Done today: ${doneTasks.map(t=>t.text).join(", ")||"none"}. Still pending: ${pendingTasks.length}. Tomorrow (${tmrName}): ${tmrStr||"nothing planned yet"}.`,
         `Good evening 🌙 ${doneTasks.length>0?`${doneTasks.length} things done today — well done.`:"Rest up."} ${tmrStr?`Tomorrow: ${tmrStr.slice(0,60)}.`:""}`
       );
@@ -2148,7 +2147,7 @@ Respond ONLY with valid JSON array, no markdown:
       const nudgeTime = new Date(eventTime.getTime() - 2 * 60 * 60 * 1000); // 2hrs before
       if (nudgeTime <= now) return;
       const msg = await generateAIMessage(
-        `You are Ripple, the Anchor & Flow AI. Write a friendly heads-up notification for an upcoming appointment in 2 hours (max 120 chars). Be warm and helpful — suggest one thing to do to prepare.`,
+        `You are Compass, the Anchor & Flow AI. Write a friendly heads-up notification for an upcoming appointment in 2 hours (max 120 chars). Be warm and helpful — suggest one thing to do to prepare.`,
         `Event: ${e.title} at ${e.time}. ${familyCtx}`,
         `⏰ ${e.title} is in 2 hours — time to get ready!`
       );
@@ -2413,55 +2412,71 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Task Row ────────────────────────────────────────────────────────────────
-  function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor}) {
+  function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(t.text);
     const [notifDate, setNotifDate] = useState("");
     const [notifTime, setNotifTime] = useState("");
     const [notifNote, setNotifNote] = useState("");
-    const hasNotif = notifications.some(n=>n.entityId===t.id&&!n.fired);
+    const [showDayPicker, setShowDayPicker] = useState(false);
+    const hasNotif = notifications.some(function(n){return n.entityId===t.id&&!n.fired;});
     const isShowingNotif = showNotifFor===t.id;
     return (
-      <div style={{borderBottom:`1px solid ${T.borderSoft}`}}>
+      <div style={{borderBottom:"1px solid "+T.borderSoft}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",padding:"0.45rem 0",alignItems:"center"}}>
-            <input value={editVal} onChange={e=>setEditVal(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"){onSave(t.id,editVal);setEditing(false);}if(e.key==="Escape")setEditing(false);}}
+            <input value={editVal} onChange={function(e){setEditVal(e.target.value);}}
+              onKeyDown={function(e){if(e.key==="Enter"){onSave(t.id,editVal);setEditing(false);}if(e.key==="Escape")setEditing(false);}}
               style={{...inp({flex:1,padding:"0.4rem 0.65rem",fontSize:"0.85rem"})}} autoFocus/>
-            <button onClick={()=>{onSave(t.id,editVal);setEditing(false);}} style={btnP(T.sage,{padding:"0.4rem 0.7rem",fontSize:"0.78rem"})}>Save</button>
-            <button onClick={()=>setEditing(false)} style={btnS({padding:"0.4rem 0.7rem",fontSize:"0.78rem"})}>Cancel</button>
+            <button onClick={function(){onSave(t.id,editVal);setEditing(false);}} style={btnP(T.sage,{padding:"0.4rem 0.7rem",fontSize:"0.78rem"})}>Save</button>
+            <button onClick={function(){setEditing(false);}} style={btnS({padding:"0.4rem 0.7rem",fontSize:"0.78rem"})}>Cancel</button>
           </div>
         ) : (
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.55rem 0"}}>
               <div style={{cursor:"grab",display:"flex",flexShrink:0,opacity:0.35}}><Icon name="drag" size={14} color={T.textSoft}/></div>
-              <button onClick={()=>onToggle(t.id)} style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${t.done?(accent||T.sage):T.border}`,background:t.done?(accent||T.sage):"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+              <button onClick={function(){onToggle(t.id);}} style={{width:22,height:22,borderRadius:"50%",border:"2px solid "+(t.done?(accent||T.sage):T.border),background:t.done?(accent||T.sage):"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {t.done&&<Icon name="check" size={12} color="#fff"/>}
               </button>
               <span style={{flex:1,fontSize:"0.87rem",color:t.done?T.textFaint:T.textDark,textDecoration:t.done?"line-through":"none",fontWeight:t.done?400:600}}>
                 {t.carried&&<span style={{fontSize:"0.64rem",color:T.sand,fontWeight:700,marginRight:"0.3rem"}}>↩</span>}
                 {t.text}
               </span>
-              {t.person&&<Pill label={t.person} color={people.find(p=>p.name===t.person)?.color||T.textSoft} tiny/>}
+              {t.person&&<Pill label={t.person} color={people.find(function(p){return p.name===t.person;})?.color||T.textSoft} tiny/>}
               {hasNotif&&<span style={{fontSize:"0.7rem"}}>🔔</span>}
-              <button onClick={()=>setShowNotifFor(isShowingNotif?null:t.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="bell" size={13} color={hasNotif?T.sand:T.textSoft}/></button>
-              <button onClick={()=>{setEditVal(t.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={13} color={T.textSoft}/></button>
-              <button onClick={()=>onDelete(t.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.textFaint}/></button>
+              {onMoveDay&&allDays&&(
+                <div style={{position:"relative"}}>
+                  <button onClick={function(){setShowDayPicker(function(v){return !v;});}} title="Move to another day" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5,fontSize:"0.7rem"}} title="Move day">📅</button>
+                  {showDayPicker&&(
+                    <div style={{position:"absolute",right:0,top:"calc(100% + 2px)",zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.75rem",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",padding:"0.35rem",minWidth:120}}>
+                      {allDays.filter(function(d){return d!==currentDay;}).map(function(d){return(
+                        <button key={d} onClick={function(){onMoveDay(t.id,d);setShowDayPicker(false);}} style={{display:"block",width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",padding:"0.3rem 0.6rem",fontSize:"0.78rem",fontWeight:600,color:T.textDark,borderRadius:"0.5rem",fontFamily:"inherit"}}
+                          onMouseEnter={function(e){e.currentTarget.style.background=T.bgAlt;}}
+                          onMouseLeave={function(e){e.currentTarget.style.background="";}}
+                        >{d}</button>
+                      );})}
+                    </div>
+                  )}
+                </div>
+              )}
+              {setShowNotifFor&&<button onClick={function(){setShowNotifFor(isShowingNotif?null:t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="bell" size={13} color={hasNotif?T.sand:T.textSoft}/></button>}
+              <button onClick={function(){setEditVal(t.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={13} color={T.textSoft}/></button>
+              <button onClick={function(){onDelete(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.textFaint}/></button>
             </div>
             {isShowingNotif&&(
-              <div style={{background:T.bgAlt,border:`1px solid ${T.sand}50`,borderRadius:"0.7rem",padding:"0.75rem",marginBottom:"0.5rem"}}>
+              <div style={{background:T.bgAlt,border:"1px solid "+T.sand+"50",borderRadius:"0.7rem",padding:"0.75rem",marginBottom:"0.5rem"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.6rem"}}>
                   <Icon name="bell" size={13} color={T.sand}/>
                   <span style={{fontSize:"0.72rem",fontWeight:800,color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.06em"}}>Set Reminder</span>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.45rem",marginBottom:"0.45rem"}}>
-                  <input type="date" value={notifDate} onChange={e=>setNotifDate(e.target.value)} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
-                  <input type="time" value={notifTime} onChange={e=>setNotifTime(e.target.value)} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
+                  <input type="date" value={notifDate} onChange={function(e){setNotifDate(e.target.value);}} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
+                  <input type="time" value={notifTime} onChange={function(e){setNotifTime(e.target.value);}} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
                 </div>
-                <input value={notifNote} onChange={e=>setNotifNote(e.target.value)} placeholder="Optional note…" style={{...inp({marginBottom:"0.5rem",fontSize:"0.79rem",padding:"0.35rem 0.5rem"})}}/>
+                <input value={notifNote} onChange={function(e){setNotifNote(e.target.value);}} placeholder="Optional note…" style={{...inp({marginBottom:"0.5rem",fontSize:"0.79rem",padding:"0.35rem 0.5rem"})}}/>
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <button onClick={()=>{addNotification(t.id,t.text,notifDate,notifTime,notifNote);setShowNotifFor(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
-                  {hasNotif&&<button onClick={()=>{setNotifications(p=>p.filter(n=>n.entityId!==t.id));setShowNotifFor(null);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.65rem",color:T.rose})}>Clear</button>}
+                  <button onClick={function(){addNotification(t.id,t.text,notifDate,notifTime,notifNote);setShowNotifFor(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
+                  {hasNotif&&<button onClick={function(){setNotifications(function(p){return p.filter(function(n){return n.entityId!==t.id;});});setShowNotifFor(null);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.65rem",color:T.rose})}>Clear</button>}
                 </div>
               </div>
             )}
@@ -2498,12 +2513,10 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  function ShopItemRow({item, onToggle, onDelete, onSave, onSetCategory, categories=[]}) {
+  function ShopItemRow({item, onToggle, onDelete, onSave, selected, onSelect}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
-    const [showCatPicker, setShowCatPicker] = useState(false);
-    const hasCat = item.category && item.category !== "" && item.category !== "grocery";
     return (
       <div style={{borderBottom:`1px solid ${T.borderSoft}`}}>
         {editing ? (
@@ -2516,7 +2529,8 @@ Respond ONLY with valid JSON array, no markdown:
           </div>
         ) : (
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.44rem 0"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.44rem 0"}}>
+              <button onClick={()=>onSelect&&onSelect(item.id)} style={{width:16,height:16,borderRadius:"0.25rem",border:`2px solid ${selected?T.blue:T.borderSoft}`,background:selected?T.blue:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>{selected&&<Icon name="check" size={9} color="#fff"/>}</button>
               <button onClick={()=>onToggle(item.id)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
@@ -2529,24 +2543,9 @@ Respond ONLY with valid JSON array, no markdown:
                 {item.text}
                 {item.photo&&<span style={{fontSize:"0.62rem",color:T.sage,fontWeight:700,marginLeft:"0.4rem"}}>📷</span>}
               </span>
-              {categories.length>0&&(
-                <button onClick={()=>setShowCatPicker(v=>!v)} title="Set category" style={{background:hasCat?T.sandPale:"none",border:hasCat?`1px solid ${T.sand}55`:"none",borderRadius:"2rem",padding:hasCat?"1px 6px":"2px",cursor:"pointer",fontSize:"0.65rem",color:hasCat?T.sandDark:T.textFaint,fontWeight:700,fontFamily:"inherit",whiteSpace:"nowrap"}}>
-                  {hasCat?item.category:"tag"}
-                </button>
-              )}
               <button onClick={()=>{setEditVal(item.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={12} color={T.textSoft}/></button>
               <button onClick={()=>onDelete(item.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
             </div>
-            {showCatPicker&&(
-              <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",paddingBottom:"0.5rem",paddingLeft:"1.6rem"}}>
-                {categories.map(function(c){return(
-                  <button key={c} onClick={()=>{onSetCategory&&onSetCategory(item.id,c);setShowCatPicker(false);}} style={{background:item.category===c?T.sand:T.soft,border:`1px solid ${item.category===c?T.sand:T.border}`,borderRadius:"2rem",padding:"2px 9px",fontSize:"0.68rem",fontWeight:item.category===c?700:400,color:item.category===c?T.sandDark:T.textMid,cursor:"pointer",fontFamily:"inherit"}}>
-                    {c}
-                  </button>
-                );})}
-                {hasCat&&<button onClick={()=>{onSetCategory&&onSetCategory(item.id,"");setShowCatPicker(false);}} style={{background:"none",border:`1px solid ${T.rose}44`,borderRadius:"2rem",padding:"2px 9px",fontSize:"0.68rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>Remove</button>}
-              </div>
-            )}
             {showPhoto&&item.photo&&(
               <div style={{paddingBottom:"0.6rem"}}>
                 <img src={item.photo} alt={item.text} style={{width:"100%",maxHeight:200,objectFit:"cover",borderRadius:"0.65rem",border:`2px solid ${T.sage}40`}}/>
@@ -2647,7 +2646,7 @@ Respond ONLY with valid JSON array, no markdown:
       try {
         const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
-          system:`You are Ripple, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
+          system:`You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
           messages:msgs.map(m=>({role:m.role,content:m.text}))
         })});
         const d = await r.json();
@@ -3001,7 +3000,7 @@ Respond ONLY with valid JSON array, no markdown:
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514",max_tokens:120,
-          system:"You are Ripple. Write ONE warm closing sentence under 20 words. Be specific. Make them feel seen.",
+          system:"You are Compass. Write ONE warm closing sentence under 20 words. Be specific. Make them feel seen.",
           messages:[{role:"user",content:"Done: "+(done.map(t=>t.text).join(", ")||"nothing")+". Let go: "+letGo.length+". Tomorrow: "+(tmrEvts.map(e=>e.title).join(", ")||"quiet day")+". Mode: "+flowMode}]
         })});
         const dat = await res.json();
@@ -3080,7 +3079,7 @@ Respond ONLY with valid JSON array, no markdown:
           <div style={{background:"rgba(123,94,167,0.06)",border:"1.5px solid "+T.lavender,borderRadius:"1rem",padding:"1rem",marginBottom:"1.25rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
               <span style={{fontSize:"1.1rem"}}>✦</span>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.lavender}}>Ripple Suggestions</span>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.lavender}}> Compass Suggestions</span>
             </div>
             {prepLoading?<div style={{fontSize:"0.82rem",color:T.textSoft,padding:"0.25rem 0"}}>✨ Generating prep suggestions...</div>:prepItems.map((item,i)=>(
               <div key={i} onClick={()=>setCheckedPrep(p=>p.includes(i)?p.filter(x=>x!==i):[...p,i])} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:checkedPrep.includes(i)?T.lavPale:T.surface,borderRadius:"0.65rem",marginBottom:"0.3rem",cursor:"pointer",border:"1.5px solid "+(checkedPrep.includes(i)?T.lavender:T.borderSoft)}}>
@@ -3232,7 +3231,7 @@ Respond ONLY with valid JSON array, no markdown:
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:700,
-          system:`You are Ripple, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
+          system:`You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
 
 RULES:
 1. "brain_items": Pick 2-4 items from the brain dump that make sense TODAY. Prioritize:
@@ -3382,7 +3381,7 @@ Respond ONLY in valid JSON:
             <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
                 <span style={{fontSize:"0.85rem"}}>✦</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",fontWeight:700,color:T.textDark}}>Ripple</span>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",fontWeight:700,color:T.textDark}}>Compass</span>
                 {!insightsLoading&&<span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.2rem"}}>({visibleInsights.length})</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
@@ -3392,7 +3391,7 @@ Respond ONLY in valid JSON:
             </div>
             {showRippleFeed&&(
               <div style={{padding:"0 0.75rem 0.75rem"}}>
-                {insightsLoading&&<div style={{fontSize:"0.75rem",color:T.textSoft,fontStyle:"italic",padding:"0.5rem",textAlign:"center"}}>Ripple is looking at your week…</div>}
+                {insightsLoading&&<div style={{fontSize:"0.75rem",color:T.textSoft,fontStyle:"italic",padding:"0.5rem",textAlign:"center"}}>Compass is looking at your week…</div>}
                 {!insightsLoading&&visibleInsights.map((ins,idx)=>{
                   const cat=CAT_CONFIG[ins.category]||CAT_CONFIG.pattern;
                   return(
@@ -3885,7 +3884,7 @@ Respond ONLY in valid JSON:
                 <div style={{background:"rgba(123,94,167,0.06)",border:"1.5px solid "+T.lavender,borderRadius:"1rem",padding:"1rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
                     <span style={{fontSize:"1.1rem"}}>✦</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.lavender}}>Ripple Suggestions</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.lavender}}> Compass Suggestions</span>
                   </div>
                   {eveningNudges.slice(0,4).map((n,i)=>(
                     <AnchorCheckItem key={"evening_"+i} id={"evening_"+i} text={n} checked={checkedMealItems.includes("evening_"+i)} onCheck={id=>setCheckedMealItems(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])} color={T.lavender} bell={false} entityTitle={n}/>
@@ -4120,6 +4119,112 @@ Respond ONLY in valid JSON:
     function openEditDay(day){setEditingDay(day);setEditForm({...rhythm[day]});}
     function saveEditDay(){setRhythm(p=>({...p,[editingDay]:{...editForm}}));setEditingDay(null);}
     function applyPreset(preset){if(preset.theme==="Custom"){setEditForm(p=>({...p,emoji:preset.emoji}));return;}setEditForm({theme:preset.theme,emoji:preset.emoji,desc:preset.desc});}
+
+    // ── Cross-day drag state ────────────────────────────────────────────────
+    const crossDrag = useRef({id:null, fromDay:null, clone:null, overDay:null, overId:null});
+    const [cdDraggingId, setCdDraggingId] = useState(null);
+    const [cdOverDay,    setCdOverDay]    = useState(null);
+    const [cdOverId,     setCdOverId]     = useState(null);
+
+    function cdPointerDown(e, taskId, fromDay) {
+      if (e.button===1||e.button===2) return;
+      const el = document.querySelector('[data-cdtask="'+taskId+'"]');
+      crossDrag.current = {id:taskId, fromDay, clone:null, overDay:null, overId:null};
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll("button,input,select,textarea").forEach(function(c){c.style.pointerEvents="none";});
+        clone.style.cssText = "position:fixed;left:"+rect.left+"px;top:"+rect.top+"px;width:"+rect.width+"px;opacity:0.88;pointer-events:none;z-index:9999;box-shadow:0 8px 28px rgba(0,0,0,0.22);border-radius:0.7rem;transition:none;background:white;";
+        document.body.appendChild(clone);
+        crossDrag.current.clone = clone;
+      }
+      setCdDraggingId(taskId);
+      setCdOverDay(null);
+      setCdOverId(null);
+      e.preventDefault();
+    }
+
+    useEffect(function(){
+      if (!cdDraggingId) return;
+      function onMove(e) {
+        var cd = crossDrag.current;
+        if (!cd.id) return;
+        if (cd.clone) {
+          cd.clone.style.left = (e.clientX - cd.clone.offsetWidth/2)+"px";
+          cd.clone.style.top  = (e.clientY - 28)+"px";
+          cd.clone.style.display = "none";
+        }
+        var el = document.elementFromPoint(e.clientX, e.clientY);
+        if (cd.clone) cd.clone.style.display = "";
+        if (!el) return;
+        var taskEl  = el.closest("[data-cdtask]");
+        var dayEl   = el.closest("[data-cdday]");
+        var newOverId  = taskEl  ? taskEl.getAttribute("data-cdtask")  : null;
+        var newOverDay = dayEl   ? dayEl.getAttribute("data-cdday")    : null;
+        if (newOverId === cd.id) { newOverId = null; }
+        if (newOverDay !== cd.overDay || newOverId !== cd.overId) {
+          cd.overDay = newOverDay;
+          cd.overId  = newOverId;
+          setCdOverDay(newOverDay);
+          setCdOverId(newOverId);
+        }
+      }
+      function onUp(e) {
+        var cd = crossDrag.current;
+        if (cd.clone) { try{cd.clone.remove();}catch{} cd.clone=null; }
+        var fromId  = cd.id;
+        var fromDay = cd.fromDay;
+        var toDay   = cd.overDay;
+        var toId    = cd.overId;
+        crossDrag.current = {id:null,fromDay:null,clone:null,overDay:null,overId:null};
+        setCdDraggingId(null); setCdOverDay(null); setCdOverId(null);
+        if (!fromId) return;
+        // Determine destination day — fall back to fromDay if dropped outside any day card
+        var destDay = toDay || fromDay;
+        // Apply the move
+        if (destDay !== fromDay || toId) {
+          setTasks(function(prev) {
+            var arr = prev.slice();
+            var fi = arr.findIndex(function(x){return x.id===fromId;});
+            if (fi===-1) return prev;
+            var moved = Object.assign({}, arr[fi], {day: destDay});
+            arr.splice(fi, 1);
+            if (toId && toId !== fromId) {
+              var ti = arr.findIndex(function(x){return x.id===toId;});
+              if (ti!==-1) { arr.splice(ti, 0, moved); } else { arr.push(moved); }
+            } else {
+              // Drop onto day header — append to end of that day
+              var lastInDay = -1;
+              arr.forEach(function(x,i){ if(x.day===destDay) lastInDay=i; });
+              arr.splice(lastInDay+1, 0, moved);
+            }
+            return arr;
+          });
+          // Sync day change back to brain dump
+          if (destDay !== fromDay) {
+            setBrainItems(function(prev){
+              return prev.map(function(b){
+                if (b.linkedTaskId===fromId || b.scheduledDay===fromDay) {
+                  // Only update brain items that are linked to this specific task
+                  if (b.linkedTaskId===fromId) return Object.assign({},b,{scheduledDay:destDay});
+                }
+                return b;
+              });
+            });
+          }
+        }
+      }
+      window.addEventListener("pointermove", onMove, {passive:true});
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+      return function(){
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", onUp);
+      };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cdDraggingId]);
+
     // Pre-compute glance data
     var glanceData = MEAL_DAYS.map(function(day,di){
       var todayIdx=TODAY.getDay();
@@ -4179,60 +4284,95 @@ Respond ONLY in valid JSON:
         {/* Task Board */}
         {weekSubTab==="tasks"&&(
           <div>
-            <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`})}}>
-          <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
-            <input value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
-            <select value={taskDay} onChange={e=>setTaskDay(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
-              {[...MEAL_DAYS,"Daily"].map(d=><option key={d} value={d}>{d}</option>)}
-            </select>
-            <select value={taskPerson} onChange={e=>setTaskPerson(e.target.value)} style={{...inp({width:"auto",flex:"none"})}}>
-              <option value="">Anyone</option>
-              {people.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
-            </select>
-            <button onClick={()=>{if(newTaskText.trim()){var nid=uid();setTasks(p=>[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}]);setBrainItems(p=>[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}]);setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
-          </div>
-        </div>
-        {weekSubTab==="tasks"&&[...MEAL_DAYS,"Daily"].map(function(day,di){
-          var dayTasks=tasks.filter(function(t){return t.day===day&&!t.archived;});
-          var dr=rhythm[day];var accent=DAY_COLORS[di%DAY_COLORS.length];
-          var linkedTaskIds=dayTasks.filter(function(t){return t.fromBrain||t.brainId;}).map(function(t){return t.brainId||t.linkedTaskId;});
-          var brainQueued=brainItems.filter(function(b){return b.scheduledDay===day&&!b.done&&!linkedTaskIds.includes(b.id);});
-          var hasContent=dayTasks.length>0||brainQueued.length>0;
-          return (
-            <div key={day} style={{...card({borderLeft:"4px solid "+(day===TODAY_NAME?accent:T.borderSoft)})}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:hasContent?"0.75rem":"0.1rem"}}>
-                <span style={{fontSize:"1rem"}}>{(dr&&dr.emoji)||"📋"}</span>
-                <span style={{fontWeight:700,color:day===TODAY_NAME?accent:T.textDark,fontSize:"0.92rem"}}>{day}</span>
-                {dr&&dr.theme&&<span style={{color:T.textSoft,fontSize:"0.76rem",fontWeight:500}}>{"· "+dr.theme}</span>}
-                <div style={{flex:1}}/>
-                {brainQueued.length>0&&<span style={{fontSize:"0.62rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {brainQueued.length}</span>}
-                {day===TODAY_NAME&&<Pill label="Today" color={accent} tiny/>}
-                {day!=="Daily"&&<button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={T.textSoft}/> Edit Day</button>}
+            {/* Add task */}
+            <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55"})}}>
+              <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
+                <input value={newTaskText} onChange={function(e){setNewTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
+                <select value={taskDay} onChange={function(e){setTaskDay(e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
+                  {[...MEAL_DAYS,"Daily"].map(function(d){return <option key={d} value={d}>{d}</option>;})}
+                </select>
+                <select value={taskPerson} onChange={function(e){setTaskPerson(e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
+                  <option value="">Anyone</option>
+                  {people.map(function(p){return <option key={p.id} value={p.name}>{p.name}</option>;})}
+                </select>
+                <button onClick={function(){if(newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
               </div>
-              <DraggableTaskList tasks={dayTasks} setTasks={setTasks} accent={accent}/>
-              {dayTasks.length===0&&brainQueued.length===0&&<p style={{color:T.textFaint,fontSize:"0.77rem",fontWeight:500}}>Nothing yet</p>}
-              {brainQueued.length>0&&(
-                <div style={{marginTop:dayTasks.length?"0.65rem":"0",padding:"0.55rem 0.65rem",background:T.lavender+"12",border:"1px dashed "+T.lavender+"55",borderRadius:"0.75rem"}}>
-                  <div style={{fontSize:"0.62rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>🧠 From Brain Dump</div>
-                  {brainQueued.map(function(b){return(
-                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",borderBottom:"1px solid "+T.lavender+"20"}}>
-                      <div style={{width:7,height:7,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
-                      <span style={{fontSize:"0.8rem",color:T.textDark,flex:1,fontWeight:500}}>{b.text}</span>
-                      <button title="Move to tasks" onClick={function(){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:b.text,day:day,done:false,fromBrain:true,brainId:b.id}];});setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:day,linkedTaskId:nid}:x;});});}} style={{background:accent,border:"none",borderRadius:"0.4rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.65rem",color:"#fff",fontWeight:700,fontFamily:"inherit",flexShrink:0}}>+ Task</button>
-                      <button title="Clear from this day" onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:null}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
-                    </div>
-                  );})}
-                </div>
-              )}
+              {cdDraggingId&&<div style={{marginTop:"0.5rem",fontSize:"0.72rem",color:T.blue,fontWeight:600,display:"flex",alignItems:"center",gap:"0.4rem"}}><span>↕</span> Drag to a different day to move it there</div>}
             </div>
-          );
-        })}
+
+            {/* Day columns */}
+            {[...MEAL_DAYS,"Daily"].map(function(day,di){
+              var dayTasks=tasks.filter(function(t){return t.day===day&&!t.archived;});
+              var dr=rhythm[day];var accent=DAY_COLORS[di%DAY_COLORS.length];
+              var isDayDropTarget=cdOverDay===day&&!cdOverId;
+              var linkedTaskIds=dayTasks.filter(function(t){return t.fromBrain||t.brainId;}).map(function(t){return t.brainId||t.linkedTaskId;});
+              var brainQueued=brainItems.filter(function(b){return b.scheduledDay===day&&!b.done&&!linkedTaskIds.includes(b.id);});
+              var hasContent=dayTasks.length>0||brainQueued.length>0;
+              return (
+                <div key={day} data-cdday={day}
+                  style={{...card({borderLeft:"4px solid "+(day===TODAY_NAME?accent:isDayDropTarget?accent:T.borderSoft),background:isDayDropTarget?accent+"0A":undefined,transition:"background 0.15s,border-color 0.15s"})}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:hasContent?"0.75rem":"0.1rem"}}>
+                    <span style={{fontSize:"1rem"}}>{(dr&&dr.emoji)||"📋"}</span>
+                    <span style={{fontWeight:700,color:day===TODAY_NAME?accent:T.textDark,fontSize:"0.92rem"}}>{day}</span>
+                    {dr&&dr.theme&&<span style={{color:T.textSoft,fontSize:"0.76rem",fontWeight:500}}>{"· "+dr.theme}</span>}
+                    <div style={{flex:1}}/>
+                    {brainQueued.length>0&&<span style={{fontSize:"0.62rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {brainQueued.length}</span>}
+                    {day===TODAY_NAME&&<Pill label="Today" color={accent} tiny/>}
+                    {day!=="Daily"&&<button onClick={function(){openEditDay(day);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={T.textSoft}/> Edit Day</button>}
+                  </div>
+
+                  {/* Tasks — cross-day draggable */}
+                  {dayTasks.map(function(t){
+                    var isBeingDragged = cdDraggingId===t.id;
+                    var isDropTarget   = cdOverId===t.id;
+                    return (
+                      <div key={t.id} data-cdtask={t.id}
+                        onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;cdPointerDown(e,t.id,day);}}
+                        style={{cursor:"grab",opacity:isBeingDragged?0.3:1,borderRadius:"0.6rem",outline:isDropTarget?"2px dashed "+accent:"none",outlineOffset:"2px",transition:"opacity 0.15s"}}>
+                        <TaskRow t={t} accent={accent} showNotifFor={null} setShowNotifFor={function(){}}
+                          onToggle={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
+                          onDelete={function(id){setTasks(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                          onSave={function(id,val){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                          onMoveDay={function(id,newDay){
+                            setTasks(function(p){return p.map(function(x){return x.id===id?{...x,day:newDay}:x;});});
+                            setBrainItems(function(p){return p.map(function(b){return b.linkedTaskId===id?{...b,scheduledDay:newDay}:b;});});
+                          }}
+                          allDays={[...MEAL_DAYS,"Daily"]}
+                          currentDay={day}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {dayTasks.length===0&&brainQueued.length===0&&(
+                    <p style={{color:isDayDropTarget?accent:T.textFaint,fontSize:"0.77rem",fontWeight:isDayDropTarget?700:500,transition:"color 0.15s"}}>
+                      {isDayDropTarget?"Drop here":"Nothing yet"}
+                    </p>
+                  )}
+
+                  {/* Brain dump queue */}
+                  {brainQueued.length>0&&(
+                    <div style={{marginTop:dayTasks.length?"0.65rem":"0",padding:"0.55rem 0.65rem",background:T.lavender+"12",border:"1px dashed "+T.lavender+"55",borderRadius:"0.75rem"}}>
+                      <div style={{fontSize:"0.62rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>🧠 From Brain Dump</div>
+                      {brainQueued.map(function(b){return(
+                        <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",borderBottom:"1px solid "+T.lavender+"20"}}>
+                          <div style={{width:7,height:7,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
+                          <span style={{fontSize:"0.8rem",color:T.textDark,flex:1,fontWeight:500}}>{b.text}</span>
+                          <button title="Move to tasks" onClick={function(){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:b.text,day:day,done:false,fromBrain:true,brainId:b.id}];});setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:day,linkedTaskId:nid}:x;});});}} style={{background:accent,border:"none",borderRadius:"0.4rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.65rem",color:"#fff",fontWeight:700,fontFamily:"inherit",flexShrink:0}}>+ Task</button>
+                          <button title="Clear from this day" onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:null}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+                        </div>
+                      );})}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* Day Themes subtab */}
         {weekSubTab==="rhythm"&&(
-          <div style={{...card({background:`linear-gradient(135deg,${T.sandPale},${T.lavPale})`,border:`1.5px solid ${T.sand}55`,padding:"0.85rem 1rem",marginBottom:"0.25rem"})}}>
+          <div style={{...card({background:"linear-gradient(135deg,"+T.sandPale+","+T.lavPale+")",border:"1.5px solid "+T.sand+"55",padding:"0.85rem 1rem",marginBottom:"0.25rem"})}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
               <span style={{fontSize:"1.3rem"}}>🌊</span>
               <div>
@@ -4267,27 +4407,27 @@ Respond ONLY in valid JSON:
                     )}
                   </div>
                 </div>
-                <button onClick={()=>openEditDay(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>Edit</button>
+                <button onClick={function(){openEditDay(day);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>Edit</button>
               </div>
             </div>
           );
         })}
 
         {editingDay&&(
-          <ModalBox title={`Edit ${editingDay}`} onClose={()=>setEditingDay(null)}>
+          <ModalBox title={"Edit "+editingDay} onClose={function(){setEditingDay(null);}}>
             <div style={{marginBottom:"0.75rem"}}>
               <label style={lbl}>Quick Presets</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-                {THEME_PRESETS.map((pr,i)=><button key={i} onClick={()=>applyPreset(pr)} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:`1.5px solid ${editForm.theme===pr.theme?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>)}
+                {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){applyPreset(pr);}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-              <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={e=>setEditForm(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
-              <div><label style={lbl}>Theme Name</label><input defaultValue={editForm.theme} onBlur={e=>setEditForm(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
+              <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={function(e){setEditForm(function(p){return{...p,emoji:e.target.value};});}} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+              <div><label style={lbl}>Theme Name</label><input defaultValue={editForm.theme} onBlur={function(e){setEditForm(function(p){return{...p,theme:e.target.value};});}} placeholder="e.g. Batch Cook" style={inp()}/></div>
             </div>
-            <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={e=>setEditForm(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
+            <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return{...p,desc:e.target.value};});}} placeholder="What happens on this day…" style={inp()}/></div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
-              <button onClick={()=>setEditingDay(null)} style={btnS()}>Cancel</button>
+              <button onClick={function(){setEditingDay(null);}} style={btnS()}>Cancel</button>
               <button onClick={saveEditDay} style={btnP(T.sage)}>Save</button>
             </div>
           </ModalBox>
@@ -4712,7 +4852,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {nwMealsToShow.map(function(meal){return(
                       <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
                         <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
-                        <input key={day+meal+(m[meal]||"")} defaultValue={m[meal]||""} onBlur={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
+                        <input key={day+meal} defaultValue={m[meal]||""} onBlur={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                         <div style={{marginTop:"0.35rem"}}>
                           <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                         </div>
@@ -5258,51 +5398,55 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
   function ShoppingTab(){
-    const lastStore = useSaved("lastUsedStore", stores[0]);
-    const[newItem,setNewItem]=useState("");
-    const[newStore,setNewStore]=useState(lastStore[0]||stores[0]);
+    // Fixed stores with subcategory support for Grocery and Costco
+    const FIXED_STORES = [
+      {id:"grocery", label:"Grocery", emoji:"🛒", hasCats:true},
+      {id:"costco",  label:"Costco",  emoji:"🏪", hasCats:true},
+      {id:"target",  label:"Target",  emoji:"🎯", hasCats:false},
+      {id:"amazon",  label:"Amazon",  emoji:"📦", hasCats:false},
+    ];
+    const lastStore = useSaved("lastUsedStore", "Grocery");
+    const[newStore,setNewStore]=useState(lastStore[0]||"Grocery");
     const shopInputRef=useRef(null);
-    const[addingStore,setAddingStore]=useState(false);
-    const[newStoreName,setNewStoreName]=useState("");
     const[isListening,setIsListening]=useState(false);
     const[voiceStatus,setVoiceStatus]=useState("");
     const[isAnalyzingPhoto,setIsAnalyzingPhoto]=useState(false);
     const[photoStatus,setPhotoStatus]=useState("");
-    const[editingStoreName,setEditingStoreName]=useState(null);
-    const[editStoreVal,setEditStoreVal]=useState("");
-    const[inlineStore,setInlineStore]=useState(null);
-    const[inlineText,setInlineText]=useState("");
     const[isAutoCategorizing,setIsAutoCategorizing]=useState(false);
     const[autoCatStatus,setAutoCatStatus]=useState("");
-    const[editingCategories,setEditingCategories]=useState(false);
     const[newCatName,setNewCatName]=useState("");
+    const[editingCategories,setEditingCategories]=useState(false);
     const[collapsedCats,setCollapsedCats]=useState({});
+    const[collapsedStores,setCollapsedStores2]=useState({});
+    const[selectedItems,setSelectedItems]=useState({});
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
-    const STORE_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#e8a838","#7ab8a8","#c878a8"];
-    function toggleCollapse(store){setCollapsedStores(p=>({...p,[store]:!p[store]}));}
-    function toggleCatCollapse(key){setCollapsedCats(p=>({...p,[key]:!p[key]}));}
+
+    // Normalize store name from old free-text to fixed store id
+    function normalizeStore(s){
+      if(!s) return "Grocery";
+      var sl=s.toLowerCase();
+      if(sl.includes("costco")) return "Costco";
+      if(sl.includes("target")) return "Target";
+      if(sl.includes("amazon")) return "Amazon";
+      return "Grocery";
+    }
+
     function addItem(text,store,photoUrl){
       if(!text.trim())return;
       var s=store||newStore;
       setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null,category:""}]);
-      setNewItem("");lastStore[1](s);setNewStore(s);
+      lastStore[1](s);setNewStore(s);
     }
-    function addStore(){if(!newStoreName.trim())return;const ns=newStoreName.trim();setStores(p=>[...p,ns]);setNewStore(ns);lastStore[1](ns);setNewStoreName("");setAddingStore(false);}
-    function renameStore(oldName,newName){
-      if(!newName.trim()||newName===oldName){setEditingStoreName(null);return;}
-      setStores(p=>p.map(s=>s===oldName?newName.trim():s));
-      setShoppingItems(p=>p.map(i=>i.store===oldName?{...i,store:newName.trim()}:i));
-      if(newStore===oldName)setNewStore(newName.trim());
-      setEditingStoreName(null);
-    }
+
     function addInlineItem(store){
-      if(!inlineText.trim())return;
-      setShoppingItems(p=>[...p,{id:uid(),text:inlineText.trim(),store:store,done:false,photo:null,category:""}]);
-      setInlineText("");lastStore[1](store);
+      if(!shopInputRef.current||!shopInputRef.current.value.trim())return;
+      addItem(shopInputRef.current.value,store);
+      shopInputRef.current.value="";
     }
+
     async function autoCategorize(){
-      var uncategorized=shoppingItems.filter(function(i){return !i.category||i.category===""||i.category==="grocery";});
+      var uncategorized=shoppingItems.filter(function(i){return (!i.category||i.category==="")&&(normalizeStore(i.store)==="Grocery"||normalizeStore(i.store)==="Costco");});
       if(uncategorized.length===0){setAutoCatStatus("All items already have categories!");setTimeout(()=>setAutoCatStatus(""),2500);return;}
       setIsAutoCategorizing(true);setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
       try{
@@ -5315,53 +5459,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }catch(e){setAutoCatStatus("Could not auto-categorize. Try again.");}
       setIsAutoCategorizing(false);setTimeout(()=>setAutoCatStatus(""),3000);
     }
-    const dragState=useRef({id:null,fromStore:null,clone:null,startY:0,startX:0,lastTarget:null});
-    const [draggingId,setDraggingId]=useState(null);
-    const [dragOverId,setDragOverId]=useState(null);
-    const [dragOverStoreTarget,setDragOverStoreTarget]=useState(null);
-    function pointerDown(e,itemId,fromStore){
-      if(e.button===1||e.button===2) return;
-      const ds=dragState.current;ds.id=itemId;ds.fromStore=fromStore;ds.startY=e.clientY;ds.startX=e.clientX;ds.lastTarget=null;
-      const el=document.querySelector(`[data-shopid="${itemId}"]`);
-      if(el){const rect=el.getBoundingClientRect();const clone=el.cloneNode(true);clone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.18);border-radius:0.6rem;transition:none;`;clone.setAttribute("data-drag-clone","1");document.body.appendChild(clone);ds.clone=clone;}
-      setDraggingId(itemId);e.preventDefault();
-    }
-    function pointerMove(e){
-      const ds=dragState.current;if(!ds.id) return;
-      if(ds.clone){ds.clone.style.left=(e.clientX-(ds.clone.offsetWidth/2))+"px";ds.clone.style.top=(e.clientY-24)+"px";}
-      if(ds.clone) ds.clone.style.display="none";
-      const el=document.elementFromPoint(e.clientX,e.clientY);
-      if(ds.clone) ds.clone.style.display="";
-      if(!el) return;
-      const storeEl=el.closest("[data-shopstore]");const itemEl=el.closest("[data-shopid]");
-      if(itemEl){const overId=itemEl.getAttribute("data-shopid");if(overId!==ds.id){setDragOverId(overId);setDragOverStoreTarget(null);}}
-      else if(storeEl){setDragOverStoreTarget(storeEl.getAttribute("data-shopstore"));setDragOverId(null);}
-      else{setDragOverId(null);setDragOverStoreTarget(null);}
-    }
-    function pointerUp(e){
-      const ds=dragState.current;if(!ds.id){return;}
-      if(ds.clone){ds.clone.remove();ds.clone=null;}
-      setDraggingId(null);
-      const el=document.elementFromPoint(e.clientX,e.clientY);
-      let targetItemId=dragOverId;let targetStore=dragOverStoreTarget;
-      if(targetItemId){const targetItem=shoppingItems.find(i=>i.id===targetItemId);if(targetItem)targetStore=targetItem.store;}
-      if((targetItemId||targetStore)&&(targetItemId!==ds.id)){
-        setShoppingItems(function(prev){
-          const items=[...prev];const fromIdx=items.findIndex(i=>i.id===ds.id);if(fromIdx===-1){ds.id=null;return prev;}
-          const [moved]=items.splice(fromIdx,1);const finalStore=targetStore||moved.store;const movedItem={...moved,store:finalStore};
-          if(targetItemId){const toIdx=items.findIndex(i=>i.id===targetItemId);items.splice(toIdx,0,movedItem);}
-          else{const lastInStore=items.reduce(function(acc,item,idx){return item.store===finalStore?idx:acc;},-1);items.splice(lastInStore+1,0,movedItem);}
-          return items;
-        });
-      }
-      ds.id=null;ds.fromStore=null;ds.lastTarget=null;setDragOverId(null);setDragOverStoreTarget(null);
-    }
-    useEffect(()=>{
-      if(!draggingId) return;
-      window.addEventListener("pointermove",pointerMove);window.addEventListener("pointerup",pointerUp);
-      return ()=>{window.removeEventListener("pointermove",pointerMove);window.removeEventListener("pointerup",pointerUp);};
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    },[draggingId,dragOverId,dragOverStoreTarget,shoppingItems]);
+
     function startListening(){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
       const recognition=new SR();recognitionRef.current=recognition;recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
@@ -5371,6 +5469,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       recognition.onend=()=>setIsListening(false);recognition.start();
     }
     function stopListening(){recognitionRef.current?.stop();setIsListening(false);}
+
     async function handlePhotoUpload(e){
       const file=e.target.files?.[0];if(!file)return;
       setIsAnalyzingPhoto(true);setPhotoStatus("Analyzing photo…");
@@ -5384,13 +5483,37 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }catch{setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl,category:""}]);setPhotoStatus("✓ Added item with photo");}
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
     }
+
+    // Selection helpers
+    function toggleSelect(id){setSelectedItems(p=>({...p,[id]:!p[id]}));}
+    function selectAllInStore(storeLabel){
+      var ids=shoppingItems.filter(i=>normalizeStore(i.store)===storeLabel&&!i.done).map(i=>i.id);
+      var allSel=ids.every(id=>selectedItems[id]);
+      setSelectedItems(p=>{var n={...p};ids.forEach(id=>{n[id]=!allSel;});return n;});
+    }
+    function deleteSelected(){setShoppingItems(p=>p.filter(i=>!selectedItems[i.id]));setSelectedItems({});}
+    function checkSelected(){setShoppingItems(p=>p.map(i=>selectedItems[i.id]?{...i,done:true}:i));setSelectedItems({});}
+    var anySelected=Object.values(selectedItems).some(Boolean);
+
     return(
       <div>
         <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"}/>
+
         {/* Add item card */}
         <div style={{...card({background:T.sandPale,border:"2px solid "+T.sand+"55"})}}>
-          <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
-            <input ref={shopInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} placeholder="Add item…" style={{...inp({flex:1,minWidth:120})}}/>
+          {/* Store tabs */}
+          <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
+            {FIXED_STORES.map(function(st){
+              var isActive=newStore===st.label;
+              return(
+                <button key={st.id} onClick={()=>{setNewStore(st.label);lastStore[1](st.label);}} style={{background:isActive?T.sand:"transparent",color:isActive?"#fff":T.textMid,border:"2px solid "+(isActive?T.sand:T.border),borderRadius:"2rem",padding:"0.28rem 0.75rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                  <span>{st.emoji}</span>{st.label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.6rem"}}>
+            <input ref={shopInputRef} defaultValue="" onKeyDown={function(e){if(e.key==="Enter"&&shopInputRef.current){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} placeholder={"Add to "+newStore+"…"} style={{...inp({flex:1,minWidth:120})}}/>
             <button onClick={function(){if(shopInputRef.current&&shopInputRef.current.value.trim()){addItem(shopInputRef.current.value,newStore);shopInputRef.current.value="";}}} style={btnP(T.sand)}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.5rem",alignItems:"center",flexWrap:"wrap",marginBottom:"0.5rem"}}>
@@ -5412,15 +5535,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </div>
-        {/* Edit categories toggle */}
+
+        {/* Bulk action bar */}
+        {anySelected&&(
+          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",background:T.bluePale,border:"1.5px solid "+T.blue+"44",borderRadius:"0.85rem",padding:"0.55rem 0.9rem",marginBottom:"0.65rem"}}>
+            <span style={{fontSize:"0.78rem",fontWeight:700,color:T.blue,flex:1}}>{Object.values(selectedItems).filter(Boolean).length} selected</span>
+            <button onClick={checkSelected} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>✓ Mark done</button>
+            <button onClick={deleteSelected} style={{...btnS({fontSize:"0.74rem",padding:"0.3rem 0.75rem",color:T.rose,borderColor:T.rose+"55"})}}>Delete</button>
+            <button onClick={()=>setSelectedItems({})} style={btnS({fontSize:"0.74rem",padding:"0.3rem 0.6rem"})}>✕</button>
+          </div>
+        )}
+
+        {/* Edit categories toggle (for Grocery/Costco subcategories) */}
         <div style={{marginBottom:"0.75rem"}}>
           <button onClick={function(){setEditingCategories(function(v){return !v;});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.74rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
-            <Icon name="edit" size={11} color={T.textSoft}/> {editingCategories?"Done editing":"Edit categories"}
+            <Icon name="edit" size={11} color={T.textSoft}/> {editingCategories?"Done editing":"Edit subcategories"}
           </button>
           {editingCategories&&(
             <div style={{background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginTop:"0.4rem"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.65rem"}}>
-                <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:700}}>Shopping categories</span>
+                <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:700}}>Grocery & Costco subcategories</span>
                 <button onClick={function(){setShopCategories([{id:"produce",label:"Produce",emoji:"🥦"},{id:"dairy",label:"Dairy",emoji:"🥛"},{id:"meat",label:"Meat & Seafood",emoji:"🥩"},{id:"frozen",label:"Frozen",emoji:"🧊"},{id:"canned",label:"Canned & Pantry",emoji:"🥫"},{id:"bakery",label:"Bakery",emoji:"🍞"},{id:"beverages",label:"Beverages",emoji:"🧃"},{id:"snacks",label:"Snacks",emoji:"🍿"},{id:"deli",label:"Deli",emoji:"🧀"},{id:"health",label:"Health & Beauty",emoji:"🧴"},{id:"household",label:"Household",emoji:"🧹"},{id:"baby",label:"Baby & Kids",emoji:"🍼"},{id:"pets",label:"Pet Supplies",emoji:"🐾"},{id:"other",label:"Other",emoji:"📦"}]);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",fontSize:"0.68rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",padding:"1px 7px"}}>Reset</button>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.65rem"}}>
@@ -5438,68 +5572,110 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 })}
               </div>
               <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} placeholder="New category name…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
+                <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} placeholder="New subcategory…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.35rem 0.6rem"})}}/>
                 <button onClick={function(){if(newCatName.trim()){setShopCategories(function(p){return[...p,{id:newCatName.trim().toLowerCase().replace(/\s+/g,"_"),label:newCatName.trim(),emoji:"📦"}];});setNewCatName("");}}} style={btnP(T.sand,{padding:"0.35rem 0.75rem",fontSize:"0.78rem"})}>+ Add</button>
               </div>
             </div>
           )}
         </div>
-        {/* Collapse/expand all */}
-        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem",justifyContent:"flex-end"}}>
-          <button onClick={function(){var all={};shopCategories.forEach(function(c){all[catLabel(c)]=true;});all["__uncat__"]=true;setCollapsedCats(all);}} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Collapse All</button>
-          <button onClick={function(){setCollapsedCats({});}} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}>Expand All</button>
-        </div>
-        {/* Unified category-grouped list */}
+
+        {/* Store sections */}
         {(function(){
-          var uncatKey="__uncat__";
-          var categorized={};
-          shoppingItems.forEach(function(item){
-            var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;
-            if(!categorized[cat])categorized[cat]=[];
-            categorized[cat].push(item);
-          });
-          var orderedCats=shopCategories.filter(function(c){var lbl=catLabel(c);return categorized[lbl]&&categorized[lbl].length>0;}).map(function(c){return catLabel(c);});
-          Object.keys(categorized).forEach(function(k){if(k!==uncatKey&&!orderedCats.includes(k))orderedCats.push(k);});
-          if(categorized[uncatKey]&&categorized[uncatKey].length>0)orderedCats.push(uncatKey);
-          if(orderedCats.length===0)return(
+          var allEmpty=FIXED_STORES.every(function(st){return shoppingItems.filter(function(i){return normalizeStore(i.store)===st.label;}).length===0;});
+          if(allEmpty) return(
             <div style={{...card({textAlign:"center",padding:"2.5rem 1rem"})}}>
               <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🛒</div>
               <p style={{color:T.textFaint,fontSize:"0.88rem",fontWeight:600}}>Your list is empty</p>
-              <p style={{color:T.textFaint,fontSize:"0.78rem",marginTop:"0.25rem"}}>Add items above, or use Auto-sort to categorize what you have.</p>
+              <p style={{color:T.textFaint,fontSize:"0.78rem",marginTop:"0.25rem"}}>Add items above, or use Auto-sort to categorize.</p>
             </div>
           );
-          return orderedCats.map(function(cat){
-            var catItems=categorized[cat]||[];
-            var isCatCollapsed=!!collapsedCats[cat];
-            var isUncat=cat===uncatKey;
-            var catObj=shopCategories.find(function(c){return catLabel(c)===cat;});
-            var catEmj=catObj?catEmoji(catObj):"📦";
-            var accent=catObj?T.blue:T.textFaint;
-            var pendingCount=catItems.filter(function(i){return !i.done;}).length;
+          return FIXED_STORES.map(function(st){
+            var storeItems=shoppingItems.filter(function(i){return normalizeStore(i.store)===st.label;});
+            if(storeItems.length===0) return null;
+            var isCollapsed=!!collapsedStores[st.id];
+            var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
+            var pendingIds=storeItems.filter(function(i){return !i.done;}).map(function(i){return i.id;});
+            var allPendingSel=pendingIds.length>0&&pendingIds.every(function(id){return selectedItems[id];});
+            var storeColor=st.id==="grocery"?T.sage:st.id==="costco"?T.blue:st.id==="target"?"#cc3333":st.id==="amazon"?"#e8a838":T.sand;
             return(
-              <div key={cat} style={{...card({padding:"0",marginBottom:"0.5rem",border:"1.5px solid "+T.borderSoft})}}>
-                <div onClick={function(){setCollapsedCats(function(p){return {...p,[cat]:!p[cat]};});}} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.75rem 1rem",cursor:"pointer",userSelect:"none"}}>
-                  <span style={{fontSize:"1.1rem"}}>{isUncat?"📦":catEmj}</span>
-                  <span style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem",flex:1}}>{isUncat?"Uncategorized":cat}</span>
-                  {pendingCount>0&&<span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700,background:T.surface,borderRadius:"2rem",padding:"1px 7px"}}>{pendingCount}</span>}
-                  <div style={{display:"flex",transition:"transform 0.2s",transform:isCatCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={15} color={T.textSoft}/></div>
+              <div key={st.id} style={{...card({padding:"0",marginBottom:"0.65rem",border:"1.5px solid "+T.borderSoft})}}>
+                {/* Store header */}
+                <div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.75rem 1rem",borderBottom:isCollapsed?"none":"1px solid "+T.borderSoft}}>
+                  <button onClick={function(){setCollapsedStores2(function(p){return{...p,[st.id]:!p[st.id]};});}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.5rem",flex:1,padding:0,textAlign:"left",fontFamily:"inherit"}}>
+                    <span style={{fontSize:"1.15rem"}}>{st.emoji}</span>
+                    <span style={{fontWeight:800,color:storeColor,fontSize:"0.95rem",flex:1}}>{st.label}</span>
+                    {pendingCount>0&&<span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700,background:T.surface,borderRadius:"2rem",padding:"1px 7px",border:"1px solid "+T.borderSoft}}>{pendingCount}</span>}
+                    <div style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={15} color={T.textSoft}/></div>
+                  </button>
+                  {!isCollapsed&&pendingIds.length>0&&(
+                    <button onClick={function(){selectAllInStore(st.label);}} style={{background:allPendingSel?T.blue+"22":"none",border:"1px solid "+(allPendingSel?T.blue:T.borderSoft),borderRadius:"0.5rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,color:allPendingSel?T.blue:T.textSoft,fontFamily:"inherit",padding:"2px 8px",whiteSpace:"nowrap",transition:"all 0.15s"}}>
+                      {allPendingSel?"Deselect all":"Select all"}
+                    </button>
+                  )}
                 </div>
-                {!isCatCollapsed&&(
-                  <div style={{padding:"0 1rem 0.85rem",borderTop:"1px solid "+T.borderSoft}}>
-                    {catItems.map(function(item){
-                      var isBeingDragged=draggingId===item.id;
-                      var isDropTarget=dragOverId===item.id;
-                      return(
-                        <div key={item.id} data-shopid={item.id} onPointerDown={function(e){if(e.target.closest("button,input,select,textarea,[role=button]"))return;pointerDown(e,item.id,item.store||"");}} style={{cursor:"grab",opacity:isBeingDragged?0.35:1,borderRadius:"0.5rem",outline:isDropTarget?"2px dashed "+T.blue:"none",outlineOffset:"1px",transition:"opacity 0.15s"}}>
-                          <ShopItemRow item={item} categories={shopCategories}
-                            onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
-                            onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                            onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
-                            onSetCategory={function(id,cat){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,category:cat}:x;});});}}
-                          />
-                        </div>
-                      );
-                    })}
+                {!isCollapsed&&(
+                  <div style={{padding:"0 0 0.5rem"}}>
+                    {st.hasCats ? (function(){
+                      // Group by subcategory
+                      var uncatKey="__uncat__";
+                      var grouped={};
+                      storeItems.forEach(function(item){
+                        var cat=item.category&&item.category!==""&&item.category!=="grocery"?item.category:uncatKey;
+                        if(!grouped[cat])grouped[cat]=[];
+                        grouped[cat].push(item);
+                      });
+                      var orderedCats=shopCategories.filter(function(c){var lbl=catLabel(c);return grouped[lbl]&&grouped[lbl].length>0;}).map(function(c){return catLabel(c);});
+                      Object.keys(grouped).forEach(function(k){if(k!==uncatKey&&!orderedCats.includes(k))orderedCats.push(k);});
+                      if(grouped[uncatKey]&&grouped[uncatKey].length>0)orderedCats.push(uncatKey);
+                      return orderedCats.map(function(cat){
+                        var catItems=grouped[cat]||[];
+                        var isUncat=cat===uncatKey;
+                        var catColKey=st.id+"__"+cat;
+                        var isCatCollapsed=!!collapsedCats[catColKey];
+                        var catObj=shopCategories.find(function(c){return catLabel(c)===cat;});
+                        var catEmj=catObj?catEmoji(catObj):"📦";
+                        var catPending=catItems.filter(function(i){return !i.done;}).length;
+                        return(
+                          <div key={cat} style={{borderTop:"1px solid "+T.borderSoft+"88"}}>
+                            <div onClick={function(){setCollapsedCats(function(p){return{...p,[catColKey]:!p[catColKey]};});}} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.4rem 1rem",cursor:"pointer",userSelect:"none",background:T.surface+"44"}}>
+                              <span style={{fontSize:"0.85rem"}}>{isUncat?"📦":catEmj}</span>
+                              <span style={{fontSize:"0.75rem",fontWeight:700,color:T.textMid,flex:1}}>{isUncat?"Uncategorized":cat}</span>
+                              {catPending>0&&<span style={{fontSize:"0.65rem",color:T.textFaint,fontWeight:600}}>{catPending}</span>}
+                              <div style={{display:"flex",transition:"transform 0.2s",transform:isCatCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={12} color={T.textFaint}/></div>
+                            </div>
+                            {!isCatCollapsed&&(
+                              <div style={{padding:"0 1rem"}}>
+                                {catItems.map(function(item){
+                                  return(
+                                    <ShopItemRow key={item.id} item={item} selected={!!selectedItems[item.id]} onSelect={toggleSelect}
+                                      onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
+                                      onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                                      onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })() : (
+                      <div style={{padding:"0 1rem"}}>
+                        {storeItems.map(function(item){
+                          return(
+                            <ShopItemRow key={item.id} item={item} selected={!!selectedItems[item.id]} onSelect={toggleSelect}
+                              onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
+                              onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
+                              onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* Inline quick-add */}
+                    <div style={{display:"flex",gap:"0.4rem",padding:"0.5rem 1rem 0.25rem",borderTop:"1px dashed "+T.borderSoft+"88"}}>
+                      <input onKeyDown={function(e){if(e.key==="Enter"){addItem(e.target.value,st.label);e.target.value="";}}} placeholder={"Quick add to "+st.label+"…"} style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.3rem 0.6rem",background:T.surface})}}/>
+                    </div>
                   </div>
                 )}
               </div>
@@ -5858,7 +6034,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",border:"1px solid "+T.lavender+"40",borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",gap:"0.6rem",alignItems:"flex-start"}}>
             <span style={{fontSize:"1rem",flexShrink:0}}>✦</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Ripple noticed</div>
+              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Compass noticed</div>
               <div style={{fontSize:"0.83rem",color:T.textDark,lineHeight:1.55}}>{patternMsg}</div>
             </div>
             <button onClick={function(){setPatternMsg(null);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
@@ -7328,7 +7504,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ── FAMILY PROFILE ─────────────────────────────────────── */}
         <SettingSection id="family" title="👤 Family Profile" settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>This tells Ripple who you are — used for meal suggestions, daily briefings, and AI context. Fill in what you know and tap <strong>Apply to your app</strong> to populate meals, pets, vehicles, and household automatically.</p>
+          <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>This tells Compass who you are — used for meal suggestions, daily briefings, and AI context. Fill in what you know and tap <strong>Apply to your app</strong> to populate meals, pets, vehicles, and household automatically.</p>
 
           {/* Core profile fields */}
           {(function(){
@@ -7515,7 +7691,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 )}
                 {isHomeschool&&(
                   <div style={{marginTop:"0.65rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.sage+"30",fontSize:"0.77rem",color:T.textMid,lineHeight:1.6}}>
-                    📚 Homeschool family! Use <strong>Weekly Rhythm → Day Themes</strong> to build your school week structure and let Ripple plan around it.
+                    📚 Homeschool family! Use <strong>Weekly Rhythm → Day Themes</strong> to build your school week structure and let Compass plan around it.
                   </div>
                 )}
               </div>
@@ -7602,7 +7778,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ── FLOW ───────────────────────────────────────────────── */}
         <SettingSection id="flow" title="🌊 Flow" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <div style={{marginBottom:"1rem"}}>
-            <label style={lbl}>What should Ripple call you?</label>
+            <label style={lbl}>What should Compass call you?</label>
             <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
               <input
                 value={preferredName}
@@ -7652,7 +7828,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ── WEEKLY / DAY THEMES ────────────────────────────────── */}
         <SettingSection id="daythemes" title="📅 Day Themes" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.6,marginBottom:"0.85rem"}}>Give each day a focus. These themes guide Ripple's suggestions and appear across your weekly view.</p>
+          <p style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.6,marginBottom:"0.85rem"}}>Give each day a focus. These themes guide Compass's suggestions and appear across your weekly view.</p>
           {(function(){
             const [editingDayS, setEditingDayS] = useState(null);
             const [editFormS, setEditFormS] = useState({theme:"",emoji:"",desc:""});
@@ -7718,7 +7894,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ── NOTIFICATIONS ──────────────────────────────────────── */}
         <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Ripple sends warm AI-powered check-ins throughout your day. Turn each one on or off below.</p>
+          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Compass sends warm AI-powered check-ins throughout your day. Turn each one on or off below.</p>
 
           {/* ── Permission status banner ── */}
           {notifPermission==="denied"&&(
@@ -7729,9 +7905,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           )}
           {notifPermission==="default"&&(
             <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:`1.5px solid ${T.sage}40`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.85rem"}}>
-              <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,marginBottom:"0.3rem"}}>Enable Ripple notifications</div>
-              <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>You'll get a morning briefing at 7am, midday check-in, dinner reminder, and evening recap — all written by Ripple AI for your day.</div>
-              <button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.85rem",padding:"0.55rem 1.3rem",width:"100%",justifyContent:"center"})}}>🔔 Turn on Ripple notifications</button>
+              <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,marginBottom:"0.3rem"}}>Enable Compass notifications</div>
+              <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>You'll get a morning briefing at 7am, midday check-in, dinner reminder, and evening recap — all written by Compass AI for your day.</div>
+              <button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.85rem",padding:"0.55rem 1.3rem",width:"100%",justifyContent:"center"})}}>🔔 Turn on Compass notifications</button>
             </div>
           )}
           {notifPermission==="granted"&&(
@@ -7739,7 +7915,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <span style={{fontSize:"1.1rem"}}>✅</span>
               <div style={{flex:1}}>
                 <div style={{fontWeight:700,fontSize:"0.85rem",color:T.sage}}>Notifications are on</div>
-                <div style={{fontSize:"0.73rem",color:T.textSoft}}>Ripple will check in with you throughout the day.</div>
+                <div style={{fontSize:"0.73rem",color:T.textSoft}}>Compass will check in with you throughout the day.</div>
               </div>
             </div>
           )}
@@ -7830,9 +8006,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ── AI MEMORY ──────────────────────────────────────────── */}
         {Object.keys(aiMemory).length>0&&(
-          <SettingSection id="aimemory" title="🧠 What Ripple Knows" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
+          <SettingSection id="aimemory" title="🧠 What Compass Knows" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-              <p style={{fontSize:"0.78rem",color:T.textSoft,margin:0}}>Things Ripple has learned about your household from conversations.</p>
+              <p style={{fontSize:"0.78rem",color:T.textSoft,margin:0}}>Things Compass has learned about your household from conversations.</p>
               <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
             </div>
             {Object.entries(aiMemory).map(([q,a],i)=>(
@@ -8966,7 +9142,8 @@ function FlowWrapper({ onHome, onSignOut }) {
     try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} }
   })
   React.useEffect(() => {
-    const onStorage = () => {
+    const onStorage = (e) => {
+      if (e && e.type === "storage" && e.key !== "af_sections") return;
       try { const s = JSON.parse(localStorage.getItem("af_sections") || "null"); if(s) setSections(s); } catch {}
     }
     window.addEventListener("storage", onStorage)
@@ -9001,7 +9178,8 @@ function FlowWrapper({ onHome, onSignOut }) {
     try { return JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}") } catch { return {} }
   })
   React.useEffect(function() {
-    function onAnchorStorage() {
+    function onAnchorStorage(e) {
+      if (e && e.type === "storage" && e.key !== "af_anchor_hidden") return;
       try { setAnchorHidden(JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}")) } catch {}
     }
     window.addEventListener("storage", onAnchorStorage)
