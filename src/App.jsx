@@ -1527,7 +1527,14 @@ function HomeFlow() {
   const [showOnboardingWizard,setShowOnboardingWizard] = useState(false);
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
-  const [dayClosed,setDayClosed]                   = useSaved("dayClosed_"+TODAY_NAME, false);
+  const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
+  const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
+  // Personal anchor items — per user, stored separately so each person has their own morning checklist
+  const _personalAnchorsKey = "personalAnchors_"+(authUser?.id||"shared");
+  const [personalAnchors,setPersonalAnchors]       = useSaved(_personalAnchorsKey, []);
+  const [checkedPersonalAnchors,setCheckedPersonalAnchors] = useSaved("checkedPersonalAnchors_"+TODAY_NAME+"_"+(authUser?.id||"shared"), []);
+  const [addingPersonalAnchor,setAddingPersonalAnchor] = useState(false);
+  const [newPersonalAnchorText,setNewPersonalAnchorText] = useState("");
   const [showTomorrowPrep,setShowTomorrowPrep]     = useState(false);
   const [briefingLoading,setBriefingLoading]       = useState(false);
   const [sampleDayActive,setSampleDayActive]       = useState(false);
@@ -3014,7 +3021,7 @@ Respond ONLY with valid JSON array, no markdown:
             <>
               {refl&&<div style={{fontSize:"0.88rem",fontStyle:"italic",color:T.textSoft,lineHeight:1.6,margin:"0.75rem 0",padding:"0.75rem",background:T.bgAlt,borderRadius:"0.85rem"}}>{refl}</div>}
               {tomorrowNote&&<div style={{fontSize:"0.82rem",color:T.textMid,marginBottom:"1rem",padding:"0.6rem 0.85rem",background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",borderRadius:"0.85rem"}}><span style={{fontWeight:700,fontSize:"0.68rem",textTransform:"uppercase",color:T.lavender}}>Tomorrow · </span>{tomorrowNote}</div>}
-              <button onClick={()=>{setShowEndOfDay(false);setDayClosed(true);}} style={{...btnP(T.sage,{width:"100%",padding:"0.85rem",fontSize:"0.92rem",borderRadius:"1rem"})}}>Close my day ✓</button>
+              <button onClick={function(){ setShowEndOfDay(false); var closerName = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null); setDayClosed(closerName || true); }} style={{...btnP(T.sage,{width:"100%",padding:"0.85rem",fontSize:"0.92rem",borderRadius:"1rem"})}}>Close my day ✓</button>
             </>
           )}
         </div>
@@ -3564,6 +3571,77 @@ Respond ONLY in valid JSON:
               )}
             </div>
 
+            {/* ── My Morning Anchors — personal per-user checklist ── */}
+            {(function(){
+              var myName = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null);
+              var unchecked = personalAnchors.filter(function(a){ return !checkedPersonalAnchors.includes(a.id); });
+              var checked = personalAnchors.filter(function(a){ return checkedPersonalAnchors.includes(a.id); });
+              return (
+                <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"60",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
+                      <span style={{fontSize:"0.95rem"}}>🌿</span>
+                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{myName ? myName+"'s anchors" : "My anchors"}</span>
+                      <span style={{fontSize:"0.6rem",background:T.sand+"25",color:T.sandDark,fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>just mine</span>
+                    </div>
+                    <button onClick={function(){ setAddingPersonalAnchor(function(v){ return !v; }); setNewPersonalAnchorText(""); }} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontSize:"1.1rem",color:T.sandDark,lineHeight:1}}>+</button>
+                  </div>
+                  {personalAnchors.length === 0 && !addingPersonalAnchor && (
+                    <p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",margin:"0 0 0.3rem",textAlign:"center",padding:"0.3rem 0"}}>Your personal daily anchors — things only you need to check off each morning.</p>
+                  )}
+                  {unchecked.map(function(a){
+                    return (
+                      <AnchorCheckItem key={a.id} id={a.id} text={a.text}
+                        checked={checkedPersonalAnchors.includes(a.id)}
+                        onCheck={function(id){ setCheckedPersonalAnchors(function(p){ return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id]; }); }}
+                        color={T.sand} bell={false} entityTitle={a.text}/>
+                    );
+                  })}
+                  {checked.length > 0 && (
+                    <div style={{marginTop:"0.35rem",paddingTop:"0.35rem",borderTop:"1px dashed "+T.borderSoft}}>
+                      {checked.map(function(a){
+                        return (
+                          <div key={a.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0.6rem",opacity:0.4}}>
+                            <div style={{width:16,height:16,borderRadius:"50%",background:T.sand,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={8} color="#fff"/></div>
+                            <span style={{fontSize:"0.78rem",color:T.textDark,textDecoration:"line-through",flex:1}}>{a.text}</span>
+                            <button onClick={function(){ setPersonalAnchors(function(p){ return p.filter(function(x){ return x.id!==a.id; }); }); }} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.62rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>remove</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {addingPersonalAnchor && (
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
+                      <input value={newPersonalAnchorText} onChange={function(e){ setNewPersonalAnchorText(e.target.value); }}
+                        onKeyDown={function(e){
+                          if(e.key==="Enter" && newPersonalAnchorText.trim()){
+                            var newA = {id:"pa_"+Date.now(), text:newPersonalAnchorText.trim()};
+                            setPersonalAnchors(function(p){ return [...p, newA]; });
+                            setNewPersonalAnchorText(""); setAddingPersonalAnchor(false);
+                          }
+                          if(e.key==="Escape"){ setAddingPersonalAnchor(false); setNewPersonalAnchorText(""); }
+                        }}
+                        placeholder="Add a personal anchor…"
+                        style={{...inp({flex:1,fontSize:"0.86rem",borderColor:T.sand+"70",padding:"0.55rem 0.85rem"})}} autoFocus/>
+                      <button onClick={function(){
+                        if(newPersonalAnchorText.trim()){
+                          var newA2 = {id:"pa_"+Date.now(), text:newPersonalAnchorText.trim()};
+                          setPersonalAnchors(function(p){ return [...p, newA2]; });
+                          setNewPersonalAnchorText(""); setAddingPersonalAnchor(false);
+                        }
+                      }} style={btnP(T.sand,{padding:"0.55rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
+                      <button onClick={function(){ setAddingPersonalAnchor(false); setNewPersonalAnchorText(""); }} style={btnS({padding:"0.55rem 0.7rem",fontSize:"0.8rem"})}>✕</button>
+                    </div>
+                  )}
+                  {!addingPersonalAnchor && personalAnchors.length > 0 && (
+                    <button onClick={function(){ setAddingPersonalAnchor(true); setNewPersonalAnchorText(""); }} style={{...btnS({fontSize:"0.73rem",padding:"0.28rem 0.7rem",marginTop:"0.4rem",color:T.sandDark,borderColor:T.sand+"50",display:"flex",alignItems:"center",gap:"0.3rem"})}}>
+                      <Icon name="plus" size={11} color={T.sandDark}/> Add anchor
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Tonight's dinner */}
             <div style={{background:T.surface,border:"1.5px solid "+(noMealPlanned?T.rose+"50":T.sage+"45"),borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
@@ -3755,7 +3833,8 @@ Respond ONLY in valid JSON:
               <div style={{background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}40`,borderRadius:"1.2rem",padding:"1.5rem",textAlign:"center"}}>
                 <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🌙</div>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.5rem"}}>Day closed</div>
-                <div style={{color:T.textMid,fontSize:"0.84rem",lineHeight:1.65}}>You showed up. Rest well.</div>
+                <div style={{color:T.textMid,fontSize:"0.84rem",lineHeight:1.65}}>{typeof dayClosed === "string" ? dayClosed+" closed out tonight." : "You showed up."} Rest well.</div>
+                <button onClick={function(){ setDayClosed(false); }} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontFamily:"inherit",marginTop:"0.75rem",padding:"0.25rem 0.5rem"}}>↩ Reopen</button>
               </div>
             ):(
               <>
