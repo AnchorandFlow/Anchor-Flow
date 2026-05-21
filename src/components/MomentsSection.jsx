@@ -9,17 +9,6 @@ const B = {
 const inp = (extra={}) => ({ border:"1.5px solid "+B.border, borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"DM Sans,sans-serif", width:"100%", boxSizing:"border-box", background:"#1e3060", color:"#faf8f4", ...extra })
 const uid = () => Math.random().toString(36).slice(2)
 
-const PACKING_CATEGORIES = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]
-const PACKING_SUGGESTIONS = {
-  "Clothing": ["T-shirts","Pants","Underwear","Socks","Pajamas","Swimsuit","Jacket","Shoes","Hat"],
-  "Toiletries": ["Toothbrush","Toothpaste","Shampoo","Conditioner","Body wash","Deodorant","Sunscreen","Makeup","Razor"],
-  "Electronics": ["Phone charger","Laptop","Laptop charger","Headphones","Camera","Power bank","Adapter"],
-  "Medications": ["Prescription medications","Ibuprofen","Allergy medicine","Band-aids","Antacids"],
-  "Documents": ["Passport","ID","Travel insurance","Booking confirmations","Cash","Credit cards"],
-  "Kids stuff": ["Diapers","Wipes","Snacks","Favorite toy","Car seat","Stroller","Kids medications"],
-  "Snacks": ["Protein bars","Trail mix","Water bottles","Crackers","Fruit"],
-  "Misc": ["Umbrella","Book","Sunglasses","Reusable bags","First aid kit","Laundry bag"],
-}
 
 function injectCalendarEvent(title, dateStr, id, color) {
   if (!dateStr) return false
@@ -585,90 +574,6 @@ function AddPackingItem({ onAdd }) {
           return <button key={c} onClick={function(){setCat(c)}} style={{ background:cat===c?"rgba(106,163,196,0.2)":"transparent", border:"1px solid "+(cat===c?"rgba(106,163,196,0.4)":"rgba(255,255,255,0.1)"), borderRadius:20, padding:"2px 8px", fontSize:10, color:cat===c?B.coastal:B.muted, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>{c}</button>
         })}
       </div>
-    </div>
-  )
-}) {
-  const [open, setOpen] = useState(false)
-  const [activeCategory, setActiveCategory] = useState("Clothing")
-  const [activePerson, setActivePerson] = useState("shared")
-  const [newItem, setNewItem] = useState("")
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const packing = moment.packing || {}
-  const people = moment.travelers || ["shared"]
-  const getCategoryItems = (person, cat) => (packing[person]?.[cat] || [])
-  const totalItems = people.flatMap(p => PACKING_CATEGORIES.flatMap(c => getCategoryItems(p,c))).length
-  const packedItems = people.flatMap(p => PACKING_CATEGORIES.flatMap(c => getCategoryItems(p,c).filter(i=>i.done))).length
-  const updateItems = (person, cat, items) => {
-    const newPacking = { ...packing, [person]: { ...(packing[person]||{}), [cat]: items } }
-    onUpdate({ packing: newPacking })
-  }
-  const addItem = (text) => {
-    if (!text.trim()) return
-    updateItems(activePerson, activeCategory, [...getCategoryItems(activePerson,activeCategory), { text:text.trim(), done:false }])
-    setNewItem("")
-  }
-  return (
-    <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
-      <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
-        <span style={{ fontSize:18 }}>🧳</span>
-        <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Packing</div>
-          <ProgressBar value={packedItems} total={totalItems} color={B.coastal}/>
-        </div>
-        <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
-      </div>
-      {open && (
-        <div style={{ borderTop:"1px solid "+B.border }}>
-          <div style={{ padding:"10px 14px 0" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Who</div>
-              <button onClick={()=>{ const name=prompt("Traveler name:"); if(name?.trim()) onUpdate({travelers:[...people.filter(p=>p!=="shared"),name.trim(),"shared"]}) }} style={{ background:"none", border:"none", fontSize:11, color:B.coastal, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>+ Add person</button>
-            </div>
-            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
-              {people.map(p=>(
-                <button key={p} onClick={()=>setActivePerson(p)} style={{ background:activePerson===p?B.coastal:"transparent", border:"1.5px solid "+(activePerson===p?B.coastal:B.border), borderRadius:20, padding:"4px 12px", fontSize:11, color:activePerson===p?"#fff":B.muted, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>
-                  {p==="shared"?"🏠 Shared":p}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div style={{ overflowX:"auto", display:"flex", borderTop:"1px solid "+B.border, borderBottom:"1px solid "+B.border }}>
-            {PACKING_CATEGORIES.map(cat=>{
-              const count = getCategoryItems(activePerson,cat).length
-              return (
-                <button key={cat} onClick={()=>setActiveCategory(cat)} style={{ background:"none", border:"none", borderBottom:activeCategory===cat?"2px solid "+B.coastal:"2px solid transparent", color:activeCategory===cat?B.coastal:B.muted, padding:"7px 10px", fontSize:10, fontFamily:"DM Sans,sans-serif", fontWeight:activeCategory===cat?700:400, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
-                  {cat} {count>0&&"("+count+")"}
-                </button>
-              )
-            })}
-          </div>
-          <div style={{ padding:"10px 14px" }}>
-            {getCategoryItems(activePerson,activeCategory).map((item,i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid "+B.border }}>
-                <div onClick={()=>updateItems(activePerson,activeCategory,getCategoryItems(activePerson,activeCategory).map((x,j)=>j===i?{...x,done:!x.done}:x))} style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?B.coastal:"rgba(0,0,0,0.15)"), background:item.done?B.coastal:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
-                  {item.done&&<span style={{ color:"#fff", fontSize:10 }}>✓</span>}
-                </div>
-                <span style={{ flex:1, fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1 }}>{item.text}</span>
-                <button onClick={()=>updateItems(activePerson,activeCategory,getCategoryItems(activePerson,activeCategory).filter((_,j)=>j!==i))} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:16 }}>×</button>
-              </div>
-            ))}
-            <div style={{ display:"flex", gap:8, marginTop:10 }}>
-              <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addItem(newItem)} placeholder={"Add to "+activeCategory+"..."} style={{...inp(),flex:1}}/>
-              <button onClick={()=>addItem(newItem)} style={{ background:B.coastal, border:"none", borderRadius:8, padding:"8px 14px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
-            </div>
-            <button onClick={()=>setShowSuggestions(v=>!v)} style={{ background:"none", border:"none", fontSize:11, color:B.coastal, cursor:"pointer", fontFamily:"DM Sans,sans-serif", marginTop:8, padding:0 }}>
-              {showSuggestions?"Hide":"Show"} suggestions
-            </button>
-            {showSuggestions && (
-              <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:6 }}>
-                {(PACKING_SUGGESTIONS[activeCategory]||[]).filter(s=>!getCategoryItems(activePerson,activeCategory).find(i=>i.text===s)).map(s=>(
-                  <button key={s} onClick={()=>updateItems(activePerson,activeCategory,[...getCategoryItems(activePerson,activeCategory),{text:s,done:false}])} style={{ background:B.soft, border:"1px solid "+B.border, borderRadius:20, padding:"3px 10px", fontSize:11, color:B.navy, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>+ {s}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
