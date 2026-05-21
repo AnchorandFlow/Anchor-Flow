@@ -535,7 +535,7 @@ const TABS = [
   {id:"calendar", label:"Calendar", emoji:"📆"},
   {id:"meals",    label:"Meals",    emoji:"🍽️"},
   {id:"shop",     label:"Shopping", emoji:"🛒"},
-  {id:"cove",     label:"The Cove", emoji:"🏝️"},
+  {id:"cove",     label:"Tide Pool", emoji:"🏝️"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Brain",    emoji:"🧠"},
@@ -6020,7 +6020,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  // ── The Cove ────────────────────────────────────────────────────────────────
+  // ── Tide Pool ───────────────────────────────────────────────────────────────
   const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
   const COVE_MIN_OPEN  = 10;
 
@@ -6142,7 +6142,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return (
       <div>
         <div style={{textAlign:"center",marginBottom:"1.25rem"}}>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ The Cove</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
         </div>
 
@@ -6273,9 +6273,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })}
 
-          {/* On-the-fly shell */}
+          {/* Bonus Tide */}
           <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:"1px solid "+T.borderSoft}}>
-            <div style={{fontSize:"0.7rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>On-the-fly shell</div>
+            <div style={{fontSize:"0.7rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Bonus Tide</div>
             <div style={{display:"flex",gap:"0.4rem"}}>
               <input value={flyName} onChange={function(e){setFlyName(e.target.value);}}
                 placeholder="Something helpful they did..."
@@ -6286,7 +6286,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <option value={2}>+2 🐚</option>
                 <option value={3}>+3 🐚</option>
               </select>
-              <button onClick={giveShell} style={{...btnP(T.sand),fontSize:"0.8rem",padding:"0.42rem 0.85rem",whiteSpace:"nowrap"}}>Give shell</button>
+              <button onClick={giveShell} style={{...btnP(T.sand),fontSize:"0.8rem",padding:"0.42rem 0.85rem",whiteSpace:"nowrap"}}>+ Bonus Tide</button>
             </div>
           </div>
         </div>
@@ -7845,11 +7845,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
 
         {/* ── THE COVE ──────────────────────────────────────────── */}
-        <SettingSection id="cove" title="🏝️ The Cove" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
+        <SettingSection id="cove" title="🏝️ Tide Pool" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>Set up each child's chores and treasures. Every child can have their own treasure list.</p>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
-            if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem"}}>Add children in Family Profile above to set up The Cove.</div>;
+            if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem"}}>Add children in Family Profile above to set up the Tide Pool.</div>;
 
             var saved = coveData || [];
             var [sKidIdx, setSKidIdx] = useState(0);
@@ -8980,7 +8980,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "calendar", label: "Calendar", emoji: "📆" },
     { id: "meals",    label: "Meals",    emoji: "🍽️" },
     { id: "shop",     label: "Shopping", emoji: "🛒" },
-    { id: "cove",     label: "The Cove", emoji: "🏝️" },
+    { id: "cove",     label: "Tide Pool", emoji: "🏝️" },
     { id: "home",     label: "Home",     emoji: "🏡" },
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
     { id: "school",   label: "School",   emoji: "🏫" },
