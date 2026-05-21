@@ -10,7 +10,6 @@ const inp = (extra={}) => ({ border:"1.5px solid "+B.border, borderRadius:8, pad
 const uid = () => Math.random().toString(36).slice(2)
 
 const PACKING_CATEGORIES = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]
-
 const PACKING_SUGGESTIONS = {
   "Clothing": ["T-shirts","Pants","Underwear","Socks","Pajamas","Swimsuit","Jacket","Shoes","Hat"],
   "Toiletries": ["Toothbrush","Toothpaste","Shampoo","Conditioner","Body wash","Deodorant","Sunscreen","Makeup","Razor"],
@@ -20,6 +19,34 @@ const PACKING_SUGGESTIONS = {
   "Kids stuff": ["Diapers","Wipes","Snacks","Favorite toy","Car seat","Stroller","Kids medications"],
   "Snacks": ["Protein bars","Trail mix","Water bottles","Crackers","Fruit"],
   "Misc": ["Umbrella","Book","Sunglasses","Reusable bags","First aid kit","Laundry bag"],
+}
+
+function injectCalendarEvent(title, dateStr, id, color) {
+  if (!dateStr) return false
+  try {
+    var events = JSON.parse(localStorage.getItem("af_calEvents") || "[]")
+    if (!events.some(function(e) { return e.id === id })) {
+      events.push({ id: id, title: title, date: dateStr, color: color || "#c8a97a", notes: "Added from Moments" })
+      localStorage.setItem("af_calEvents", JSON.stringify(events))
+      return true
+    }
+  } catch {}
+  return false
+}
+
+function addToGroceryList(items) {
+  try {
+    var stores = []
+    try { stores = JSON.parse(localStorage.getItem("af_stores") || "[]") } catch {}
+    var store = (stores && stores[0]) ? stores[0] : "Grocery Store"
+    var existing = JSON.parse(localStorage.getItem("af_shoppingItems") || "[]")
+    var newItems = items.map(function(text) {
+      return { id: Date.now().toString() + Math.random().toString(36).slice(2,5), text: text, done: false, store: store, category: "grocery" }
+    })
+    localStorage.setItem("af_shoppingItems", JSON.stringify([...existing, ...newItems]))
+    window.dispatchEvent(new CustomEvent("af-shopping-add", { detail: { items: newItems } }))
+    return true
+  } catch { return false }
 }
 
 function ProgressBar({ value, total, color }) {
@@ -83,34 +110,88 @@ function GuestCard({ moment, onUpdate }) {
   )
 }
 
-function ChecklistCard({ emoji, title, color, items, onUpdate, placeholder }) {
+// Shopping list card with "Send to grocery list" button
+function ShoppingCard({ moment, onUpdate }) {
   const [open, setOpen] = useState(false)
   const [newItem, setNewItem] = useState("")
+  const [toast, setToast] = useState("")
+  const [selected, setSelected] = useState({})
+  const items = moment.shopping || []
   const done = items.filter(i=>i.done).length
+
+  function sendToGrocery() {
+    var toSend = items.filter(function(item) { return selected[item.id||item.text] && !item.sentToGrocery })
+    if (!toSend.length) { setToast("Select items first"); setTimeout(function(){setToast("")},2000); return }
+    var texts = toSend.map(function(i){ return i.text })
+    addToGroceryList(texts)
+    var sentIds = {}
+    toSend.forEach(function(i){ sentIds[i.id||i.text] = true })
+    onUpdate({ shopping: items.map(function(i){ return sentIds[i.id||i.text] ? {...i, sentToGrocery:true} : i }) })
+    setSelected({})
+    setToast("Added to grocery list! ✓")
+    setTimeout(function(){ setToast("") }, 2500)
+  }
+
+  function sendAllUnsent() {
+    var unsent = items.filter(function(i){ return !i.sentToGrocery })
+    if (!unsent.length) { setToast("All items already sent"); setTimeout(function(){setToast("")},2000); return }
+    addToGroceryList(unsent.map(function(i){ return i.text }))
+    onUpdate({ shopping: items.map(function(i){ return {...i, sentToGrocery:true} }) })
+    setToast("Added all to grocery list! ✓")
+    setTimeout(function(){ setToast("") }, 2500)
+  }
+
+  var anySelected = items.some(function(i){ return selected[i.id||i.text] })
+  var unsentCount = items.filter(function(i){ return !i.sentToGrocery }).length
+
   return (
     <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
       <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
-        <span style={{ fontSize:18 }}>{emoji}</span>
+        <span style={{ fontSize:18 }}>🛒</span>
         <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>{title}</div>
-          <ProgressBar value={done} total={items.length} color={color}/>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Shopping List</div>
+          <ProgressBar value={done} total={items.length} color={B.sage}/>
         </div>
         <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
       </div>
       {open && (
         <div style={{ borderTop:"1px solid "+B.border, padding:"10px 14px" }}>
-          {items.map((item,i)=>(
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid "+B.border }}>
-              <div onClick={()=>onUpdate(items.map((x,j)=>j===i?{...x,done:!x.done}:x))} style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?color:"rgba(0,0,0,0.15)"), background:item.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
-                {item.done&&<span style={{ color:"#fff", fontSize:10 }}>✓</span>}
-              </div>
-              <span style={{ flex:1, fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1 }}>{item.text}</span>
-              <button onClick={()=>onUpdate(items.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:16 }}>×</button>
+          {toast && (
+            <div style={{ background:"rgba(122,158,142,0.15)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:8, padding:"6px 12px", fontSize:12, color:B.sage, fontFamily:"DM Sans,sans-serif", marginBottom:10, textAlign:"center" }}>{toast}</div>
+          )}
+          {items.length > 0 && (
+            <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+              {anySelected && (
+                <button onClick={sendToGrocery} style={{ flex:1, background:"rgba(122,158,142,0.15)", border:"1.5px solid rgba(122,158,142,0.4)", borderRadius:8, padding:"7px 10px", fontSize:11, color:B.sage, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>
+                  🛒 Send selected to grocery list
+                </button>
+              )}
+              {!anySelected && unsentCount > 0 && (
+                <button onClick={sendAllUnsent} style={{ flex:1, background:"rgba(122,158,142,0.08)", border:"1.5px solid rgba(122,158,142,0.25)", borderRadius:8, padding:"7px 10px", fontSize:11, color:"rgba(122,158,142,0.8)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>
+                  🛒 Send all {unsentCount} to grocery list
+                </button>
+              )}
             </div>
-          ))}
+          )}
+          {items.map(function(item,i) {
+            var itemKey = item.id || item.text
+            return (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+B.border }}>
+                <div onClick={function(){ setSelected(function(p){ var n={...p}; n[itemKey]=!n[itemKey]; return n }) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(selected[itemKey]?"#7a9e8e":"rgba(255,255,255,0.2)"), background:selected[itemKey]?"rgba(122,158,142,0.25)":"transparent", flexShrink:0, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:B.sage }}>
+                  {selected[itemKey]?"✓":""}
+                </div>
+                <div onClick={function(){ onUpdate({shopping:items.map(function(x,j){ return j===i?{...x,done:!x.done}:x })}) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?B.sage:"rgba(0,0,0,0.15)"), background:item.done?B.sage:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, fontSize:9, color:"#fff" }}>
+                  {item.done?"✓":""}
+                </div>
+                <span style={{ flex:1, fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1 }}>{item.text}</span>
+                {item.sentToGrocery && <span style={{ fontSize:9, color:"rgba(122,158,142,0.6)", fontFamily:"DM Sans,sans-serif", flexShrink:0 }}>✓ sent</span>}
+                <button onClick={function(){ onUpdate({shopping:items.filter(function(_,j){ return j!==i })}) }} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:16 }}>×</button>
+              </div>
+            )
+          })}
           <div style={{ display:"flex", gap:8, marginTop:10 }}>
-            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newItem.trim()){ onUpdate([...items,{text:newItem.trim(),done:false}]); setNewItem(""); }}} placeholder={placeholder} style={{...inp(),flex:1}}/>
-            <button onClick={()=>{ if(newItem.trim()){ onUpdate([...items,{text:newItem.trim(),done:false}]); setNewItem(""); }}} style={{ background:color, border:"none", borderRadius:8, padding:"8px 14px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
+            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newItem.trim()){ onUpdate({shopping:[...items,{id:uid(),text:newItem.trim(),done:false}]}); setNewItem(""); }}} placeholder="Add item to buy..." style={{...inp(),flex:1}}/>
+            <button onClick={function(){ if(newItem.trim()){ onUpdate({shopping:[...items,{id:uid(),text:newItem.trim(),done:false}]}); setNewItem(""); }}} style={{ background:B.sage, border:"none", borderRadius:8, padding:"8px 14px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
           </div>
         </div>
       )}
@@ -118,38 +199,179 @@ function ChecklistCard({ emoji, title, color, items, onUpdate, placeholder }) {
   )
 }
 
+// Notes & Tasks card with optional due date and calendar inject
+function NotesTasksCard({ moment, onUpdate }) {
+  const [open, setOpen] = useState(false)
+  const [newText, setNewText] = useState("")
+  const [newDue, setNewDue] = useState("")
+  const [toast, setToast] = useState("")
+  const items = moment.notes || []
+  const done = items.filter(i=>i.done).length
+
+  function addItem() {
+    if (!newText.trim()) return
+    var item = { id:uid(), text:newText.trim(), done:false, due:newDue||"" }
+    if (newDue) {
+      var added = injectCalendarEvent("📋 "+moment.name+": "+newText.trim(), newDue, "moment_task_"+item.id, "#9b8fd4")
+      if (added) { setToast("Task added to calendar ✓"); setTimeout(function(){ setToast("") }, 2200) }
+    }
+    onUpdate({ notes: [...items, item] })
+    setNewText(""); setNewDue("")
+  }
+
+  function addToCalendar(item) {
+    if (!item.due) return
+    var added = injectCalendarEvent("📋 "+moment.name+": "+item.text, item.due, "moment_task_"+item.id, "#9b8fd4")
+    setToast(added ? "Added to calendar ✓" : "Already on calendar")
+    setTimeout(function(){ setToast("") }, 2200)
+  }
+
+  return (
+    <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
+      <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{ fontSize:18 }}>📋</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Notes & Tasks</div>
+          {items.length > 0
+            ? <ProgressBar value={done} total={items.length} color={B.lavender}/>
+            : <div style={{ fontSize:11, color:B.muted, marginTop:2 }}>Add reminders, tasks, notes</div>
+          }
+        </div>
+        <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop:"1px solid "+B.border, padding:"10px 14px" }}>
+          {toast && (
+            <div style={{ background:"rgba(155,143,212,0.12)", border:"1px solid rgba(155,143,212,0.3)", borderRadius:8, padding:"6px 12px", fontSize:12, color:B.lavender, fontFamily:"DM Sans,sans-serif", marginBottom:8, textAlign:"center" }}>{toast}</div>
+          )}
+          {items.map(function(item,i) {
+            return (
+              <div key={item.id||i} style={{ display:"flex", alignItems:"flex-start", gap:8, padding:"7px 0", borderBottom:"1px solid "+B.border }}>
+                <div onClick={function(){ onUpdate({notes:items.map(function(x,j){ return j===i?{...x,done:!x.done}:x })}) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?B.lavender:"rgba(0,0,0,0.15)"), background:item.done?B.lavender:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0, marginTop:2, fontSize:9, color:"#fff" }}>
+                  {item.done?"✓":""}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1, fontFamily:"DM Sans,sans-serif" }}>{item.text}</div>
+                  {item.due && (
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:3 }}>
+                      <span style={{ fontSize:10, color:"rgba(155,143,212,0.8)", fontFamily:"DM Sans,sans-serif" }}>📅 {item.due}</span>
+                      <button onClick={function(){ addToCalendar(item) }} style={{ background:"none", border:"none", fontSize:9, color:"rgba(155,143,212,0.6)", cursor:"pointer", fontFamily:"DM Sans,sans-serif", padding:0, fontWeight:600 }}>+ calendar</button>
+                    </div>
+                  )}
+                </div>
+                <button onClick={function(){ onUpdate({notes:items.filter(function(_,j){ return j!==i })}) }} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:16, flexShrink:0 }}>×</button>
+              </div>
+            )
+          })}
+          <div style={{ marginTop:10, background:"rgba(155,143,212,0.06)", borderRadius:10, padding:10 }}>
+            <input value={newText} onChange={e=>setNewText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addItem()} placeholder="Note or task..." style={{...inp(), marginBottom:6}}/>
+            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:10, color:B.muted, fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Due date (optional)</div>
+                <input type="date" value={newDue} onChange={e=>setNewDue(e.target.value)} style={{...inp()}}/>
+              </div>
+              <button onClick={addItem} style={{ background:B.lavender, border:"none", borderRadius:8, padding:"8px 14px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer", marginTop:18 }}>Add</button>
+            </div>
+            {newDue && <div style={{ fontSize:10, color:"rgba(155,143,212,0.7)", fontFamily:"DM Sans,sans-serif", marginTop:5 }}>📅 Will add to calendar when saved</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LayoverRow({ layover, onChange, onRemove }) {
+  return (
+    <div style={{ background:"rgba(106,163,196,0.07)", border:"1px solid rgba(106,163,196,0.18)", borderRadius:8, padding:"8px 10px", marginBottom:6 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+        <span style={{ fontSize:10, fontWeight:700, color:"rgba(106,163,196,0.8)", fontFamily:"DM Sans,sans-serif", textTransform:"uppercase", letterSpacing:"0.05em" }}>🔄 Layover</span>
+        <button onClick={onRemove} style={{ background:"none", border:"none", color:"rgba(201,122,122,0.5)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif" }}>Remove</button>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        <div style={{ display:"flex", gap:6 }}>
+          <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Airport / City</div><input value={layover.airport||""} onChange={e=>onChange({...layover,airport:e.target.value})} placeholder="e.g. ORD, Dallas" style={inp()}/></div>
+          <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Duration</div><input value={layover.duration||""} onChange={e=>onChange({...layover,duration:e.target.value})} placeholder="e.g. 1h 45m" style={inp()}/></div>
+        </div>
+        <div style={{ display:"flex", gap:6 }}>
+          <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Arrives at layover</div><input type="time" value={layover.arriveTime||""} onChange={e=>onChange({...layover,arriveTime:e.target.value})} style={inp()}/></div>
+          <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Departs layover</div><input type="time" value={layover.departTime||""} onChange={e=>onChange({...layover,departTime:e.target.value})} style={inp()}/></div>
+        </div>
+        <input value={layover.notes||""} onChange={e=>onChange({...layover,notes:e.target.value})} placeholder="Gate, terminal, notes…" style={inp()}/>
+      </div>
+    </div>
+  )
+}
+
 function FlightCard({ moment, onUpdate }) {
   const [open, setOpen] = useState(false)
   const flights = moment.flights || [{}]
+
+  function updateFlight(i, changes) {
+    onUpdate({ flights: flights.map(function(x,j){ return j===i ? Object.assign({},x,changes) : x }) })
+  }
+  function updateLayover(fi, li, changes) {
+    var layovers = (flights[fi].layovers||[]).map(function(l,j){ return j===li ? Object.assign({},l,changes) : l })
+    updateFlight(fi, { layovers: layovers })
+  }
+  function addLayover(fi) {
+    updateFlight(fi, { layovers: [...(flights[fi].layovers||[]), { id: Date.now().toString(), airport:"", duration:"", arriveTime:"", departTime:"", notes:"" }] })
+  }
+  function removeLayover(fi, li) {
+    updateFlight(fi, { layovers: (flights[fi].layovers||[]).filter(function(_,j){ return j!==li }) })
+  }
+
   return (
     <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
       <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
         <span style={{ fontSize:18 }}>✈️</span>
         <div style={{ flex:1 }}>
           <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Flights</div>
-          <div style={{ fontSize:11, color:B.muted, marginTop:2 }}>{flights.filter(f=>f.airline).length} flight(s) added</div>
+          <div style={{ fontSize:11, color:B.muted, marginTop:2 }}>{flights.filter(f=>f.airline).length} flight(s) · {flights.reduce(function(n,f){ return n+(f.layovers||[]).length },0)} layover(s)</div>
         </div>
         <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
       </div>
       {open && (
         <div style={{ borderTop:"1px solid "+B.border, padding:"10px 14px" }}>
-          {flights.map((f,i)=>(
-            <div key={i} style={{ background:B.soft, borderRadius:10, padding:12, marginBottom:8 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Flight {i+1}</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                <input value={f.airline||""} onChange={e=>onUpdate({flights:flights.map((x,j)=>j===i?{...x,airline:e.target.value}:x)})} placeholder="Airline" style={inp()}/>
-                <input value={f.confirmation||""} onChange={e=>onUpdate({flights:flights.map((x,j)=>j===i?{...x,confirmation:e.target.value}:x)})} placeholder="Confirmation #" style={inp()}/>
-                <div style={{ display:"flex", gap:6 }}>
-                  <input value={f.departure||""} onChange={e=>onUpdate({flights:flights.map((x,j)=>j===i?{...x,departure:e.target.value}:x)})} placeholder="From" style={{...inp(),flex:1}}/>
-                  <input value={f.arrival||""} onChange={e=>onUpdate({flights:flights.map((x,j)=>j===i?{...x,arrival:e.target.value}:x)})} placeholder="To" style={{...inp(),flex:1}}/>
+          {flights.map(function(f,i) {
+            return (
+              <div key={i} style={{ background:B.soft, borderRadius:10, padding:12, marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", letterSpacing:"0.06em" }}>Flight {i+1}</div>
+                  {flights.length > 1 && <button onClick={()=>onUpdate({flights:flights.filter(function(_,j){ return j!==i })})} style={{ background:"none", border:"none", color:"rgba(201,122,122,0.5)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif" }}>Remove</button>}
                 </div>
-                <div style={{ display:"flex", gap:6 }}>
-                  <div style={{ flex:1 }}><div style={{ fontSize:11, color:B.muted, marginBottom:3 }}>Departs</div><input type="time" value={f.departTime||""} onChange={e=>onUpdate({flights:flights.map((x,j)=>j===i?{...x,departTime:e.target.value}:x)})} style={inp()}/></div>
-                  <div style={{ flex:1 }}><div style={{ fontSize:11, color:B.muted, marginBottom:3 }}>Arrives</div><input type="time" value={f.arriveTime||""} onChange={e=>onUpdate({flights:flights.map((x,j)=>j===i?{...x,arriveTime:e.target.value}:x)})} style={inp()}/></div>
+                {/* Airline + confirmation */}
+                <div style={{ display:"flex", gap:6, marginBottom:6 }}>
+                  <input value={f.airline||""} onChange={e=>updateFlight(i,{airline:e.target.value})} placeholder="Airline & flight # (e.g. UA 1234)" style={{...inp(),flex:2}}/>
+                  <input value={f.confirmation||""} onChange={e=>updateFlight(i,{confirmation:e.target.value})} placeholder="Confirmation #" style={{...inp(),flex:1}}/>
                 </div>
+                {/* Route */}
+                <div style={{ display:"flex", gap:6, marginBottom:6 }}>
+                  <input value={f.departure||""} onChange={e=>updateFlight(i,{departure:e.target.value})} placeholder="From (DEN, Denver…)" style={{...inp(),flex:1}}/>
+                  <input value={f.arrival||""} onChange={e=>updateFlight(i,{arrival:e.target.value})} placeholder="To (LAX, Los Angeles…)" style={{...inp(),flex:1}}/>
+                </div>
+                {/* Depart date + time */}
+                <div style={{ fontSize:10, fontWeight:700, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.05em" }}>Departure</div>
+                <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                  <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Date</div><input type="date" value={f.departDate||""} onChange={e=>updateFlight(i,{departDate:e.target.value})} style={inp()}/></div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Time</div><input type="time" value={f.departTime||""} onChange={e=>updateFlight(i,{departTime:e.target.value})} style={inp()}/></div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Terminal / Gate</div><input value={f.departGate||""} onChange={e=>updateFlight(i,{departGate:e.target.value})} placeholder="e.g. B12" style={inp()}/></div>
+                </div>
+                {/* Layovers */}
+                {(f.layovers||[]).map(function(lay,li) {
+                  return <LayoverRow key={lay.id||li} layover={lay} onChange={function(c){ updateLayover(i,li,c) }} onRemove={function(){ removeLayover(i,li) }}/>
+                })}
+                <button onClick={function(){ addLayover(i) }} style={{ background:"rgba(106,163,196,0.08)", border:"1px dashed rgba(106,163,196,0.3)", borderRadius:7, padding:"5px 10px", fontSize:11, color:"rgba(106,163,196,0.7)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", width:"100%", marginBottom:8 }}>+ Add layover</button>
+                {/* Arrival date + time */}
+                <div style={{ fontSize:10, fontWeight:700, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:5, textTransform:"uppercase", letterSpacing:"0.05em" }}>Arrival</div>
+                <div style={{ display:"flex", gap:6, marginBottom:6 }}>
+                  <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Date</div><input type="date" value={f.arriveDate||""} onChange={e=>updateFlight(i,{arriveDate:e.target.value})} style={inp()}/></div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Time</div><input type="time" value={f.arriveTime||""} onChange={e=>updateFlight(i,{arriveTime:e.target.value})} style={inp()}/></div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Terminal / Gate</div><input value={f.arriveGate||""} onChange={e=>updateFlight(i,{arriveGate:e.target.value})} placeholder="e.g. C22" style={inp()}/></div>
+                </div>
+                <input value={f.notes||""} onChange={e=>updateFlight(i,{notes:e.target.value})} placeholder="Seat numbers, meal requests, notes…" style={inp()}/>
               </div>
-            </div>
-          ))}
+            )
+          })}
           <button onClick={()=>onUpdate({flights:[...flights,{}]})} style={{ background:"none", border:"1.5px dashed "+B.border, borderRadius:8, padding:"8px", color:B.muted, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", width:"100%" }}>+ Add another flight</button>
         </div>
       )}
@@ -160,33 +382,88 @@ function FlightCard({ moment, onUpdate }) {
 function HotelCard({ moment, onUpdate }) {
   const [open, setOpen] = useState(false)
   const hotels = moment.hotels || [{}]
+
+  function updateHotel(i, changes) {
+    onUpdate({ hotels: hotels.map(function(x,j){ return j===i ? Object.assign({},x,changes) : x }) })
+  }
+
+  var STAY_TYPES = [
+    { id:"hotel", label:"🏨 Hotel", icon:"🏨" },
+    { id:"airbnb", label:"🏠 Airbnb / VRBO", icon:"🏠" },
+    { id:"hostel", label:"🛏 Hostel", icon:"🛏" },
+    { id:"other", label:"📍 Other", icon:"📍" },
+  ]
+
   return (
     <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
       <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
         <span style={{ fontSize:18 }}>🏨</span>
         <div style={{ flex:1 }}>
-          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Hotels</div>
-          <div style={{ fontSize:11, color:B.muted, marginTop:2 }}>{hotels.filter(h=>h.name).length} hotel(s) added</div>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Stays</div>
+          <div style={{ fontSize:11, color:B.muted, marginTop:2 }}>{hotels.filter(h=>h.name).length} stay(s) added</div>
         </div>
         <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
       </div>
       {open && (
         <div style={{ borderTop:"1px solid "+B.border, padding:"10px 14px" }}>
-          {hotels.map((h,i)=>(
-            <div key={i} style={{ background:B.soft, borderRadius:10, padding:12, marginBottom:8 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase", marginBottom:8 }}>Hotel {i+1}</div>
-              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                <input value={h.name||""} onChange={e=>onUpdate({hotels:hotels.map((x,j)=>j===i?{...x,name:e.target.value}:x)})} placeholder="Hotel name" style={inp()}/>
-                <input value={h.confirmation||""} onChange={e=>onUpdate({hotels:hotels.map((x,j)=>j===i?{...x,confirmation:e.target.value}:x)})} placeholder="Confirmation #" style={inp()}/>
-                <input value={h.address||""} onChange={e=>onUpdate({hotels:hotels.map((x,j)=>j===i?{...x,address:e.target.value}:x)})} placeholder="Address" style={inp()}/>
-                <div style={{ display:"flex", gap:6 }}>
-                  <div style={{ flex:1 }}><div style={{ fontSize:11, color:B.muted, marginBottom:3 }}>Check-in</div><input type="date" value={h.checkIn||""} onChange={e=>onUpdate({hotels:hotels.map((x,j)=>j===i?{...x,checkIn:e.target.value}:x)})} style={inp()}/></div>
-                  <div style={{ flex:1 }}><div style={{ fontSize:11, color:B.muted, marginBottom:3 }}>Check-out</div><input type="date" value={h.checkOut||""} onChange={e=>onUpdate({hotels:hotels.map((x,j)=>j===i?{...x,checkOut:e.target.value}:x)})} style={inp()}/></div>
+          {hotels.map(function(h,i) {
+            var stayType = h.stayType || "hotel"
+            var isAirbnb = stayType === "airbnb"
+            return (
+              <div key={i} style={{ background:B.soft, borderRadius:10, padding:12, marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:B.muted, textTransform:"uppercase" }}>Stay {i+1}</div>
+                  {hotels.length > 1 && <button onClick={()=>onUpdate({hotels:hotels.filter(function(_,j){ return j!==i })})} style={{ background:"none", border:"none", color:"rgba(201,122,122,0.5)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif" }}>Remove</button>}
+                </div>
+                {/* Type toggle */}
+                <div style={{ display:"flex", gap:5, marginBottom:10, flexWrap:"wrap" }}>
+                  {STAY_TYPES.map(function(t) {
+                    return (
+                      <button key={t.id} onClick={function(){ updateHotel(i,{stayType:t.id}) }} style={{ background:stayType===t.id?"rgba(200,169,122,0.2)":"transparent", border:"1.5px solid "+(stayType===t.id?"rgba(200,169,122,0.5)":"rgba(255,255,255,0.1)"), borderRadius:20, padding:"3px 10px", fontSize:11, color:stayType===t.id?"#c8a97a":"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:stayType===t.id?700:400 }}>{t.label}</button>
+                    )
+                  })}
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  <input value={h.name||""} onChange={e=>updateHotel(i,{name:e.target.value})} placeholder={isAirbnb?"Airbnb/VRBO listing name":"Hotel name"} style={inp()}/>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <input value={h.confirmation||""} onChange={e=>updateHotel(i,{confirmation:e.target.value})} placeholder="Confirmation #" style={{...inp(),flex:1}}/>
+                    {/* Door/house code — shown for Airbnb or always */}
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>{isAirbnb?"🔑 Door / House code":"🔑 Room / Access code"}</div>
+                      <input value={h.doorCode||""} onChange={e=>updateHotel(i,{doorCode:e.target.value})} placeholder={isAirbnb?"e.g. 4829#":"e.g. key at desk"} style={inp()}/>
+                    </div>
+                  </div>
+                  <input value={h.address||""} onChange={e=>updateHotel(i,{address:e.target.value})} placeholder="Address" style={inp()}/>
+                  {h.address && (
+                    <input value={h.addressUrl||""} onChange={e=>updateHotel(i,{addressUrl:e.target.value})} placeholder="Google Maps link (optional)" style={{...inp(), fontSize:11, color:"rgba(106,163,196,0.8)"}}/>
+                  )}
+                  <div style={{ display:"flex", gap:6 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Check-in</div>
+                      <input type="date" value={h.checkIn||""} onChange={e=>updateHotel(i,{checkIn:e.target.value})} style={inp()}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Check-out</div>
+                      <input type="date" value={h.checkOut||""} onChange={e=>updateHotel(i,{checkOut:e.target.value})} style={inp()}/>
+                    </div>
+                  </div>
+                  {/* Check-in/out times */}
+                  <div style={{ display:"flex", gap:6 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Check-in time</div>
+                      <input type="time" value={h.checkInTime||""} onChange={e=>updateHotel(i,{checkInTime:e.target.value})} style={inp()}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:10, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", marginBottom:3 }}>Check-out time</div>
+                      <input type="time" value={h.checkOutTime||""} onChange={e=>updateHotel(i,{checkOutTime:e.target.value})} style={inp()}/>
+                    </div>
+                  </div>
+                  <input value={h.notes||""} onChange={e=>updateHotel(i,{notes:e.target.value})} placeholder="WiFi, parking, host contact, notes…" style={inp()}/>
                 </div>
               </div>
-            </div>
-          ))}
-          <button onClick={()=>onUpdate({hotels:[...hotels,{}]})} style={{ background:"none", border:"1.5px dashed "+B.border, borderRadius:8, padding:"8px", color:B.muted, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", width:"100%" }}>+ Add another hotel</button>
+            )
+          })}
+          <button onClick={()=>onUpdate({hotels:[...hotels,{}]})} style={{ background:"none", border:"1.5px dashed "+B.border, borderRadius:8, padding:"8px", color:B.muted, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", width:"100%" }}>+ Add another stay</button>
         </div>
       )}
     </div>
@@ -194,6 +471,123 @@ function HotelCard({ moment, onUpdate }) {
 }
 
 function PackingCard({ moment, onUpdate }) {
+  // Packing templates now live in Travel Profile (af_packing_templates).
+  // This card lets you pick a template to start from, then check items off in-trip.
+  const [open, setOpen] = useState(false)
+  const [pickingTemplate, setPickingTemplate] = useState(false)
+  const packing = moment.packing || { items: [] }  // flat list for trip use
+  const items = packing.items || []
+  const done = items.filter(function(i){ return i.done }).length
+
+  function loadTemplates() {
+    try { return JSON.parse(localStorage.getItem("af_packing_templates") || "[]") } catch { return [] }
+  }
+
+  function applyTemplate(tmpl) {
+    var existing = items.map(function(i){ return i.text.toLowerCase() })
+    var toAdd = []
+    var CATS = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]
+    CATS.forEach(function(cat) {
+      var catItems = ((tmpl.items||{})[cat]||[])
+      catItems.forEach(function(item) {
+        if (!existing.includes(item.text.toLowerCase())) {
+          toAdd.push({ id: Date.now().toString()+Math.random().toString(36).slice(2,5), text: item.text, cat: cat, done: false })
+        }
+      })
+    })
+    onUpdate({ packing: { items: [...items, ...toAdd] } })
+    setPickingTemplate(false)
+  }
+
+  var templates = loadTemplates()
+
+  return (
+    <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
+      <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{ fontSize:18 }}>🧳</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>Packing</div>
+          {items.length > 0
+            ? <ProgressBar value={done} total={items.length} color={B.coastal}/>
+            : <div style={{ fontSize:11, color:B.muted, marginTop:2 }}>Load a template from Travel Profile</div>
+          }
+        </div>
+        <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop:"1px solid "+B.border, padding:"10px 14px" }}>
+          {/* Template picker */}
+          {templates.length > 0 && (
+            <div style={{ marginBottom:12 }}>
+              <button onClick={function(){ setPickingTemplate(function(p){ return !p }) }} style={{ background:"rgba(106,163,196,0.1)", border:"1.5px solid rgba(106,163,196,0.25)", borderRadius:8, padding:"6px 12px", fontSize:11, color:B.coastal, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, width:"100%" }}>
+                📋 Load from packing template {pickingTemplate?"▲":"▼"}
+              </button>
+              {pickingTemplate && (
+                <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:6 }}>
+                  {templates.map(function(t) {
+                    var count = Object.values(t.items||{}).reduce(function(n,arr){ return n+arr.length },0)
+                    return (
+                      <button key={t.id} onClick={function(){ applyTemplate(t) }} style={{ background:"rgba(255,255,255,0.04)", border:"1.5px solid rgba(106,163,196,0.2)", borderRadius:8, padding:"9px 12px", display:"flex", alignItems:"center", gap:10, cursor:"pointer", textAlign:"left" }}>
+                        <span style={{ fontSize:16 }}>{t.emoji||"🧳"}</span>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:"#faf8f4", fontFamily:"DM Sans,sans-serif" }}>{t.name}</div>
+                          <div style={{ fontSize:10, color:B.muted, fontFamily:"DM Sans,sans-serif" }}>{count} items</div>
+                        </div>
+                        <span style={{ fontSize:11, color:B.coastal, fontFamily:"DM Sans,sans-serif" }}>Use →</span>
+                      </button>
+                    )
+                  })}
+                  <div style={{ fontSize:10, color:B.muted, fontFamily:"DM Sans,sans-serif", textAlign:"center", paddingTop:4 }}>Templates are managed in Anchor Vault → Travel Profile</div>
+                </div>
+              )}
+            </div>
+          )}
+          {templates.length === 0 && items.length === 0 && (
+            <div style={{ background:"rgba(106,163,196,0.06)", border:"1px solid rgba(106,163,196,0.2)", borderRadius:8, padding:"10px 12px", marginBottom:10, fontSize:12, color:"rgba(106,163,196,0.8)", fontFamily:"DM Sans,sans-serif", lineHeight:1.5 }}>
+              💡 Create packing templates in <strong>Anchor Vault → Travel Profile</strong> to quickly load a pre-built list here (Road Trip, Flight, Beach Week, etc.)
+            </div>
+          )}
+          {/* Item list */}
+          {items.map(function(item,i) {
+            return (
+              <div key={item.id||i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+B.border }}>
+                <div onClick={function(){ onUpdate({ packing:{ items: items.map(function(x,j){ return j===i?{...x,done:!x.done}:x }) } }) }} style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?B.coastal:"rgba(0,0,0,0.15)"), background:item.done?B.coastal:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+                  {item.done&&<span style={{ color:"#fff", fontSize:10 }}>✓</span>}
+                </div>
+                <div style={{ flex:1 }}>
+                  <span style={{ fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1 }}>{item.text}</span>
+                  {item.cat && <span style={{ fontSize:10, color:B.muted, fontFamily:"DM Sans,sans-serif", marginLeft:6 }}>{item.cat}</span>}
+                </div>
+                <button onClick={function(){ onUpdate({ packing:{ items: items.filter(function(_,j){ return j!==i }) } }) }} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:16 }}>×</button>
+              </div>
+            )
+          })}
+          {/* Add custom item */}
+          <AddPackingItem onAdd={function(text,cat){ onUpdate({ packing:{ items:[...items,{id:Date.now().toString(),text:text,cat:cat,done:false}] } }) }}/>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddPackingItem({ onAdd }) {
+  var [text, setText] = useState("")
+  var [cat, setCat] = useState("Misc")
+  var CATS = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]
+  return (
+    <div style={{ marginTop:10, background:"rgba(255,255,255,0.03)", borderRadius:8, padding:"8px 10px" }}>
+      <div style={{ display:"flex", gap:6, marginBottom:6 }}>
+        <input value={text} onChange={function(e){setText(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter"&&text.trim()){ onAdd(text.trim(),cat); setText("") }}} placeholder="Add item…" style={{...inp(),flex:1}}/>
+        <button onClick={function(){if(text.trim()){onAdd(text.trim(),cat);setText("")}}} style={{ background:B.coastal, border:"none", borderRadius:8, padding:"8px 12px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
+      </div>
+      <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+        {CATS.map(function(c){
+          return <button key={c} onClick={function(){setCat(c)}} style={{ background:cat===c?"rgba(106,163,196,0.2)":"transparent", border:"1px solid "+(cat===c?"rgba(106,163,196,0.4)":"rgba(255,255,255,0.1)"), borderRadius:20, padding:"2px 8px", fontSize:10, color:cat===c?B.coastal:B.muted, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>{c}</button>
+        })}
+      </div>
+    </div>
+  )
+}) {
   const [open, setOpen] = useState(false)
   const [activeCategory, setActiveCategory] = useState("Clothing")
   const [activePerson, setActivePerson] = useState("shared")
@@ -337,6 +731,73 @@ function ItineraryCard({ moment, onUpdate }) {
   )
 }
 
+function DocumentsCard({ moment, onUpdate }) {
+  const [open, setOpen] = useState(false)
+  const docs = moment.documents || []
+
+  function handleFiles(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    var loaded = 0
+    var newDocs = [...docs]
+    files.forEach(function(file) {
+      var reader = new FileReader()
+      reader.onload = function() {
+        loaded++
+        newDocs = [...newDocs, { id: uid(), name: file.name, type: file.type, size: file.size, data: reader.result, uploaded: new Date().toLocaleDateString() }]
+        if (loaded === files.length) onUpdate({ documents: newDocs })
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  function removeDoc(id) { onUpdate({ documents: docs.filter(function(d) { return d.id !== id }) }) }
+  function openDoc(doc) { var a = document.createElement("a"); a.href = doc.data; a.download = doc.name; a.click() }
+
+  return (
+    <div style={{ background:"rgba(255,255,255,0.06)", border:"1.5px solid rgba(200,169,122,0.22)", borderRadius:12, overflow:"hidden", marginBottom:10 }}>
+      <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{ fontSize:18 }}>📎</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:"#faf8f4" }}>Documents & Files</div>
+          <div style={{ fontSize:11, color:"rgba(250,248,244,0.45)", marginTop:2 }}>{docs.length} file{docs.length!==1?"s":""} attached</div>
+        </div>
+        <span style={{ fontSize:12, color:"rgba(250,248,244,0.45)" }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop:"1px solid rgba(200,169,122,0.18)", padding:"10px 14px" }}>
+          <div style={{ fontSize:11, color:"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>Confirmation sheets, tickets, booking PDFs, photos…</div>
+          {docs.map(function(doc) {
+            var isImage = doc.type && doc.type.startsWith("image/")
+            var isPdf = doc.type === "application/pdf"
+            var icon = isImage ? "🖼️" : isPdf ? "📋" : "📄"
+            var kb = doc.size ? Math.round(doc.size / 1024) : null
+            return (
+              <div key={doc.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(200,169,122,0.15)", borderRadius:9, marginBottom:6 }}>
+                {isImage
+                  ? <div style={{ width:36, height:36, borderRadius:6, overflow:"hidden", flexShrink:0 }}><img src={doc.data} alt={doc.name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/></div>
+                  : <div style={{ width:36, height:36, borderRadius:6, background:"rgba(200,169,122,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{icon}</div>
+                }
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, fontWeight:600, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{doc.name}</div>
+                  <div style={{ fontSize:10, color:"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif" }}>{doc.uploaded}{kb?" · "+kb+" KB":""}</div>
+                </div>
+                <button onClick={function() { openDoc(doc) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:6, padding:"3px 9px", fontSize:10, color:"#c8a97a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>Open</button>
+                <button onClick={function() { removeDoc(doc.id) }} style={{ background:"none", border:"none", cursor:"pointer", opacity:0.3, fontSize:14, color:"#faf8f4", padding:"2px 4px", flexShrink:0 }}>✕</button>
+              </div>
+            )
+          })}
+          <label style={{ display:"block", border:"1.5px dashed rgba(200,169,122,0.25)", borderRadius:9, padding:"12px", textAlign:"center", cursor:"pointer", marginTop:4 }}>
+            <div style={{ fontSize:13, color:"rgba(200,169,122,0.6)", fontFamily:"DM Sans,sans-serif" }}>+ Upload file</div>
+            <div style={{ fontSize:10, color:"rgba(250,248,244,0.25)", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>PDF, images, Word docs</div>
+            <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.heic,image/*" onChange={handleFiles} style={{ display:"none" }}/>
+          </label>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MomentDetail({ moment, onUpdate, onBack, onDelete }) {
   const update = (changes) => onUpdate({ ...moment, ...changes })
   const isParty = moment.type === "party"
@@ -351,18 +812,22 @@ function MomentDetail({ moment, onUpdate, onBack, onDelete }) {
           <span style={{ fontSize:24 }}>{isParty?"🎉":"✈️"}</span>
           <input value={moment.name||""} onChange={e=>update({name:e.target.value})} style={{ background:"transparent", border:"none", outline:"none", fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:"#faf8f4", flex:1 }}/>
         </div>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:6 }}>
           <input type="date" value={moment.date||""} onChange={e=>update({date:e.target.value})} style={{ background:"rgba(250,248,244,0.08)", border:"1.5px solid rgba(250,248,244,0.2)", borderRadius:8, padding:"5px 10px", fontSize:12, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
           {!isParty&&<input type="date" value={moment.endDate||""} onChange={e=>update({endDate:e.target.value})} style={{ background:"rgba(250,248,244,0.08)", border:"1.5px solid rgba(250,248,244,0.2)", borderRadius:8, padding:"5px 10px", fontSize:12, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none" }}/>}
           <input value={moment.location||""} onChange={e=>update({location:e.target.value})} placeholder={isParty?"Venue":"Destination"} style={{ background:"rgba(250,248,244,0.08)", border:"1.5px solid rgba(250,248,244,0.2)", borderRadius:8, padding:"5px 10px", fontSize:12, color:"#faf8f4", fontFamily:"DM Sans,sans-serif", outline:"none", flex:1, minWidth:120 }}/>
         </div>
+        <input value={moment.locationUrl||""} onChange={e=>update({locationUrl:e.target.value})} placeholder="Location URL (Google Maps, Airbnb, venue link…)" style={{ background:"rgba(250,248,244,0.05)", border:"1.5px solid rgba(250,248,244,0.12)", borderRadius:8, padding:"5px 10px", fontSize:12, color:"rgba(106,163,196,0.9)", fontFamily:"DM Sans,sans-serif", outline:"none", width:"100%", boxSizing:"border-box" }}/>
+        {moment.locationUrl && <a href={moment.locationUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, color:"rgba(106,163,196,0.7)", fontFamily:"DM Sans,sans-serif", display:"block", marginTop:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>🔗 {moment.locationUrl}</a>}
       </div>
+
       {isParty && (
         <>
           <GuestCard moment={moment} onUpdate={update}/>
           <ChecklistCard emoji="🍽️" title="Food & Menu" color={B.sand} items={moment.food||[]} onUpdate={items=>update({food:items})} placeholder="Add dish..."/>
-          <ChecklistCard emoji="🛒" title="Shopping List" color={B.sage} items={moment.shopping||[]} onUpdate={items=>update({shopping:items})} placeholder="Add item to buy..."/>
-          <ChecklistCard emoji="📋" title="Notes & Tasks" color={B.lavender} items={moment.notes||[]} onUpdate={items=>update({notes:items})} placeholder="Add note..."/>
+          <ShoppingCard moment={moment} onUpdate={update}/>
+          <NotesTasksCard moment={moment} onUpdate={update}/>
+          <DocumentsCard moment={moment} onUpdate={update}/>
         </>
       )}
       {!isParty && (
@@ -371,7 +836,45 @@ function MomentDetail({ moment, onUpdate, onBack, onDelete }) {
           <HotelCard moment={moment} onUpdate={update}/>
           <PackingCard moment={moment} onUpdate={update}/>
           <ItineraryCard moment={moment} onUpdate={update}/>
+          <NotesTasksCard moment={moment} onUpdate={update}/>
+          <DocumentsCard moment={moment} onUpdate={update}/>
         </>
+      )}
+    </div>
+  )
+}
+
+// Keep old ChecklistCard for Food & Menu (no shopping integration needed)
+function ChecklistCard({ emoji, title, color, items, onUpdate, placeholder }) {
+  const [open, setOpen] = useState(false)
+  const [newItem, setNewItem] = useState("")
+  const done = items.filter(i=>i.done).length
+  return (
+    <div style={{ background:B.white, border:"1.5px solid "+B.border, borderRadius:12, overflow:"hidden", marginBottom:10 }}>
+      <div onClick={()=>setOpen(o=>!o)} style={{ padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+        <span style={{ fontSize:18 }}>{emoji}</span>
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:13, fontWeight:700, color:B.navy }}>{title}</div>
+          <ProgressBar value={done} total={items.length} color={color}/>
+        </div>
+        <span style={{ fontSize:12, color:B.muted }}>{open?"▲":"▼"}</span>
+      </div>
+      {open && (
+        <div style={{ borderTop:"1px solid "+B.border, padding:"10px 14px" }}>
+          {items.map((item,i)=>(
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid "+B.border }}>
+              <div onClick={()=>onUpdate(items.map((x,j)=>j===i?{...x,done:!x.done}:x))} style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?color:"rgba(0,0,0,0.15)"), background:item.done?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+                {item.done&&<span style={{ color:"#fff", fontSize:10 }}>✓</span>}
+              </div>
+              <span style={{ flex:1, fontSize:13, color:B.navy, textDecoration:item.done?"line-through":"none", opacity:item.done?0.5:1 }}>{item.text}</span>
+              <button onClick={()=>onUpdate(items.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", color:B.muted, cursor:"pointer", fontSize:16 }}>×</button>
+            </div>
+          ))}
+          <div style={{ display:"flex", gap:8, marginTop:10 }}>
+            <input value={newItem} onChange={e=>setNewItem(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&newItem.trim()){ onUpdate([...items,{text:newItem.trim(),done:false}]); setNewItem(""); }}} placeholder={placeholder} style={{...inp(),flex:1}}/>
+            <button onClick={()=>{ if(newItem.trim()){ onUpdate([...items,{text:newItem.trim(),done:false}]); setNewItem(""); }}} style={{ background:color, border:"none", borderRadius:8, padding:"8px 14px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -389,7 +892,7 @@ export default function MomentsSection() {
   const save = (updated) => { setMoments(updated); try { localStorage.setItem("af_moments", JSON.stringify(updated)) } catch {} }
   const addMoment = () => {
     if (!newName.trim()) return
-    const m = { id:uid(), type:newType, name:newName.trim(), date:"", location:"", guests:[], food:[], shopping:[], notes:[], flights:[{}], hotels:[{}], packing:{}, itinerary:{}, travelers:["shared"] }
+    const m = { id:uid(), type:newType, name:newName.trim(), date:"", location:"", locationUrl:"", guests:[], food:[], shopping:[], notes:[], flights:[{}], hotels:[{}], packing:{}, itinerary:{}, travelers:["shared"], documents:[] }
     save([...moments, m]); setAdding(false); setNewName(""); setSelected(m.id)
   }
   const updateMoment = (updated) => save(moments.map(m=>m.id===updated.id?updated:m))
