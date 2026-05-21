@@ -4675,8 +4675,15 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
 
   function handleAddToShopping(item) {
     try {
+      // Read first store name so it matches the Shopping tab's store list
+      var stores = []
+      try { stores = JSON.parse(localStorage.getItem("af_stores") || "[]") } catch {}
+      var store = (stores && stores[0]) ? stores[0] : "Grocery Store"
+      // Dispatch custom event so App.jsx's React state (setShoppingItems) picks it up live
+      window.dispatchEvent(new CustomEvent("af-shopping-add", { detail: { text: item, store: store } }))
+      // Also write to localStorage as a fallback for cold reads
       const existing = JSON.parse(localStorage.getItem("af_shoppingItems") || "[]")
-      const newItem = { id: Date.now().toString(), text: item, done: false, store: "Grocery", category: "grocery" }
+      const newItem = { id: Date.now().toString(), text: item, done: false, store: store, category: "grocery" }
       localStorage.setItem("af_shoppingItems", JSON.stringify([...existing, newItem]))
     } catch {}
   }

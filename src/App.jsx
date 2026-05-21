@@ -1473,6 +1473,20 @@ function HomeFlow() {
     return () => clearInterval(cleanup);
   }, []);
   React.useEffect(() => { const h = () => setChatOpen(true); window.addEventListener("af-open-chat", h); return () => window.removeEventListener("af-open-chat", h); }, []);
+  // Listens for inventory → shopping additions fired by AnchorVault
+  React.useEffect(() => {
+    function onAddToShopping(e) {
+      var text = e.detail && e.detail.text;
+      var store = e.detail && e.detail.store;
+      if(!text) return;
+      setShoppingItems(function(prev) {
+        var defaultStore = (stores && stores[0]) ? stores[0] : "Grocery Store";
+        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||defaultStore, category:"grocery"}]);
+      });
+    }
+    window.addEventListener("af-shopping-add", onAddToShopping);
+    return () => window.removeEventListener("af-shopping-add", onAddToShopping);
+  }, [stores]); // eslint-disable-line
   const [moreDrawerOpen,setMoreDrawerOpen] = useState(false);
   const [newPersonName,setNewPersonName]   = useState("");
   const [syncing,setSyncing]           = useState(false);
@@ -6295,24 +6309,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if (!activeChild && schoolKids.length > 0) { setActiveChild(schoolKids[0].id); }
     }, [schoolKids.length]);
 
-    // Auto-initialise school type for kids flagged as homeschool by family profile apply
-    React.useEffect(function() {
-      var homeschoolIds = (familyProfile && familyProfile._homeschoolKidIds) || [];
-      if(!homeschoolIds.length) return;
-      var needsInit = schoolKids.filter(function(k){
-        return homeschoolIds.includes(k.id) && !(schoolData[k.id] && schoolData[k.id].type);
-      });
-      if(!needsInit.length) return;
-      setSchoolData(function(prev){
-        var next = Object.assign({}, prev||{});
-        needsInit.forEach(function(k){
-          var existing = next[k.id] || {type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
-          next[k.id] = Object.assign({}, existing, {type:"homeschool"});
-        });
-        return next;
-      });
-    }, [familyProfile && familyProfile._homeschoolKidIds && familyProfile._homeschoolKidIds.join(","), schoolKids.length]); // eslint-disable-line
-
     var child = schoolKids.find(function(p) { return p.id === activeChild; });
     var childData = (activeChild && schoolData[activeChild]) || { type: null, public: { teachers: [], calEvents: [], spiritDays: [], teacherAppWeek: {}, schedule: "", notes: "" }, homeschool: { umbrella: {}, curricula: [], lessons: [], activities: [], attendance: {} } };
 
@@ -7304,26 +7300,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
             function parsePets(str) {
               if(!str) return [];
+              // patterns: "1 golden retriever named Biscuit", "2 cats", "dog named Rex"
               var results = [];
               var parts = str.split(/,|;|and /i).map(function(s){return s.trim();}).filter(Boolean);
               parts.forEach(function(part) {
-                // "named Biscuit" or "name: Biscuit"
-                var namedMatch = part.match(/named\s+([A-Za-z]+)/i) || part.match(/name[:\s]+([A-Za-z]+)/i);
-                // "Biscuit the dog" or "Biscuit (golden retriever)"
-                var theMatch = part.match(/^([A-Z][a-z]+)\s+(?:the\s+)?\b(dog|cat|rabbit|bird|hamster|fish|guinea pig|horse|turtle|lizard|snake|ferret|goldendoodle|labrador|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer)\b/i);
-                var petName = namedMatch ? namedMatch[1] : (theMatch ? theMatch[1] : null);
+                var nameMatch = part.match(/named\s+([A-Z][a-z]+)/i);
+                var petName = nameMatch ? nameMatch[1] : null;
                 var typeMatch = part.match(/\b(dog|cat|rabbit|bird|hamster|fish|guinea pig|horse|turtle|lizard|snake|ferret|goldendoodle|labrador|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer)\b/i);
-                var CAT_TYPES = ["cat","rabbit","bird","fish","hamster","guinea pig","horse","turtle","lizard","snake","ferret"];
-                var petType = typeMatch ? (CAT_TYPES.includes(typeMatch[1].toLowerCase()) ? "Cat" : "Dog") : "Dog";
+                var petType = typeMatch ? (["cat","rabbit","bird","fish","hamster","guinea pig","horse","turtle","lizard","snake","ferret"].includes(typeMatch[1].toLowerCase())?"Cat":["dog","goldendoodle","labrador","retriever","poodle","bulldog","beagle","shepherd","husky","dachshund","chihuahua","pug","boxer"].includes(typeMatch[1].toLowerCase())?"Dog":"Dog") : "Dog";
                 var breedMatch = part.match(/\b(golden retriever|labrador|golden|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer|goldendoodle|siamese|persian|maine coon)\b/i);
                 var breed = breedMatch ? breedMatch[1].replace(/\b\w/g,function(c){return c.toUpperCase();}) : "";
-                // If no name found but we have a type, flag it so the preview shows "Dog (name needed)"
-                results.push({
-                  name: petName || "",
-                  type: petType,
-                  breed: breed,
-                  needsName: !petName
-                });
+                if(petName || petType) {
+                  results.push({name: petName || petType, type: petType, breed: breed});
+                }
               });
               return results;
             }
@@ -7385,9 +7374,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if(petsToAdd.length) {
                 try {
                   var existingPets = JSON.parse(localStorage.getItem("af_pets")||"[]");
-                  var newPets = existingPets.concat(petsToAdd.map(function(pet){
-                    return {id:Date.now().toString()+Math.random().toString(36).slice(2,5), name:pet.name||"", type:pet.type, breed:pet.breed, color:"", dob:"", photo:null, vaccines:[], medications:[], tags:{rabies:"",chip:"",registration:""}, notes:pet.needsName?"⚠️ Add pet name in Pets tab":""};
-                  }));
+                  var newPets = [...existingPets, ...petsToAdd.map(function(pet){
+                    return {id:Date.now().toString()+Math.random().toString(36).slice(2,5), name:pet.name, type:pet.type, breed:pet.breed, color:"", dob:"", photo:null, vaccines:[], medications:[], tags:{rabies:"",chip:"",registration:""}, notes:""};
+                  })];
                   localStorage.setItem("af_pets", JSON.stringify(newPets));
                 } catch(e){}
               }
@@ -7407,20 +7396,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               // Kids → people
               if(kidsToAdd.length) {
                 var PC2=["#e8a838","#b87265","#8878b8","#7ab8a8","#c878a8","#6b9e6b"];
-                var newKidIds = [];
                 setPeople(function(p){
-                  var next=p.slice();
+                  var next=[...p];
                   kidsToAdd.forEach(function(k,i){
-                    var newId=uid();
-                    newKidIds.push(newId);
-                    next.push({id:newId,name:k.name,age:k.age,role:k.role,isMinor:true,color:PC2[i%PC2.length]});
+                    next.push({id:uid(),name:k.name,age:k.age,role:k.role,isMinor:true,color:PC2[i%PC2.length]});
                   });
                   return next;
                 });
-                // Store homeschool flag so SchoolTab auto-initialises these kids
-                if(isHomeschool) {
-                  setFamilyProfile(function(p){return Object.assign({},p||{},{_homeschoolKidIds:(p&&p._homeschoolKidIds||[]).concat(newKidIds)});});
-                }
               }
               // Mark applied
               setFamilyProfile(function(p){return{...(p||{}),_applied:Date.now()};});
@@ -7434,7 +7416,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem",lineHeight:1.6}}>Here's what we'll add based on your profile:</div>
                     <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.85rem"}}>
                       {mealsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🍽️</span><span><strong>Meal Bank:</strong> {mealsToAdd.join(", ")}</span></div>}
-                      {petsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🐾</span><span><strong>Pets (Anchor Vault):</strong> {petsToAdd.map(function(p){return (p.name||"[needs name]")+(p.needsName?" ⚠️":"")+(p.type?" ("+p.type+")":"")+(p.breed?" "+p.breed:"");}).join(", ")}</span></div>}
+                      {petsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🐾</span><span><strong>Pets (Anchor Vault):</strong> {petsToAdd.map(function(p){return p.name+(p.type&&p.type!==p.name?" ("+p.type+")":"")+(p.breed?" "+p.breed:"");}).join(", ")}</span></div>}
                       {vehiclesToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🚗</span><span><strong>Vehicles:</strong> {vehiclesToAdd.join(", ")}</span></div>}
                       {kidsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🧒</span><span><strong>Household members:</strong> {kidsToAdd.map(function(k){return k.name+(k.age!=null?" ("+k.age+")":"");}).join(", ")}</span></div>}
                     </div>
