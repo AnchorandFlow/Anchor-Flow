@@ -8,7 +8,7 @@ const INSIGHTS = [
   {id:3,icon:"sun",title:"Your day is ready",body:"3 priorities set, dinner planned, school pickup blocked.",detail:["Priority: Call pediatrician","Block: School pickup 3:15pm","Dinner: Pasta bake"],color:B.ok,bg:"#f2faf5",actions:["Looks good","Adjust"]},
 ]
 
-export default function RippleTab() {
+export default function CompassTab() {
   const [insights, setInsights] = useState(INSIGHTS)
   const [active, setActive] = useState(null)
   const [thinking, setThinking] = useState(false)
@@ -36,7 +36,7 @@ export default function RippleTab() {
           </div>
           <div style={{background:`${B.coastal}33`,border:`1px solid ${B.coastal}55`,borderRadius:12,padding:"6px 12px",display:"flex",alignItems:"center",gap:6}}>
             <span style={{width:7,height:7,borderRadius:"50%",background:B.sand,animation:"pulse 2s infinite",display:"inline-block"}}/>
-            <span style={{fontFamily:"DM Sans,sans-serif",fontSize:12,color:B.sand,fontWeight:600}}>Ripple Active</span>
+            <span style={{fontFamily:"DM Sans,sans-serif",fontSize:12,color:B.sand,fontWeight:600}}>Compass Active</span>
           </div>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -45,7 +45,7 @@ export default function RippleTab() {
       </div>
 
       <div style={{padding:"20px 16px",maxWidth:540,margin:"0 auto"}}>
-        {thinking && <div style={{background:`${B.coastal}12`,border:`1.5px solid ${B.coastal}30`,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}><div style={{display:"flex",gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:B.coastal,animation:`pulse 1.2s ${i*0.2}s infinite`}}/>)}</div><span style={{fontSize:13.5,color:B.coastal,fontFamily:"DM Sans,sans-serif"}}>Ripple is thinking...</span></div>}
+        {thinking && <div style={{background:`${B.coastal}12`,border:`1.5px solid ${B.coastal}30`,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}><div style={{display:"flex",gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:B.coastal,animation:`pulse 1.2s ${i*0.2}s infinite`}}/>)}</div><span style={{fontSize:13.5,color:B.coastal,fontFamily:"DM Sans,sans-serif"}}>Compass is thinking...</span></div>}
         <div style={{fontFamily:"DM Sans,sans-serif",fontSize:12,color:B.muted,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600,marginBottom:10}}>What I noticed</div>
         {insights.length===0
           ? <div style={{textAlign:"center",padding:"32px 20px",background:"#fff",borderRadius:16,border:"1.5px solid #e8e4dc"}}><div style={{fontSize:32,marginBottom:8}}>check</div><div style={{fontFamily:"Cormorant Garamond,serif",fontSize:18,color:B.navy}}>You are all clear</div><div style={{fontSize:13,color:B.muted,marginTop:4,fontFamily:"DM Sans,sans-serif"}}>I will let you know if anything needs attention.</div></div>
@@ -70,10 +70,10 @@ export default function RippleTab() {
         }
         <div style={{marginTop:24,background:"#fff",border:"1.5px solid #e8e4dc",borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:32,height:32,borderRadius:10,background:B.navy,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,color:"#fff"}}>*</div>
-          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder="Ask Ripple anything about your week..." style={{flex:1,border:"none",outline:"none",fontFamily:"DM Sans,sans-serif",fontSize:14,color:B.text,background:"transparent"}}/>
+          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&ask()} placeholder="Ask Compass anything about your week..." style={{flex:1,border:"none",outline:"none",fontFamily:"DM Sans,sans-serif",fontSize:14,color:B.text,background:"transparent"}}/>
           <button onClick={ask} style={{background:B.navy,border:"none",borderRadius:8,padding:"6px 12px",color:"#fff",fontFamily:"DM Sans,sans-serif",fontSize:12,fontWeight:600,cursor:"pointer"}}>Ask</button>
         </div>
-        <div style={{textAlign:"center",fontFamily:"DM Sans,sans-serif",fontSize:11,color:B.muted,marginTop:16}}>Ripple · Anchor and Flow AI</div>
+        <div style={{textAlign:"center",fontFamily:"DM Sans,sans-serif",fontSize:11,color:B.muted,marginTop:16}}>Compass · Anchor and Flow AI</div>
       </div>
     </div>
   )
