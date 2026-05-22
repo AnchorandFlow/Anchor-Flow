@@ -24,17 +24,17 @@ const VAULT_INPUT_STYLE = `
 `
 
 const NAV = [
-  { id: "home",      label: "Home",      icon: "home", emoji: "🏠" },
-  { id: "inventory", label: "Inventory", icon: "inv",  emoji: "📦" },
-  { id: "systems",   label: "Systems",   icon: "sys",  emoji: "🔧" },
-  { id: "health",    label: "Health",    icon: "hlth", emoji: "🩺" },
-  { id: "career",    label: "Career",    icon: "car",  emoji: "📋" },
-  { id: "subs",      label: "Subs",      icon: "sub",  emoji: "🔄" },
-  { id: "gifts",     label: "Celebrate", icon: "gift", emoji: "🎉" },
-  { id: "pets",      label: "Pets",      icon: "pet",  emoji: "🐾" },
-  { id: "moments",   label: "Moments",   icon: "mom",  emoji: "✨" },
-  { id: "ripple",    label: "Ripple",    icon: "rip",  emoji: "🌊" },
-  { id: "settings",  label: "Settings",  icon: "set",  emoji: "⚙️" },
+  { id: "home",      label: "Home",         icon: "home" },
+  { id: "inventory", label: "Inventory",    icon: "inv"  },
+  { id: "systems",   label: "Home Systems", icon: "sys"  },
+  { id: "health",    label: "Health",       icon: "hlth" },
+  { id: "career",    label: "Career",       icon: "car",  premium: true },
+  { id: "subs",      label: "Subscriptions",icon: "sub",  premium: true },
+  { id: "gifts",     label: "Celebrate",    icon: "gift" },
+  { id: "pets",      label: "Pets",         icon: "pet"  },
+  { id: "moments",   label: "Moments",      icon: "mom"  },
+  { id: "travel",    label: "Travel",       icon: "trv"  },
+  { id: "settings",  label: "Settings",     icon: "set"  },
 ]
 
 // ── Subcategory definitions per main category ────────────────────────────────
@@ -712,7 +712,7 @@ function InventorySection({ onAddToShopping }) {
             </div>
           )}
           {toast && (
-            <div style={{ position: "fixed", top: 80, left: "50%", transform: "translateX(-50%)", background: "#7a9e8e", color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 13, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap" }}>{toast}</div>
+            <div style={{ position: "fixed", top: 80, left: "calc(68px + 50%)", transform: "translateX(-50%)", background: "#7a9e8e", color: "#fff", padding: "8px 18px", borderRadius: 20, fontSize: 13, fontFamily: "DM Sans,sans-serif", zIndex: 9999, whiteSpace: "nowrap" }}>{toast}</div>
           )}
 
           {/* ── Main category tabs ── */}
@@ -1505,11 +1505,25 @@ function PetsSection() {
     save(pets.map(function(p) { return p.id === id ? {...p, ...changes} : p }))
   }
 
+  function petInjectCalendar(title, dateStr, calId, color) {
+    if (!dateStr) return
+    try {
+      var events = JSON.parse(localStorage.getItem("af_calEvents") || "[]")
+      if (!events.some(function(e) { return e.id === calId })) {
+        events.push({ id: calId, title: title, date: dateStr, color: color || "#6ba3c4", notes: "Added from Pets" })
+        localStorage.setItem("af_calEvents", JSON.stringify(events))
+      }
+    } catch {}
+  }
+
   function addVaccine(petId) {
     if (!vaccineForm.name) return
     const v = { id: Date.now().toString(), ...vaccineForm }
     updatePet(petId, { vaccines: [...(activePet.vaccines||[]), v] })
-    setVaccineForm({ name: "Rabies", date: "", due: "", vet: "", notes: "" })
+    if (vaccineForm.addToCalendar && vaccineForm.due) {
+      petInjectCalendar("💉 " + activePet.name + " – " + vaccineForm.name + " due", vaccineForm.due, "petvax_" + v.id, "#6ba3c4")
+    }
+    setVaccineForm({ name: "Rabies", date: "", due: "", vet: "", notes: "", addToCalendar: false })
     setAddingVaccine(false)
   }
 
@@ -1517,7 +1531,10 @@ function PetsSection() {
     if (!medForm.name.trim()) return
     const m = { id: Date.now().toString(), ...medForm }
     updatePet(petId, { medications: [...(activePet.medications||[]), m] })
-    setMedForm({ name: "", dose: "", freq: "", refill: "", notes: "" })
+    if (medForm.addToCalendar && medForm.refill) {
+      petInjectCalendar("💊 " + activePet.name + " – " + medForm.name + " refill", medForm.refill, "petmed_" + m.id, "#c8a97a")
+    }
+    setMedForm({ name: "", dose: "", freq: "", refill: "", notes: "", addToCalendar: false })
     setAddingMed(false)
   }
 
@@ -1576,10 +1593,17 @@ function PetsSection() {
     a.click()
   }
 
-  const now = new Date()
   function petDaysUntil(dateStr) {
     if (!dateStr) return null
-    const d = new Date(dateStr)
+    var now = new Date(); now.setHours(0,0,0,0)
+    var parts = dateStr.split("-")
+    if (parts.length === 3 && parts[0].length === 4) {
+      // Full YYYY-MM-DD: use actual year, no annual wrap
+      var d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]))
+      return Math.round((d - now) / 86400000)
+    }
+    var d = new Date(dateStr)
+    if (isNaN(d.getTime())) return null
     return Math.round((d - now) / 86400000)
   }
 
@@ -1695,12 +1719,15 @@ function PetsSection() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 10, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginBottom: 2 }}>{f.label}</div>
                   {editingField === f.key ? (
-                    <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onBlur={function() { updatePet(activePet.id, { tags: {...tags, [f.key]: editVal} }); setEditingField(null) }} autoFocus style={{...inputStyle, padding: "4px 8px", fontSize: 12}} />
+                    <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { updatePet(activePet.id, { tags: {...tags, [f.key]: editVal} }); setEditingField(null) } if (e.key === "Escape") setEditingField(null) }} onBlur={function() { updatePet(activePet.id, { tags: {...tags, [f.key]: editVal} }); setEditingField(null) }} autoFocus style={{...inputStyle, padding: "4px 8px", fontSize: 12}} />
                   ) : (
                     <div style={{ fontSize: 13, color: tags[f.key] ? warm : "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif", fontStyle: tags[f.key] ? "normal" : "italic" }}>{tags[f.key] || "Not set"}</div>
                   )}
                 </div>
-                <button onClick={function() { setEditingField(f.key); setEditVal(tags[f.key]||"") }} style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 6, padding: "3px 9px", fontSize: 10, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>edit</button>
+                {editingField === f.key
+                  ? <button onClick={function() { updatePet(activePet.id, { tags: {...tags, [f.key]: editVal} }); setEditingField(null) }} style={{ background: "rgba(122,158,142,0.2)", border: "1px solid rgba(122,158,142,0.4)", borderRadius: 6, padding: "3px 9px", fontSize: 10, color: "#7a9e8e", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>save</button>
+                  : <button onClick={function() { setEditingField(f.key); setEditVal(tags[f.key]||"") }} style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 6, padding: "3px 9px", fontSize: 10, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>edit</button>
+                }
               </div>
             )
           })}
@@ -1741,6 +1768,12 @@ function PetsSection() {
                 <input value={vaccineForm.notes} onChange={function(e) { setVaccineForm(function(p){return{...p,notes:e.target.value}}) }} placeholder="Optional" style={inputStyle} />
               </div>
             </div>
+            {vaccineForm.due && (
+              <div onClick={function() { setVaccineForm(function(p){return{...p,addToCalendar:!p.addToCalendar}}) }} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "rgba(106,163,196,0.08)", borderRadius: 8, border: "0.5px solid rgba(106,163,196,0.2)", cursor: "pointer" }}>
+                <div style={{ width: 14, height: 14, borderRadius: 3, border: "1.5px solid rgba(106,163,196,0.5)", background: vaccineForm.addToCalendar ? "rgba(106,163,196,0.4)" : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#6ba3c4" }}>{vaccineForm.addToCalendar ? "✓" : ""}</div>
+                <span style={{ fontSize: 11, color: "rgba(106,163,196,0.9)", fontFamily: "DM Sans,sans-serif" }}>Add due date to calendar</span>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={function() { addVaccine(activePet.id) }} style={{ flex: 1, background: sand, border: "none", borderRadius: 7, padding: "7px", fontSize: 12, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save</button>
               <button onClick={function() { setAddingVaccine(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
@@ -1788,6 +1821,12 @@ function PetsSection() {
               <input type="date" value={medForm.refill} onChange={function(e) { setMedForm(function(p){return{...p,refill:e.target.value}}) }} style={{...inputStyle, flex:1}} />
               <input value={medForm.notes} onChange={function(e) { setMedForm(function(p){return{...p,notes:e.target.value}}) }} placeholder="Notes" style={{...inputStyle, flex:1}} />
             </div>
+            {medForm.refill && (
+              <div onClick={function() { setMedForm(function(p){return{...p,addToCalendar:!p.addToCalendar}}) }} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "rgba(200,169,122,0.07)", borderRadius: 8, border: "0.5px solid rgba(200,169,122,0.2)", cursor: "pointer" }}>
+                <div style={{ width: 14, height: 14, borderRadius: 3, border: "1.5px solid rgba(200,169,122,0.5)", background: medForm.addToCalendar ? "rgba(200,169,122,0.35)" : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: sand }}>{medForm.addToCalendar ? "✓" : ""}</div>
+                <span style={{ fontSize: 11, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif" }}>Add refill date to calendar</span>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={function() { addMed(activePet.id) }} style={{ flex: 1, background: sand, border: "none", borderRadius: 7, padding: "7px", fontSize: 12, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save</button>
               <button onClick={function() { setAddingMed(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
@@ -1876,6 +1915,483 @@ function PetsSection() {
 }
 
 
+
+
+// ── Packing Templates Panel (part of Travel Profile) ─────────────────────────
+var DEFAULT_PACKING_TEMPLATES = [
+  {
+    id: "flight", name: "Flight Trip", emoji: "✈️", locked: false,
+    items: {
+      "Clothing":    [{text:"Underwear"},{text:"Socks"},{text:"T-shirts"},{text:"Pants/Shorts"},{text:"Pajamas"},{text:"Jacket/Sweater"},{text:"Shoes (extra pair)"},{text:"Swimsuit"}],
+      "Toiletries":  [{text:"Toothbrush"},{text:"Toothpaste"},{text:"Shampoo (travel size)"},{text:"Conditioner"},{text:"Body wash"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Razor"},{text:"Chapstick"}],
+      "Electronics": [{text:"Phone charger"},{text:"Headphones"},{text:"Power bank"},{text:"Adapter (if intl)"},{text:"Laptop + charger"}],
+      "Medications": [{text:"Prescription medications"},{text:"Ibuprofen / Tylenol"},{text:"Allergy medicine"},{text:"Melatonin"},{text:"Band-aids"}],
+      "Documents":   [{text:"Passport / ID"},{text:"Boarding passes"},{text:"Travel insurance docs"},{text:"Credit cards"},{text:"Cash"}],
+      "Kids stuff":  [],
+      "Snacks":      [{text:"Protein bars"},{text:"Water bottle (empty for TSA)"},{text:"Gum / mints"}],
+      "Misc":        [{text:"Neck pillow"},{text:"Eye mask"},{text:"Luggage tag"},{text:"TSA lock"}]
+    }
+  },
+  {
+    id: "roadtrip", name: "Road Trip", emoji: "🚗", locked: false,
+    items: {
+      "Clothing":    [{text:"Underwear"},{text:"Socks"},{text:"T-shirts"},{text:"Pants"},{text:"Comfy shoes"},{text:"Jacket"}],
+      "Toiletries":  [{text:"Toothbrush + toothpaste"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Hand sanitizer"},{text:"Wet wipes"}],
+      "Electronics": [{text:"Phone charger (car)"},{text:"Aux cable / Bluetooth"},{text:"Portable phone mount"},{text:"Dash cam"}],
+      "Medications": [{text:"Prescriptions"},{text:"Motion sickness meds"},{text:"First aid kit"},{text:"Ibuprofen"}],
+      "Documents":   [{text:"Driver's license"},{text:"Car insurance card"},{text:"Registration"},{text:"AAA card"}],
+      "Kids stuff":  [{text:"Tablets + headphones"},{text:"Activity books"},{text:"Car games"},{text:"Carsick bags"}],
+      "Snacks":      [{text:"Cooler + drinks"},{text:"Road trip snacks"},{text:"Paper towels"},{text:"Trash bag for car"}],
+      "Misc":        [{text:"Atlas / offline maps"},{text:"Jumper cables"},{text:"Emergency kit"},{text:"Blanket"}]
+    }
+  },
+  {
+    id: "beach", name: "Beach Trip", emoji: "🏖️", locked: false,
+    items: {
+      "Clothing":    [{text:"Swimsuit (x2)"},{text:"Cover-up"},{text:"Flip flops"},{text:"Sandals"},{text:"Hat"},{text:"Sunglasses"},{text:"Light dress/shorts"}],
+      "Toiletries":  [{text:"SPF 50+ sunscreen"},{text:"After-sun lotion"},{text:"Waterproof mascara"},{text:"Deodorant"},{text:"Hair ties"}],
+      "Electronics": [{text:"Waterproof phone case"},{text:"Portable speaker"},{text:"Action cam (optional)"},{text:"Charging cables"}],
+      "Medications": [{text:"Allergy meds"},{text:"Ibuprofen"},{text:"Aloe vera gel"},{text:"Bug spray"}],
+      "Documents":   [{text:"ID"},{text:"Beach parking pass"},{text:"Cash for vendors"}],
+      "Kids stuff":  [{text:"Life jackets"},{text:"Sand toys"},{text:"Swim diapers"},{text:"Kids sunscreen (SPF 70)"}],
+      "Snacks":      [{text:"Cooler"},{text:"Reusable water bottles"},{text:"Fruit"},{text:"Sandwiches"}],
+      "Misc":        [{text:"Beach towels"},{text:"Beach umbrella"},{text:"Sand-proof blanket"},{text:"Mesh bag for wet stuff"}]
+    }
+  }
+]
+
+var PACK_CATS = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]
+
+function PackingTemplatesPanel(props) {
+  var sand=props.sand; var navy=props.navy; var warm=props.warm; var muted=props.muted; var border=props.border; var cardBg=props.cardBg; var coastal=props.coastal
+  var inputStyle = { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
+  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
+
+  var tPair = useState(function() {
+    try {
+      var saved = JSON.parse(localStorage.getItem("af_packing_templates") || "null")
+      if (saved && saved.length) return saved
+      return DEFAULT_PACKING_TEMPLATES.map(function(t){ return Object.assign({},t) })
+    } catch { return DEFAULT_PACKING_TEMPLATES.map(function(t){ return Object.assign({},t) }) }
+  })
+  var templates = tPair[0]; var setTemplatesRaw = tPair[1]
+  var activePair = useState(null); var activeId = activePair[0]; var setActiveId = activePair[1]
+  var catPair = useState("Clothing"); var activeCat = catPair[0]; var setActiveCat = catPair[1]
+  var newItemPair = useState(""); var newItem = newItemPair[0]; var setNewItem = newItemPair[1]
+  var namingPair = useState(false); var isNaming = namingPair[0]; var setIsNaming = namingPair[1]
+  var newNamePair = useState(""); var newName = newNamePair[0]; var setNewName = newNamePair[1]
+  var newEmojiPair = useState("🧳"); var newEmoji = newEmojiPair[0]; var setNewEmoji = newEmojiPair[1]
+  var toastPair = useState(""); var toast = toastPair[0]; var setToast = toastPair[1]
+
+  function saveTemplates(updated) {
+    setTemplatesRaw(updated)
+    try { localStorage.setItem("af_packing_templates", JSON.stringify(updated)) } catch {}
+  }
+
+  function showToast(msg) { setToast(msg); setTimeout(function(){ setToast("") }, 2200) }
+
+  var activeTemplate = templates.find(function(t){ return t.id === activeId })
+
+  function updateTemplateItems(tid, cat, items) {
+    saveTemplates(templates.map(function(t){
+      if (t.id !== tid) return t
+      var newItems = Object.assign({}, t.items||{})
+      newItems[cat] = items
+      return Object.assign({}, t, {items: newItems})
+    }))
+  }
+
+  function addItem(tid, cat, text) {
+    if (!text.trim()) return
+    var t = templates.find(function(x){ return x.id===tid })
+    if (!t) return
+    var existing = (t.items||{})[cat] || []
+    updateTemplateItems(tid, cat, [...existing, {text:text.trim()}])
+    setNewItem("")
+  }
+
+  function removeItem(tid, cat, idx) {
+    var t = templates.find(function(x){ return x.id===tid })
+    if (!t) return
+    var existing = ((t.items||{})[cat]||[]).filter(function(_,i){ return i!==idx })
+    updateTemplateItems(tid, cat, existing)
+  }
+
+  function copyTemplate(t) {
+    var copy = JSON.parse(JSON.stringify(t))
+    copy.id = Date.now().toString()
+    copy.name = t.name + " (copy)"
+    copy.locked = false
+    saveTemplates([...templates, copy])
+    setActiveId(copy.id)
+    showToast("Template duplicated!")
+  }
+
+  function deleteTemplate(id) {
+    if (!window.confirm("Delete this packing template?")) return
+    saveTemplates(templates.filter(function(t){ return t.id!==id }))
+    if (activeId === id) setActiveId(null)
+  }
+
+  function createNew() {
+    if (!newName.trim()) return
+    var t = { id: Date.now().toString(), name: newName.trim(), emoji: newEmoji, locked: false, items: {} }
+    PACK_CATS.forEach(function(c){ t.items[c] = [] })
+    saveTemplates([...templates, t])
+    setActiveId(t.id)
+    setIsNaming(false); setNewName(""); setNewEmoji("🧳")
+    showToast("Template created!")
+  }
+
+  var sHead = function(emoji, title) {
+    return React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"rgba(250,248,244,0.25)",fontFamily:"DM Sans,sans-serif",marginBottom:10,marginTop:4,display:"flex",alignItems:"center",gap:6}},emoji," ",title)
+  }
+
+  return (
+    <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      {sHead("🧳","Packing Templates")}
+      <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:12, lineHeight:1.5 }}>
+        Build reusable packing lists here. Load them into any trip from Moments → Packing.
+      </div>
+
+      {toast && (
+        <div style={{ background:"rgba(122,158,142,0.15)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:8, padding:"6px 12px", fontSize:12, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", marginBottom:10, textAlign:"center" }}>{toast}</div>
+      )}
+
+      {/* Template list */}
+      {!activeId && (
+        <div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
+            {templates.map(function(t) {
+              var count = PACK_CATS.reduce(function(n,c){ return n+((t.items||{})[c]||[]).length },0)
+              return (
+                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.12)", borderRadius:10, cursor:"pointer" }} onClick={function(){ setActiveId(t.id); setActiveCat("Clothing") }}>
+                  <span style={{ fontSize:20 }}>{t.emoji||"🧳"}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:warm, fontFamily:"DM Sans,sans-serif" }}>{t.name}</div>
+                    <div style={{ fontSize:10, color:muted, fontFamily:"DM Sans,sans-serif" }}>{count} items across {PACK_CATS.filter(function(c){ return ((t.items||{})[c]||[]).length>0 }).length} categories</div>
+                  </div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <button onClick={function(e){ e.stopPropagation(); copyTemplate(t) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:6, padding:"3px 8px", fontSize:10, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>Copy</button>
+                    <button onClick={function(e){ e.stopPropagation(); deleteTemplate(t.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.35)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif" }}>✕</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* New template */}
+          {isNaming ? (
+            <div style={{ background:"rgba(200,169,122,0.05)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:10, padding:12 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>New template</div>
+              <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                <input value={newEmoji} onChange={function(e){setNewEmoji(e.target.value)}} style={Object.assign({},inputStyle,{width:48,textAlign:"center"})}/>
+                <input value={newName} onChange={function(e){setNewName(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter") createNew()}} placeholder="Template name (e.g. Beach Trip)" style={Object.assign({},inputStyle,{flex:1})}/>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={createNew} style={{ flex:1, background:sand, border:"none", borderRadius:8, padding:"8px", fontSize:13, color:navy, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>Create</button>
+                <button onClick={function(){setIsNaming(false)}} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:13, color:muted, cursor:"pointer" }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={function(){setIsNaming(true)}} style={{ width:"100%", padding:10, background:"rgba(200,169,122,0.06)", border:"1px dashed rgba(200,169,122,0.2)", borderRadius:10, fontSize:13, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>+ New packing template</button>
+          )}
+        </div>
+      )}
+
+      {/* Template editor */}
+      {activeId && activeTemplate && (
+        <div>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+            <button onClick={function(){ setActiveId(null) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"4px 0" }}>← All templates</button>
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:18 }}>{activeTemplate.emoji||"🧳"}</span>
+                <div style={{ fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.name}</div>
+              </div>
+            </div>
+            <button onClick={function(){ copyTemplate(activeTemplate) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"4px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>📋 Copy</button>
+          </div>
+
+          {/* Category tabs */}
+          <div style={{ overflowX:"auto", display:"flex", borderBottom:"1px solid "+border, marginBottom:10 }}>
+            {PACK_CATS.map(function(cat){
+              var cnt = ((activeTemplate.items||{})[cat]||[]).length
+              return (
+                <button key={cat} onClick={function(){setActiveCat(cat)}} style={{ background:"none", border:"none", borderBottom:activeCat===cat?"2px solid "+coastal:"2px solid transparent", color:activeCat===cat?coastal:muted, padding:"6px 10px", fontSize:10, fontFamily:"DM Sans,sans-serif", fontWeight:activeCat===cat?700:400, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+                  {cat}{cnt>0?" ("+cnt+")":""}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Items in selected category */}
+          <div>
+            {((activeTemplate.items||{})[activeCat]||[]).map(function(item,i) {
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+border }}>
+                  <span style={{ fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", flex:1 }}>{item.text}</span>
+                  <button onClick={function(){ removeItem(activeId, activeCat, i) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.2)", cursor:"pointer", fontSize:14 }}>×</button>
+                </div>
+              )
+            })}
+            {((activeTemplate.items||{})[activeCat]||[]).length === 0 && (
+              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", padding:"6px 0" }}>No items yet in this category.</div>
+            )}
+            <div style={{ display:"flex", gap:8, marginTop:10 }}>
+              <input value={newItem} onChange={function(e){setNewItem(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter"){ addItem(activeId,activeCat,newItem) }}} placeholder={"Add to "+activeCat+"…"} style={Object.assign({},inputStyle,{flex:1})}/>
+              <button onClick={function(){ addItem(activeId,activeCat,newItem) }} style={{ background:coastal, border:"none", borderRadius:8, padding:"8px 12px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Travel Profile Section ────────────────────────────────────────────────────
+function TravelProfileSection() {
+  var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#1a2744"
+  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(255,255,255,0.08)"; var cardBg = "rgba(255,255,255,0.04)"
+  var coastal = "#6ba3c4"
+  var inputStyle = { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
+  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
+
+  var pair = useState(function() { try { var s=localStorage.getItem("af_travel_profile"); return s?JSON.parse(s):{}; } catch{return{};} })
+  var profile = pair[0]; var setProfileRaw = pair[1]
+
+  function setProfile(changes) {
+    var updated = Object.assign({}, profile, changes)
+    setProfileRaw(updated)
+    try { localStorage.setItem("af_travel_profile", JSON.stringify(updated)) } catch {}
+  }
+
+  function field(key, label, placeholder, type) {
+    return (
+      <div key={key}>
+        <label style={labelStyle}>{label}</label>
+        <input
+          type={type||"text"}
+          value={profile[key]||""}
+          onChange={function(e) { var v={}; v[key]=e.target.value; setProfile(v) }}
+          placeholder={placeholder||""}
+          style={inputStyle}
+        />
+      </div>
+    )
+  }
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return null
+    var now = new Date(); now.setHours(0,0,0,0)
+    var parts = dateStr.split("-")
+    if (parts.length===3 && parts[0].length===4) {
+      return Math.round((new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])) - now) / 86400000)
+    }
+    return null
+  }
+
+  function ExpiryBadge(props) {
+    var d = daysUntil(props.date)
+    if (d===null) return null
+    var expired = d<0; var soon = d>=0&&d<=90; var color = expired?"#e88":soon?sand:muted
+    var label = expired?"Expired "+Math.abs(d)+"d ago":d===0?"Expires today":d<=30?d+"d left":d<=90?"~"+Math.round(d/30)+"mo left":null
+    if (!label) return null
+    return React.createElement("span",{style:{fontSize:9,fontWeight:700,color:color,fontFamily:"DM Sans,sans-serif",marginLeft:6,background:"rgba(255,255,255,0.06)",borderRadius:20,padding:"1px 7px",border:"1px solid "+color+"44"}},label)
+  }
+
+  var AIRLINE_PROGRAMS = ["United MileagePlus","Delta SkyMiles","American AAdvantage","Southwest Rapid Rewards","Alaska Mileage Plan","JetBlue TrueBlue","Air Canada Aeroplan","British Airways Avios","Emirates Skywards","Other"]
+  var HOTEL_PROGRAMS = ["Marriott Bonvoy","Hilton Honors","World of Hyatt","IHG One Rewards","Wyndham Rewards","Choice Privileges","Best Western Rewards","Other"]
+
+  var ffPrograms = profile.ffPrograms || []
+  var hotelPrograms = profile.hotelPrograms || []
+
+  function addFF() { setProfile({ ffPrograms: [...ffPrograms, { id:Date.now().toString(), airline:"", number:"", tier:"" }] }) }
+  function updateFF(id, changes) { setProfile({ ffPrograms: ffPrograms.map(function(p){ return p.id===id?Object.assign({},p,changes):p }) }) }
+  function removeFF(id) { setProfile({ ffPrograms: ffPrograms.filter(function(p){ return p.id!==id }) }) }
+
+  function addHotel() { setProfile({ hotelPrograms: [...hotelPrograms, { id:Date.now().toString(), chain:"", number:"", tier:"" }] }) }
+  function updateHotel(id, changes) { setProfile({ hotelPrograms: hotelPrograms.map(function(p){ return p.id===id?Object.assign({},p,changes):p }) }) }
+  function removeHotel(id) { setProfile({ hotelPrograms: hotelPrograms.filter(function(p){ return p.id!==id }) }) }
+
+  var sectionHead = function(emoji, title) {
+    return React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"rgba(250,248,244,0.25)",fontFamily:"DM Sans,sans-serif",marginBottom:10,marginTop:4,display:"flex",alignItems:"center",gap:6}},emoji," ",title)
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel Profile</div>
+      <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
+
+      {/* Passports */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        {sectionHead("📘","Passport")}
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ display:"flex", gap:8 }}>
+            <div style={{ flex:2 }}>{field("passportName","Full name as on passport","Legal name")}</div>
+            <div style={{ flex:1 }}>{field("passportNum","Passport #","")}</div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <div style={{ flex:1 }}>
+              <label style={labelStyle}>Expiration date</label>
+              <div style={{ display:"flex", alignItems:"center" }}>
+                <input type="date" value={profile.passportExp||""} onChange={function(e){setProfile({passportExp:e.target.value})}} style={inputStyle}/>
+              </div>
+              {profile.passportExp && React.createElement(ExpiryBadge,{date:profile.passportExp})}
+            </div>
+            <div style={{ flex:1 }}>{field("passportCountry","Country","e.g. USA")}</div>
+          </div>
+          <div style={{ fontSize:10, color:"rgba(250,248,244,0.25)", fontFamily:"DM Sans,sans-serif" }}>
+            💡 Most countries require passport valid 6+ months beyond travel dates.
+          </div>
+        </div>
+      </div>
+
+      {/* Second passport */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        {sectionHead("📘","Second Passport (optional)")}
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <div style={{ display:"flex", gap:8 }}>
+            <div style={{ flex:2 }}>{field("passport2Num","Passport #","")}</div>
+            <div style={{ flex:1 }}>{field("passport2Country","Country","")}</div>
+          </div>
+          <div style={{ flex:1 }}>
+            <label style={labelStyle}>Expiration date</label>
+            <input type="date" value={profile.passport2Exp||""} onChange={function(e){setProfile({passport2Exp:e.target.value})}} style={inputStyle}/>
+            {profile.passport2Exp && React.createElement(ExpiryBadge,{date:profile.passport2Exp})}
+          </div>
+        </div>
+      </div>
+
+      {/* Trusted Traveler */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        {sectionHead("🛂","Trusted Traveler Programs")}
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {[
+            {key:"tsa",label:"TSA PreCheck",numKey:"tsaNum",expKey:"tsaExp"},
+            {key:"ge",label:"Global Entry",numKey:"geNum",expKey:"geExp"},
+            {key:"nexus",label:"NEXUS",numKey:"nexusNum",expKey:"nexusExp"},
+            {key:"sentri",label:"SENTRI",numKey:"sentriNum",expKey:"sentriExp"},
+          ].map(function(prog) {
+            return (
+              <div key={prog.key} style={{ background:"rgba(255,255,255,0.03)", borderRadius:9, padding:"10px 12px" }}>
+                <div style={{ fontSize:12, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center" }}>
+                  {prog.label}
+                  {profile[prog.expKey] && React.createElement(ExpiryBadge,{date:profile[prog.expKey]})}
+                </div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Known Traveler #</label>
+                    <input value={profile[prog.numKey]||""} onChange={function(e){var v={};v[prog.numKey]=e.target.value;setProfile(v)}} placeholder="Number" style={inputStyle}/>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Expiration</label>
+                    <input type="date" value={profile[prog.expKey]||""} onChange={function(e){var v={};v[prog.expKey]=e.target.value;setProfile(v)}} style={inputStyle}/>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Airline Frequent Flyer */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          {sectionHead("✈️","Frequent Flyer Numbers")}
+          <button onClick={addFF} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
+        </div>
+        {ffPrograms.length === 0 && (
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No programs added yet.</div>
+        )}
+        {ffPrograms.map(function(p) {
+          return (
+            <div key={p.id} style={{ background:"rgba(255,255,255,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", gap:8 }}>
+                  <div style={{ flex:2 }}>
+                    <label style={labelStyle}>Airline program</label>
+                    <select value={p.airline||""} onChange={function(e){updateFF(p.id,{airline:e.target.value})}} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:p.airline?warm:"rgba(250,248,244,0.3)"})}>
+                      <option value="" style={{background:navy}}>Select program…</option>
+                      {AIRLINE_PROGRAMS.map(function(a){ return React.createElement("option",{key:a,value:a,style:{background:navy}},a) })}
+                    </select>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Member #</label>
+                    <input value={p.number||""} onChange={function(e){updateFF(p.id,{number:e.target.value})}} placeholder="Number" style={inputStyle}/>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Status / Tier</label>
+                    <input value={p.tier||""} onChange={function(e){updateFF(p.id,{tier:e.target.value})}} placeholder="e.g. Gold, 1K, Platinum" style={inputStyle}/>
+                  </div>
+                  <button onClick={function(){removeFF(p.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginTop:18 }}>remove</button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Hotel Loyalty */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          {sectionHead("🏨","Hotel Loyalty Programs")}
+          <button onClick={addHotel} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
+        </div>
+        {hotelPrograms.length === 0 && (
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No programs added yet.</div>
+        )}
+        {hotelPrograms.map(function(p) {
+          return (
+            <div key={p.id} style={{ background:"rgba(255,255,255,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", gap:8 }}>
+                  <div style={{ flex:2 }}>
+                    <label style={labelStyle}>Hotel program</label>
+                    <select value={p.chain||""} onChange={function(e){updateHotel(p.id,{chain:e.target.value})}} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:p.chain?warm:"rgba(250,248,244,0.3)"})}>
+                      <option value="" style={{background:navy}}>Select program…</option>
+                      {HOTEL_PROGRAMS.map(function(h){ return React.createElement("option",{key:h,value:h,style:{background:navy}},h) })}
+                    </select>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Member #</label>
+                    <input value={p.number||""} onChange={function(e){updateHotel(p.id,{number:e.target.value})}} placeholder="Number" style={inputStyle}/>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Status / Tier</label>
+                    <input value={p.tier||""} onChange={function(e){updateHotel(p.id,{tier:e.target.value})}} placeholder="e.g. Gold, Diamond, Platinum" style={inputStyle}/>
+                  </div>
+                  <button onClick={function(){removeHotel(p.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginTop:18 }}>remove</button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Notes */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        {sectionHead("📝","Travel Notes")}
+        <textarea
+          value={profile.notes||""}
+          onChange={function(e){setProfile({notes:e.target.value})}}
+          placeholder="Preferred seats, dietary notes, emergency contacts, travel insurance info…"
+          rows={3}
+          style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid "+border, borderRadius:10, padding:"10px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", resize:"vertical", boxSizing:"border-box" }}
+        />
+      </div>
+
+      {/* Packing Templates */}
+      <PackingTemplatesPanel sand={sand} navy={navy} warm={warm} muted={muted} border={border} cardBg={cardBg} coastal={coastal} />
+    </div>
+  )
+}
+
+
 // ── Career Section ────────────────────────────────────────────────────────────
 var CAREER_GOLD  = "#c8a97a"
 var CAREER_NAVY  = "#1a2744"
@@ -1914,8 +2430,8 @@ function CHead(props) {
   )
 }
 function CModal(props) {
-  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,92vw)",maxHeight:"85vh",overflowY:"auto"},onClick:function(e){e.stopPropagation();}},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
+    React.createElement("div",{style:{background:"#1e2e52",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},
         React.createElement("span",{style:{color:CAREER_WHITE,fontSize:15,fontWeight:600}},props.title),
         React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
@@ -2252,7 +2768,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                       React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.5)"}},"📅 "+fmtDate(g.targetDate)),
                       days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"rgba(250,248,244,0.3)":days<=14?"#c8834a":CAREER_GOLD,background:days<0?"rgba(255,255,255,0.04)":days<=14?"rgba(200,131,74,0.1)":"rgba(200,169,122,0.1)",borderRadius:8,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
                     ),
-                    g.targetDate&&React.createElement("div",{style:{fontSize:10,color:"rgba(122,158,142,0.7)",marginTop:3}},"\u2713 Added to calendar · Compass will remind you")
+                    g.targetDate&&React.createElement("div",{style:{fontSize:10,color:"rgba(122,158,142,0.7)",marginTop:3}},"\u2713 Added to calendar · Ripple will remind you")
                   ),
                   React.createElement("div",{style:{display:"flex",gap:4,flexShrink:0}},
                     React.createElement("button",{onClick:function(){startEdit(g)},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"2px 4px"}},"✏️"),
@@ -2296,7 +2812,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date (adds to your calendar)"),
         React.createElement("input",{type:"date",value:form.targetDate,onChange:function(e){setForm(function(f){return Object.assign({},f,{targetDate:e.target.value})})},style:C_INP_STYLE})
       ),
-      form.targetDate&&React.createElement("div",{style:{fontSize:11,color:"rgba(122,158,142,0.8)",background:"rgba(122,158,142,0.08)",borderRadius:7,padding:"6px 10px",marginBottom:"0.7rem"}},"\u2713 This goal will appear on your calendar and Compass will remind you as the date approaches."),
+      form.targetDate&&React.createElement("div",{style:{fontSize:11,color:"rgba(122,158,142,0.8)",background:"rgba(122,158,142,0.08)",borderRadius:7,padding:"6px 10px",marginBottom:"0.7rem"}},"\u2713 This goal will appear on your calendar and Ripple will remind you as the date approaches."),
       React.createElement(CTextarea,{label:"Notes",value:form.notes,onChange:function(v){setForm(function(f){return Object.assign({},f,{notes:v})});},placeholder:"What does success look like? What's in the way?",rows:3}),
       React.createElement(CSaveBtn,{onClick:save})))
 }
@@ -2709,8 +3225,8 @@ function HItemRow(props) {
   );
 }
 function HModal(props) {
-  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,92vw)",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+  return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
+    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HWHITE,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
     )
@@ -4236,7 +4752,13 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     if (!dateStr) return null
     var now = new Date(); now.setHours(0,0,0,0)
     var parts = dateStr.split("-")
-    var target = new Date(now.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]))
+    if (parts.length === 3 && parts[0].length === 4) {
+      // Full YYYY-MM-DD: respect the actual year, no wrap
+      var target = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]))
+      return Math.round((target - now) / 86400000)
+    }
+    // Fallback for partial dates: wrap annually
+    var target = new Date(now.getFullYear(), parseInt(parts[parts.length-2])-1, parseInt(parts[parts.length-1]))
     if (target < now) target.setFullYear(target.getFullYear()+1)
     return Math.round((target - now) / 86400000)
   }
@@ -4330,6 +4852,34 @@ function AnchorDashboard({ onNavigate, calEvents }) {
       count: moments.length,
       entries: upcoming.slice(0,3)
     }
+  }
+
+  function travelSummary() {
+    try {
+      var tp = JSON.parse(localStorage.getItem("af_travel_profile") || "{}")
+      var now = new Date(); now.setHours(0,0,0,0)
+      var expDates = [
+        { label: "Passport", key: tp.passportExp },
+        { label: "Passport 2", key: tp.passport2Exp },
+        { label: "TSA PreCheck", key: tp.tsaExp },
+        { label: "Global Entry", key: tp.geExp },
+        { label: "NEXUS", key: tp.nexusExp },
+        { label: "SENTRI", key: tp.sentriExp },
+      ].filter(function(x){ return x.key })
+      var soonest = null; var soonestDays = 9999; var alert = false
+      expDates.forEach(function(x) {
+        var parts = x.key.split("-")
+        if (parts.length === 3) {
+          var d = Math.round((new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])) - now) / 86400000)
+          if (d < soonestDays) { soonestDays = d; soonest = x.label }
+          if (d <= 180) alert = true
+        }
+      })
+      var ffCount = (tp.ffPrograms||[]).length + (tp.hotelPrograms||[]).length
+      var highlight = ffCount > 0 ? ffCount + " loyalty program" + (ffCount!==1?"s":"") : (tp.passportNum ? "Passport on file" : null)
+      var countdown = soonest ? (soonestDays < 0 ? soonest+" expired" : soonest+" expires in "+soonestDays+"d") : (tp.passportExp ? "All docs current ✓" : null)
+      return { highlight: highlight, countdown: countdown, count: ffCount, alert: alert }
+    } catch { return { highlight: null, countdown: null, count: 0 } }
   }
 
   function healthSummary() {
@@ -4503,6 +5053,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   // ── Build summaries ────────────────────────────────────────────────────────
   var celeb = celebSummary()
   var pets = petsSummary()
+  var travelSum = travelSummary()
   var moments = momentsSummary()
   var health = healthSummary()
   var inventory = inventorySummary()
@@ -4576,6 +5127,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         summary={{ ...health, entries: healthEntries }} />
       <DashCard id="pets" icon="🐾" label="Pets" onOpen={onNavigate}
         summary={{ ...pets, entries: petEntries }} />
+      <DashCard id="travel" icon="✈️" label="Travel Profile" onOpen={onNavigate}
+        summary={travelSum} defaultOpen={travelSum.alert} />
       <DashCard id="moments" icon="✨" label="Moments" onOpen={onNavigate}
         summary={{ ...moments, entries: momentEntries }} />
     </div>
@@ -4594,6 +5147,7 @@ const ANCHOR_SECTIONS = [
   { id: "gifts",     label: "Celebrate",     emoji: "🎉" },
   { id: "pets",      label: "Pets",          emoji: "🐾" },
   { id: "moments",   label: "Moments",       emoji: "✨" },
+  { id: "travel",    label: "Travel",        emoji: "✈️" },
 ]
 
 function AnchorSettings() {
@@ -4651,310 +5205,6 @@ function AnchorSettings() {
   )
 }
 
-// ── Subscriptions Section ─────────────────────────────────────────────────────
-function SubscriptionsSection() {
-  var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
-  var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
-  var SAGE = "#7a9e8e"; var BLUE = "#6ba3c4"
-  var CYCLES = ["monthly","yearly","weekly","quarterly"]
-  var PERK_TYPES = ["Kids eat free","Military discount","Student discount","Senior discount","AAA discount","Other"]
-  function load(key, def) { try { return JSON.parse(localStorage.getItem(key) || "null") || def } catch { return def } }
-  function persist(key, val) { try { localStorage.setItem(key, JSON.stringify(val)) } catch {} }
-  var [subs, setSubs] = React.useState(function() { return load("af_subs", []) })
-  var [coupons, setCoupons] = React.useState(function() { return load("af_coupons", []) })
-  var [perks, setPerks] = React.useState(function() { return load("af_perks", []) })
-  var [tab, setTab] = React.useState("subs")
-  var [modal, setModal] = React.useState(null)
-  var [form, setForm] = React.useState({})
-  function saveSubs(v) { setSubs(v); persist("af_subs", v) }
-  function saveCoupons(v) { setCoupons(v); persist("af_coupons", v) }
-  function savePerks(v) { setPerks(v); persist("af_perks", v) }
-  function openAdd(type) { setModal(type); setForm({}) }
-  function closeModal() { setModal(null); setForm({}) }
-  function addSub() {
-    if (!form.name) return
-    var item = { id: Date.now().toString(), name: form.name, cycle: form.cycle||"monthly", amount: parseFloat(form.amount)||0, website: form.website||"", renewDate: form.renewDate||"" }
-    saveSubs([...subs, item]); closeModal()
-  }
-  function deleteSub(id) { saveSubs(subs.filter(function(s) { return s.id !== id })) }
-  function addCoupon() {
-    if (!form.name) return
-    var item = { id: Date.now().toString(), name: form.name, amount: form.amount||"", expires: form.expires||"", notes: form.notes||"", used: false }
-    saveCoupons([...coupons, item]); closeModal()
-  }
-  function toggleCouponUsed(id) { saveCoupons(coupons.map(function(c) { return c.id===id ? Object.assign({},c,{used:!c.used}) : c })) }
-  function deleteCoupon(id) { saveCoupons(coupons.filter(function(c) { return c.id !== id })) }
-  function addPerk() {
-    if (!form.name) return
-    var item = { id: Date.now().toString(), type: form.type||"Other", name: form.name, detail: form.detail||"", notes: form.notes||"" }
-    savePerks([...perks, item]); closeModal()
-  }
-  function deletePerk(id) { savePerks(perks.filter(function(p) { return p.id !== id })) }
-  var monthly = subs.reduce(function(acc, s) {
-    if (s.cycle==="monthly") return acc+(s.amount||0)
-    if (s.cycle==="yearly") return acc+(s.amount||0)/12
-    if (s.cycle==="weekly") return acc+(s.amount||0)*4.33
-    if (s.cycle==="quarterly") return acc+(s.amount||0)/3
-    return acc
-  }, 0)
-  var inp = { background: "rgba(255,255,255,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
-  var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
-  var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : BORD, borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
-  var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 10, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
-  var cardStyle = { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }
-  var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
-  var modalBox = { background: "#1e2e50", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
-  return React.createElement("div", { style: { paddingBottom: "2rem" } },
-    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
-      React.createElement("div", null,
-        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Subscriptions"),
-        React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Track what you pay, save & earn")
-      )
-    ),
-    React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } },
-      React.createElement("button", { style: tabBtn("subs"), onClick: function() { setTab("subs") } }, "Subscriptions"),
-      React.createElement("button", { style: tabBtn("coupons"), onClick: function() { setTab("coupons") } }, "Coupons"),
-      React.createElement("button", { style: tabBtn("perks"), onClick: function() { setTab("perks") } }, "Perks & Discounts")
-    ),
-    tab === "subs" && React.createElement("div", null,
-      subs.length > 0 && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
-        React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),
-          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + monthly.toFixed(2))
-        ),
-        React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Yearly total"),
-          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (monthly*12).toFixed(2))
-        )
-      ),
-      subs.map(function(s) {
-        return React.createElement("div", { key: s.id, style: cardStyle },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
-            React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, s.name),
-              React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.45)", marginTop: 2, fontFamily: "DM Sans,sans-serif", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
-                React.createElement("span", null, s.cycle),
-                s.website && React.createElement("a", { href: s.website.startsWith("http") ? s.website : "https://"+s.website, target: "_blank", rel: "noopener noreferrer", style: { color: BLUE, fontSize: 10 } }, "↗ website"),
-                s.renewDate && React.createElement("span", { style: { fontSize: 9, padding: "2px 6px", borderRadius: 20, background: "rgba(239,159,39,0.15)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.3)" } }, "Renews " + s.renewDate)
-              )
-            ),
-            React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
-              React.createElement("div", { style: { fontSize: 16, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (s.amount||0).toFixed(2)),
-              React.createElement("button", { onClick: function() { deleteSub(s.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "remove")
-            )
-          )
-        )
-      }),
-      React.createElement("button", { style: addBtnStyle, onClick: function() { openAdd("sub") } },
-        React.createElement("span", { style: { fontSize: 16, color: GOLD } }, "+"),
-        React.createElement("span", { style: { fontSize: 13, color: GOLD, fontFamily: "DM Sans,sans-serif" } }, "Add subscription")
-      )
-    ),
-    tab === "coupons" && React.createElement("div", null,
-      coupons.length === 0 && React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "rgba(250,248,244,0.35)", fontSize: 13, fontFamily: "DM Sans,sans-serif" } }, "No coupons yet — add Kohl's Cash, store credit, rewards..."),
-      coupons.map(function(c) {
-        return React.createElement("div", { key: c.id, style: Object.assign({}, cardStyle, { opacity: c.used ? 0.45 : 1 }) },
-          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
-            React.createElement("div", { style: { flex: 1 } },
-              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif", textDecoration: c.used ? "line-through" : "none" } }, c.name),
-              c.expires && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.45)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, "Use by " + c.expires),
-              c.notes && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.4)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, c.notes)
-            ),
-            React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
-              c.amount && React.createElement("div", { style: { fontSize: 18, fontWeight: 600, color: SAGE, fontFamily: "DM Sans,sans-serif" } }, c.amount),
-              React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
-                React.createElement("button", { onClick: function() { toggleCouponUsed(c.id) }, style: { background: "none", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", color: "rgba(250,248,244,0.45)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, c.used ? "unmark" : "used"),
-                React.createElement("button", { onClick: function() { deleteCoupon(c.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "✕")
-              )
-            )
-          )
-        )
-      }),
-      React.createElement("button", { style: addBtnStyle, onClick: function() { openAdd("coupon") } },
-        React.createElement("span", { style: { fontSize: 16, color: GOLD } }, "+"),
-        React.createElement("span", { style: { fontSize: 13, color: GOLD, fontFamily: "DM Sans,sans-serif" } }, "Add coupon or store credit")
-      )
-    ),
-    tab === "perks" && React.createElement("div", null,
-      perks.length === 0 && React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "rgba(250,248,244,0.35)", fontSize: 13, fontFamily: "DM Sans,sans-serif" } }, "Record kids eat free spots, military discounts, and more..."),
-      perks.map(function(p) {
-        return React.createElement("div", { key: p.id, style: Object.assign({}, cardStyle, { background: "rgba(107,163,196,0.07)", border: "0.5px solid rgba(107,163,196,0.2)" }) },
-          React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
-            React.createElement("div", { style: { flex: 1 } },
-              React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, p.type),
-              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, p.name),
-              p.detail && React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 3, fontFamily: "DM Sans,sans-serif" } }, p.detail),
-              p.notes && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.4)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, p.notes)
-            ),
-            React.createElement("button", { onClick: function() { deletePerk(p.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 14, marginLeft: 8 } }, "✕")
-          )
-        )
-      }),
-      React.createElement("button", { style: addBtnStyle, onClick: function() { openAdd("perk") } },
-        React.createElement("span", { style: { fontSize: 16, color: GOLD } }, "+"),
-        React.createElement("span", { style: { fontSize: 13, color: GOLD, fontFamily: "DM Sans,sans-serif" } }, "Add perk or discount")
-      )
-    ),
-    modal && React.createElement("div", { style: modalBg, onClick: function(e) { if (e.target === e.currentTarget) closeModal() } },
-      React.createElement("div", { style: modalBox },
-        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 16 } },
-          modal === "sub" ? "Add subscription" : modal === "coupon" ? "Add coupon / store credit" : "Add perk or discount"
-        ),
-        modal === "sub" && React.createElement("div", null,
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Service name"), React.createElement("input", { style: inp, placeholder: "e.g. Netflix, Spotify", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
-          React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
-            React.createElement("div", null, React.createElement("label", { style: lbl }, "Amount ($)"), React.createElement("input", { style: inp, type: "number", placeholder: "0.00", value: form.amount||"", onChange: function(e) { setForm(Object.assign({},form,{amount:e.target.value})) } })),
-            React.createElement("div", null, React.createElement("label", { style: lbl }, "Billing cycle"),
-              React.createElement("select", { style: inp, value: form.cycle||"monthly", onChange: function(e) { setForm(Object.assign({},form,{cycle:e.target.value})) } },
-                CYCLES.map(function(c) { return React.createElement("option", { key: c, value: c }, c) })
-              )
-            )
-          ),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Website (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. netflix.com", value: form.website||"", onChange: function(e) { setForm(Object.assign({},form,{website:e.target.value})) } })),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Renewal date (optional)"), React.createElement("input", { style: inp, type: "date", value: form.renewDate||"", onChange: function(e) { setForm(Object.assign({},form,{renewDate:e.target.value})) } }))
-        ),
-        modal === "coupon" && React.createElement("div", null,
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Name"), React.createElement("input", { style: inp, placeholder: "e.g. Kohl's Cash, Target Circle", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Amount or value"), React.createElement("input", { style: inp, placeholder: "e.g. $30 or 20% off", value: form.amount||"", onChange: function(e) { setForm(Object.assign({},form,{amount:e.target.value})) } })),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Use by date"), React.createElement("input", { style: inp, type: "date", value: form.expires||"", onChange: function(e) { setForm(Object.assign({},form,{expires:e.target.value})) } })),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Notes (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. in-store or online, app required", value: form.notes||"", onChange: function(e) { setForm(Object.assign({},form,{notes:e.target.value})) } }))
-        ),
-        modal === "perk" && React.createElement("div", null,
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Type"),
-            React.createElement("select", { style: inp, value: form.type||"Other", onChange: function(e) { setForm(Object.assign({},form,{type:e.target.value})) } },
-              PERK_TYPES.map(function(t) { return React.createElement("option", { key: t, value: t }, t) })
-            )
-          ),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Where / Name"), React.createElement("input", { style: inp, placeholder: "e.g. Chick-fil-A, Home Depot", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Details"), React.createElement("input", { style: inp, placeholder: "e.g. Tuesdays, ages 12 & under, 10% off", value: form.detail||"", onChange: function(e) { setForm(Object.assign({},form,{detail:e.target.value})) } })),
-          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Notes (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. ID required, app required", value: form.notes||"", onChange: function(e) { setForm(Object.assign({},form,{notes:e.target.value})) } }))
-        ),
-        React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
-          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
-          React.createElement("button", { onClick: modal==="sub" ? addSub : modal==="coupon" ? addCoupon : addPerk, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Save")
-        )
-      )
-    )
-  )
-}
-
-// ── Ripple Section (kid milestones & memories) ────────────────────────────────
-var RIPPLE_CATS = [
-  { id: "all", label: "All" },
-  { id: "milestone", label: "Milestone" },
-  { id: "firsts", label: "Firsts" },
-  { id: "school", label: "School" },
-  { id: "sports", label: "Sports" },
-  { id: "funny", label: "Funny" },
-  { id: "faith", label: "Faith" },
-  { id: "other", label: "Other" },
-]
-function RippleSection() {
-  var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
-  var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
-  var SAGE = "#7a9e8e"
-  function load() { try { return JSON.parse(localStorage.getItem("af_ripples") || "[]") } catch { return [] } }
-  function persist(v) { try { localStorage.setItem("af_ripples", JSON.stringify(v)) } catch {} }
-  var [ripples, setRipples] = React.useState(function() { return load() })
-  var [cat, setCat] = React.useState("all")
-  var [modal, setModal] = React.useState(false)
-  var [form, setForm] = React.useState({ name: "", who: "", category: "milestone", date: "", note: "" })
-  var [editId, setEditId] = React.useState(null)
-  function save(v) { setRipples(v); persist(v) }
-  function openAdd() { setForm({ name: "", who: "", category: "milestone", date: new Date().toISOString().slice(0,10), note: "" }); setEditId(null); setModal(true) }
-  function openEdit(r) { setForm({ name: r.name, who: r.who||"", category: r.category||"milestone", date: r.date||"", note: r.note||"" }); setEditId(r.id); setModal(true) }
-  function closeModal() { setModal(false); setEditId(null) }
-  function submit() {
-    if (!form.name.trim()) return
-    if (editId) { save(ripples.map(function(r) { return r.id===editId ? Object.assign({},r,form) : r })) }
-    else { save([...ripples, Object.assign({ id: Date.now().toString() }, form)]) }
-    closeModal()
-  }
-  function deleteRipple(id) { save(ripples.filter(function(r) { return r.id !== id })) }
-  var filtered = cat==="all" ? ripples : ripples.filter(function(r) { return r.category===cat })
-  var sorted = filtered.slice().sort(function(a,b) {
-    if (!a.date && !b.date) return 0; if (!a.date) return 1; if (!b.date) return -1
-    return new Date(b.date) - new Date(a.date)
-  })
-  var groups = []
-  var seen = {}
-  sorted.forEach(function(r) {
-    var d = r.date ? new Date(r.date+"T00:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"}) : "No date"
-    if (!seen[d]) { seen[d]=true; groups.push({ label: d, items: [] }) }
-    groups[groups.length-1].items.push(r)
-  })
-  var inp = { background: "rgba(255,255,255,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
-  var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
-  var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
-  var modalBox = { background: "#1e2e50", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
-  return React.createElement("div", { style: { paddingBottom: "2rem" } },
-    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
-      React.createElement("div", null,
-        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Ripple"),
-        React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Every moment worth keeping")
-      ),
-      React.createElement("button", { onClick: openAdd, style: { background: GOLD, border: "none", borderRadius: 9, padding: "8px 16px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "+ Capture")
-    ),
-    React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 } },
-      RIPPLE_CATS.map(function(c) {
-        return React.createElement("button", { key: c.id, onClick: function() { setCat(c.id) }, style: { background: cat===c.id ? "rgba(200,169,122,0.15)" : "transparent", border: cat===c.id ? "0.5px solid rgba(200,169,122,0.35)" : BORD, borderRadius: 20, padding: "4px 12px", color: cat===c.id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 11, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }, c.label)
-      })
-    ),
-    ripples.length===0 && React.createElement("div", { style: { textAlign: "center", padding: "48px 20px" } },
-      React.createElement("div", { style: { fontSize: 32, marginBottom: 12, opacity: 0.3 } }, "🌊"),
-      React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 20, color: WHITE, marginBottom: 8 } }, "No ripples yet"),
-      React.createElement("div", { style: { fontSize: 13, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.6 } }, "Capture first words, lost teeth, goals scored — anything worth remembering."),
-      React.createElement("button", { onClick: openAdd, style: { marginTop: 20, background: GOLD, border: "none", borderRadius: 10, padding: "10px 24px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Capture a ripple")
-    ),
-    groups.map(function(group) {
-      return React.createElement("div", { key: group.label, style: { marginBottom: 8 } },
-        React.createElement("div", { style: { fontSize: 10, color: "rgba(200,169,122,0.7)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontFamily: "DM Sans,sans-serif", fontWeight: 700 } }, group.label),
-        group.items.map(function(r) {
-          return React.createElement("div", { key: r.id, style: { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 } },
-            React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
-              React.createElement("div", { style: { flex: 1 } },
-                React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, r.name),
-                r.note && React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.55)", marginTop: 4, fontFamily: "DM Sans,sans-serif", lineHeight: 1.5 } }, r.note),
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } },
-                  r.date && React.createElement("span", { style: { fontSize: 10, color: "rgba(200,169,122,0.6)", fontFamily: "DM Sans,sans-serif" } }, new Date(r.date+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})),
-                  r.who && React.createElement("span", { style: { fontSize: 10, color: "rgba(250,248,244,0.35)", padding: "1px 7px", background: "rgba(255,255,255,0.05)", borderRadius: 20, fontFamily: "DM Sans,sans-serif" } }, r.who),
-                  r.category && r.category!=="other" && React.createElement("span", { style: { fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(122,158,142,0.15)", color: SAGE, border: "0.5px solid rgba(122,158,142,0.3)", fontFamily: "DM Sans,sans-serif" } }, r.category)
-                )
-              ),
-              React.createElement("div", { style: { display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 } },
-                React.createElement("button", { onClick: function() { openEdit(r) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.3)", cursor: "pointer", fontSize: 14 } }, "✎"),
-                React.createElement("button", { onClick: function() { deleteRipple(r.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.2)", cursor: "pointer", fontSize: 14 } }, "✕")
-              )
-            )
-          )
-        })
-      )
-    }),
-    modal && React.createElement("div", { style: modalBg, onClick: function(e) { if (e.target===e.currentTarget) closeModal() } },
-      React.createElement("div", { style: modalBox },
-        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 16 } }, editId ? "Edit ripple" : "Capture a ripple"),
-        React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "What happened?"), React.createElement("input", { style: inp, placeholder: "e.g. Lost first tooth, First goal scored", value: form.name, onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
-          React.createElement("div", null, React.createElement("label", { style: lbl }, "Who"), React.createElement("input", { style: inp, placeholder: "e.g. Eli, Clara", value: form.who, onChange: function(e) { setForm(Object.assign({},form,{who:e.target.value})) } })),
-          React.createElement("div", null, React.createElement("label", { style: lbl }, "Date"), React.createElement("input", { style: inp, type: "date", value: form.date, onChange: function(e) { setForm(Object.assign({},form,{date:e.target.value})) } }))
-        ),
-        React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Category"),
-          React.createElement("select", { style: inp, value: form.category, onChange: function(e) { setForm(Object.assign({},form,{category:e.target.value})) } },
-            RIPPLE_CATS.filter(function(c) { return c.id!=="all" }).map(function(c) { return React.createElement("option", { key: c.id, value: c.id }, c.label) })
-          )
-        ),
-        React.createElement("div", { style: { marginBottom: 16 } }, React.createElement("label", { style: lbl }, "Note (optional)"),
-          React.createElement("textarea", { style: Object.assign({}, inp, { minHeight: 72, resize: "vertical" }), placeholder: "Any details you want to remember...", value: form.note, onChange: function(e) { setForm(Object.assign({},form,{note:e.target.value})) } })
-        ),
-        React.createElement("div", { style: { display: "flex", gap: 8 } },
-          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
-          React.createElement("button", { onClick: submit, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, editId ? "Save" : "Capture")
-        )
-      )
-    )
-  )
-}
-
 export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   calEvents = calEvents || []
   vaultSection = vaultSection || "home"
@@ -4980,8 +5230,15 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
 
   function handleAddToShopping(item) {
     try {
+      // Read first store name so it matches the Shopping tab's store list
+      var stores = []
+      try { stores = JSON.parse(localStorage.getItem("af_stores") || "[]") } catch {}
+      var store = (stores && stores[0]) ? stores[0] : "Grocery Store"
+      // Dispatch custom event so App.jsx's React state (setShoppingItems) picks it up live
+      window.dispatchEvent(new CustomEvent("af-shopping-add", { detail: { text: item, store: store } }))
+      // Also write to localStorage as a fallback for cold reads
       const existing = JSON.parse(localStorage.getItem("af_shoppingItems") || "[]")
-      const newItem = { id: Date.now().toString(), text: item, done: false, store: "Grocery", category: "grocery" }
+      const newItem = { id: Date.now().toString(), text: item, done: false, store: store, category: "grocery" }
       localStorage.setItem("af_shoppingItems", JSON.stringify([...existing, newItem]))
     } catch {}
   }
@@ -4991,6 +5248,9 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
       <style>{VAULT_INPUT_STYLE}</style>
       <div style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
+          {activeSection !== "home" && (
+            <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
+          )}
           {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
           {activeSection === "recurring" && <RecurringRemindersSection />}
           {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
@@ -4999,10 +5259,17 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
           {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} />}
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
+          {activeSection === "travel" && <TravelProfileSection />}
           {activeSection === "career" && <CareerSection />}
           {activeSection === "settings" && <AnchorSettings />}
-          {activeSection === "subs" && <SubscriptionsSection />}
-          {activeSection === "ripple" && <RippleSection />}
+          {activeSection === "subs" && (
+            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+              <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>🔒</div>
+              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, color: "#faf8f4", marginBottom: 8 }}>Premium section</div>
+              <div style={{ fontSize: 13, color: "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.6, marginBottom: 20 }}>Unlock the full Anchor Vault with premium.</div>
+              <button style={{ background: "#c8a97a", border: "none", borderRadius: 10, padding: "12px 24px", color: "#1a2744", fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Unlock full system</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
