@@ -3880,7 +3880,7 @@ Respond ONLY in valid JSON:
                   ))}
                 </div>
 
-                {/* Card 3: Ripple Suggestions */}
+                {/* Card 3: Compass Suggestions */}
                 <div style={{background:"rgba(123,94,167,0.06)",border:"1.5px solid "+T.lavender,borderRadius:"1rem",padding:"1rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
                     <span style={{fontSize:"1.1rem"}}>✦</span>
