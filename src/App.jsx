@@ -1765,20 +1765,27 @@ export default function HomeFlow() {
           <button onClick={()=>setActiveFilter("all")} style={{background:activeFilter==="all"?T.blue:T.white,color:activeFilter==="all"?"#fff":T.textMid,border:`1.5px solid ${activeFilter==="all"?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:700,fontFamily:"inherit"}}>All ({brainItems.filter(i=>!i.done).length})</button>
           {BRAIN_BUCKETS.map(function(b){var _bt=getBucketTheme(b);var color=_bt.color;var cnt=bucketCounts[b.id];return(<button key={b.id} onClick={()=>setActiveFilter(b.id)} style={{background:activeFilter===b.id?color:T.white,color:activeFilter===b.id?"#fff":T.textMid,border:`1.5px solid ${activeFilter===b.id?color:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:700,fontFamily:"inherit"}}>{b.emoji} {b.label}{cnt>0?` (${cnt})`:""}</button>);})}
         </div>
-        {activeFilter==="all"
-          ?BRAIN_BUCKETS.map(function(b){var items=brainItems.filter(function(i){return i.bucket===b.id});if(items.length===0)return null;var _bt=getBucketTheme(b);var color=_bt.color;var pale=_bt.pale;return(
-            <div key={b.id} style={{marginBottom:"0.85rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem",padding:"0.55rem 0.75rem",background:pale,borderRadius:"0.75rem",border:`1.5px solid ${color}40`}}>
-                <span style={{fontSize:"1rem"}}>{b.emoji}</span>
-                <span style={{fontWeight:800,color,fontSize:"0.85rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>{b.label}</span>
-                <span style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500}}>— {b.desc}</span>
-                <span style={{marginLeft:"auto",color,fontSize:"0.75rem",fontWeight:700}}>{items.filter(i=>!i.done).length} left</span>
-              </div>
-              {items.map(function(item){var _bt2=getBucketTheme(b);var c=_bt2.color;return<BrainItemRow key={item.id} item={item} color={c} bDragStart={bDragStart} bDragEnter={bDragEnter} bDragEnd={bDragEnd} onToggle={id=>setBrainItems(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))} onDelete={id=>setBrainItems(p=>p.filter(x=>x.id!==id))} onSave={(id,val)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,text:val}:x))} onMove={(id,bucket)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,bucket}:x))}/>;})}
-            </div>
-          );}
-          :displayed.map(function(item){var b=BRAIN_BUCKETS.find(function(x){return x.id===item.bucket});var _bt=getBucketTheme(b||BRAIN_BUCKETS[2]);var color=_bt.color;return<BrainItemRow key={item.id} item={item} color={color} bDragStart={bDragStart} bDragEnter={bDragEnter} bDragEnd={bDragEnd} onToggle={id=>setBrainItems(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))} onDelete={id=>setBrainItems(p=>p.filter(x=>x.id!==id))} onSave={(id,val)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,text:val}:x))} onMove={(id,bucket)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,bucket}:x))}/>;})
-        }
+        {(function(){
+          if(activeFilter==="all"){
+            return BRAIN_BUCKETS.map(function(b){
+              var items=brainItems.filter(function(i){return i.bucket===b.id});
+              if(items.length===0)return null;
+              var _bt=getBucketTheme(b);var color=_bt.color;var pale=_bt.pale;
+              return(
+                <div key={b.id} style={{marginBottom:"0.85rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem",padding:"0.55rem 0.75rem",background:pale,borderRadius:"0.75rem",border:`1.5px solid ${color}40`}}>
+                    <span style={{fontSize:"1rem"}}>{b.emoji}</span>
+                    <span style={{fontWeight:800,color,fontSize:"0.85rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>{b.label}</span>
+                    <span style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500}}>— {b.desc}</span>
+                    <span style={{marginLeft:"auto",color,fontSize:"0.75rem",fontWeight:700}}>{items.filter(function(i){return !i.done}).length} left</span>
+                  </div>
+                  {items.map(function(item){var _bt2=getBucketTheme(b);var c=_bt2.color;return<BrainItemRow key={item.id} item={item} color={c} bDragStart={bDragStart} bDragEnter={bDragEnter} bDragEnd={bDragEnd} onToggle={id=>setBrainItems(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))} onDelete={id=>setBrainItems(p=>p.filter(x=>x.id!==id))} onSave={(id,val)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,text:val}:x))} onMove={(id,bucket)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,bucket}:x))}/>;})}
+                </div>
+              );
+            });
+          }
+          return displayed.map(function(item){var b=BRAIN_BUCKETS.find(function(x){return x.id===item.bucket});var _bt=getBucketTheme(b||BRAIN_BUCKETS[2]);var color=_bt.color;return<BrainItemRow key={item.id} item={item} color={color} bDragStart={bDragStart} bDragEnter={bDragEnter} bDragEnd={bDragEnd} onToggle={id=>setBrainItems(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))} onDelete={id=>setBrainItems(p=>p.filter(x=>x.id!==id))} onSave={(id,val)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,text:val}:x))} onMove={(id,bucket)=>setBrainItems(p=>p.map(x=>x.id===id?{...x,bucket}:x))}/>;});
+        })()}
         {brainItems.length===0&&<div style={{...card({textAlign:"center",padding:"2rem"})}}>
           <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🌿</div>
           <p style={{color:T.textMid,fontSize:"0.87rem",fontWeight:700}}>Your mind is clear.<br/><span style={{color:T.textSoft,fontWeight:400,fontSize:"0.82rem"}}>Add anything that's nagging at you.</span></p>
