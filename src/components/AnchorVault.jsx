@@ -2,16 +2,16 @@ import { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
 
 const NAV = [
-  { id: "home",        label: "Home",        icon: "home" },
-  { id: "inventory",   label: "Inventory",   icon: "inv"  },
-  { id: "systems",     label: "Home Systems",icon: "sys"  },
-  { id: "health",      label: "Health",      icon: "hlth", premium: true },
-  { id: "career",      label: "Career",      icon: "car",  premium: true },
-  { id: "subs",        label: "Subscriptions",icon: "sub", premium: true },
-  { id: "gifts",       label: "Celebrate", icon: "gift" },
-  { id: "pets",        label: "Pets",        icon: "pet"  },
-  { id: "moments",     label: "Moments",     icon: "mom" },
-  { id: "ripples",     label: "Ripples",     icon: "rip" },
+  { id: "home",        label: "Home",        icon: "home", emoji: "🏠" },
+  { id: "inventory",   label: "Inventory",   icon: "inv",  emoji: "📦" },
+  { id: "systems",     label: "Systems",     icon: "sys",  emoji: "🔧" },
+  { id: "health",      label: "Health",      icon: "hlth", emoji: "🩺" },
+  { id: "career",      label: "Career",      icon: "car",  emoji: "📋" },
+  { id: "subs",        label: "Subs",        icon: "sub",  emoji: "🔄" },
+  { id: "gifts",       label: "Celebrate",   icon: "gift", emoji: "🎉" },
+  { id: "pets",        label: "Pets",        icon: "pet",  emoji: "🐾" },
+  { id: "moments",     label: "Moments",     icon: "mom",  emoji: "✨" },
+  { id: "ripples",     label: "Ripples",     icon: "rip",  emoji: "🌊" },
 ]
 
 const PANTRY = ["Pasta","Rice","Olive oil","Canned tomatoes","Peanut butter","Oats","Flour","Sugar","Coffee","Cereal"]
@@ -1802,8 +1802,9 @@ export default function AnchorVault({ onClose, calEvents = [] }) {
         </button>
         <div style={{ width: 32, height: "0.5px", background: "rgba(200,169,122,0.2)", marginBottom: 8 }} />
         {NAV.map(item => (
-          <button key={item.id} onClick={() => !item.premium && setActiveSection(item.id)} title={item.label} style={{ background: activeSection === item.id ? "rgba(200,169,122,0.12)" : "none", border: "none", borderLeft: activeSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-            <span style={{ fontSize: 9, color: item.premium ? "rgba(200,169,122,0.2)" : activeSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.7)", fontWeight: activeSection === item.id ? 700 : 500, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label.split(" ")[0]}</span>
+          <button key={item.id} onClick={() => setActiveSection(item.id)} title={item.label} style={{ background: activeSection === item.id ? "rgba(200,169,122,0.12)" : "none", border: "none", borderLeft: activeSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            <span style={{ fontSize: 14 }}>{item.emoji}</span>
+            <span style={{ fontSize: 8, color: activeSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.7)", fontWeight: activeSection === item.id ? 700 : 500, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label.split(" ")[0]}</span>
           </button>
         ))}
         <div style={{ marginTop: "auto" }} />
@@ -1825,7 +1826,7 @@ export default function AnchorVault({ onClose, calEvents = [] }) {
           {activeSection === "moments" && <MomentsSection />}
           {activeSection === "subs" && <SubscriptionsSection />}
           {activeSection === "ripples" && <RipplesSection />}
-          {["health","career"].includes(activeSection) && (
+          {false && (
             <div style={{ textAlign: "center", padding: "48px 20px" }}>
               <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>lock</div>
               <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, color: "#faf8f4", marginBottom: 8 }}>Premium section</div>

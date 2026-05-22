@@ -535,6 +535,7 @@ const TABS = [
   {id:"calendar", label:"Calendar", emoji:"📆"},
   {id:"meals",    label:"Meals",    emoji:"🍽️"},
   {id:"shop",     label:"Shopping", emoji:"🛒"},
+  {id:"ai",       label:"Ripple",   emoji:"✦"},
   {id:"cove",     label:"Tide Pool", emoji:"🏝️"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
@@ -542,7 +543,7 @@ const TABS = [
   {id:"school",   label:"School",   emoji:"🏫"},
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
-const PRIMARY_TABS = ["anchor","calendar","meals","shop","cove"];
+const PRIMARY_TABS = ["anchor","calendar","meals","shop","ai"];
 const MORE_TABS    = ["weekly","home","brain","school","settings"];
 
 const CAL_SOURCES = [
@@ -9168,10 +9169,11 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "systems",   label: "Systems",   emoji: "🏠" },
     { id: "health",    label: "Health",    emoji: "🩺" },
     { id: "career",    label: "Career",    emoji: "📋" },
-    { id: "subs",      label: "Subscript", emoji: "🔄", premium: true },
+    { id: "subs",      label: "Subscript", emoji: "🔄" },
     { id: "gifts",     label: "Celebrate", emoji: "🎉" },
     { id: "pets",      label: "Pets",      emoji: "🐾" },
     { id: "moments",   label: "Moments",   emoji: "✨" },
+    { id: "ripples",   label: "Ripples",   emoji: "🌊" },
     { id: "settings",  label: "Settings",  emoji: "⚙️" },
   ]
   const [anchorHidden, setAnchorHidden] = React.useState(function() {
