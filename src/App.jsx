@@ -539,7 +539,7 @@ const TABS = [
   {id:"cove",     label:"Tide Pool", emoji:"🏝️"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
-  {id:"brain",    label:"Brain",    emoji:"🧠"},
+  {id:"brain",    label:"Mind",     emoji:"💭"},
   {id:"school",   label:"School",   emoji:"🏫"},
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
@@ -3235,24 +3235,25 @@ Respond ONLY with valid JSON array, no markdown:
           system:`You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
 
 RULES:
-1. "brain_items": Pick 2-4 items from the brain dump that make sense TODAY. Prioritize:
+1. "brain_items": Pick 2-4 items from the Clear Your Mind list that make sense TODAY. Prioritize:
    - Items matching today's theme (e.g. Errands day = pick errands items)
    - Items related to calendar events (e.g. soccer game coming up → "Wash soccer jersey")
    - Items mentioning people who appear in today's/upcoming calendar
-   Use EXACT text from the brain dump. Include a short "reason" explaining why today.
+   Use EXACT text from the list. Include a short "reason" explaining why today.
 
-2. "todos": 2-3 NEW tasks not in the brain dump. Be SPECIFIC and connected to their calendar:
+2. "todos": 2-3 NEW actionable tasks not already in the list. Be SPECIFIC and connected to their calendar:
    - If there's a game/practice → "Wash [name]'s jersey", "Pack snack bag for [event]"
    - If there's an appointment → "Confirm [appointment]", "Fill out paperwork for [appt]"
    - If dinner needs prep → specific prep step
    Do NOT repeat items already in tasks or brain_items.
+   IMPORTANT: Do NOT include calendar appointments — those show separately. Only suggest actionable to-dos.
 
-3. "upcoming": 2 prep nudges for events in the next 7 days. Very specific:
+3. "upcoming": 2 "On the horizon" prep nudges for events in the next 7 days. Very specific:
    - "Wash soccer gear before Thursday's practice"
    - "Print directions for Monday's appointment"
 
 Respond ONLY in valid JSON:
-{"brain_items":[{"text":"exact text from brain dump","reason":"why today — 1 short phrase"}],"todos":["specific task"],"upcoming":["specific prep for upcoming event"]}`,
+{"brain_items":[{"text":"exact text from list","reason":"why today — 1 short phrase"}],"todos":["specific task"],"upcoming":["specific prep for upcoming event"]}`,
           messages:[{role:"user",content:ctx}]
         })});
         const dat = await res.json();
@@ -3280,7 +3281,7 @@ Respond ONLY in valid JSON:
     const CAT_CONFIG = {
       calendar: {emoji:"📅", color:T.blue,    bgColor:T.bluePale,   label:"Calendar"},
       meals:    {emoji:"🍽️", color:T.sage,    bgColor:T.sagePale,   label:"Meals"},
-      brain:    {emoji:"🧠", color:T.lavender,bgColor:T.lavPale,    label:"Brain Dump"},
+      brain:    {emoji:"💭", color:T.lavender,bgColor:T.lavPale,    label:"Clear Your Mind"},
       shopping: {emoji:"🛒", color:T.sand,    bgColor:T.sandPale,   label:"Shopping"},
       pattern:  {emoji:"💡", color:T.rose,    bgColor:T.rosePale||T.surface, label:"Heads Up"},
     };
@@ -3684,7 +3685,7 @@ Respond ONLY in valid JSON:
                   <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
                     <span style={{fontSize:"0.9rem"}}>🧠</span>
                     <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Queued for today</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>{notYetTasks.length} from brain dump</span>
+                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>{notYetTasks.length} from Clear Your Mind</span>
                   </div>
                   {notYetTasks.map(function(b){return(
                     <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.lavender+"25"}}>
@@ -3698,131 +3699,129 @@ Respond ONLY in valid JSON:
               );
             })()}
 
-            {/* Brain dump ideas & unscheduled suggestions — pull relevant items */}
+            {/* ── Unified Today's prioritized list — hidden in Survival mode ── */}
             {flowMode!=="Survival"&&(function(){
+              // Build the full pool of suggested items from all three sources
+              // Source 1: Clear Your Mind (brain dump) items via AI
+              var brainSuggestions = (!aiLoading&&aiSuggestions?.brain_items?.length>0)
+                ? aiSuggestions.brain_items.map(function(item){
+                    var text = typeof item==="string" ? item : item.text;
+                    var reason = typeof item==="object" ? item.reason : null;
+                    return {text, reason, src:"brain", brainItem: brainItems.find(function(b){return b.text===text&&!b.done;})};
+                  })
+                : [];
+
+              // Source 2: AI suggested new to-dos
+              var todoSuggestions = (!aiLoading&&aiSuggestions?.todos?.length>0)
+                ? aiSuggestions.todos.map(function(text){ return {text, src:"todo"}; })
+                : [];
+
+              // Source 3: On the horizon — upcoming prep nudges
+              var horizonSuggestions = (!aiLoading&&aiSuggestions?.upcoming?.length>0)
+                ? aiSuggestions.upcoming.map(function(text){ return {text, src:"horizon"}; })
+                : [];
+
+              // Source 4: Weekly rhythm items assigned to today (not yet tasks)
               var MINOR_ROLES_T=["Kid","Teen","Baby"];
               var adultNames=people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES_T.includes(p.role);}).map(function(p){return p.name;});
-              // Items assigned to adults or unassigned, not done, not already scheduled, not already a task today
               var ideasPool=brainItems.filter(function(b){
                 if(b.done) return false;
-                if(b.scheduledDay&&b.scheduledDay!=="") return false; // already queued (shown above)
+                if(b.scheduledDay&&b.scheduledDay!=="") return false;
                 if(allTaskTiers.some(function(t){return t.text===b.text||t.brainId===b.id;})) return false;
-                if(b.assignedTo&&!adultNames.includes(b.assignedTo)) return false; // skip kids-only items
+                if(b.assignedTo&&!adultNames.includes(b.assignedTo)) return false;
+                // Skip items already in AI brain suggestions
+                if(brainSuggestions.some(function(s){return s.text===b.text;})) return false;
                 return true;
               });
-              // Prioritize: items matching day theme category, then errands/admin/household, cap at 4
               var THEME_TO_CATS_T={"reset":["household","errands"],"errands":["errands","orders"],"admin":["admin","calls","orders"],"clean":["household"],"prep":["household","errands"],"family":["errands","household"],"rest":["someday"],"finance":["admin"],"fitness":["errands"],"batch cook":["household"]};
               var themeKeyT=(dayRhythm.theme||"").toLowerCase();
               var themedCats=Object.entries(THEME_TO_CATS_T).find(function(kv){return themeKeyT.includes(kv[0]);})?.[1]||[];
-              var themedItems=ideasPool.filter(function(b){return themedCats.includes(b.cat);});
-              var otherItems=ideasPool.filter(function(b){return !themedCats.includes(b.cat)&&["errands","admin","household","calls","orders"].includes(b.cat);});
-              var suggestions=[...themedItems,...otherItems].slice(0,4);
-              if(suggestions.length===0) return null;
-              return(
-                <div style={{background:"linear-gradient(135deg,"+T.bluePale+","+T.surface+")",border:"1.5px solid "+T.blue+"35",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                    <span style={{fontSize:"0.9rem"}}>💡</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Ideas from brain dump</span>
-                    {dayRhythm.theme&&themedItems.length>0&&<span style={{fontSize:"0.65rem",background:T.blue+"20",color:T.blueDark,fontWeight:700,padding:"2px 8px",borderRadius:"2rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</span>}
-                  </div>
-                  {suggestions.map(function(b){
-                    var cat=brainCats.find(function(c){return c.id===b.cat;});
-                    return(
-                      <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.blue+"20"}}>
-                        {cat&&<span style={{fontSize:"0.85rem",flexShrink:0}}>{cat.emoji}</span>}
-                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:500,lineHeight:1.35}}>{b.text}</span>
-                        <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.blue,{fontSize:"0.68rem",padding:"0.22rem 0.6rem",flexShrink:0})}}>+ Add</button>
+              var themedIdeas=ideasPool.filter(function(b){return themedCats.includes(b.cat);});
+              var otherIdeas=ideasPool.filter(function(b){return !themedCats.includes(b.cat)&&["errands","admin","household","calls","orders"].includes(b.cat);});
+              var weeklyIdeas=[...themedIdeas,...otherIdeas].slice(0,3).map(function(b){ return {text:b.text, src:"weekly", brainItem:b}; });
+
+              // Combine: top 3 = first 3 from brain+todo, rest go into "also today"
+              var allSuggestions=[...brainSuggestions,...todoSuggestions,...horizonSuggestions,...weeklyIdeas];
+              // Deduplicate against each other and existing tasks
+              var seen=new Set();
+              allSuggestions=allSuggestions.filter(function(s){
+                if(seen.has(s.text)) return false;
+                if(allTaskTiers.some(function(t){return t.text===s.text;})) return false;
+                seen.add(s.text);
+                return true;
+              });
+
+              if(allSuggestions.length===0&&!aiLoading) return null;
+
+              var top3=allSuggestions.slice(0,3);
+              var alsoToday=allSuggestions.slice(3);
+
+              function srcEmoji(src){ return src==="brain"||src==="weekly"?"💭":src==="horizon"?"🌅":"💭"; }
+
+              function SuggestionRow(props){
+                var s=props.s;
+                var alreadyAdded=allTaskTiers.some(function(t){return t.text===s.text;});
+                var isPriority=props.isPriority;
+                return(
+                  <div style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.5rem 0.65rem",
+                    background:isPriority?(T.bluePale||"#ddeaf5"):T.white,
+                    borderRadius:"0.75rem",marginBottom:"0.3rem",
+                    border:"1.5px solid "+(isPriority?T.blue+"30":T.borderSoft)}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:"0.86rem",color:alreadyAdded?T.sageDark:T.textDark,fontWeight:isPriority?600:400,lineHeight:1.35}}>
+                        {alreadyAdded&&"✓ "}{s.text}
                       </div>
-                    );
-                  })}
+                      {s.reason&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic"}}>{s.reason}</div>}
+                    </div>
+                    <span style={{fontSize:"0.85rem",alignSelf:"center",flexShrink:0,opacity:0.7}}>{srcEmoji(s.src)}</span>
+                    {!alreadyAdded&&(
+                      <button onClick={function(){
+                        addQuickTask(s.text, isPriority?"top3":"next3");
+                        if(s.brainItem) setBrainItems(function(p){return p.map(function(x){return x.id===s.brainItem.id?{...x,scheduledDay:TODAY_NAME}:x;});});
+                      }} style={btnP(isPriority?T.blue:T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem",flexShrink:0})}>+ Add</button>
+                    )}
+                  </div>
+                );
+              }
+
+              return(
+                <div style={{background:T.surface,border:"1.5px solid "+T.blue+"30",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
+                  {/* Loading state */}
+                  {aiLoading&&(
+                    <div style={{textAlign:"center",padding:"0.5rem 0 0.75rem"}}>
+                      <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:"0.4rem"}}>{[0,1,2].map(function(i){return <div key={i} style={{width:9,height:9,borderRadius:"50%",background:T.sage,animation:"bounce 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>;})}</div>
+                      <div style={{fontSize:"0.78rem",color:T.textSoft,fontStyle:"italic"}}>Looking at your list and calendar…</div>
+                    </div>
+                  )}
+
+                  {/* Top 3 */}
+                  {top3.length>0&&(
+                    <>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.55rem"}}>
+                        <span style={{fontSize:"0.82rem"}}>⭐</span>
+                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>Top 3 — focus here first</span>
+                      </div>
+                      {top3.map(function(s,i){ return <SuggestionRow key={i} s={s} isPriority={true}/>; })}
+                    </>
+                  )}
+
+                  {/* Also today */}
+                  {alsoToday.length>0&&(
+                    <>
+                      <div style={{height:"0.5px",background:T.borderSoft,margin:"0.75rem 0 0.6rem"}}/>
+                      <div style={{fontSize:"0.72rem",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.5rem",fontFamily:"'DM Sans',sans-serif"}}>Also today</div>
+                      {alsoToday.map(function(s,i){ return <SuggestionRow key={i} s={s} isPriority={false}/>; })}
+                    </>
+                  )}
+
+                  {/* Emoji key */}
+                  <div style={{marginTop:"0.6rem",paddingTop:"0.5rem",borderTop:"1px dashed "+T.borderSoft,display:"flex",gap:"0.8rem",flexWrap:"wrap"}}>
+                    <span style={{fontSize:"0.65rem",color:T.textFaint}}>💭 Clear Your Mind</span>
+                    <span style={{fontSize:"0.65rem",color:T.textFaint}}>🌅 On the horizon</span>
+                  </div>
                 </div>
               );
             })()}
-
-            {/* Brain dump items for today — hidden in Survival mode */}
-            {flowMode!=="Survival"&&!aiLoading&&aiSuggestions?.brain_items?.length>0&&(
-              <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.surface+")",border:"1.5px solid "+T.sage+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                  <span style={{fontSize:"0.9rem"}}>🧠</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>From your brain dump</span>
-                  {dayRhythm.theme&&<span style={{fontSize:"0.68rem",background:T.sage+"25",color:T.sageDark,fontWeight:700,padding:"2px 8px",borderRadius:"2rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</span>}
-                </div>
-                {aiSuggestions.brain_items.map((item,i)=>{
-                  const text = typeof item==="string" ? item : item.text;
-                  const reason = typeof item==="object" ? item.reason : null;
-                  const brainItem = brainItems.find(b=>b.text===text&&!b.done);
-                  const alreadyAdded = allTaskTiers.some(t=>t.text===text);
-                  return (
-                    <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.5rem 0.65rem",background:alreadyAdded?T.sagePale:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+(alreadyAdded?T.sage+"50":T.sage+"25")}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:"0.86rem",color:alreadyAdded?T.sageDark:T.textDark,fontWeight:600}}>{alreadyAdded&&"✓ "}{text}</div>
-                        {reason&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic"}}>{reason}</div>}
-                      </div>
-                      {!alreadyAdded&&(
-                        <button onClick={()=>{
-                          addQuickTask(text,"next3");
-                          // Mark as scheduled in brain dump
-                          if(brainItem) setBrainItems(p=>p.map(b=>b.id===brainItem.id?{...b,scheduledDay:TODAY_NAME}:b));
-                        }} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem",flexShrink:0})}>+ Add</button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* AI suggested to-dos — hidden in Survival mode */}
-            {flowMode!=="Survival"&&(!aiLoading&&aiSuggestions?.todos?.length>0)&&(
-              <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.65rem"}}>
-                  <span style={{fontSize:"0.9rem"}}>✨</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Suggested to-dos</span>
-                </div>
-                {aiLoading&&<div style={{display:"flex",gap:8,justifyContent:"center",padding:"0.75rem 0"}}>{[0,1,2].map(i=><div key={i} style={{width:9,height:9,borderRadius:"50%",background:T.sage,animation:"bounce 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>)}</div>}
-                {aiSuggestions.todos.map((text,i)=>{
-                  const alreadyAdded = allTaskTiers.some(t=>t.text===text);
-                  const sid = "suggestion_"+i+"_"+text.slice(0,10);
-                  return alreadyAdded
-                    ? <AnchorCheckItem key={i} id={allTaskTiers.find(t=>t.text===text)?.id||sid} text={text} checked={allTaskTiers.find(t=>t.text===text)?.done||false}
-                        onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:true}:x))}
-                        color={T.sage} badge="added" entityTitle={text}/>
-                    : <div key={i} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.5rem 0.65rem",background:T.bgAlt,borderRadius:"0.7rem",marginBottom:"0.3rem",border:"1px dashed "+T.borderSoft}}>
-                        <span style={{flex:1,fontSize:"0.85rem",color:T.textMid,fontStyle:"italic"}}>{text}</span>
-                        <button onClick={()=>addQuickTask(text,"next3")} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>+ Add</button>
-                      </div>;
-                })}
-              </div>
-            )}
-
-            {aiLoading&&(
-              <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",padding:"1.2rem",textAlign:"center"}}>
-                <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:"0.5rem"}}>{[0,1,2].map(i=><div key={i} style={{width:9,height:9,borderRadius:"50%",background:T.sage,animation:"bounce 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>)}</div>
-                <div style={{fontSize:"0.78rem",color:T.textSoft,fontStyle:"italic"}}>Looking at your brain dump and calendar…</div>
-              </div>
-            )}
-
-            {/* Upcoming — prep nudges — hidden in Survival mode */}
-            {flowMode!=="Survival"&&(!aiLoading&&aiSuggestions?.upcoming?.length>0)&&(
-              <div style={{background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",border:"1.5px solid "+T.lavender+"35",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.55rem"}}>
-                  <span style={{fontSize:"0.9rem"}}>👁</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Coming up — prep today</span>
-                </div>
-                {aiSuggestions.upcoming.map((text,i)=>{
-                  const upid = "upcoming_"+i+"_"+text.slice(0,10);
-                  const upAdded = allTaskTiers.some(t=>t.text===text);
-                  return upAdded
-                    ? <AnchorCheckItem key={i} id={allTaskTiers.find(t=>t.text===text)?.id||upid} text={text}
-                        checked={allTaskTiers.find(t=>t.text===text)?.done||false}
-                        onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:true}:x))}
-                        color={T.lavender} badge="added" entityTitle={text}/>
-                    : <div key={i} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.7rem",marginBottom:"0.3rem",border:"1px solid "+T.lavender+"25"}}>
-                        <span style={{flex:1,fontSize:"0.85rem",color:T.textMid}}>{text}</span>
-                        <button onClick={()=>addQuickTask(text,"next3")} style={btnP(T.lavender,{fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>+ Add</button>
-                      </div>;
-                })}
-              </div>
-            )}
           </div>
         )}
 
@@ -4354,7 +4353,7 @@ Respond ONLY in valid JSON:
                   {/* Brain dump queue */}
                   {brainQueued.length>0&&(
                     <div style={{marginTop:dayTasks.length?"0.65rem":"0",padding:"0.55rem 0.65rem",background:T.lavender+"12",border:"1px dashed "+T.lavender+"55",borderRadius:"0.75rem"}}>
-                      <div style={{fontSize:"0.62rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>🧠 From Brain Dump</div>
+                      <div style={{fontSize:"0.62rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💭 Clear Your Mind</div>
                       {brainQueued.map(function(b){return(
                         <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",borderBottom:"1px solid "+T.lavender+"20"}}>
                           <div style={{width:7,height:7,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
@@ -5430,6 +5429,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(sl.includes("costco")) return "Costco";
       if(sl.includes("target")) return "Target";
       if(sl.includes("amazon")) return "Amazon";
+      // "Grocery Store", "grocery", "Grocery" all → "Grocery"
+      if(sl.includes("grocery")||sl==="grocery") return "Grocery";
       return "Grocery";
     }
 
@@ -6100,7 +6101,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Items */}
         {tabItems.length===0&&(
           <div style={{textAlign:"center",padding:"2rem 1rem",color:T.textFaint,fontStyle:"italic",fontSize:"0.84rem"}}>
-            {activeTab==="all"?"Nothing in your brain dump yet ✓":activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
+            {activeTab==="all"?"Nothing in your Clear Your Mind list yet ✓":activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
           </div>
         )}
         {tabItems.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
@@ -7823,7 +7824,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </SettingSection>
 
         {/* ── BRAIN DUMP CATEGORIES ──────────────────────────────── */}
-        <SettingSection id="braincats" title="🧠 Brain Dump Categories" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
+        <SettingSection id="braincats" title="💭 Clear Your Mind Categories" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
           <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
         </SettingSection>
 
@@ -8948,7 +8949,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>Quick capture</div>
               <input value={captureText} onChange={e=>setCaptureText(e.target.value)} autoFocus placeholder="What's on your mind..." style={{...inp({marginBottom:"0.75rem",fontSize:"1rem"})}}/>
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.85rem"}}>
-                {[{id:"tasks",label:"Tasks",emoji:"✅"},{id:"brain",label:"Brain Dump",emoji:"🧠"},{id:"shopping",label:"Shopping",emoji:"🛒"}].map(d=>(
+                {[{id:"tasks",label:"Tasks",emoji:"✅"},{id:"brain",label:"Clear Your Mind",emoji:"💭"},{id:"shopping",label:"Shopping",emoji:"🛒"}].map(d=>(
                   <button key={d.id} onClick={()=>setCaptureDest(d.id)} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(captureDest===d.id?T.blue:T.border),background:captureDest===d.id?T.bluePale:"transparent",color:captureDest===d.id?T.blue:T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                     {d.emoji} {d.label}
                   </button>
