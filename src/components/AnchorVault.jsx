@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
 
 const NAV = [
@@ -1819,6 +1819,18 @@ export default function AnchorVault({ onClose, calEvents = [] }) {
             <div style={{ color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
               <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, marginBottom: 16 }}>Home Systems</div>
               <div style={{ fontSize: 13, color: "rgba(250,248,244,0.5)", lineHeight: 1.6 }}>Your home system rhythms live here. Add them in the Flow Anchor tab and they will appear here too.</div>
+            </div>
+          )}
+          {activeSection === "health" && (
+            <div style={{ color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
+              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, marginBottom: 8 }}>Health</div>
+              <div style={{ fontSize: 13, color: "rgba(250,248,244,0.5)", lineHeight: 1.6 }}>Health records and medical info coming soon.</div>
+            </div>
+          )}
+          {activeSection === "career" && (
+            <div style={{ color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
+              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, marginBottom: 8 }}>Career</div>
+              <div style={{ fontSize: 13, color: "rgba(250,248,244,0.5)", lineHeight: 1.6 }}>Career notes and goals coming soon.</div>
             </div>
           )}
           {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} />}

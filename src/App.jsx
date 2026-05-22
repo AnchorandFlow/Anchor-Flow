@@ -535,7 +535,7 @@ const TABS = [
   {id:"calendar", label:"Calendar", emoji:"📆"},
   {id:"meals",    label:"Meals",    emoji:"🍽️"},
   {id:"shop",     label:"Shopping", emoji:"🛒"},
-  {id:"ai",       label:"Ripple",   emoji:"✦"},
+  {id:"ai",       label:"Ripple",   emoji:"〜"},
   {id:"cove",     label:"Tide Pool", emoji:"🏝️"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
