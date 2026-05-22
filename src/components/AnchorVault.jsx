@@ -11,6 +11,7 @@ const NAV = [
   { id: "gifts",       label: "Celebrate", icon: "gift" },
   { id: "pets",        label: "Pets",        icon: "pet"  },
   { id: "moments",     label: "Moments",     icon: "mom" },
+  { id: "ripples",     label: "Ripples",     icon: "rip" },
 ]
 
 const PANTRY = ["Pasta","Rice","Olive oil","Canned tomatoes","Peanut butter","Oats","Flour","Sugar","Coffee","Cereal"]
@@ -1464,6 +1465,310 @@ function PetsSection() {
   )
 }
 
+// ── Subscriptions Section ─────────────────────────────────────────────────────
+function SubscriptionsSection() {
+  var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
+  var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
+  var SAGE = "#7a9e8e"; var BLUE = "#6ba3c4"
+  var CYCLES = ["monthly","yearly","weekly","quarterly"]
+  var PERK_TYPES = ["Kids eat free","Military discount","Student discount","Senior discount","AAA discount","Other"]
+  function load(key, def) { try { return JSON.parse(localStorage.getItem(key) || "null") || def } catch { return def } }
+  function persist(key, val) { try { localStorage.setItem(key, JSON.stringify(val)) } catch {} }
+  var [subs, setSubs] = React.useState(function() { return load("af_subs", []) })
+  var [coupons, setCoupons] = React.useState(function() { return load("af_coupons", []) })
+  var [perks, setPerks] = React.useState(function() { return load("af_perks", []) })
+  var [tab, setTab] = React.useState("subs")
+  var [modal, setModal] = React.useState(null)
+  var [form, setForm] = React.useState({})
+  function saveSubs(v) { setSubs(v); persist("af_subs", v) }
+  function saveCoupons(v) { setCoupons(v); persist("af_coupons", v) }
+  function savePerks(v) { setPerks(v); persist("af_perks", v) }
+  function openAdd(type) { setModal(type); setForm({}) }
+  function closeModal() { setModal(null); setForm({}) }
+  function addSub() {
+    if (!form.name) return
+    var item = { id: Date.now().toString(), name: form.name, cycle: form.cycle||"monthly", amount: parseFloat(form.amount)||0, website: form.website||"", renewDate: form.renewDate||"" }
+    saveSubs([...subs, item]); closeModal()
+  }
+  function deleteSub(id) { saveSubs(subs.filter(function(s) { return s.id !== id })) }
+  function addCoupon() {
+    if (!form.name) return
+    var item = { id: Date.now().toString(), name: form.name, amount: form.amount||"", expires: form.expires||"", notes: form.notes||"", used: false }
+    saveCoupons([...coupons, item]); closeModal()
+  }
+  function toggleCouponUsed(id) { saveCoupons(coupons.map(function(c) { return c.id===id ? Object.assign({},c,{used:!c.used}) : c })) }
+  function deleteCoupon(id) { saveCoupons(coupons.filter(function(c) { return c.id !== id })) }
+  function addPerk() {
+    if (!form.name) return
+    var item = { id: Date.now().toString(), type: form.type||"Other", name: form.name, detail: form.detail||"", notes: form.notes||"" }
+    savePerks([...perks, item]); closeModal()
+  }
+  function deletePerk(id) { savePerks(perks.filter(function(p) { return p.id !== id })) }
+  var monthly = subs.reduce(function(acc, s) {
+    if (s.cycle==="monthly") return acc+(s.amount||0)
+    if (s.cycle==="yearly") return acc+(s.amount||0)/12
+    if (s.cycle==="weekly") return acc+(s.amount||0)*4.33
+    if (s.cycle==="quarterly") return acc+(s.amount||0)/3
+    return acc
+  }, 0)
+  var inp = { background: "rgba(255,255,255,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
+  var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
+  var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : BORD, borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
+  var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 10, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
+  var cardStyle = { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }
+  var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
+  var modalBox = { background: "#1e2e50", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
+  return React.createElement("div", { style: { paddingBottom: "2rem" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
+      React.createElement("div", null,
+        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Subscriptions"),
+        React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Track what you pay, save & earn")
+      )
+    ),
+    React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } },
+      React.createElement("button", { style: tabBtn("subs"), onClick: function() { setTab("subs") } }, "Subscriptions"),
+      React.createElement("button", { style: tabBtn("coupons"), onClick: function() { setTab("coupons") } }, "Coupons"),
+      React.createElement("button", { style: tabBtn("perks"), onClick: function() { setTab("perks") } }, "Perks & Discounts")
+    ),
+    tab === "subs" && React.createElement("div", null,
+      subs.length > 0 && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
+        React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
+          React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),
+          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + monthly.toFixed(2))
+        ),
+        React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
+          React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Yearly total"),
+          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (monthly*12).toFixed(2))
+        )
+      ),
+      subs.map(function(s) {
+        return React.createElement("div", { key: s.id, style: cardStyle },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+            React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, s.name),
+              React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.45)", marginTop: 2, fontFamily: "DM Sans,sans-serif", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
+                React.createElement("span", null, s.cycle),
+                s.website && React.createElement("a", { href: s.website.startsWith("http") ? s.website : "https://"+s.website, target: "_blank", rel: "noopener noreferrer", style: { color: BLUE, fontSize: 10 } }, "↗ website"),
+                s.renewDate && React.createElement("span", { style: { fontSize: 9, padding: "2px 6px", borderRadius: 20, background: "rgba(239,159,39,0.15)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.3)" } }, "Renews " + s.renewDate)
+              )
+            ),
+            React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
+              React.createElement("div", { style: { fontSize: 16, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (s.amount||0).toFixed(2)),
+              React.createElement("button", { onClick: function() { deleteSub(s.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "remove")
+            )
+          )
+        )
+      }),
+      React.createElement("button", { style: addBtnStyle, onClick: function() { openAdd("sub") } },
+        React.createElement("span", { style: { fontSize: 16, color: GOLD } }, "+"),
+        React.createElement("span", { style: { fontSize: 13, color: GOLD, fontFamily: "DM Sans,sans-serif" } }, "Add subscription")
+      )
+    ),
+    tab === "coupons" && React.createElement("div", null,
+      coupons.length === 0 && React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "rgba(250,248,244,0.35)", fontSize: 13, fontFamily: "DM Sans,sans-serif" } }, "No coupons yet — add Kohl's Cash, store credit, rewards..."),
+      coupons.map(function(c) {
+        return React.createElement("div", { key: c.id, style: Object.assign({}, cardStyle, { opacity: c.used ? 0.45 : 1 }) },
+          React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+            React.createElement("div", { style: { flex: 1 } },
+              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif", textDecoration: c.used ? "line-through" : "none" } }, c.name),
+              c.expires && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.45)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, "Use by " + c.expires),
+              c.notes && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.4)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, c.notes)
+            ),
+            React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
+              c.amount && React.createElement("div", { style: { fontSize: 18, fontWeight: 600, color: SAGE, fontFamily: "DM Sans,sans-serif" } }, c.amount),
+              React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
+                React.createElement("button", { onClick: function() { toggleCouponUsed(c.id) }, style: { background: "none", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", color: "rgba(250,248,244,0.45)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, c.used ? "unmark" : "used"),
+                React.createElement("button", { onClick: function() { deleteCoupon(c.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "✕")
+              )
+            )
+          )
+        )
+      }),
+      React.createElement("button", { style: addBtnStyle, onClick: function() { openAdd("coupon") } },
+        React.createElement("span", { style: { fontSize: 16, color: GOLD } }, "+"),
+        React.createElement("span", { style: { fontSize: 13, color: GOLD, fontFamily: "DM Sans,sans-serif" } }, "Add coupon or store credit")
+      )
+    ),
+    tab === "perks" && React.createElement("div", null,
+      perks.length === 0 && React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "rgba(250,248,244,0.35)", fontSize: 13, fontFamily: "DM Sans,sans-serif" } }, "Record kids eat free spots, military discounts, and more..."),
+      perks.map(function(p) {
+        return React.createElement("div", { key: p.id, style: Object.assign({}, cardStyle, { background: "rgba(107,163,196,0.07)", border: "0.5px solid rgba(107,163,196,0.2)" }) },
+          React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
+            React.createElement("div", { style: { flex: 1 } },
+              React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, p.type),
+              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, p.name),
+              p.detail && React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 3, fontFamily: "DM Sans,sans-serif" } }, p.detail),
+              p.notes && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.4)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, p.notes)
+            ),
+            React.createElement("button", { onClick: function() { deletePerk(p.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 14, marginLeft: 8 } }, "✕")
+          )
+        )
+      }),
+      React.createElement("button", { style: addBtnStyle, onClick: function() { openAdd("perk") } },
+        React.createElement("span", { style: { fontSize: 16, color: GOLD } }, "+"),
+        React.createElement("span", { style: { fontSize: 13, color: GOLD, fontFamily: "DM Sans,sans-serif" } }, "Add perk or discount")
+      )
+    ),
+    modal && React.createElement("div", { style: modalBg, onClick: function(e) { if (e.target === e.currentTarget) closeModal() } },
+      React.createElement("div", { style: modalBox },
+        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 16 } },
+          modal === "sub" ? "Add subscription" : modal === "coupon" ? "Add coupon / store credit" : "Add perk or discount"
+        ),
+        modal === "sub" && React.createElement("div", null,
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Service name"), React.createElement("input", { style: inp, placeholder: "e.g. Netflix, Spotify", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
+          React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
+            React.createElement("div", null, React.createElement("label", { style: lbl }, "Amount ($)"), React.createElement("input", { style: inp, type: "number", placeholder: "0.00", value: form.amount||"", onChange: function(e) { setForm(Object.assign({},form,{amount:e.target.value})) } })),
+            React.createElement("div", null, React.createElement("label", { style: lbl }, "Billing cycle"),
+              React.createElement("select", { style: inp, value: form.cycle||"monthly", onChange: function(e) { setForm(Object.assign({},form,{cycle:e.target.value})) } },
+                CYCLES.map(function(c) { return React.createElement("option", { key: c, value: c }, c) })
+              )
+            )
+          ),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Website (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. netflix.com", value: form.website||"", onChange: function(e) { setForm(Object.assign({},form,{website:e.target.value})) } })),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Renewal date (optional)"), React.createElement("input", { style: inp, type: "date", value: form.renewDate||"", onChange: function(e) { setForm(Object.assign({},form,{renewDate:e.target.value})) } }))
+        ),
+        modal === "coupon" && React.createElement("div", null,
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Name"), React.createElement("input", { style: inp, placeholder: "e.g. Kohl's Cash, Target Circle", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Amount or value"), React.createElement("input", { style: inp, placeholder: "e.g. $30 or 20% off", value: form.amount||"", onChange: function(e) { setForm(Object.assign({},form,{amount:e.target.value})) } })),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Use by date"), React.createElement("input", { style: inp, type: "date", value: form.expires||"", onChange: function(e) { setForm(Object.assign({},form,{expires:e.target.value})) } })),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Notes (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. in-store or online, app required", value: form.notes||"", onChange: function(e) { setForm(Object.assign({},form,{notes:e.target.value})) } }))
+        ),
+        modal === "perk" && React.createElement("div", null,
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Type"),
+            React.createElement("select", { style: inp, value: form.type||"Other", onChange: function(e) { setForm(Object.assign({},form,{type:e.target.value})) } },
+              PERK_TYPES.map(function(t) { return React.createElement("option", { key: t, value: t }, t) })
+            )
+          ),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Where / Name"), React.createElement("input", { style: inp, placeholder: "e.g. Chick-fil-A, Home Depot", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Details"), React.createElement("input", { style: inp, placeholder: "e.g. Tuesdays, ages 12 & under, 10% off", value: form.detail||"", onChange: function(e) { setForm(Object.assign({},form,{detail:e.target.value})) } })),
+          React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Notes (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. ID required, app required", value: form.notes||"", onChange: function(e) { setForm(Object.assign({},form,{notes:e.target.value})) } }))
+        ),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
+          React.createElement("button", { onClick: modal==="sub" ? addSub : modal==="coupon" ? addCoupon : addPerk, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Save")
+        )
+      )
+    )
+  )
+}
+
+// ── Ripples Section ───────────────────────────────────────────────────────────
+var RIPPLE_CATS = [
+  { id: "all", label: "All" },
+  { id: "milestone", label: "Milestone" },
+  { id: "firsts", label: "Firsts" },
+  { id: "school", label: "School" },
+  { id: "sports", label: "Sports" },
+  { id: "funny", label: "Funny" },
+  { id: "faith", label: "Faith" },
+  { id: "other", label: "Other" },
+]
+function RipplesSection() {
+  var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
+  var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
+  var SAGE = "#7a9e8e"
+  function load() { try { return JSON.parse(localStorage.getItem("af_ripples") || "[]") } catch { return [] } }
+  function persist(v) { try { localStorage.setItem("af_ripples", JSON.stringify(v)) } catch {} }
+  var [ripples, setRipples] = React.useState(load)
+  var [cat, setCat] = React.useState("all")
+  var [modal, setModal] = React.useState(false)
+  var [form, setForm] = React.useState({ name: "", who: "", category: "milestone", date: "", note: "" })
+  var [editId, setEditId] = React.useState(null)
+  function save(v) { setRipples(v); persist(v) }
+  function openAdd() { setForm({ name: "", who: "", category: "milestone", date: new Date().toISOString().slice(0,10), note: "" }); setEditId(null); setModal(true) }
+  function openEdit(r) { setForm({ name: r.name, who: r.who||"", category: r.category||"milestone", date: r.date||"", note: r.note||"" }); setEditId(r.id); setModal(true) }
+  function closeModal() { setModal(false); setEditId(null) }
+  function submit() {
+    if (!form.name.trim()) return
+    if (editId) { save(ripples.map(function(r) { return r.id===editId ? Object.assign({},r,form) : r })) }
+    else { save([...ripples, Object.assign({ id: Date.now().toString() }, form)]) }
+    closeModal()
+  }
+  function deleteRipple(id) { save(ripples.filter(function(r) { return r.id !== id })) }
+  var filtered = cat==="all" ? ripples : ripples.filter(function(r) { return r.category===cat })
+  var sorted = filtered.slice().sort(function(a,b) {
+    if (!a.date && !b.date) return 0; if (!a.date) return 1; if (!b.date) return -1
+    return new Date(b.date) - new Date(a.date)
+  })
+  var groups = []
+  var seen = {}
+  sorted.forEach(function(r) {
+    var d = r.date ? new Date(r.date+"T00:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"}) : "No date"
+    if (!seen[d]) { seen[d]=true; groups.push({ label: d, items: [] }) }
+    groups[groups.length-1].items.push(r)
+  })
+  var inp = { background: "rgba(255,255,255,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
+  var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
+  var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
+  var modalBox = { background: "#1e2e50", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
+  return React.createElement("div", { style: { paddingBottom: "2rem" } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
+      React.createElement("div", null,
+        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Ripples"),
+        React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Every moment worth keeping")
+      ),
+      React.createElement("button", { onClick: openAdd, style: { background: GOLD, border: "none", borderRadius: 9, padding: "8px 16px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "+ Capture")
+    ),
+    React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 } },
+      RIPPLE_CATS.map(function(c) {
+        return React.createElement("button", { key: c.id, onClick: function() { setCat(c.id) }, style: { background: cat===c.id ? "rgba(200,169,122,0.15)" : "transparent", border: cat===c.id ? "0.5px solid rgba(200,169,122,0.35)" : BORD, borderRadius: 20, padding: "4px 12px", color: cat===c.id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 11, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }, c.label)
+      })
+    ),
+    ripples.length===0 && React.createElement("div", { style: { textAlign: "center", padding: "48px 20px" } },
+      React.createElement("div", { style: { fontSize: 32, marginBottom: 12, opacity: 0.3 } }, "🌊"),
+      React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 20, color: WHITE, marginBottom: 8 } }, "No ripples yet"),
+      React.createElement("div", { style: { fontSize: 13, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.6 } }, "Capture first words, lost teeth, goals scored — anything worth remembering."),
+      React.createElement("button", { onClick: openAdd, style: { marginTop: 20, background: GOLD, border: "none", borderRadius: 10, padding: "10px 24px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Capture a ripple")
+    ),
+    groups.map(function(group) {
+      return React.createElement("div", { key: group.label, style: { marginBottom: 8 } },
+        React.createElement("div", { style: { fontSize: 10, color: "rgba(200,169,122,0.7)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontFamily: "DM Sans,sans-serif", fontWeight: 700 } }, group.label),
+        group.items.map(function(r) {
+          return React.createElement("div", { key: r.id, style: { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 } },
+            React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
+              React.createElement("div", { style: { flex: 1 } },
+                React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, r.name),
+                r.note && React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.55)", marginTop: 4, fontFamily: "DM Sans,sans-serif", lineHeight: 1.5 } }, r.note),
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } },
+                  r.date && React.createElement("span", { style: { fontSize: 10, color: "rgba(200,169,122,0.6)", fontFamily: "DM Sans,sans-serif" } }, new Date(r.date+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})),
+                  r.who && React.createElement("span", { style: { fontSize: 10, color: "rgba(250,248,244,0.35)", padding: "1px 7px", background: "rgba(255,255,255,0.05)", borderRadius: 20, fontFamily: "DM Sans,sans-serif" } }, r.who),
+                  r.category && r.category!=="other" && React.createElement("span", { style: { fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(122,158,142,0.15)", color: SAGE, border: "0.5px solid rgba(122,158,142,0.3)", fontFamily: "DM Sans,sans-serif" } }, r.category)
+                )
+              ),
+              React.createElement("div", { style: { display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 } },
+                React.createElement("button", { onClick: function() { openEdit(r) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.3)", cursor: "pointer", fontSize: 14 } }, "✎"),
+                React.createElement("button", { onClick: function() { deleteRipple(r.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.2)", cursor: "pointer", fontSize: 14 } }, "✕")
+              )
+            )
+          )
+        })
+      )
+    }),
+    modal && React.createElement("div", { style: modalBg, onClick: function(e) { if (e.target===e.currentTarget) closeModal() } },
+      React.createElement("div", { style: modalBox },
+        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 16 } }, editId ? "Edit ripple" : "Capture a ripple"),
+        React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "What happened?"), React.createElement("input", { style: inp, placeholder: "e.g. Lost first tooth, First goal scored", value: form.name, onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
+          React.createElement("div", null, React.createElement("label", { style: lbl }, "Who"), React.createElement("input", { style: inp, placeholder: "e.g. Eli, Clara", value: form.who, onChange: function(e) { setForm(Object.assign({},form,{who:e.target.value})) } })),
+          React.createElement("div", null, React.createElement("label", { style: lbl }, "Date"), React.createElement("input", { style: inp, type: "date", value: form.date, onChange: function(e) { setForm(Object.assign({},form,{date:e.target.value})) } }))
+        ),
+        React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Category"),
+          React.createElement("select", { style: inp, value: form.category, onChange: function(e) { setForm(Object.assign({},form,{category:e.target.value})) } },
+            RIPPLE_CATS.filter(function(c) { return c.id!=="all" }).map(function(c) { return React.createElement("option", { key: c.id, value: c.id }, c.label) })
+          )
+        ),
+        React.createElement("div", { style: { marginBottom: 16 } }, React.createElement("label", { style: lbl }, "Note (optional)"),
+          React.createElement("textarea", { style: Object.assign({}, inp, { minHeight: 72, resize: "vertical" }), placeholder: "Any details you want to remember...", value: form.note, onChange: function(e) { setForm(Object.assign({},form,{note:e.target.value})) } })
+        ),
+        React.createElement("div", { style: { display: "flex", gap: 8 } },
+          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
+          React.createElement("button", { onClick: submit, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, editId ? "Save" : "Capture")
+        )
+      )
+    )
+  )
+}
+
 export default function AnchorVault({ onClose, calEvents = [] }) {
   const [activeSection, setActiveSection] = useState("home")
   const [inventory, setInventory] = useState(() => {
@@ -1518,7 +1823,9 @@ export default function AnchorVault({ onClose, calEvents = [] }) {
           {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} />}
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
-          {["health","career","subs"].includes(activeSection) && (
+          {activeSection === "subs" && <SubscriptionsSection />}
+          {activeSection === "ripples" && <RipplesSection />}
+          {["health","career"].includes(activeSection) && (
             <div style={{ textAlign: "center", padding: "48px 20px" }}>
               <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>lock</div>
               <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, color: "#faf8f4", marginBottom: 8 }}>Premium section</div>
