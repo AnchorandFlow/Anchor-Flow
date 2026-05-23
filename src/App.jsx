@@ -1544,7 +1544,13 @@ function HomeFlow() {
 
   const [showOnboardingWizard,setShowOnboardingWizard] = useState(false);
   const [showWelcomeModal,setShowWelcomeModal] = useState(function(){
-    try { return !localStorage.getItem("af_welcomeSeen"); } catch { return false; }
+    try {
+      if(localStorage.getItem("af_welcomeSeen")) return false;
+      // Only show for genuinely new users — if they have ANY existing data, mark as seen
+      var hasData = Object.keys(localStorage).some(function(k){ return k.startsWith("af_"); });
+      if(hasData) { try{localStorage.setItem("af_welcomeSeen","1");}catch{} return false; }
+      return true;
+    } catch { return false; }
   });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
@@ -6309,9 +6315,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // ── Daily chore reset ──
     React.useEffect(function(){
       var resetKey = "af_choreResetDate";
+      var todayStr = TODAY.toISOString().split("T")[0];
       var lastReset;
       try { lastReset = localStorage.getItem(resetKey); } catch { lastReset = null; }
-      if(lastReset !== TODAY) {
+      if(lastReset !== todayStr) {
         setKids(function(prev){
           var next = prev.map(function(k){
             return Object.assign({},k,{chores:k.chores.map(function(c){return Object.assign({},c,{done:false});})});
@@ -6319,7 +6326,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           setCoveData(next);
           return next;
         });
-        try { localStorage.setItem(resetKey, TODAY); } catch {}
+        try { localStorage.setItem(resetKey, todayStr); } catch {}
       }
     }, [TODAY]);
 
