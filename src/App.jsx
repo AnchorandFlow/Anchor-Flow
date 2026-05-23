@@ -146,6 +146,13 @@ function getInitials(name = '') {
 function RippleNotificationBanner() {
   const { notifications, actionNotification } = useRippleNotifications();
   const { permission, subscribed, subscribe, subError } = usePushNotifications();
+  const [notifBannerDismissed, setNotifBannerDismissed] = React.useState(function(){
+    try { return localStorage.getItem('af_notifBannerDismissed') === '1'; } catch { return false; }
+  });
+  function dismissNotifBanner() {
+    try { localStorage.setItem('af_notifBannerDismissed', '1'); } catch {}
+    setNotifBannerDismissed(true);
+  }
 
   const handleAction = (label) => {
     const notif = notifications[0];
@@ -159,8 +166,8 @@ function RippleNotificationBanner() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 16px 0' }}>
-      {/* Push opt-in prompt — shown once if not yet subscribed */}
-      {!subscribed && permission !== 'denied' && (
+      {/* Push opt-in prompt — shown once if not yet subscribed and not dismissed */}
+      {!subscribed && permission !== 'denied' && !notifBannerDismissed && (
         <div style={{
           background: 'rgba(200,169,122,0.08)',
           border: '0.5px solid rgba(200,169,122,0.25)',
@@ -168,7 +175,7 @@ function RippleNotificationBanner() {
           padding: '12px 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          <div>
+          <div style={{flex:1}}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#2a2a38', fontFamily: 'DM Sans, sans-serif' }}>Get Compass on your phone</div>
             <div style={{ fontSize: 11, color: '#8a8a9a', fontFamily: 'DM Sans, sans-serif', marginTop: 2 }}>Morning briefing, midday check-in, dinner reminder & evening recap</div>
           </div>
@@ -183,6 +190,7 @@ function RippleNotificationBanner() {
               fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap',
             }}
           >{subscribed ? '✓ On' : 'Turn on'}</button>
+          <button onClick={dismissNotifBanner} aria-label="Dismiss" style={{background:'none',border:'none',cursor:'pointer',color:'#b0b0be',fontSize:18,lineHeight:1,padding:'2px 4px',flexShrink:0}}>×</button>
           {subError && <div style={{fontSize:10,color:'#c05050',marginTop:4,fontFamily:'DM Sans,sans-serif'}}>{subError}</div>}
         </div>
       )}
@@ -619,6 +627,16 @@ function AnchorLogo({size=40, color="#6A9BB5"}) {
       <line x1="34" y1="32" x2="66" y2="32" stroke={color} strokeWidth="4" strokeLinecap="round"/>
       <path d="M50 72 Q34 72 30 62 L36 64" stroke={color} strokeWidth="3.5" strokeLinecap="round" fill="none"/>
       <path d="M50 72 Q66 72 70 62 L64 64" stroke={color} strokeWidth="3.5" strokeLinecap="round" fill="none"/>
+    </svg>
+  );
+}
+function CompassIcon({size=24, color="#fff"}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="1.6" fill="none"/>
+      <polygon points="12,4.5 13.5,11 12,13 10.5,11" fill={color} opacity="0.95"/>
+      <polygon points="12,19.5 10.5,13 12,11 13.5,13" fill={color} opacity="0.45"/>
+      <circle cx="12" cy="12" r="1.5" fill={color}/>
     </svg>
   );
 }
@@ -1525,6 +1543,9 @@ function HomeFlow() {
   const [emailSubmitted,setEmailSubmitted]         = useSaved("emailSubmitted",false);
 
   const [showOnboardingWizard,setShowOnboardingWizard] = useState(false);
+  const [showWelcomeModal,setShowWelcomeModal] = useState(function(){
+    try { return !localStorage.getItem("af_welcomeSeen"); } catch { return false; }
+  });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
@@ -2364,7 +2385,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Anchor Check Item — checkable row with fade-out + inline bell ───────────
-  function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle }) {
+  function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick }) {
     const [removing, setRemoving] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
     const [nd, setNd] = useState(""); const [nt, setNt] = useState(""); const [nn, setNn] = useState("");
@@ -2387,7 +2408,7 @@ Respond ONLY with valid JSON array, no markdown:
           <div onClick={handleCheck} style={{width:24,height:24,borderRadius:"50%",background:checked?(color||T.blue):"transparent",border:`2.5px solid ${checked?(color||T.blue):(color||T.blue)+"70"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
             {checked&&<Icon name="check" size={11} color="#fff"/>}
           </div>
-          <span style={{flex:1,fontSize:"0.88rem",fontWeight:checked?400:600,color:checked?T.textFaint:T.textDark,textDecoration:checked?"line-through":"none",lineHeight:1.35}}>{text}</span>
+          <span onClick={onTitleClick||undefined} style={{flex:1,fontSize:"0.88rem",fontWeight:checked?400:600,color:checked?T.textFaint:T.textDark,textDecoration:checked?"line-through":"none",lineHeight:1.35,cursor:onTitleClick?"pointer":"default"}}>{text}</span>
           {badge&&<span style={{fontSize:"0.58rem",background:(color||T.blue)+"18",color:color||T.blue,fontWeight:800,padding:"2px 6px",borderRadius:"1rem",whiteSpace:"nowrap"}}>{badge}</span>}
           {bell&&<button onClick={()=>setNotifOpen(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0,opacity:hasNotif?1:0.4}}>
             <Icon name="bell" size={13} color={hasNotif?T.sand:T.textSoft}/>
@@ -2779,12 +2800,28 @@ Respond ONLY with valid JSON array, no markdown:
           <ProgBar/>
           {s==="welcome"&&(<div>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>⚓️</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Welcome to Anchor & Flow</div>
-            <div style={{color:T.textSoft,fontSize:"0.85rem",lineHeight:1.7,marginBottom:"1rem"}}>Let's set up your home in about 2 minutes.<br/>You can always update this later.</div>
-            <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",borderRadius:"0.9rem",padding:"0.9rem 1rem",fontSize:"0.82rem",color:T.textMid,lineHeight:1.8}}>
-              👨‍👩‍👧 Your family &nbsp;·&nbsp; 📆 Calendar &nbsp;·&nbsp; 🍽️ Favorite meals &nbsp;·&nbsp; 🛒 Grocery &nbsp;·&nbsp; 🧠 Brain dump
-            </div>
-            <Btns nextLabel="Let's go →"/>
+            {familyProfile ? (
+              <div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Welcome back!</div>
+                <div style={{color:T.textSoft,fontSize:"0.85rem",lineHeight:1.7,marginBottom:"1rem"}}>Looks like your home is already set up. You don't need to go through this again.</div>
+                <div style={{background:T.sagePale,border:"1.5px solid "+T.sage+"40",borderRadius:"0.9rem",padding:"0.9rem 1rem",fontSize:"0.83rem",color:T.textMid,lineHeight:1.65,marginBottom:"0.5rem"}}>
+                  ✓ Your family profile, tasks, meals, and settings are all here.<br/>To make changes, head to <strong>Settings</strong>.
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",marginTop:"1.4rem",paddingTop:"0.9rem",borderTop:"1px solid "+T.borderSoft}}>
+                  <button onClick={()=>{onComplete();goTab&&goTab("settings");}} style={{...btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem"})}}>Go to Settings →</button>
+                  <button onClick={onComplete} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",padding:"0.6rem 0.9rem",fontFamily:"inherit"}}>Continue anyway</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Welcome to Anchor & Flow</div>
+                <div style={{color:T.textSoft,fontSize:"0.85rem",lineHeight:1.7,marginBottom:"1rem"}}>Let's set up your home in about 2 minutes.<br/>You can always update this later.</div>
+                <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",borderRadius:"0.9rem",padding:"0.9rem 1rem",fontSize:"0.82rem",color:T.textMid,lineHeight:1.8}}>
+                  👨‍👩‍👧 Your family &nbsp;·&nbsp; 📆 Calendar &nbsp;·&nbsp; 🍽️ Favorite meals &nbsp;·&nbsp; 🛒 Grocery &nbsp;·&nbsp; 🧠 Brain dump
+                </div>
+                <Btns nextLabel="Let's go →"/>
+              </div>
+            )}
           </div>)}
           {s==="family"&&(<div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>👨‍👩‍👧 Your family</div>
@@ -2893,7 +2930,7 @@ Respond ONLY with valid JSON array, no markdown:
               {(d.g1||d.g2)&&<div>🛒 {[d.g1,d.g2].filter(Boolean).join(" · ")} added</div>}
               {d.brain&&<div>🧠 Brain dump saved</div>}
             </div>
-            <Btns nextLabel="Build my first day →" onNext={finish}/>
+            <Btns nextLabel="Plan my first day →" onNext={finish}/>
           </div>)}
         </div>
       </div>
@@ -3107,6 +3144,7 @@ Respond ONLY with valid JSON array, no markdown:
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
   function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
+    const [newTaskPerson,setNewTaskPerson] = useState("");
     const [showFlowIn,setShowFlowIn] = useState(false);
     const [fullDayDismissed,setFullDayDismissed] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState(null);
@@ -3270,8 +3308,8 @@ Respond ONLY in valid JSON:
       setAiLoading(false);
     }
 
-    function addQuickTask(text, tier="top3") {
-      setTasks(p=>[...p,{id:uid(),text,day:TODAY_NAME,done:false,person:"",order:p.length,tier,aiG:true}]);
+    function addQuickTask(text, tier="top3", person) {
+      setTasks(p=>[...p,{id:uid(),text,day:TODAY_NAME,done:false,person:person||"",order:p.length,tier,aiG:true}]);
     }
 
     const greeting = hour < 12 ? "Good morning" : isEvening ? "Good evening" : "Good afternoon";
@@ -3416,11 +3454,24 @@ Respond ONLY in valid JSON:
         {dayOpen&&!isEvening&&(
           <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
           {incompletePrevTasks.length>0&&(
-            <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"50",borderRadius:"1rem",padding:"0.8rem 1rem",display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-              <Icon name="carry" size={14} color={T.sandDark}/>
-              <span style={{fontWeight:600,color:T.sandDark,fontSize:"0.83rem",flex:1}}>{incompletePrevTasks.length} unfinished from yesterday</span>
-              <button onClick={carryTasksOver} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem"})}><Icon name="carry" size={12} color="#fff"/> Bring forward</button>
-              <button onClick={()=>setTasks(p=>p.map(t=>incompletePrevTasks.find(x=>x.id===t.id)?{...t,archived:true}:t))} style={btnS({fontSize:"0.73rem",padding:"0.3rem 0.6rem",color:T.textSoft})}>Let go</button>
+            <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"50",borderRadius:"1rem",padding:"0.8rem 1rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
+                <Icon name="carry" size={14} color={T.sandDark}/>
+                <span style={{fontWeight:700,color:T.sandDark,fontSize:"0.83rem",flex:1}}>Unfinished from yesterday</span>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.65rem"}}>
+                {incompletePrevTasks.map(function(t){return(
+                  <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:T.sand,flexShrink:0}}/>
+                    <span style={{fontSize:"0.81rem",color:T.textDark,flex:1}}>{t.text}</span>
+                    <button onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,archived:true}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",lineHeight:1,padding:"0 2px",flexShrink:0}}>×</button>
+                  </div>
+                );})}
+              </div>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                <button onClick={carryTasksOver} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem"})}><Icon name="carry" size={12} color="#fff"/> Bring all forward</button>
+                <button onClick={()=>setTasks(p=>p.map(t=>incompletePrevTasks.find(x=>x.id===t.id)?{...t,archived:true}:t))} style={btnS({fontSize:"0.73rem",padding:"0.3rem 0.6rem",color:T.textSoft})}>Let all go</button>
+              </div>
             </div>
           )}
 
@@ -3431,7 +3482,7 @@ Respond ONLY in valid JSON:
                   <Icon name="cal" size={15} color={T.blueDark}/>
                   <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today's schedule</span>
                 </div>
-                <button onClick={()=>goTab("calendar")} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Open</button>
+                <button onClick={()=>{goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Open</button>
               </div>
               {todayEvents.length===0
                 ?<p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.3rem 0"}}>No events today — open space 🌿</p>
@@ -3444,6 +3495,7 @@ Respond ONLY in valid JSON:
                     color={e.color}
                     badge={e.time||"all day"}
                     entityTitle={e.title}
+                    onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}
                   />
                 ))
               }
@@ -3511,11 +3563,11 @@ Respond ONLY in valid JSON:
                 <div style={{display:"flex",gap:"0.3rem"}}>
                   {allTaskTiers.length>0&&<button onClick={function(){if(window.confirm("Clear all tasks for today?"))setTasks(function(p){return p.map(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)?{...t,archived:true}:t;});});}} style={btnS({fontSize:"0.68rem",padding:"0.22rem 0.55rem",color:T.textFaint})}>Clear</button>}
                   <button onClick={()=>buildDailyBriefing()} disabled={briefingLoading} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:briefingLoading?0.6:1})}>
-                    {briefingLoading?<>{[0,1,2].map(i=><span key={i} style={{width:5,height:5,borderRadius:"50%",background:T.textMid,display:"inline-block",margin:"0 1px"}}/>)}</>:<>✨ Build</>}
+                    {briefingLoading?<>{[0,1,2].map(i=><span key={i} style={{width:5,height:5,borderRadius:"50%",background:T.textMid,display:"inline-block",margin:"0 1px"}}/>)}</>:<>✨ Plan my day</>}
                   </button>
                 </div>
               </div>
-              {allTaskTiers.filter(t=>!t.done).length===0&&allTaskTiers.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.2rem 0 0.5rem"}}>No tasks yet — tap ✨ Build or add below.</p>}
+              {allTaskTiers.filter(t=>!t.done).length===0&&allTaskTiers.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.2rem 0 0.5rem"}}>No tasks yet — tap ✨ Plan my day or add one below.</p>}
               {/* Progress momentum line */}
               {allTaskTiers.length>0&&allTaskTiers.some(t=>t.done)&&allTaskTiers.some(t=>!t.done)&&(
                 <div style={{fontSize:"0.72rem",color:T.sage,fontWeight:700,marginBottom:"0.5rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
@@ -3556,12 +3608,18 @@ Respond ONLY in valid JSON:
                 </div>
               )}
               {addingTask&&(
-                <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
-                  <input value={newTask} onChange={e=>setNewTask(e.target.value)}
-                    onKeyDown={e=>{if(e.key==="Enter"){addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setAddingTask(null);}}}
-                    placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
-                    style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
-                  <button onClick={()=>{addQuickTask(newTask,addingTask);setNewTask("");setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.35rem",marginTop:"0.4rem"}}>
+                  <div style={{display:"flex",gap:"0.4rem"}}>
+                    <input value={newTask} onChange={e=>setNewTask(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter"){addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setNewTaskPerson("");setAddingTask(null);}}}
+                      placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
+                      style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
+                    <button onClick={()=>{addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
+                  </div>
+                  <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",paddingLeft:"0.1rem"}}>
+                    <button onClick={()=>setNewTaskPerson("")} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(newTaskPerson===""?T.blue:T.border),background:newTaskPerson===""?T.bluePale:"transparent",color:newTaskPerson===""?T.blue:T.textFaint,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Household</button>
+                    {people.map(function(p){return(<button key={p.id} onClick={()=>setNewTaskPerson(p.name)} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(newTaskPerson===p.name?(p.color||T.blue):T.border),background:newTaskPerson===p.name?(p.color||T.blue)+"22":"transparent",color:newTaskPerson===p.name?(p.color||T.blue):T.textFaint,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>);})}
+                  </div>
                 </div>
               )}
               {!addingTask&&(
@@ -3918,7 +3976,7 @@ Respond ONLY in valid JSON:
       <div>
         <SecHead emoji="📆" title="Calendar" sub="All your events in one place"/>
         {/* Google Calendar connect banner */}
-        <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.85rem"}}>
+        <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.5rem"}}>
           <button onClick={()=>openAddEvent("")} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.4rem",flex:1,justifyContent:"center",padding:"0.72rem",fontSize:"0.88rem",borderRadius:"0.9rem"})}}>
             <Icon name="plus" size={15} color="#fff"/> Add Event
           </button>
@@ -3926,6 +3984,9 @@ Respond ONLY in valid JSON:
             <Icon name="google" size={14}/>
             {connectedCals.includes("google")?"Synced":"Connect Google"}
           </button>
+        </div>
+        <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.75rem",textAlign:"center",fontStyle:"italic"}}>
+          More calendar sources syncing soon — Apple, Outlook & more.
         </div>
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
           {["month","week","day"].map(v=>(
@@ -5702,7 +5763,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
     return(
       <div>
-        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life running" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
+        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
         {homeSystems.map((sys,i)=>(
           <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
             style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
@@ -5768,7 +5829,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [patternMsg,setPatternMsg] = useState(null);
     const [patternLoading,setPatternLoading] = useState(false);
     const brainInputRef = React.useRef(null);
-    const [activeTab,setBrainActiveTab] = useState(function(){try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}return "all";});
+    const [activeTab,setBrainActiveTab] = useState(function(){
+      try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}
+      // Default to current user's person tab if they have one, else all
+      var myName=preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:null);
+      if(myName){var myPerson=people.find(function(p){return p.name===myName;});if(myPerson)return "person_"+myPerson.id;}
+      return "all";
+    });
     var _setBrainActiveTab=function(v){
       setBrainActiveTab(v);
       try{sessionStorage.setItem("af_brainActiveTab",v);}catch{}
@@ -6006,6 +6073,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div style={{paddingBottom:"2rem"}}>
+        {/* Exhale header */}
+        <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>Exhale.</div>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Let it out. Clear your mind — then let it go.</div>
+        </div>
         {/* AI Pattern banner */}
         {patternMsg&&(
           <div style={{background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",border:"1px solid "+T.lavender+"40",borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",gap:"0.6rem",alignItems:"flex-start"}}>
@@ -6021,7 +6093,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Input */}
         <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <input ref={brainInputRef} value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="What's on your mind..." style={{...inp({flex:1,fontSize:"0.88rem"})}} autoFocus/>
+            <input ref={brainInputRef} value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="Type it here — exhale…" style={{...inp({flex:1,fontSize:"0.88rem"})}} autoFocus/>
             <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
@@ -6055,7 +6127,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             var count=active.filter(function(b){var pname=people.find(function(p){return p.id===pt.id.replace("person_","");})?.name||""; return b.assignedTo===pname;}).length;
             return(
               <button key={pt.id} onClick={function(){_setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||T.blue):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||T.blue):T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                {pt.initials} {pt.label}
+                {pt.label}
                 {count>0&&<span style={{background:pt.color||T.blue,color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>}
               </button>
             );
@@ -6234,6 +6306,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [flyName, setFlyName] = useState("");
     var [flyPts, setFlyPts] = useState(1);
 
+    // ── Daily chore reset ──
+    React.useEffect(function(){
+      var resetKey = "af_choreResetDate";
+      var lastReset;
+      try { lastReset = localStorage.getItem(resetKey); } catch { lastReset = null; }
+      if(lastReset !== TODAY) {
+        setKids(function(prev){
+          var next = prev.map(function(k){
+            return Object.assign({},k,{chores:k.chores.map(function(c){return Object.assign({},c,{done:false});})});
+          });
+          setCoveData(next);
+          return next;
+        });
+        try { localStorage.setItem(resetKey, TODAY); } catch {}
+      }
+    }, [TODAY]);
 
     var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
 
@@ -8811,7 +8899,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   const primaryVisible=TABS.filter(t=>PRIMARY_TABS.includes(t.id)&&(!sections||sections[t.id]!==false));
   const moreVisible=TABS.filter(t=>MORE_TABS.includes(t.id)&&(t.id==="settings"||!sections||sections[t.id]!==false));
-  const activeInMore=false;
+  const activeInMore=!PRIMARY_TABS.includes(tab)&&tab!=="anchor";
 
   return(
     <>
@@ -8856,8 +8944,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <span style={{fontSize:"0.82rem"}}>{fm.emoji}</span>
                 <span style={{color:fm.color,fontSize:"0.73rem",fontWeight:800}}>{flowMode}</span>
               </div>
-              <button onClick={()=>setChatOpen(o=>!o)} title="Ask the AI" style={{width:36,height:36,borderRadius:"50%",background:`linear-gradient(135deg,${T.blue},${T.blueDark})`,border:`2px solid ${T.blueLight}`,boxShadow:`0 2px 12px ${T.blue}50`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                <AnchorLogo size={20} color="#fff"/>
+              <button onClick={()=>setChatOpen(o=>!o)} title="Ask Compass" style={{width:36,height:36,borderRadius:"50%",background:`linear-gradient(135deg,${T.blue},${T.blueDark})`,border:`2px solid ${T.blueLight}`,boxShadow:`0 2px 12px ${T.blue}50`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <CompassIcon size={20} color="#fff"/>
               </button>
             </div>
             {false&&(
@@ -8970,6 +9058,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
       {showAuthModal&&<AuthModal onClose={()=>setShowAuthModal(false)}/>}
+      {showWelcomeModal&&session&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(26,39,68,0.72)",backdropFilter:"blur(14px)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+          <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.6rem",padding:"2rem 1.8rem",width:"100%",maxWidth:400,textAlign:"center",boxShadow:"0 40px 120px "+T.cardShadow}}>
+            <div style={{fontSize:"2.4rem",marginBottom:"0.6rem"}}>⚓️</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,marginBottom:"0.4rem"}}>You found your anchor.</div>
+            <div style={{fontSize:"0.85rem",color:T.textSoft,lineHeight:1.75,marginBottom:"1.25rem"}}>
+              Welcome to Anchor & Flow — a steadier home, in every season.<br/><br/>
+              <span style={{fontWeight:600,color:T.textDark}}>Do this once:</span> head to <strong>Settings</strong> and spend 2 minutes filling in your family profile. The more you tell Compass, the smarter it gets — meal ideas, task suggestions, and daily rhythms all personalise to you.
+            </div>
+            <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",borderRadius:"0.9rem",padding:"0.75rem 1rem",fontSize:"0.79rem",color:T.textMid,lineHeight:1.75,marginBottom:"1.25rem",textAlign:"left"}}>
+              💡 The more you set up and use it, the easier everything becomes — and the more Compass helps you.
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
+              <button onClick={function(){try{localStorage.setItem("af_welcomeSeen","1");}catch{}setShowWelcomeModal(false);goTab("settings");}} style={{...btnP(T.sage,{fontSize:"0.9rem",padding:"0.75rem",borderRadius:"0.9rem",width:"100%",justifyContent:"center"})}}>Set up now →</button>
+              <button onClick={function(){try{localStorage.setItem("af_welcomeSeen","1");}catch{}setShowWelcomeModal(false);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",fontFamily:"inherit",padding:"0.3rem"}}>I'll explore first</button>
+            </div>
+          </div>
+        </div>
+      )}
       {showHouseholdModal&&<HouseholdModal onClose={()=>setShowHouseholdModal(false)}/>}
       <CalEventFormModal/>
 
