@@ -1436,6 +1436,14 @@ function HomeFlow() {
   const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
+  // Reload calEvents when Vault writes to localStorage (immunizations, appointments, career goals)
+  useEffect(function(){
+    function onCalChanged(){
+      try{var s=localStorage.getItem("af_calEvents");if(s)setCalEvents(JSON.parse(s));}catch{}
+    }
+    window.addEventListener("af-cal-changed",onCalChanged);
+    return function(){window.removeEventListener("af-cal-changed",onCalChanged);};
+  },[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
   const [collapsedStores,setCollapsedStores]   = useSaved("collapsedStores",{});
   const [shopCategories,setShopCategories]     = useSaved("shopCategories",[
@@ -4081,7 +4089,15 @@ Respond ONLY in valid JSON:
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
           <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.2rem"}}>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
+            {calView==="month"&&(
+              <div style={{display:"flex",gap:"0.3rem",alignItems:"center"}}>
+                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 7px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
+                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 7px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
+              </div>
+            )}
+          </div>
           <button onClick={navNext} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={T.textMid}/></button>
         </div>
         {calView==="month"&&(
