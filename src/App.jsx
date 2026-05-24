@@ -4660,6 +4660,7 @@ Respond ONLY in valid JSON:
   function MealsTab() {
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
+    const [swapDay,setSwapDay]=useState(null);
     const [showRecipes,setShowRecipes]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
@@ -4828,20 +4829,35 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 ))}
               </div>
             )}
+            {swapDay&&(
+              <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
+                <span style={{fontSize:"0.85rem"}}>🔄</span>
+                <span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark,flex:1}}>Swapping <strong>{swapDay}</strong> with… tap another day</span>
+                <button onClick={()=>setSwapDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.85rem",fontWeight:700,padding:"2px 6px",fontFamily:"inherit"}}>Cancel</button>
+              </div>
+            )}
             {MEAL_DAYS.map(day=>{
               const m=meals[day]||{};const isToday=day===TODAY_NAME;const themeDay=mealThemes[day];
               const bankMatch=MEAL_BANK_DATA.find(b=>b.name.toLowerCase()===(m.dinner||"").toLowerCase());
+              const isSwapSource=swapDay===day;
+              const isSwapTarget=swapDay&&swapDay!==day;
               return (
-                <div key={day} style={{...card({borderLeft:`4px solid ${isToday?T.sage:T.borderSoft}`,background:isToday?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface})}}>
+                <div key={day} onClick={isSwapTarget?function(){setMeals(function(p){var n=Object.assign({},p);var tmp=n[swapDay]||{};n[swapDay]=n[day]||{};n[day]=tmp;return n;});setSwapDay(null);}:undefined}
+                  style={{...card({borderLeft:`4px solid ${isSwapSource?T.sand:isToday?T.sage:T.borderSoft}`,background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":isToday?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
                     <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-                      <span style={{fontWeight:700,color:isToday?T.sageDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
-                      {isToday&&<Pill label="Today" color={T.sage} tiny/>}
-                      {mealThemeEnabled&&themeDay&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px",border:`1px solid ${T.sand}35`}}>{themeDay.emoji} {themeDay.theme}</span>}
+                      <span style={{fontWeight:700,color:isSwapSource?T.sandDark:isToday?T.sageDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
+                      {isToday&&!isSwapSource&&<Pill label="Today" color={T.sage} tiny/>}
+                      {isSwapSource&&<Pill label="Swapping…" color={T.sand} tiny/>}
+                      {isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px"}}>tap to swap</span>}
+                      {mealThemeEnabled&&themeDay&&!isSwapSource&&!isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px",border:`1px solid ${T.sand}35`}}>{themeDay.emoji} {themeDay.theme}</span>}
                     </div>
                     <div style={{display:"flex",gap:"0.35rem"}}>
-                      {isToday&&m.dinner&&<button onClick={()=>setMealSubTab("tonight")} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🌙 Tonight</button>}
-                      <button onClick={()=>openEdit(day)} style={btnS({padding:"0.28rem 0.7rem",fontSize:"0.74rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="edit" size={11} color={T.textMid}/> Edit</button>
+                      {!swapDay&&isToday&&m.dinner&&<button onClick={()=>setMealSubTab("tonight")} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🌙 Tonight</button>}
+                      {!swapDay&&<button onClick={function(e){e.stopPropagation();openEdit(day);}} style={btnS({padding:"0.28rem 0.7rem",fontSize:"0.74rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="edit" size={11} color={T.textMid}/> Edit</button>}
+                      <button onClick={function(e){e.stopPropagation();setSwapDay(isSwapSource?null:day);}} title="Swap this day" style={{...btnS({padding:"0.28rem 0.55rem",display:"flex",alignItems:"center"}),background:isSwapSource?T.sand:"transparent",borderColor:isSwapSource?T.sand:T.border}}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M2 5l3-3M2 5l3 3M14 11H4M14 11l-3-3M14 11l-3 3" stroke={isSwapSource?"#fff":T.textMid} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:`repeat(${MEALS_TO_SHOW.length},1fr)`,gap:"0.45rem"}}>
