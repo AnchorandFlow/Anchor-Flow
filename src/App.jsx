@@ -1450,24 +1450,11 @@ function HomeFlow() {
   ]);
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
-  const [recurringReminders,setRecurringReminders] = useSaved("recurringReminders",[
-    {id:"trash",      emoji:"🗑️", label:"Trash",          type:"weekly_day",    dayOfWeek:2,  dayOfMonth:null, freq:"weekly",  lastDone:null, remindEvening:true,  remindMorning:true,  active:true},
-    {id:"recycling",  emoji:"♻️", label:"Recycling",      type:"weekly_day",    dayOfWeek:2,  dayOfMonth:null, freq:"biweekly",lastDone:null, remindEvening:true,  remindMorning:true,  active:true},
-    {id:"hvac",       emoji:"❄️", label:"HVAC Filter",    type:"monthly_date",  dayOfWeek:null,dayOfMonth:1,   freq:"monthly", lastDone:null, remindEvening:false, remindMorning:true,  active:true},
-  ]);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
   const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true});
   const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
-  // Reload calEvents when Vault writes to localStorage (immunizations, appointments, career goals)
-  useEffect(function(){
-    function onCalChanged(){
-      try{var s=localStorage.getItem("af_calEvents");if(s)setCalEvents(JSON.parse(s));}catch{}
-    }
-    window.addEventListener("af-cal-changed",onCalChanged);
-    return function(){window.removeEventListener("af-cal-changed",onCalChanged);};
-  },[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
   const [collapsedStores,setCollapsedStores]   = useSaved("collapsedStores",{});
   const [shopCategories,setShopCategories]     = useSaved("shopCategories",[
@@ -2220,11 +2207,20 @@ Respond ONLY with valid JSON array, no markdown:
       scheduleNotification(`⏰ Coming up: ${e.title}`, msg, nudgeTime);
     });
 
-    // ── 6. RECURRING REMINDERS ──────────────────────────────────────────────────
+    // ── 6. RECURRING REMINDERS (trash, HVAC, street sweeping, custom, etc.) ──
     (function() {
       try {
-        var recurList = recurringReminders || [];
-        if (!recurList.length) return;
+        var recurList = JSON.parse(localStorage.getItem("af_recurring") || "null");
+        // Also check legacy af_trash and migrate on the fly if needed
+        if (!recurList || !recurList.length) {
+          var oldTrash = JSON.parse(localStorage.getItem("af_trash") || "null");
+          if (oldTrash) {
+            recurList = [];
+            if (oldTrash.trash && oldTrash.trash.day != null) recurList.push({ id:"legacy_trash", emoji:"🗑️", label:"Trash", type:"weekly_day", day:oldTrash.trash.day, freq:oldTrash.trash.freq||"weekly", lastDone:null, remindEvening:oldTrash.remindEvening!==false, remindMorning:oldTrash.remindMorning!==false, active:true });
+            if (oldTrash.recycling && oldTrash.recycling.day != null) recurList.push({ id:"legacy_recycling", emoji:"♻️", label:"Recycling", type:"weekly_day", day:oldTrash.recycling.day, freq:oldTrash.recycling.freq||"biweekly", lastDone:null, remindEvening:oldTrash.remindEvening!==false, remindMorning:oldTrash.remindMorning!==false, active:true });
+          }
+        }
+        if (!recurList || !recurList.length) return;
 
         var FREQ_DAYS_R = { weekly:7, biweekly:14, every6wk:42, every2mo:61, every3mo:91, every6mo:182, yearly:365, monthly:30 };
         var remindedKey = "af_recur_reminded_" + todayDateStr;
@@ -2232,40 +2228,31 @@ Respond ONLY with valid JSON array, no markdown:
 
         function getNextDateR(r) {
           var base = new Date(now); base.setHours(0,0,0,0);
-          // monthly_date: fires on a specific day of the month
-          if (r.type === "monthly_date") {
-            var dom = r.dayOfMonth || 1;
-            var candidate = new Date(base.getFullYear(), base.getMonth(), dom);
-            if (candidate < base) candidate = new Date(base.getFullYear(), base.getMonth()+1, dom);
-            // handle freq > monthly (e.g. every 3 months)
-            if (r.freq && FREQ_DAYS_R[r.freq] && FREQ_DAYS_R[r.freq] > 31 && r.lastDone) {
-              var last = new Date(r.lastDone); last.setHours(0,0,0,0);
-              var next = new Date(last); next.setDate(next.getDate() + FREQ_DAYS_R[r.freq]);
-              return next;
-            }
-            return candidate;
-          }
-          // weekly_day: fires on a specific weekday
           if (r.type === "weekly_day") {
-            var dow = r.dayOfWeek != null ? r.dayOfWeek : (r.day != null ? r.day : null);
-            if (dow == null) return null;
-            var diff = (dow - base.getDay() + 7) % 7;
+            if (r.day == null) return null;
+            var diff = (r.day - base.getDay() + 7) % 7;
             var d = new Date(base); d.setDate(d.getDate() + diff);
             if (r.freq === "biweekly" && r.lastDone) {
               var lp = new Date(r.lastDone); lp.setHours(0,0,0,0);
               var ws = Math.round((d - lp) / (7 * 86400000));
               if (ws % 2 !== 0) d.setDate(d.getDate() + 7);
             }
+            if (r.freq === "monthly") {
+              var first = new Date(base.getFullYear(), base.getMonth(), 1);
+              d = new Date(first); d.setDate(1 + (r.day - first.getDay() + 7) % 7);
+              if (d < base) { d.setMonth(d.getMonth()+1); d.setDate(1); var b2=new Date(d); d.setDate(1+(r.day-b2.getDay()+7)%7); }
+            }
             return d;
+          } else {
+            // interval-based
+            var days = FREQ_DAYS_R[r.freq] || 90;
+            if (r.lastDone) {
+              var last = new Date(r.lastDone); last.setHours(0,0,0,0);
+              var next = new Date(last); next.setDate(next.getDate() + days);
+              return next;
+            }
+            return base; // no lastDone = due now
           }
-          // interval-based fallback
-          var days2 = FREQ_DAYS_R[r.freq] || 90;
-          if (r.lastDone) {
-            var last2 = new Date(r.lastDone); last2.setHours(0,0,0,0);
-            var next2 = new Date(last2); next2.setDate(next2.getDate() + days2);
-            return next2;
-          }
-          return base;
         }
 
         function daysUntilR(r) {
@@ -3158,7 +3145,7 @@ Respond ONLY with valid JSON array, no markdown:
           </div>
 
           {/* Card 3: Ripple AI */}
-          <div style={{background:"rgba(123,94,167,0.06)",border:"1.5px solid "+T.lavender,borderRadius:"1rem",padding:"1rem",marginBottom:"0.75rem"}}>
+          <div style={{background:"rgba(123,94,167,0.06)",border:"1.5px solid "+T.lavender,borderRadius:"1rem",padding:"1rem",marginBottom:"1.25rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
               <span style={{fontSize:"1.1rem"}}>✦</span>
               <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.lavender}}>Compass Suggestions</span>
@@ -3172,76 +3159,6 @@ Respond ONLY with valid JSON array, no markdown:
               </div>
             ))}
           </div>
-
-          {/* Card 4: Due Reminders */}
-          {(function(){
-            var now2 = new Date();
-            var base = new Date(now2); base.setHours(0,0,0,0);
-            var FREQ_DAYS_WD = { weekly:7, biweekly:14, every6wk:42, every2mo:61, every3mo:91, every6mo:182, yearly:365, monthly:30 };
-            function getNextWD(r) {
-              if (r.type === "monthly_date") {
-                var dom = r.dayOfMonth || 1;
-                var c = new Date(base.getFullYear(), base.getMonth(), dom);
-                if (c < base) c = new Date(base.getFullYear(), base.getMonth()+1, dom);
-                if (r.freq && FREQ_DAYS_WD[r.freq] && FREQ_DAYS_WD[r.freq] > 31 && r.lastDone) {
-                  var l = new Date(r.lastDone); l.setHours(0,0,0,0);
-                  var nx = new Date(l); nx.setDate(nx.getDate() + FREQ_DAYS_WD[r.freq]); return nx;
-                }
-                return c;
-              }
-              if (r.type === "weekly_day") {
-                var dow = r.dayOfWeek != null ? r.dayOfWeek : r.day;
-                if (dow == null) return null;
-                var diff = (dow - base.getDay() + 7) % 7;
-                var d = new Date(base); d.setDate(d.getDate() + diff);
-                if (r.freq === "biweekly" && r.lastDone) {
-                  var lp = new Date(r.lastDone); lp.setHours(0,0,0,0);
-                  var ws = Math.round((d - lp) / (7*86400000));
-                  if (ws % 2 !== 0) d.setDate(d.getDate() + 7);
-                }
-                return d;
-              }
-              var days = FREQ_DAYS_WD[r.freq]||90;
-              if (r.lastDone) { var last=new Date(r.lastDone); last.setHours(0,0,0,0); var nxt=new Date(last); nxt.setDate(nxt.getDate()+days); return nxt; }
-              return base;
-            }
-            var dueReminders = (recurringReminders||[]).filter(function(r){
-              if (r.active===false) return false;
-              var nx = getNextWD(r); if (!nx) return false;
-              var diff = Math.round((nx-base)/86400000);
-              return diff === 0 || diff === 1;
-            }).map(function(r){
-              var nx = getNextWD(r);
-              var diff = Math.round((nx-base)/86400000);
-              return { r:r, diff:diff };
-            });
-            if (!dueReminders.length) return null;
-            var [checkedReminders, setCheckedReminders] = useState([]);
-            return (
-              <div style={{background:"rgba(200,169,122,0.06)",border:"1.5px solid "+T.sand,borderRadius:"1rem",padding:"1rem",marginBottom:"0.75rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                  <span style={{fontSize:"1.1rem"}}>🔁</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.sandDark}}>Reminders</span>
-                </div>
-                {dueReminders.map(function(item){
-                  var isDone = checkedReminders.includes(item.r.id);
-                  return (
-                    <div key={item.r.id} onClick={function(){
-                      setCheckedReminders(function(p){ var next=p.includes(item.r.id)?p.filter(function(x){return x!==item.r.id;}):[...p,item.r.id]; return next; });
-                      if (!isDone) setRecurringReminders(function(p){ return p.map(function(x){ return x.id===item.r.id?{...x,lastDone:new Date().toISOString().split("T")[0]}:x; }); });
-                    }} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:isDone?T.sandPale||"rgba(200,169,122,0.12)":T.surface,borderRadius:"0.65rem",marginBottom:"0.3rem",cursor:"pointer",border:"1.5px solid "+(isDone?T.sand:T.borderSoft)}}>
-                      <div style={{width:18,height:18,borderRadius:4,border:"1.5px solid "+(isDone?T.sand:"rgba(0,0,0,0.15)"),background:isDone?T.sand:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        {isDone&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
-                      </div>
-                      <span style={{fontSize:"0.9rem",flexShrink:0}}>{item.r.emoji}</span>
-                      <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:600,flex:1,textDecoration:isDone?"line-through":"none"}}>{item.r.label}</span>
-                      <span style={{fontSize:"0.68rem",color:item.diff===0?T.rose:T.textFaint,fontWeight:700,background:item.diff===0?"rgba(224,92,92,0.1)":"transparent",padding:"1px 6px",borderRadius:"2rem"}}>{item.diff===0?"Today":"Tomorrow"}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
 
           <button onClick={closeDay} style={{...btnP("linear-gradient(135deg,"+T.blue+","+T.sage+")",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem"})}}>
             Close My Day 🌙
@@ -4113,15 +4030,7 @@ Respond ONLY in valid JSON:
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
           <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.2rem"}}>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
-            {calView==="month"&&(
-              <div style={{display:"flex",gap:"0.3rem",alignItems:"center"}}>
-                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 7px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
-                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 7px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
-              </div>
-            )}
-          </div>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
           <button onClick={navNext} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={T.textMid}/></button>
         </div>
         {calView==="month"&&(
@@ -5860,7 +5769,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[newItemText,setNewItemText]=useState("");
     const {draggingId:sysDragId, dragOverId:sysDropId, pointerDown:sysPointerDown} =
       usePointerDrag(homeSystems, setHomeSystems, {dataAttr:"data-sysid"});
-    // editForm item drag
+    // editForm item drag (plain strings, not objects — handled with simple index refs)
     const editItemDs = useRef({from:null,to:null,clone:null});
     const [editDragIdx,setEditDragIdx] = useState(null);
     const [editDropIdx,setEditDropIdx] = useState(null);
@@ -5890,98 +5799,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});setNewItemText("");}
     function saveSystem(){if(!editForm.label.trim())return;if(editingSystem==="new")setHomeSystems(p=>[...p,{id:uid(),label:editForm.label.trim(),emoji:editForm.emoji,items:editForm.items}]);else setHomeSystems(p=>p.map(s=>s.id===editingSystem?{...s,label:editForm.label,emoji:editForm.emoji,items:editForm.items}:s));setEditingSystem(null);}
     function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
-
-    // ── Reminders state ──────────────────────────────────────────────────────
-    const [editingReminder,setEditingReminder] = useState(null);
-    const DAY_NAMES_REM = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    const DAY_NAMES_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    const FREQ_OPTS = [
-      {value:"weekly",    label:"Every week"},
-      {value:"biweekly",  label:"Every 2 weeks"},
-      {value:"monthly",   label:"Every month"},
-      {value:"every3mo",  label:"Every 3 months"},
-      {value:"every6mo",  label:"Every 6 months"},
-      {value:"yearly",    label:"Every year"},
-    ];
-    const ORDINAL = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th","13th","14th","15th","16th","17th","18th","19th","20th","21st","22nd","23rd","24th","25th","26th","27th","28th"];
-
-    const BLANK_REMINDER = {id:null,emoji:"🔔",label:"",type:"monthly_date",dayOfWeek:1,dayOfMonth:1,freq:"monthly",lastDone:null,remindEvening:true,remindMorning:true,active:true};
-    const [rForm,setRForm] = useState(BLANK_REMINDER);
-
-    function openNewReminder(){ setRForm({...BLANK_REMINDER,id:"new"}); setEditingReminder("new"); }
-    function openEditReminder(r){ setRForm({...r}); setEditingReminder(r.id); }
-    function saveReminder(){
-      if(!rForm.label.trim()) return;
-      var obj = {...rForm, label:rForm.label.trim()};
-      if(editingReminder==="new"){ obj.id=uid(); setRecurringReminders(p=>[...p,obj]); }
-      else { setRecurringReminders(p=>p.map(r=>r.id===editingReminder?obj:r)); }
-      setEditingReminder(null);
-    }
-    function markDone(r){
-      setRecurringReminders(p=>p.map(x=>x.id===r.id?{...x,lastDone:new Date().toISOString().split("T")[0]}:x));
-    }
-
-    function getNextDue(r){
-      var now2=new Date(); now2.setHours(0,0,0,0);
-      var FREQ_DAYS2={weekly:7,biweekly:14,every6wk:42,every2mo:61,every3mo:91,every6mo:182,yearly:365,monthly:30};
-      if(r.type==="monthly_date"){
-        var dom=r.dayOfMonth||1;
-        var c=new Date(now2.getFullYear(),now2.getMonth(),dom);
-        if(c<now2) c=new Date(now2.getFullYear(),now2.getMonth()+1,dom);
-        if(r.freq&&FREQ_DAYS2[r.freq]&&FREQ_DAYS2[r.freq]>31&&r.lastDone){
-          var l=new Date(r.lastDone); l.setHours(0,0,0,0);
-          var nx=new Date(l); nx.setDate(nx.getDate()+FREQ_DAYS2[r.freq]); return nx;
-        }
-        return c;
-      }
-      if(r.type==="weekly_day"){
-        var dow=r.dayOfWeek!=null?r.dayOfWeek:r.day;
-        if(dow==null) return null;
-        var diff=(dow-now2.getDay()+7)%7;
-        var d2=new Date(now2); d2.setDate(d2.getDate()+diff);
-        if(r.freq==="biweekly"&&r.lastDone){
-          var lp2=new Date(r.lastDone); lp2.setHours(0,0,0,0);
-          var ws2=Math.round((d2-lp2)/(7*86400000));
-          if(ws2%2!==0) d2.setDate(d2.getDate()+7);
-        }
-        return d2;
-      }
-      var days2=FREQ_DAYS2[r.freq]||90;
-      if(r.lastDone){var last2=new Date(r.lastDone);last2.setHours(0,0,0,0);var nx2=new Date(last2);nx2.setDate(nx2.getDate()+days2);return nx2;}
-      return now2;
-    }
-
-    function dueLabel(r){
-      var now2=new Date(); now2.setHours(0,0,0,0);
-      var nx=getNextDue(r); if(!nx) return "";
-      var diff=Math.round((nx-now2)/86400000);
-      if(diff<0) return "Overdue";
-      if(diff===0) return "Today";
-      if(diff===1) return "Tomorrow";
-      if(diff<7) return "In "+diff+" days";
-      if(diff<32) return "In "+(Math.round(diff/7))+" wk";
-      return nx.toLocaleDateString("en-US",{month:"short",day:"numeric"});
-    }
-
-    function scheduleLabel(r){
-      if(r.type==="monthly_date"){
-        var dom=r.dayOfMonth||1;
-        return ORDINAL[dom-1]+" of every month";
-      }
-      if(r.type==="weekly_day"){
-        var dow=r.dayOfWeek!=null?r.dayOfWeek:r.day;
-        var freqLabel=FREQ_OPTS.find(function(f){return f.value===r.freq;})||{label:"weekly"};
-        return DAY_NAMES_FULL[dow!=null?dow:1]+"s · "+freqLabel.label.replace("Every ","");
-      }
-      return r.freq||"";
-    }
-
-    var activeReminders = (recurringReminders||[]).filter(function(r){return r.active!==false;});
-    var inactiveReminders = (recurringReminders||[]).filter(function(r){return r.active===false;});
-
     return(
       <div>
-        {/* ── Home Systems ─────────────────────────────────────────── */}
         <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
         {homeSystems.map((sys,i)=>(
           <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
@@ -6034,150 +5853,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
               <button onClick={()=>setEditingSystem(null)} style={btnS()}>Cancel</button>
               <button onClick={saveSystem} style={btnP(T.sage)}>{editingSystem==="new"?"Create System":"Save Changes"}</button>
-            </div>
-          </ModalBox>
-        )}
-
-        {/* ── Reminders ────────────────────────────────────────────── */}
-        <div style={{marginTop:"1.25rem"}}>
-          <SecHead emoji="🔔" title="Reminders" sub="Scheduled tasks — notified automatically" action={<button onClick={openNewReminder} style={{...btnP(T.sand,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add</button>}/>
-        </div>
-
-        {activeReminders.length===0&&(
-          <div style={{...card({textAlign:"center",padding:"1.5rem",background:T.bgAlt})}}>
-            <div style={{fontSize:"1.8rem",marginBottom:"0.4rem"}}>🔔</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.25rem"}}>No reminders yet</div>
-            <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.85rem"}}>Add things like HVAC filters, trash day, or monthly tasks — they'll notify you automatically and appear in your evening close-out.</div>
-            <button onClick={openNewReminder} style={btnP(T.sand,{fontSize:"0.8rem",padding:"0.45rem 1rem"})}>+ Add your first reminder</button>
-          </div>
-        )}
-
-        {activeReminders.map(function(r){
-          var due = dueLabel(r);
-          var isOverdue = due==="Overdue";
-          var isToday = due==="Today";
-          var accentColor = isOverdue?T.rose:isToday?T.sand:T.blue;
-          return(
-            <div key={r.id} style={{...card({borderLeft:`4px solid ${accentColor}`,padding:"0.85rem 1rem",marginBottom:"0.55rem"})}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
-                <span style={{fontSize:"1.25rem",flexShrink:0}}>{r.emoji}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.18rem"}}>
-                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{r.label}</span>
-                    <span style={{fontSize:"0.68rem",fontWeight:700,color:isOverdue?T.rose:isToday?"#b87a20":T.textFaint,background:isOverdue?"rgba(224,92,92,0.1)":isToday?"rgba(200,169,122,0.15)":"transparent",padding:"2px 7px",borderRadius:"2rem",flexShrink:0}}>{due}</span>
-                  </div>
-                  <div style={{fontSize:"0.72rem",color:T.textSoft}}>📅 {scheduleLabel(r)}{r.lastDone&&" · Done "+r.lastDone}</div>
-                </div>
-                <div style={{display:"flex",gap:"0.3rem",flexShrink:0}}>
-                  {(isToday||isOverdue)&&<button onClick={function(){markDone(r);}} style={{...btnP(T.sage,{fontSize:"0.7rem",padding:"0.28rem 0.65rem"})}}>✓ Done</button>}
-                  <button onClick={function(){openEditReminder(r);}} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"4px 8px",display:"flex",alignItems:"center"}}><Icon name="edit" size={12} color={T.textMid}/></button>
-                  <button onClick={function(){setRecurringReminders(p=>p.filter(x=>x.id!==r.id));}} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {inactiveReminders.length>0&&(
-          <div style={{marginTop:"0.5rem"}}>
-            <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem",padding:"0 0.25rem"}}>Paused</div>
-            {inactiveReminders.map(function(r){
-              return(
-                <div key={r.id} style={{...card({padding:"0.65rem 1rem",marginBottom:"0.35rem",opacity:0.55})}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.55rem"}}>
-                    <span style={{fontSize:"1rem"}}>{r.emoji}</span>
-                    <span style={{fontSize:"0.84rem",color:T.textMid,flex:1}}>{r.label}</span>
-                    <button onClick={function(){setRecurringReminders(p=>p.map(x=>x.id===r.id?{...x,active:true}:x));}} style={{fontSize:"0.7rem",color:T.blue,background:"none",border:`1px solid ${T.blue}`,borderRadius:"0.45rem",padding:"3px 8px",cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Resume</button>
-                    <button onClick={function(){setRecurringReminders(p=>p.filter(x=>x.id!==r.id));}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.rose}/></button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── Reminder edit modal ───────────────────────────────────── */}
-        {editingReminder&&(
-          <ModalBox title={editingReminder==="new"?"New Reminder":"Edit Reminder"} onClose={()=>setEditingReminder(null)} wide>
-            <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-              <div><label style={lbl}>Emoji</label><input value={rForm.emoji} onChange={e=>setRForm(p=>({...p,emoji:e.target.value}))} style={{...inp({textAlign:"center",fontSize:"1.3rem",padding:"0.5rem"})}}/></div>
-              <div><label style={lbl}>Reminder Name</label><input value={rForm.label} onChange={e=>setRForm(p=>({...p,label:e.target.value}))} placeholder="e.g. HVAC Filter, Trash Day…" style={inp()} autoFocus/></div>
-            </div>
-
-            {/* Schedule type */}
-            <label style={lbl}>Schedule type</label>
-            <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.9rem"}}>
-              {[{value:"monthly_date",label:"Day of month"},{value:"weekly_day",label:"Day of week"}].map(function(opt){
-                var sel=rForm.type===opt.value;
-                return <button key={opt.value} onClick={function(){setRForm(p=>({...p,type:opt.value}));}} style={{flex:1,padding:"0.5rem",borderRadius:"0.65rem",border:"1.5px solid "+(sel?T.blue:T.border),background:sel?T.bluePale:"transparent",color:sel?T.blue:T.textMid,fontSize:"0.8rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{opt.label}</button>;
-              })}
-            </div>
-
-            {/* Day picker */}
-            {rForm.type==="monthly_date"&&(
-              <div style={{marginBottom:"0.9rem"}}>
-                <label style={lbl}>Day of month</label>
-                <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
-                  {ORDINAL.map(function(ord,i){
-                    var sel=(rForm.dayOfMonth||1)===(i+1);
-                    return <button key={i} onClick={function(){setRForm(p=>({...p,dayOfMonth:i+1}));}} style={{padding:"0.28rem 0.55rem",borderRadius:"0.45rem",border:"1.5px solid "+(sel?T.blue:T.border),background:sel?T.blue:"transparent",color:sel?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:sel?700:500,cursor:"pointer",fontFamily:"inherit",minWidth:"2.5rem"}}>{ord}</button>;
-                  })}
-                </div>
-              </div>
-            )}
-            {rForm.type==="weekly_day"&&(
-              <div style={{marginBottom:"0.9rem"}}>
-                <label style={lbl}>Day of week</label>
-                <div style={{display:"flex",gap:"0.3rem"}}>
-                  {DAY_NAMES_REM.map(function(d,i){
-                    var sel=(rForm.dayOfWeek!=null?rForm.dayOfWeek:1)===i;
-                    return <button key={i} onClick={function(){setRForm(p=>({...p,dayOfWeek:i}));}} style={{flex:1,padding:"0.45rem 0",borderRadius:"0.5rem",border:"1.5px solid "+(sel?T.blue:T.border),background:sel?T.blue:"transparent",color:sel?"#fff":T.textMid,fontSize:"0.73rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{d}</button>;
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Frequency */}
-            <div style={{marginBottom:"0.9rem"}}>
-              <label style={lbl}>Repeat</label>
-              <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
-                {FREQ_OPTS.filter(function(f){
-                  if(rForm.type==="weekly_day") return ["weekly","biweekly"].includes(f.value);
-                  return ["monthly","every3mo","every6mo","yearly"].includes(f.value);
-                }).map(function(f){
-                  var sel=rForm.freq===f.value;
-                  return <button key={f.value} onClick={function(){setRForm(p=>({...p,freq:f.value}));}} style={{padding:"0.3rem 0.75rem",borderRadius:"2rem",border:"1.5px solid "+(sel?T.sand:T.border),background:sel?T.sand:"transparent",color:sel?"#fff":T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{f.label}</button>;
-                })}
-              </div>
-            </div>
-
-            {/* Notification toggles */}
-            <label style={lbl}>Notifications</label>
-            <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.2rem"}}>
-              {[{key:"remindMorning",label:"Morning (day-of)"},{key:"remindEvening",label:"Evening (day before)"}].map(function(n){
-                var on=rForm[n.key]!==false;
-                return(
-                  <button key={n.key} onClick={function(){setRForm(p=>({...p,[n.key]:!on}));}} style={{flex:1,display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.45rem 0.65rem",borderRadius:"0.65rem",border:"1.5px solid "+(on?T.sage:T.border),background:on?T.sage+"18":"transparent",cursor:"pointer",fontFamily:"inherit"}}>
-                    <div style={{width:16,height:16,borderRadius:3,border:"1.5px solid "+(on?T.sage:T.border),background:on?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      {on&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
-                    </div>
-                    <span style={{fontSize:"0.73rem",color:on?T.sageDark:T.textMid,fontWeight:700,lineHeight:1.2}}>{n.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Pause toggle */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0.75rem",background:T.bgAlt,borderRadius:"0.65rem",marginBottom:"1rem"}}>
-              <span style={{fontSize:"0.8rem",color:T.textMid,fontWeight:600}}>Active</span>
-              <button onClick={function(){setRForm(p=>({...p,active:!p.active}));}} style={{width:40,height:22,borderRadius:"2rem",border:"none",cursor:"pointer",background:rForm.active!==false?T.sage:T.border,position:"relative",transition:"background 0.2s",flexShrink:0}}>
-                <div style={{position:"absolute",top:2,left:rForm.active!==false?20:2,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
-              </button>
-            </div>
-
-            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
-              <button onClick={()=>setEditingReminder(null)} style={btnS()}>Cancel</button>
-              <button onClick={saveReminder} style={btnP(T.sand)}>{editingReminder==="new"?"Add Reminder":"Save Changes"}</button>
             </div>
           </ModalBox>
         )}
@@ -7102,7 +6777,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [collapsedSections, setCollapsedSections] = useState({});
     var [newItemTexts, setNewItemTexts] = useState({});
     var [showNewModal, setShowNewModal] = useState(false);
-    var [modalMode, setModalMode] = useState("both"); // 'both' | 'blank'
     var [newForm, setNewForm] = useState({title:"",category:"family",color_accent:"#3a6b8a"});
     var [saving, setSaving] = useState(false);
     var [aiLoading, setAiLoading] = useState(false);
@@ -7354,7 +7028,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>🪸 Cove</div>
             <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your organized lists, ideas, plans, and keeps.</div>
           </div>
-          <button onClick={function(){ setModalMode("both"); setShowNewModal(true); }} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
+          <button onClick={function(){ setShowNewModal(true); }} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
             <Icon name="plus" size={12} color="#fff"/> New list
           </button>
         </div>
@@ -7415,10 +7089,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {/* New list row */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
-            <button onClick={function(){ setModalMode("both"); setShowNewModal(true); }}
+            <button onClick={function(){ setShowNewModal(true); }}
               style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
             ><Icon name="layout-grid-add" size={14} color={T.textSoft}/> From template</button>
-            <button onClick={function(){ setNewForm({title:"",category:"family",color_accent:"#3a6b8a"}); setModalMode("blank"); setShowNewModal(true); }}
+            <button onClick={function(){ setNewForm({title:"",category:"family",color_accent:"#3a6b8a"}); setShowNewModal(true); }}
               style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
             ><Icon name="pencil" size={14} color={T.textSoft}/> Blank list</button>
           </div>
@@ -7427,17 +7101,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* New list modal */}
         {showNewModal && (
           <div onClick={function(e){ if(e.target===e.currentTarget) setShowNewModal(false); }}
-            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"1rem",overflowY:"auto"}}
+            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}
           >
-            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:480,padding:"18px 18px 28px",marginTop:"auto",marginBottom:"auto"}}>
+            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:500,padding:"20px 20px 28px",maxHeight:"88vh",overflowY:"auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>{modalMode === "blank" ? "Create a list" : "New list"}</div>
+                <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>New list</div>
                 <button onClick={function(){ setShowNewModal(false); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontSize:18,padding:0,lineHeight:1}}>✕</button>
               </div>
               <div style={{fontSize:"0.72rem",color:T.textSoft,marginBottom:16}}>Start from a template or build your own.</div>
 
               {/* Templates */}
-              {modalMode !== "blank" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}}>
                 {TEMPLATE_GALLERY.map(function(tmpl) {
                   return (
                     <button key={tmpl.id} onClick={function(){ createFromTemplate(tmpl.id); }} disabled={saving}
@@ -7449,11 +7123,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </button>
                   );
                 })}
-              </div>}
+              </div>
 
               {/* Blank form */}
-              <div style={{borderTop:modalMode==="blank"?"none":"1px solid "+T.border,paddingTop:modalMode==="blank"?0:14}}>
-                {modalMode !== "blank" && <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:10}}>Or start blank</div>}
+              <div style={{borderTop:"1px solid "+T.border,paddingTop:14}}>
+                <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:10}}>Or start blank</div>
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   <div>
                     <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:4}}>List name</div>
@@ -8927,7 +8601,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {key:"dinner",   time:"3:00 pm",     emoji:"🍽️", label:"Dinner heads-up",     desc:"Defrost reminder & meal prep nudge"},
                 {key:"evening",  time:"5:00 pm",     emoji:"🌙", label:"Evening recap",       desc:"Day summary + tomorrow preview"},
                 {key:"events",   time:"2hrs before", emoji:"⏰", label:"Event nudges",        desc:"Smart reminder before each appointment"},
-                {key:"recurring",time:"varies",      emoji:"🔁", label:"Recurring reminders", desc:"Trash, street sweeping & custom (manage in Home tab)"},
+                {key:"recurring",time:"varies",      emoji:"🔁", label:"Recurring reminders", desc:"Trash, HVAC, street sweeping, custom"},
               ];
               return(
                 <div style={{borderRadius:"0.9rem",border:"1px solid "+T.borderSoft,overflow:"hidden",marginBottom:"0.65rem"}}>
