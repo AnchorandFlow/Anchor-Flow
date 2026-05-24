@@ -6082,7 +6082,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Exhale header */}
         <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem"}}>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>Exhale.</div>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Let it out. Clear your mind — then let it go.</div>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Clear your mind — then let it go.</div>
         </div>
         {/* AI Pattern banner */}
         {patternMsg&&(
@@ -7554,27 +7554,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function SettingsTab(){
     const [settingsOpen, setSettingsOpen] = useState({family:true});
-    function toggleSetting(key){ setSettingsOpen(p=>({...p,[key]:p[key]===false?true:false})); }
-    function SectionHead({id,emoji,title,sub}){
-      var open = settingsOpen[id]!==false;
-      return(
-        <button onClick={()=>toggleSetting(id)} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
-          <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
-          <div style={{flex:1}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
-            {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
-          </div>
-          <span style={{fontSize:"0.75rem",color:T.textFaint,transform:open?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
-        </button>
-      );
+    function toggleSetting(key,defaultOpen){
+      setSettingsOpen(function(p){
+        var current = key in p ? p[key] : (defaultOpen||false);
+        return Object.assign({},p,{[key]:!current});
+      });
     }
+
     function Section({id,emoji,title,sub,children,defaultOpen=false}){
-      var open = settingsOpen[id]!==(defaultOpen?false:true) ? !defaultOpen : defaultOpen;
-      // simpler: track explicitly
-      var isOpen = id in settingsOpen ? settingsOpen[id]!==false : defaultOpen;
+      var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
       return(
         <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem",overflow:"hidden"}}>
-          <SectionHead id={id} emoji={emoji} title={title} sub={sub}/>
+          <button onClick={()=>toggleSetting(id,defaultOpen)} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
+            <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
+              {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
+            </div>
+            <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
+          </button>
           {isOpen&&<div style={{padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>{children}</div>}
         </div>
       );
@@ -7764,26 +7762,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
               <Pills options={[{value:1,label:"Dinner only",emoji:"🌙"},{value:2,label:"Lunch + Dinner",emoji:"☀️"},{value:3,label:"All 3 meals",emoji:"🌅"}]} value={mealCount} onChange={setMealCount} color={T.sage}/>
             </div>
-            <Row label="Themed meal days" sub="e.g. Taco Tuesday, Pizza Friday — shows in your plan">
-              <Toggle on={mealThemeEnabled} onToggle={()=>setMealThemeEnabled(function(v){return !v;})} color={T.sage}/>
-            </Row>
-            {mealThemeEnabled&&(
-              <div style={{paddingTop:"0.6rem",paddingBottom:"0.6rem",borderBottom:"1px solid "+T.borderSoft}}>
-                <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.45rem"}}>Assign a theme to each day (optional)</div>
-                {MEAL_DAYS.map(function(day){
-                  var theme = (mealThemes&&mealThemes[day])||"";
-                  return(
-                    <div key={day} style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
-                      <span style={{fontSize:"0.78rem",fontWeight:700,color:T.textDark,width:68,flexShrink:0}}>{day}</span>
-                      <input defaultValue={theme} onBlur={function(e){setMealThemes(function(p){return Object.assign({},p||{},{[day]:e.target.value});});}} placeholder="e.g. Taco night" style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.25rem 0.5rem"})}}/>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <Row label="Rotating meals" sub="Auto-rotate your meal plan forward each week">
-              <Toggle on={(familyProfile&&familyProfile.mealRotate)||false} onToggle={()=>setFamilyProfile(function(p){return Object.assign({},p||{},{mealRotate:!(p&&p.mealRotate)});})} color={T.sage}/>
-            </Row>
+
             <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
             </Row>
             <input defaultValue={(familyProfile&&familyProfile.favoriteDinner)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:e.target.value});});}} placeholder="e.g. Tacos, sheet pan chicken, pasta" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
