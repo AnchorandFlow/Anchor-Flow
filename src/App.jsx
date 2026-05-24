@@ -9770,7 +9770,9 @@ function FlowWrapper({ onHome, onSignOut }) {
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
 
-        <HomeFlow />
+        <ErrorBoundary>
+          <HomeFlow />
+        </ErrorBoundary>
       </div>
     </div>
   )
