@@ -7553,11 +7553,66 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   function SettingsTab(){
-    const [settingsOpen, setSettingsOpen] = useState({});
-    function toggleSetting(key){ setSettingsOpen(p=>({...p,[key]:!p[key]})); }
+    const [settingsOpen, setSettingsOpen] = useState({family:true});
+    function toggleSetting(key){ setSettingsOpen(p=>({...p,[key]:p[key]===false?true:false})); }
+    function SectionHead({id,emoji,title,sub}){
+      var open = settingsOpen[id]!==false;
+      return(
+        <button onClick={()=>toggleSetting(id)} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
+          <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
+            {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
+          </div>
+          <span style={{fontSize:"0.75rem",color:T.textFaint,transform:open?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
+        </button>
+      );
+    }
+    function Section({id,emoji,title,sub,children,defaultOpen=false}){
+      var open = settingsOpen[id]!==(defaultOpen?false:true) ? !defaultOpen : defaultOpen;
+      // simpler: track explicitly
+      var isOpen = id in settingsOpen ? settingsOpen[id]!==false : defaultOpen;
+      return(
+        <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem",overflow:"hidden"}}>
+          <SectionHead id={id} emoji={emoji} title={title} sub={sub}/>
+          {isOpen&&<div style={{padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>{children}</div>}
+        </div>
+      );
+    }
+    function Row({label,sub,children,tight}){
+      return(
+        <div style={{paddingTop:tight?"0.55rem":"0.75rem",paddingBottom:tight?"0.55rem":"0.1rem",borderBottom:"1px solid "+T.borderSoft}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5rem"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>{label}</div>
+              {sub&&<div style={{fontSize:"0.72rem",color:T.textFaint,marginTop:1,lineHeight:1.45}}>{sub}</div>}
+            </div>
+            <div style={{flexShrink:0}}>{children}</div>
+          </div>
+        </div>
+      );
+    }
+    function Toggle({on,onToggle,color}){
+      return(
+        <button onClick={onToggle} style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:on?(color||T.sage):T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}>
+          <div style={{position:"absolute",top:3,left:on?23:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
+        </button>
+      );
+    }
+    function Pills({options,value,onChange,color}){
+      return(
+        <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
+          {options.map(function(o){
+            var v=typeof o==="object"?o.value:o;
+            var l=typeof o==="object"?(o.emoji?" "+o.emoji+" "+o.label:o.label):o;
+            var sel=value===v;
+            return <button key={v} onClick={()=>onChange(v)} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(sel?(color||T.blue):T.border),background:sel?(color||T.blue)+"18":"transparent",color:sel?(color||T.blue):T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>;
+          })}
+        </div>
+      );
+    }
 
-    // ── local state for new member input ───────────────────────────
-    const [newPersonName, setNewPersonNameLocal] = useState("");
+    // ── local add-member state ──
     var [newMemberName,setNewMemberName]=useState("");
     var [newMemberAge,setNewMemberAge]=useState("");
     var [newMemberRole,setNewMemberRole]=useState("");
@@ -7565,273 +7620,77 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addMember(){
       if(!newMemberName.trim())return;
       var age=newMemberAge.trim()?parseInt(newMemberAge.trim(),10):null;
-      var isMinor=age!==null&&age<18;
-      setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:isMinor}];});
+      setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
       setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
     }
 
+    // ── stores editing state ──
+    var [editingStore,setEditingStore]=useState(null);
+    var [storeEditVal,setStoreEditVal]=useState("");
+
+    // ── school type per kid state ──
+    // schoolData already persisted from SchoolTab — we read/write it here too
+    var [sData,setSDataLocal]=useState(function(){
+      try{var s=localStorage.getItem("af_schoolData");return s?JSON.parse(s):{};}catch{return {};}
+    });
+    function setKidSchoolType(kidId,type){
+      var next=Object.assign({},sData);
+      if(!next[kidId]) next[kidId]={type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
+      next[kidId]=Object.assign({},next[kidId],{type:type});
+      setSDataLocal(next);
+      try{localStorage.setItem("af_schoolData",JSON.stringify(next));}catch{}
+    }
+
+    var minorKids = people.filter(function(p){return p&&p.name&&(p.isMinor||(p.age!=null&&p.age<18));});
+
     return(
       <div>
-        <SecHead emoji="⚙️" title="Settings"/>
+        <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here"/>
 
-        {/* ── FAMILY PROFILE ─────────────────────────────────────── */}
-        <SettingSection id="family" title="👤 Family Profile" settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>This tells Compass who you are — used for meal suggestions, daily briefings, and AI context. Fill in what you know and tap <strong>Apply to your app</strong> to populate meals, pets, vehicles, and household automatically.</p>
-
-          {/* Core profile fields */}
-          {(function(){
-            var PROFILE_FIELDS = [
-              {key:"parentNames",    label:"Your name(s)",              placeholder:"e.g. Lindsey  or  Lindsey & Jake"},
-              {key:"workSituation",  label:"Work situation",            placeholder:"e.g. SAHM, remote full-time, part-time, travels for work"},
-              {key:"numKids",        label:"Number of kids",            placeholder:"e.g. 3"},
-              {key:"kidAges",        label:"Kid ages",                  placeholder:"e.g. 7, 4, infant"},
-              {key:"kidNames",       label:"Kid names",                 placeholder:"e.g. Emma, Liam, Mia"},
-              {key:"dietaryNeeds",   label:"Dietary needs",             placeholder:"e.g. Dairy-free, nut allergy"},
-              {key:"favoriteDinner", label:"Go-to dinners",             placeholder:"e.g. Tacos, sheet pan chicken, pasta (separate with commas)"},
-              {key:"cookingStyle",   label:"Cooking style",             placeholder:"e.g. Quick & simple, batch cook weekends"},
-              {key:"homeVibe",       label:"Home vibe / values",        placeholder:"e.g. calm, adventurous, faith-led"},
-              {key:"city",           label:"City or region",            placeholder:"e.g. Colorado Springs (for weather & context)"},
-              {key:"zipcode",        label:"ZIP code",                  placeholder:"e.g. 80903 — used for local weather & notification timing"},
-              {key:"schoolSchedule", label:"School schedule",           placeholder:"e.g. Homeschool M–F, public school 8–3"},
-              {key:"pets",           label:"Pets",                      placeholder:"e.g. 1 golden retriever named Biscuit, 2 cats"},
-              {key:"vehicles",       label:"Vehicles",                  placeholder:"e.g. 2019 Honda Pilot, 2017 Toyota Camry"},
-              {key:"biggestChallenge",label:"Biggest home challenge",   placeholder:"e.g. Keeping up with meals, managing schedules"},
-            ];
-            return(
-              <div style={{display:"flex",flexDirection:"column",gap:"0.5rem",marginBottom:"0.85rem"}}>
-                {PROFILE_FIELDS.map(function(field){return(
-                  <div key={field.key}>
-                    <label style={{...lbl,marginBottom:"0.18rem",display:"block"}}>{field.label}</label>
-                    <input
-                      key={field.key+"_"+(familyProfile?JSON.stringify(familyProfile[field.key]):"empty")}
-                      defaultValue={(familyProfile&&familyProfile[field.key])||""}
-                      onBlur={function(e){setFamilyProfile(function(p){return{...(p||{}),[field.key]:e.target.value};});}}
-                      placeholder={field.placeholder}
-                      style={inp({fontSize:"0.82rem",padding:"0.38rem 0.65rem"})}
-                    />
-                  </div>
-                );})}
-              </div>
-            );
-          })()}
-
-          {/* ── Apply to your app preview ── */}
-          {(function(){
-            var fp = familyProfile || {};
-
-            // ── Parse helpers ──
-            function parseMeals(str) {
-              if(!str) return [];
-              return str.split(/[,;\/]/).map(function(s){return s.trim();}).filter(function(s){return s.length>2;});
-            }
-
-            function parsePets(str) {
-              if(!str) return [];
-              // patterns: "1 golden retriever named Biscuit", "2 cats", "dog named Rex"
-              var results = [];
-              var parts = str.split(/,|;|and /i).map(function(s){return s.trim();}).filter(Boolean);
-              parts.forEach(function(part) {
-                var nameMatch = part.match(/named\s+([A-Z][a-z]+)/i);
-                var petName = nameMatch ? nameMatch[1] : null;
-                var typeMatch = part.match(/\b(dog|cat|rabbit|bird|hamster|fish|guinea pig|horse|turtle|lizard|snake|ferret|goldendoodle|labrador|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer)\b/i);
-                var petType = typeMatch ? (["cat","rabbit","bird","fish","hamster","guinea pig","horse","turtle","lizard","snake","ferret"].includes(typeMatch[1].toLowerCase())?"Cat":["dog","goldendoodle","labrador","retriever","poodle","bulldog","beagle","shepherd","husky","dachshund","chihuahua","pug","boxer"].includes(typeMatch[1].toLowerCase())?"Dog":"Dog") : "Dog";
-                var breedMatch = part.match(/\b(golden retriever|labrador|golden|retriever|poodle|bulldog|beagle|shepherd|husky|dachshund|chihuahua|pug|boxer|goldendoodle|siamese|persian|maine coon)\b/i);
-                var breed = breedMatch ? breedMatch[1].replace(/\b\w/g,function(c){return c.toUpperCase();}) : "";
-                if(petName || petType) {
-                  results.push({name: petName || petType, type: petType, breed: breed});
-                }
-              });
-              return results;
-            }
-
-            function parseVehicles(str) {
-              if(!str) return [];
-              return str.split(/,|;|and /i).map(function(s){return s.trim();}).filter(function(s){return s.length>2;});
-            }
-
-            function parseKids(names, ages) {
-              if(!names && !ages) return [];
-              var nameList = names ? names.split(/[,;]/).map(function(s){return s.trim();}).filter(Boolean) : [];
-              var ageList  = ages  ? ages.split(/[,;]/).map(function(s){return s.trim();}).filter(Boolean) : [];
-              var count    = Math.max(nameList.length, ageList.length);
-              var kids = [];
-              for(var i=0;i<count;i++){
-                var name = nameList[i] || ("Kid "+(i+1));
-                var ageStr = ageList[i] || "";
-                var ageNum = ageStr.match(/\d+/) ? parseInt(ageStr.match(/\d+/)[0]) : null;
-                var isInfant = /infant|baby|newborn/i.test(ageStr);
-                var role = isInfant ? "Baby" : (ageNum!=null&&ageNum<=12) ? "Kid" : (ageNum!=null&&ageNum<18) ? "Teen" : "Kid";
-                kids.push({name:name, age:isInfant?0:ageNum, role:role, isMinor:true});
-              }
-              return kids;
-            }
-
-            // ── What will be applied ──
-            var mealsToAdd   = parseMeals(fp.favoriteDinner).filter(function(m){
-              return !mealBankCustom.some(function(x){return x.name.toLowerCase()===m.toLowerCase();});
-            });
-            var petsToAdd    = parsePets(fp.pets).filter(function(pet){
-              try { var existing=JSON.parse(localStorage.getItem("af_pets")||"[]"); return !existing.some(function(x){return x.name.toLowerCase()===(pet.name||"").toLowerCase();}); } catch{return true;}
-            });
-            var vehiclesToAdd = parseVehicles(fp.vehicles).filter(function(v){
-              return !homeSystems.some(function(s){return s.label.toLowerCase()===v.toLowerCase();});
-            });
-            var kidsToAdd    = parseKids(fp.kidNames, fp.kidAges).filter(function(k){
-              return !people.some(function(p){return p.name.toLowerCase()===k.name.toLowerCase();});
-            });
-            var isSchoolAge  = fp.kidAges && /[5-9]|1[0-7]/.test(fp.kidAges);
-            var isHomeschool = fp.schoolSchedule && /homeschool/i.test(fp.schoolSchedule);
-
-            var hasAnything  = mealsToAdd.length||petsToAdd.length||vehiclesToAdd.length||kidsToAdd.length;
-
-            if(!fp.parentNames && !fp.favoriteDinner && !fp.pets && !fp.vehicles && !fp.kidNames) return null;
-
-            function applyToApp() {
-              // Meals → mealBankCustom
-              if(mealsToAdd.length) {
-                setMealBankCustom(function(p){
-                  var next=[...p];
-                  mealsToAdd.forEach(function(m){
-                    next.push({id:"fp_"+Date.now()+"_"+Math.random().toString(36).slice(2,6),name:m,tags:["family-favorite"],notes:"Added from family profile",isCustom:true});
-                  });
-                  return next;
-                });
-              }
-              // Pets → af_pets localStorage (AnchorVault reads directly)
-              if(petsToAdd.length) {
-                try {
-                  var existingPets = JSON.parse(localStorage.getItem("af_pets")||"[]");
-                  var newPets = [...existingPets, ...petsToAdd.map(function(pet){
-                    return {id:Date.now().toString()+Math.random().toString(36).slice(2,5), name:pet.name, type:pet.type, breed:pet.breed, color:"", dob:"", photo:null, vaccines:[], medications:[], tags:{rabies:"",chip:"",registration:""}, notes:""};
-                  })];
-                  localStorage.setItem("af_pets", JSON.stringify(newPets));
-                } catch(e){}
-              }
-              // Vehicles → homeSystems as a Vehicles card
-              if(vehiclesToAdd.length) {
-                setHomeSystems(function(p){
-                  var hasVehicle = p.some(function(s){return s.id==="vehicles"||s.emoji==="🚗";});
-                  if(hasVehicle) {
-                    return p.map(function(s){
-                      if(s.id==="vehicles"||s.emoji==="🚗") return {...s,items:[...s.items,...vehiclesToAdd.filter(function(v){return !s.items.includes(v);})]};
-                      return s;
-                    });
-                  }
-                  return [...p, {id:"vehicles",label:"Vehicles",emoji:"🚗",items:vehiclesToAdd}];
-                });
-              }
-              // Kids → people
-              if(kidsToAdd.length) {
-                var PC2=["#e8a838","#b87265","#8878b8","#7ab8a8","#c878a8","#6b9e6b"];
-                setPeople(function(p){
-                  var next=[...p];
-                  kidsToAdd.forEach(function(k,i){
-                    next.push({id:uid(),name:k.name,age:k.age,role:k.role,isMinor:true,color:PC2[i%PC2.length]});
-                  });
-                  return next;
-                });
-              }
-              // Mark applied
-              setFamilyProfile(function(p){return{...(p||{}),_applied:Date.now()};});
-            }
-
-            return(
-              <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:"1.5px solid "+T.sage+"40",borderRadius:"1rem",padding:"1rem 1.1rem",marginBottom:"0.85rem"}}>
-                <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,marginBottom:"0.5rem"}}>✨ Apply to your app</div>
-                {hasAnything ? (
-                  <div>
-                    <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem",lineHeight:1.6}}>Here's what we'll add based on your profile:</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.85rem"}}>
-                      {mealsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🍽️</span><span><strong>Meal Bank:</strong> {mealsToAdd.join(", ")}</span></div>}
-                      {petsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🐾</span><span><strong>Pets (Anchor Vault):</strong> {petsToAdd.map(function(p){return p.name+(p.type&&p.type!==p.name?" ("+p.type+")":"")+(p.breed?" "+p.breed:"");}).join(", ")}</span></div>}
-                      {vehiclesToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🚗</span><span><strong>Vehicles:</strong> {vehiclesToAdd.join(", ")}</span></div>}
-                      {kidsToAdd.length>0&&<div style={{fontSize:"0.8rem",color:T.textDark,display:"flex",alignItems:"flex-start",gap:"0.45rem"}}><span>🧒</span><span><strong>Household members:</strong> {kidsToAdd.map(function(k){return k.name+(k.age!=null?" ("+k.age+")":"");}).join(", ")}</span></div>}
-                    </div>
-                    <button onClick={applyToApp} style={{...btnP(T.sage,{width:"100%",justifyContent:"center",fontSize:"0.85rem",padding:"0.6rem"})}}>Apply to my app →</button>
-                  </div>
-                ) : (
-                  <div style={{fontSize:"0.78rem",color:T.textMid,lineHeight:1.6}}>
-                    {fp.parentNames || fp.favoriteDinner || fp.pets || fp.vehicles || fp.kidNames
-                      ? "Everything from your profile is already in the app. Update any field above to add more."
-                      : "Fill in go-to dinners, pets, vehicles, and kid names above — then we'll populate the app automatically."}
-                  </div>
-                )}
-                {isSchoolAge&&!isHomeschool&&(
-                  <div style={{marginTop:"0.65rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.sage+"30",fontSize:"0.77rem",color:T.textMid,lineHeight:1.6}}>
-                    📚 Looks like you have school-age kids — check out the <strong>Weekly Rhythm</strong> tab to set up school schedules and day themes.
-                  </div>
-                )}
-                {isHomeschool&&(
-                  <div style={{marginTop:"0.65rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.sage+"30",fontSize:"0.77rem",color:T.textMid,lineHeight:1.6}}>
-                    📚 Homeschool family! Use <strong>Weekly Rhythm → Day Themes</strong> to build your school week structure and let Compass plan around it.
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          <div style={{fontSize:"0.71rem",color:T.textFaint,marginBottom:"0.85rem",lineHeight:1.5}}>Profile fields save as you type. Hit "Apply" whenever you update meals, pets, or vehicles to sync them across the app.</div>
-
-          {/* Household Members */}
-          <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.75rem",marginTop:"0.25rem"}}>
-            <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People living in this home</div>
+        {/* ════════════════════════════════════
+            1. FAMILY
+        ════════════════════════════════════ */}
+        <Section id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
+          <div style={{paddingTop:"0.75rem"}}>
+            {/* People list */}
+            <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
             {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
               var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
               return(
-                <div key={p.id} style={{padding:"0.6rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                    <div style={{width:12,height:12,borderRadius:"50%",background:p.color,flexShrink:0,marginTop:1}}/>
+                <div key={p.id} style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
+                    <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
                     <input
                       key={p.id+"_name"}
                       defaultValue={p.name}
-                      onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,name:e.target.value}:x;});});}}
-                      style={{flex:1,border:"none",background:"transparent",fontSize:"0.86rem",fontWeight:600,color:T.textDark,fontFamily:"inherit",padding:"0",outline:"none",minWidth:0}}
+                      onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                      style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
                     />
-                    {p.age!=null&&(
-                      <span style={{fontSize:"0.68rem",fontWeight:700,color:isMinorFlag?T.sand:T.blue,background:isMinorFlag?T.sandPale:T.bluePale,borderRadius:"2rem",padding:"1px 7px",flexShrink:0,whiteSpace:"nowrap"}}>
-                        {isMinorFlag?"Age "+p.age:"Adult"}
-                      </span>
-                    )}
-                    {p.role&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft,background:T.surface,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{p.role}</span>}
-                    <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px",display:"flex",flexShrink:0}}><Icon name="trash" size={13} color={T.textFaint}/></button>
+                    <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
+                      <Icon name="trash" size={13} color={T.textFaint}/>
+                    </button>
                   </div>
-                  <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",paddingLeft:"1.4rem",marginTop:"0.4rem",alignItems:"center"}}>
-                    <input
-                      type="number"
-                      min={0}
-                      max={120}
-                      value={p.age!=null?p.age:""}
-                      onChange={function(e){
-                        var v=e.target.value;
-                        var age=v===""?null:parseInt(v,10);
-                        setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,age:age,isMinor:age!=null&&age<18}:x;});});
-                      }}
-                      placeholder="Age"
-                      style={{...inp({width:52,fontSize:"0.75rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}
-                    />
-                    <select
-                      value={p.role||""}
-                      onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,role:e.target.value||null}:x;});});}}
-                      style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}
-                    >
+                  <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
+                    <input type="number" min={0} max={120} value={p.age!=null?p.age:""} onChange={function(e){var v=e.target.value;var age=v===""?null:parseInt(v,10);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
+                    <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
                       <option value="">Role…</option>
                       {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
                     </select>
                     <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
                       {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
-                        <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?`3px solid ${T.textDark}`:`2px solid transparent`,cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+                        <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
                       );})}
-                      <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${T.border}`,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                        <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?{...x,color:c}:x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+                      <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                        <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
                       </label>
                     </div>
                   </div>
                 </div>
               );
             })}
-            {/* Add new member */}
-            <div style={{marginTop:"0.75rem",background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:`1px solid ${T.borderSoft}`}}>
-              <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Add someone</div>
+            {/* Add member */}
+            <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
+              <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
               <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
                 <input defaultValue={newMemberName} onBlur={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
                 <input type="number" min={0} max={120} defaultValue={newMemberAge} onBlur={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
@@ -7844,260 +7703,135 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
               </div>
             </div>
+            {/* ZIP code + home vibe */}
+            <Row label="ZIP code" sub="For local weather and notification timing">
+              <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
+            </Row>
+            <Row label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
+              <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+            </Row>
           </div>
-        </SettingSection>
+        </Section>
 
-        {/* ── FLOW ───────────────────────────────────────────────── */}
-        <SettingSection id="flow" title="🌊 Flow" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <div style={{marginBottom:"1rem"}}>
-            <label style={lbl}>What should Compass call you?</label>
-            <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
-              <input
-                value={preferredName}
-                onChange={function(e){setPreferredName(e.target.value);}}
-                onKeyDown={function(e){if(e.key==="Enter"){var updated={...authUser,displayName:preferredName.trim()||authUser?.displayName};setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch(err){};}}}
-                placeholder={familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||"e.g. Lindsey"}
-                style={{...inp({flex:1})}}
-              />
-              <button onClick={function(){var updated={...authUser,displayName:preferredName.trim()||authUser?.displayName};setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch(err){};}} style={btnP(T.sage,{padding:"0.42rem 0.9rem",fontSize:"0.78rem",flexShrink:0})}>Save</button>
-            </div>
-            <p style={{fontSize:"0.72rem",color:T.textFaint,marginTop:"0.3rem"}}>Used in your daily anchor greeting and AI messages.</p>
-          </div>
-          <div style={{marginBottom:"0.85rem"}}>
-            <label style={lbl}>Greeting tone</label>
-            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-              {[
-                {id:"warm",label:"Warm & encouraging",emoji:"🌿"},
-                {id:"calm",label:"Calm & minimal",emoji:"🌊"},
-                {id:"motivating",label:"Energising",emoji:"⚡"},
-                {id:"gentle",label:"Gentle & soft",emoji:"🕊️"},
-              ].map(function(tone){return(
-                <button key={tone.id} onClick={function(){setFlowGreetingTone(tone.id);}} style={{padding:"0.38rem 0.8rem",borderRadius:"2rem",border:`1.5px solid ${flowGreetingTone===tone.id?T.blue:T.border}`,background:flowGreetingTone===tone.id?T.bluePale:"transparent",color:flowGreetingTone===tone.id?T.blue:T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                  {tone.emoji} {tone.label}
-                </button>
-              );})}
-            </div>
-          </div>
-          <div>
-            <label style={lbl}>Flow mode default</label>
-            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-              {["Smooth","Busy","Survival"].map(function(mode){
-                var m=FM[mode];
-                return(
-                  <button key={mode} onClick={function(){setFlowMode(mode);}} style={{padding:"0.38rem 0.9rem",borderRadius:"2rem",border:`1.5px solid ${flowMode===mode?m.color:T.border}`,background:flowMode===mode?m.color+"22":"transparent",color:flowMode===mode?m.color:T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                    {m.emoji} {mode}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </SettingSection>
-
-        {/* ── BRAIN DUMP CATEGORIES ──────────────────────────────── */}
-        <SettingSection id="braincats" title="💭 Clear Your Mind Categories" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
-        </SettingSection>
-
-        {/* ── WEEKLY / DAY THEMES ────────────────────────────────── */}
-        <SettingSection id="daythemes" title="📅 Day Themes" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.6,marginBottom:"0.85rem"}}>Give each day a focus. These themes guide Compass's suggestions and appear across your weekly view.</p>
-          {(function(){
-            const [editingDayS, setEditingDayS] = useState(null);
-            const [editFormS, setEditFormS] = useState({theme:"",emoji:"",desc:""});
-            const DAY_COLORS_S=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
-            function openEdit(day){setEditingDayS(day);setEditFormS({...(rhythm[day]||{})});}
-            function saveEdit(){setRhythm(p=>({...p,[editingDayS]:{...editFormS}}));setEditingDayS(null);}
-            function applyP(preset){if(preset.theme==="Custom"){setEditFormS(p=>({...p,emoji:preset.emoji}));return;}setEditFormS({theme:preset.theme,emoji:preset.emoji,desc:preset.desc});}
-            return(
-              <div>
-                {MEAL_DAYS.map(function(day,di){
-                  var dr=rhythm[day]||{};var accent=DAY_COLORS_S[di%DAY_COLORS_S.length];
-                  var isToday=day===TODAY_NAME;
-                  return(
-                    <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.6rem 0.5rem",borderBottom:`1px solid ${T.borderSoft}`}}>
-                      <span style={{fontSize:"1.1rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                          <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.88rem"}}>{day}</span>
-                          {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
-                          {dr.theme&&<span style={{fontSize:"0.76rem",color:T.textSoft,fontWeight:500}}>· {dr.theme}</span>}
-                        </div>
-                        {dr.desc&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
-                      </div>
-                      <button onClick={()=>openEdit(day)} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
-                    </div>
-                  );
-                })}
-                {editingDayS&&(
-                  <ModalBox title={`Edit ${editingDayS}`} onClose={()=>setEditingDayS(null)}>
-                    <div style={{marginBottom:"0.75rem"}}>
-                      <label style={lbl}>Quick Presets</label>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-                        {THEME_PRESETS.map((pr,i)=><button key={i} onClick={()=>applyP(pr)} style={{background:editFormS.theme===pr.theme?T.blue:T.white,color:editFormS.theme===pr.theme?"#fff":T.textMid,border:`1.5px solid ${editFormS.theme===pr.theme?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>)}
-                      </div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-                      <div><label style={lbl}>Emoji</label><input defaultValue={editFormS.emoji} onBlur={e=>setEditFormS(p=>({...p,emoji:e.target.value}))} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
-                      <div><label style={lbl}>Theme</label><input defaultValue={editFormS.theme} onBlur={e=>setEditFormS(p=>({...p,theme:e.target.value}))} placeholder="e.g. Batch Cook" style={inp()}/></div>
-                    </div>
-                    <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editFormS.desc} onBlur={e=>setEditFormS(p=>({...p,desc:e.target.value}))} placeholder="What happens on this day…" style={inp()}/></div>
-                    <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
-                      <button onClick={()=>setEditingDayS(null)} style={btnS()}>Cancel</button>
-                      <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
-                    </div>
-                  </ModalBox>
-                )}
+        {/* ════════════════════════════════════
+            2. FLOW (YOU)
+        ════════════════════════════════════ */}
+        <Section id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
+          <div style={{paddingTop:"0.75rem"}}>
+            <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
+              <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
+                <input value={preferredName} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(){var updated=Object.assign({},authUser,{displayName:preferredName.trim()||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
               </div>
-            );
-          })()}
-        </SettingSection>
-
-        {/* ── APPEARANCE ─────────────────────────────────────────── */}
-        <SettingSection id="appearance" title="🎨 Appearance" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.65rem"}}>
-            {Object.entries(THEMES).map(([key,th])=>(
-              <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:`2px solid ${themeName===key?T.blue:T.border}`,borderRadius:"0.9rem",padding:"0.9rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
-                <div style={{fontSize:"1.5rem",marginBottom:"0.32rem"}}>{th.emoji}</div>
-                <div style={{fontWeight:700,fontSize:"0.82rem"}}>{th.label}</div>
-              </button>
-            ))}
+            </Row>
+            <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Greeting tone</div>
+              <Pills options={[{value:"warm",label:"Warm",emoji:"🌿"},{value:"calm",label:"Calm",emoji:"🌊"},{value:"motivating",label:"Energising",emoji:"⚡"},{value:"gentle",label:"Gentle",emoji:"🕊️"}]} value={flowGreetingTone} onChange={setFlowGreetingTone} color={T.blue}/>
+            </div>
+            <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Flow mode default</div>
+              <Pills options={[{value:"Smooth",label:"Smooth",emoji:"🌊"},{value:"Busy",label:"Busy",emoji:"⚡"},{value:"Survival",label:"Survival",emoji:"🆘"}]} value={flowMode} onChange={setFlowMode} color={T.sage}/>
+            </div>
+            <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem"}}>
+              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.2rem"}}>Turn on notifications</div>
+              <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.55rem"}}>Compass will check in with you throughout the day</div>
+              {notifPermission==="denied"&&<div style={{fontSize:"0.78rem",color:T.rose,lineHeight:1.5}}>🚫 Notifications are blocked — open browser settings → Site permissions to allow.</div>}
+              {notifPermission==="default"&&<button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.82rem",padding:"0.5rem 1.1rem"})}}>🔔 Enable Compass notifications</button>}
+              {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
+            </div>
           </div>
-        </SettingSection>
+        </Section>
 
-        {/* ── NOTIFICATIONS ──────────────────────────────────────── */}
-        <SettingSection id="notifications" title="🔔 Notifications" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Compass sends warm AI-powered check-ins throughout your day. Turn each one on or off below.</p>
+        {/* ════════════════════════════════════
+            3. MIND
+        ════════════════════════════════════ */}
+        <Section id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
+          <div style={{paddingTop:"0.75rem"}}>
+            <div style={{paddingBottom:"0.75rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.5rem"}}>
+              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Default view</div>
+              <Pills options={[{value:"all",label:"All entries"},{value:"mine",label:"My list only"}]} value={(familyProfile&&familyProfile.mindDefault)||"all"} onChange={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{mindDefault:v});});}} color={T.lavender}/>
+            </div>
+            <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Categories & colours</div>
+            <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
+          </div>
+        </Section>
 
-          {/* ── Permission status banner ── */}
-          {notifPermission==="denied"&&(
-            <div style={{background:T.rose+"18",border:`1.5px solid ${T.rose}40`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.85rem"}}>
-              <div style={{fontWeight:700,fontSize:"0.85rem",color:T.rose,marginBottom:"0.25rem"}}>🚫 Notifications are blocked</div>
-              <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55}}>Your browser has blocked notifications for this site. To fix it, open your browser settings → Site permissions → Notifications → find anchorandflowapp.com → Allow.</div>
+        {/* ════════════════════════════════════
+            4. MEALS
+        ════════════════════════════════════ */}
+        <Section id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
+          <div style={{paddingTop:"0.75rem"}}>
+            <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
+              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
+              <Pills options={[{value:1,label:"Dinner only",emoji:"🌙"},{value:2,label:"Lunch + Dinner",emoji:"☀️"},{value:3,label:"All 3 meals",emoji:"🌅"}]} value={mealCount} onChange={setMealCount} color={T.sage}/>
             </div>
-          )}
-          {notifPermission==="default"&&(
-            <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:`1.5px solid ${T.sage}40`,borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.85rem"}}>
-              <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,marginBottom:"0.3rem"}}>Enable Compass notifications</div>
-              <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>You'll get a morning briefing at 7am, midday check-in, dinner reminder, and evening recap — all written by Compass AI for your day.</div>
-              <button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.85rem",padding:"0.55rem 1.3rem",width:"100%",justifyContent:"center"})}}>🔔 Turn on Compass notifications</button>
-            </div>
-          )}
-          {notifPermission==="granted"&&(
-            <div style={{background:T.sage+"15",border:`1.5px solid ${T.sage}40`,borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.65rem"}}>
-              <span style={{fontSize:"1.1rem"}}>✅</span>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:"0.85rem",color:T.sage}}>Notifications are on</div>
-                <div style={{fontSize:"0.73rem",color:T.textSoft}}>Compass will check in with you throughout the day.</div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Per-notification toggles ── */}
-          {(function(){
-            var NOTIF_LIST = [
-              {key:"morning", time:"7:00 am",     emoji:"🌅", label:"Morning anchor",      desc:"Your agenda, tasks & events for the day"},
-              {key:"midday",  time:"12:00 pm",    emoji:"🌊", label:"Midday check-in",     desc:"Progress update & encouragement"},
-              {key:"dinner",  time:"3:00 pm",     emoji:"🍽️", label:"Dinner heads-up",     desc:"Defrost reminder & meal prep nudge"},
-              {key:"evening", time:"5:00 pm",     emoji:"🌙", label:"Evening recap",       desc:"Day summary + tomorrow preview"},
-              {key:"events",  time:"2hrs before", emoji:"⏰", label:"Event nudges",        desc:"Smart reminder before each appointment"},
-              {key:"recurring",time:"varies",     emoji:"🔁", label:"Recurring reminders", desc:"Trash, HVAC, street sweeping, custom"},
-            ];
-            return(
-              <div style={{borderRadius:"0.9rem",border:`1px solid ${T.borderSoft}`,overflow:"hidden",marginBottom:"0.85rem"}}>
-                {NOTIF_LIST.map(function(n,i){
-                  var on = notifSettings[n.key] !== false;
+            <Row label="Themed meal days" sub="e.g. Taco Tuesday, Pizza Friday — shows in your plan">
+              <Toggle on={mealThemeEnabled} onToggle={()=>setMealThemeEnabled(function(v){return !v;})} color={T.sage}/>
+            </Row>
+            {mealThemeEnabled&&(
+              <div style={{paddingTop:"0.6rem",paddingBottom:"0.6rem",borderBottom:"1px solid "+T.borderSoft}}>
+                <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.45rem"}}>Assign a theme to each day (optional)</div>
+                {MEAL_DAYS.map(function(day){
+                  var theme = (mealThemes&&mealThemes[day])||"";
                   return(
-                    <div key={n.key} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.65rem 0.9rem",borderBottom:i<NOTIF_LIST.length-1?`1px solid ${T.borderSoft}`:"none",background:on?"transparent":T.bgAlt+"60"}}>
-                      <span style={{fontSize:"1.1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:700,color:on?T.textDark:T.textFaint,fontSize:"0.85rem"}}>{n.label}</div>
-                        <div style={{color:T.textSoft,fontSize:"0.72rem"}}>{n.desc} · <span style={{color:T.textFaint}}>{n.time}</span></div>
-                      </div>
-                      <button
-                        onClick={function(){setNotifSettings(function(p){var next={...(p||{})};next[n.key]=!on;return next;});setTimeout(function(){setDailySummaryScheduled(null);scheduleAllDailyNotifications();},100);}}
-                        style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:on?T.sage:T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}
-                      >
-                        <div style={{position:"absolute",top:3,left:on?23:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
-                      </button>
+                    <div key={day} style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
+                      <span style={{fontSize:"0.78rem",fontWeight:700,color:T.textDark,width:68,flexShrink:0}}>{day}</span>
+                      <input defaultValue={theme} onBlur={function(e){setMealThemes(function(p){return Object.assign({},p||{},{[day]:e.target.value});});}} placeholder="e.g. Taco night" style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.25rem 0.5rem"})}}/>
                     </div>
                   );
                 })}
               </div>
-            );
-          })()}
+            )}
+            <Row label="Rotating meals" sub="Auto-rotate your meal plan forward each week">
+              <Toggle on={(familyProfile&&familyProfile.mealRotate)||false} onToggle={()=>setFamilyProfile(function(p){return Object.assign({},p||{},{mealRotate:!(p&&p.mealRotate)});})} color={T.sage}/>
+            </Row>
+            <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
+            </Row>
+            <input defaultValue={(familyProfile&&familyProfile.favoriteDinner)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:e.target.value});});}} placeholder="e.g. Tacos, sheet pan chicken, pasta" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+            <Row label="Dietary needs" sub="Allergies, intolerances, or preferences">
+            </Row>
+            <input defaultValue={(familyProfile&&familyProfile.dietaryNeeds)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:e.target.value});});}} placeholder="e.g. Dairy-free, nut allergy" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+            <Row label="Cooking style" sub="Helps Compass suggest appropriate recipes">
+            </Row>
+            <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
+          </div>
+        </Section>
 
-          {/* ── Actions ── */}
-          {notifPermission==="granted"&&(
-            <div style={{marginTop:"0.85rem",display:"flex",flexDirection:"column",gap:"0.45rem"}}>
-              <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();setSaved&&setSaved(true);}} style={btnP(T.blue,{fontSize:"0.8rem",padding:"0.45rem 1rem",width:"100%",justifyContent:"center"})}>🔄 Reschedule today's notifications</button>
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>{
-                  const todayTasks=tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);
-                  const todayMeal=(meals[TODAY_NAME]||{}).dinner;
-                  const todayEvts=calEvents.filter(e=>e.date===TODAY.toISOString().split("T")[0]);
-                  showInAppBanner("🌅 Morning anchor preview",`${todayEvts.length>0?`First up: ${todayEvts[0].title}. `:""}`+`${todayTasks.filter(t=>!t.done).length} tasks today.${todayMeal?` Dinner: ${todayMeal}`:""}`);
-                }} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem",flex:1})}>Preview morning</button>
-                <button onClick={()=>{
-                  const done=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&t.done&&!t.archived).length;
-                  const pending=tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.done&&!t.archived).length;
-                  showInAppBanner("🌙 Evening recap preview",`${done>0?`${done} things done. `:""}${pending>0?`${pending} still on your list. `:""}Rest up — tomorrow is a fresh start.`);
-                }} style={btnS({fontSize:"0.73rem",padding:"0.32rem 0.75rem",flex:1})}>Preview evening</button>
-              </div>
-              <div style={{fontSize:"0.72rem",color:T.textFaint,textAlign:"center",lineHeight:1.5}}>Previews show as in-app banners. Native push arrives at the scheduled times.</div>
-            </div>
-          )}
-
-          {/* ── Upcoming reminders ── */}
-          {notifications.filter(n=>!n.fired).length>0&&(
-            <div style={{marginTop:"0.85rem"}}>
-              <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
-              {notifications.filter(n=>!n.fired).map(n=>(
-                <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-                  <span style={{fontSize:"0.8rem"}}>🔔</span>
-                  <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{n.entityTitle}</span>
-                  <span style={{fontSize:"0.7rem",color:T.textSoft}}>{n.date} {n.time}</span>
-                  <button onClick={()=>setNotifications(p=>p.filter(x=>x.id!==n.id))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
+        {/* ════════════════════════════════════
+            5. SHOPPING
+        ════════════════════════════════════ */}
+        <Section id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
+          <div style={{paddingTop:"0.75rem"}}>
+            <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
+            {stores.map(function(store,i){
+              return(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.7rem",borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
+                  <span style={{fontSize:"0.95rem"}}>🛒</span>
+                  {editingStore===i?(
+                    <input autoFocus value={storeEditVal} onChange={function(e){setStoreEditVal(e.target.value);}} onBlur={function(){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}} onKeyDown={function(e){if(e.key==="Enter"){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}}} style={{...inp({flex:1,fontSize:"0.85rem",padding:"0.22rem 0.5rem"})}}/>
+                  ):(
+                    <span onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{flex:1,fontSize:"0.85rem",fontWeight:600,color:T.textDark,cursor:"pointer"}}>{store}</span>
+                  )}
+                  <button onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 5px"}}>✏️</button>
+                  <button onClick={function(){setStores(function(p){return p.filter(function(_,j){return j!==i;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.85rem",padding:"2px 5px"}}>✕</button>
                 </div>
-              ))}
-            </div>
-          )}
-        </SettingSection>
-
-        {/* ── VISIBLE SECTIONS ───────────────────────────────────── */}
-        <SettingSection id="sections" title="📋 Visible Sections" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.75rem",lineHeight:1.55}}>Hide sections you don't use. You can bring them back any time.</p>
-          {TABS.filter(t=>t.id!=="settings"&&t.id!=="anchor").map(t=>(
-            <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-              <span style={{fontSize:"0.87rem",color:T.textDark,fontWeight:600}}>{t.emoji} {t.label}</span>
-              <button onClick={()=>{setSections(p=>{const next={...p,[t.id]:!p[t.id]};try{localStorage.setItem("af_sections",JSON.stringify(next));}catch{}window.dispatchEvent(new Event("af-sections-changed"));return next;})}} style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:sections[t.id]!==false?T.sage:T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}>
-                <div style={{position:"absolute",top:4,left:sections[t.id]!==false?22:4,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.22s",boxShadow:"0 1px 4px rgba(0,0,0,0.18)"}}/>
+              );
+            })}
+            {stores.length<6&&(
+              <button onClick={function(){setStores(function(p){return [...p,"New Store"];});setEditingStore(stores.length);setStoreEditVal("New Store");}} style={{...btnS({fontSize:"0.8rem",padding:"0.38rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem",marginTop:"0.2rem"})}}>
+                <Icon name="plus" size={13} color={T.textMid}/> Add store
               </button>
-            </div>
-          ))}
-        </SettingSection>
+            )}
+          </div>
+        </Section>
 
-        {/* ── AI MEMORY ──────────────────────────────────────────── */}
-        {Object.keys(aiMemory).length>0&&(
-          <SettingSection id="aimemory" title="🧠 What Compass Knows" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-              <p style={{fontSize:"0.78rem",color:T.textSoft,margin:0}}>Things Compass has learned about your household from conversations.</p>
-              <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear</button>
-            </div>
-            {Object.entries(aiMemory).map(([q,a],i)=>(
-              <div key={i} style={{padding:"0.5rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-                <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{q}</div>
-                <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{a}</div>
-              </div>
-            ))}
-          </SettingSection>
-        )}
-
-        {/* ── THE COVE ──────────────────────────────────────────── */}
-        <SettingSection id="cove" title="🏝️ Tide Pool" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <p style={{color:T.textSoft,fontSize:"0.79rem",lineHeight:1.6,marginBottom:"0.9rem"}}>Set up each child's chores and treasures. Every child can have their own treasure list.</p>
+        {/* ════════════════════════════════════
+            6. TIDE POOL
+        ════════════════════════════════════ */}
+        <Section id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+          <div style={{paddingTop:"0.75rem"}}>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
-            if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem"}}>Add children in Family Profile above to set up the Tide Pool.</div>;
+            if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>No children added yet. Add them in the <strong>Family</strong> section above — then come back here to set up their chores and treasures.</div>;
 
             var saved = coveData || [];
             var [sKidIdx, setSKidIdx] = useState(0);
@@ -8120,97 +7854,63 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               });
             }
 
-            function sDeleteChore(choreId) {
-              updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==choreId;})});
-            }
-            function sAddChore() {
-              if(!newChoreName.trim()) return;
-              updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});
-              setNewChoreName("");
-            }
-            function sDeleteTreasure(tid) {
-              updateSaved({treasures:(sKidData.treasures||[]).filter(function(t){return t.id!==tid;})});
-            }
-            function sAddTreasure() {
-              var cost = parseInt(newTreasureCost);
-              if(!newTreasureName.trim()||!cost||cost<1) return;
-              var icon = TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];
-              updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});
-              setNewTreasureName(""); setNewTreasureCost("");
-            }
-            function sCopyFrom(fromKidId) {
-              var fromData = saved.find(function(d){return d.kidId===fromKidId;});
-              if(!fromData) return;
-              var copies = (fromData.treasures||[]).map(function(t){ return Object.assign({},t,{id:uid()}); });
-              updateSaved({treasures:copies});
-            }
-
             return (
               <div>
-                {/* Kid selector */}
-                <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
                   {rawKids.map(function(k,i){
-                    return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.blue:T.white,color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.blue:T.border}}>{k.name}</button>;
+                    return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
                   })}
                 </div>
-
-                {/* Sub-tabs */}
-                <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.75rem"}}>
+                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
                   {["chores","treasures"].map(function(t){
                     return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
                   })}
                 </div>
-
-                {sTab==="chores" && (
+                {sTab==="chores"&&(
                   <div>
-                    {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet.</div>}
+                    {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet — add one below.</div>}
                     {(sKidData.chores||[]).map(function(ch){
-                      return (
-                        <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.35rem",fontSize:"0.83rem"}}>
+                      return(
+                        <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
                           <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
                           <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
-                          <button onClick={function(){sDeleteChore(ch.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                          <button onClick={function(){updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
                         </div>
                       );
                     })}
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
-                      <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} placeholder="New chore..."
-                        style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
-                      <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}}
-                        style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
+                      <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                      <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                         <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
                       </select>
-                      <button onClick={sAddChore} style={{...btnP(T.textDark,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}}>Add</button>
+                      <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
                     </div>
                   </div>
                 )}
-
-                {sTab==="treasures" && (
+                {sTab==="treasures"&&(
                   <div>
-                    {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet.</div>}
+                    {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet — add some below.</div>}
                     {(sKidData.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;}).map(function(t){
-                      return (
-                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.35rem",fontSize:"0.83rem"}}>
+                      return(
+                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
                           <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
                           <span style={{flex:1,color:T.textDark}}>{t.name}</span>
                           <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
-                          <button onClick={function(){sDeleteTreasure(t.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                          <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
                         </div>
                       );
                     })}
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
-                      <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure..."
-                        style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
-                      <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚"
-                        style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
-                      <button onClick={sAddTreasure} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}}>Add</button>
+                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
+                      <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                      <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚" style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
+                      <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
                     </div>
                     {rawKids.length>1&&(
-                      <div style={{marginTop:"0.85rem",paddingTop:"0.75rem",borderTop:"1px solid "+T.borderSoft}}>
-                        <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:700,marginBottom:"0.45rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
+                      <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
+                        <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:700,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
                         <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
                           {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
-                            return <button key={k.id} onClick={function(){sCopyFrom(k.id);}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
+                            return <button key={k.id} onClick={function(){var fromData=saved.find(function(d){return d.kidId===k.id;});if(!fromData)return;updateSaved({treasures:(fromData.treasures||[]).map(function(t){return Object.assign({},t,{id:uid()});})});}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
                           })}
                         </div>
                       </div>
@@ -8220,18 +7920,188 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             );
           })()}
-        </SettingSection>
-
-        {/* ── SIGN IN / SYNC ─────────────────────────────────────── */}
-        <SettingSection id="sync" title="🔐 Sign In & Sync" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.85rem"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-              <Icon name="sync" size={18} color={T.blueDark}/>
-            </div>
-            {syncStatus==="synced"&&<span style={{fontSize:"0.72rem",color:T.sage,fontWeight:700}}>✓ Synced</span>}
-            {syncStatus==="syncing"&&<span style={{fontSize:"0.72rem",color:T.sand,fontWeight:700}}>⟳ Syncing…</span>}
-            {syncStatus==="error"&&<span style={{fontSize:"0.72rem",color:T.rose,fontWeight:700}}>⚠ Error</span>}
           </div>
+        </Section>
+
+        {/* ════════════════════════════════════
+            7. WEEKLY RHYTHM
+        ════════════════════════════════════ */}
+        <Section id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
+          <div style={{paddingTop:"0.75rem"}}>
+            <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
+            {(function(){
+              const [editingDay, setEditingDay] = useState(null);
+              const [editForm, setEditForm] = useState({theme:"",emoji:"",desc:""});
+              const DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
+              function openEdit(day){setEditingDay(day);setEditForm(Object.assign({},rhythm[day]||{}));}
+              function saveEdit(){setRhythm(function(p){return Object.assign({},p,{[editingDay]:Object.assign({},editForm)});});setEditingDay(null);}
+              return(
+                <div>
+                  {MEAL_DAYS.map(function(day,di){
+                    var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
+                    var isToday=day===TODAY_NAME;
+                    return(
+                      <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.58rem 0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+                        <span style={{fontSize:"1.05rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                            <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.86rem"}}>{day}</span>
+                            {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
+                            {dr.theme&&<span style={{fontSize:"0.75rem",color:T.textSoft}}>· {dr.theme}</span>}
+                          </div>
+                          {dr.desc&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
+                        </div>
+                        <button onClick={()=>openEdit(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+                      </div>
+                    );
+                  })}
+                  {editingDay&&(
+                    <ModalBox title={"Edit "+editingDay} onClose={()=>setEditingDay(null)}>
+                      <div style={{marginBottom:"0.75rem"}}>
+                        <label style={lbl}>Quick Presets</label>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
+                          {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){if(pr.theme==="Custom"){setEditForm(function(p){return Object.assign({},p,{emoji:pr.emoji});});return;}setEditForm({theme:pr.theme,emoji:pr.emoji,desc:pr.desc});}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}\n                        </div>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
+                        <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+                        <div><label style={lbl}>Theme</label><input defaultValue={editForm.theme} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{theme:e.target.value});});}} placeholder="e.g. Batch Cook" style={inp()}/></div>
+                      </div>
+                      <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{desc:e.target.value});});}} placeholder="What happens on this day…" style={inp()}/></div>
+                      <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                        <button onClick={()=>setEditingDay(null)} style={btnS()}>Cancel</button>
+                        <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
+                      </div>
+                    </ModalBox>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </Section>
+
+        {/* ════════════════════════════════════
+            8. SCHOOL
+        ════════════════════════════════════ */}
+        <Section id="school" emoji="📚" title="School" sub="School type and settings for each child">
+          <div style={{paddingTop:"0.75rem"}}>
+            {minorKids.length===0&&(
+              <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
+            )}
+            {minorKids.map(function(kid){
+              var kidD = sData[kid.id];
+              var currentType = kidD&&kidD.type;
+              var SCHOOL_TYPES = [
+                {value:"homeschool", label:"Homeschool",      emoji:"🏠", desc:"Learning at home — full curriculum"},
+                {value:"public",     label:"Public school",   emoji:"🏫", desc:"Standard public school"},
+                {value:"private",    label:"Private school",  emoji:"🎓", desc:"Private or charter school"},
+                {value:"co-op",      label:"Co-op / hybrid",  emoji:"🤝", desc:"Mix of home and group learning"},
+                {value:"online",     label:"Online school",   emoji:"💻", desc:"Accredited online program"},
+                {value:"other",      label:"Other",           emoji:"📋", desc:"Something else entirely"},
+              ];
+              return(
+                <div key={kid.id} style={{marginBottom:"0.85rem",padding:"0.75rem",borderRadius:"0.9rem",border:"1.5px solid "+T.borderSoft,background:T.surface}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
+                    <div style={{width:12,height:12,borderRadius:"50%",background:kid.color||T.blue,flexShrink:0}}/>
+                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{kid.name}</span>
+                    {kid.age!=null&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft}}>Age {kid.age}</span>}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
+                    {SCHOOL_TYPES.map(function(type){
+                      var selected = currentType===type.value;
+                      return(
+                        <button key={type.value} onClick={function(){setKidSchoolType(kid.id,selected?null:type.value);}} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0.75rem",borderRadius:"0.7rem",border:"1.5px solid "+(selected?T.blue:T.border),background:selected?T.bluePale:"transparent",cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
+                          <span style={{fontSize:"1.05rem",flexShrink:0}}>{type.emoji}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:"0.84rem",fontWeight:700,color:selected?T.blue:T.textDark}}>{type.label}</div>
+                            <div style={{fontSize:"0.7rem",color:T.textFaint}}>{type.desc}</div>
+                          </div>
+                          <div style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(selected?T.blue:T.border),background:selected?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                            {selected&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff"}}/>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        {/* ════════════════════════════════════
+            9. APPEARANCE & NOTIFICATIONS
+        ════════════════════════════════════ */}
+        <Section id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
+          <div style={{paddingTop:"0.75rem"}}>
+            <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.55rem"}}>Theme</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.55rem",marginBottom:"1rem"}}>
+              {Object.entries(THEMES).map(function(entry){
+                var key=entry[0];var th=entry[1];
+                return(
+                  <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:"2px solid "+(themeName===key?T.blue:T.border),borderRadius:"0.9rem",padding:"0.75rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
+                    <div style={{fontSize:"1.4rem",marginBottom:"0.25rem"}}>{th.emoji}</div>
+                    <div style={{fontWeight:700,fontSize:"0.78rem"}}>{th.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{height:"1px",background:T.borderSoft,margin:"0.75rem 0"}}/>
+            <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>Notification schedule</div>
+            <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.65rem"}}>Compass sends warm check-ins throughout your day</div>
+            {(function(){
+              var NOTIF_LIST = [
+                {key:"morning",  time:"7:00 am",     emoji:"🌅", label:"Morning anchor",      desc:"Your agenda, tasks & events for the day"},
+                {key:"midday",   time:"12:00 pm",    emoji:"🌊", label:"Midday check-in",     desc:"Progress update & encouragement"},
+                {key:"dinner",   time:"3:00 pm",     emoji:"🍽️", label:"Dinner heads-up",     desc:"Defrost reminder & meal prep nudge"},
+                {key:"evening",  time:"5:00 pm",     emoji:"🌙", label:"Evening recap",       desc:"Day summary + tomorrow preview"},
+                {key:"events",   time:"2hrs before", emoji:"⏰", label:"Event nudges",        desc:"Smart reminder before each appointment"},
+                {key:"recurring",time:"varies",      emoji:"🔁", label:"Recurring reminders", desc:"Trash, HVAC, street sweeping, custom"},
+              ];
+              return(
+                <div style={{borderRadius:"0.9rem",border:"1px solid "+T.borderSoft,overflow:"hidden",marginBottom:"0.65rem"}}>
+                  {NOTIF_LIST.map(function(n,i){
+                    var on = notifSettings[n.key]!==false;
+                    return(
+                      <div key={n.key} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.62rem 0.9rem",borderBottom:i<NOTIF_LIST.length-1?"1px solid "+T.borderSoft:"none",background:on?"transparent":T.bgAlt+"60"}}>
+                        <span style={{fontSize:"1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:700,color:on?T.textDark:T.textFaint,fontSize:"0.82rem"}}>{n.label}</div>
+                          <div style={{color:T.textSoft,fontSize:"0.7rem"}}>{n.desc} · <span style={{color:T.textFaint}}>{n.time}</span></div>
+                        </div>
+                        <Toggle on={on} onToggle={function(){setNotifSettings(function(p){var next=Object.assign({},p||{});next[n.key]=!on;return next;});setTimeout(function(){setDailySummaryScheduled(null);scheduleAllDailyNotifications();},100);}} color={T.sage}/>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+            {notifPermission==="granted"&&(
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();}} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.4rem 0.85rem",flex:1,justifyContent:"center"})}>🔄 Reschedule today</button>
+                <button onClick={()=>{var todayTasks=tasks.filter(function(t){return (t.day===TODAY_NAME||t.day==="Daily")&&!t.archived;});var todayMeal=(meals[TODAY_NAME]||{}).dinner;var todayEvts=calEvents.filter(function(e){return e.date===TODAY.toISOString().split("T")[0];});showInAppBanner("🌅 Morning anchor preview",(todayEvts.length>0?"First up: "+todayEvts[0].title+". ":"")+(todayTasks.filter(function(t){return !t.done;}).length+" tasks today.")+(todayMeal?" Dinner: "+todayMeal:""));}} style={btnS({fontSize:"0.76rem",padding:"0.4rem 0.85rem",flex:1})}>Preview</button>
+              </div>
+            )}
+            {notifications.filter(function(n){return !n.fired;}).length>0&&(
+              <div style={{marginTop:"0.85rem"}}>
+                <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
+                {notifications.filter(function(n){return !n.fired;}).map(function(n){return(
+                  <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                    <span style={{fontSize:"0.8rem"}}>🔔</span>
+                    <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{n.entityTitle}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textSoft}}>{n.date} {n.time}</span>
+                    <button onClick={()=>setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});})} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
+                  </div>
+                );})}
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* ════════════════════════════════════
+            Sign In & Sync — always last
+        ════════════════════════════════════ */}
+        <Section id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
+          <div style={{paddingTop:"0.75rem"}}>
           {false ? (
             <div>
               <p style={{color:T.textMid,fontSize:"0.82rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Sign in to sync your household across multiple devices and share with your partner.</p>
@@ -8242,12 +8112,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           ) : (
             <div>
               <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.65rem 0.85rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.75rem",border:"1px solid "+T.borderSoft}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:`linear-gradient(135deg,${T.blue},${T.sage})`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  <span style={{color:"#fff",fontWeight:800,fontSize:"0.9rem"}}>{((authUser?.displayName||authUser?.email||"?").charAt(0)).toUpperCase()}</span>
+                <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,"+T.blue+","+T.sage+")",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{color:"#fff",fontWeight:800,fontSize:"0.9rem"}}>{((authUser&&(authUser.displayName||authUser.email)||"?").charAt(0)).toUpperCase()}</span>
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser?.displayName||authUser?.email||"Signed in"}</div>
-                  <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser?.email||""}</div>
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser&&(authUser.displayName||authUser.email)||"Signed in"}</div>
+                  <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser&&authUser.email||""}</div>
                 </div>
                 <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
               </div>
@@ -8262,9 +8132,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             </div>
           )}
-        </SettingSection>
+          </div>
+        </Section>
 
-        <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}55`,textAlign:"center",padding:"1.8rem"})}}>
+        {/* AI memory */}
+        {Object.keys(aiMemory).length>0&&(
+          <Section id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
+            <div style={{paddingTop:"0.75rem"}}>
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
+                <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
+              </div>
+              {Object.entries(aiMemory).map(function(entry,i){return(
+                <div key={i} style={{padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                  <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{entry[0]}</div>
+                  <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{entry[1]}</div>
+                </div>
+              );})}
+            </div>
+          </Section>
+        )}
+
+        <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
           <AnchorLogo size={44} color={T.blue}/>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
           <div style={{color:T.textSoft,fontSize:"0.8rem",fontStyle:"italic",marginTop:"0.15rem",fontFamily:"'Cormorant Garamond',serif"}}>A steadier home, in every season</div>
@@ -8274,7 +8162,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  // ── Google Calendar Modal ────────────────────────────────────────────────────
+    // ── Google Calendar Modal ────────────────────────────────────────────────────
   function GoogleCalendarModal({onClose}) {
     const isConnected = connectedCals.includes("google") && googleCalToken;
     const [syncing, setSyncing2] = useState(false);
