@@ -6753,6 +6753,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [collapsedSections, setCollapsedSections] = useState({});
     var [newItemTexts, setNewItemTexts] = useState({});
     var [showNewModal, setShowNewModal] = useState(false);
+    var [modalMode, setModalMode] = useState("both"); // 'both' | 'blank'
     var [newForm, setNewForm] = useState({title:"",category:"family",color_accent:"#3a6b8a"});
     var [saving, setSaving] = useState(false);
     var [aiLoading, setAiLoading] = useState(false);
@@ -7004,7 +7005,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>🪸 Cove</div>
             <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your organized lists, ideas, plans, and keeps.</div>
           </div>
-          <button onClick={function(){ setShowNewModal(true); }} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
+          <button onClick={function(){ setModalMode("both"); setShowNewModal(true); }} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
             <Icon name="plus" size={12} color="#fff"/> New list
           </button>
         </div>
@@ -7065,10 +7066,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {/* New list row */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
-            <button onClick={function(){ setShowNewModal(true); }}
+            <button onClick={function(){ setModalMode("both"); setShowNewModal(true); }}
               style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
             ><Icon name="layout-grid-add" size={14} color={T.textSoft}/> From template</button>
-            <button onClick={function(){ setNewForm({title:"",category:"family",color_accent:"#3a6b8a"}); setShowNewModal(true); }}
+            <button onClick={function(){ setNewForm({title:"",category:"family",color_accent:"#3a6b8a"}); setModalMode("blank"); setShowNewModal(true); }}
               style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
             ><Icon name="pencil" size={14} color={T.textSoft}/> Blank list</button>
           </div>
@@ -7077,17 +7078,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* New list modal */}
         {showNewModal && (
           <div onClick={function(e){ if(e.target===e.currentTarget) setShowNewModal(false); }}
-            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}
+            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"1rem",overflowY:"auto"}}
           >
-            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:500,padding:"20px 20px 28px",maxHeight:"88vh",overflowY:"auto"}}>
+            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:480,padding:"18px 18px 28px",marginTop:"auto",marginBottom:"auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>New list</div>
+                <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>{modalMode === "blank" ? "Create a list" : "New list"}</div>
                 <button onClick={function(){ setShowNewModal(false); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontSize:18,padding:0,lineHeight:1}}>✕</button>
               </div>
               <div style={{fontSize:"0.72rem",color:T.textSoft,marginBottom:16}}>Start from a template or build your own.</div>
 
               {/* Templates */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}}>
+              {modalMode !== "blank" && <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}}>
                 {TEMPLATE_GALLERY.map(function(tmpl) {
                   return (
                     <button key={tmpl.id} onClick={function(){ createFromTemplate(tmpl.id); }} disabled={saving}
@@ -7099,11 +7100,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </button>
                   );
                 })}
-              </div>
+              </div>}
 
               {/* Blank form */}
-              <div style={{borderTop:"1px solid "+T.border,paddingTop:14}}>
-                <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:10}}>Or start blank</div>
+              <div style={{borderTop:modalMode==="blank"?"none":"1px solid "+T.border,paddingTop:modalMode==="blank"?0:14}}>
+                {modalMode !== "blank" && <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:10}}>Or start blank</div>}
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
                   <div>
                     <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:4}}>List name</div>
