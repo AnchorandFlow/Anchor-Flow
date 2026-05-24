@@ -7077,9 +7077,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* New list modal */}
         {showNewModal && (
           <div onClick={function(e){ if(e.target===e.currentTarget) setShowNewModal(false); }}
-            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}
           >
-            <div style={{background:T.white,borderRadius:"20px 20px 0 0",width:"100%",maxWidth:600,padding:"20px 20px 36px",maxHeight:"80vh",overflowY:"auto"}}>
+            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:500,padding:"20px 20px 28px",maxHeight:"88vh",overflowY:"auto"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                 <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>New list</div>
                 <button onClick={function(){ setShowNewModal(false); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontSize:18,padding:0,lineHeight:1}}>✕</button>
@@ -7108,7 +7108,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div>
                     <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:4}}>List name</div>
                     <input value={newForm.title} onChange={function(e){ setNewForm(function(f){ return Object.assign({},f,{title:e.target.value}); }); }}
-                      placeholder="e.g. Pantry restock"
+                      placeholder="e.g. Books to read, Shows to watch…"
                       style={{width:"100%",fontSize:"0.88rem",padding:"8px 10px",border:"1px solid "+T.border,borderRadius:8,background:T.white,color:T.textDark,outline:"none",fontFamily:"inherit"}}
                     />
                   </div>
