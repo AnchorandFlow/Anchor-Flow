@@ -544,7 +544,8 @@ const TABS = [
   {id:"meals",    label:"Meals",    emoji:"🍽️"},
   {id:"shop",     label:"Shopping", emoji:"🛒"},
   {id:"ai",       label:"Ripple",   emoji:"〜"},
-  {id:"cove",     label:"Tide Pool", emoji:"🏝️"},
+  {id:"tidepool", label:"Tide Pool", emoji:"🏝️"},
+  {id:"cove",     label:"Cove",      emoji:"🪸"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Mind",     emoji:"💭"},
@@ -552,7 +553,7 @@ const TABS = [
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop","ai"];
-const MORE_TABS    = ["weekly","home","brain","school","settings"];
+const MORE_TABS    = ["weekly","home","brain","school","tidepool","cove","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -1321,7 +1322,7 @@ function HomeFlow() {
     } catch {}
     return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
   }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","cove"]));
+  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","tidepool","cove"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
   homeFlowRef.goTab = goTab;
@@ -1426,7 +1427,7 @@ function HomeFlow() {
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
-  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,cove:true});
+  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true});
   const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
@@ -6262,7 +6263,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
   const COVE_MIN_OPEN  = 10;
 
-  function getDefaultCoveData() {
+  function getDefaultTidePoolData() {
     var kids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
     if(kids.length===0) kids = [{id:"k1",name:"Child 1"}];
     return kids.map(function(k){
@@ -6286,14 +6287,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     });
   }
 
-  function CoveTab() {
+  function TidePoolTab() {
     var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
     if(rawKids.length===0) rawKids = [{id:"k1",name:"Child 1",color:"#c8a97a"}];
 
     // Merge persisted coveData with current people list
     var [kids, setKids] = useState(function(){
       var saved = coveData;
-      if(!saved||!saved.length) return getDefaultCoveData();
+      if(!saved||!saved.length) return getDefaultTidePoolData();
       // Reconcile: keep saved data, add new kids, remove gone kids
       var merged = rawKids.map(function(p){
         var existing = saved.find(function(d){ return d.kidId===p.id; });
@@ -6607,6 +6608,541 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>📋</div>
             <div style={{fontWeight:600,color:T.textDark,marginBottom:"0.25rem"}}>{activePerson.name}'s Career</div>
             <div>Goals, notes, and career tracking coming here.</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+
+  // ── Cove — organized lists, ideas, plans & keeps ────────────────────────────
+  function CoveTab() {
+    const COVE_ACCENT_COLORS = [
+      "#3a6b8a","#c8a97a","#5DCAA5","#AFA9EC","#D4537E","#EF9F27","#888780","#1a2744"
+    ];
+
+    const COVE_TEMPLATES = {
+      "first-100-foods": {
+        title:"Baby's first 100 foods",category:"family",list_type:"checklist",
+        icon:"baby-carriage",color_accent:"#3a6b8a",show_progress:true,
+        sections:[
+          {title:"Fruits",items:[
+            {content:"Banana",tags:["easy first"]},{content:"Avocado",tags:[]},
+            {content:"Apple",tags:[]},{content:"Pear",tags:[]},{content:"Mango",tags:[]},
+            {content:"Peach",tags:[]},{content:"Plum",tags:[]},{content:"Blueberry",tags:["allergen"]},
+            {content:"Strawberry",tags:["allergen"]},{content:"Raspberry",tags:[]},
+            {content:"Watermelon",tags:[]},{content:"Cantaloupe",tags:[]},{content:"Kiwi",tags:[]},
+            {content:"Grape",tags:[]},{content:"Cherry",tags:[]},{content:"Papaya",tags:[]},
+            {content:"Orange",tags:[]},{content:"Pineapple",tags:[]},{content:"Coconut",tags:[]},{content:"Apricot",tags:[]},
+          ]},
+          {title:"Vegetables",items:[
+            {content:"Sweet potato",tags:["easy first"]},{content:"Broccoli",tags:[]},
+            {content:"Carrot",tags:[]},{content:"Peas",tags:[]},{content:"Green beans",tags:[]},
+            {content:"Butternut squash",tags:[]},{content:"Spinach",tags:[]},{content:"Cauliflower",tags:[]},
+            {content:"Zucchini",tags:[]},{content:"Kale",tags:[]},{content:"Beets",tags:[]},
+            {content:"Parsnip",tags:[]},{content:"Pumpkin",tags:[]},{content:"Corn",tags:[]},
+            {content:"Bell pepper",tags:[]},{content:"Asparagus",tags:[]},{content:"Edamame",tags:[]},
+            {content:"Cucumber",tags:[]},{content:"Tomato",tags:[]},{content:"Beet",tags:[]},
+          ]},
+          {title:"Proteins",items:[
+            {content:"Peanut butter",tags:["allergen"]},{content:"Egg",tags:["allergen"]},
+            {content:"Chicken",tags:[]},{content:"Salmon",tags:["allergen"]},{content:"Beef",tags:[]},
+            {content:"Turkey",tags:[]},{content:"Lentils",tags:[]},{content:"Black beans",tags:[]},
+            {content:"Chickpeas",tags:[]},{content:"Tofu",tags:[]},{content:"Almond butter",tags:["allergen"]},
+            {content:"Tuna",tags:["allergen"]},{content:"Pork",tags:[]},{content:"Lamb",tags:[]},
+            {content:"Shrimp",tags:["allergen"]},{content:"Cod",tags:[]},{content:"Sardines",tags:[]},
+            {content:"White beans",tags:[]},{content:"Kidney beans",tags:[]},{content:"Edamame (shelled)",tags:[]},
+          ]},
+          {title:"Grains & starches",items:[
+            {content:"Oatmeal",tags:[]},{content:"Brown rice",tags:[]},{content:"Quinoa",tags:[]},
+            {content:"Barley",tags:[]},{content:"Millet",tags:[]},{content:"Whole wheat toast",tags:["allergen"]},
+            {content:"Potato",tags:[]},{content:"Polenta",tags:[]},{content:"Cream of wheat",tags:["allergen"]},
+            {content:"Buckwheat",tags:[]},
+          ]},
+          {title:"Dairy & fats",items:[
+            {content:"Full-fat yogurt",tags:["allergen"]},{content:"Cottage cheese",tags:["allergen"]},
+            {content:"Ricotta",tags:["allergen"]},{content:"Whole milk cheese",tags:["allergen"]},
+            {content:"Cream cheese",tags:["allergen"]},{content:"Ghee",tags:[]},
+            {content:"Olive oil",tags:[]},{content:"Coconut oil",tags:[]},
+            {content:"Butter",tags:["allergen"]},{content:"Whole milk (in cooking)",tags:["allergen"]},
+          ]},
+        ],
+      },
+      "moving":{
+        title:"Moving checklist",category:"family",list_type:"checklist",
+        icon:"building",color_accent:"#5DCAA5",show_progress:true,
+        sections:[
+          {title:"8 weeks out",items:[
+            {content:"Set your move date",tags:[]},{content:"Book moving company or truck rental",tags:[]},
+            {content:"Start decluttering — donate, sell, toss",tags:[]},
+            {content:"Request time off work for move day",tags:[]},
+            {content:"Notify kids school of upcoming change",tags:[]},
+            {content:"Research new area — schools, doctors, grocery",tags:[]},
+            {content:"Start collecting boxes and packing supplies",tags:[]},
+          ]},
+          {title:"4 weeks out",items:[
+            {content:"Begin packing non-essentials",tags:[]},
+            {content:"Label every box with room + brief contents",tags:[]},
+            {content:"Forward mail (USPS change of address)",tags:[]},
+            {content:"Notify bank, insurance, subscriptions of new address",tags:[]},
+            {content:"Transfer or find new doctors, dentists, vets",tags:[]},
+            {content:"Arrange childcare or pet care for move day",tags:[]},
+            {content:"Confirm moving company details",tags:[]},
+            {content:"Take photos of electronics setups before unplugging",tags:[]},
+          ]},
+          {title:"1 week out",items:[
+            {content:"Finish packing all rooms except essentials",tags:[]},
+            {content:"Pack essentials bag (first night box)",tags:["priority"]},
+            {content:"Defrost freezer",tags:[]},{content:"Confirm utilities transfer at new address",tags:[]},
+            {content:"Clean out fridge — use up or toss food",tags:[]},
+            {content:"Confirm moving truck arrival time",tags:[]},
+            {content:"Charge all devices",tags:[]},{content:"Get cash for tips",tags:[]},
+          ]},
+          {title:"Moving day",items:[
+            {content:"Final walkthrough of every room",tags:["priority"]},
+            {content:"Check all closets, cabinets, attic, garage",tags:[]},
+            {content:"Take meter readings at old place",tags:[]},
+            {content:"Hand over keys to old place",tags:[]},
+            {content:"Take meter readings at new place",tags:[]},
+            {content:"Direct movers on box placement by room",tags:[]},
+            {content:"Set up beds first — sleep is non-negotiable",tags:["priority"]},
+            {content:"Locate essentials box",tags:["priority"]},
+          ]},
+          {title:"First week in",items:[
+            {content:"Update drivers license address",tags:[]},
+            {content:"Register vehicles in new state if needed",tags:[]},
+            {content:"Find nearest urgent care and ER",tags:[]},
+            {content:"Introduce yourself to neighbors",tags:[]},
+            {content:"Set up internet",tags:["priority"]},
+            {content:"Test smoke and carbon monoxide detectors",tags:["priority"]},
+            {content:"Change locks",tags:["priority"]},
+            {content:"Get kids settled in their rooms",tags:[]},
+          ]},
+          {title:"Settled",items:[
+            {content:"Update voter registration",tags:[]},
+            {content:"Find new pediatrician and schedule intro visit",tags:[]},
+            {content:"Update address with IRS if needed",tags:[]},
+            {content:"Hang art and make it feel like home",tags:[]},
+            {content:"Celebrate — you did it! 🎉",tags:[]},
+          ]},
+        ],
+      },
+      "summer-bucket-list":{title:"Summer bucket list",category:"family",list_type:"checklist",icon:"sun",color_accent:"#c8a97a",show_progress:true,sections:[]},
+      "house-projects":{title:"House projects",category:"home",list_type:"checklist",icon:"tool",color_accent:"#888780",show_progress:false,sections:[]},
+      "books-to-read":{title:"Books to read",category:"personal",list_type:"freeform",icon:"book",color_accent:"#D4537E",show_progress:false,sections:[]},
+      "goals":{title:"Goals",category:"personal",list_type:"checklist",icon:"target",color_accent:"#EF9F27",show_progress:true,sections:[]},
+    };
+
+    const TEMPLATE_GALLERY = [
+      {id:"first-100-foods",label:"Baby's first 100 foods",icon:"baby-carriage",desc:"100 foods pre-loaded by category",category:"family"},
+      {id:"moving",label:"Moving checklist",icon:"building",desc:"6 phases from 8 weeks out to settled",category:"family"},
+      {id:"summer-bucket-list",label:"Summer bucket list",icon:"sun",desc:"Freeform family goals",category:"family"},
+      {id:"house-projects",label:"House projects",icon:"tool",desc:"Track home to-dos with due dates",category:"home"},
+      {id:"books-to-read",label:"Books to read",icon:"book",desc:"Your personal reading list",category:"personal"},
+      {id:"goals",label:"Goals",icon:"target",desc:"Progress-tracked personal goals",category:"personal"},
+    ];
+
+    const CAT_LABELS = {all:"All",family:"Family",home:"Home",personal:"Personal"};
+
+    var [coveLists, setCoveLists] = useSaved("cove_lists_v1", []);
+    var [coveItemsMap, setCoveItemsMap] = useSaved("cove_items_v1", {});
+    var [coveSectionsMap, setCoveSectionsMap] = useSaved("cove_sections_v1", {});
+    var [catFilter, setCatFilter] = useState("all");
+    var [view, setView] = useState("list");
+    var [activeListId, setActiveListId] = useState(null);
+    var [collapsedSections, setCollapsedSections] = useState({});
+    var [newItemTexts, setNewItemTexts] = useState({});
+    var [showNewModal, setShowNewModal] = useState(false);
+    var [newForm, setNewForm] = useState({title:"",category:"family",color_accent:"#3a6b8a"});
+    var [saving, setSaving] = useState(false);
+    var [aiLoading, setAiLoading] = useState(false);
+
+    var activeList = coveLists.find(function(l){ return l.id === activeListId; }) || null;
+    var activeItems = activeListId ? (coveItemsMap[activeListId] || []) : [];
+    var activeSections = activeListId ? (coveSectionsMap[activeListId] || []) : [];
+
+    function uid2() { return Math.random().toString(36).slice(2,10); }
+
+    function openList(list) {
+      setActiveListId(list.id);
+      setView("detail");
+      setCollapsedSections({});
+    }
+
+    function toggleItem(itemId) {
+      setCoveItemsMap(function(prev) {
+        var items = (prev[activeListId] || []).map(function(i) {
+          return i.id === itemId ? Object.assign({}, i, {checked: !i.checked}) : i;
+        });
+        return Object.assign({}, prev, {[activeListId]: items});
+      });
+    }
+
+    function addItem(sectionId) {
+      var key = sectionId || "__top__";
+      var text = (newItemTexts[key] || "").trim();
+      if (!text) return;
+      var newItem = {id: uid2(), content: text, checked: false, tags: [], section_id: sectionId || null};
+      setCoveItemsMap(function(prev) {
+        var items = (prev[activeListId] || []).concat([newItem]);
+        return Object.assign({}, prev, {[activeListId]: items});
+      });
+      setNewItemTexts(function(prev) { return Object.assign({}, prev, {[key]: ""}); });
+    }
+
+    function createFromTemplate(templateId) {
+      setSaving(true);
+      var tmpl = COVE_TEMPLATES[templateId];
+      if (!tmpl) { setSaving(false); return; }
+      var listId = uid2();
+      var newList = {
+        id: listId, title: tmpl.title, category: tmpl.category,
+        list_type: tmpl.list_type, icon: tmpl.icon,
+        color_accent: tmpl.color_accent, show_progress: tmpl.show_progress,
+        template_id: templateId, created_at: Date.now(),
+      };
+      var sections = [];
+      var items = [];
+      (tmpl.sections || []).forEach(function(sec, si) {
+        var secId = uid2();
+        sections.push({id: secId, title: sec.title, sort_order: si});
+        (sec.items || []).forEach(function(item, ii) {
+          items.push({id: uid2(), content: item.content, checked: false, tags: item.tags || [], section_id: secId, sort_order: ii});
+        });
+      });
+      setCoveLists(function(prev) { return [newList].concat(prev); });
+      setCoveSectionsMap(function(prev) { return Object.assign({}, prev, {[listId]: sections}); });
+      setCoveItemsMap(function(prev) { return Object.assign({}, prev, {[listId]: items}); });
+      setSaving(false);
+      setShowNewModal(false);
+      setActiveListId(listId);
+      setView("detail");
+      setCollapsedSections({});
+    }
+
+    function createBlank() {
+      if (!newForm.title.trim()) return;
+      setSaving(true);
+      var listId = uid2();
+      var newList = {
+        id: listId, title: newForm.title.trim(), category: newForm.category,
+        list_type: "checklist", icon: "list",
+        color_accent: newForm.color_accent, show_progress: true,
+        template_id: null, created_at: Date.now(),
+      };
+      setCoveLists(function(prev) { return [newList].concat(prev); });
+      setCoveItemsMap(function(prev) { return Object.assign({}, prev, {[listId]: []}); });
+      setCoveSectionsMap(function(prev) { return Object.assign({}, prev, {[listId]: []}); });
+      setSaving(false);
+      setShowNewModal(false);
+      setNewForm({title:"",category:"family",color_accent:"#3a6b8a"});
+      setActiveListId(listId);
+      setView("detail");
+    }
+
+    async function askRipple() {
+      setAiLoading(true);
+      var unchecked = activeItems.filter(function(i){ return !i.checked; }).map(function(i){ return i.content; });
+      var checked = activeItems.filter(function(i){ return i.checked; }).map(function(i){ return i.content; });
+      var prompt = 'I have a list called "' + activeList.title + '". Already done: ' + (checked.slice(0,15).join(", ")||"none") + '. Still to do: ' + (unchecked.join(", ")||"none") + '. Suggest 3-5 items I might be missing. Be brief — just a short bulleted list, no preamble.';
+      try {
+        var res = await fetch("/api/anthropic", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]}),
+        });
+        var data = await res.json();
+        var text = (data.content||[]).map(function(b){ return b.text||""; }).join("");
+        alert("Ripple suggests:\n\n" + text);
+      } catch(e) {
+        alert("Ripple is unavailable right now.");
+      }
+      setAiLoading(false);
+    }
+
+    var filteredLists = coveLists.filter(function(l) {
+      return catFilter === "all" || l.category === catFilter;
+    });
+    var groupedCats = ["family","home","personal"].filter(function(cat) {
+      return filteredLists.some(function(l){ return l.category === cat; });
+    });
+
+    var accent = activeList ? (activeList.color_accent || T.blue) : T.blue;
+    var totalItems = activeItems.length;
+    var checkedCount = activeItems.filter(function(i){ return i.checked; }).length;
+    var pct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
+
+    // ── Detail view ──────────────────────────────────────────────────────────
+    if (view === "detail" && activeList) {
+      var unsectionedItems = activeItems.filter(function(i){ return !i.section_id; });
+      return (
+        <div style={{paddingBottom:"2rem"}}>
+          {/* Header */}
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 16px 12px",borderBottom:"1px solid "+T.border}}>
+            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:4,borderRadius:6,display:"flex",alignItems:"center"}}>
+              <Icon name="arrow-left" size={18} color={T.textSoft}/>
+            </button>
+            <div style={{width:4,height:36,borderRadius:2,background:accent,flexShrink:0}}/>
+            <div>
+              <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark,fontFamily:"'Cormorant Garamond',serif"}}>{activeList.title}</div>
+              <div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:1}}>{CAT_LABELS[activeList.category]} · {activeList.list_type}{totalItems > 0 ? " · " + totalItems + " items" : ""}</div>
+            </div>
+          </div>
+
+          <div style={{padding:"14px 16px"}}>
+            {/* Progress */}
+            {activeList.show_progress && totalItems > 0 && (
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                <div style={{flex:1,height:5,background:T.border,borderRadius:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:3,background:accent,width:pct+"%",transition:"width 0.3s"}}/>
+                </div>
+                <span style={{fontSize:"0.72rem",color:T.textSoft,whiteSpace:"nowrap"}}>{checkedCount} / {totalItems}</span>
+              </div>
+            )}
+
+            {/* Sections */}
+            {activeSections.map(function(sec) {
+              var secItems = activeItems.filter(function(i){ return i.section_id === sec.id; });
+              var secDone = secItems.filter(function(i){ return i.checked; }).length;
+              var isCollapsed = collapsedSections[sec.id];
+              var addKey = "sec_"+sec.id;
+              return (
+                <div key={sec.id} style={{marginBottom:14}}>
+                  <div
+                    onClick={function(){ setCollapsedSections(function(prev){ return Object.assign({},prev,{[sec.id]:!prev[sec.id]}); }); }}
+                    style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,cursor:"pointer"}}
+                  >
+                    <span style={{fontSize:"0.67rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textSoft}}>{sec.title}</span>
+                    <span style={{fontSize:"0.65rem",background:T.navBg,color:T.textSoft,padding:"1px 7px",borderRadius:999,border:"1px solid "+T.border}}>{secDone}/{secItems.length}</span>
+                    <Icon name={isCollapsed?"chevron-right":"chevron-down"} size={12} color={T.textSoft} style={{marginLeft:"auto"}}/>
+                  </div>
+                  {!isCollapsed && (
+                    <div>
+                      {secItems.map(function(item) {
+                        return (
+                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid "+T.border}}>
+                            <div
+                              onClick={function(){ toggleItem(item.id); }}
+                              style={{width:16,height:16,borderRadius:4,border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
+                            >
+                              {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </div>
+                            <span style={{fontSize:"0.8rem",color:item.checked?T.textSoft:T.textDark,textDecoration:item.checked?"line-through":"none",flex:1}}>{item.content}</span>
+                            {item.tags && item.tags.map(function(tag) {
+                              var tagBg = tag==="allergen"?"#faeeda":tag==="priority"?"#fbeaf0":"#e1f5ee";
+                              var tagColor = tag==="allergen"?"#633806":tag==="priority"?"#72243e":"#085041";
+                              return <span key={tag} style={{fontSize:"0.6rem",padding:"1px 6px",borderRadius:999,background:tagBg,color:tagColor,fontWeight:600}}>{tag}</span>;
+                            })}
+                          </div>
+                        );
+                      })}
+                      <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:6}}>
+                        <input
+                          value={newItemTexts[addKey]||""}
+                          onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{[addKey]:e.target.value}); }); }}
+                          onKeyDown={function(e){ if(e.key==="Enter") addItem(sec.id); }}
+                          placeholder="Add item…"
+                          style={{flex:1,fontSize:"0.78rem",border:"none",borderBottom:"1px solid "+T.border,background:"transparent",color:T.textDark,padding:"3px 0",outline:"none"}}
+                        />
+                        <button onClick={function(){ addItem(sec.id); }} style={{...btnS({fontSize:"0.7rem",padding:"3px 10px"})}}>Add</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Unsectioned items */}
+            {unsectionedItems.map(function(item) {
+              return (
+                <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid "+T.border}}>
+                  <div
+                    onClick={function(){ toggleItem(item.id); }}
+                    style={{width:16,height:16,borderRadius:4,border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
+                  >
+                    {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span style={{fontSize:"0.8rem",color:item.checked?T.textSoft:T.textDark,textDecoration:item.checked?"line-through":"none",flex:1}}>{item.content}</span>
+                </div>
+              );
+            })}
+
+            {/* Add unsectioned item */}
+            {activeSections.length === 0 && (
+              <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:8}}>
+                <input
+                  value={newItemTexts["__top__"]||""}
+                  onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{__top__:e.target.value}); }); }}
+                  onKeyDown={function(e){ if(e.key==="Enter") addItem(null); }}
+                  placeholder="Add item…"
+                  style={{flex:1,fontSize:"0.78rem",border:"none",borderBottom:"1px solid "+T.border,background:"transparent",color:T.textDark,padding:"3px 0",outline:"none"}}
+                />
+                <button onClick={function(){ addItem(null); }} style={{...btnS({fontSize:"0.7rem",padding:"3px 10px"})}}>Add</button>
+              </div>
+            )}
+
+            {/* Ripple button */}
+            <button
+              onClick={askRipple}
+              disabled={aiLoading}
+              style={{marginTop:16,display:"flex",alignItems:"center",gap:6,fontSize:"0.75rem",padding:"7px 14px",borderRadius:8,border:"1px solid "+T.blue,color:T.blue,background:"transparent",cursor:"pointer",opacity:aiLoading?0.5:1}}
+            >
+              <Icon name="sparkles" size={14} color={T.blue}/>
+              {aiLoading ? "Ripple is thinking…" : "Ripple: suggest what to add"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── List view ────────────────────────────────────────────────────────────
+    return (
+      <div style={{paddingBottom:"2rem"}}>
+        {/* Header */}
+        <div style={{padding:"18px 16px 10px",borderBottom:"1px solid "+T.border,display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>🪸 Cove</div>
+            <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your organized lists, ideas, plans, and keeps.</div>
+          </div>
+          <button onClick={function(){ setShowNewModal(true); }} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
+            <Icon name="plus" size={12} color="#fff"/> New list
+          </button>
+        </div>
+
+        {/* Category filter */}
+        <div style={{padding:"10px 16px",display:"flex",gap:6,flexWrap:"wrap",borderBottom:"1px solid "+T.border}}>
+          {["all","family","home","personal"].map(function(cat) {
+            var active = catFilter === cat;
+            return (
+              <button key={cat} onClick={function(){ setCatFilter(cat); }}
+                style={{fontSize:"0.72rem",padding:"4px 12px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit"}}
+              >{CAT_LABELS[cat]}</button>
+            );
+          })}
+        </div>
+
+        <div style={{padding:"14px 16px"}}>
+          {coveLists.length === 0 ? (
+            <div style={{textAlign:"center",padding:"2rem 0"}}>
+              <div style={{fontSize:"2rem",marginBottom:8}}>🪸</div>
+              <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>Your Cove is empty.</div>
+              <div style={{fontSize:"0.75rem",color:T.textFaint}}>Start with a template or create a blank list.</div>
+            </div>
+          ) : (
+            groupedCats.map(function(cat) {
+              var group = filteredLists.filter(function(l){ return l.category === cat; });
+              if (!group.length) return null;
+              return (
+                <div key={cat}>
+                  <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:T.textFaint,margin:"12px 0 8px"}}>{CAT_LABELS[cat]}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:4}}>
+                    {group.map(function(list) {
+                      var listItems = coveItemsMap[list.id] || [];
+                      var done = listItems.filter(function(i){ return i.checked; }).length;
+                      var total = listItems.length;
+                      var lPct = total > 0 ? Math.round((done/total)*100) : 0;
+                      return (
+                        <div key={list.id} onClick={function(){ openList(list); }}
+                          style={{background:T.white,border:"1px solid "+T.border,borderRadius:12,padding:"12px 14px",cursor:"pointer",transition:"all 0.15s"}}
+                        >
+                          <div style={{height:3,borderRadius:2,background:list.color_accent||T.blue,marginBottom:10}}/>
+                          <div style={{fontSize:"0.85rem",marginBottom:5}}><Icon name={list.icon||"list"} size={15} color={T.textSoft}/></div>
+                          <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:3,lineHeight:1.3}}>{list.title}</div>
+                          <div style={{fontSize:"0.68rem",color:T.textFaint}}>{total > 0 ? done+" of "+total+" done" : "Empty"}</div>
+                          {list.show_progress && total > 0 && (
+                            <div style={{marginTop:8,height:3,background:T.border,borderRadius:2,overflow:"hidden"}}>
+                              <div style={{height:"100%",borderRadius:2,background:list.color_accent||T.blue,width:lPct+"%",transition:"width 0.3s"}}/>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {/* New list row */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
+            <button onClick={function(){ setShowNewModal(true); }}
+              style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
+            ><Icon name="layout-grid-add" size={14} color={T.textSoft}/> From template</button>
+            <button onClick={function(){ setNewForm({title:"",category:"family",color_accent:"#3a6b8a"}); setShowNewModal(true); }}
+              style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
+            ><Icon name="pencil" size={14} color={T.textSoft}/> Blank list</button>
+          </div>
+        </div>
+
+        {/* New list modal */}
+        {showNewModal && (
+          <div onClick={function(e){ if(e.target===e.currentTarget) setShowNewModal(false); }}
+            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}
+          >
+            <div style={{background:T.white,borderRadius:"20px 20px 0 0",width:"100%",maxWidth:600,padding:"20px 20px 36px",maxHeight:"80vh",overflowY:"auto"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>New list</div>
+                <button onClick={function(){ setShowNewModal(false); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontSize:18,padding:0,lineHeight:1}}>✕</button>
+              </div>
+              <div style={{fontSize:"0.72rem",color:T.textSoft,marginBottom:16}}>Start from a template or build your own.</div>
+
+              {/* Templates */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}}>
+                {TEMPLATE_GALLERY.map(function(tmpl) {
+                  return (
+                    <button key={tmpl.id} onClick={function(){ createFromTemplate(tmpl.id); }} disabled={saving}
+                      style={{border:"1px solid "+T.border,borderRadius:10,padding:12,cursor:"pointer",background:"transparent",textAlign:"left",width:"100%",transition:"all 0.15s",fontFamily:"inherit"}}
+                    >
+                      <div style={{fontSize:"1.1rem",marginBottom:5}}><Icon name={tmpl.icon} size={16} color={T.textSoft}/></div>
+                      <div style={{fontSize:"0.75rem",fontWeight:700,color:T.textDark,marginBottom:2}}>{tmpl.label}</div>
+                      <div style={{fontSize:"0.65rem",color:T.textFaint}}>{tmpl.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Blank form */}
+              <div style={{borderTop:"1px solid "+T.border,paddingTop:14}}>
+                <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:10}}>Or start blank</div>
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  <div>
+                    <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:4}}>List name</div>
+                    <input value={newForm.title} onChange={function(e){ setNewForm(function(f){ return Object.assign({},f,{title:e.target.value}); }); }}
+                      placeholder="e.g. Pantry restock"
+                      style={{width:"100%",fontSize:"0.88rem",padding:"8px 10px",border:"1px solid "+T.border,borderRadius:8,background:T.white,color:T.textDark,outline:"none",fontFamily:"inherit"}}
+                    />
+                  </div>
+                  <div>
+                    <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:6}}>Category</div>
+                    <div style={{display:"flex",gap:6}}>
+                      {["family","home","personal"].map(function(cat) {
+                        var active = newForm.category === cat;
+                        return (
+                          <button key={cat} onClick={function(){ setNewForm(function(f){ return Object.assign({},f,{category:cat}); }); }}
+                            style={{fontSize:"0.72rem",padding:"5px 12px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}
+                          >{CAT_LABELS[cat]}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:6}}>Color</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {COVE_ACCENT_COLORS.map(function(color) {
+                        return (
+                          <div key={color} onClick={function(){ setNewForm(function(f){ return Object.assign({},f,{color_accent:color}); }); }}
+                            style={{width:24,height:24,borderRadius:"50%",background:color,cursor:"pointer",border:newForm.color_accent===color?"2.5px solid "+T.textDark:"2px solid transparent",transition:"transform 0.15s",transform:newForm.color_accent===color?"scale(1.15)":"scale(1)"}}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <button onClick={createBlank} disabled={saving || !newForm.title.trim()}
+                    style={{...btnP(T.blue,{fontSize:"0.85rem",padding:"10px",justifyContent:"center",opacity:(!newForm.title.trim()||saving)?0.4:1})}}
+                  >{saving ? "Creating…" : "Create list"}</button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -8840,7 +9376,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","calendar","weekly","meals","shop","cove","home","brain","school","settings","ai"].map(t=>{
+          {["anchor","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -8849,6 +9385,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="weekly"   && <WeeklyTab/>}
                 {t==="meals"    && <MealsTab/>}
                 {t==="shop"     && <ShoppingTab/>}
+                {t==="tidepool" && <TidePoolTab/>}
                 {t==="cove"     && <CoveTab/>}
                 {t==="home"     && <HomeTab/>}
                 {t==="brain"    && <BrainTab/>}
@@ -9122,7 +9659,8 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "calendar", label: "Calendar", emoji: "📆" },
     { id: "meals",    label: "Meals",    emoji: "🍽️" },
     { id: "shop",     label: "Shopping", emoji: "🛒" },
-    { id: "cove",     label: "Tide Pool", emoji: "🏝️" },
+    { id: "tidepool", label: "Tide Pool", emoji: "🏝️" },
+    { id: "cove",     label: "Cove",      emoji: "🪸" },
     { id: "home",     label: "Home",     emoji: "🏡" },
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
     { id: "school",   label: "School",   emoji: "🏫" },
