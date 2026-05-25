@@ -6970,34 +6970,121 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var checkedCount = activeItems.filter(function(i){ return i.checked; }).length;
     var pct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
 
-    // ── Item row — shared between sections and unsectioned ────────────────────
+    // ── Drag state for items ──────────────────────────────────────────────────
+    var dragItem = useRef({from:null, fromSec:null, toSec:null, toIdx:null, clone:null});
+    var [dragFromId, setDragFromId] = useState(null);
+    var [dragOverId, setDragOverId] = useState(null);
+
+    function itemPointerDown(e, item) {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+      dragItem.current.from = item.id;
+      dragItem.current.fromSec = item.section_id || null;
+      dragItem.current.toSec = item.section_id || null;
+      dragItem.current.toIdx = null;
+      setDragFromId(item.id);
+
+      var clone = e.currentTarget.cloneNode(true);
+      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:"+e.currentTarget.offsetWidth+"px;background:"+T.surface+";border:1.5px solid "+accent+";border-radius:8px;padding:7px 12px;box-shadow:0 4px 18px rgba(0,0,0,0.15);";
+      clone.style.left = (e.clientX - 20) + "px";
+      clone.style.top  = (e.clientY - 16) + "px";
+      document.body.appendChild(clone);
+      dragItem.current.clone = clone;
+
+      function onMove(ev) {
+        clone.style.left = (ev.clientX - 20) + "px";
+        clone.style.top  = (ev.clientY - 16) + "px";
+        var el = document.elementFromPoint(ev.clientX, ev.clientY);
+        var row = el && el.closest("[data-itemid]");
+        var secEl = el && el.closest("[data-secid]");
+        dragItem.current.toSec = secEl ? secEl.getAttribute("data-secid") : null;
+        if (row) {
+          var rid = row.getAttribute("data-itemid");
+          if (rid !== dragItem.current.from) { dragItem.current.toIdx = rid; setDragOverId(rid); }
+        } else { setDragOverId(null); }
+      }
+      function onUp() {
+        document.body.removeChild(clone);
+        dragItem.current.clone = null;
+        setDragFromId(null); setDragOverId(null);
+        window.removeEventListener("pointermove", onMove);
+        var fromId = dragItem.current.from;
+        var toId   = dragItem.current.toIdx;
+        var toSec  = dragItem.current.toSec !== undefined ? dragItem.current.toSec : null;
+        dragItem.current.from = dragItem.current.toIdx = null;
+        if (!fromId) return;
+        setCoveItemsMap(function(prev) {
+          var items = (prev[activeListId] || []).slice();
+          var fromIdx = items.findIndex(function(i){ return i.id === fromId; });
+          if (fromIdx === -1) return prev;
+          var moved = Object.assign({}, items[fromIdx], { section_id: toSec || null });
+          items.splice(fromIdx, 1);
+          var toIdx2 = toId ? items.findIndex(function(i){ return i.id === toId; }) : -1;
+          if (toIdx2 === -1) items.push(moved);
+          else items.splice(toIdx2, 0, moved);
+          return Object.assign({}, prev, {[activeListId]: items});
+        });
+      }
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp, {once:true});
+      e.preventDefault();
+    }
+
+    // ── Item row ──────────────────────────────────────────────────────────────
     function ItemRow(props) {
       var item = props.item;
       var [editing, setEditing] = useState(false);
       var [draft, setDraft] = useState(item.content);
+      var isDragging = dragFromId === item.id;
+      var isOver = dragOverId === item.id && dragFromId !== item.id;
       return (
-        <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid "+T.borderSoft,group:true}}>
-          <div onClick={function(){ toggleItem(item.id); }}
+        <div data-itemid={item.id}
+          onPointerDown={function(e){ itemPointerDown(e, item); }}
+          style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",
+            borderBottom:"1px solid "+T.borderSoft,
+            borderTop: isOver ? "2px solid "+accent : "none",
+            opacity: isDragging ? 0.3 : 1,
+            cursor: "grab", userSelect:"none",
+            background: isOver ? accent+"0a" : "transparent",
+            transition:"background 0.1s"}}>
+          {/* Drag handle */}
+          <div style={{opacity:0.2,flexShrink:0,cursor:"grab",paddingRight:2}}>
+            <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+              <circle cx="3" cy="3" r="1.2" fill={T.textSoft}/>
+              <circle cx="7" cy="3" r="1.2" fill={T.textSoft}/>
+              <circle cx="3" cy="7" r="1.2" fill={T.textSoft}/>
+              <circle cx="7" cy="7" r="1.2" fill={T.textSoft}/>
+              <circle cx="3" cy="11" r="1.2" fill={T.textSoft}/>
+              <circle cx="7" cy="11" r="1.2" fill={T.textSoft}/>
+            </svg>
+          </div>
+          {/* Check circle */}
+          <div onClick={function(e){ e.stopPropagation(); toggleItem(item.id); }}
+            onPointerDown={function(e){ e.stopPropagation(); }}
             style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
             {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
+          {/* Text — single tap to edit */}
           {editing
-            ? <input autoFocus value={draft} onChange={function(e){setDraft(e.target.value);}}
+            ? <input autoFocus value={draft}
+                onChange={function(e){setDraft(e.target.value);}}
                 onBlur={function(){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }}
-                onKeyDown={function(e){ if(e.key==="Enter"||e.key==="Escape"){ renameItem(item.id,draft.trim()||item.content); setEditing(false); } }}
+                onKeyDown={function(e){
+                  if(e.key==="Enter"){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }
+                  if(e.key==="Escape"){ setDraft(item.content); setEditing(false); }
+                }}
+                onPointerDown={function(e){ e.stopPropagation(); }}
                 style={{flex:1,fontSize:"0.85rem",border:"none",borderBottom:"1.5px solid "+accent,background:"transparent",color:T.textDark,padding:"0 0 1px",outline:"none",fontFamily:"inherit"}}/>
-            : <span onDoubleClick={function(){ setEditing(true); setDraft(item.content); }}
+            : <span
+                onClick={function(e){ e.stopPropagation(); setEditing(true); setDraft(item.content); }}
+                onPointerDown={function(e){ e.stopPropagation(); }}
                 style={{flex:1,fontSize:"0.85rem",color:item.checked?T.textFaint:T.textDark,textDecoration:item.checked?"line-through":"none",cursor:"text",lineHeight:1.45}}>
                 {item.content}
-                {item.tags && item.tags.map(function(tag){
-                  var tagBg=tag==="allergen"?"#faeeda":tag==="priority"?"#fbeaf0":"#e1f5ee";
-                  var tagColor=tag==="allergen"?"#633806":tag==="priority"?"#72243e":"#085041";
-                  return <span key={tag} style={{fontSize:"0.6rem",padding:"1px 6px",borderRadius:999,background:tagBg,color:tagColor,fontWeight:600,marginLeft:5}}>{tag}</span>;
-                })}
               </span>
           }
-          <button onClick={function(){ deleteItem(item.id); }}
-            style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:"0 2px",display:"flex",flexShrink:0,lineHeight:1,fontSize:14,color:T.textSoft}}>✕</button>
+          {/* Delete */}
+          <button onClick={function(e){ e.stopPropagation(); deleteItem(item.id); }}
+            onPointerDown={function(e){ e.stopPropagation(); }}
+            style={{background:"none",border:"none",cursor:"pointer",opacity:0.25,padding:"0 2px",display:"flex",flexShrink:0,fontSize:13,color:T.textSoft,lineHeight:1}}>✕</button>
         </div>
       );
     }
@@ -7009,27 +7096,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{paddingBottom:"3rem"}}>
           {/* Header */}
           <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
-            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:2}}>
+            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:4}}>
               <Icon name="arrow-left" size={18} color={T.textSoft}/>
             </button>
             <div style={{flex:1,minWidth:0}}>
-              {/* Editable title */}
               <input
                 value={activeList.title}
                 onChange={function(e){ renameList(activeList.id, e.target.value); }}
                 style={{width:"100%",fontSize:"1.4rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0,lineHeight:1.2}}
               />
-              <div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2}}>
-                {totalItems > 0 ? checkedCount+" of "+totalItems+" done" : "Empty — start adding"}
-                {totalItems > 0 && " · double-tap any item to rename"}
+              <div style={{fontSize:"0.66rem",color:T.textFaint,marginTop:2}}>
+                {totalItems > 0 ? checkedCount+" of "+totalItems+" done · tap text to edit · drag to reorder" : "Start adding below"}
               </div>
             </div>
-            <button onClick={function(){ deleteList(activeList.id); }} style={{background:"none",border:"none",cursor:"pointer",opacity:0.35,padding:4,display:"flex",flexShrink:0}}>
-              <Icon name="trash" size={15} color={T.rose}/>
+            <button onClick={function(){ deleteList(activeList.id); }} style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:4,display:"flex",flexShrink:0,marginTop:2}}>
+              <Icon name="trash" size={14} color={T.rose}/>
             </button>
           </div>
 
-          {/* Progress bar */}
+          {/* Progress */}
           {totalItems > 0 && (
             <div style={{padding:"0 16px 10px"}}>
               <div style={{height:3,background:T.borderSoft,borderRadius:2,overflow:"hidden"}}>
@@ -7039,64 +7124,83 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           )}
 
           <div style={{padding:"0 16px"}}>
-            {/* Unsectioned items */}
-            {unsectionedItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
-
-            {/* Add unsectioned item */}
-            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:activeSections.length===0?"none":"1px solid "+T.borderSoft}}>
-              <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
-              <input
-                value={newItemTexts["__top__"]||""}
-                onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{__top__:e.target.value}); }); }}
-                onKeyDown={function(e){ if(e.key==="Enter") addItem(null); }}
-                placeholder="Add something…"
-                style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
-              />
+            {/* Unsectioned items drop zone */}
+            <div data-secid="__none__">
+              {unsectionedItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:activeSections.length>0?"1px solid "+T.borderSoft:"none"}}>
+                <div style={{width:17,height:17,flexShrink:0,opacity:0.3}}>
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+                    <circle cx="3" cy="3" r="1.2" fill={T.textSoft}/><circle cx="7" cy="3" r="1.2" fill={T.textSoft}/>
+                    <circle cx="3" cy="7" r="1.2" fill={T.textSoft}/><circle cx="7" cy="7" r="1.2" fill={T.textSoft}/>
+                    <circle cx="3" cy="11" r="1.2" fill={T.textSoft}/><circle cx="7" cy="11" r="1.2" fill={T.textSoft}/>
+                  </svg>
+                </div>
+                <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
+                <input
+                  value={newItemTexts["__top__"]||""}
+                  onChange={function(e){ setNewItemTexts(function(p){ return Object.assign({},p,{__top__:e.target.value}); }); }}
+                  onKeyDown={function(e){ if(e.key==="Enter") addItem(null); }}
+                  placeholder="Add item…"
+                  style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
+                />
+              </div>
             </div>
 
             {/* Sections */}
-            {activeSections.length > 0 && <div style={{height:12}}/>}
+            {activeSections.length > 0 && <div style={{height:8}}/>}
             {activeSections.map(function(sec) {
               var secItems = activeItems.filter(function(i){ return i.section_id === sec.id; });
               var isCollapsed = collapsedSections[sec.id];
               var addKey = "sec_"+sec.id;
               return (
-                <div key={sec.id} style={{marginBottom:16}}>
-                  {/* Section header — tap to rename, ✕ to delete */}
-                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                <div key={sec.id} style={{marginBottom:14}}>
+                  {/* Section header */}
+                  <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0 4px",borderTop:"1px solid "+T.borderSoft}}>
+                    {/* Collapse toggle */}
+                    <button
+                      onClick={function(){ setCollapsedSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}); }); }}
+                      style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0,opacity:0.5}}>
+                      <Icon name={isCollapsed?"chevron-right":"chevron-down"} size={13} color={T.textSoft}/>
+                    </button>
+                    {/* Editable section title */}
                     <input
                       value={sec.title}
                       onChange={function(e){ renameSection(sec.id, e.target.value); }}
-                      style={{flex:1,fontSize:"0.7rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textSoft,border:"none",background:"transparent",outline:"none",fontFamily:"inherit",padding:0}}
+                      style={{flex:1,fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid,border:"none",background:"transparent",outline:"none",fontFamily:"inherit",padding:0,cursor:"text"}}
                     />
-                    <button onClick={function(){ setCollapsedSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}); }); }}
-                      style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,padding:0,display:"flex"}}>
-                      <Icon name={isCollapsed?"chevron-right":"chevron-down"} size={12} color={T.textSoft}/>
-                    </button>
+                    {/* Item count badge */}
+                    <span style={{fontSize:"0.6rem",color:T.textFaint,background:T.bgAlt,borderRadius:999,padding:"1px 6px",border:"1px solid "+T.border,flexShrink:0}}>
+                      {secItems.filter(function(i){return i.checked;}).length}/{secItems.length}
+                    </span>
+                    {/* Delete section */}
                     <button onClick={function(){ deleteSection(sec.id); }}
-                      style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:"0 2px",fontSize:12,color:T.textSoft}}>✕</button>
+                      style={{background:"none",border:"none",cursor:"pointer",opacity:0.25,padding:"0 2px",fontSize:12,color:T.textSoft,flexShrink:0}}>✕</button>
                   </div>
+
+                  {/* Section items — collapsible, draggable */}
                   {!isCollapsed && (
-                    <>
+                    <div data-secid={sec.id}>
                       {secItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
-                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
+                      {/* Add to section */}
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0 2px"}}>
+                        <div style={{width:10+8+2,flexShrink:0}}/>
                         <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
                         <input
                           value={newItemTexts[addKey]||""}
-                          onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{[addKey]:e.target.value}); }); }}
+                          onChange={function(e){ setNewItemTexts(function(p){ return Object.assign({},p,{[addKey]:e.target.value}); }); }}
                           onKeyDown={function(e){ if(e.key==="Enter") addItem(sec.id); }}
                           placeholder={"Add to "+sec.title+"…"}
                           style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
                         />
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               );
             })}
 
-            {/* Bottom actions */}
-            <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+            {/* Bottom toolbar */}
+            <div style={{display:"flex",gap:8,marginTop:18,flexWrap:"wrap",borderTop:"1px dashed "+T.borderSoft,paddingTop:12}}>
               <button onClick={addSection}
                 style={{fontSize:"0.72rem",color:T.textSoft,background:"none",border:"1px dashed "+T.border,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit"}}>
                 + section
