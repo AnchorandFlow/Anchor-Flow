@@ -4,5 +4,10 @@
     { "path": "/api/send-notifications", "schedule": "0 18 * * *" },
     { "path": "/api/send-notifications", "schedule": "0 21 * * *" },
     { "path": "/api/send-notifications", "schedule": "0 23 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/home", "destination": "/home.html" }
   ]
 }
