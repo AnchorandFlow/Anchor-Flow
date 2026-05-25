@@ -1455,6 +1455,14 @@ function HomeFlow() {
   const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
+  // Reload calEvents when AnchorVault writes to localStorage (immunizations, appointments, career goals)
+  useEffect(function(){
+    function onCalChanged(){
+      try{var s=localStorage.getItem("af_calEvents");if(s)setCalEvents(JSON.parse(s));}catch{}
+    }
+    window.addEventListener("af-cal-changed",onCalChanged);
+    return function(){window.removeEventListener("af-cal-changed",onCalChanged);};
+  },[]);
   const [connectedCals,setConnectedCals]       = useSaved("connectedCals",[]);
   const [collapsedStores,setCollapsedStores]   = useSaved("collapsedStores",{});
   const [shopCategories,setShopCategories]     = useSaved("shopCategories",[
@@ -4030,7 +4038,15 @@ Respond ONLY in valid JSON:
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
           <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.25rem"}}>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
+            {calView==="month"&&(
+              <div style={{display:"flex",gap:"0.3rem"}}>
+                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
+                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
+              </div>
+            )}
+          </div>
           <button onClick={navNext} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={T.textMid}/></button>
         </div>
         {calView==="month"&&(
@@ -9691,6 +9707,8 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "settings", label: "Settings", emoji: "⚙️" },
   ]
   const VAULT_NAV = [
+    { id: "home",      label: "Home",      emoji: "⚓️" },
+    { id: "recurring", label: "Reminders", emoji: "🔁" },
     { id: "inventory", label: "Inventory", emoji: "📦" },
     { id: "systems",   label: "Systems",   emoji: "🏠" },
     { id: "health",    label: "Health",    emoji: "🩺" },
@@ -9699,6 +9717,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "gifts",     label: "Celebrate", emoji: "🎉" },
     { id: "pets",      label: "Pets",      emoji: "🐾" },
     { id: "moments",   label: "Moments",   emoji: "✨" },
+    { id: "travel",    label: "Travel",    emoji: "✈️" },
     { id: "ripples",   label: "Ripples",   emoji: "🌊" },
     { id: "settings",  label: "Settings",  emoji: "⚙️" },
   ]
@@ -9738,12 +9757,16 @@ function FlowWrapper({ onHome, onSignOut }) {
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {showAnchor ? (
           <>
-          {VAULT_NAV.filter(item => item.id === "settings" || item.id === "home" || !anchorHidden[item.id]).map(item => (
-            <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: vaultSection === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: vaultSection === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: item.premium ? "default" : "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: item.premium ? 0.25 : 1 }}>{item.emoji}</span>
-              <span style={{ fontSize: "7px", color: item.premium ? "rgba(200,169,122,0.2)" : vaultSection === item.id ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: vaultSection === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
-            </button>
-          ))}
+          {VAULT_NAV.map(item => {
+            var isActive = vaultSection === item.id;
+            var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
+            return (
+              <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1 }}>
+                <span style={{ fontSize: "14px", lineHeight: 1 }}>{item.emoji}</span>
+                <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+              </button>
+            );
+          })}
           </>
         ) : (
           NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
