@@ -6806,9 +6806,128 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var activeItems = activeListId ? (coveItemsMap[activeListId] || []) : [];
     var activeSections = activeListId ? (coveSectionsMap[activeListId] || []) : [];
 
-    function uid2() { return Math.random().toString(36).slice(2,10); }
+    // ── Notes helpers ─────────────────────────────────────────────────────────
+    var activeNote = coveNotes.find(function(n){ return n.id === activeNoteId; }) || null;
 
-    function openList(list) {
+    function newNote() {
+      var id = uid2();
+      var note = { id:id, title:"Untitled", body:"", createdAt:Date.now(), updatedAt:Date.now() };
+      setCoveNotes(function(prev){ return [note].concat(prev); });
+      setActiveNoteId(id);
+      setCoveTab("notes");
+    }
+    function updateNote(id, patch) {
+      setCoveNotes(function(prev){ return prev.map(function(n){
+        return n.id===id ? Object.assign({},n,patch,{updatedAt:Date.now()}) : n;
+      }); });
+    }
+    function deleteNote(id) {
+      if (!window.confirm("Delete this note? This can't be undone.")) return;
+      setCoveNotes(function(prev){ return prev.filter(function(n){ return n.id!==id; }); });
+      setActiveNoteId(null);
+    }
+    function fmtNoteDate(ts) {
+      var d=new Date(ts);
+      return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:d.getFullYear()!==new Date().getFullYear()?"numeric":undefined});
+    }
+
+    // ── Notes view ────────────────────────────────────────────────────────────
+    if (coveTab === "notes") {
+      // Note detail
+      if (activeNoteId && activeNote) {
+        return (
+          <div style={{paddingBottom:"2rem",minHeight:"100vh"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px 10px",borderBottom:"1px solid "+T.borderSoft}}>
+              <button onClick={function(){ setActiveNoteId(null); }} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",flexShrink:0}}>
+                <Icon name="arrow-left" size={18} color={T.textSoft}/>
+              </button>
+              <input
+                value={activeNote.title==="Untitled"?"":activeNote.title}
+                onChange={function(e){ updateNote(activeNote.id,{title:e.target.value||"Untitled"}); }}
+                onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
+                placeholder="Note title"
+                style={{flex:1,fontSize:"1rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0}}
+              />
+              <span style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{fmtNoteDate(activeNote.updatedAt)}</span>
+              {/* Delete — tucked away, requires deliberate tap */}
+              <button onClick={function(){ deleteNote(activeNote.id); }}
+                style={{background:"none",border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:"3px 7px",display:"flex",alignItems:"center",gap:3,opacity:0.4,flexShrink:0}}
+                title="Delete note">
+                <Icon name="trash" size={11} color={T.rose}/>
+              </button>
+            </div>
+            <textarea
+              value={activeNote.body}
+              onChange={function(e){ updateNote(activeNote.id,{body:e.target.value}); }}
+              onKeyDown={function(e){
+                // Ctrl/Cmd+Enter saves and goes back
+                if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){ setActiveNoteId(null); }
+              }}
+              autoFocus={activeNote.body===""}
+              placeholder={"Start writing…\n\n(⌘+Enter to save and go back)"}
+              style={{width:"100%",minHeight:"72vh",padding:"14px 16px",fontSize:"0.92rem",lineHeight:1.8,color:T.textDark,background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",boxSizing:"border-box"}}
+            />
+          </div>
+        );
+      }
+      // Notes list
+      return (
+        <div style={{paddingBottom:"2rem"}}>
+          <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
+              <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+            </div>
+            <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
+              <Icon name="plus" size={12} color="#fff"/> New note
+            </button>
+          </div>
+          {/* Tab switcher */}
+          <div style={{display:"flex",borderBottom:"1px solid "+T.border}}>
+            {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
+              var active=coveTab===t.id;
+              return(
+                <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
+                  style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                  {t.label}
+                  {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{padding:"14px 16px"}}>
+            {coveNotes.length===0?(
+              <div style={{textAlign:"center",padding:"2.5rem 0"}}>
+                <div style={{fontSize:"2rem",marginBottom:8}}>📝</div>
+                <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>No notes yet.</div>
+                <div style={{fontSize:"0.75rem",color:T.textFaint,marginBottom:16}}>Tap + to jot down anything — ideas, plans, thoughts.</div>
+                <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 1rem"})}}>+ New note</button>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {coveNotes.map(function(note){
+                  var preview=(note.body||"").replace(/\n/g," ").trim().slice(0,90);
+                  return(
+                    <div key={note.id} onClick={function(){setActiveNoteId(note.id);}}
+                      style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:10,padding:"0.85rem 1rem",cursor:"pointer",transition:"all 0.12s"}}>
+                      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:preview?4:0,gap:8}}>
+                        <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {note.title==="Untitled"?<span style={{color:T.textFaint,fontStyle:"italic"}}>Untitled</span>:note.title}
+                        </div>
+                        <div style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{fmtNoteDate(note.updatedAt)}</div>
+                      </div>
+                      {preview&&<div style={{fontSize:"0.76rem",color:T.textSoft,lineHeight:1.5}}>{preview}{(note.body||"").length>90?"…":""}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+
       setActiveListId(list.id);
       setView("detail");
       setCollapsedSections({});
