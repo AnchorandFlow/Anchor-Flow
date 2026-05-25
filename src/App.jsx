@@ -6927,7 +6927,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    function uid2() { return Math.random().toString(36).slice(2,10); }
 
+    function openList(list) {
       setActiveListId(list.id);
       setView("detail");
       setCollapsedSections({});
