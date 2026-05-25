@@ -6823,6 +6823,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     }
 
+    function deleteItem(itemId) {
+      setCoveItemsMap(function(prev) {
+        var items = (prev[activeListId] || []).filter(function(i){ return i.id !== itemId; });
+        return Object.assign({}, prev, {[activeListId]: items});
+      });
+    }
+
+    function renameItem(itemId, newContent) {
+      setCoveItemsMap(function(prev) {
+        var items = (prev[activeListId] || []).map(function(i){
+          return i.id === itemId ? Object.assign({}, i, {content: newContent}) : i;
+        });
+        return Object.assign({}, prev, {[activeListId]: items});
+      });
+    }
+
     function addItem(sectionId) {
       var key = sectionId || "__top__";
       var text = (newItemTexts[key] || "").trim();
@@ -6833,6 +6849,46 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return Object.assign({}, prev, {[activeListId]: items});
       });
       setNewItemTexts(function(prev) { return Object.assign({}, prev, {[key]: ""}); });
+    }
+
+    function renameList(listId, newTitle) {
+      setCoveLists(function(prev){ return prev.map(function(l){ return l.id===listId ? Object.assign({},l,{title:newTitle}) : l; }); });
+    }
+
+    function deleteList(listId) {
+      if (!window.confirm("Delete this list?")) return;
+      setCoveLists(function(prev){ return prev.filter(function(l){ return l.id!==listId; }); });
+      setCoveItemsMap(function(prev){ var n=Object.assign({},prev); delete n[listId]; return n; });
+      setCoveSectionsMap(function(prev){ var n=Object.assign({},prev); delete n[listId]; return n; });
+      setView("list"); setActiveListId(null);
+    }
+
+    function addSection() {
+      var title = window.prompt("Section name:"); if (!title || !title.trim()) return;
+      var secId = uid2();
+      setCoveSectionsMap(function(prev){
+        var secs = (prev[activeListId]||[]).concat([{id:secId, title:title.trim(), sort_order:(prev[activeListId]||[]).length}]);
+        return Object.assign({},prev,{[activeListId]:secs});
+      });
+    }
+
+    function renameSection(secId, newTitle) {
+      setCoveSectionsMap(function(prev){
+        var secs = (prev[activeListId]||[]).map(function(s){ return s.id===secId ? Object.assign({},s,{title:newTitle}) : s; });
+        return Object.assign({},prev,{[activeListId]:secs});
+      });
+    }
+
+    function deleteSection(secId) {
+      setCoveSectionsMap(function(prev){
+        var secs = (prev[activeListId]||[]).filter(function(s){ return s.id!==secId; });
+        return Object.assign({},prev,{[activeListId]:secs});
+      });
+      // Move items from deleted section to unsectioned
+      setCoveItemsMap(function(prev){
+        var items = (prev[activeListId]||[]).map(function(i){ return i.section_id===secId ? Object.assign({},i,{section_id:null}) : i; });
+        return Object.assign({},prev,{[activeListId]:items});
+      });
     }
 
     function createFromTemplate(templateId) {
@@ -6908,409 +6964,263 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var filteredLists = coveLists.filter(function(l) {
       return catFilter === "all" || l.category === catFilter;
     });
-    var groupedCats = ["family","home","personal"].filter(function(cat) {
-      return filteredLists.some(function(l){ return l.category === cat; });
-    });
 
     var accent = activeList ? (activeList.color_accent || T.blue) : T.blue;
     var totalItems = activeItems.length;
     var checkedCount = activeItems.filter(function(i){ return i.checked; }).length;
     var pct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
 
-    // ── Detail view ──────────────────────────────────────────────────────────
+    // ── Item row — shared between sections and unsectioned ────────────────────
+    function ItemRow(props) {
+      var item = props.item;
+      var [editing, setEditing] = useState(false);
+      var [draft, setDraft] = useState(item.content);
+      return (
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid "+T.borderSoft,group:true}}>
+          <div onClick={function(){ toggleItem(item.id); }}
+            style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
+            {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+          </div>
+          {editing
+            ? <input autoFocus value={draft} onChange={function(e){setDraft(e.target.value);}}
+                onBlur={function(){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }}
+                onKeyDown={function(e){ if(e.key==="Enter"||e.key==="Escape"){ renameItem(item.id,draft.trim()||item.content); setEditing(false); } }}
+                style={{flex:1,fontSize:"0.85rem",border:"none",borderBottom:"1.5px solid "+accent,background:"transparent",color:T.textDark,padding:"0 0 1px",outline:"none",fontFamily:"inherit"}}/>
+            : <span onDoubleClick={function(){ setEditing(true); setDraft(item.content); }}
+                style={{flex:1,fontSize:"0.85rem",color:item.checked?T.textFaint:T.textDark,textDecoration:item.checked?"line-through":"none",cursor:"text",lineHeight:1.45}}>
+                {item.content}
+                {item.tags && item.tags.map(function(tag){
+                  var tagBg=tag==="allergen"?"#faeeda":tag==="priority"?"#fbeaf0":"#e1f5ee";
+                  var tagColor=tag==="allergen"?"#633806":tag==="priority"?"#72243e":"#085041";
+                  return <span key={tag} style={{fontSize:"0.6rem",padding:"1px 6px",borderRadius:999,background:tagBg,color:tagColor,fontWeight:600,marginLeft:5}}>{tag}</span>;
+                })}
+              </span>
+          }
+          <button onClick={function(){ deleteItem(item.id); }}
+            style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:"0 2px",display:"flex",flexShrink:0,lineHeight:1,fontSize:14,color:T.textSoft}}>✕</button>
+        </div>
+      );
+    }
+
+    // ── Detail view ───────────────────────────────────────────────────────────
     if (view === "detail" && activeList) {
       var unsectionedItems = activeItems.filter(function(i){ return !i.section_id; });
       return (
-        <div style={{paddingBottom:"2rem"}}>
+        <div style={{paddingBottom:"3rem"}}>
           {/* Header */}
-          <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 16px 12px",borderBottom:"1px solid "+T.border}}>
-            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:4,borderRadius:6,display:"flex",alignItems:"center"}}>
+          <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
+            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:2}}>
               <Icon name="arrow-left" size={18} color={T.textSoft}/>
             </button>
-            <div style={{width:4,height:36,borderRadius:2,background:accent,flexShrink:0}}/>
-            <div>
-              <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark,fontFamily:"'Cormorant Garamond',serif"}}>{activeList.title}</div>
-              <div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:1}}>{CAT_LABELS[activeList.category]} · {activeList.list_type}{totalItems > 0 ? " · " + totalItems + " items" : ""}</div>
+            <div style={{flex:1,minWidth:0}}>
+              {/* Editable title */}
+              <input
+                value={activeList.title}
+                onChange={function(e){ renameList(activeList.id, e.target.value); }}
+                style={{width:"100%",fontSize:"1.4rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0,lineHeight:1.2}}
+              />
+              <div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2}}>
+                {totalItems > 0 ? checkedCount+" of "+totalItems+" done" : "Empty — start adding"}
+                {totalItems > 0 && " · double-tap any item to rename"}
+              </div>
             </div>
+            <button onClick={function(){ deleteList(activeList.id); }} style={{background:"none",border:"none",cursor:"pointer",opacity:0.35,padding:4,display:"flex",flexShrink:0}}>
+              <Icon name="trash" size={15} color={T.rose}/>
+            </button>
           </div>
 
-          <div style={{padding:"14px 16px"}}>
-            {/* Progress */}
-            {activeList.show_progress && totalItems > 0 && (
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-                <div style={{flex:1,height:5,background:T.border,borderRadius:3,overflow:"hidden"}}>
-                  <div style={{height:"100%",borderRadius:3,background:accent,width:pct+"%",transition:"width 0.3s"}}/>
-                </div>
-                <span style={{fontSize:"0.72rem",color:T.textSoft,whiteSpace:"nowrap"}}>{checkedCount} / {totalItems}</span>
+          {/* Progress bar */}
+          {totalItems > 0 && (
+            <div style={{padding:"0 16px 10px"}}>
+              <div style={{height:3,background:T.borderSoft,borderRadius:2,overflow:"hidden"}}>
+                <div style={{height:"100%",background:accent,width:pct+"%",borderRadius:2,transition:"width 0.4s"}}/>
               </div>
-            )}
+            </div>
+          )}
+
+          <div style={{padding:"0 16px"}}>
+            {/* Unsectioned items */}
+            {unsectionedItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
+
+            {/* Add unsectioned item */}
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:activeSections.length===0?"none":"1px solid "+T.borderSoft}}>
+              <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
+              <input
+                value={newItemTexts["__top__"]||""}
+                onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{__top__:e.target.value}); }); }}
+                onKeyDown={function(e){ if(e.key==="Enter") addItem(null); }}
+                placeholder="Add something…"
+                style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
+              />
+            </div>
 
             {/* Sections */}
+            {activeSections.length > 0 && <div style={{height:12}}/>}
             {activeSections.map(function(sec) {
               var secItems = activeItems.filter(function(i){ return i.section_id === sec.id; });
-              var secDone = secItems.filter(function(i){ return i.checked; }).length;
               var isCollapsed = collapsedSections[sec.id];
               var addKey = "sec_"+sec.id;
               return (
-                <div key={sec.id} style={{marginBottom:14}}>
-                  <div
-                    onClick={function(){ setCollapsedSections(function(prev){ return Object.assign({},prev,{[sec.id]:!prev[sec.id]}); }); }}
-                    style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,cursor:"pointer"}}
-                  >
-                    <span style={{fontSize:"0.67rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textSoft}}>{sec.title}</span>
-                    <span style={{fontSize:"0.65rem",background:T.navBg,color:T.textSoft,padding:"1px 7px",borderRadius:999,border:"1px solid "+T.border}}>{secDone}/{secItems.length}</span>
-                    <Icon name={isCollapsed?"chevron-right":"chevron-down"} size={12} color={T.textSoft} style={{marginLeft:"auto"}}/>
+                <div key={sec.id} style={{marginBottom:16}}>
+                  {/* Section header — tap to rename, ✕ to delete */}
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                    <input
+                      value={sec.title}
+                      onChange={function(e){ renameSection(sec.id, e.target.value); }}
+                      style={{flex:1,fontSize:"0.7rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textSoft,border:"none",background:"transparent",outline:"none",fontFamily:"inherit",padding:0}}
+                    />
+                    <button onClick={function(){ setCollapsedSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}); }); }}
+                      style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,padding:0,display:"flex"}}>
+                      <Icon name={isCollapsed?"chevron-right":"chevron-down"} size={12} color={T.textSoft}/>
+                    </button>
+                    <button onClick={function(){ deleteSection(sec.id); }}
+                      style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:"0 2px",fontSize:12,color:T.textSoft}}>✕</button>
                   </div>
                   {!isCollapsed && (
-                    <div>
-                      {secItems.map(function(item) {
-                        return (
-                          <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid "+T.border}}>
-                            <div
-                              onClick={function(){ toggleItem(item.id); }}
-                              style={{width:16,height:16,borderRadius:4,border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
-                            >
-                              {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                            </div>
-                            <span style={{fontSize:"0.8rem",color:item.checked?T.textSoft:T.textDark,textDecoration:item.checked?"line-through":"none",flex:1}}>{item.content}</span>
-                            {item.tags && item.tags.map(function(tag) {
-                              var tagBg = tag==="allergen"?"#faeeda":tag==="priority"?"#fbeaf0":"#e1f5ee";
-                              var tagColor = tag==="allergen"?"#633806":tag==="priority"?"#72243e":"#085041";
-                              return <span key={tag} style={{fontSize:"0.6rem",padding:"1px 6px",borderRadius:999,background:tagBg,color:tagColor,fontWeight:600}}>{tag}</span>;
-                            })}
-                          </div>
-                        );
-                      })}
-                      <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:6}}>
+                    <>
+                      {secItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0"}}>
+                        <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
                         <input
                           value={newItemTexts[addKey]||""}
                           onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{[addKey]:e.target.value}); }); }}
                           onKeyDown={function(e){ if(e.key==="Enter") addItem(sec.id); }}
-                          placeholder="Add item…"
-                          style={{flex:1,fontSize:"0.78rem",border:"none",borderBottom:"1px solid "+T.border,background:"transparent",color:T.textDark,padding:"3px 0",outline:"none"}}
+                          placeholder={"Add to "+sec.title+"…"}
+                          style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
                         />
-                        <button onClick={function(){ addItem(sec.id); }} style={{...btnS({fontSize:"0.7rem",padding:"3px 10px"})}}>Add</button>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               );
             })}
 
-            {/* Unsectioned items */}
-            {unsectionedItems.map(function(item) {
-              return (
-                <div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid "+T.border}}>
-                  <div
-                    onClick={function(){ toggleItem(item.id); }}
-                    style={{width:16,height:16,borderRadius:4,border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}
-                  >
-                    {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                  <span style={{fontSize:"0.8rem",color:item.checked?T.textSoft:T.textDark,textDecoration:item.checked?"line-through":"none",flex:1}}>{item.content}</span>
-                </div>
-              );
-            })}
-
-            {/* Add unsectioned item */}
-            {activeSections.length === 0 && (
-              <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:8}}>
-                <input
-                  value={newItemTexts["__top__"]||""}
-                  onChange={function(e){ setNewItemTexts(function(prev){ return Object.assign({},prev,{__top__:e.target.value}); }); }}
-                  onKeyDown={function(e){ if(e.key==="Enter") addItem(null); }}
-                  placeholder="Add item…"
-                  style={{flex:1,fontSize:"0.78rem",border:"none",borderBottom:"1px solid "+T.border,background:"transparent",color:T.textDark,padding:"3px 0",outline:"none"}}
-                />
-                <button onClick={function(){ addItem(null); }} style={{...btnS({fontSize:"0.7rem",padding:"3px 10px"})}}>Add</button>
-              </div>
-            )}
-
-            {/* Ripple button */}
-            <button
-              onClick={askRipple}
-              disabled={aiLoading}
-              style={{marginTop:16,display:"flex",alignItems:"center",gap:6,fontSize:"0.75rem",padding:"7px 14px",borderRadius:8,border:"1px solid "+T.blue,color:T.blue,background:"transparent",cursor:"pointer",opacity:aiLoading?0.5:1}}
-            >
-              <Icon name="sparkles" size={14} color={T.blue}/>
-              {aiLoading ? "Ripple is thinking…" : "Ripple: suggest what to add"}
-            </button>
+            {/* Bottom actions */}
+            <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+              <button onClick={addSection}
+                style={{fontSize:"0.72rem",color:T.textSoft,background:"none",border:"1px dashed "+T.border,borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit"}}>
+                + section
+              </button>
+              <button onClick={askRipple} disabled={aiLoading}
+                style={{fontSize:"0.72rem",color:T.blue,background:"none",border:"1px solid "+T.blue+"44",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5,opacity:aiLoading?0.5:1}}>
+                <Icon name="sparkles" size={12} color={T.blue}/>{aiLoading?"thinking…":"Ripple: suggest items"}
+              </button>
+            </div>
           </div>
         </div>
       );
     }
 
-    // ── Notes helpers ─────────────────────────────────────────────────────────
-    var activeNote = coveNotes.find(function(n){ return n.id === activeNoteId; }) || null;
-
-    function newNote() {
-      var id = uid2();
-      var note = { id: id, title: "New note", body: "", createdAt: Date.now(), updatedAt: Date.now() };
-      setCoveNotes(function(prev){ return [note].concat(prev); });
-      setActiveNoteId(id);
-    }
-
-    function updateNote(id, patch) {
-      setCoveNotes(function(prev){ return prev.map(function(n){
-        return n.id === id ? Object.assign({}, n, patch, { updatedAt: Date.now() }) : n;
-      }); });
-    }
-
-    function deleteNote(id) {
-      setCoveNotes(function(prev){ return prev.filter(function(n){ return n.id !== id; }); });
-      if (activeNoteId === id) setActiveNoteId(null);
-    }
-
-    function fmtNoteDate(ts) {
-      var d = new Date(ts);
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }
-
-    // ── Notes view ────────────────────────────────────────────────────────────
-    if (coveTab === "notes") {
-      if (activeNoteId && activeNote) {
-        return (
-          <div style={{ paddingBottom: "2rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 12px", borderBottom: "1px solid " + T.border }}>
-              <button onClick={function(){ setActiveNoteId(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.textSoft, padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}>
-                <Icon name="arrow-left" size={18} color={T.textSoft}/>
-              </button>
-              <input
-                value={activeNote.title}
-                onChange={function(e){ updateNote(activeNote.id, { title: e.target.value }); }}
-                style={{ flex: 1, fontSize: "1rem", fontWeight: 700, fontFamily: "'Cormorant Garamond',serif", color: T.textDark, border: "none", background: "transparent", outline: "none" }}
-              />
-              <button onClick={function(){ deleteNote(activeNote.id); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", padding: 4 }}>
-                <Icon name="trash" size={15} color={T.rose}/>
-              </button>
-            </div>
-            <div style={{ padding: "10px 16px 4px" }}>
-              <div style={{ fontSize: "0.68rem", color: T.textFaint }}>Last edited {fmtNoteDate(activeNote.updatedAt)}</div>
-            </div>
-            <textarea
-              value={activeNote.body}
-              onChange={function(e){ updateNote(activeNote.id, { body: e.target.value }); }}
-              placeholder="Start writing…"
-              autoFocus
-              style={{ width: "100%", minHeight: "60vh", padding: "12px 16px", fontSize: "0.9rem", lineHeight: 1.75, color: T.textDark, background: "transparent", border: "none", outline: "none", resize: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-            />
-          </div>
-        );
-      }
-      // Notes list
-      return (
-        <div style={{ paddingBottom: "2rem" }}>
-          <div style={{ padding: "18px 16px 10px", borderBottom: "1px solid " + T.border, display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", fontWeight: 700, color: T.textDark }}>🪸 Cove</div>
-              <div style={{ fontSize: "0.72rem", color: T.textSoft, marginTop: 2 }}>Your organized lists, ideas, plans, and keeps.</div>
-            </div>
-            <button onClick={newNote} style={{ ...btnP(T.blue, { fontSize: "0.75rem", padding: "0.35rem 0.85rem", display: "flex", alignItems: "center", gap: 5 }) }}>
-              <Icon name="plus" size={12} color="#fff"/> New note
-            </button>
-          </div>
-          {/* Tab switcher */}
-          <div style={{ display: "flex", borderBottom: "1px solid " + T.border }}>
-            {[{ id: "lists", label: "Lists" }, { id: "notes", label: "Notes" }].map(function(t) {
-              var active = coveTab === t.id;
-              return (
-                <button key={t.id} onClick={function(){ setCoveTab(t.id); }}
-                  style={{ flex: 1, padding: "10px", fontSize: "0.8rem", fontWeight: active ? 700 : 500, color: active ? T.blue : T.textSoft, background: "transparent", border: "none", borderBottom: "2px solid " + (active ? T.blue : "transparent"), cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ padding: "14px 16px" }}>
-            {coveNotes.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "2.5rem 0" }}>
-                <div style={{ fontSize: "2rem", marginBottom: 8 }}>📝</div>
-                <div style={{ fontSize: "0.85rem", color: T.textSoft, marginBottom: 4 }}>No notes yet.</div>
-                <div style={{ fontSize: "0.75rem", color: T.textFaint, marginBottom: 16 }}>Jot down ideas, plans, or anything you want to keep.</div>
-                <button onClick={newNote} style={{ ...btnP(T.blue, { fontSize: "0.78rem", padding: "0.4rem 1rem" }) }}>+ New note</button>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {coveNotes.map(function(note) {
-                  var preview = (note.body || "").replace(/\n/g, " ").slice(0, 80);
-                  return (
-                    <div key={note.id} onClick={function(){ setActiveNoteId(note.id); }}
-                      style={{ background: T.surface, border: "1.5px solid " + T.borderSoft, borderRadius: "0.9rem", padding: "0.8rem 1rem", cursor: "pointer" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.88rem", color: T.textDark }}>{note.title || "Untitled"}</div>
-                        <div style={{ fontSize: "0.65rem", color: T.textFaint, flexShrink: 0 }}>{fmtNoteDate(note.updatedAt)}</div>
-                      </div>
-                      {preview && <div style={{ fontSize: "0.76rem", color: T.textSoft, lineHeight: 1.5 }}>{preview}{note.body.length > 80 ? "…" : ""}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ── List view ────────────────────────────────────────────────────────────
     return (
       <div style={{paddingBottom:"2rem"}}>
-        {/* Header */}
-        <div style={{padding:"18px 16px 10px",borderBottom:"1px solid "+T.border,display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+        <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
           <div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>🪸 Cove</div>
-            <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your organized lists, ideas, plans, and keeps.</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
+            <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
           </div>
-          <button onClick={function(){ setShowNewModal(true); }} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
-            <Icon name="plus" size={12} color="#fff"/> New list
+        </div>
+
+        <div style={{display:"flex",borderBottom:"1px solid "+T.border}}>
+          {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
+            var active=coveTab===t.id;
+            return(
+              <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
+                style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                {t.label}
+                {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{padding:"10px 16px 6px",display:"flex",gap:6,flexWrap:"wrap"}}>
+          {["all","family","home","personal"].map(function(cat){
+            var active=catFilter===cat;
+            return(
+              <button key={cat} onClick={function(){setCatFilter(cat);}}
+                style={{fontSize:"0.7rem",padding:"3px 10px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}>
+                {CAT_LABELS[cat]}
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{padding:"8px 16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:T.bgAlt,borderRadius:10,marginBottom:12,border:"1px dashed "+T.border}}>
+            <span style={{fontSize:"0.85rem",color:T.textFaint}}>+</span>
+            <input
+              value={newForm.title}
+              onChange={function(e){setNewForm(function(f){return Object.assign({},f,{title:e.target.value});});}}
+              onKeyDown={function(e){if(e.key==="Enter")createBlank();}}
+              placeholder="New list name… (Enter to create)"
+              style={{flex:1,fontSize:"0.84rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit"}}
+            />
+            {newForm.title.trim()&&(
+              <button onClick={createBlank} style={{...btnP(T.blue,{fontSize:"0.7rem",padding:"3px 10px"})}}>Create</button>
+            )}
+          </div>
+
+          {filteredLists.length===0?(
+            <div style={{textAlign:"center",padding:"2rem 0"}}>
+              <div style={{fontSize:"2rem",marginBottom:8}}>🪸</div>
+              <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:12}}>{coveLists.length===0?"Nothing here yet.":"No lists in this category."}</div>
+              <button onClick={function(){setShowNewModal(true);}} style={{...btnS({fontSize:"0.78rem",padding:"0.4rem 1rem"})}}>Browse templates</button>
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {filteredLists.map(function(list){
+                var listItems=coveItemsMap[list.id]||[];
+                var done=listItems.filter(function(i){return i.checked;}).length;
+                var total=listItems.length;
+                var lPct=total>0?Math.round((done/total)*100):0;
+                var lAccent=list.color_accent||T.blue;
+                return(
+                  <div key={list.id} style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:12,overflow:"hidden"}}>
+                    <div style={{height:3,background:lAccent}}/>
+                    <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px 8px"}}>
+                      <div onClick={function(){openList(list);}} style={{flex:1,cursor:"pointer",minWidth:0}}>
+                        <div style={{fontSize:"0.88rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>{list.title}</div>
+                        <div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2}}>{total>0?done+" of "+total+" done · "+CAT_LABELS[list.category]:"Empty · "+CAT_LABELS[list.category]}</div>
+                      </div>
+                      <button onClick={function(){if(window.confirm("Delete \""+list.title+"\"?")){setCoveLists(function(p){return p.filter(function(l){return l.id!==list.id;})});setCoveItemsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});setCoveSectionsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});}}}
+                        style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:3,display:"flex",flexShrink:0,fontSize:13,color:T.textSoft}}>&#10005;</button>
+                    </div>
+                    {total>0&&(
+                      <div style={{height:2,background:T.borderSoft,margin:"0 12px 8px"}}>
+                        <div style={{height:"100%",background:lAccent,width:lPct+"%",transition:"width 0.4s",borderRadius:1}}/>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button onClick={function(){setShowNewModal(true);}}
+            style={{marginTop:14,width:"100%",background:"none",border:"1px dashed "+T.border,borderRadius:10,padding:"10px",fontSize:"0.75rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <Icon name="layout-grid-add" size={13} color={T.textFaint}/> Start from a template
           </button>
         </div>
 
-        {/* Tab switcher */}
-        <div style={{ display: "flex", borderBottom: "1px solid " + T.border }}>
-          {[{ id: "lists", label: "Lists" }, { id: "notes", label: "Notes" }].map(function(t) {
-            var active = coveTab === t.id;
-            return (
-              <button key={t.id} onClick={function(){ setCoveTab(t.id); setActiveNoteId(null); }}
-                style={{ flex: 1, padding: "10px", fontSize: "0.8rem", fontWeight: active ? 700 : 500, color: active ? T.blue : T.textSoft, background: "transparent", border: "none", borderBottom: "2px solid " + (active ? T.blue : "transparent"), cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
-                {t.label}
-                {t.id === "notes" && coveNotes.length > 0 && <span style={{ marginLeft: 5, fontSize: "0.65rem", background: T.blue + "22", color: T.blue, borderRadius: "999px", padding: "1px 6px", fontWeight: 700 }}>{coveNotes.length}</span>}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Category filter */}
-        <div style={{padding:"10px 16px",display:"flex",gap:6,flexWrap:"wrap",borderBottom:"1px solid "+T.border}}>
-          {["all","family","home","personal"].map(function(cat) {
-            var active = catFilter === cat;
-            return (
-              <button key={cat} onClick={function(){ setCatFilter(cat); }}
-                style={{fontSize:"0.72rem",padding:"4px 12px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",transition:"all 0.15s",fontFamily:"inherit"}}
-              >{CAT_LABELS[cat]}</button>
-            );
-          })}
-        </div>
-
-        <div style={{padding:"14px 16px"}}>
-          {coveLists.length === 0 ? (
-            <div style={{textAlign:"center",padding:"2rem 0"}}>
-              <div style={{fontSize:"2rem",marginBottom:8}}>🪸</div>
-              <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>Your Cove is empty.</div>
-              <div style={{fontSize:"0.75rem",color:T.textFaint}}>Start with a template or create a blank list.</div>
-            </div>
-          ) : (
-            groupedCats.map(function(cat) {
-              var group = filteredLists.filter(function(l){ return l.category === cat; });
-              if (!group.length) return null;
-              return (
-                <div key={cat}>
-                  <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:T.textFaint,margin:"12px 0 8px"}}>{CAT_LABELS[cat]}</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:4}}>
-                    {group.map(function(list) {
-                      var listItems = coveItemsMap[list.id] || [];
-                      var done = listItems.filter(function(i){ return i.checked; }).length;
-                      var total = listItems.length;
-                      var lPct = total > 0 ? Math.round((done/total)*100) : 0;
-                      return (
-                        <div key={list.id} onClick={function(){ openList(list); }}
-                          style={{background:T.white,border:"1px solid "+T.border,borderRadius:12,padding:"12px 14px",cursor:"pointer",transition:"all 0.15s"}}
-                        >
-                          <div style={{height:3,borderRadius:2,background:list.color_accent||T.blue,marginBottom:10}}/>
-                          <div style={{fontSize:"0.85rem",marginBottom:5}}><Icon name={list.icon||"list"} size={15} color={T.textSoft}/></div>
-                          <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:3,lineHeight:1.3}}>{list.title}</div>
-                          <div style={{fontSize:"0.68rem",color:T.textFaint}}>{total > 0 ? done+" of "+total+" done" : "Empty"}</div>
-                          {list.show_progress && total > 0 && (
-                            <div style={{marginTop:8,height:3,background:T.border,borderRadius:2,overflow:"hidden"}}>
-                              <div style={{height:"100%",borderRadius:2,background:list.color_accent||T.blue,width:lPct+"%",transition:"width 0.3s"}}/>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })
-          )}
-
-          {/* New list row */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:16}}>
-            <button onClick={function(){ setShowNewModal(true); }}
-              style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
-            ><Icon name="layout-grid-add" size={14} color={T.textSoft}/> From template</button>
-            <button onClick={function(){ setNewForm({title:"",category:"family",color_accent:"#3a6b8a"}); setShowNewModal(true); }}
-              style={{border:"1px dashed "+T.border,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",color:T.textSoft,background:"transparent",fontFamily:"inherit",fontSize:"0.75rem",transition:"all 0.15s"}}
-            ><Icon name="pencil" size={14} color={T.textSoft}/> Blank list</button>
-          </div>
-        </div>
-
-        {/* New list modal */}
-        {showNewModal && (
-          <div onClick={function(e){ if(e.target===e.currentTarget) setShowNewModal(false); }}
-            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}
-          >
-            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:500,padding:"20px 20px 28px",maxHeight:"88vh",overflowY:"auto"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                <div style={{fontSize:"1rem",fontWeight:700,color:T.textDark}}>New list</div>
-                <button onClick={function(){ setShowNewModal(false); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,fontSize:18,padding:0,lineHeight:1}}>✕</button>
+        {showNewModal&&(
+          <div onClick={function(e){if(e.target===e.currentTarget)setShowNewModal(false);}}
+            style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+            <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:480,padding:"18px 18px 24px",maxHeight:"85vh",overflowY:"auto"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                <div style={{fontSize:"0.95rem",fontWeight:700,color:T.textDark}}>Templates</div>
+                <button onClick={function(){setShowNewModal(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:T.textSoft,padding:0}}>&#10005;</button>
               </div>
-              <div style={{fontSize:"0.72rem",color:T.textSoft,marginBottom:16}}>Start from a template or build your own.</div>
-
-              {/* Templates */}
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:16}}>
-                {TEMPLATE_GALLERY.map(function(tmpl) {
-                  return (
-                    <button key={tmpl.id} onClick={function(){ createFromTemplate(tmpl.id); }} disabled={saving}
-                      style={{border:"1px solid "+T.border,borderRadius:10,padding:12,cursor:"pointer",background:"transparent",textAlign:"left",width:"100%",transition:"all 0.15s",fontFamily:"inherit"}}
-                    >
-                      <div style={{fontSize:"1.1rem",marginBottom:5}}><Icon name={tmpl.icon} size={16} color={T.textSoft}/></div>
-                      <div style={{fontSize:"0.75rem",fontWeight:700,color:T.textDark,marginBottom:2}}>{tmpl.label}</div>
-                      <div style={{fontSize:"0.65rem",color:T.textFaint}}>{tmpl.desc}</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+                {TEMPLATE_GALLERY.map(function(tmpl){
+                  return(
+                    <button key={tmpl.id} onClick={function(){createFromTemplate(tmpl.id);}} disabled={saving}
+                      style={{border:"1px solid "+T.border,borderRadius:10,padding:"10px 12px",cursor:"pointer",background:"transparent",textAlign:"left",width:"100%",fontFamily:"inherit"}}>
+                      <div style={{marginBottom:5}}><Icon name={tmpl.icon} size={15} color={T.textSoft}/></div>
+                      <div style={{fontSize:"0.78rem",fontWeight:700,color:T.textDark,marginBottom:2,lineHeight:1.3}}>{tmpl.label}</div>
+                      <div style={{fontSize:"0.65rem",color:T.textFaint,lineHeight:1.4}}>{tmpl.desc}</div>
                     </button>
                   );
                 })}
-              </div>
-
-              {/* Blank form */}
-              <div style={{borderTop:"1px solid "+T.border,paddingTop:14}}>
-                <div style={{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textFaint,marginBottom:10}}>Or start blank</div>
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  <div>
-                    <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:4}}>List name</div>
-                    <input value={newForm.title} onChange={function(e){ setNewForm(function(f){ return Object.assign({},f,{title:e.target.value}); }); }}
-                      placeholder="e.g. Books to read, Shows to watch…"
-                      style={{width:"100%",fontSize:"0.88rem",padding:"8px 10px",border:"1px solid "+T.border,borderRadius:8,background:T.white,color:T.textDark,outline:"none",fontFamily:"inherit"}}
-                    />
-                  </div>
-                  <div>
-                    <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:6}}>Category</div>
-                    <div style={{display:"flex",gap:6}}>
-                      {["family","home","personal"].map(function(cat) {
-                        var active = newForm.category === cat;
-                        return (
-                          <button key={cat} onClick={function(){ setNewForm(function(f){ return Object.assign({},f,{category:cat}); }); }}
-                            style={{fontSize:"0.72rem",padding:"5px 12px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}
-                          >{CAT_LABELS[cat]}</button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:"0.68rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textSoft,marginBottom:6}}>Color</div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {COVE_ACCENT_COLORS.map(function(color) {
-                        return (
-                          <div key={color} onClick={function(){ setNewForm(function(f){ return Object.assign({},f,{color_accent:color}); }); }}
-                            style={{width:24,height:24,borderRadius:"50%",background:color,cursor:"pointer",border:newForm.color_accent===color?"2.5px solid "+T.textDark:"2px solid transparent",transition:"transform 0.15s",transform:newForm.color_accent===color?"scale(1.15)":"scale(1)"}}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <button onClick={createBlank} disabled={saving || !newForm.title.trim()}
-                    style={{...btnP(T.blue,{fontSize:"0.85rem",padding:"10px",justifyContent:"center",opacity:(!newForm.title.trim()||saving)?0.4:1})}}
-                  >{saving ? "Creating…" : "Create list"}</button>
-                </div>
               </div>
             </div>
           </div>
@@ -7318,7 +7228,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-
   function SchoolTab() {
     var [schoolData, setSchoolData] = useSaved("schoolData", {});
     var [activeChild, setActiveChild] = React.useState(null);
