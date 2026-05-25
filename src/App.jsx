@@ -1453,7 +1453,7 @@ function HomeFlow() {
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
-  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true});
+  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true,school:true});
   const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
@@ -9872,38 +9872,54 @@ function FlowWrapper({ onHome, onSignOut }) {
   }, [sections, activeTab])
   return (
     <div style={{ display: "flex", minHeight: "100dvh" }}>
-      <div style={{ width: "68px", background: "#1a2744", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 8px", gap: "2px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(255,255,255,0.06)" }}>
-        <button onClick={onHome} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: "8px", padding: "6px 0", width: "100%", display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "68px", background: "#1a2744", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 8px", gap: "2px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(255,255,255,0.06)", overflowY: "auto" }}>
+        <button onClick={onHome} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: "8px", padding: "6px 0", width: "100%", display: "flex", justifyContent: "center", flexShrink: 0 }}>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
-      
-        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor Vault" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+
+        {/* ── ⚓ Anchor vault button — always visible ── */}
+        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor Vault" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px", flexShrink: 0 }}>
           <span style={{ fontSize: "15px" }}>⚓</span>
           <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
         </button>
-        <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
+
+        <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px", flexShrink: 0 }} />
+
         {showAnchor ? (
           <>
-          {VAULT_NAV.map(item => {
-            var isActive = vaultSection === item.id;
-            var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
-            return (
-              <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1 }}>
-                <span style={{ fontSize: "14px", lineHeight: 1 }}>{item.emoji}</span>
-                <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
-              </button>
-            );
-          })}
+            {/* ── 🌊 Flow — always shown even inside vault ── */}
+            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Flow" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
+              <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>🌊</span>
+              <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Flow</span>
+            </button>
+            <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.06)", margin: "2px 0 4px", flexShrink: 0 }} />
+            {/* ── Vault section nav ── */}
+            {VAULT_NAV.map(item => {
+              var isActive = vaultSection === item.id;
+              var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
+              return (
+                <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1, flexShrink: 0 }}>
+                  <span style={{ fontSize: "14px", lineHeight: 1 }}>{item.emoji}</span>
+                  <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+                </button>
+              );
+            })}
           </>
         ) : (
-          NAV.filter(item => item.id === "settings" || item.id === "anchor" || item.id === "cove" || !sections || sections[item.id] !== false).map(item => (
-            <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: !showAnchor && activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: !showAnchor && activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: !showAnchor && activeTab === item.id ? 1 : 0.5 }}>{item.emoji}</span>
-              <span style={{ fontSize: "7px", color: !showAnchor && activeTab === item.id ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: !showAnchor && activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
-            </button>
-          ))
+          /* ── Regular app nav ── */
+          NAV.map(item => {
+            var isActive = !showAnchor && activeTab === item.id;
+            var isHidden = item.id !== "settings" && item.id !== "anchor" && item.id !== "cove" && sections && sections[item.id] === false;
+            if (isHidden) return null;
+            return (
+              <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
+                <span style={{ fontSize: "14px", lineHeight: 1, opacity: isActive ? 1 : 0.5 }}>{item.emoji}</span>
+                <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+              </button>
+            );
+          })
         )}
-        <div style={{ marginTop: "auto" }}>
+        <div style={{ marginTop: "auto", flexShrink: 0 }}>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
         </div>
       </div>
