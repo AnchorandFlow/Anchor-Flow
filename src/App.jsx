@@ -412,11 +412,15 @@ const SYNC_KEYS = [
   // People & household
   "people","familyProfile","birthdays","rhythm","homeSystems",
   // Reminders & notifications
-  "notifications","recurring",
+  "notifications","recurring","notifSettings",
+  // App preferences & state that should survive a reset
+  "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
+  // Cove
+  "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
-  "schoolData","coveData","cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1","dietaryFilters"
+  "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
 const TODAY = new Date();
