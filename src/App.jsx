@@ -9825,12 +9825,13 @@ function FlowWrapper({ onHome, onSignOut }) {
   const [showAnchor, setShowAnchor] = React.useState(false)
   const [vaultSection, setVaultSection] = React.useState("home")
   const NAV = [
+    { id: "anchor",   label: "Flow",     emoji: "🌊" },
     { id: "brain",    label: "Mind",     emoji: "💭" },
     { id: "calendar", label: "Calendar", emoji: "📆" },
     { id: "meals",    label: "Meals",    emoji: "🍽️" },
     { id: "shop",     label: "Shopping", emoji: "🛒" },
     { id: "tidepool", label: "Tide Pool", emoji: "🏝️" },
-    { id: "cove",     label: "Cove",      emoji: "🪸" },
+    { id: "cove",     label: "Cove",     emoji: "🪸" },
     { id: "home",     label: "Home",     emoji: "🏡" },
     { id: "weekly",   label: "Weekly",   emoji: "📅" },
     { id: "school",   label: "School",   emoji: "🏫" },
@@ -9876,13 +9877,9 @@ function FlowWrapper({ onHome, onSignOut }) {
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
       
-        <button onClick={() => { setShowAnchor(v => !v); setVaultSection("home"); }} title="Anchor" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
+        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor Vault" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
           <span style={{ fontSize: "15px" }}>⚓</span>
           <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
-        </button>
-        <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Flow" style={{ background: !showAnchor && activeTab === "anchor" ? "rgba(200,169,122,0.2)" : "rgba(200,169,122,0.06)", border: !showAnchor && activeTab === "anchor" ? "1px solid rgba(200,169,122,0.45)" : "1px solid rgba(200,169,122,0.15)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px" }}>
-          <span style={{ fontSize: "15px" }}>🌊</span>
-          <span style={{ fontSize: "7px", color: !showAnchor && activeTab === "anchor" ? "#c8a97a" : "rgba(200,169,122,0.45)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Flow</span>
         </button>
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px" }} />
         {showAnchor ? (
@@ -9899,10 +9896,10 @@ function FlowWrapper({ onHome, onSignOut }) {
           })}
           </>
         ) : (
-          NAV.filter(item => item.id === "settings" || !sections || sections[item.id] !== false).map(item => (
-            <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: activeTab === item.id ? 1 : 0.5 }}>{item.emoji}</span>
-              <span style={{ fontSize: "7px", color: activeTab === item.id ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+          NAV.filter(item => item.id === "settings" || item.id === "anchor" || item.id === "cove" || !sections || sections[item.id] !== false).map(item => (
+            <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: !showAnchor && activeTab === item.id ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: !showAnchor && activeTab === item.id ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s" }}>
+              <span style={{ fontSize: "14px", lineHeight: 1, opacity: !showAnchor && activeTab === item.id ? 1 : 0.5 }}>{item.emoji}</span>
+              <span style={{ fontSize: "7px", color: !showAnchor && activeTab === item.id ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: !showAnchor && activeTab === item.id ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
             </button>
           ))
         )}
