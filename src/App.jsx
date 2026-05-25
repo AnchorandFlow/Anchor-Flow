@@ -9808,8 +9808,13 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 function FlowWrapper({ onHome, onSignOut }) {
   const [, forceUpdate] = React.useReducer(x => x+1, 0);
-  const activeTab = homeFlowRef.tab;
-  const _setActiveTab = React.useCallback((t) => { homeFlowRef.goTab(t); forceUpdate(); window.dispatchEvent(new CustomEvent("af-set-tab", { detail: t })); }, []);
+  const [activeTab, setActiveTabLocal] = React.useState(homeFlowRef.tab || "anchor");
+  const _setActiveTab = React.useCallback((t) => {
+    setActiveTabLocal(t);
+    homeFlowRef.goTab(t);
+    forceUpdate();
+    window.dispatchEvent(new CustomEvent("af-set-tab", { detail: t }));
+  }, []);
   const [sections, setSections] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} }
   })
@@ -9838,7 +9843,6 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "settings", label: "Settings", emoji: "⚙️" },
   ]
   const VAULT_NAV = [
-    { id: "home",      label: "Home",      emoji: "⚓️" },
     { id: "recurring", label: "Reminders", emoji: "🔁" },
     { id: "inventory", label: "Inventory", emoji: "📦" },
     { id: "systems",   label: "Systems",   emoji: "🏠" },
