@@ -248,7 +248,7 @@ function RippleNotificationBanner() {
 // Cleans any null entries from localStorage arrays so they never reach render
 (function sanitizeLocalStorageOnLoad() {
   try {
-    const ARRAY_KEYS = ["af_tasks", "af_brainItems", "af_shoppingItems", "af_notifications", "af_calEvents", "af_connectedCals", "af_favMeals", "af_checkedCalEvents", "af_checkedMealItems", "af_burnoutChecked"];
+    const ARRAY_KEYS = ["af_tasks", "af_brainItems", "af_shoppingItems", "af_notifications", "af_calEvents", "af_connectedCals", "af_favMeals", "af_checkedCalEvents", "af_checkedMealItems", "af_burnoutChecked", "af_recurring"];
     const MEAL_DAYS_S = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
     // Sanitize all array keys — filter out null/non-object entries
@@ -412,7 +412,9 @@ const SYNC_KEYS = [
   // People & household
   "people","familyProfile","birthdays","rhythm","homeSystems",
   // Reminders & notifications
-  "notifications",
+  "notifications","recurring",
+  // Anchor Vault — shared household data
+  "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
   // Other shared
   "schoolData","coveData","dietaryFilters"
 ];
