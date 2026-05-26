@@ -5749,7 +5749,6 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
 
   const [activeSection, setActiveSection] = useState(vaultSection)
   const vaultScrollRef = React.useRef(null)
-  const vaultScrollRef = React.useRef(null)
   useEffect(function() {
     setActiveSection(vaultSection)
     if (vaultScrollRef.current) vaultScrollRef.current.scrollTop = 0
