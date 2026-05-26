@@ -1325,6 +1325,18 @@ function HomeFlow() {
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
+  // ── Global safety net: nuke orphaned drag ghosts on tab switch / visibility change ──
+  React.useEffect(() => {
+    function nukeGhosts() {
+      document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} });
+    }
+    document.addEventListener("visibilitychange", nukeGhosts);
+    window.addEventListener("af-set-tab", nukeGhosts);
+    return () => {
+      document.removeEventListener("visibilitychange", nukeGhosts);
+      window.removeEventListener("af-set-tab", nukeGhosts);
+    };
+  }, []);
   // ── Ripple push notification click → open anchor tab + expand Ripple feed ──
   React.useEffect(() => {
     // Handle notification click while app is open (SW sends message)
@@ -2401,10 +2413,15 @@ Respond ONLY with valid JSON array, no markdown:
     <span style={{display:"inline-flex",padding:tiny?"2px 8px":"3px 10px",borderRadius:"2rem",fontSize:tiny?"0.62rem":"0.69rem",fontWeight:700,background:(color||T.sage)+"28",color:color||T.sage,letterSpacing:"0.03em",whiteSpace:"nowrap",border:`1px solid ${(color||T.sage)}45`}}>{label}</span>
   );
 
-  const SecHead = ({emoji,title,sub,action,color}) => (
+  const SecHead = ({emoji,title,sub,action,color,onBack}) => (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",gap:"0.5rem"}}>
-      <div style={{minWidth:0}}>
+      <div style={{minWidth:0,flex:1}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+          {onBack && (
+            <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px 2px 0",display:"flex",alignItems:"center",flexShrink:0,opacity:0.55,marginRight:2}}>
+              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            </button>
+          )}
           {emoji&&<span style={{fontSize:"1.05rem",flexShrink:0}}>{emoji}</span>}
           <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:color||T.textDark}}>{title}</h2>
         </div>
@@ -2640,7 +2657,7 @@ Respond ONLY with valid JSON array, no markdown:
     const [editVal, setEditVal] = useState(item.text);
     const [moveTo, setMoveTo] = useState(false);
     return (
-      <div draggable onDragStart={e=>bDragStart(e,item.id,item.bucket)} onDragEnter={()=>bDragEnter(item.id)} onDragEnd={bDragEnd} onDragOver={e=>e.preventDefault()}
+      <div draggable onDragStart={e=>{bDragStart(e,item.id,item.bucket); var ghost=document.createElement("div"); ghost.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;"; document.body.appendChild(ghost); e.dataTransfer.setDragImage(ghost,0,0); setTimeout(function(){try{ghost.remove();}catch{}},0);}} onDragEnter={()=>bDragEnter(item.id)} onDragEnd={bDragEnd} onDragOver={e=>e.preventDefault()}
         style={{...card({borderLeft:`4px solid ${color}`,marginBottom:"0.5rem",padding:"0.88rem 1rem",cursor:"grab"})}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
@@ -4029,7 +4046,7 @@ Respond ONLY in valid JSON:
     const [cnd,setCnd]=useState(""); const [cnt,setCnt]=useState(""); const [cnn,setCnn]=useState("");
     return (
       <div>
-        <SecHead emoji="📆" title="Calendar" sub="All your events in one place"/>
+        <SecHead emoji="📆" title="Calendar" sub="All your events in one place" onBack={function(){goTab("anchor");}}/>
         {/* Google Calendar connect banner */}
         <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.5rem"}}>
           <button onClick={()=>openAddEvent("")} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.4rem",flex:1,justifyContent:"center",padding:"0.72rem",fontSize:"0.88rem",borderRadius:"0.9rem"})}}>
@@ -4344,7 +4361,7 @@ Respond ONLY in valid JSON:
 
     return (
       <div>
-        <SecHead emoji="📅" title="Weekly Rhythm" sub="Your week at a glance"/>
+        <SecHead emoji="📅" title="Weekly Rhythm" sub="Your week at a glance" onBack={function(){goTab("anchor");}}/>
         {/* Subtab nav */}
         <div style={{display:"flex",gap:"0.35rem",marginBottom:"1rem",background:T.surface,borderRadius:"0.85rem",padding:"0.3rem"}}>
           {[{id:"glance",label:"Glance",emoji:"👁"},{id:"rhythm",label:"Day Themes",emoji:"🗓️"},{id:"tasks",label:"Task Board",emoji:"✅"}].map(function(st){
@@ -4838,6 +4855,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return (
       <div>
         <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks"
+          onBack={function(){goTab("anchor");}}
           action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
             {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
           </button>}/>
@@ -5605,7 +5623,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return(
       <div>
-        <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"}/>
+        <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"} onBack={function(){goTab("anchor");}}/>
 
         {/* Add item card */}
         <div style={{...card({background:T.sandPale,border:"2px solid "+T.sand+"55"})}}>
@@ -5833,7 +5851,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
     return(
       <div>
-        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
+        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" onBack={function(){goTab("anchor");}} action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
         {homeSystems.map((sys,i)=>(
           <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
             style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
@@ -6051,7 +6069,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div
           draggable
-          onDragStart={function(){brainDragId.current=item.id;}}
+          onDragStart={function(e){brainDragId.current=item.id; var ghost=document.createElement("div"); ghost.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;"; document.body.appendChild(ghost); e.dataTransfer.setDragImage(ghost,0,0); setTimeout(function(){try{ghost.remove();}catch{}},0);}}
           onDragEnter={function(){brainDragOver.current=item.id;setIsDragOver(true);}}
           onDragLeave={function(){setIsDragOver(false);}}
           onDragOver={function(e){e.preventDefault();}}
@@ -6144,7 +6162,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return (
       <div style={{paddingBottom:"2rem"}}>
         {/* Exhale header */}
-        <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem"}}>
+        <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem",position:"relative"}}>
+          <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
+            <Icon name="arrow-left" size={17} color={T.textSoft}/>
+          </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>Exhale.</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Clear your mind — then let it go.</div>
         </div>
@@ -6453,7 +6474,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div>
-        <div style={{textAlign:"center",marginBottom:"1.25rem"}}>
+        <div style={{textAlign:"center",marginBottom:"1.25rem",position:"relative"}}>
+          <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
+            <Icon name="arrow-left" size={17} color={T.textSoft}/>
+          </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
         </div>
@@ -6638,7 +6662,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return(
       <div>
-        <SecHead emoji="📋" title="Career"/>
+        <SecHead emoji="📋" title="Career" onBack={function(){goTab("anchor");}}/>
 
         {/* Person tabs — adults only */}
         {adults.length>0?(
@@ -7119,7 +7143,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setDragFromId(item.id);
 
       var clone = e.currentTarget.cloneNode(true);
-      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:"+e.currentTarget.offsetWidth+"px;background:"+T.surface+";border:1.5px solid "+accent+";border-radius:8px;padding:7px 12px;box-shadow:0 4px 18px rgba(0,0,0,0.15);";
+      clone.setAttribute("data-drag-clone", "1");
+      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:"+e.currentTarget.offsetWidth+"px;background:"+T.surface+";border:1.5px solid "+accent+";border-radius:8px;padding:7px 12px;box-shadow:0 4px 18px rgba(0,0,0,0.15);transition:none;";
       clone.style.left = (e.clientX - 20) + "px";
       clone.style.top  = (e.clientY - 16) + "px";
       document.body.appendChild(clone);
@@ -7128,7 +7153,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function onMove(ev) {
         clone.style.left = (ev.clientX - 20) + "px";
         clone.style.top  = (ev.clientY - 16) + "px";
+        // Hide clone so elementFromPoint sees the actual list items underneath
+        clone.style.display = "none";
         var el = document.elementFromPoint(ev.clientX, ev.clientY);
+        clone.style.display = "";
         var row = el && el.closest("[data-itemid]");
         var secEl = el && el.closest("[data-secid]");
         dragItem.current.toSec = secEl ? secEl.getAttribute("data-secid") : null;
@@ -7137,15 +7165,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           if (rid !== dragItem.current.from) { dragItem.current.toIdx = rid; setDragOverId(rid); }
         } else { setDragOverId(null); }
       }
-      function onUp() {
-        document.body.removeChild(clone);
+      function cleanup() {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", cleanup);
+        // Remove this clone and any orphaned clones
+        document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} });
         dragItem.current.clone = null;
         setDragFromId(null); setDragOverId(null);
-        window.removeEventListener("pointermove", onMove);
+      }
+      function onUp() {
         var fromId = dragItem.current.from;
         var toId   = dragItem.current.toIdx;
         var toSec  = dragItem.current.toSec !== undefined ? dragItem.current.toSec : null;
         dragItem.current.from = dragItem.current.toIdx = null;
+        cleanup();
         if (!fromId) return;
         setCoveItemsMap(function(prev) {
           var items = (prev[activeListId] || []).slice();
@@ -7159,8 +7193,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return Object.assign({}, prev, {[activeListId]: items});
         });
       }
-      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointermove", onMove, {passive:true});
       window.addEventListener("pointerup", onUp, {once:true});
+      window.addEventListener("pointercancel", cleanup, {once:true});
       e.preventDefault();
     }
 
@@ -7327,6 +7362,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                           placeholder={"Add to "+sec.title+"…"}
                           style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
                         />
+                        {(newItemTexts[addKey]||"").trim() && (
+                          <button
+                            onClick={function(){ addItem(sec.id); }}
+                            onPointerDown={function(e){ e.stopPropagation(); }}
+                            style={{background:accent,color:"#fff",border:"none",borderRadius:6,padding:"2px 10px",fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,flexShrink:0,lineHeight:"1.6"}}>
+                            +
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -7353,9 +7396,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return (
       <div style={{paddingBottom:"2rem"}}>
         <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
-            <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+          <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
+            <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
+              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            </button>
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
+              <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+            </div>
           </div>
         </div>
 
@@ -8356,7 +8404,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div style={{ paddingBottom: "4rem" }}>
         {showTypeModal && <TypePicker />}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🏫 School</div>
+          <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
+            <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
+              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            </button>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🏫 School</div>
+          </div>
         </div>
         {schoolKids.length > 1 && (
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", overflowX: "auto", paddingBottom: "2px" }}>
@@ -8504,7 +8557,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return(
       <div>
-        <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here"/>
+        <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here" onBack={function(){goTab("anchor");}}/>
 
         {/* ════════════════════════════════════
             1. FAMILY
@@ -9875,6 +9928,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
       const clone = el.cloneNode(true);
       // Strip pointer-events and interactions from clone children
       clone.querySelectorAll("button,input,select,textarea").forEach(c => { c.style.pointerEvents = "none"; });
+      clone.setAttribute("data-drag-clone", "1");
       clone.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;` +
         `opacity:0.85;pointer-events:none;z-index:9999;` +
         `box-shadow:0 8px 28px rgba(0,0,0,0.2);border-radius:0.7rem;transition:none;`;
@@ -9905,16 +9959,19 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
         setDragOverId(next);
       }
     }
-    function onUp() {
-      document.querySelectorAll("[data-drag-clone]").forEach(el => el.remove());
-      if (!ds.current.id) return;
+    function cancelDrag() {
+      document.querySelectorAll("[data-drag-clone]").forEach(el => { try{el.remove();}catch{} });
       if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
-      const fromId   = ds.current.id;
-      const targetId = ds.current.dragOverId;
       ds.current.id = null;
       ds.current.dragOverId = null;
       setDraggingId(null);
       setDragOverId(null);
+    }
+    function onUp() {
+      if (!ds.current.id) { cancelDrag(); return; }
+      const fromId   = ds.current.id;
+      const targetId = ds.current.dragOverId;
+      cancelDrag();
       if (!targetId || targetId === fromId) return;
       latestSetItems.current(prev => {
         const arr = [...prev];
@@ -9926,25 +9983,18 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
         return arr;
       });
     }
+    function onVisChange() { cancelDrag(); }
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerup",   onUp);
-    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("pointercancel", cancelDrag);
+    document.addEventListener("visibilitychange", onVisChange);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup",   onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointercancel", cancelDrag);
       document.removeEventListener("visibilitychange", onVisChange);
-      document.removeEventListener("scroll", onVisChange);
-      // Also clean up on visibility change (tab switch, scroll cancel)
-      function onVisChange() {
-        if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
-        ds.current.id = null; ds.current.dragOverId = null;
-        setDraggingId(null); setDragOverId(null);
-      }
-      document.addEventListener("visibilitychange", onVisChange);
-      document.addEventListener("scroll", onVisChange, { passive: true });
       // Safety: remove any orphaned clone on unmount
-      if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
+      cancelDrag();
     };
   // Register once — uses refs for fresh data
   // eslint-disable-next-line react-hooks/exhaustive-deps
