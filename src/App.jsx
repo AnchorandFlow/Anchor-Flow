@@ -1079,10 +1079,11 @@ function HomeFlow() {
           method: "PATCH",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ data: payload, updated_at: updatedAt })
+          body: JSON.stringify({ data: payload, updated_at: updatedAt, updated_by: ownerId })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -1254,10 +1255,19 @@ function HomeFlow() {
         const serverTs = row.updated_at || "";
         const lastSync = localStorage.getItem("af_lastHHSync") || "";
         if (serverTs && serverTs !== lastSync) {
+          // If this new timestamp matches what WE just pushed, it's our own write — don't reload
+          const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
+          if (serverTs === lastPushedAt) {
+            try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+            setSyncStatus("synced");
+            setLastSyncTime(new Date().toLocaleTimeString());
+            return;
+          }
           const activeEl = document.activeElement;
           const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
           const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
-          if (isTyping || isDragging) return;
+          const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
+          if (isTyping || isDragging || hasOpenModal) return;
           const cleanBg = sanitizeHouseholdData(row.data);
           const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
           SYNC_KEYS.forEach(k => {
@@ -2406,7 +2416,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   function ModalBox({title,onClose,children,wide}){
     return (
-      <div style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(8px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+      <div data-modal-open="true" style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(8px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         <div style={{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"1.4rem",padding:"1.8rem",width:"100%",maxWidth:wide?600:460,boxShadow:`0 32px 100px ${T.cardShadow}`,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.4rem"}}>
             <h3 style={{margin:0,color:T.textDark,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700}}>{title}</h3>
@@ -4909,9 +4919,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:`repeat(${MEALS_TO_SHOW.length},1fr)`,gap:"0.45rem"}}>
                     {MEALS_TO_SHOW.map(meal=>(
-                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
-                        <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.18rem"}}>{meal}</div>
-                        <div style={{fontSize:"0.82rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.3rem"}}>{m[meal]||"—"}</div>
+                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:MEALS_TO_SHOW.length===3?"0.4rem 0.45rem":"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.55rem":"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800,marginBottom:"0.15rem"}}>{meal}</div>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.75rem":"0.82rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
                         <MealBankDrawer mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                       </div>
                     ))}
