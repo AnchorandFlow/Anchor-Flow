@@ -9,8 +9,8 @@ self.addEventListener('push', function(event) {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: data.icon || '/favicon.svg',
-      badge: '/favicon.svg',
+      icon: data.icon || '/icon.png',
+      badge: '/icon.png',
       data: data.data || {},
       vibrate: [100, 50, 100],
       tag: data.data?.type || 'ripple',
