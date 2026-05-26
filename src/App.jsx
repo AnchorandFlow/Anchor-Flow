@@ -1178,6 +1178,11 @@ function HomeFlow() {
           });
           try { localStorage.setItem("af_lastHHSync", rows[0].updated_at || Date.now().toString()); } catch {}
           sessionStorage.removeItem("af_synced_this_session");
+          // Never reload if user is actively typing or typed in the last 15s
+          const activeEl2 = document.activeElement;
+          const isTyping2 = activeEl2 && (activeEl2.tagName === "INPUT" || activeEl2.tagName === "TEXTAREA");
+          const typedRecently2 = (Date.now() - lastTypedRef.current) < 15000;
+          if (isTyping2 || typedRecently2) { setSyncStatus("synced"); return; }
           window.location.reload();
           return;
         }
@@ -1265,9 +1270,10 @@ function HomeFlow() {
           }
           const activeEl = document.activeElement;
           const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
+          const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
           const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
           const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
-          if (isTyping || isDragging || hasOpenModal) return;
+          if (isTyping || typedRecently || isDragging || hasOpenModal) return;
           const cleanBg = sanitizeHouseholdData(row.data);
           const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
           SYNC_KEYS.forEach(k => {
@@ -1286,14 +1292,19 @@ function HomeFlow() {
       } catch {}
     }
 
-    // First check after 5s, then every 60s
-    const initial = setTimeout(checkForUpdates, 5000);
-    const interval = setInterval(function(){
-      // Don't sync while user is actively typing in an input
+    // First check after 5s, then every 60s — but never if user is actively typing
+    const initial = setTimeout(function(){
       const active = document.activeElement;
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
+      if (!isTyping && !typedRecently) checkForUpdates();
+    }, 5000);
+    const interval = setInterval(function(){
+      const active = document.activeElement;
+      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       const shopFocused = window._shopInputFocused;
-      if(!isTyping && !shopFocused) checkForUpdates();
+      if(!isTyping && !typedRecently && !shopFocused) checkForUpdates();
     }, 60000);
     return () => { clearTimeout(initial); clearInterval(interval); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1316,6 +1327,13 @@ function HomeFlow() {
 
   // Sync on task/meal/cal changes (debounced)
   const syncTimeoutRef = useRef(null);
+  // Track last keystroke time — never reload within 15s of any typing
+  const lastTypedRef = useRef(0);
+  useEffect(() => {
+    function onKey() { lastTypedRef.current = Date.now(); }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
   function debouncedSync() {
     if (!authToken || !householdId) return;
     clearTimeout(syncTimeoutRef.current);
@@ -1325,17 +1343,11 @@ function HomeFlow() {
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
-  // ── Global safety net: nuke orphaned drag ghosts on tab switch / visibility change ──
   React.useEffect(() => {
-    function nukeGhosts() {
-      document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} });
-    }
+    function nukeGhosts() { document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} }); }
     document.addEventListener("visibilitychange", nukeGhosts);
     window.addEventListener("af-set-tab", nukeGhosts);
-    return () => {
-      document.removeEventListener("visibilitychange", nukeGhosts);
-      window.removeEventListener("af-set-tab", nukeGhosts);
-    };
+    return () => { document.removeEventListener("visibilitychange", nukeGhosts); window.removeEventListener("af-set-tab", nukeGhosts); };
   }, []);
   // ── Ripple push notification click → open anchor tab + expand Ripple feed ──
   React.useEffect(() => {
@@ -2657,7 +2669,7 @@ Respond ONLY with valid JSON array, no markdown:
     const [editVal, setEditVal] = useState(item.text);
     const [moveTo, setMoveTo] = useState(false);
     return (
-      <div draggable onDragStart={e=>{bDragStart(e,item.id,item.bucket); var ghost=document.createElement("div"); ghost.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;"; document.body.appendChild(ghost); e.dataTransfer.setDragImage(ghost,0,0); setTimeout(function(){try{ghost.remove();}catch{}},0);}} onDragEnter={()=>bDragEnter(item.id)} onDragEnd={bDragEnd} onDragOver={e=>e.preventDefault()}
+      <div draggable onDragStart={e=>{bDragStart(e,item.id,item.bucket); var g=document.createElement("div"); g.style.cssText="position:fixed;top:-9999px;left:-9999px;"; document.body.appendChild(g); e.dataTransfer.setDragImage(g,0,0); setTimeout(function(){try{g.remove();}catch{}},0);}} onDragEnter={()=>bDragEnter(item.id)} onDragEnd={bDragEnd} onDragOver={e=>e.preventDefault()}
         style={{...card({borderLeft:`4px solid ${color}`,marginBottom:"0.5rem",padding:"0.88rem 1rem",cursor:"grab"})}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",alignItems:"center"}}>
@@ -6069,7 +6081,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div
           draggable
-          onDragStart={function(e){brainDragId.current=item.id; var ghost=document.createElement("div"); ghost.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;"; document.body.appendChild(ghost); e.dataTransfer.setDragImage(ghost,0,0); setTimeout(function(){try{ghost.remove();}catch{}},0);}}
+          onDragStart={function(e){brainDragId.current=item.id; var g=document.createElement("div"); g.style.cssText="position:fixed;top:-9999px;left:-9999px;"; document.body.appendChild(g); e.dataTransfer.setDragImage(g,0,0); setTimeout(function(){try{g.remove();}catch{}},0);}}
           onDragEnter={function(){brainDragOver.current=item.id;setIsDragOver(true);}}
           onDragLeave={function(){setIsDragOver(false);}}
           onDragOver={function(e){e.preventDefault();}}
@@ -7153,7 +7165,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function onMove(ev) {
         clone.style.left = (ev.clientX - 20) + "px";
         clone.style.top  = (ev.clientY - 16) + "px";
-        // Hide clone so elementFromPoint sees the actual list items underneath
         clone.style.display = "none";
         var el = document.elementFromPoint(ev.clientX, ev.clientY);
         clone.style.display = "";
@@ -7169,7 +7180,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", cleanup);
-        // Remove this clone and any orphaned clones
         document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} });
         dragItem.current.clone = null;
         setDragFromId(null); setDragOverId(null);
@@ -8466,6 +8476,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // Section lives OUTSIDE SettingsTab so React never remounts it on SettingsTab re-renders.
+  // Children stay mounted (display:none when closed) so inputs never lose focus.
+  function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting}){
+    var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
+    return(
+      <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
+        <button onClick={function(e){e.preventDefault();toggleSetting(id,defaultOpen);}} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
+          <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
+            {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
+          </div>
+          <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
+        </button>
+        {/* display:none keeps children mounted so inputs never lose focus */}
+        <div style={{display:isOpen?"block":"none",padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
   function SettingsTab(){
     const [settingsOpen, setSettingsOpen] = useState({family:true});
     function toggleSetting(key,defaultOpen){
@@ -8475,22 +8507,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     }
 
-    function Section({id,emoji,title,sub,children,defaultOpen=false}){
-      var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
-      return(
-        <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem",overflow:"hidden"}}>
-          <button onClick={()=>toggleSetting(id,defaultOpen)} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
-            <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
-            <div style={{flex:1}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
-              {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
-            </div>
-            <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
-          </button>
-          {isOpen&&<div style={{padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>{children}</div>}
-        </div>
-      );
-    }
+    // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
+    // Pass settingsOpen + toggleSetting down explicitly.
+    function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting})); }
+
     function Row({label,sub,children,tight}){
       return(
         <div style={{paddingTop:tight?"0.55rem":"0.75rem",paddingBottom:tight?"0.55rem":"0.1rem",borderBottom:"1px solid "+T.borderSoft}}>
@@ -8562,7 +8582,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ════════════════════════════════════
             1. FAMILY
         ════════════════════════════════════ */}
-        <Section id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
+        <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
           <div style={{paddingTop:"0.75rem"}}>
             {/* People list */}
             <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
@@ -8623,12 +8643,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
             </Row>
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             2. FLOW (YOU)
         ════════════════════════════════════ */}
-        <Section id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
+        <Sec id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
               <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
@@ -8651,12 +8671,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
             </div>
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             3. MIND
         ════════════════════════════════════ */}
-        <Section id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
+        <Sec id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{paddingBottom:"0.75rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Default view</div>
@@ -8665,12 +8685,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Categories & colours</div>
             <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             4. MEALS
         ════════════════════════════════════ */}
-        <Section id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
+        <Sec id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
@@ -8687,12 +8707,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </Row>
             <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             5. SHOPPING
         ════════════════════════════════════ */}
-        <Section id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
+        <Sec id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
             {stores.map(function(store,i){
@@ -8715,12 +8735,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             )}
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             6. TIDE POOL
         ════════════════════════════════════ */}
-        <Section id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+        <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
           <div style={{paddingTop:"0.75rem"}}>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
@@ -8814,12 +8834,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })()}
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             7. WEEKLY RHYTHM
         ════════════════════════════════════ */}
-        <Section id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
+        <Sec id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
             {(function(){
@@ -8870,12 +8890,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })()}
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             8. SCHOOL
         ════════════════════════════════════ */}
-        <Section id="school" emoji="📚" title="School" sub="School type and settings for each child">
+        <Sec id="school" emoji="📚" title="School" sub="School type and settings for each child">
           <div style={{paddingTop:"0.75rem"}}>
             {minorKids.length===0&&(
               <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
@@ -8919,12 +8939,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })}
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             9. APPEARANCE & NOTIFICATIONS
         ════════════════════════════════════ */}
-        <Section id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
+        <Sec id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.55rem"}}>Theme</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.55rem",marginBottom:"1rem"}}>
@@ -8988,12 +9008,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             )}
           </div>
-        </Section>
+        </Sec>
 
         {/* ════════════════════════════════════
             Sign In & Sync — always last
         ════════════════════════════════════ */}
-        <Section id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
+        <Sec id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
           <div style={{paddingTop:"0.75rem"}}>
           {false ? (
             <div>
@@ -9026,11 +9046,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
           </div>
-        </Section>
+        </Sec>
 
         {/* AI memory */}
         {Object.keys(aiMemory).length>0&&(
-          <Section id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
+          <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
             <div style={{paddingTop:"0.75rem"}}>
               <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
                 <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
@@ -9042,7 +9062,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );})}
             </div>
-          </Section>
+          </Sec>
         )}
 
         <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
@@ -9962,10 +9982,8 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
     function cancelDrag() {
       document.querySelectorAll("[data-drag-clone]").forEach(el => { try{el.remove();}catch{} });
       if (ds.current.clone) { try { ds.current.clone.remove(); } catch {} ds.current.clone = null; }
-      ds.current.id = null;
-      ds.current.dragOverId = null;
-      setDraggingId(null);
-      setDragOverId(null);
+      ds.current.id = null; ds.current.dragOverId = null;
+      setDraggingId(null); setDragOverId(null);
     }
     function onUp() {
       if (!ds.current.id) { cancelDrag(); return; }
@@ -9993,7 +10011,6 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
       window.removeEventListener("pointerup",   onUp);
       window.removeEventListener("pointercancel", cancelDrag);
       document.removeEventListener("visibilitychange", onVisChange);
-      // Safety: remove any orphaned clone on unmount
       cancelDrag();
     };
   // Register once — uses refs for fresh data
