@@ -401,6 +401,13 @@ async function sbSignOut(token) {
   return sbFetch("/auth/v1/logout", { method:"POST", _token: token });
 }
 
+function isJwtExpired(err) {
+  var msg = (err && err.message) ? err.message.toLowerCase() : "";
+  return msg.includes("jwt expired") || msg.includes("invalid jwt") ||
+         msg.includes("401") || msg.includes("unauthorized") ||
+         msg.includes("forbidden") || msg.includes("403");
+}
+
 // Household data keys that get synced to Supabase
 const SYNC_KEYS = [
   // Core data
@@ -903,11 +910,15 @@ function HomeFlow() {
   useEffect(() => {
     if (!authToken) return;
     sbFetch("/auth/v1/user", { _token: authToken })
-      .catch(() => {
-        try { localStorage.removeItem("af_authToken"); } catch {}
-        try { localStorage.removeItem("af_authUser"); } catch {}
-        setAuthToken(null);
-        setAuthUser(null);
+      .catch((e) => {
+        if (isJwtExpired(e)) {
+          // Token expired — clear silently, user will see signed-out state
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          try { localStorage.removeItem("af_authUser"); } catch {}
+          setAuthToken(null);
+          setAuthUser(null);
+        }
+        // Non-JWT errors (network offline etc) — keep token, try again later
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1183,7 +1194,13 @@ function HomeFlow() {
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
       }
     } catch(e) {
-      console.warn("[AF] pushHouseholdData failed:", e.message);
+      if (isJwtExpired(e)) {
+        // Token expired — clear it silently so we stop retrying
+        try { localStorage.removeItem("af_authToken"); } catch {}
+        setAuthToken(null);
+      } else {
+        console.warn("[AF] pushHouseholdData failed:", e.message);
+      }
     }
   }
 
@@ -1403,6 +1420,7 @@ function HomeFlow() {
     if (!authToken || !householdId) return;
     const iv = setInterval(async () => {
       try {
+        if (!authToken) return; // token already cleared, stop trying
         const active = document.activeElement;
         const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
         const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
@@ -1410,7 +1428,10 @@ function HomeFlow() {
         await pushHouseholdData(authToken, householdId);
         setSyncStatus("synced");
         setLastSyncTime(new Date().toLocaleTimeString());
-      } catch {}
+      } catch(e) {
+        // JWT errors already handled inside pushHouseholdData — don't set error status here
+        if (!isJwtExpired(e)) setSyncStatus("error");
+      }
     }, 30000);
     return () => clearInterval(iv);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -8881,15 +8902,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     // ── local add-member state ──
-    var [newMemberName,setNewMemberName]=useState("");
-    var [newMemberAge,setNewMemberAge]=useState("");
-    var [newMemberRole,setNewMemberRole]=useState("");
     var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
+    var addFormRef = useRef(null);
     function addMember(){
-      if(!newMemberName.trim())return;
-      var ageStr=newMemberAge.trim(); var ageNum=ageStr?parseInt(ageStr,10):null; var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
-      setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
-      setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+      if(!addFormRef.current) return;
+      var nameEl = addFormRef.current.querySelector(".add-name");
+      var ageEl  = addFormRef.current.querySelector(".add-age");
+      var roleEl = addFormRef.current.querySelector(".add-role");
+      var name = nameEl ? nameEl.value.trim() : "";
+      if(!name) return;
+      var ageStr = ageEl ? ageEl.value.trim() : "";
+      var ageNum = ageStr ? parseInt(ageStr,10) : null;
+      var age = (ageNum!==null&&!isNaN(ageNum)) ? ageNum : null;
+      var role = roleEl ? roleEl.value : "";
+      setPeople(function(p){return[...p,{id:uid(),name:name,color:PC[p.length%PC.length],age:age,role:role||null,isMinor:age!=null&&age<18}];});
+      // Clear the DOM inputs directly — no state needed
+      if(nameEl) nameEl.value = "";
+      if(ageEl)  ageEl.value  = "";
+      if(roleEl) roleEl.value = "";
+      if(nameEl) nameEl.focus();
     }
 
     // ── stores editing state ──
@@ -8928,16 +8959,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {/* Add member */}
             <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
+              <div ref={addFormRef} style={{display:"contents"}}>
               <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-                <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+                <input className="add-name" defaultValue="" onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+                <input className="add-age" type="number" min={0} max={120} defaultValue="" onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
               </div>
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
+                <select className="add-role" defaultValue="" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
                   <option value="">Role (optional)</option>
                   {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
                 </select>
                 <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
+              </div>
               </div>
             </div>
             {/* ZIP code + home vibe */}
