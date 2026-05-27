@@ -7821,6 +7821,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       { id: "umbrella",   label: "Umbrella",   emoji: "☂️" },
       { id: "curricula",  label: "Curricula",  emoji: "📚" },
       { id: "lessons",    label: "Lessons",    emoji: "✏️" },
+      { id: "monthly",    label: "Monthly",    emoji: "📅" },
       { id: "attendance", label: "Attendance", emoji: "📋" },
       { id: "activities", label: "Activities", emoji: "🌟" },
     ];
@@ -8173,8 +8174,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           })}
           {showCurriculumModal && (
             <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingTop: "1.25rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "min(92dvh, 600px)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem" }}>
+                  <div style={{ fontWeight: 700, color: T.textDark }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
+                  <button onClick={function(){setShowCurriculumModal(false);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textFaint,padding:"0.1rem 0.3rem"}}>✕</button>
+                </div>
                 {[["subject","Subject","text"],["name","Curriculum Name","text"],["website","Website","url"]].map(function(f) {
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
@@ -8416,12 +8420,44 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {lessonSubTab === "history" && (
             <div>
-              <div style={card()}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>🗂️ Past Lesson Plans</div>
-                <div style={{ color: T.textMid, fontSize: "0.82rem", lineHeight: 1.6 }}>
-                  Past plans are saved automatically each week when you clear or plan a new week. This feature is coming soon — for now your current week plan persists until you clear it.
-                </div>
-              </div>
+              {(function(){
+                var allLessons = (childData.homeschool.lessons||[]).slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+                if(allLessons.length===0) return <div style={{color:T.textFaint,textAlign:"center",padding:"2rem 0",fontSize:"0.85rem"}}>No lessons logged yet — add lessons in the Planner tab</div>;
+                // Group by month
+                var byMonth = {};
+                allLessons.forEach(function(l){
+                  var key = l.date ? l.date.slice(0,7) : "undated";
+                  if(!byMonth[key]) byMonth[key]=[];
+                  byMonth[key].push(l);
+                });
+                return Object.keys(byMonth).map(function(monthKey){
+                  var monthLabel = monthKey==="undated" ? "Undated" : new Date(monthKey+"-15").toLocaleDateString(undefined,{month:"long",year:"numeric"});
+                  return(
+                    <div key={monthKey} style={{marginBottom:"1rem"}}>
+                      <div style={{fontSize:"0.7rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.4rem"}}>{monthLabel}</div>
+                      {byMonth[monthKey].map(function(l){
+                        return(
+                          <div key={l.id} style={card({borderLeft:"3px solid "+T.lavender+"80",marginBottom:"0.4rem"})}>
+                            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"0.5rem"}}>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{l.title||"Untitled lesson"}</div>
+                                <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginTop:"0.2rem"}}>
+                                  {l.subject&&<span style={{fontSize:"0.7rem",color:T.lavender,fontWeight:700,background:T.lavender+"18",borderRadius:"999px",padding:"0.05rem 0.45rem"}}>{l.subject}</span>}
+                                  {l.date&&<span style={{fontSize:"0.7rem",color:T.textFaint}}>📅 {new Date(l.date+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</span>}
+                                  {l.duration&&<span style={{fontSize:"0.7rem",color:T.textFaint}}>⏱ {l.duration}</span>}
+                                </div>
+                                {l.description&&<div style={{color:T.textSoft,fontSize:"0.76rem",marginTop:"0.3rem",lineHeight:1.5}}>{l.description}</div>}
+                                {l.resources&&<div style={{color:T.textSoft,fontSize:"0.73rem",marginTop:"0.2rem",fontStyle:"italic"}}>📚 {l.resources}</div>}
+                              </div>
+                              <button onClick={function(){ setLessonForm({date:l.date||"",subject:l.subject||"",title:l.title||"",description:l.description||"",resources:l.resources||"",duration:l.duration||""}); setEditingLesson(l.id); setShowLessonModal(true); }} style={btnS({padding:"0.25rem 0.55rem",fontSize:"0.7rem",flexShrink:0})}>Edit</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
 
@@ -8538,13 +8574,156 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
-    function HSActivities() {
+    function HSMonthly() {
+      var now = new Date();
+      var defaultMonthKey = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0");
+      var [activeMonth, setActiveMonth] = React.useState(defaultMonthKey);
+      var [showWorkModal, setShowWorkModal] = React.useState(false);
+      var [workForm, setWorkForm] = React.useState({ title:"", subject:"", url:"", notes:"" });
+      var [editingWork, setEditingWork] = React.useState(null);
+
+      var monthlyPlans = childData.homeschool.monthlyPlans || {};
+      var plan = monthlyPlans[activeMonth] || { theme:"", focus:"", goals:"", recap:"", workSamples:[] };
+
+      function savePlan(patch) {
+        var updated = Object.assign({}, monthlyPlans);
+        updated[activeMonth] = Object.assign({}, plan, patch);
+        saveHS({ monthlyPlans: updated });
+      }
+      function saveWork(patch) {
+        savePlan({ workSamples: patch });
+      }
+
+      // Build month options: 12 months back + 3 forward
+      var monthOptions = [];
+      for (var i = -11; i <= 2; i++) {
+        var d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        var k = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+        var label = d.toLocaleDateString(undefined, { month:"long", year:"numeric" });
+        monthOptions.push({ key: k, label: label });
+      }
+      monthOptions.reverse();
+
+      var monthLabel = (function(){ var d = new Date(activeMonth+"-15"); return d.toLocaleDateString(undefined,{month:"long",year:"numeric"}); })();
+      var workSamples = plan.workSamples || [];
+
+      return (
+        <div>
+          {/* Month picker */}
+          <div style={{marginBottom:"1rem"}}>
+            <select value={activeMonth} onChange={function(e){setActiveMonth(e.target.value);}} style={Object.assign({},inp({fontSize:"0.85rem",fontWeight:700,padding:"0.45rem 0.75rem"}))}>
+              {monthOptions.map(function(o){ return <option key={o.key} value={o.key}>{o.label}</option>; })}
+            </select>
+          </div>
+
+          {/* Plan card */}
+          <div style={card({borderLeft:"3px solid "+T.blue,marginBottom:"0.75rem"})}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>📅 {monthLabel} — Plan</div>
+            <div style={{marginBottom:"0.55rem"}}>
+              <label style={lbl}>Monthly Theme</label>
+              <input key={activeMonth+"_theme"} defaultValue={plan.theme} onBlur={function(e){savePlan({theme:e.target.value});}} onKeyDown={function(e){if(e.key==="Enter")e.target.blur();}} placeholder="e.g. Nature & Science, Ancient History..." style={inp()} />
+            </div>
+            <div style={{marginBottom:"0.55rem"}}>
+              <label style={lbl}>Main Focus</label>
+              <input key={activeMonth+"_focus"} defaultValue={plan.focus} onBlur={function(e){savePlan({focus:e.target.value});}} onKeyDown={function(e){if(e.key==="Enter")e.target.blur();}} placeholder="e.g. Multiplication facts, chapter books..." style={inp()} />
+            </div>
+            <div style={{marginBottom:"0.25rem"}}>
+              <label style={lbl}>Goals for the Month</label>
+              <textarea key={activeMonth+"_goals"} defaultValue={plan.goals} onBlur={function(e){savePlan({goals:e.target.value});}} placeholder="What do you want to accomplish this month?" style={Object.assign({},inp(),{minHeight:70,resize:"vertical"})} />
+            </div>
+          </div>
+
+          {/* Recap card */}
+          <div style={card({borderLeft:"3px solid "+T.sage,marginBottom:"0.75rem"})}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>✨ {monthLabel} — Recap</div>
+            <div>
+              <label style={lbl}>How did it go? What stood out?</label>
+              <textarea key={activeMonth+"_recap"} defaultValue={plan.recap} onBlur={function(e){savePlan({recap:e.target.value});}} placeholder="Wins, struggles, funny moments, things to remember..." style={Object.assign({},inp(),{minHeight:90,resize:"vertical"})} />
+            </div>
+          </div>
+
+          {/* Work samples */}
+          <div style={card({marginBottom:"0.75rem"})}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.65rem"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark}}>🖼️ Work Samples</div>
+              <button onClick={function(){setWorkForm({title:"",subject:"",url:"",notes:""});setEditingWork(null);setShowWorkModal(true);}} style={btnP(T.sand,{fontSize:"0.75rem",padding:"0.3rem 0.75rem"})}>+ Add</button>
+            </div>
+            {workSamples.length===0&&<div style={{color:T.textFaint,fontSize:"0.82rem",textAlign:"center",padding:"1rem 0"}}>No work samples yet — add a photo URL or link to a piece of work</div>}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:"0.6rem"}}>
+              {workSamples.map(function(w){
+                return(
+                  <div key={w.id} style={{borderRadius:"0.75rem",overflow:"hidden",border:"1.5px solid "+T.borderSoft,background:T.white}}>
+                    {w.url&&(
+                      <div style={{height:100,overflow:"hidden",background:T.bgAlt}}>
+                        <img src={w.url} alt={w.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={function(e){e.target.parentNode.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:'+T.textFaint+';font-size:0.72rem;padding:0.5rem;text-align:center">🔗 Link only</div>';}}/>
+                      </div>
+                    )}
+                    <div style={{padding:"0.45rem 0.5rem"}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",color:T.textDark,marginBottom:"0.15rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{w.title||"Untitled"}</div>
+                      {w.subject&&<div style={{fontSize:"0.68rem",color:T.sage,fontWeight:700}}>{w.subject}</div>}
+                      {w.notes&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w.notes}</div>}
+                      <div style={{display:"flex",gap:"0.3rem",marginTop:"0.35rem"}}>
+                        <button onClick={function(){setWorkForm({title:w.title||"",subject:w.subject||"",url:w.url||"",notes:w.notes||""});setEditingWork(w.id);setShowWorkModal(true);}} style={btnS({padding:"0.2rem 0.45rem",fontSize:"0.68rem"})}>Edit</button>
+                        <button onClick={function(){saveWork(workSamples.filter(function(x){return x.id!==w.id;}));}} style={btnS({padding:"0.2rem 0.45rem",fontSize:"0.68rem",color:T.rose})}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Work sample modal */}
+          {showWorkModal&&(
+            <div style={{position:"fixed",inset:0,background:T.modalOverlay,zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+              <div style={{background:T.surface,borderRadius:"1.2rem 1.2rem 0 0",padding:"1.5rem",paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom,0px))",width:"min(480px,100%)",maxHeight:"min(88dvh,560px)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
+                  <div style={{fontWeight:700,color:T.textDark}}>{editingWork?"Edit Work Sample":"Add Work Sample"}</div>
+                  <button onClick={function(){setShowWorkModal(false);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textFaint}}>✕</button>
+                </div>
+                {[["title","Title","text","e.g. Math worksheet, Art project..."],["subject","Subject","text","Math, Reading, Art..."]].map(function(f){
+                  return(
+                    <div key={f[0]} style={{marginBottom:"0.6rem"}}>
+                      <label style={lbl}>{f[1]}</label>
+                      <input type={f[2]} key={f[0]+"_"+(editingWork||"new")} defaultValue={workForm[f[0]]} onBlur={function(e){var v=e.target.value;var fk=f[0];setWorkForm(function(p){var n=Object.assign({},p);n[fk]=v;return n;});}} placeholder={f[3]} style={inp()} />
+                    </div>
+                  );
+                })}
+                <div style={{marginBottom:"0.6rem"}}>
+                  <label style={lbl}>Photo URL <span style={{fontWeight:400,color:T.textFaint,fontSize:"0.72rem"}}>(paste image link from Google Photos, iCloud, etc.)</span></label>
+                  <input type="url" key={"url_"+(editingWork||"new")} defaultValue={workForm.url} onBlur={function(e){var v=e.target.value.trim();setWorkForm(function(p){return Object.assign({},p,{url:v});});}} placeholder="https://..." style={inp()} />
+                  {workForm.url&&<div style={{marginTop:"0.4rem",borderRadius:"0.6rem",overflow:"hidden",maxHeight:110}}><img src={workForm.url} alt="preview" style={{width:"100%",objectFit:"cover",maxHeight:110,display:"block"}} onError={function(e){e.target.style.display="none";}}/></div>}
+                </div>
+                <div style={{marginBottom:"0.85rem"}}>
+                  <label style={lbl}>Notes</label>
+                  <textarea key={"notes_"+(editingWork||"new")} defaultValue={workForm.notes} onBlur={function(e){var v=e.target.value;setWorkForm(function(p){return Object.assign({},p,{notes:v});});}} placeholder="What did they learn? What are you proud of?" style={Object.assign({},inp(),{minHeight:55})} />
+                </div>
+                <div style={{display:"flex",gap:"0.5rem"}}>
+                  <button onClick={function(){
+                    if(!workForm.title.trim()&&!workForm.url.trim()) return;
+                    if(editingWork){
+                      saveWork(workSamples.map(function(x){return x.id===editingWork?Object.assign({},workForm,{id:x.id}):x;}));
+                    } else {
+                      saveWork(workSamples.concat([Object.assign({},workForm,{id:suid(),date:activeMonth})]));
+                    }
+                    setShowWorkModal(false);
+                  }} style={btnP(T.sand,{flex:1})}>Save</button>
+                  <button onClick={function(){setShowWorkModal(false);}} style={btnS({flex:1})}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+        function HSActivities() {
       var activities = (childData.homeschool.activities || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
       var upcoming = activities.filter(function(a) { return a.date >= todayISO; });
       var past = activities.filter(function(a) { return a.date < todayISO; });
       return (
         <div>
-          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
+          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", photoUrl: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
           {upcoming.length > 0 && (
             <div style={{ marginBottom: "0.5rem" }}>
               <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Upcoming</div>
@@ -8558,11 +8737,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         {a.location && <div style={{ color: T.textMid, fontSize: "0.75rem" }}>📍 {a.location}</div>}
                       </div>
                       <div style={{ display: "flex", gap: "0.4rem" }}>
-                        <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                        <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, photoUrl: a.photoUrl||"", notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
                         <button onClick={function() { saveHS({ activities: activities.filter(function(x) { return x.id !== a.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
                       </div>
                     </div>
                     {a.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{a.notes}</div>}
+                    {a.photoUrl&&<div style={{marginTop:"0.5rem",borderRadius:"0.6rem",overflow:"hidden"}}><img src={a.photoUrl} alt={a.title} style={{width:"100%",maxHeight:140,objectFit:"cover",display:"block",borderRadius:"0.6rem"}} onError={function(e){e.target.style.display="none";}}/></div>}
                   </div>
                 );
               })}
@@ -8573,9 +8753,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Past</div>
               {past.slice(-5).reverse().map(function(a) {
                 return (
-                  <div key={a.id} style={card({ opacity: 0.65 })}>
-                    <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
-                    {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                  <div key={a.id} style={card({ opacity: 0.75 })}>
+                    <div style={{display:"flex",gap:"0.65rem",alignItems:"flex-start"}}>
+                      {a.photoUrl&&<img src={a.photoUrl} alt={a.title} style={{width:52,height:52,objectFit:"cover",borderRadius:"0.5rem",flexShrink:0}} onError={function(e){e.target.style.display="none";}}/>}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
+                        {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                        {a.location&&<div style={{color:T.textFaint,fontSize:"0.73rem"}}>📍 {a.location}</div>}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -8594,6 +8780,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                   );
                 })}
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Photo URL <span style={{fontWeight:400,color:T.textFaint,fontSize:"0.72rem"}}>(paste a link to an image)</span></label>
+                  <input type="url" key={"photoUrl_"+(editingActivity?editingActivity:"new")} defaultValue={activityForm.photoUrl||""} onBlur={function(e){ var v=e.target.value.trim(); setActivityForm(function(p){ return Object.assign({},p,{photoUrl:v}); }); }} placeholder="https://..." style={inp()} />
+                  {activityForm.photoUrl&&(
+                    <div style={{marginTop:"0.4rem",borderRadius:"0.65rem",overflow:"hidden",maxHeight:120,background:T.bgAlt}}>
+                      <img src={activityForm.photoUrl} alt="preview" style={{width:"100%",objectFit:"cover",maxHeight:120,display:"block"}} onError={function(e){e.target.style.display="none";}}/>
+                    </div>
+                  )}
+                </div>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
                   <textarea defaultValue={activityForm.notes} onBlur={function(e) { var v = e.target.value; setActivityForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
@@ -8848,6 +9043,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {subTab === "curricula"  && <HSCurricula />}
             {subTab === "lessons"    && <HSLessons />}
             {subTab === "attendance" && <HSAttendance />}
+            {subTab === "monthly"    && <HSMonthly />}
             {subTab === "activities" && <HSActivities />}
           </React.Fragment>
         )}
