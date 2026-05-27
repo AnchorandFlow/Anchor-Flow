@@ -8862,7 +8862,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <input
                       key={p.id+"_name"}
                       defaultValue={p.name}
-                      onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                      onBlur={function(e){var v=e.target.value.trim();if(v)setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:v}):x;});});}}
                       style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
                     />
                     <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
@@ -8870,7 +8870,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </button>
                   </div>
                   <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
-                    <input type="number" min={0} max={120} value={p.age!=null&&!isNaN(p.age)?p.age:""} onChange={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
+                    <input type="number" min={0} max={120} key={p.id+"_age"} defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""} onBlur={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
                     <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
                       <option value="">Role…</option>
                       {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
