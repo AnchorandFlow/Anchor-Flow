@@ -10752,18 +10752,74 @@ export default function App() {
     return <div style={{ minHeight: "100dvh", background: "#1a2744", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "serif", fontSize: "20px", color: "rgba(250,248,244,0.4)" }}>anchor & flow</div>
   }
 
-  if (!session) return <AuthScreen onAuth={(s) => {
+  if (!session) return <AuthScreen onAuth={async (s) => {
     setSession(s)
-    // Set displayName in localStorage so original app greeting works
-    if (s?.user) {
-      const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0]
-      try {
-        localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
-        if (s.access_token) {
-          localStorage.setItem("af_token", s.access_token)
-          localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
+    if (!s?.user) return;
+    const token = s.access_token;
+    const userId = s.user.id;
+    const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0];
+    try {
+      localStorage.setItem("af_authUser", JSON.stringify({ id: userId, email: s.user.email, displayName }));
+      if (token) {
+        localStorage.setItem("af_token", token);
+        localStorage.setItem("af_authToken", JSON.stringify(token));
+      }
+    } catch(e) {}
+
+    // ── Pull household data immediately on login ──────────────────────────────
+    // This ensures Twyla (or any joined member) gets the shared household data
+    // right away without waiting for the 30s background sync.
+    if (!token) return;
+    try {
+      localStorage.removeItem("af_lastHHSync"); // force fresh pull
+      // First: check if user owns a household
+      const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+userId+"&select=*&order=updated_at.desc&limit=1", { _token: token });
+      let sourceRow = null;
+      if (ownedRows && ownedRows.length > 0) {
+        sourceRow = ownedRows[0];
+        try { localStorage.setItem("af_householdId", JSON.stringify(sourceRow.id)); } catch {}
+      } else {
+        // No owned household — check for joined household in metadata
+        let joinedId = s.user?.user_metadata?.joined_household_id || null;
+        if (!joinedId) {
+          // Re-fetch fresh user metadata (login response can be stale)
+          try {
+            const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
+              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
+            });
+            const freshUser = await freshResp.json();
+            joinedId = freshUser?.user_metadata?.joined_household_id || null;
+          } catch(e) {}
         }
-      } catch(e) {}
+        if (joinedId) {
+          const joinedRows = await sbFetch("/rest/v1/households?id=eq."+joinedId+"&select=*&limit=1", { _token: token });
+          if (joinedRows && joinedRows.length > 0) {
+            sourceRow = joinedRows[0];
+            try { localStorage.setItem("af_householdId", JSON.stringify(joinedId)); } catch {}
+          }
+        }
+      }
+      if (sourceRow && sourceRow.data && Object.keys(sourceRow.data).length > 0) {
+        // Write all shared household data to localStorage before HomeFlow mounts
+        const SHARED_KEYS = ["people","familyProfile","schoolData","tasks","brainItems","brainCats",
+          "calEvents","connectedCals","calColorLabels","meals","mealsWeekOf","nextWeekMeals",
+          "mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
+          "shoppingItems","stores","shopCategories","notifications","recurring","notifSettings",
+          "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","birthdays",
+          "rhythm","homeSystems","aiMemory","theme","nwMealCount","dietaryFilters",
+          "coveData","cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
+          "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates"];
+        const data = sourceRow.data;
+        SHARED_KEYS.forEach(function(k) {
+          if (data[k] !== undefined) {
+            try { localStorage.setItem("af_"+k, JSON.stringify(data[k])); } catch {}
+          }
+        });
+        try { localStorage.setItem("af_lastHHSync", sourceRow.updated_at || String(Date.now())); } catch {}
+        console.log("[AF] onAuth: household data pulled for", userId, "hh:", sourceRow.id);
+      }
+    } catch(e) {
+      console.warn("[AF] onAuth household pull failed:", e.message);
     }
   }} />
 
