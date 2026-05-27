@@ -1360,69 +1360,84 @@ function HomeFlow() {
 
   // ── Background household sync — polls every 60s ─────────────────────────
   // Each tick fetches the server row and compares updated_at to af_lastHHSync.
-  // If server is newer and the user isn't actively typing, writes fresh data
-  // and reloads so the other household member's changes appear automatically.
-  // Our own pushes update af_lastHHSync, so we never reload on our own writes.
+  // ── Realtime: instant inbound sync via Supabase Realtime channel ────────────
+  // When another household member saves changes, Supabase pushes the update here
+  // within ~1-2 seconds. No polling needed for inbound changes.
   useEffect(() => {
     if (!authToken || !householdId) return;
 
-    async function checkForUpdates() {
-      try {
-        const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-        if (!rows || !rows.length || !rows[0].data) return;
-        const row = rows[0];
-        const serverTs = row.updated_at || "";
-        const lastSync = localStorage.getItem("af_lastHHSync") || "";
-        if (serverTs && serverTs !== lastSync) {
-          // If this new timestamp matches what WE just pushed, it's our own write — don't reload
-          const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
-          if (serverTs === lastPushedAt) {
-            try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-            setSyncStatus("synced");
-            setLastSyncTime(new Date().toLocaleTimeString());
-            return;
-          }
-          const activeEl = document.activeElement;
-          const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
-          const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-          const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
-          const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
-          if (isTyping || typedRecently || isDragging || hasOpenModal) return;
-          const cleanBg = sanitizeHouseholdData(row.data);
-          const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
-          SYNC_KEYS.forEach(k => {
-            // Don't overwrite mealsWeekOf from server if local already has this week's value
-            if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
-            if (cleanBg[k] !== undefined) {
-              try { localStorage.setItem("af_" + k, JSON.stringify(cleanBg[k])); } catch {}
-            }
-          });
-          localStorage.setItem("af_lastHHSync", serverTs);
-          window.location.reload();
-        } else {
-          setSyncStatus("synced");
-          setLastSyncTime(new Date().toLocaleTimeString());
+    function applyIncoming(row) {
+      if (!row || !row.data) return;
+      const serverTs = row.updated_at || "";
+      const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
+      // Skip our own writes — we already have them locally
+      if (serverTs && serverTs === lastPushedAt) {
+        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+        setSyncStatus("synced");
+        setLastSyncTime(new Date().toLocaleTimeString());
+        return;
+      }
+      const lastSync = localStorage.getItem("af_lastHHSync") || "";
+      if (serverTs && serverTs === lastSync) return; // already applied
+      // Don't reload while user is actively doing something
+      const activeEl = document.activeElement;
+      const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
+      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
+      const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35']");
+      const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
+      if (isTyping || typedRecently || isDragging || hasOpenModal) {
+        // Queue a reload for when they stop typing
+        clearTimeout(window._reloadAfterTyping);
+        window._reloadAfterTyping = setTimeout(function() { window.location.reload(); }, 20000);
+        return;
+      }
+      const clean = sanitizeHouseholdData(row.data);
+      const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+      SYNC_KEYS.forEach(k => {
+        if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
+        if (clean[k] !== undefined) {
+          try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
         }
-      } catch {}
+      });
+      try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+      setSyncStatus("synced");
+      setLastSyncTime(new Date().toLocaleTimeString());
+      window.location.reload();
     }
 
-    // First check after 5s, then every 60s — but never if user is actively typing
-    const initial = setTimeout(function(){
-      const active = document.activeElement;
-      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
-      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-      if (!isTyping && !typedRecently) checkForUpdates();
-    }, 5000);
-    const interval = setInterval(function(){
-      const active = document.activeElement;
-      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
-      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-      const shopFocused = window._shopInputFocused;
-      if(!isTyping && !typedRecently && !shopFocused) checkForUpdates();
-    }, 60000);
-    return () => { clearTimeout(initial); clearInterval(interval); };
+    // Subscribe to realtime changes on this household row
+    const channel = supabase
+      .channel("household-" + householdId)
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "households",
+        filter: "id=eq." + householdId
+      }, function(payload) {
+        console.log("[AF] Realtime update received");
+        applyIncoming(payload.new);
+      })
+      .subscribe(function(status) {
+        console.log("[AF] Realtime status:", status);
+        if (status === "SUBSCRIBED") setSyncStatus("synced");
+      });
+
+    // Fallback poll every 90s in case realtime drops (mobile background, etc.)
+    const fallbackInterval = setInterval(async function() {
+      try {
+        if (!authToken) return;
+        const rows = await sbFetch("/rest/v1/households?id=eq."+householdId+"&select=updated_at,data", { _token: authToken });
+        if (rows && rows.length > 0) applyIncoming(rows[0]);
+      } catch {}
+    }, 90000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(fallbackInterval);
+      clearTimeout(window._reloadAfterTyping);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authToken, householdId]);
 
   // ── Push local changes every 30s ───────────────────────────────────────────
   // Only pushes — no reloads. Cross-device updates appear on next app open.
@@ -1446,7 +1461,7 @@ function HomeFlow() {
         // JWT errors already handled inside pushHouseholdData — don't set error status here
         if (!isJwtExpired(e)) setSyncStatus("error");
       }
-    }, 30000);
+    }, 8000);
     return () => clearInterval(iv);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
@@ -1463,7 +1478,7 @@ function HomeFlow() {
   function debouncedSync() {
     if (!authToken || !householdId) return;
     clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(syncNow, 3000);
+    syncTimeoutRef.current = setTimeout(syncNow, 1500);
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
@@ -2497,7 +2512,7 @@ Respond ONLY with valid JSON array, no markdown:
   }, []); // eslint-disable-line
 
   // Sync household data when key state changes
-  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems]); // eslint-disable-line
+  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, schoolData, familyProfile, rhythm, homeSystems, stores, shopCategories]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
