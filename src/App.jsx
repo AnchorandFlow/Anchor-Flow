@@ -7542,6 +7542,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [showSpiritModal, setShowSpiritModal] = React.useState(false);
     var [editingSpirit, setEditingSpirit] = React.useState(null);
     var [showTypeModal, setShowTypeModal] = React.useState(false);
+    var [breakMode, setBreakMode] = React.useState(null); // null | "summer" | "winter" | "spring"
+    var [showBreakGoalModal, setShowBreakGoalModal] = React.useState(false);
+    var [breakGoalForm, setBreakGoalForm] = React.useState({ title: "", type: "goal", target: "", unit: "", notes: "" });
+    var [editingBreakGoal, setEditingBreakGoal] = React.useState(null);
     var [teacherForm, setTeacherForm] = React.useState({ name: "", subject: "", email: "", phone: "", notes: "" });
     var [eventForm, setEventForm] = React.useState({ title: "", date: "", type: "event", notes: "" });
     var [curriculumForm, setCurriculumForm] = React.useState({ subject: "", name: "", website: "", notes: "" });
@@ -8410,6 +8414,162 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Break mode data helpers ────────────────────────────────────────────────
+    var breakGoals = (activeChild && schoolData[activeChild] && schoolData[activeChild].breakGoals) || [];
+
+    function saveBreakGoals(list) {
+      setSchoolData(function(prev) {
+        var next = Object.assign({}, prev);
+        var existing = prev[activeChild] || {};
+        next[activeChild] = Object.assign({}, existing, { breakGoals: list });
+        return next;
+      });
+    }
+
+    var BREAK_COLORS = { summer: "#e8a84c", winter: "#6ba3c4", spring: "#7db87a" };
+    var BREAK_EMOJIS = { summer: "☀️", winter: "❄️", spring: "🌸" };
+    var BREAK_LABELS = { summer: "Summer Break", winter: "Winter Break", spring: "Spring Break" };
+
+    function BreakModePanel() {
+      var currentBreakGoals = breakGoals.filter(function(g) { return g.break === breakMode; });
+      var breakColor = BREAK_COLORS[breakMode] || T.sand;
+      var breakEmoji = BREAK_EMOJIS[breakMode] || "🌟";
+      var breakLabel = BREAK_LABELS[breakMode] || "Break";
+
+      return (
+        <div>
+          {/* Break header banner */}
+          <div style={{ background: "linear-gradient(135deg, " + breakColor + "22, " + breakColor + "08)", border: "1.5px solid " + breakColor + "55", borderRadius: "1rem", padding: "1rem 1.1rem", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <span style={{ fontSize: "1.8rem" }}>{breakEmoji}</span>
+              <div>
+                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.2rem", fontWeight: 700, color: breakColor }}>{breakLabel}</div>
+                <div style={{ fontSize: "0.72rem", color: T.textMid }}>Goals, challenges & reading targets</div>
+              </div>
+            </div>
+            <button onClick={function() { setBreakMode(null); }} style={{ background: "none", border: "1px solid " + T.border, borderRadius: "2rem", padding: "0.3rem 0.75rem", fontSize: "0.72rem", color: T.textMid, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
+          </div>
+
+          {/* Add goal button */}
+          <button onClick={function() {
+            setBreakGoalForm({ title: "", type: "goal", target: "", unit: "", notes: "" });
+            setEditingBreakGoal(null);
+            setShowBreakGoalModal(true);
+          }} style={Object.assign({}, btnP(breakColor), { width: "100%", marginBottom: "0.85rem", color: "#fff" })}>+ Add Goal or Challenge</button>
+
+          {/* Goal list */}
+          {currentBreakGoals.length === 0 && (
+            <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: T.textFaint, fontSize: "0.85rem" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "0.6rem" }}>{breakEmoji}</div>
+              No goals yet — add reading targets, challenges, or activities!
+            </div>
+          )}
+          {currentBreakGoals.map(function(g) {
+            var pct = g.target && g.progress != null ? Math.min(100, Math.round((g.progress / parseInt(g.target)) * 100)) : null;
+            return (
+              <div key={g.id} style={card({ borderLeft: "3px solid " + breakColor })}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.25rem" }}>
+                      <span style={{ background: breakColor + "22", color: breakColor, fontSize: "0.62rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 8px", border: "1px solid " + breakColor + "40", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                        {g.type === "reading" ? "📚 Reading" : g.type === "daily" ? "📆 Daily" : "🎯 Goal"}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{g.title}</div>
+                    {g.target && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>Target: {g.progress != null ? g.progress : 0} / {g.target} {g.unit}</div>}
+                    {g.notes && <div style={{ color: T.textSoft, fontSize: "0.75rem", fontStyle: "italic", marginTop: "0.2rem" }}>{g.notes}</div>}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
+                    <button onClick={function() {
+                      setBreakGoalForm({ title: g.title, type: g.type, target: g.target || "", unit: g.unit || "", notes: g.notes || "" });
+                      setEditingBreakGoal(g.id);
+                      setShowBreakGoalModal(true);
+                    }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem" })}>Edit</button>
+                    <button onClick={function() {
+                      saveBreakGoals(breakGoals.filter(function(x) { return x.id !== g.id; }));
+                    }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem", color: T.rose })}>✕</button>
+                  </div>
+                </div>
+                {/* Progress bar */}
+                {g.target && (
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+                      <span style={{ fontSize: "0.7rem", color: T.textFaint }}>{pct}% complete</span>
+                      <div style={{ display: "flex", gap: "0.3rem" }}>
+                        <button onClick={function() {
+                          var cur = g.progress || 0;
+                          if (cur > 0) saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: cur - 1 }) : x; }));
+                        }} style={{ background: T.bgAlt, border: "1px solid " + T.border, borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                        <button onClick={function() {
+                          var cur = g.progress || 0;
+                          saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: cur + 1 }) : x; }));
+                        }} style={{ background: breakColor + "22", border: "1px solid " + breakColor + "55", borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", color: breakColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>+</button>
+                      </div>
+                    </div>
+                    <div style={{ background: T.bgAlt, borderRadius: "2rem", height: "6px", overflow: "hidden" }}>
+                      <div style={{ background: breakColor, width: pct + "%", height: "100%", borderRadius: "2rem", transition: "width 0.3s" }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add/Edit modal */}
+          {showBreakGoalModal && (
+            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingBreakGoal ? "Edit Goal" : "Add Goal"}</div>
+
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Type</label>
+                  <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.65rem" }}>
+                    {[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily habit"]].map(function(t) {
+                      return <button key={t[0]} onClick={function() { setBreakGoalForm(function(p) { return Object.assign({}, p, { type: t[0] }); }); }} style={{ flex: 1, background: breakGoalForm.type === t[0] ? breakColor + "22" : T.bgAlt, border: "1.5px solid " + (breakGoalForm.type === t[0] ? breakColor + "88" : T.border), borderRadius: "0.65rem", padding: "0.55rem 0.3rem", fontSize: "0.72rem", color: breakGoalForm.type === t[0] ? breakColor : T.textMid, cursor: "pointer", fontFamily: "inherit", fontWeight: breakGoalForm.type === t[0] ? 700 : 400 }}>{t[1]}</button>;
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Title</label>
+                  <input defaultValue={breakGoalForm.title} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder={breakGoalForm.type === "reading" ? "Read 30 books this summer" : breakGoalForm.type === "daily" ? "15 min reading every day" : "Learn to ride a bike"} />
+                </div>
+
+                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.65rem" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>Target number</label>
+                    <input type="number" defaultValue={breakGoalForm.target} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { target: v }); }); }} style={inp()} placeholder="30" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={lbl}>Unit</label>
+                    <input defaultValue={breakGoalForm.unit} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { unit: v }); }); }} style={inp()} placeholder="books, days, hours..." />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: "0.85rem" }}>
+                  <label style={lbl}>Notes</label>
+                  <textarea defaultValue={breakGoalForm.notes} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} placeholder="Details, rewards, ideas..." />
+                </div>
+
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button onClick={function() {
+                    if (!breakGoalForm.title.trim()) return;
+                    if (editingBreakGoal) {
+                      saveBreakGoals(breakGoals.map(function(g) { return g.id === editingBreakGoal ? Object.assign({}, g, breakGoalForm) : g; }));
+                    } else {
+                      saveBreakGoals(breakGoals.concat([Object.assign({}, breakGoalForm, { id: suid(), break: breakMode, progress: 0 })]));
+                    }
+                    setShowBreakGoalModal(false);
+                  }} style={btnP(breakColor, { flex: 1, color: "#fff" })}>Save</button>
+                  <button onClick={function() { setShowBreakGoalModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div style={{ paddingBottom: "4rem" }}>
         {showTypeModal && <TypePicker />}
@@ -8446,14 +8606,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {activeTabs.map(function(t) {
               var isActive = subTab === t.id;
               return (
-                <button key={t.id} onClick={function() { setSubTab(t.id); }} style={{ background: isActive ? T.blue : "transparent", color: isActive ? "#fff" : T.textMid, border: "1.5px solid " + (isActive ? T.blue : T.border), borderRadius: "2rem", padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                <button key={t.id} onClick={function() { setSubTab(t.id); setBreakMode(null); }} style={{ background: isActive && !breakMode ? T.blue : "transparent", color: isActive && !breakMode ? "#fff" : T.textMid, border: "1.5px solid " + (isActive && !breakMode ? T.blue : T.border), borderRadius: "2rem", padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive && !breakMode ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
                   {t.emoji} {t.label}
                 </button>
               );
             })}
           </div>
         )}
-        {childData.type === "public" && (
+        {/* Break mode selector */}
+        {childData.type && (
+          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", overflowX: "auto", paddingBottom: "2px" }}>
+            <span style={{ fontSize: "0.7rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", alignSelf: "center", flexShrink: 0, marginRight: "0.1rem" }}>Break:</span>
+            {[["summer","☀️ Summer","#e8a84c"],["winter","❄️ Winter","#6ba3c4"],["spring","🌸 Spring","#7db87a"]].map(function(b) {
+              var isActive = breakMode === b[0];
+              return (
+                <button key={b[0]} onClick={function() { setBreakMode(isActive ? null : b[0]); }} style={{ background: isActive ? b[2] + "22" : "transparent", color: isActive ? b[2] : T.textMid, border: "1.5px solid " + (isActive ? b[2] + "88" : T.border), borderRadius: "2rem", padding: "0.28rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive ? 700 : 400, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                  {b[1]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {breakMode && childData.type && <BreakModePanel />}
+        {!breakMode && childData.type === "public" && (
           <React.Fragment>
             {subTab === "overview" && <PublicOverview />}
             {subTab === "teachers" && <PublicTeachers />}
@@ -8462,7 +8637,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {subTab === "spirit"   && <SpiritDays />}
           </React.Fragment>
         )}
-        {childData.type === "homeschool" && (
+        {!breakMode && childData.type === "homeschool" && (
           <React.Fragment>
             {subTab === "overview"   && <HSOverview />}
             {subTab === "umbrella"   && <HSUmbrella />}
