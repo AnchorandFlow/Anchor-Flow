@@ -427,7 +427,9 @@ const SYNC_KEYS = [
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
-  "schoolData","coveData","dietaryFilters","mealThemeEnabled"
+  "schoolData","coveData","dietaryFilters","mealThemeEnabled",
+  // App config that should be shared across all household members
+  "theme","nwMealCount"
 ];
 
 const TODAY = new Date();
@@ -967,9 +969,17 @@ function HomeFlow() {
     }
     // Scalar values
     if (typeof data.mealCount === "number") out.mealCount = data.mealCount;
+    if (typeof data.nwMealCount === "number") out.nwMealCount = data.nwMealCount;
     if (typeof data.mealThemeEnabled === "boolean") out.mealThemeEnabled = data.mealThemeEnabled;
-    // Objects: pass through if valid
-    ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels","coveData","schoolData"].forEach(k => {
+    // Pass through theme so all household members share the same app theme
+    if (typeof data.theme === "string") out.theme = data.theme;
+    // Objects and remaining keys: pass through if valid
+    ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels","coveData","schoolData",
+     "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","notifSettings",
+     "recurring","rhythm","homeSystems","birthdays",
+     "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
+     "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates"
+    ].forEach(k => {
       if (data[k] !== undefined) out[k] = data[k];
     });
     return out;
@@ -1421,6 +1431,10 @@ function HomeFlow() {
     const iv = setInterval(async () => {
       try {
         if (!authToken) return; // token already cleared, stop trying
+        // Don't push until we've done at least one successful pull
+        // This prevents a new household member from overwriting shared data before receiving it
+        const hasSynced = (() => { try { return !!localStorage.getItem("af_lastHHSync"); } catch { return false; } })();
+        if (!hasSynced) return;
         const active = document.activeElement;
         const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
         const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
