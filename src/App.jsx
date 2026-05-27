@@ -8990,7 +8990,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{paddingTop:"0.75rem"}}>
             <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
               <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                <input value={preferredName} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(){var updated=Object.assign({},authUser,{displayName:preferredName.trim()||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+                <input defaultValue={preferredName} onBlur={function(e){var v=e.target.value.trim();if(!v){e.target.value=preferredName;return;}setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} onKeyDown={function(e){if(e.key==="Enter")e.target.blur();}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
               </div>
             </Row>
             <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
@@ -9334,15 +9334,35 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
             {notifications.filter(function(n){return !n.fired;}).length>0&&(
               <div style={{marginTop:"0.85rem"}}>
-                <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
-                {notifications.filter(function(n){return !n.fired;}).map(function(n){return(
-                  <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                    <span style={{fontSize:"0.8rem"}}>🔔</span>
-                    <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{n.entityTitle}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textSoft}}>{n.date} {n.time}</span>
-                    <button onClick={()=>setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});})} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
-                  </div>
-                );})}
+                <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Upcoming reminders</div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                {notifications.filter(function(n){return !n.fired;}).map(function(n){
+                  var recurList2 = (function(){ try{ return JSON.parse(localStorage.getItem("af_recurring")||"[]")||[]; }catch{ return []; } })();
+                  var linkedRecur = recurList2.find(function(r){return r.id===n.entityId;});
+                  var linkedTask  = tasks.find(function(t){return t.id===n.entityId;});
+                  var rawLastDone = linkedRecur&&linkedRecur.lastDone ? linkedRecur.lastDone : (linkedTask&&linkedTask.lastDone ? linkedTask.lastDone : null);
+                  var lastDoneStr = rawLastDone ? new Date(rawLastDone).toLocaleDateString(undefined,{month:"short",day:"numeric"}) : null;
+                  var isToday = n.date===TODAY.toISOString().split("T")[0];
+                  var isPast  = n.date && n.date < TODAY.toISOString().split("T")[0];
+                  var dueLabel = isToday ? "Today" : n.date ? new Date(n.date+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}) : "";
+                  return(
+                    <div key={n.id} style={{background:isPast?T.rose+"10":isToday?"rgba(200,169,122,0.08)":T.surface,borderRadius:"0.85rem",border:"1.5px solid "+(isPast?T.rose+"40":isToday?T.sand+"50":T.borderSoft),padding:"0.55rem 0.75rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <span style={{fontSize:"0.9rem",flexShrink:0}}>{linkedRecur&&linkedRecur.emoji?linkedRecur.emoji:"🔔"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"0.82rem",fontWeight:700,color:isPast?T.rose:T.textDark,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginTop:"0.18rem",flexWrap:"wrap"}}>
+                            <span style={{fontSize:"0.7rem",color:isToday?T.sandDark:isPast?T.rose:T.textSoft,fontWeight:isToday||isPast?700:400}}>{dueLabel}{n.time?" · "+fmtTime(n.time):""}</span>
+                            {lastDoneStr&&<span style={{fontSize:"0.68rem",color:T.sage,fontWeight:700,background:T.sage+"15",borderRadius:"999px",padding:"0.05rem 0.45rem"}}>✓ last done {lastDoneStr}</span>}
+                            {n.note&&<span style={{fontSize:"0.68rem",color:T.textSoft,fontStyle:"italic"}}>{n.note}</span>}
+                          </div>
+                        </div>
+                        <button onClick={function(){setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"0.15rem",display:"flex",flexShrink:0,opacity:0.5}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                </div>
               </div>
             )}
           </div>
