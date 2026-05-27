@@ -3559,6 +3559,46 @@ Respond ONLY in valid JSON:
             </div>
           )}
 
+            {/* ── Today's Reminders ── */}
+            {(function(){
+              var todayStr = TODAY.toISOString().split("T")[0];
+              var todayReminders = notifications.filter(function(n){
+                return !n.fired && n.date === todayStr;
+              });
+              // Also include calendar events today that have a reminder set
+              var todayEvtReminders = calEvents.filter(function(e){
+                return e.date === todayStr && notifications.some(function(n){ return n.entityId === e.id && !n.fired; });
+              });
+              if (todayReminders.length === 0) return null;
+              return (
+                <div style={{background:"linear-gradient(135deg,rgba(200,169,122,0.10),rgba(200,169,122,0.04))",border:"1.5px solid "+T.sand+"60",borderRadius:"1.2rem",padding:"0.9rem 1rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
+                    <span style={{fontSize:"1rem"}}>🔔</span>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.sandDark}}>Today's Reminders</span>
+                    <span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.sand,fontWeight:700,background:T.sand+"20",borderRadius:"999px",padding:"0.1rem 0.5rem"}}>{todayReminders.length}</span>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
+                    {todayReminders.map(function(n){
+                      var linkedTask = tasks.find(function(t){ return t.id === n.entityId; });
+                      var linkedEvt  = calEvents.find(function(e){ return e.id === n.entityId; });
+                      var isDone = linkedTask ? linkedTask.done || linkedTask.archived : false;
+                      return (
+                        <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:isDone?"rgba(122,158,142,0.08)":T.surface,borderRadius:"0.65rem",border:"1px solid "+(isDone?T.sage+"30":T.sand+"30"),opacity:isDone?0.6:1}}>
+                          <span style={{fontSize:"0.85rem",flexShrink:0}}>{linkedEvt?"📅":"📌"}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:"0.82rem",fontWeight:600,color:isDone?T.textSoft:T.textDark,textDecoration:isDone?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
+                            {n.time&&<div style={{fontSize:"0.7rem",color:T.sand,fontWeight:700}}>{fmtTime(n.time)}</div>}
+                            {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
+                          </div>
+                          {isDone&&<span style={{fontSize:"0.75rem",color:T.sage,fontWeight:700,flexShrink:0}}>✓ done</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Calendar today */}
             <div style={{background:T.surface,border:"1.5px solid "+T.blue+"40",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
@@ -4009,6 +4049,58 @@ Respond ONLY in valid JSON:
                   ))}
                   {eveningNudges.length===0&&<div style={{fontSize:"0.82rem",color:T.textSoft}}>✨ Generating suggestions...</div>}
                 </div>
+
+                {/* ── Tonight & Tomorrow Reminders ── */}
+                {(function(){
+                  var todayStr = TODAY.toISOString().split("T")[0];
+                  var tmrDate  = new Date(TODAY); tmrDate.setDate(tmrDate.getDate()+1);
+                  var tmrStr   = tmrDate.toISOString().split("T")[0];
+                  var tonightReminders = notifications.filter(function(n){
+                    return !n.fired && n.date === todayStr && n.time && (function(){ var h=parseInt((n.time||"0:0").split(":")[0],10); return h>=17; })();
+                  });
+                  var tmrReminders = notifications.filter(function(n){
+                    return !n.fired && n.date === tmrStr;
+                  });
+                  var allEvening = tonightReminders.concat(tmrReminders);
+                  if (allEvening.length === 0) return null;
+                  return (
+                    <div style={{background:"linear-gradient(135deg,rgba(58,107,138,0.07),rgba(200,169,122,0.06))",border:"1.5px solid "+T.blue+"40",borderRadius:"1rem",padding:"0.9rem 1rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
+                        <span style={{fontSize:"1rem"}}>🔔</span>
+                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.blue}}>Tonight &amp; Tomorrow</span>
+                        <span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.blue,fontWeight:700,background:T.bluePale,borderRadius:"999px",padding:"0.1rem 0.5rem"}}>{allEvening.length}</span>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
+                        {tonightReminders.length>0&&<div style={{fontSize:"0.68rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.1rem"}}>Tonight</div>}
+                        {tonightReminders.map(function(n){
+                          return (
+                            <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:T.surface,borderRadius:"0.65rem",border:"1px solid "+T.sand+"30"}}>
+                              <span style={{fontSize:"0.85rem",flexShrink:0}}>🌙</span>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
+                                {n.time&&<div style={{fontSize:"0.7rem",color:T.sand,fontWeight:700}}>{fmtTime(n.time)}</div>}
+                                {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {tmrReminders.length>0&&<div style={{fontSize:"0.68rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"0.25rem",marginBottom:"0.1rem"}}>Tomorrow</div>}
+                        {tmrReminders.map(function(n){
+                          return (
+                            <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:T.surface,borderRadius:"0.65rem",border:"1px solid "+T.blue+"25"}}>
+                              <span style={{fontSize:"0.85rem",flexShrink:0}}>☀️</span>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
+                                {n.time&&<div style={{fontSize:"0.7rem",color:T.blue,fontWeight:700}}>{fmtTime(n.time)}</div>}
+                                {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Close My Day button */}
                 <button onClick={()=>setShowEndOfDay(true)} style={{...btnP("linear-gradient(135deg,"+T.blue+","+T.sage+")",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.45rem"})}}>
@@ -6053,7 +6145,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     // Build person tabs from people state
     var MINOR_ROLES=["Kid","Teen","Baby"];
-    var personTabs = people.filter(function(p){ return !p.isMinor && !(p.age!=null && p.age<18) && !MINOR_ROLES.includes(p.role); }).map(function(p){ return {id:"person_"+p.id, label:p.name, initials:p.name[0].toUpperCase(), color:p.color||T.blue}; });
+    var personTabs = people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor && !(p.age!=null && p.age<18) && !MINOR_ROLES.includes(p.role); }).map(function(p){ return {id:"person_"+p.id, label:p.name, initials:(p.name||"?")[0].toUpperCase(), color:p.color||T.blue}; });
 
     // Items for current tab
     function getTabItems(){
@@ -6157,11 +6249,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })()}
             <div style={{flex:1}}/>
-            {people.filter(function(p){ return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
+            {people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
               var isAssigned=item.assignedTo===p.name;
               return(
                 <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
-                  {p.name[0].toUpperCase()}
+                  {(p.name||"?")[0].toUpperCase()}
                 </button>
               );
             })}
@@ -6684,7 +6776,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               return(
                 <button key={p.id} onClick={function(){setActiveCareerPerson(p.id);}}
                   style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.38rem 0.85rem",borderRadius:"2rem",border:active?"none":"1px solid "+T.borderSoft,background:active?p.color||T.blue:"transparent",color:active?"#fff":T.textSoft,fontFamily:"inherit",fontSize:"0.82rem",fontWeight:active?700:500,cursor:"pointer",transition:"all 0.15s"}}>
-                  <span style={{width:20,height:20,borderRadius:"50%",background:active?"rgba(255,255,255,0.3)":p.color||T.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.65rem",fontWeight:800,color:"#fff",flexShrink:0}}>{p.name[0].toUpperCase()}</span>
+                  <span style={{width:20,height:20,borderRadius:"50%",background:active?"rgba(255,255,255,0.3)":p.color||T.blue,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.65rem",fontWeight:800,color:"#fff",flexShrink:0}}>{(p.name||"?")[0].toUpperCase()}</span>
                   {p.name}
                 </button>
               );
@@ -8726,7 +8818,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
     function addMember(){
       if(!newMemberName.trim())return;
-      var age=newMemberAge.trim()?parseInt(newMemberAge.trim(),10):null;
+      var ageStr=newMemberAge.trim(); var ageNum=ageStr?parseInt(ageStr,10):null; var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
       setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
       setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
     }
@@ -8778,7 +8870,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </button>
                   </div>
                   <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
-                    <input type="number" min={0} max={120} value={p.age!=null?p.age:""} onChange={function(e){var v=e.target.value;var age=v===""?null:parseInt(v,10);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
+                    <input type="number" min={0} max={120} value={p.age!=null&&!isNaN(p.age)?p.age:""} onChange={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
                     <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
                       <option value="">Role…</option>
                       {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
@@ -8799,8 +8891,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
               <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                <input defaultValue={newMemberName} onBlur={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-                <input type="number" min={0} max={120} defaultValue={newMemberAge} onBlur={function(e){setNewMemberAge(e.target.value);}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+                <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+                <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
               </div>
               <div style={{display:"flex",gap:"0.4rem"}}>
                 <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
