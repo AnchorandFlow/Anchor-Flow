@@ -9791,9 +9791,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontSize:"0.72rem",color:T.textMid,fontWeight:700,marginBottom:"0.5rem"}}>Which days of the month?</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
                 {Array.from({length:31},(_,i)=>i+1).map(function(n){
-                  const active=(f.repeatDates||[]).includes(n);
+                  var active=(f.repeatDates||[]).includes(n);
                   return(
-                    <button key={n} onClick={function(){setF(function(p){var rDates=p.repeatDates||[];return Object.assign({},p,{repeatDates:active?rDates.filter(function(x){return x!==n;}):[...rDates,n].sort(function(a,b){return a-b;})});})} style={{width:32,height:32,borderRadius:"0.4rem",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    <button key={n} onClick={function(){setF(function(p){var rDates=p.repeatDates||[];return Object.assign({},p,{repeatDates:active?rDates.filter(function(x){return x!==n;}):[...rDates,n].sort(function(a,b){return a-b;})});});}} style={{width:32,height:32,borderRadius:"0.4rem",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                       {n}
                     </button>
                   );
