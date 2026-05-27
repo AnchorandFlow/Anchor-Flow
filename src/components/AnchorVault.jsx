@@ -4069,9 +4069,9 @@ var SYS_FREQ = [
 ]
 
 function sysLoadSystems() {
-  try { var s=localStorage.getItem("af_homeSystems"); return s?JSON.parse(s):[]; } catch(e){return [];}
+  try { var s=localStorage.getItem("af_vaultSystems"); return s?JSON.parse(s):[]; } catch(e){return [];}
 }
-function sysSaveSystems(v) { try { localStorage.setItem("af_homeSystems",JSON.stringify(v)); } catch(e){} }
+function sysSaveSystems(v) { try { localStorage.setItem("af_vaultSystems",JSON.stringify(v)); } catch(e){} }
 
 function sysDaysUntil(dateStr) {
   if(!dateStr) return null;
@@ -5820,7 +5820,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} ref={vaultScrollRef} style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           {activeSection !== "home" && (
             <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
