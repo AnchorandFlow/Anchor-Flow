@@ -728,55 +728,65 @@ function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,tog
 }
 
 // ── PersonCard — outside App so it never remounts when parent state changes ──
-function PersonCard({ p, setPeople, T, inp, btnP, ROLES, COLORS }) {
-  var [localName, setLocalName] = React.useState(p.name || "");
-  var [localAge,  setLocalAge]  = React.useState(p.age != null && !isNaN(p.age) ? String(p.age) : "");
-
-  function commitName() {
-    var v = localName.trim();
-    if (v) setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{name:v}) : x; }); });
+function PersonCard({ p, setPeople, T, inp, ROLES, COLORS }) {
+  // No React state — DOM inputs hold their own values natively.
+  // This means React re-renders (even full remounts) never interrupt typing.
+  function saveName(e) {
+    var v = e.target.value.trim();
+    if (v && v !== p.name) setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{name:v}) : x; }); });
+    else if (!v) e.target.value = p.name; // restore if cleared
   }
-  function commitAge() {
-    var ageNum = localAge === "" ? null : parseInt(localAge, 10);
+  function saveAge(e) {
+    var v = e.target.value;
+    var ageNum = v === "" ? null : parseInt(v, 10);
     var age = (ageNum !== null && !isNaN(ageNum)) ? ageNum : null;
     setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{age:age,isMinor:age!=null&&age<18}) : x; }); });
   }
-
+  function saveRole(e) {
+    setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{role:e.target.value||null}) : x; }); });
+  }
+  function saveColor(c) {
+    setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{color:c}) : x; }); });
+  }
+  function removePerson() {
+    setPeople(function(prev){ return prev.filter(function(x){ return x.id!==p.id; }); });
+  }
+  var nameInpStyle = {flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0};
+  var ageInpStyle  = Object.assign({},inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"}));
+  var roleSelStyle = Object.assign({},inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"}));
   return (
     <div style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
       <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
         <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
         <input
-          value={localName}
-          onChange={function(e){ setLocalName(e.target.value); }}
-          onBlur={commitName}
-          onKeyDown={function(e){ if(e.key==="Enter"){ e.target.blur(); } }}
-          style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
+          defaultValue={p.name}
+          onBlur={saveName}
+          onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
+          style={nameInpStyle}
         />
-        <button onClick={function(){ setPeople(function(prev){ return prev.filter(function(x){ return x.id!==p.id; }); }); }} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
+        <button onClick={removePerson} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
           <Icon name="trash" size={13} color={T.textFaint}/>
         </button>
       </div>
       <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
         <input
           type="number" min={0} max={120}
-          value={localAge}
-          onChange={function(e){ setLocalAge(e.target.value); }}
-          onBlur={commitAge}
-          onKeyDown={function(e){ if(e.key==="Enter"){ e.target.blur(); } }}
+          defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""}
+          onBlur={saveAge}
+          onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
           placeholder="Age"
-          style={Object.assign({},inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"}))}
+          style={ageInpStyle}
         />
-        <select value={p.role||""} onChange={function(e){ setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{role:e.target.value||null}) : x; }); }); }} style={Object.assign({},inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"}))}>
+        <select defaultValue={p.role||""} onChange={saveRole} style={roleSelStyle}>
           <option value="">Role…</option>
           {ROLES.map(function(r){ return <option key={r} value={r}>{r}</option>; })}
         </select>
         <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
           {COLORS.map(function(c){ return (
-            <button key={c} onClick={function(){ setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{color:c}) : x; }); }); }} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+            <button key={c} onClick={function(){ saveColor(c); }} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
           ); })}
           <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-            <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){ var c=e.target.value; setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{color:c}) : x; }); }); }} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+            <input type="color" defaultValue={p.color||"#6A9BB5"} onChange={function(e){ saveColor(e.target.value); }} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
           </label>
         </div>
       </div>
@@ -1393,6 +1403,10 @@ function HomeFlow() {
     if (!authToken || !householdId) return;
     const iv = setInterval(async () => {
       try {
+        const active = document.activeElement;
+        const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+        const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
+        if (isTyping || typedRecently) return; // never re-render while user is typing
         await pushHouseholdData(authToken, householdId);
         setSyncStatus("synced");
         setLastSyncTime(new Date().toLocaleTimeString());
