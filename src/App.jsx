@@ -421,7 +421,7 @@ const SYNC_KEYS = [
   // Reminders & notifications
   "notifications","recurring","notifSettings",
   // App preferences & state that should survive a reset
-  "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
+  "sections","flowMode","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
   // Cove
@@ -975,7 +975,7 @@ function HomeFlow() {
     if (typeof data.theme === "string") out.theme = data.theme;
     // Objects and remaining keys: pass through if valid
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels","coveData","schoolData",
-     "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","notifSettings",
+     "sections","flowMode","weatherLocation","notifSettings",
      "recurring","rhythm","homeSystems","birthdays",
      "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
      "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates"
@@ -1446,10 +1446,13 @@ function HomeFlow() {
     const iv = setInterval(async () => {
       try {
         if (!authToken) return; // token already cleared, stop trying
-        // Don't push until we've done at least one successful pull
-        // This prevents a new household member from overwriting shared data before receiving it
+        // For new joining members: don't push until we've pulled at least once
+        // (prevents overwriting household data with blank defaults)
+        // But allow push if: we have a lastHHSync, OR if this device has been active >60s
+        // (owner's device may not have lastHHSync but should still push)
         const hasSynced = (() => { try { return !!localStorage.getItem("af_lastHHSync"); } catch { return false; } })();
-        if (!hasSynced) return;
+        const appAge = Date.now() - (window._appStartTime || Date.now());
+        if (!hasSynced && appAge < 60000) return; // new member grace period only
         const active = document.activeElement;
         const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
         const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
@@ -1471,6 +1474,7 @@ function HomeFlow() {
   // Track last keystroke time — never reload within 15s of any typing
   const lastTypedRef = useRef(0);
   useEffect(() => {
+    window._appStartTime = Date.now(); // track app age for push guard
     function onKey() { lastTypedRef.current = Date.now(); }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
@@ -10820,7 +10824,7 @@ export default function App() {
           "calEvents","connectedCals","calColorLabels","meals","mealsWeekOf","nextWeekMeals",
           "mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
           "shoppingItems","stores","shopCategories","notifications","recurring","notifSettings",
-          "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","birthdays",
+          "sections","flowMode","weatherLocation","birthdays",
           "rhythm","homeSystems","aiMemory","theme","nwMealCount","dietaryFilters",
           "coveData","cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
           "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates"];
