@@ -424,6 +424,10 @@ const SYNC_KEYS = [
   "sections","flowMode","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
+  // Moments
+  "moments",
+  // Vault sections missing from sync
+  "subs","coupons","perks","career","health","travel_profile",
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
