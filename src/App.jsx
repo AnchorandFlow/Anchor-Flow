@@ -1271,19 +1271,19 @@ function HomeFlow() {
       // Apply joined household data directly to state — no reload needed
       if (sourceRow && sourceRow.data) {
         const cj = sanitizeHouseholdData(sourceRow.data);
-        if (cj.tasks        !== undefined) setTasks(cj.tasks);
-        if (cj.meals        !== undefined) setMealsRaw(cj.meals);
-        if (cj.calEvents    !== undefined) setCalEvents(cj.calEvents);
-        if (cj.shoppingItems!== undefined) setShoppingItems(cj.shoppingItems);
-        if (cj.people       !== undefined) setPeople(cj.people);
-        if (cj.notifications!== undefined) setNotifications(cj.notifications);
-        if (cj.brainItems   !== undefined) setBrainItems(cj.brainItems);
-        if (cj.rhythm       !== undefined) setRhythm(cj.rhythm);
-        if (cj.familyProfile!== undefined) setFamilyProfile(cj.familyProfile);
-        if (cj.stores       !== undefined) setStores(cj.stores);
-        if (cj.birthdays    !== undefined) setBirthdays(cj.birthdays);
-        if (cj.homeSystems  !== undefined) setHomeSystems(cj.homeSystems);
-        if (cj.flowMode     !== undefined) setFlowMode(cj.flowMode);
+        try { if (Array.isArray(cj.tasks))         setTasks(cj.tasks); } catch(e) {}
+        try { if (cj.meals && typeof cj.meals === "object") setMealsRaw(cj.meals); } catch(e) {}
+        try { if (Array.isArray(cj.calEvents))     setCalEvents(cj.calEvents); } catch(e) {}
+        try { if (Array.isArray(cj.shoppingItems)) setShoppingItems(cj.shoppingItems); } catch(e) {}
+        try { if (Array.isArray(cj.people))        setPeople(cj.people); } catch(e) {}
+        try { if (Array.isArray(cj.notifications)) setNotifications(cj.notifications); } catch(e) {}
+        try { if (Array.isArray(cj.brainItems))    setBrainItems(cj.brainItems); } catch(e) {}
+        try { if (Array.isArray(cj.stores))        setStores(cj.stores); } catch(e) {}
+        try { if (Array.isArray(cj.birthdays))     setBirthdays(cj.birthdays); } catch(e) {}
+        try { if (Array.isArray(cj.homeSystems))   setHomeSystems(cj.homeSystems); } catch(e) {}
+        try { if (cj.rhythm && typeof cj.rhythm === "object") setRhythm(cj.rhythm); } catch(e) {}
+        try { if (cj.familyProfile !== undefined)  setFamilyProfile(cj.familyProfile); } catch(e) {}
+        try { if (typeof cj.flowMode === "string") setFlowMode(cj.flowMode); } catch(e) {}
       }
       return { ok: true };
     } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
@@ -1308,19 +1308,19 @@ function HomeFlow() {
           });
           try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
           // Apply directly to state
-          if (clean.tasks        !== undefined) setTasks(clean.tasks);
-          if (clean.meals        !== undefined) setMealsRaw(clean.meals);
-          if (clean.calEvents    !== undefined) setCalEvents(clean.calEvents);
-          if (clean.shoppingItems!== undefined) setShoppingItems(clean.shoppingItems);
-          if (clean.people       !== undefined) setPeople(clean.people);
-          if (clean.notifications!== undefined) setNotifications(clean.notifications);
-          if (clean.brainItems   !== undefined) setBrainItems(clean.brainItems);
-          if (clean.rhythm       !== undefined) setRhythm(clean.rhythm);
-          if (clean.familyProfile!== undefined) setFamilyProfile(clean.familyProfile);
-          if (clean.stores       !== undefined) setStores(clean.stores);
-          if (clean.birthdays    !== undefined) setBirthdays(clean.birthdays);
-          if (clean.homeSystems  !== undefined) setHomeSystems(clean.homeSystems);
-          if (clean.flowMode     !== undefined) setFlowMode(clean.flowMode);
+          try { if (Array.isArray(clean.tasks))         setTasks(clean.tasks); } catch(e) {}
+          try { if (clean.meals && typeof clean.meals === "object") setMealsRaw(clean.meals); } catch(e) {}
+          try { if (Array.isArray(clean.calEvents))     setCalEvents(clean.calEvents); } catch(e) {}
+          try { if (Array.isArray(clean.shoppingItems)) setShoppingItems(clean.shoppingItems); } catch(e) {}
+          try { if (Array.isArray(clean.people))        setPeople(clean.people); } catch(e) {}
+          try { if (Array.isArray(clean.notifications)) setNotifications(clean.notifications); } catch(e) {}
+          try { if (Array.isArray(clean.brainItems))    setBrainItems(clean.brainItems); } catch(e) {}
+          try { if (Array.isArray(clean.stores))        setStores(clean.stores); } catch(e) {}
+          try { if (Array.isArray(clean.birthdays))     setBirthdays(clean.birthdays); } catch(e) {}
+          try { if (Array.isArray(clean.homeSystems))   setHomeSystems(clean.homeSystems); } catch(e) {}
+          try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
+          try { if (clean.familyProfile !== undefined)  setFamilyProfile(clean.familyProfile); } catch(e) {}
+          try { if (typeof clean.flowMode === "string") setFlowMode(clean.flowMode); } catch(e) {}
           // Note: schoolData is inside SchoolTab — applied on next tab open via localStorage
           setSyncStatus("synced");
           setLastSyncTime(new Date().toLocaleTimeString());
@@ -1375,21 +1375,21 @@ function HomeFlow() {
         }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
-      // Apply directly to React state — no reload needed
-      if (clean.tasks        !== undefined) setTasks(clean.tasks);
-      if (clean.meals        !== undefined) setMealsRaw(clean.meals);
-      if (clean.calEvents    !== undefined) setCalEvents(clean.calEvents);
-      if (clean.shoppingItems!== undefined) setShoppingItems(clean.shoppingItems);
-      if (clean.people       !== undefined) setPeople(clean.people);
-      if (clean.notifications!== undefined) setNotifications(clean.notifications);
-      if (clean.brainItems   !== undefined) setBrainItems(clean.brainItems);
-      if (clean.rhythm       !== undefined) setRhythm(clean.rhythm);
-      if (clean.familyProfile!== undefined) setFamilyProfile(clean.familyProfile);
-      if (clean.stores       !== undefined) setStores(clean.stores);
-      if (clean.shopCategories!==undefined) setShopCategories(clean.shopCategories);
-      if (clean.birthdays    !== undefined) setBirthdays(clean.birthdays);
-      if (clean.homeSystems  !== undefined) setHomeSystems(clean.homeSystems);
-      if (clean.flowMode     !== undefined) setFlowMode(clean.flowMode);
+      // Apply directly to React state — with type guards to prevent crashes
+      try { if (Array.isArray(clean.tasks))         setTasks(clean.tasks); } catch(e) {}
+      try { if (clean.meals && typeof clean.meals === "object") setMealsRaw(clean.meals); } catch(e) {}
+      try { if (Array.isArray(clean.calEvents))     setCalEvents(clean.calEvents); } catch(e) {}
+      try { if (Array.isArray(clean.shoppingItems)) setShoppingItems(clean.shoppingItems); } catch(e) {}
+      try { if (Array.isArray(clean.people))        setPeople(clean.people); } catch(e) {}
+      try { if (Array.isArray(clean.notifications)) setNotifications(clean.notifications); } catch(e) {}
+      try { if (Array.isArray(clean.brainItems))    setBrainItems(clean.brainItems); } catch(e) {}
+      try { if (Array.isArray(clean.stores))        setStores(clean.stores); } catch(e) {}
+      try { if (Array.isArray(clean.shopCategories))setShopCategories(clean.shopCategories); } catch(e) {}
+      try { if (Array.isArray(clean.birthdays))     setBirthdays(clean.birthdays); } catch(e) {}
+      try { if (Array.isArray(clean.homeSystems))   setHomeSystems(clean.homeSystems); } catch(e) {}
+      try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
+      try { if (clean.familyProfile !== undefined)  setFamilyProfile(clean.familyProfile); } catch(e) {}
+      try { if (typeof clean.flowMode === "string") setFlowMode(clean.flowMode); } catch(e) {}
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
       console.log("[AF] Applied incoming sync");
