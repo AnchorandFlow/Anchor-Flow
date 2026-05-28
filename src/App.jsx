@@ -930,13 +930,19 @@ function HomeFlow() {
     if (!data || typeof data !== "object") return {};
     const out = {};
     // Arrays: filter out null/undefined entries
-    ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
+    ["brainItems","shoppingItems","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
      "brainCats","homeSystems","dietaryFilters"].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
       } else if (data[k] !== undefined) {
         out[k] = data[k];
+      }
+    });
+    // tasks and notifications require an id to be safe to render
+    ["tasks","notifications"].forEach(k => {
+      if (Array.isArray(data[k])) {
+        out[k] = data[k].filter(item => item != null && item.id);
       }
     });
     // people: filter nulls, ensure each has id/name/color
@@ -1337,6 +1343,7 @@ function HomeFlow() {
   // ── Helper: apply server data to React state ──────────────────────────────
   function applyServerData(data, serverTs) {
     if (!data || typeof data !== "object") return;
+    try {
     const clean = sanitizeHouseholdData(data);
     // 1. Write to localStorage — skip null values so server nulls never clobber local data
     SYNC_KEYS.forEach(k => {
@@ -1362,6 +1369,9 @@ function HomeFlow() {
     try { if (typeof clean.flowMode === "string")                                       setFlowMode(clean.flowMode); } catch(e) {}
     setSyncStatus("synced");
     setLastSyncTime(new Date().toLocaleTimeString());
+    } catch(applyErr) {
+      console.warn("[AF] applyServerData failed:", applyErr.message);
+    }
   }
 
   // ── syncNow: push local state then pull any newer server changes ───────────
