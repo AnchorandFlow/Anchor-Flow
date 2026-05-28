@@ -10152,6 +10152,38 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             • Changes on either device appear on the other within a minute
           </div>
         </div>
+        {/* Reset Household */}
+        <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginBottom:"1rem"}}>
+          <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.rose,marginBottom:"0.5rem"}}>Start fresh</div>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.6rem"}}>Clears this device's household connection so you can generate a new code. Your account stays intact.</div>
+          <button onClick={async function(){
+            if(!window.confirm("Reset household on this device? You'll get a new household code after reloading.")) return;
+            try {
+              // Clear joined_household_id from Supabase user metadata
+              var tok = (authToken||"").replace(/^"|"$/g,"");
+              await fetch("https://sbgbyptkunvyxjfpzght.supabase.co/auth/v1/user", {
+                method:"PUT",
+                headers:{
+                  "Authorization":"Bearer "+tok,
+                  "Content-Type":"application/json",
+                  "apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0"
+                },
+                body:JSON.stringify({data:{joined_household_id:null}})
+              });
+            } catch(e) { console.warn("metadata clear failed:",e.message); }
+            // Save auth so user stays signed in
+            var savedToken = localStorage.getItem("af_authToken");
+            var savedUser  = localStorage.getItem("af_authUser");
+            localStorage.clear();
+            sessionStorage.clear();
+            if(savedToken) localStorage.setItem("af_authToken", savedToken);
+            if(savedUser)  localStorage.setItem("af_authUser",  savedUser);
+            window.location.reload();
+          }} style={btnS({fontSize:"0.78rem",color:T.rose,borderColor:T.rose+"60",padding:"0.45rem 1rem"})}>
+            Reset household on this device
+          </button>
+        </div>
+
         <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:"0.75rem",color:syncStatus==="synced"?T.sage:syncStatus==="syncing"?T.sand:T.textFaint,fontWeight:700}}>
             {syncStatus==="synced"&&"✓ Synced "+lastSyncTime}
