@@ -2487,7 +2487,7 @@ Respond ONLY with valid JSON array, no markdown:
   }, []); // eslint-disable-line
 
   // Sync household data when key state changes
-  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, familyProfile, rhythm, homeSystems, stores, shopCategories, brainItems]); // eslint-disable-line
+  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, familyProfile, rhythm, homeSystems, stores, shopCategories, brainItems, flowMode, sections, birthdays]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
@@ -9057,6 +9057,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function SettingsTab(){
     const [settingsOpen, setSettingsOpen] = useState({family:true});
+    const [pwaBannerDismissed, setPwaBannerDismissed] = useSaved("pwaBannerDismissed", false);
+    var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
     function toggleSetting(key,defaultOpen){
       setSettingsOpen(function(p){
         var current = key in p ? p[key] : (defaultOpen||false);
@@ -9569,43 +9572,54 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </Sec>
 
         {/* PWA install nudge — only shows when opened in a browser, not from home screen */}
-        {(function(){
-          var isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-          var [pwaDismissed, setPwaDismissed] = useSaved("pwaBannerDismissed", false);
-          if (isStandalone || pwaDismissed) return null;
+        {showPwaBanner && (function(){
           var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
           var isAndroid = /android/i.test(navigator.userAgent);
           return (
-            <div style={{background:"linear-gradient(135deg,"+T.navy+"ee,"+T.blueDark+"dd)",borderRadius:"1rem",padding:"1.1rem 1.1rem 1rem",marginBottom:"1.25rem",position:"relative",border:"1.5px solid "+T.blue+"60"}}>
-              <button onClick={function(){setPwaDismissed(true);}} style={{position:"absolute",top:"0.65rem",right:"0.75rem",background:"none",border:"none",cursor:"pointer",color:"rgba(250,248,244,0.5)",fontSize:"1rem",lineHeight:1,padding:"0.1rem 0.3rem"}}>✕</button>
-              <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.65rem"}}>
+            <div style={{background:T.navy,borderRadius:"1rem",padding:"1.1rem 1.1rem 1rem",marginBottom:"1.25rem",position:"relative",border:"1.5px solid "+T.blue+"60"}}>
+              <button onClick={function(){setPwaBannerDismissed(true);}} style={{position:"absolute",top:"0.65rem",right:"0.75rem",background:"none",border:"none",cursor:"pointer",color:"rgba(250,248,244,0.6)",fontSize:"1.1rem",lineHeight:1,padding:"0.1rem 0.3rem"}}>✕</button>
+              <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.6rem"}}>
                 <span style={{fontSize:"1.3rem"}}>📱</span>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:"#faf8f4",letterSpacing:"0.02em"}}>Install for best experience</div>
               </div>
-              <p style={{color:"rgba(250,248,244,0.82)",fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem",marginTop:0}}>
-                You&apos;re viewing Anchor &amp; Flow in a browser. For sync to work reliably across your household, always open the app from your <strong style={{color:"#faf8f4"}}>home screen icon</strong> — not a browser tab.
+              <p style={{color:"rgba(250,248,244,0.85)",fontSize:"0.8rem",lineHeight:1.65,margin:"0 0 0.8rem 0"}}>
+                {"You're viewing Anchor & Flow in a browser. For sync to work reliably, always open from your "}
+                <strong style={{color:"#faf8f4"}}>home screen icon</strong>
+                {" — not a browser tab."}
               </p>
               {isIOS && (
-                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.88)",lineHeight:1.75}}>
-                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.25rem"}}>📲 Save to iPhone / iPad home screen:</strong>
-                  1. Tap the <strong style={{color:"#faf8f4"}}>Share</strong> button (the box with an arrow) in Safari<br/>
-                  2. Scroll down and tap <strong style={{color:"#faf8f4"}}>"Add to Home Screen"</strong><br/>
-                  3. Tap <strong style={{color:"#faf8f4"}}>Add</strong> — then always open from that icon
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.9)",lineHeight:1.8}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.2rem"}}>Save to iPhone / iPad:</strong>
+                  {"1. Tap the "}
+                  <strong style={{color:"#faf8f4"}}>Share button</strong>
+                  {" (box with arrow ↑) in Safari"}<br/>
+                  {"2. Tap "}
+                  <strong style={{color:"#faf8f4"}}>"Add to Home Screen"</strong><br/>
+                  {"3. Tap "}
+                  <strong style={{color:"#faf8f4"}}>Add</strong>
+                  {" — then always open from that icon"}
                 </div>
               )}
               {isAndroid && (
-                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.88)",lineHeight:1.75}}>
-                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.25rem"}}>📲 Save to Android home screen:</strong>
-                  1. Tap the <strong style={{color:"#faf8f4"}}>⋮ menu</strong> in Chrome<br/>
-                  2. Tap <strong style={{color:"#faf8f4"}}>"Add to Home screen"</strong> or <strong style={{color:"#faf8f4"}}>"Install app"</strong><br/>
-                  3. Tap <strong style={{color:"#faf8f4"}}>Add</strong> — then always open from that icon
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.9)",lineHeight:1.8}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.2rem"}}>Save to Android home screen:</strong>
+                  {"1. Tap the "}
+                  <strong style={{color:"#faf8f4"}}>⋮ menu</strong>
+                  {" in Chrome"}<br/>
+                  {"2. Tap "}
+                  <strong style={{color:"#faf8f4"}}>"Add to Home screen"</strong>
+                  {" or "}
+                  <strong style={{color:"#faf8f4"}}>"Install app"</strong><br/>
+                  {"3. Tap "}
+                  <strong style={{color:"#faf8f4"}}>Add</strong>
+                  {" — then always open from that icon"}
                 </div>
               )}
               {!isIOS && !isAndroid && (
-                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.88)",lineHeight:1.75}}>
-                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.25rem"}}>💻 On desktop:</strong>
-                  Look for the <strong style={{color:"#faf8f4"}}>install icon (⊕)</strong> in your browser&apos;s address bar and click it to install as an app.<br/>
-                  On mobile, use Safari (iOS) or Chrome (Android) and add to home screen.
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.9)",lineHeight:1.8}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.2rem"}}>On desktop:</strong>
+                  {"Look for the install icon "}<strong style={{color:"#faf8f4"}}>(⊕)</strong>{" in your browser's address bar."}<br/>
+                  {"On mobile: use Safari (iOS) or Chrome (Android) and tap \"Add to Home Screen\"."}
                 </div>
               )}
             </div>
