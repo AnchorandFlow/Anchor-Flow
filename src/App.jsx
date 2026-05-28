@@ -10403,6 +10403,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1.1)}}
         @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
         [draggable]:active{cursor:grabbing!important}
+        button,a,[role="button"]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+        input,select,textarea{touch-action:manipulation}
       `}</style>
 
       {/* ── In-app notification banner (iOS + fallback) ── */}
