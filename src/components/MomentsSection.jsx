@@ -844,19 +844,33 @@ export default function MomentsSection() {
           <div style={{ fontSize:11, fontWeight:700, color:"rgba(250,248,244,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Upcoming</div>
           {upcoming.map(m=>{
             const daysUntil=m.date?Math.ceil((new Date(m.date+"T00:00:00")-new Date())/(1000*60*60*24)):null
+            var cdColor = daysUntil===null ? null : daysUntil<=3 ? "#c97a7a" : daysUntil<=14 ? "#c8a97a" : "#6ba3c4"
+            var cdLabel = daysUntil===null ? null : daysUntil===0 ? "Today! 🎉" : daysUntil===1 ? "Tomorrow" : daysUntil+" days away"
+            var cdPct = (daysUntil!==null&&daysUntil<=90) ? Math.max(4, Math.round((1-(daysUntil/90))*100)) : null
             return (
-              <div key={m.id} onClick={()=>setSelected(m.id)} style={{ background:"rgba(250,248,244,0.06)", border:"1.5px solid rgba(250,248,244,0.15)", borderRadius:12, padding:"12px 14px", marginBottom:8, cursor:"pointer" }}>
+              <div key={m.id} onClick={()=>setSelected(m.id)} style={{ background:"rgba(250,248,244,0.06)", border:"1.5px solid "+(daysUntil!==null&&daysUntil<=7?cdColor+"55":"rgba(250,248,244,0.15)"), borderRadius:12, padding:"12px 14px", marginBottom:8, cursor:"pointer" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <span style={{ fontSize:20 }}>{m.type==="party"?"🎉":"✈️"}</span>
-                  <div style={{ flex:1 }}>
+                  <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:"DM Sans,sans-serif", fontSize:14, fontWeight:700, color:"#faf8f4" }}>{m.name||"Unnamed"}</div>
-                    <div style={{ display:"flex", gap:8, marginTop:2 }}>
+                    <div style={{ display:"flex", gap:8, marginTop:2, flexWrap:"wrap", alignItems:"center" }}>
                       {m.date&&<span style={{ fontSize:11, color:"rgba(250,248,244,0.5)" }}>{new Date(m.date+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>}
-                      {daysUntil!==null&&daysUntil>=0&&<span style={{ fontSize:11, color:daysUntil<=7?"#c97a7a":"#c8a97a", fontWeight:700 }}>{daysUntil===0?"Today!":daysUntil===1?"Tomorrow":daysUntil+" days"}</span>}
                       {m.location&&<span style={{ fontSize:11, color:"rgba(250,248,244,0.4)" }}>📍 {m.location}</span>}
                     </div>
+                    {cdLabel&&(
+                      <div style={{ marginTop:7 }}>
+                        <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:cdColor+"22", border:"1px solid "+cdColor+"55", borderRadius:20, padding:"3px 9px", marginBottom:cdPct?5:0 }}>
+                          <span style={{ fontSize:10, fontWeight:800, color:cdColor, letterSpacing:"0.04em", textTransform:"uppercase" }}>⏳ {cdLabel}</span>
+                        </div>
+                        {cdPct&&(
+                          <div style={{ height:3, background:"rgba(255,255,255,0.08)", borderRadius:2, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:cdPct+"%", background:"linear-gradient(90deg,"+cdColor+"88,"+cdColor+")", borderRadius:2, transition:"width 0.3s" }}/>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <span style={{ fontSize:12, color:"rgba(250,248,244,0.4)" }}>→</span>
+                  <span style={{ fontSize:12, color:"rgba(250,248,244,0.4)", flexShrink:0 }}>→</span>
                 </div>
               </div>
             )

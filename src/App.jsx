@@ -9070,9 +9070,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function SettingsTab(){
     const [settingsOpen, setSettingsOpen] = useState({family:true});
-    const [pwaBannerDismissed, setPwaBannerDismissed] = useSaved("pwaBannerDismissed", false);
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
+    function dismissPwaBanner(){ try { localStorage.setItem("af_pwaBannerDismissed", "true"); } catch {} }
     function toggleSetting(key,defaultOpen){
       setSettingsOpen(function(p){
         var current = key in p ? p[key] : (defaultOpen||false);
@@ -9590,7 +9591,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var isAndroid = /android/i.test(navigator.userAgent);
           return (
             <div style={{background:T.navy,borderRadius:"1rem",padding:"1.1rem 1.1rem 1rem",marginBottom:"1.25rem",position:"relative",border:"1.5px solid "+T.blue+"60"}}>
-              <button onClick={function(){setPwaBannerDismissed(true);}} style={{position:"absolute",top:"0.65rem",right:"0.75rem",background:"none",border:"none",cursor:"pointer",color:"rgba(250,248,244,0.6)",fontSize:"1.1rem",lineHeight:1,padding:"0.1rem 0.3rem"}}>✕</button>
+              <button onClick={function(){dismissPwaBanner(); window.location.reload();}} style={{position:"absolute",top:"0.65rem",right:"0.75rem",background:"none",border:"none",cursor:"pointer",color:"rgba(250,248,244,0.6)",fontSize:"1.1rem",lineHeight:1,padding:"0.1rem 0.3rem"}}>✕</button>
               <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.6rem"}}>
                 <span style={{fontSize:"1.3rem"}}>📱</span>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:"#faf8f4",letterSpacing:"0.02em"}}>Install for best experience</div>
