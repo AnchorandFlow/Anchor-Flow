@@ -1268,7 +1268,23 @@ function HomeFlow() {
       }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
-      window.location.reload();
+      // Apply joined household data directly to state — no reload needed
+      if (sourceRow && sourceRow.data) {
+        const cj = sanitizeHouseholdData(sourceRow.data);
+        if (cj.tasks        !== undefined) setTasks(cj.tasks);
+        if (cj.meals        !== undefined) setMealsRaw(cj.meals);
+        if (cj.calEvents    !== undefined) setCalEvents(cj.calEvents);
+        if (cj.shoppingItems!== undefined) setShoppingItems(cj.shoppingItems);
+        if (cj.people       !== undefined) setPeople(cj.people);
+        if (cj.notifications!== undefined) setNotifications(cj.notifications);
+        if (cj.brainItems   !== undefined) setBrainItems(cj.brainItems);
+        if (cj.rhythm       !== undefined) setRhythm(cj.rhythm);
+        if (cj.familyProfile!== undefined) setFamilyProfile(cj.familyProfile);
+        if (cj.stores       !== undefined) setStores(cj.stores);
+        if (cj.birthdays    !== undefined) setBirthdays(cj.birthdays);
+        if (cj.homeSystems  !== undefined) setHomeSystems(cj.homeSystems);
+        if (cj.flowMode     !== undefined) setFlowMode(cj.flowMode);
+      }
       return { ok: true };
     } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
   }
@@ -1310,11 +1326,7 @@ function HomeFlow() {
           setLastSyncTime(new Date().toLocaleTimeString());
           return;
         }
-        if (false) { // placeholder for old reload block
-          window.location.reload(); // dead code — kept for structure
 
-          return;
-        }
       }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
@@ -1328,48 +1340,20 @@ function HomeFlow() {
     }
   }, []);
 
-  // ── Startup: correct household ID by owner_id ────────────────────────────
-  // Runs once on mount. If the stored household is owned by this user, use it.
-  // If the stored household belongs to someone else (joined household), keep it.
+  // ── Startup: verify household ID is valid, correct silently if not ──────────
   useEffect(() => {
-    if (!authToken) return;
-    const userId = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id; } catch { return null; } })();
-    if (!userId) return;
-    const currentId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
-    // First check if the current household is valid (exists in Supabase)
-    if (currentId) {
-      sbFetch(`/rest/v1/households?id=eq.${currentId}&select=id,owner_id&limit=1`, { _token: authToken })
-        .then(rows => {
-          if (rows && rows.length > 0) {
-            // Household exists — keep it regardless of owner (could be a joined household)
-            console.log("[AF] Household ID valid:", currentId);
-          } else {
-            // Household doesn't exist — find the one owned by this user
-            sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
-              .then(owned => {
-                if (owned && owned.length > 0) {
-                  console.log("[AF] Correcting to owned household:", owned[0].id);
-                  localStorage.setItem("af_householdId", JSON.stringify(owned[0].id));
-                  window.location.reload();
-                } else {
-                  console.log("[AF] No household found for user:", userId);
-                }
-              }).catch(() => {});
-          }
-        }).catch(() => {});
-    } else {
-      // No household stored — find the one owned by this user
-      sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
-        .then(rows => {
-          if (rows && rows.length > 0) {
-            console.log("[AF] Setting owned household:", rows[0].id);
-            localStorage.setItem("af_householdId", JSON.stringify(rows[0].id));
-            window.location.reload();
-          } else {
-            console.log("[AF] No household found for user:", userId);
-          }
-        }).catch(() => {});
-    }
+    if (!authToken || !householdId) return;
+    sbFetch(`/rest/v1/households?id=eq.${householdId}&select=id&limit=1`, { _token: authToken })
+      .then(rows => {
+        if (rows && rows.length > 0) {
+          console.log("[AF] Household ID valid:", householdId);
+        } else {
+          // Stored household is gone — clear it so the next push creates a fresh one
+          console.log("[AF] Household not found, clearing local ID");
+          try { localStorage.removeItem("af_householdId"); } catch {}
+          setHouseholdId(null);
+        }
+      }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
