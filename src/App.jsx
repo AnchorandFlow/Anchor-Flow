@@ -1246,14 +1246,14 @@ function HomeFlow() {
       // Write joined household ID into Supabase user_metadata
       // Must use raw fetch — sbFetch includes apikey header which causes 403 on auth endpoints
       try {
+        const anon2 = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
         const metaResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
           method: "PUT",
-          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ data: { joined_household_id: joinCode } })
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json", "apikey": anon2 },
+          body: JSON.stringify({ data: { householdId: joinCode, joined_household_id: joinCode } })
         });
-        const metaBody = await metaResp.json();
-        console.log("[AF] Metadata write status:", metaResp.status, "joined_household_id:", metaBody?.user_metadata?.joined_household_id);
-      } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
+        console.log("[AF] Metadata write status:", metaResp.status);
+      } catch(e) { console.warn("[AF] Could not save householdId to metadata:", e.message); }
       // Pull the FRESHEST data from Supabase for this household (re-fetch after metadata save)
       const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
       const sourceRow = (freshRows && freshRows.length > 0) ? freshRows[0] : rows[0];
@@ -10862,31 +10862,44 @@ export default function App() {
     if (!token) return;
     try {
       localStorage.removeItem("af_lastHHSync"); // force fresh pull
-      // First: check if user owns a household
-      const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+userId+"&select=*&order=updated_at.desc&limit=1", { _token: token });
+      const anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
+
+      // Step 1: get fresh metadata (always re-fetch — login token can be stale)
+      let freshMeta = {};
+      try {
+        const mr = await fetch(SUPABASE_URL+"/auth/v1/user", {
+          headers:{"Authorization":"Bearer "+token,"apikey":anon}
+        });
+        const mu = await mr.json();
+        freshMeta = mu?.user_metadata || {};
+      } catch(e) {}
+
       let sourceRow = null;
-      if (ownedRows && ownedRows.length > 0) {
-        sourceRow = ownedRows[0];
-        try { localStorage.setItem("af_householdId", JSON.stringify(sourceRow.id)); } catch {}
-      } else {
-        // No owned household — check for joined household in metadata
-        let joinedId = s.user?.user_metadata?.joined_household_id || null;
-        if (!joinedId) {
-          // Re-fetch fresh user metadata (login response can be stale)
-          try {
-            const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
-              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
-            });
-            const freshUser = await freshResp.json();
-            joinedId = freshUser?.user_metadata?.joined_household_id || null;
-          } catch(e) {}
+
+      // Step 2: check metadata for a known householdId first (fastest path)
+      const metaHid = freshMeta.householdId || freshMeta.joined_household_id || null;
+      if (metaHid) {
+        const metaRows = await sbFetch("/rest/v1/households?id=eq."+metaHid+"&select=*&limit=1", { _token: token });
+        if (metaRows && metaRows.length > 0) {
+          sourceRow = metaRows[0];
+          try { localStorage.setItem("af_householdId", JSON.stringify(metaHid)); } catch {}
         }
-        if (joinedId) {
-          const joinedRows = await sbFetch("/rest/v1/households?id=eq."+joinedId+"&select=*&limit=1", { _token: token });
-          if (joinedRows && joinedRows.length > 0) {
-            sourceRow = joinedRows[0];
-            try { localStorage.setItem("af_householdId", JSON.stringify(joinedId)); } catch {}
-          }
+      }
+
+      // Step 3: fall back to owner_id lookup
+      if (!sourceRow) {
+        const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+userId+"&select=*&order=updated_at.desc&limit=1", { _token: token });
+        if (ownedRows && ownedRows.length > 0) {
+          sourceRow = ownedRows[0];
+          try { localStorage.setItem("af_householdId", JSON.stringify(sourceRow.id)); } catch {}
+          // Save to metadata so other devices with same account reconnect automatically
+          try {
+            await fetch(SUPABASE_URL+"/auth/v1/user", {
+              method:"PUT",
+              headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":anon},
+              body: JSON.stringify({data:{householdId: sourceRow.id}})
+            });
+          } catch(e) {}
         }
       }
       if (sourceRow && sourceRow.data && Object.keys(sourceRow.data).length > 0) {
@@ -10924,6 +10937,14 @@ export default function App() {
             body: JSON.stringify({ id: newHid, owner_id: userId, data: {}, updated_at: new Date().toISOString() })
           });
           console.log("[AF] onAuth: created fresh household", newHid);
+          // Save to metadata so same account on other devices reconnects
+          try {
+            await fetch(SUPABASE_URL+"/auth/v1/user", {
+              method:"PUT",
+              headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":anon},
+              body: JSON.stringify({data:{householdId: newHid}})
+            });
+          } catch(e) {}
         } catch(e) { console.warn("[AF] onAuth: could not create household row:", e.message); }
       }
     } catch(e) {
