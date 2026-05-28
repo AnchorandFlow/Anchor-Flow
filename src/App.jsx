@@ -1174,7 +1174,19 @@ function HomeFlow() {
   async function pushHouseholdData(token, hid) {
     if (!token || !hid) return;
     const payload = {};
-    SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
+    // Only push keys that have actual data — never push null over good server data
+    SYNC_KEYS.forEach(k => {
+      try {
+        const raw = localStorage.getItem("af_" + k);
+        if (raw && raw !== "null") {
+          const parsed = JSON.parse(raw);
+          if (parsed !== null && parsed !== undefined) {
+            // Skip empty arrays only if server might have data (be conservative)
+            payload[k] = parsed;
+          }
+        }
+      } catch {}
+    });
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
@@ -1322,28 +1334,28 @@ function HomeFlow() {
   function applyServerData(data, serverTs) {
     if (!data || typeof data !== "object") return;
     const clean = sanitizeHouseholdData(data);
-    // 1. Write to localStorage
+    // 1. Write to localStorage — skip null values so server nulls never clobber local data
     SYNC_KEYS.forEach(k => {
-      if (clean[k] !== undefined) {
+      if (clean[k] !== undefined && clean[k] !== null) {
         try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
       }
     });
     try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
-    // 2. Apply to React state with type guards
-    try { if (Array.isArray(clean.tasks))          setTasks(clean.tasks); } catch(e) {}
-    try { if (Array.isArray(clean.calEvents))      setCalEvents(clean.calEvents); } catch(e) {}
-    try { if (Array.isArray(clean.shoppingItems))  setShoppingItems(clean.shoppingItems); } catch(e) {}
-    try { if (Array.isArray(clean.people))         setPeople(clean.people); } catch(e) {}
-    try { if (Array.isArray(clean.notifications))  setNotifications(clean.notifications); } catch(e) {}
-    try { if (Array.isArray(clean.brainItems))     setBrainItems(clean.brainItems); } catch(e) {}
-    try { if (Array.isArray(clean.stores))         setStores(clean.stores); } catch(e) {}
-    try { if (Array.isArray(clean.shopCategories)) setShopCategories(clean.shopCategories); } catch(e) {}
-    try { if (Array.isArray(clean.birthdays))      setBirthdays(clean.birthdays); } catch(e) {}
-    try { if (Array.isArray(clean.homeSystems))    setHomeSystems(clean.homeSystems); } catch(e) {}
-    try { if (clean.meals && typeof clean.meals === "object")   setMealsRaw(clean.meals); } catch(e) {}
-    try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
-    try { if (clean.familyProfile !== undefined)   setFamilyProfile(clean.familyProfile); } catch(e) {}
-    try { if (typeof clean.flowMode === "string")  setFlowMode(clean.flowMode); } catch(e) {}
+    // 2. Apply to React state — skip null/empty so server nulls never wipe local data
+    try { if (Array.isArray(clean.tasks) && clean.tasks.length > 0)                    setTasks(clean.tasks); } catch(e) {}
+    try { if (Array.isArray(clean.calEvents) && clean.calEvents.length > 0)            setCalEvents(clean.calEvents); } catch(e) {}
+    try { if (Array.isArray(clean.shoppingItems) && clean.shoppingItems.length > 0)    setShoppingItems(clean.shoppingItems); } catch(e) {}
+    try { if (Array.isArray(clean.people) && clean.people.length > 0)                  setPeople(clean.people); } catch(e) {}
+    try { if (Array.isArray(clean.notifications) && clean.notifications.length > 0)    setNotifications(clean.notifications); } catch(e) {}
+    try { if (Array.isArray(clean.brainItems) && clean.brainItems.length > 0)          setBrainItems(clean.brainItems); } catch(e) {}
+    try { if (Array.isArray(clean.stores) && clean.stores.length > 0)                  setStores(clean.stores); } catch(e) {}
+    try { if (Array.isArray(clean.shopCategories) && clean.shopCategories.length > 0)  setShopCategories(clean.shopCategories); } catch(e) {}
+    try { if (Array.isArray(clean.birthdays) && clean.birthdays.length > 0)            setBirthdays(clean.birthdays); } catch(e) {}
+    try { if (Array.isArray(clean.homeSystems) && clean.homeSystems.length > 0)        setHomeSystems(clean.homeSystems); } catch(e) {}
+    try { if (clean.meals && typeof clean.meals === "object" && Object.values(clean.meals).some(v => v && Object.keys(v).length > 0)) setMealsRaw(clean.meals); } catch(e) {}
+    try { if (clean.rhythm && typeof clean.rhythm === "object")                         setRhythm(clean.rhythm); } catch(e) {}
+    try { if (clean.familyProfile != null)                                              setFamilyProfile(clean.familyProfile); } catch(e) {}
+    try { if (typeof clean.flowMode === "string")                                       setFlowMode(clean.flowMode); } catch(e) {}
     setSyncStatus("synced");
     setLastSyncTime(new Date().toLocaleTimeString());
   }
