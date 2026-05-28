@@ -1368,6 +1368,8 @@ function HomeFlow() {
 
     function applyIncoming(row) {
       if (!row || !row.data) return;
+      // Don't reload during initial mount - React fiber isn't ready yet
+      if (!window._afMounted) return;
       const serverTs = row.updated_at || "";
       const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
       // Skip our own writes — we already have them locally
@@ -1475,6 +1477,8 @@ function HomeFlow() {
   const lastTypedRef = useRef(0);
   useEffect(() => {
     window._appStartTime = Date.now(); // track app age for push guard
+    // Signal that React has fully mounted - safe for realtime reloads
+    setTimeout(function(){ window._afMounted = true; }, 2000);
     function onKey() { lastTypedRef.current = Date.now(); }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
