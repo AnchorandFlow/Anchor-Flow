@@ -1983,10 +1983,21 @@ var DEFAULT_PACKING_TEMPLATES = [
       "Snacks":      [{text:"Cooler"},{text:"Reusable water bottles"},{text:"Fruit"},{text:"Sandwiches"}],
       "Misc":        [{text:"Beach towels"},{text:"Beach umbrella"},{text:"Sand-proof blanket"},{text:"Mesh bag for wet stuff"}]
     }
+  },
+  {
+    id: "overnight", name: "Overnight Bag", emoji: "🌙", locked: false,
+    items: {
+      "Clothing":    [{text:"Change of clothes (each person)"},{text:"Pajamas"},{text:"Extra underwear/socks"}],
+      "Toiletries":  [{text:"Toothbrush / toothpaste"},{text:"Deodorant"},{text:"Chapstick"},{text:"Face wash"},{text:"Makeup basics"}],
+      "Kids":        [{text:"Kids pajamas"},{text:"Stuffed animal / comfort item"},{text:"Diapers (small amount)"},{text:"Wipes"},{text:"Sleep sack / sound machine"}],
+      "Electronics": [{text:"Phone charger"},{text:"Power bank"}],
+      "Medications": [{text:"Advil"},{text:"Any daily medications"}],
+      "Misc":        [{text:"Snacks"},{text:"Water bottles"},{text:"Cash"}]
+    }
   }
 ]
 
-var PACK_CATS = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Snacks","Misc"]
+var PACK_CATS = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Kids","Snacks","Misc"]
 
 function PackingTemplatesPanel(props) {
   var sand=props.sand; var navy=props.navy; var warm=props.warm; var muted=props.muted; var border=props.border; var cardBg=props.cardBg; var coastal=props.coastal
