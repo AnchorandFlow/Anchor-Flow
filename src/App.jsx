@@ -1394,16 +1394,13 @@ function HomeFlow() {
     function handleIncoming(row) {
       if (!row || !row.data) return;
       const serverTs = row.updated_at || "";
-      // Skip our own pushes
+      // Skip our own pushes only
       const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
       if (serverTs && serverTs === lastPushedAt) {
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         setSyncStatus("synced");
         return;
       }
-      // Skip already-applied
-      const lastSync = localStorage.getItem("af_lastHHSync") || "";
-      if (serverTs && serverTs === lastSync) return;
       // Skip if user is actively typing — retry in 5s
       const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
       if (isTyping) {
