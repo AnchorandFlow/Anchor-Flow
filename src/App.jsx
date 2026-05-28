@@ -1444,7 +1444,7 @@ function HomeFlow() {
     const iv = setInterval(async () => {
       if (!authToken) return;
       const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
-      const typedRecently = (Date.now() - lastTypedRef.current) < 5000;
+      const typedRecently = (Date.now() - lastTypedRef.current) < 1500;
       if (isTyping || typedRecently) return;
       try {
         await pushHouseholdData(authToken, householdId);
@@ -2487,7 +2487,7 @@ Respond ONLY with valid JSON array, no markdown:
   }, []); // eslint-disable-line
 
   // Sync household data when key state changes
-  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, familyProfile, rhythm, homeSystems, stores, shopCategories]); // eslint-disable-line
+  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, familyProfile, rhythm, homeSystems, stores, shopCategories, brainItems]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
