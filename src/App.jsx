@@ -1092,59 +1092,60 @@ function HomeFlow() {
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
 
       // Always look up Supabase on sign-in to find the real household with data
-      // This ensures any device gets the right household, not a stale empty local one
+      // Priority: joined_household_id metadata > owned household
       try {
-        // Filter by owner_id so each user only finds their own household, never a stranger's
-        const existingRows = await sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=*&order=updated_at.desc&limit=1`, { _token: token });
-        if (existingRows && existingRows.length > 0) {
-          const existingHH = existingRows[0];
-          // Use the Supabase household (it has the real data)
-          try { localStorage.setItem("af_householdId", JSON.stringify(existingHH.id)); } catch {}
-          if (existingHH.data && Object.keys(existingHH.data).length > 0) {
-            // Household has real data — restore it all
-            const clean = sanitizeHouseholdData(existingHH.data);
-            SYNC_KEYS.forEach(k => {
-              if (clean[k] !== undefined) {
-                try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-              }
-            });
-            try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
+        // Step 1: fetch fresh metadata — joined_household_id takes priority over owned household
+        let joinedHhId = data.user?.user_metadata?.joined_household_id || data.user?.user_metadata?.householdId || null;
+        try {
+          const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
+            headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
+          });
+          const freshUser = await freshResp.json();
+          joinedHhId = freshUser?.user_metadata?.joined_household_id || freshUser?.user_metadata?.householdId || joinedHhId;
+        } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
+
+        // Step 2: if user has explicitly joined another household, always use that first
+        if (joinedHhId) {
+          const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
+          if (joinedRows && joinedRows.length > 0) {
+            const hh = joinedRows[0];
+            try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
+            if (hh.data && Object.keys(hh.data).length > 0) {
+              const clean = sanitizeHouseholdData(hh.data);
+              SYNC_KEYS.forEach(k => {
+                if (clean[k] !== undefined && clean[k] !== null) {
+                  try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                }
+              });
+              try { localStorage.setItem("af_lastHHSync", hh.updated_at || Date.now().toString()); } catch {}
+            }
+            console.log("[AF] Restored joined household on sign-in:", joinedHhId);
           }
         } else {
-          // No household owned by this user — re-fetch their user record fresh from Supabase
-          // so we get the latest metadata (local data.user may be stale from the login response).
-          let joinedHhId = data.user?.user_metadata?.joined_household_id || null;
-          // Re-fetch user fresh using raw fetch (no apikey header) to get latest metadata
-          try {
-            const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
-              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
-            });
-            const freshUser = await freshResp.json();
-            if (freshUser?.user_metadata?.joined_household_id) {
-              joinedHhId = freshUser.user_metadata.joined_household_id;
+          // Step 3: no joined household — fall back to household owned by this user
+          const existingRows = await sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=*&order=updated_at.desc&limit=1`, { _token: token });
+          if (existingRows && existingRows.length > 0) {
+            const existingHH = existingRows[0];
+            try { localStorage.setItem("af_householdId", JSON.stringify(existingHH.id)); } catch {}
+            if (existingHH.data && Object.keys(existingHH.data).length > 0) {
+              const clean = sanitizeHouseholdData(existingHH.data);
+              SYNC_KEYS.forEach(k => {
+                if (clean[k] !== undefined && clean[k] !== null) {
+                  try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                }
+              });
+              try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
             }
-          } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
-          console.log("[AF] No owned household. joined_household_id:", joinedHhId);
-          if (joinedHhId) {
-            try {
-              const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
-              if (joinedRows && joinedRows.length > 0 && joinedRows[0].data) {
-                try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
-                const clean = sanitizeHouseholdData(joinedRows[0].data);
-                SYNC_KEYS.forEach(k => {
-                  if (clean[k] !== undefined) {
-                    try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-                  }
-                });
-                try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
-                console.log("[AF] Restored joined household on sign-in:", joinedHhId);
-              }
-            } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
+          } else {
+            const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+            if (!storedHHId) {
+              const hid = "hh_" + uid();
+              try { localStorage.setItem("af_householdId", JSON.stringify(hid)); } catch {}
+            }
           }
         }
       } catch(hhErr) {
         console.warn("Household lookup failed:", hhErr.message);
-        // Fallback — ensure we at least have a household ID
         const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
         if (!storedHHId) {
           const hid = "hh_" + uid();
@@ -1192,14 +1193,17 @@ function HomeFlow() {
     const ownerId = authUser?.id || null;
     try {
       // Check if row exists first to decide POST vs PATCH
-      const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id&limit=1`, { _token: token });
+      const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id,data&limit=1`, { _token: token });
       if (existing && existing.length > 0) {
+        // Merge: start with server data, overlay our local non-null values on top
+        const serverData = (existing[0].data && typeof existing[0].data === "object") ? existing[0].data : {};
+        const merged = Object.assign({}, serverData, payload);
         // Row exists — always PATCH (avoids 409 conflict)
         const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
           method: "PATCH",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ data: payload, updated_at: updatedAt })
+          body: JSON.stringify({ data: merged, updated_at: updatedAt })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
