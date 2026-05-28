@@ -10158,20 +10158,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.6rem"}}>Clears this device's household connection so you can generate a new code. Your account stays intact.</div>
           <button onClick={async function(){
             if(!window.confirm("Reset household on this device? You'll get a new household code after reloading.")) return;
+            var tok = authToken || "";
+            var anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
+            var base = "https://sbgbyptkunvyxjfpzght.supabase.co";
             try {
-              // Clear joined_household_id from Supabase user metadata
-              var tok = (authToken||"").replace(/^"|"$/g,"");
-              await fetch("https://sbgbyptkunvyxjfpzght.supabase.co/auth/v1/user", {
+              // 1. Clear joined_household_id from user metadata
+              await fetch(base+"/auth/v1/user", {
                 method:"PUT",
-                headers:{
-                  "Authorization":"Bearer "+tok,
-                  "Content-Type":"application/json",
-                  "apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0"
-                },
+                headers:{"Authorization":"Bearer "+tok,"Content-Type":"application/json","apikey":anon},
                 body:JSON.stringify({data:{joined_household_id:null}})
               });
-            } catch(e) { console.warn("metadata clear failed:",e.message); }
-            // Save auth so user stays signed in
+            } catch(e) { console.warn("metadata clear:",e.message); }
+            try {
+              // 2. Delete the household row so next login creates a fresh one
+              if(householdId) {
+                await fetch(base+"/rest/v1/households?id=eq."+householdId, {
+                  method:"DELETE",
+                  headers:{"Authorization":"Bearer "+tok,"apikey":anon,"Content-Type":"application/json"}
+                });
+              }
+            } catch(e) { console.warn("household delete:",e.message); }
+            // 3. Clear all local data but keep auth credentials
             var savedToken = localStorage.getItem("af_authToken");
             var savedUser  = localStorage.getItem("af_authUser");
             localStorage.clear();
@@ -10900,6 +10907,24 @@ export default function App() {
         });
         try { localStorage.setItem("af_lastHHSync", sourceRow.updated_at || String(Date.now())); } catch {}
         console.log("[AF] onAuth: household data pulled for", userId, "hh:", sourceRow.id);
+      } else {
+        // No household found — generate a fresh one
+        var newHid = "hh_" + Math.random().toString(36).slice(2,9);
+        try { localStorage.setItem("af_householdId", JSON.stringify(newHid)); } catch {}
+        // Create the row in Supabase
+        try {
+          await fetch("https://sbgbyptkunvyxjfpzght.supabase.co/rest/v1/households", {
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer " + token,
+              "Content-Type": "application/json",
+              "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0",
+              "Prefer": "return=representation"
+            },
+            body: JSON.stringify({ id: newHid, owner_id: userId, data: {}, updated_at: new Date().toISOString() })
+          });
+          console.log("[AF] onAuth: created fresh household", newHid);
+        } catch(e) { console.warn("[AF] onAuth: could not create household row:", e.message); }
       }
     } catch(e) {
       console.warn("[AF] onAuth household pull failed:", e.message);
