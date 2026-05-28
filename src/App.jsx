@@ -2512,7 +2512,7 @@ Respond ONLY with valid JSON array, no markdown:
   }, []); // eslint-disable-line
 
   // Sync household data when key state changes
-  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, schoolData, familyProfile, rhythm, homeSystems, stores, shopCategories]); // eslint-disable-line
+  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, familyProfile, rhythm, homeSystems, stores, shopCategories]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
