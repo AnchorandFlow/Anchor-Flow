@@ -1289,217 +1289,143 @@ function HomeFlow() {
     } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
   }
 
+  // ── Helper: apply server data to React state ──────────────────────────────
+  function applyServerData(data, serverTs) {
+    if (!data || typeof data !== "object") return;
+    const clean = sanitizeHouseholdData(data);
+    // 1. Write to localStorage
+    SYNC_KEYS.forEach(k => {
+      if (clean[k] !== undefined) {
+        try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+      }
+    });
+    try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
+    // 2. Apply to React state with type guards
+    try { if (Array.isArray(clean.tasks))          setTasks(clean.tasks); } catch(e) {}
+    try { if (Array.isArray(clean.calEvents))      setCalEvents(clean.calEvents); } catch(e) {}
+    try { if (Array.isArray(clean.shoppingItems))  setShoppingItems(clean.shoppingItems); } catch(e) {}
+    try { if (Array.isArray(clean.people))         setPeople(clean.people); } catch(e) {}
+    try { if (Array.isArray(clean.notifications))  setNotifications(clean.notifications); } catch(e) {}
+    try { if (Array.isArray(clean.brainItems))     setBrainItems(clean.brainItems); } catch(e) {}
+    try { if (Array.isArray(clean.stores))         setStores(clean.stores); } catch(e) {}
+    try { if (Array.isArray(clean.shopCategories)) setShopCategories(clean.shopCategories); } catch(e) {}
+    try { if (Array.isArray(clean.birthdays))      setBirthdays(clean.birthdays); } catch(e) {}
+    try { if (Array.isArray(clean.homeSystems))    setHomeSystems(clean.homeSystems); } catch(e) {}
+    try { if (clean.meals && typeof clean.meals === "object")   setMealsRaw(clean.meals); } catch(e) {}
+    try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
+    try { if (clean.familyProfile !== undefined)   setFamilyProfile(clean.familyProfile); } catch(e) {}
+    try { if (typeof clean.flowMode === "string")  setFlowMode(clean.flowMode); } catch(e) {}
+    setSyncStatus("synced");
+    setLastSyncTime(new Date().toLocaleTimeString());
+  }
+
+  // ── syncNow: push local state then pull any newer server changes ───────────
   async function syncNow() {
     if (!authToken || !householdId) return;
     try {
       setSyncStatus("syncing");
       await pushHouseholdData(authToken, householdId);
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-      if (rows && rows.length > 0 && rows[0].data) {
-        const serverTs = rows[0].updated_at || "";
-        const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
-        // Only apply if server has changes we didn't push
-        if (serverTs && serverTs !== lastPushedAt) {
-          const clean = sanitizeHouseholdData(rows[0].data);
-          SYNC_KEYS.forEach(k => {
-            if (clean[k] !== undefined) {
-              try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-            }
-          });
-          try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-          // Apply directly to state
-          try { if (Array.isArray(clean.tasks))         setTasks(clean.tasks); } catch(e) {}
-          try { if (clean.meals && typeof clean.meals === "object") setMealsRaw(clean.meals); } catch(e) {}
-          try { if (Array.isArray(clean.calEvents))     setCalEvents(clean.calEvents); } catch(e) {}
-          try { if (Array.isArray(clean.shoppingItems)) setShoppingItems(clean.shoppingItems); } catch(e) {}
-          try { if (Array.isArray(clean.people))        setPeople(clean.people); } catch(e) {}
-          try { if (Array.isArray(clean.notifications)) setNotifications(clean.notifications); } catch(e) {}
-          try { if (Array.isArray(clean.brainItems))    setBrainItems(clean.brainItems); } catch(e) {}
-          try { if (Array.isArray(clean.stores))        setStores(clean.stores); } catch(e) {}
-          try { if (Array.isArray(clean.birthdays))     setBirthdays(clean.birthdays); } catch(e) {}
-          try { if (Array.isArray(clean.homeSystems))   setHomeSystems(clean.homeSystems); } catch(e) {}
-          try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
-          try { if (clean.familyProfile !== undefined)  setFamilyProfile(clean.familyProfile); } catch(e) {}
-          try { if (typeof clean.flowMode === "string") setFlowMode(clean.flowMode); } catch(e) {}
-          // Note: schoolData is inside SchoolTab — applied on next tab open via localStorage
-          setSyncStatus("synced");
-          setLastSyncTime(new Date().toLocaleTimeString());
-          return;
-        }
-
-      }
-      setSyncStatus("synced");
-      setLastSyncTime(new Date().toLocaleTimeString());
-    } catch { setSyncStatus("error"); }
+      if (!rows || !rows.length || !rows[0].data) { setSyncStatus("synced"); return; }
+      const serverTs = rows[0].updated_at || "";
+      const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
+      // If server timestamp matches what we just pushed, nothing new from other devices
+      if (serverTs === lastPushedAt) { setSyncStatus("synced"); setLastSyncTime(new Date().toLocaleTimeString()); return; }
+      // Server has data from another device — apply it
+      applyServerData(rows[0].data, serverTs);
+    } catch(e) { if (!isJwtExpired(e)) setSyncStatus("error"); }
   }
 
-  // Register Service Worker on first load (enables caching + persistent notifications)
+  // Register Service Worker
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   }, []);
 
-  // ── Startup: verify household ID is valid, correct silently if not ──────────
+  // ── Track keystroke time (never sync while typing) ─────────────────────────
+  const syncTimeoutRef = useRef(null);
+  const lastTypedRef = useRef(0);
   useEffect(() => {
-    if (!authToken || !householdId) return;
-    sbFetch(`/rest/v1/households?id=eq.${householdId}&select=id&limit=1`, { _token: authToken })
-      .then(rows => {
-        if (rows && rows.length > 0) {
-          console.log("[AF] Household ID valid:", householdId);
-        } else {
-          // Stored household is gone — clear it so the next push creates a fresh one
-          console.log("[AF] Household not found, clearing local ID");
-          try { localStorage.removeItem("af_householdId"); } catch {}
-          setHouseholdId(null);
-        }
-      }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    window._appStartTime = Date.now();
+    function onKey() { lastTypedRef.current = Date.now(); }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  // ── Background household sync — polls every 60s ─────────────────────────
-  // Each tick fetches the server row and compares updated_at to af_lastHHSync.
-  // ── Realtime sync: apply incoming changes directly to React state ────────────
+  // ── Debounced sync: fires 2s after any data change ────────────────────────
+  function debouncedSync() {
+    if (!authToken || !householdId) return;
+    clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(syncNow, 2000);
+  }
+
+  // ── Realtime + fallback poll ───────────────────────────────────────────────
   useEffect(() => {
     if (!authToken || !householdId) return;
-
-    function applyIncomingToState(data, serverTs) {
-      if (!data) return;
-      const clean = sanitizeHouseholdData(data);
-      // Write to localStorage first (source of truth for useSaved)
-      const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
-      SYNC_KEYS.forEach(k => {
-        if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
-        if (clean[k] !== undefined) {
-          try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-        }
-      });
-      try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
-      // Apply directly to React state — with type guards to prevent crashes
-      try { if (Array.isArray(clean.tasks))         setTasks(clean.tasks); } catch(e) {}
-      try { if (clean.meals && typeof clean.meals === "object") setMealsRaw(clean.meals); } catch(e) {}
-      try { if (Array.isArray(clean.calEvents))     setCalEvents(clean.calEvents); } catch(e) {}
-      try { if (Array.isArray(clean.shoppingItems)) setShoppingItems(clean.shoppingItems); } catch(e) {}
-      try { if (Array.isArray(clean.people))        setPeople(clean.people); } catch(e) {}
-      try { if (Array.isArray(clean.notifications)) setNotifications(clean.notifications); } catch(e) {}
-      try { if (Array.isArray(clean.brainItems))    setBrainItems(clean.brainItems); } catch(e) {}
-      try { if (Array.isArray(clean.stores))        setStores(clean.stores); } catch(e) {}
-      try { if (Array.isArray(clean.shopCategories))setShopCategories(clean.shopCategories); } catch(e) {}
-      try { if (Array.isArray(clean.birthdays))     setBirthdays(clean.birthdays); } catch(e) {}
-      try { if (Array.isArray(clean.homeSystems))   setHomeSystems(clean.homeSystems); } catch(e) {}
-      try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
-      try { if (clean.familyProfile !== undefined)  setFamilyProfile(clean.familyProfile); } catch(e) {}
-      try { if (typeof clean.flowMode === "string") setFlowMode(clean.flowMode); } catch(e) {}
-      setSyncStatus("synced");
-      setLastSyncTime(new Date().toLocaleTimeString());
-      console.log("[AF] Applied incoming sync");
-    }
 
     function handleIncoming(row) {
       if (!row || !row.data) return;
       const serverTs = row.updated_at || "";
-      // Skip if this is our own push
+      // Skip our own pushes
       const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
       if (serverTs && serverTs === lastPushedAt) {
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         setSyncStatus("synced");
         return;
       }
-      // Skip if already applied
+      // Skip already-applied
       const lastSync = localStorage.getItem("af_lastHHSync") || "";
       if (serverTs && serverTs === lastSync) return;
-      // Don't apply while user is mid-action — queue it
+      // Skip if user is actively typing — retry in 5s
       const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
-      const typedRecently = (Date.now() - lastTypedRef.current) < 8000;
-      if (isTyping || typedRecently) {
+      if (isTyping) {
         clearTimeout(window._pendingSync);
-        window._pendingSync = setTimeout(function(){ applyIncomingToState(row.data, serverTs); }, 10000);
+        window._pendingSync = setTimeout(function() { handleIncoming(row); }, 5000);
         return;
       }
-      applyIncomingToState(row.data, serverTs);
+      console.log("[AF] Applying incoming from", serverTs);
+      applyServerData(row.data, serverTs);
     }
 
-    // Realtime subscription — instant push from Supabase when household changes
+    // Realtime subscription
     const channel = supabase
       .channel("hh-" + householdId)
-      .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "households",
-        filter: "id=eq." + householdId
-      }, function(payload) {
-        console.log("[AF] Realtime update received");
-        handleIncoming(payload.new);
-      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "households", filter: "id=eq." + householdId },
+        function(payload) { handleIncoming(payload.new); })
       .subscribe(function(status) {
-        console.log("[AF] Realtime status:", status);
+        console.log("[AF] Realtime:", status);
         if (status === "SUBSCRIBED") setSyncStatus("synced");
       });
 
-    // Fallback poll every 30s (catches missed realtime events, mobile background)
-    const fallbackInterval = setInterval(async function() {
+    // Fallback poll every 15s — catches missed realtime and mobile background
+    const poll = setInterval(async function() {
+      if (!authToken) return;
       try {
-        if (!authToken) return;
         const rows = await sbFetch("/rest/v1/households?id=eq."+householdId+"&select=updated_at,data", { _token: authToken });
         if (rows && rows.length > 0) handleIncoming(rows[0]);
       } catch {}
-    }, 30000);
+    }, 15000);
 
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(fallbackInterval);
-      clearTimeout(window._pendingSync);
-    };
+    return () => { supabase.removeChannel(channel); clearInterval(poll); clearTimeout(window._pendingSync); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
 
-  // ── Push local changes every 30s ───────────────────────────────────────────
-  // Only pushes — no reloads. Cross-device updates appear on next app open.
+  // ── Push every 10s when data has changed ──────────────────────────────────
   useEffect(() => {
     if (!authToken || !householdId) return;
     const iv = setInterval(async () => {
+      if (!authToken) return;
+      const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
+      const typedRecently = (Date.now() - lastTypedRef.current) < 5000;
+      if (isTyping || typedRecently) return;
       try {
-        if (!authToken) return; // token already cleared, stop trying
-        // For new joining members: don't push until we've pulled at least once
-        // (prevents overwriting household data with blank defaults)
-        // But allow push if: we have a lastHHSync, OR if this device has been active >60s
-        // (owner's device may not have lastHHSync but should still push)
-        const hasSynced = (() => { try { return !!localStorage.getItem("af_lastHHSync"); } catch { return false; } })();
-        const appAge = Date.now() - (window._appStartTime || Date.now());
-        if (!hasSynced && appAge < 60000) return; // new member grace period only
-        const active = document.activeElement;
-        const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
-        const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-        if (isTyping || typedRecently) return; // never re-render while user is typing
         await pushHouseholdData(authToken, householdId);
         setSyncStatus("synced");
         setLastSyncTime(new Date().toLocaleTimeString());
-      } catch(e) {
-        // JWT errors already handled inside pushHouseholdData — don't set error status here
-        if (!isJwtExpired(e)) setSyncStatus("error");
-      }
-    }, 8000);
+      } catch(e) { if (!isJwtExpired(e)) setSyncStatus("error"); }
+    }, 10000);
     return () => clearInterval(iv);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
-
-  // Sync on task/meal/cal changes (debounced)
-  const syncTimeoutRef = useRef(null);
-  // Track last keystroke time — never reload within 15s of any typing
-  const lastTypedRef = useRef(0);
-  useEffect(() => {
-    window._appStartTime = Date.now(); // track app age for push guard
-    // Signal that React has fully mounted - safe for realtime reloads
-    setTimeout(function(){ window._afMounted = true; }, 2000);
-    function onKey() { lastTypedRef.current = Date.now(); }
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-  function debouncedSync() {
-    if (!authToken || !householdId) return;
-    clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(syncNow, 1500);
-  }
 
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
