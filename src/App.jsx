@@ -9568,6 +9568,50 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </Sec>
 
+        {/* PWA install nudge — only shows when opened in a browser, not from home screen */}
+        {(function(){
+          var isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+          var [pwaDismissed, setPwaDismissed] = useSaved("pwaBannerDismissed", false);
+          if (isStandalone || pwaDismissed) return null;
+          var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+          var isAndroid = /android/i.test(navigator.userAgent);
+          return (
+            <div style={{background:"linear-gradient(135deg,"+T.navy+"ee,"+T.blueDark+"dd)",borderRadius:"1rem",padding:"1.1rem 1.1rem 1rem",marginBottom:"1.25rem",position:"relative",border:"1.5px solid "+T.blue+"60"}}>
+              <button onClick={function(){setPwaDismissed(true);}} style={{position:"absolute",top:"0.65rem",right:"0.75rem",background:"none",border:"none",cursor:"pointer",color:"rgba(250,248,244,0.5)",fontSize:"1rem",lineHeight:1,padding:"0.1rem 0.3rem"}}>✕</button>
+              <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.65rem"}}>
+                <span style={{fontSize:"1.3rem"}}>📱</span>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:"#faf8f4",letterSpacing:"0.02em"}}>Install for best experience</div>
+              </div>
+              <p style={{color:"rgba(250,248,244,0.82)",fontSize:"0.8rem",lineHeight:1.65,marginBottom:"0.85rem",marginTop:0}}>
+                You&apos;re viewing Anchor &amp; Flow in a browser. For sync to work reliably across your household, always open the app from your <strong style={{color:"#faf8f4"}}>home screen icon</strong> — not a browser tab.
+              </p>
+              {isIOS && (
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.88)",lineHeight:1.75}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.25rem"}}>📲 Save to iPhone / iPad home screen:</strong>
+                  1. Tap the <strong style={{color:"#faf8f4"}}>Share</strong> button (the box with an arrow) in Safari<br/>
+                  2. Scroll down and tap <strong style={{color:"#faf8f4"}}>"Add to Home Screen"</strong><br/>
+                  3. Tap <strong style={{color:"#faf8f4"}}>Add</strong> — then always open from that icon
+                </div>
+              )}
+              {isAndroid && (
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.88)",lineHeight:1.75}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.25rem"}}>📲 Save to Android home screen:</strong>
+                  1. Tap the <strong style={{color:"#faf8f4"}}>⋮ menu</strong> in Chrome<br/>
+                  2. Tap <strong style={{color:"#faf8f4"}}>"Add to Home screen"</strong> or <strong style={{color:"#faf8f4"}}>"Install app"</strong><br/>
+                  3. Tap <strong style={{color:"#faf8f4"}}>Add</strong> — then always open from that icon
+                </div>
+              )}
+              {!isIOS && !isAndroid && (
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.88)",lineHeight:1.75}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.25rem"}}>💻 On desktop:</strong>
+                  Look for the <strong style={{color:"#faf8f4"}}>install icon (⊕)</strong> in your browser&apos;s address bar and click it to install as an app.<br/>
+                  On mobile, use Safari (iOS) or Chrome (Android) and add to home screen.
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ════════════════════════════════════
             Sign In & Sync — always last
         ════════════════════════════════════ */}
@@ -10087,8 +10131,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <strong style={{color:T.sageDark}}>How it works:</strong><br/>
             • Both people sign in with their own email + password<br/>
             • One person shares their household code<br/>
-            • The other enters it to join — data syncs automatically every 60 seconds<br/>
-            • Changes on either device appear on the other within a minute
+            • The other enters it to join — data syncs live via Realtime<br/>
+            • Changes on either device appear on the other almost instantly
           </div>
         </div>
         {/* Reset Household */}
