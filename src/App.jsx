@@ -1193,19 +1193,48 @@ function HomeFlow() {
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
       } else {
-        // Row does not exist — INSERT (first time only)
-        const insertRows = await sbFetch("/rest/v1/households", {
-          method: "POST",
-          _token: token,
-          headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
-        });
-        const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+        // Row does not exist — try INSERT, but if owner already has a household, use that
+        try {
+          const insertRows = await sbFetch("/rest/v1/households", {
+            method: "POST",
+            _token: token,
+            headers: { "Prefer": "return=representation" },
+            body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
+          });
+          const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
+          try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+          try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        } catch(insertErr) {
+          // Duplicate owner — find and switch to the existing household
+          if (insertErr.message && insertErr.message.includes("owner_id_unique")) {
+            const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+ownerId+"&select=id&limit=1", { _token: token });
+            if (ownedRows && ownedRows.length > 0) {
+              const realHid = ownedRows[0].id;
+              console.log("[AF] Switching to existing household:", realHid);
+              try { localStorage.setItem("af_householdId", JSON.stringify(realHid)); } catch {}
+              setHouseholdId(realHid);
+              // Also save to metadata so all devices reconnect
+              try {
+                const anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
+                await fetch(SUPABASE_URL+"/auth/v1/user", {
+                  method:"PUT",
+                  headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":anon},
+                  body:JSON.stringify({data:{householdId:realHid}})
+                });
+              } catch(e2) {}
+              // Now PATCH the real household
+              await sbFetch("/rest/v1/households?id=eq."+realHid, {
+                method: "PATCH",
+                _token: token,
+                headers: { "Prefer": "return=representation" },
+                body: JSON.stringify({ data: payload, updated_at: updatedAt })
+              });
+            }
+          }
+        }
       }
     } catch(e) {
       if (isJwtExpired(e)) {
-        // Token expired — clear it silently so we stop retrying
         try { localStorage.removeItem("af_authToken"); } catch {}
         setAuthToken(null);
       } else {
