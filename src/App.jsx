@@ -10164,7 +10164,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.sage,marginBottom:"0.6rem"}}>Join a household</div>
           <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6,marginBottom:"0.75rem"}}>Have a household code from another device? Enter it here to sync and share all data.</div>
           <div style={{display:"flex",gap:"0.5rem"}}>
-            <input value={joinCode} onChange={e=>setJoinCode(e.target.value)} placeholder="Paste household code…" style={{...inp({flex:1})}}/>
+            <input value={joinCode} onChange={function(e){setJoinCode(e.target.value);}} placeholder="Paste household code…" style={{flex:1,padding:"0.55rem 0.75rem",border:"1.5px solid "+T.borderSoft,borderRadius:"0.6rem",fontSize:"0.9rem",background:T.surface,color:T.textDark,fontFamily:"'DM Sans',sans-serif",minWidth:0}}/>
             <button onClick={handleJoin} disabled={loading} style={btnP(T.sage,{flexShrink:0,opacity:loading?0.7:1})}>
               {loading?"Joining…":"Join"}
             </button>
