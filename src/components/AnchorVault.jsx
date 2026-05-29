@@ -2054,6 +2054,15 @@ function PackingTemplatesPanel(props) {
     updateTemplateItems(tid, cat, existing)
   }
 
+  function toggleItem(tid, cat, idx) {
+    var t = templates.find(function(x){ return x.id===tid })
+    if (!t) return
+    var existing = ((t.items||{})[cat]||[]).map(function(item,i){
+      return i===idx ? Object.assign({},item,{done:!item.done}) : item
+    })
+    updateTemplateItems(tid, cat, existing)
+  }
+
   function copyTemplate(t) {
     var copy = JSON.parse(JSON.stringify(t))
     copy.id = Date.now().toString()
@@ -2166,14 +2175,27 @@ function PackingTemplatesPanel(props) {
           <div>
             {((activeTemplate.items||{})[activeCat]||[]).map(function(item,i) {
               return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+border }}>
-                  <span style={{ fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", flex:1 }}>{item.text}</span>
-                  <button onClick={function(){ removeItem(activeId, activeCat, i) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.2)", cursor:"pointer", fontSize:14 }}>×</button>
+                <div key={i} onClick={function(){ toggleItem(activeId, activeCat, i) }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 4px", borderBottom:"1px solid "+border, cursor:"pointer" }}>
+                  <div style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?"#5dcaa5":"rgba(250,248,244,0.25)"), background:item.done?"rgba(29,158,117,0.25)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
+                    {item.done && <span style={{ fontSize:11, color:"#5dcaa5", fontWeight:800, lineHeight:1 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize:13, color:item.done?"rgba(250,248,244,0.3)":warm, fontFamily:"DM Sans,sans-serif", flex:1, textDecoration:item.done?"line-through":"none", transition:"all 0.15s" }}>{item.text}</span>
+                  <button onClick={function(e){ e.stopPropagation(); removeItem(activeId, activeCat, i) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.2)", cursor:"pointer", fontSize:14, padding:"0 4px" }}>×</button>
                 </div>
               )
             })}
             {((activeTemplate.items||{})[activeCat]||[]).length === 0 && (
               <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", padding:"6px 0" }}>No items yet in this category.</div>
+            )}
+            {((activeTemplate.items||{})[activeCat]||[]).some(function(item){ return item.done }) && (
+              <button onClick={function(){
+                var t = templates.find(function(x){ return x.id===activeId })
+                if (!t) return
+                var cleared = ((t.items||{})[activeCat]||[]).map(function(item){ return Object.assign({},item,{done:false}) })
+                updateTemplateItems(activeId, activeCat, cleared)
+              }} style={{ marginTop:8, background:"none", border:"1px solid rgba(250,248,244,0.1)", borderRadius:6, padding:"4px 10px", fontSize:11, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>
+                Clear checked
+              </button>
             )}
             <div style={{ display:"flex", gap:8, marginTop:10 }}>
               <input value={newItem} onChange={function(e){setNewItem(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter"){ addItem(activeId,activeCat,newItem) }}} placeholder={"Add to "+activeCat+"…"} style={Object.assign({},inputStyle,{flex:1})}/>
