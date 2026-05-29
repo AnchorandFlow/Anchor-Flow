@@ -1944,183 +1944,227 @@ function PetsSection() {
 
 
 // ── Packing Templates Panel (part of Travel Profile) ─────────────────────────
+var TRIP_BAGS = ["My Bag","Kid 1","Kid 2","Kid 3","Cosmetics","Bag 1","Bag 2","Overnight Bag"]
+
+var DEFAULT_BAG_ITEMS = {
+  "My Bag": {
+    "Clothing":    ["Pants","Shirts","Dress","Underwear","Bras","Shoes / flip flops / sandals","Pajamas","Bathing suit","Cover-up","Jacket"],
+    "Accessories": ["Sunglasses x2","Glasses","Hat","Jewelry"],
+    "Toiletries":  ["Makeup","Shampoo / conditioner","Hair products","Crimper / hair dryer","Clips","Brush","Deo","Toothbrush / toothpaste","Sunscreen","Chapstick","Nail file"],
+    "Health":      ["Advil","Arnica / muscle mist","Pads / tampons","Snore thing","Bug / eucalyptus"],
+    "Electronics": ["Cell phone charger / battery pack"]
+  },
+  "Kid 1": {
+    "Clothing":      ["Pants","Shirts","Underwear","Socks","Shoes / flip flops / crocs","Pajamas","Bathing suit","Jacket"],
+    "Comfort":       ["Blanket","Stuffed animal"],
+    "Accessories":   ["Sunglasses","Hat","Snorkel / goggles"],
+    "Toiletries":    ["Toothbrush / toothpaste","Hair gel","Chapstick"],
+    "Entertainment": ["Tablet / computer + charger","Download movies before leaving","Toys","Coloring / learning activities","Airplane tray"]
+  },
+  "Kid 2": {
+    "Clothing":      ["Pants","Shirts","Underwear","Socks","Shoes / flip flops","Pajamas","Bathing suit","Jacket"],
+    "Comfort":       ["Blanket","Stuffed animal"],
+    "Accessories":   ["Sunglasses","Hat"],
+    "Toiletries":    ["Toothbrush / toothpaste","Chapstick","Hair ties / accessories"],
+    "Entertainment": ["Tablet + headphones","Toys","Books / activities","Airplane tray"]
+  },
+  "Kid 3": {
+    "Clothing":   ["Outfits","Diapers / swim diapers","Bathing suit / cover up","Socks / shoes","Pajamas x2","Jacket","Bows / accessories"],
+    "Sleep":      ["Sleep sack","Sound machine","Blankets"],
+    "Feeding":    ["Burp cloths / bibs","Snacks","Spoon","Tupperware cups"],
+    "Toiletries": ["Wipes","Toothbrush / toothpaste","Aquaphor","Lotion","Shampoo","Diaper cream"],
+    "Accessories":["Sunglasses","Hat","Backpack","Stuffed animal","Toys"],
+    "Travel":     ["Airplane tray","iPad / extra phone","Car seat","Tush baby","Sling"]
+  },
+  "Cosmetics": {
+    "Face":   ["Foundation / BB cream","Concealer","Blush / bronzer","Setting powder","Setting spray","Mascara","Eyeliner","Eyeshadow palette","Lip color"],
+    "Tools":  ["Makeup brushes","Makeup sponge","Eyelash curler","Tweezers"],
+    "Skin":   ["Moisturizer","SPF face sunscreen","Eye cream","Micellar water / makeup remover","Face wash","Toner","Serum"],
+    "Extras": ["Cotton rounds","Q-tips","Makeup wipes","Mirror"]
+  },
+  "Bag 1": {
+    "Baby essentials": ["Diapers","Wipes","Sanitizing wipes","Disposable table things","Bib","Spoon","Burp cloths","Diaper cream"],
+    "Baby extras":     ["Baby table / seat","Baby toys"],
+    "Family":          ["Sunglasses x4","Water bottles","Seat belt extender","Tampons","Advil","Hairbrush / ties","Chapstick","Trash bags","Snacks"]
+  },
+  "Bag 2": {
+    "Beach / outdoor": ["Beach toys","Beach towels","Powder sand","Laundry bags"],
+    "Travel gear":     ["Stroller / bag / cup holder","Booster seat / car seat","Airplane bed thing","Tray table covers","Air tags","Luggage straps"],
+    "Misc":            ["Spoons","Nightlights","Laundry soap / bags","Cash","Chargers / battery pack / extension cord"]
+  },
+  "Overnight Bag": {
+    "Adult":      ["Change of clothes","Pajamas","Toothbrush / toothpaste","Makeup basics","Deo","Chapstick","Phone charger","Pads / tampons"],
+    "Older kids": ["Change of clothes","Pajamas","Toothbrush / toothpaste","Blanket","Stuffed animal"],
+    "Baby":       ["Outfit + extra","Pajamas","Diapers (travel amount)","Wipes","Sleep sack","Sound machine","Bib / burp cloth","Snacks"],
+    "Shared":     ["Aquaphor","Advil","Sunscreen","Water bottles","Charger"]
+  }
+}
+
+function makeTripBags(extras) {
+  var bags = {}
+  TRIP_BAGS.forEach(function(bag) {
+    var baseCats = DEFAULT_BAG_ITEMS[bag] || {}
+    var extraCats = (extras && extras[bag]) ? extras[bag] : {}
+    var merged = {}
+    Object.keys(baseCats).forEach(function(cat) {
+      merged[cat] = baseCats[cat].map(function(t){ return {text:t} })
+    })
+    Object.keys(extraCats).forEach(function(cat) {
+      merged[cat] = (merged[cat]||[]).concat(extraCats[cat].map(function(t){ return {text:t} }))
+    })
+    bags[bag] = merged
+  })
+  return bags
+}
+
 var DEFAULT_PACKING_TEMPLATES = [
   {
-    id: "mybag", name: "My Bag", emoji: "🧳", locked: false,
-    items: {
-      "Clothing":    [{text:"Pants"},{text:"Shirts"},{text:"Dress"},{text:"Underwear"},{text:"Bras"},{text:"Shoes / flip flops / sandals"},{text:"Pajamas"},{text:"Bathing suit"},{text:"Cover-up"},{text:"Jacket"}],
-      "Accessories": [{text:"Sunglasses x2"},{text:"Glasses"},{text:"Hat"},{text:"Jewelry"}],
-      "Toiletries":  [{text:"Makeup"},{text:"Shampoo / conditioner"},{text:"Hair products"},{text:"Crimper / hair dryer"},{text:"Clips"},{text:"Brush"},{text:"Deo"},{text:"Toothbrush / toothpaste"},{text:"Sunscreen"},{text:"Chapstick"},{text:"Nail file"}],
-      "Health":      [{text:"Advil"},{text:"Arnica / muscle mist"},{text:"Pads / tampons"},{text:"Snore thing"},{text:"Bug / eucalyptus"}],
-      "Electronics": [{text:"Cell phone charger / battery pack"}]
-    }
+    id: "flight", name: "Flight Trip", emoji: "✈️", type: "trip", locked: false,
+    bags: makeTripBags({
+      "My Bag": { "Travel docs": ["Passport / ID","Boarding passes","Travel insurance docs","Credit cards","Cash"] },
+      "Bag 1": { "Flight extras": ["Neck pillow","Eye mask","Noise-canceling headphones","TSA lock","Empty water bottle"] }
+    })
   },
   {
-    id: "kid1", name: "Kid 1", emoji: "👦", locked: false,
-    items: {
-      "Clothing":      [{text:"Pants"},{text:"Shirts"},{text:"Underwear"},{text:"Socks"},{text:"Shoes / flip flops / crocs"},{text:"Pajamas"},{text:"Bathing suit"},{text:"Jacket"}],
-      "Comfort":       [{text:"Blanket"},{text:"Stuffed animal"}],
-      "Accessories":   [{text:"Sunglasses"},{text:"Hat"},{text:"Snorkel / goggles"}],
-      "Toiletries":    [{text:"Toothbrush / toothpaste"},{text:"Hair gel"},{text:"Chapstick"}],
-      "Entertainment": [{text:"Tablet / computer + charger"},{text:"Download movies before leaving"},{text:"Toys"},{text:"Coloring / learning activities"},{text:"Airplane tray"}]
-    }
+    id: "roadtrip", name: "Road Trip", emoji: "🚗", type: "trip", locked: false,
+    bags: makeTripBags({
+      "My Bag": { "Car essentials": ["Driver's license","Car insurance card","Registration","AAA card"] },
+      "Bag 2": { "Car extras": ["Aux cable / Bluetooth","Phone mount","Dash cam","Jumper cables","Emergency kit","Motion sickness meds"] }
+    })
   },
   {
-    id: "kid2", name: "Kid 2", emoji: "👧", locked: false,
-    items: {
-      "Clothing":      [{text:"Pants"},{text:"Shirts"},{text:"Underwear"},{text:"Socks"},{text:"Shoes / flip flops"},{text:"Pajamas"},{text:"Bathing suit"},{text:"Jacket"}],
-      "Comfort":       [{text:"Blanket"},{text:"Stuffed animal"}],
-      "Accessories":   [{text:"Sunglasses"},{text:"Hat"}],
-      "Toiletries":    [{text:"Toothbrush / toothpaste"},{text:"Chapstick"},{text:"Hair ties / accessories"}],
-      "Entertainment": [{text:"Tablet + headphones"},{text:"Toys"},{text:"Books / activities"},{text:"Airplane tray"}]
-    }
+    id: "beach", name: "Beach Trip", emoji: "🏖️", type: "trip", locked: false,
+    bags: makeTripBags({
+      "My Bag": { "Beach": ["After-sun lotion","Waterproof mascara","Extra hair ties"] },
+      "Kid 1": { "Beach": ["Snorkel / goggles","Rashguard","Water shoes"] },
+      "Kid 2": { "Beach": ["Rashguard","Water shoes"] },
+      "Kid 3": { "Beach": ["Swim diapers (extra)","Rashguard","Baby sunscreen SPF 70","Float / puddle jumper"] },
+      "Bag 2": { "Beach": ["Beach umbrella","Sand-proof blanket","Mesh bag for wet stuff","Portable speaker","Cooler"] }
+    })
   },
   {
-    id: "kid3", name: "Kid 3 (Baby)", emoji: "👶", locked: false,
+    id: "pretodo", name: "Pre-Trip To-Do", emoji: "✅", type: "custom", locked: false,
     items: {
-      "Clothing":   [{text:"Outfits"},{text:"Diapers / swim diapers"},{text:"Bathing suit / cover up"},{text:"Socks / shoes"},{text:"Pajamas x2"},{text:"Jacket"},{text:"Bows / accessories"}],
-      "Sleep":      [{text:"Sleep sack"},{text:"Sound machine"},{text:"Blankets"}],
-      "Feeding":    [{text:"Burp cloths / bibs"},{text:"Snacks"},{text:"Spoon"},{text:"Tupperware cups"}],
-      "Toiletries": [{text:"Wipes"},{text:"Toothbrush / toothpaste"},{text:"Aquaphor"},{text:"Lotion"},{text:"Shampoo"},{text:"Diaper cream"}],
-      "Accessories":[{text:"Sunglasses"},{text:"Hat"},{text:"Backpack"},{text:"Stuffed animal"},{text:"Toys"}],
-      "Travel":     [{text:"Airplane tray"},{text:"iPad / extra phone"},{text:"Car seat"},{text:"Tush baby"},{text:"Sling"}]
-    }
-  },
-  {
-    id: "diaperbag", name: "Diaper Bag", emoji: "👜", locked: false,
-    items: {
-      "Baby essentials": [{text:"Diapers"},{text:"Wipes"},{text:"Sanitizing wipes"},{text:"Disposable table things"},{text:"Bib"},{text:"Spoon"},{text:"Burp cloths"},{text:"Diaper cream"}],
-      "Baby extras":     [{text:"Baby table / seat"},{text:"Baby toys"}],
-      "Family":          [{text:"Sunglasses x4"},{text:"Water bottles"},{text:"Seat belt extender"},{text:"Tampons"},{text:"Advil"},{text:"Hairbrush / ties"},{text:"Chapstick"},{text:"Trash bags"},{text:"Snacks"}]
-    }
-  },
-  {
-    id: "extrabag", name: "Extra Bag", emoji: "🎒", locked: false,
-    items: {
-      "Beach / outdoor": [{text:"Beach toys"},{text:"Beach towels"},{text:"Powder sand"},{text:"Laundry bags"}],
-      "Travel gear":     [{text:"Stroller / bag / cup holder"},{text:"Booster seat / car seat"},{text:"Airplane bed thing"},{text:"Tray table covers"},{text:"Air tags"},{text:"Luggage straps"}],
-      "Misc":            [{text:"Spoons"},{text:"Nightlights"},{text:"Laundry soap / bags"},{text:"Cash"},{text:"Chargers / battery pack / extension cord"}]
-    }
-  },
-  {
-    id: "overnight", name: "Overnight Bag", emoji: "🌙", locked: false,
-    items: {
-      "Adult":      [{text:"Change of clothes"},{text:"Pajamas"},{text:"Toothbrush / toothpaste"},{text:"Makeup basics"},{text:"Deo"},{text:"Chapstick"},{text:"Phone charger"},{text:"Pads / tampons"}],
-      "Older kids": [{text:"Change of clothes"},{text:"Pajamas"},{text:"Toothbrush / toothpaste"},{text:"Blanket"},{text:"Stuffed animal"}],
-      "Baby":       [{text:"Outfit + extra"},{text:"Pajamas"},{text:"Diapers (travel amount)"},{text:"Wipes"},{text:"Sleep sack"},{text:"Sound machine"},{text:"Bib / burp cloth"},{text:"Snacks"}],
-      "Shared":     [{text:"Aquaphor"},{text:"Advil"},{text:"Sunscreen"},{text:"Water bottles"},{text:"Charger"}]
-    }
-  },
-  {
-    id: "pretodo", name: "Pre-Trip To-Do", emoji: "✅", locked: false,
-    items: {
-      "Before leaving": [{text:"Download music / games / videos"},{text:"Label luggage"},{text:"Charge everything — battery pack"},{text:"Back up phones"},{text:"Turn on tracking"},{text:"Cash"}],
-      "Admin":          [{text:"Taxes"},{text:"Moving reimbursement"}]
-    }
-  },
-  {
-    id: "flight", name: "Flight Trip", emoji: "✈️", locked: false,
-    items: {
-      "Clothing":    [{text:"Underwear"},{text:"Socks"},{text:"T-shirts"},{text:"Pants/Shorts"},{text:"Pajamas"},{text:"Jacket/Sweater"},{text:"Shoes (extra pair)"},{text:"Swimsuit"}],
-      "Toiletries":  [{text:"Toothbrush"},{text:"Toothpaste"},{text:"Shampoo (travel size)"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Chapstick"}],
-      "Electronics": [{text:"Phone charger"},{text:"Headphones"},{text:"Power bank"},{text:"Laptop + charger"}],
-      "Medications": [{text:"Prescription medications"},{text:"Ibuprofen / Tylenol"},{text:"Allergy medicine"},{text:"Band-aids"}],
-      "Documents":   [{text:"Passport / ID"},{text:"Boarding passes"},{text:"Credit cards"},{text:"Cash"}],
-      "Kids stuff":  [{text:"Tablets + headphones"},{text:"Snacks"},{text:"Comfort item"}],
-      "Misc":        [{text:"Neck pillow"},{text:"Eye mask"},{text:"Luggage tag"},{text:"TSA lock"}]
-    }
-  },
-  {
-    id: "roadtrip", name: "Road Trip", emoji: "🚗", locked: false,
-    items: {
-      "Clothing":    [{text:"Underwear"},{text:"Socks"},{text:"T-shirts"},{text:"Pants"},{text:"Comfy shoes"},{text:"Jacket"}],
-      "Toiletries":  [{text:"Toothbrush + toothpaste"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Hand sanitizer"},{text:"Wet wipes"}],
-      "Electronics": [{text:"Phone charger (car)"},{text:"Aux cable / Bluetooth"},{text:"Phone mount"}],
-      "Medications": [{text:"Prescriptions"},{text:"Motion sickness meds"},{text:"First aid kit"},{text:"Ibuprofen"}],
-      "Documents":   [{text:"Driver's license"},{text:"Car insurance card"},{text:"Registration"}],
-      "Kids stuff":  [{text:"Tablets + headphones"},{text:"Activity books"},{text:"Car games"},{text:"Carsick bags"}],
-      "Snacks":      [{text:"Cooler + drinks"},{text:"Road trip snacks"},{text:"Trash bag for car"}],
-      "Misc":        [{text:"Jumper cables"},{text:"Emergency kit"},{text:"Blanket"}]
-    }
-  },
-  {
-    id: "beach", name: "Beach Trip", emoji: "🏖️", locked: false,
-    items: {
-      "Clothing":    [{text:"Swimsuit (x2)"},{text:"Cover-up"},{text:"Flip flops"},{text:"Hat"},{text:"Sunglasses"},{text:"Light dress/shorts"}],
-      "Toiletries":  [{text:"SPF 50+ sunscreen"},{text:"After-sun lotion"},{text:"Deodorant"},{text:"Hair ties"}],
-      "Electronics": [{text:"Waterproof phone case"},{text:"Portable speaker"},{text:"Charging cables"}],
-      "Medications": [{text:"Allergy meds"},{text:"Ibuprofen"},{text:"Aloe vera gel"},{text:"Bug spray"}],
-      "Kids stuff":  [{text:"Life jackets"},{text:"Sand toys"},{text:"Swim diapers"},{text:"Kids sunscreen (SPF 70)"}],
-      "Snacks":      [{text:"Cooler"},{text:"Reusable water bottles"},{text:"Fruit"}],
-      "Misc":        [{text:"Beach towels"},{text:"Beach umbrella"},{text:"Sand-proof blanket"}]
+      "Before leaving": ["Download music / games / videos","Label luggage","Charge everything — battery pack","Back up phones","Turn on tracking","Cash"].map(function(t){return{text:t}}),
+      "Admin":          ["Taxes","Moving reimbursement"].map(function(t){return{text:t}})
     }
   }
 ]
 
-var PACK_CATS = ["Clothing","Accessories","Toiletries","Health","Electronics","Entertainment","Comfort","Sleep","Feeding","Travel","Baby essentials","Baby extras","Beach / outdoor","Travel gear","Adult","Older kids","Baby","Family","Shared","Before leaving","Admin","Documents","Kids stuff","Kids","Snacks","Misc"]
+var PACK_CATS = ["Clothing","Accessories","Toiletries","Health","Electronics","Entertainment","Comfort","Sleep","Feeding","Travel","Baby essentials","Baby extras","Beach / outdoor","Travel gear","Adult","Older kids","Baby","Family","Shared","Face","Tools","Skin","Extras","Car essentials","Car extras","Beach","Flight extras","Travel docs","Before leaving","Admin","Documents","Kids stuff","Misc"]
 
 function PackingTemplatesPanel(props) {
   var sand=props.sand; var navy=props.navy; var warm=props.warm; var muted=props.muted; var border=props.border; var cardBg=props.cardBg; var coastal=props.coastal
   var inputStyle = { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
-  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
 
   var tPair = useState(function() {
     try {
       var saved = JSON.parse(localStorage.getItem("af_packing_templates") || "null")
       if (saved && saved.length) return saved
-      return DEFAULT_PACKING_TEMPLATES.map(function(t){ return Object.assign({},t) })
-    } catch { return DEFAULT_PACKING_TEMPLATES.map(function(t){ return Object.assign({},t) }) }
+      return JSON.parse(JSON.stringify(DEFAULT_PACKING_TEMPLATES))
+    } catch { return JSON.parse(JSON.stringify(DEFAULT_PACKING_TEMPLATES)) }
   })
   var templates = tPair[0]; var setTemplatesRaw = tPair[1]
   var activePair = useState(null); var activeId = activePair[0]; var setActiveId = activePair[1]
-  var catPair = useState("Clothing"); var activeCat = catPair[0]; var setActiveCat = catPair[1]
+  var activeBagPair = useState(null); var activeBag = activeBagPair[0]; var setActiveBag = activeBagPair[1]
+  var activeCatPair = useState(null); var activeCat = activeCatPair[0]; var setActiveCat = activeCatPair[1]
   var newItemPair = useState(""); var newItem = newItemPair[0]; var setNewItem = newItemPair[1]
+  var newCatPair = useState(""); var newCat = newCatPair[0]; var setNewCat = newCatPair[1]
+  var addingCatPair = useState(false); var addingCat = addingCatPair[0]; var setAddingCat = addingCatPair[1]
   var namingPair = useState(false); var isNaming = namingPair[0]; var setIsNaming = namingPair[1]
   var newNamePair = useState(""); var newName = newNamePair[0]; var setNewName = newNamePair[1]
   var newEmojiPair = useState("🧳"); var newEmoji = newEmojiPair[0]; var setNewEmoji = newEmojiPair[1]
+  var newTypePair = useState("custom"); var newType = newTypePair[0]; var setNewType = newTypePair[1]
   var toastPair = useState(""); var toast = toastPair[0]; var setToast = toastPair[1]
 
   function saveTemplates(updated) {
     setTemplatesRaw(updated)
     try { localStorage.setItem("af_packing_templates", JSON.stringify(updated)) } catch {}
   }
-
   function showToast(msg) { setToast(msg); setTimeout(function(){ setToast("") }, 2200) }
 
   var activeTemplate = templates.find(function(t){ return t.id === activeId })
 
-  function updateTemplateItems(tid, cat, items) {
-    saveTemplates(templates.map(function(t){
+  // ── Bag/item mutators ──────────────────────────────────────────────────────
+  function saveBagCat(tid, bag, cat, items) {
+    saveTemplates(templates.map(function(t) {
       if (t.id !== tid) return t
-      var newItems = Object.assign({}, t.items||{})
+      var newBags = JSON.parse(JSON.stringify(t.bags||{}))
+      if (!newBags[bag]) newBags[bag] = {}
+      newBags[bag][cat] = items
+      return Object.assign({}, t, {bags: newBags})
+    }))
+  }
+
+  function saveCat(tid, cat, items) {
+    saveTemplates(templates.map(function(t) {
+      if (t.id !== tid) return t
+      var newItems = JSON.parse(JSON.stringify(t.items||{}))
       newItems[cat] = items
       return Object.assign({}, t, {items: newItems})
     }))
   }
 
-  function addItem(tid, cat, text) {
-    if (!text.trim()) return
-    var t = templates.find(function(x){ return x.id===tid })
-    if (!t) return
-    var existing = (t.items||{})[cat] || []
-    updateTemplateItems(tid, cat, [...existing, {text:text.trim()}])
+  function getItems() {
+    if (!activeTemplate) return []
+    if (activeTemplate.type === "trip") return ((activeTemplate.bags||{})[activeBag]||{})[activeCat] || []
+    return (activeTemplate.items||{})[activeCat] || []
+  }
+
+  function setItems(items) {
+    if (!activeTemplate) return
+    if (activeTemplate.type === "trip") saveBagCat(activeId, activeBag, activeCat, items)
+    else saveCat(activeId, activeCat, items)
+  }
+
+  function addItem() {
+    if (!newItem.trim()) return
+    setItems([...getItems(), {text:newItem.trim()}])
     setNewItem("")
   }
 
-  function removeItem(tid, cat, idx) {
-    var t = templates.find(function(x){ return x.id===tid })
-    if (!t) return
-    var existing = ((t.items||{})[cat]||[]).filter(function(_,i){ return i!==idx })
-    updateTemplateItems(tid, cat, existing)
+  function removeItem(i) {
+    setItems(getItems().filter(function(_,idx){ return idx!==i }))
   }
 
-  function toggleItem(tid, cat, idx) {
-    var t = templates.find(function(x){ return x.id===tid })
-    if (!t) return
-    var existing = ((t.items||{})[cat]||[]).map(function(item,i){
-      return i===idx ? Object.assign({},item,{done:!item.done}) : item
-    })
-    updateTemplateItems(tid, cat, existing)
+  function toggleItem(i) {
+    setItems(getItems().map(function(item,idx){
+      return idx===i ? Object.assign({},item,{done:!item.done}) : item
+    }))
+  }
+
+  function addCategory() {
+    if (!newCat.trim() || !activeTemplate) return
+    if (activeTemplate.type === "trip") saveBagCat(activeId, activeBag, newCat.trim(), [])
+    else saveCat(activeId, newCat.trim(), [])
+    setActiveCat(newCat.trim())
+    setNewCat(""); setAddingCat(false)
+  }
+
+  function deleteCategory(cat) {
+    if (!activeTemplate) return
+    if (!window.confirm("Delete category \"" + cat + "\" and all its items?")) return
+    if (activeTemplate.type === "trip") {
+      var newBags = JSON.parse(JSON.stringify(activeTemplate.bags||{}))
+      if (newBags[activeBag]) delete newBags[activeBag][cat]
+      saveTemplates(templates.map(function(t){ return t.id===activeId ? Object.assign({},t,{bags:newBags}) : t }))
+    } else {
+      var newItems = JSON.parse(JSON.stringify(activeTemplate.items||{}))
+      delete newItems[cat]
+      saveTemplates(templates.map(function(t){ return t.id===activeId ? Object.assign({},t,{items:newItems}) : t }))
+    }
+    if (activeCat === cat) setActiveCat(null)
+  }
+
+  function getCats() {
+    if (!activeTemplate) return []
+    if (activeTemplate.type === "trip") return Object.keys((activeTemplate.bags||{})[activeBag]||{})
+    return Object.keys(activeTemplate.items||{})
+  }
+
+  function getBags() {
+    if (!activeTemplate || activeTemplate.type !== "trip") return []
+    return TRIP_BAGS.filter(function(b){ return (activeTemplate.bags||{})[b] !== undefined })
   }
 
   function copyTemplate(t) {
@@ -2141,58 +2185,85 @@ function PackingTemplatesPanel(props) {
 
   function createNew() {
     if (!newName.trim()) return
-    var t = { id: Date.now().toString(), name: newName.trim(), emoji: newEmoji, locked: false, items: {} }
-    PACK_CATS.forEach(function(c){ t.items[c] = [] })
+    var t = { id: Date.now().toString(), name: newName.trim(), emoji: newEmoji, type: newType, locked: false }
+    if (newType === "trip") {
+      t.bags = makeTripBags({})
+    } else {
+      t.items = {}
+    }
     saveTemplates([...templates, t])
     setActiveId(t.id)
-    setIsNaming(false); setNewName(""); setNewEmoji("🧳")
+    setActiveBag(newType === "trip" ? TRIP_BAGS[0] : null)
+    setActiveCat(null)
+    setIsNaming(false); setNewName(""); setNewEmoji("🧳"); setNewType("custom")
     showToast("Template created!")
+  }
+
+  var btnSm = function(bg, col) {
+    return { background:bg||"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:6, padding:"3px 8px", fontSize:10, color:col||sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }
   }
 
   var sHead = function(emoji, title) {
     return React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"rgba(250,248,244,0.25)",fontFamily:"DM Sans,sans-serif",marginBottom:10,marginTop:4,display:"flex",alignItems:"center",gap:6}},emoji," ",title)
   }
 
+  // ── Count helpers ──────────────────────────────────────────────────────────
+  function countTemplate(t) {
+    if (t.type === "trip") {
+      return Object.values(t.bags||{}).reduce(function(n,bag){ return n + Object.values(bag).reduce(function(m,items){ return m+items.length },0) },0)
+    }
+    return Object.values(t.items||{}).reduce(function(n,items){ return n+items.length },0)
+  }
+
   return (
     <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
       {sHead("🧳","Packing Templates")}
       <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:12, lineHeight:1.5 }}>
-        Build reusable packing lists here. Load them into any trip from Moments → Packing.
+        Build reusable packing lists. Trip templates include sub-lists per person/bag.
       </div>
 
       {toast && (
         <div style={{ background:"rgba(122,158,142,0.15)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:8, padding:"6px 12px", fontSize:12, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", marginBottom:10, textAlign:"center" }}>{toast}</div>
       )}
 
-      {/* Template list */}
+      {/* ── Template list ── */}
       {!activeId && (
         <div>
           <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
             {templates.map(function(t) {
-              var count = PACK_CATS.reduce(function(n,c){ return n+((t.items||{})[c]||[]).length },0)
+              var count = countTemplate(t)
               return (
-                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.12)", borderRadius:10, cursor:"pointer" }} onClick={function(){ setActiveId(t.id); setActiveCat("Clothing") }}>
+                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.12)", borderRadius:10, cursor:"pointer" }} onClick={function(){
+                  setActiveId(t.id)
+                  if (t.type === "trip") { setActiveBag(TRIP_BAGS[0]); setActiveCat(Object.keys(((t.bags||{})[TRIP_BAGS[0]])||{})[0]||null) }
+                  else { setActiveBag(null); setActiveCat(Object.keys(t.items||{})[0]||null) }
+                }}>
                   <span style={{ fontSize:20 }}>{t.emoji||"🧳"}</span>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13, fontWeight:600, color:warm, fontFamily:"DM Sans,sans-serif" }}>{t.name}</div>
-                    <div style={{ fontSize:10, color:muted, fontFamily:"DM Sans,sans-serif" }}>{count} items across {PACK_CATS.filter(function(c){ return ((t.items||{})[c]||[]).length>0 }).length} categories</div>
+                    <div style={{ fontSize:10, color:muted, fontFamily:"DM Sans,sans-serif" }}>
+                      {t.type==="trip" ? "Trip • " : "Custom • "}{count} items
+                    </div>
                   </div>
                   <div style={{ display:"flex", gap:6 }}>
-                    <button onClick={function(e){ e.stopPropagation(); copyTemplate(t) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:6, padding:"3px 8px", fontSize:10, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>Copy</button>
-                    <button onClick={function(e){ e.stopPropagation(); deleteTemplate(t.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.35)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif" }}>✕</button>
+                    <button onClick={function(e){ e.stopPropagation(); copyTemplate(t) }} style={btnSm()}>Copy</button>
+                    <button onClick={function(e){ e.stopPropagation(); deleteTemplate(t.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.35)", cursor:"pointer", fontSize:11 }}>✕</button>
                   </div>
                 </div>
               )
             })}
           </div>
 
-          {/* New template */}
           {isNaming ? (
             <div style={{ background:"rgba(200,169,122,0.05)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:10, padding:12 }}>
               <div style={{ fontSize:12, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>New template</div>
               <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                 <input value={newEmoji} onChange={function(e){setNewEmoji(e.target.value)}} style={Object.assign({},inputStyle,{width:48,textAlign:"center"})}/>
-                <input value={newName} onChange={function(e){setNewName(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter") createNew()}} placeholder="Template name (e.g. Beach Trip)" style={Object.assign({},inputStyle,{flex:1})}/>
+                <input value={newName} onChange={function(e){setNewName(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter") createNew()}} placeholder="Template name…" style={Object.assign({},inputStyle,{flex:1})}/>
+              </div>
+              <div style={{ display:"flex", gap:6, marginBottom:10 }}>
+                <button onClick={function(){setNewType("trip")}} style={Object.assign({},btnSm(newType==="trip"?coastal:"rgba(255,255,255,0.05)", newType==="trip"?"#fff":muted),{flex:1,padding:"7px"})}>✈️ Trip (per-bag lists)</button>
+                <button onClick={function(){setNewType("custom")}} style={Object.assign({},btnSm(newType==="custom"?coastal:"rgba(255,255,255,0.05)", newType==="custom"?"#fff":muted),{flex:1,padding:"7px"})}>📋 Custom (categories)</button>
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={createNew} style={{ flex:1, background:sand, border:"none", borderRadius:8, padding:"8px", fontSize:13, color:navy, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>Create</button>
@@ -2205,63 +2276,96 @@ function PackingTemplatesPanel(props) {
         </div>
       )}
 
-      {/* Template editor */}
+      {/* ── Template editor ── */}
       {activeId && activeTemplate && (
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
-            <button onClick={function(){ setActiveId(null) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"4px 0" }}>← All templates</button>
-            <div style={{ flex:1 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:18 }}>{activeTemplate.emoji||"🧳"}</span>
-                <div style={{ fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.name}</div>
-              </div>
+            <button onClick={function(){ setActiveId(null); setActiveBag(null); setActiveCat(null) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"4px 0" }}>← All templates</button>
+            <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:18 }}>{activeTemplate.emoji||"🧳"}</span>
+              <div style={{ fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.name}</div>
+              <div style={{ fontSize:10, color:muted, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.type==="trip"?"Trip":"Custom"}</div>
             </div>
-            <button onClick={function(){ copyTemplate(activeTemplate) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"4px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>📋 Copy</button>
+            <button onClick={function(){ copyTemplate(activeTemplate) }} style={btnSm()}>📋 Copy</button>
           </div>
+
+          {/* Bag tabs for trip templates */}
+          {activeTemplate.type === "trip" && (
+            <div style={{ overflowX:"auto", display:"flex", gap:4, marginBottom:12, paddingBottom:8, borderBottom:"1px solid "+border }}>
+              {TRIP_BAGS.map(function(bag){
+                var bagData = (activeTemplate.bags||{})[bag] || {}
+                var cnt = Object.values(bagData).reduce(function(n,items){ return n+items.length },0)
+                return (
+                  <button key={bag} onClick={function(){
+                    setActiveBag(bag)
+                    setActiveCat(Object.keys(bagData)[0]||null)
+                  }} style={{ background:activeBag===bag?"rgba(107,163,196,0.15)":"rgba(255,255,255,0.03)", border:"1px solid "+(activeBag===bag?coastal:"rgba(255,255,255,0.08)"), borderRadius:8, padding:"5px 10px", fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight:activeBag===bag?700:400, color:activeBag===bag?coastal:muted, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+                    {bag} {cnt>0?"("+cnt+")":""}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           {/* Category tabs */}
-          <div style={{ overflowX:"auto", display:"flex", borderBottom:"1px solid "+border, marginBottom:10 }}>
-            {PACK_CATS.map(function(cat){
-              var cnt = ((activeTemplate.items||{})[cat]||[]).length
+          <div style={{ overflowX:"auto", display:"flex", alignItems:"center", borderBottom:"1px solid "+border, marginBottom:10 }}>
+            {getCats().map(function(cat){
+              var items = activeTemplate.type==="trip"
+                ? (((activeTemplate.bags||{})[activeBag]||{})[cat]||[])
+                : ((activeTemplate.items||{})[cat]||[])
               return (
-                <button key={cat} onClick={function(){setActiveCat(cat)}} style={{ background:"none", border:"none", borderBottom:activeCat===cat?"2px solid "+coastal:"2px solid transparent", color:activeCat===cat?coastal:muted, padding:"6px 10px", fontSize:10, fontFamily:"DM Sans,sans-serif", fontWeight:activeCat===cat?700:400, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
-                  {cat}{cnt>0?" ("+cnt+")":""}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Items in selected category */}
-          <div>
-            {((activeTemplate.items||{})[activeCat]||[]).map(function(item,i) {
-              return (
-                <div key={i} onClick={function(){ toggleItem(activeId, activeCat, i) }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 4px", borderBottom:"1px solid "+border, cursor:"pointer" }}>
-                  <div style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?"#5dcaa5":"rgba(250,248,244,0.25)"), background:item.done?"rgba(29,158,117,0.25)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, transition:"all 0.15s" }}>
-                    {item.done && <span style={{ fontSize:11, color:"#5dcaa5", fontWeight:800, lineHeight:1 }}>✓</span>}
-                  </div>
-                  <span style={{ fontSize:13, color:item.done?"rgba(250,248,244,0.3)":warm, fontFamily:"DM Sans,sans-serif", flex:1, textDecoration:item.done?"line-through":"none", transition:"all 0.15s" }}>{item.text}</span>
-                  <button onClick={function(e){ e.stopPropagation(); removeItem(activeId, activeCat, i) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.2)", cursor:"pointer", fontSize:14, padding:"0 4px" }}>×</button>
+                <div key={cat} style={{ display:"flex", alignItems:"center", flexShrink:0 }}>
+                  <button onClick={function(){setActiveCat(cat)}} style={{ background:"none", border:"none", borderBottom:activeCat===cat?"2px solid "+coastal:"2px solid transparent", color:activeCat===cat?coastal:muted, padding:"6px 8px", fontSize:10, fontFamily:"DM Sans,sans-serif", fontWeight:activeCat===cat?700:400, cursor:"pointer", whiteSpace:"nowrap" }}>
+                    {cat}{items.length>0?" ("+items.length+")":""}
+                  </button>
+                  {activeCat===cat && (
+                    <button onClick={function(){ deleteCategory(cat) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.3)", cursor:"pointer", fontSize:11, padding:"0 4px" }} title="Delete category">✕</button>
+                  )}
                 </div>
               )
             })}
-            {((activeTemplate.items||{})[activeCat]||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", padding:"6px 0" }}>No items yet in this category.</div>
+            {addingCat ? (
+              <div style={{ display:"flex", gap:4, padding:"4px 6px", flexShrink:0 }}>
+                <input value={newCat} onChange={function(e){setNewCat(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter")addCategory(); if(e.key==="Escape"){setAddingCat(false);setNewCat("")}}} placeholder="Category name…" style={{ width:120, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:5, padding:"3px 7px", fontSize:11, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
+                <button onClick={addCategory} style={{ background:coastal, border:"none", borderRadius:5, padding:"3px 7px", fontSize:11, color:"#fff", cursor:"pointer" }}>+</button>
+                <button onClick={function(){setAddingCat(false);setNewCat("")}} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:11 }}>✕</button>
+              </div>
+            ) : (
+              <button onClick={function(){setAddingCat(true)}} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:11, padding:"6px 8px", flexShrink:0, whiteSpace:"nowrap" }}>+ Add category</button>
             )}
-            {((activeTemplate.items||{})[activeCat]||[]).some(function(item){ return item.done }) && (
-              <button onClick={function(){
-                var t = templates.find(function(x){ return x.id===activeId })
-                if (!t) return
-                var cleared = ((t.items||{})[activeCat]||[]).map(function(item){ return Object.assign({},item,{done:false}) })
-                updateTemplateItems(activeId, activeCat, cleared)
-              }} style={{ marginTop:8, background:"none", border:"1px solid rgba(250,248,244,0.1)", borderRadius:6, padding:"4px 10px", fontSize:11, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>
-                Clear checked
-              </button>
-            )}
-            <div style={{ display:"flex", gap:8, marginTop:10 }}>
-              <input value={newItem} onChange={function(e){setNewItem(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter"){ addItem(activeId,activeCat,newItem) }}} placeholder={"Add to "+activeCat+"…"} style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={function(){ addItem(activeId,activeCat,newItem) }} style={{ background:coastal, border:"none", borderRadius:8, padding:"8px 12px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
-            </div>
           </div>
+
+          {/* Items */}
+          {activeCat && (
+            <div>
+              {getItems().map(function(item,i) {
+                return (
+                  <div key={i} onClick={function(){ toggleItem(i) }} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 4px", borderBottom:"1px solid "+border, cursor:"pointer" }}>
+                    <div style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?"#5dcaa5":"rgba(250,248,244,0.25)"), background:item.done?"rgba(29,158,117,0.25)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      {item.done && <span style={{ fontSize:11, color:"#5dcaa5", fontWeight:800, lineHeight:1 }}>✓</span>}
+                    </div>
+                    <span style={{ fontSize:13, color:item.done?"rgba(250,248,244,0.3)":warm, fontFamily:"DM Sans,sans-serif", flex:1, textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                    <button onClick={function(e){ e.stopPropagation(); removeItem(i) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.2)", cursor:"pointer", fontSize:14, padding:"0 4px" }}>×</button>
+                  </div>
+                )
+              })}
+              {getItems().length === 0 && (
+                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", padding:"6px 0" }}>No items yet.</div>
+              )}
+              {getItems().some(function(item){ return item.done }) && (
+                <button onClick={function(){ setItems(getItems().map(function(item){ return Object.assign({},item,{done:false}) })) }} style={{ marginTop:8, background:"none", border:"1px solid rgba(250,248,244,0.1)", borderRadius:6, padding:"4px 10px", fontSize:11, color:"rgba(250,248,244,0.35)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>
+                  Clear checked
+                </button>
+              )}
+              <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                <input value={newItem} onChange={function(e){setNewItem(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter") addItem()}} placeholder={"Add to "+activeCat+"…"} style={Object.assign({},inputStyle,{flex:1})}/>
+                <button onClick={addItem} style={{ background:coastal, border:"none", borderRadius:8, padding:"8px 12px", color:"#fff", fontFamily:"DM Sans,sans-serif", fontSize:12, fontWeight:600, cursor:"pointer" }}>Add</button>
+              </div>
+            </div>
+          )}
+          {!activeCat && (
+            <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", padding:"12px 0", textAlign:"center" }}>Select or add a category above to start adding items.</div>
+          )}
         </div>
       )}
     </div>
