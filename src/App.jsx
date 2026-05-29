@@ -841,6 +841,65 @@ const homeFlowRef = { tab: "anchor", goTab: () => {} };
 
 function HomeFlow() {
 
+  // ── Launch stability helpers ─────────────────────────────────────────────
+  // These reduce jumpiness by avoiding full-page reloads and reduce household
+  // overwrite risk by syncing only keys that changed on this device.
+  const dirtySyncKeysRef = useRef(new Set());
+  const applyingServerDataRef = useRef(false);
+  const syncInFlightRef = useRef(false);
+  const localSyncSnapshotRef = useRef({});
+
+  function markDirtySyncKey(key) {
+    try {
+      if (!applyingServerDataRef.current && SYNC_KEYS.includes(key)) {
+        dirtySyncKeysRef.current.add(key);
+      }
+    } catch {}
+  }
+
+  function rememberSyncSnapshotKey(key) {
+    try {
+      const raw = localStorage.getItem("af_" + key) || "";
+      localSyncSnapshotRef.current[key] = raw;
+    } catch {}
+  }
+
+  function seedLocalSyncSnapshot() {
+    try { SYNC_KEYS.forEach(rememberSyncSnapshotKey); } catch {}
+  }
+
+  function getStoredHouseholdId() {
+    try { return JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch { return null; }
+  }
+
+  function collectLocallyChangedSyncKeys() {
+    try {
+      SYNC_KEYS.forEach(k => {
+        const raw = localStorage.getItem("af_" + k) || "";
+        const prev = localSyncSnapshotRef.current[k];
+        if (prev === undefined) {
+          localSyncSnapshotRef.current[k] = raw;
+          return;
+        }
+        if (!applyingServerDataRef.current && raw !== prev) {
+          dirtySyncKeysRef.current.add(k);
+          localSyncSnapshotRef.current[k] = raw;
+        }
+      });
+    } catch {}
+  }
+
+  function finishAuthSession(token, userObj, hid) {
+    if (token !== undefined) setAuthToken(token || null);
+    if (userObj !== undefined) setAuthUser(userObj || null);
+    if (hid !== undefined) setHouseholdId(hid || null);
+    setShowAuthModal(false);
+    setShowHouseholdModal(false);
+    setSyncStatus("synced");
+    setLastSyncTime(new Date().toLocaleTimeString());
+    seedLocalSyncSnapshot();
+  }
+
   function useSaved(key, fallback) {
     const [val, setVal] = useState(() => {
       try {
@@ -862,7 +921,7 @@ function HomeFlow() {
       // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
       setVal(prev => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
+        try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); markDirtySyncKey(key); rememberSyncSnapshotKey(key); } catch {}
         return resolved;
       });
     }
@@ -1038,10 +1097,10 @@ function HomeFlow() {
         const userObj = { id: data.user?.id || "unknown", email, displayName: displayName || email.split("@")[0] };
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
-        try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
-        // Don't auto-create household on signup — user will join or create via UI
-        setSyncStatus("synced");
-        window.location.reload();
+        try { localStorage.removeItem("af_lastHHSync"); } catch {}
+        // Don't auto-create household on signup — user will join or create via UI.
+        // Keep the app mounted so the UI does not jump/reload after signup.
+        finishAuthSession(token, userObj, getStoredHouseholdId());
         return { ok: true };
       }
 
@@ -1163,7 +1222,8 @@ function HomeFlow() {
         }
       }
 
-      window.location.reload();
+      const finalHid = getStoredHouseholdId();
+      finishAuthSession(token, { id: data.user.id, email: data.user.email, displayName }, finalHid);
       return { ok: true };
     } catch(e) {
       setSyncStatus("error");
@@ -1174,41 +1234,51 @@ function HomeFlow() {
   async function signOut() {
     try { await supabase.auth.signOut(); } catch {}
     if (authToken) { try { await sbSignOut(authToken); } catch {} }
-    // Clear localStorage directly then reload — avoids null authUser render crash
+    // Clear auth state without reloading the whole app.
     try { localStorage.removeItem("af_authToken"); } catch {}
     try { localStorage.removeItem("af_authUser"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
-    window.location.reload();
+    try { localStorage.removeItem("af_lastPushedAt"); } catch {}
+    dirtySyncKeysRef.current.clear();
+    setAuthToken(null);
+    setAuthUser(null);
+    setHouseholdId(null);
+    setSyncStatus("idle");
+    setShowHouseholdModal(false);
+    // Show auth modal so the app doesn't render with null auth state
+    setShowAuthModal(true);
   }
 
-  async function pushHouseholdData(token, hid) {
+  async function pushHouseholdData(token, hid, options = {}) {
     if (!token || !hid) return;
+    if (syncInFlightRef.current) return;
+    const force = !!options.force;
+    collectLocallyChangedSyncKeys();
+    const dirtyKeys = force ? new Set(SYNC_KEYS) : new Set(dirtySyncKeysRef.current);
+    if (!dirtyKeys.size) return;
+
     const payload = {};
-    // Only push keys that have actual data — never push null over good server data
-    SYNC_KEYS.forEach(k => {
+    dirtyKeys.forEach(k => {
       try {
         const raw = localStorage.getItem("af_" + k);
         if (raw && raw !== "null") {
           const parsed = JSON.parse(raw);
-          if (parsed !== null && parsed !== undefined) {
-            // Skip empty arrays only if server might have data (be conservative)
-            payload[k] = parsed;
-          }
+          if (parsed !== null && parsed !== undefined) payload[k] = parsed;
         }
       } catch {}
     });
+    if (!Object.keys(payload).length) return;
+
+    syncInFlightRef.current = true;
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
     try {
-      // Check if row exists first to decide POST vs PATCH
       const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id,data&limit=1`, { _token: token });
       if (existing && existing.length > 0) {
-        // Merge: start with server data, overlay our local non-null values on top
         const serverData = (existing[0].data && typeof existing[0].data === "object") ? existing[0].data : {};
         const merged = Object.assign({}, serverData, payload);
-        // Row exists — always PATCH (avoids 409 conflict)
         const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
           method: "PATCH",
           _token: token,
@@ -1218,8 +1288,8 @@ function HomeFlow() {
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        dirtyKeys.forEach(k => { dirtySyncKeysRef.current.delete(k); rememberSyncSnapshotKey(k); });
       } else {
-        // Row does not exist — try INSERT, but if owner already has a household, use that
         try {
           const insertRows = await sbFetch("/rest/v1/households", {
             method: "POST",
@@ -1230,8 +1300,8 @@ function HomeFlow() {
           const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
           try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
           try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+          dirtyKeys.forEach(k => { dirtySyncKeysRef.current.delete(k); rememberSyncSnapshotKey(k); });
         } catch(insertErr) {
-          // Duplicate owner — find and switch to the existing household
           if (insertErr.message && insertErr.message.includes("owner_id_unique")) {
             const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+ownerId+"&select=id&limit=1", { _token: token });
             if (ownedRows && ownedRows.length > 0) {
@@ -1239,7 +1309,6 @@ function HomeFlow() {
               console.log("[AF] Switching to existing household:", realHid);
               try { localStorage.setItem("af_householdId", JSON.stringify(realHid)); } catch {}
               setHouseholdId(realHid);
-              // Also save to metadata so all devices reconnect
               try {
                 const anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
                 await fetch(SUPABASE_URL+"/auth/v1/user", {
@@ -1248,14 +1317,19 @@ function HomeFlow() {
                   body:JSON.stringify({data:{householdId:realHid}})
                 });
               } catch(e2) {}
-              // Now PATCH the real household
-              await sbFetch("/rest/v1/households?id=eq."+realHid, {
+              const realPatchRows = await sbFetch("/rest/v1/households?id=eq."+realHid, {
                 method: "PATCH",
                 _token: token,
                 headers: { "Prefer": "return=representation" },
                 body: JSON.stringify({ data: payload, updated_at: updatedAt })
               });
+              const realServerTs = (realPatchRows && realPatchRows[0] && realPatchRows[0].updated_at) ? realPatchRows[0].updated_at : updatedAt;
+              try { localStorage.setItem("af_lastHHSync", realServerTs); } catch {}
+              try { localStorage.setItem("af_lastPushedAt", realServerTs); } catch {}
+              dirtyKeys.forEach(k => { dirtySyncKeysRef.current.delete(k); rememberSyncSnapshotKey(k); });
             }
+          } else {
+            throw insertErr;
           }
         }
       }
@@ -1265,7 +1339,10 @@ function HomeFlow() {
         setAuthToken(null);
       } else {
         console.warn("[AF] pushHouseholdData failed:", e.message);
+        throw e;
       }
+    } finally {
+      syncInFlightRef.current = false;
     }
   }
 
@@ -1280,13 +1357,7 @@ function HomeFlow() {
     const row = rows[0];
     if (!row.data) return;
     setHouseholdId(row.id); // always trust Supabase over stale localStorage
-    const clean1 = sanitizeHouseholdData(row.data);
-    SYNC_KEYS.forEach(k => {
-      if (clean1[k] !== undefined) {
-        try { localStorage.setItem("af_"+k, JSON.stringify(clean1[k])); } catch {}
-      }
-    });
-    window.location.reload();
+    applyServerData(row.data, row.updated_at || new Date().toISOString());
   }
 
   async function joinHousehold(token, joinCode) {
@@ -1347,36 +1418,49 @@ function HomeFlow() {
   // ── Helper: apply server data to React state ──────────────────────────────
   function applyServerData(data, serverTs) {
     if (!data || typeof data !== "object") return;
+    applyingServerDataRef.current = true;
     try {
-    const clean = sanitizeHouseholdData(data);
-    // 1. Write to localStorage — skip null values so server nulls never clobber local data
-    SYNC_KEYS.forEach(k => {
-      if (clean[k] !== undefined && clean[k] !== null) {
-        try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-      }
-    });
-    try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
-    // 2. Apply to React state — skip null/empty so server nulls never wipe local data
-    try { if (Array.isArray(clean.tasks) && clean.tasks.length > 0)                    setTasks(clean.tasks); } catch(e) {}
-    try { if (Array.isArray(clean.calEvents) && clean.calEvents.length > 0)            setCalEvents(clean.calEvents); } catch(e) {}
-    try { if (Array.isArray(clean.shoppingItems) && clean.shoppingItems.length > 0)    setShoppingItems(clean.shoppingItems); } catch(e) {}
-    try { if (Array.isArray(clean.people) && clean.people.length > 0)                  setPeople(clean.people); } catch(e) {}
-    try { if (Array.isArray(clean.notifications) && clean.notifications.length > 0)    setNotifications(clean.notifications); } catch(e) {}
-    try { if (Array.isArray(clean.brainItems) && clean.brainItems.length > 0)          setBrainItems(clean.brainItems); } catch(e) {}
-    try { if (Array.isArray(clean.stores) && clean.stores.length > 0)                  setStores(clean.stores); } catch(e) {}
-    try { if (Array.isArray(clean.shopCategories) && clean.shopCategories.length > 0)  setShopCategories(clean.shopCategories); } catch(e) {}
-    try { if (Array.isArray(clean.birthdays) && clean.birthdays.length > 0)            setBirthdays(clean.birthdays); } catch(e) {}
-    try { if (Array.isArray(clean.homeSystems) && clean.homeSystems.length > 0)        setHomeSystems(clean.homeSystems); } catch(e) {}
-    try { if (clean.meals && typeof clean.meals === "object" && Object.values(clean.meals).some(v => v && Object.keys(v).length > 0)) setMealsRaw(clean.meals); } catch(e) {}
-    try { if (clean.rhythm && typeof clean.rhythm === "object")                         setRhythm(clean.rhythm); } catch(e) {}
-    try { if (clean.familyProfile != null)                                              setFamilyProfile(clean.familyProfile); } catch(e) {}
-    try { if (typeof clean.flowMode === "string")                                       setFlowMode(clean.flowMode); } catch(e) {}
-    setSyncStatus("synced");
-    setLastSyncTime(new Date().toLocaleTimeString());
+      const clean = sanitizeHouseholdData(data);
+      SYNC_KEYS.forEach(k => {
+        if (clean[k] !== undefined && clean[k] !== null) {
+          try {
+            const raw = JSON.stringify(clean[k]);
+            localStorage.setItem("af_" + k, raw);
+            localSyncSnapshotRef.current[k] = raw;
+            dirtySyncKeysRef.current.delete(k);
+          } catch {}
+        }
+      });
+      try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
+
+      // Apply important shared sections directly to React state so there is no reload/flicker.
+      // Empty arrays are allowed here so deletes/clears sync correctly between household members.
+      try { if (Array.isArray(clean.tasks))                    setTasks(clean.tasks); } catch(e) {}
+      try { if (Array.isArray(clean.calEvents))                setCalEvents(clean.calEvents); } catch(e) {}
+      try { if (Array.isArray(clean.shoppingItems))            setShoppingItems(clean.shoppingItems); } catch(e) {}
+      try { if (Array.isArray(clean.people))                   setPeople(clean.people); } catch(e) {}
+      try { if (Array.isArray(clean.notifications))            setNotifications(clean.notifications); } catch(e) {}
+      try { if (Array.isArray(clean.brainItems))               setBrainItems(clean.brainItems); } catch(e) {}
+      try { if (Array.isArray(clean.stores))                   setStores(clean.stores); } catch(e) {}
+      try { if (Array.isArray(clean.shopCategories))           setShopCategories(clean.shopCategories); } catch(e) {}
+      try { if (Array.isArray(clean.birthdays))                setBirthdays(clean.birthdays); } catch(e) {}
+      try { if (Array.isArray(clean.homeSystems))              setHomeSystems(clean.homeSystems); } catch(e) {}
+      try { if (clean.meals && typeof clean.meals === "object") setMealsRaw(clean.meals); } catch(e) {}
+      try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
+      try { if (clean.familyProfile != null)                   setFamilyProfile(clean.familyProfile); } catch(e) {}
+      try { if (typeof clean.flowMode === "string")            setFlowMode(clean.flowMode); } catch(e) {}
+      try { if (typeof clean.theme === "string")               setThemeNameRaw(clean.theme); } catch(e) {}
+
+      setSyncStatus("synced");
+      setLastSyncTime(new Date().toLocaleTimeString());
     } catch(applyErr) {
       console.warn("[AF] applyServerData failed:", applyErr.message);
+    } finally {
+      applyingServerDataRef.current = false;
+      seedLocalSyncSnapshot();
     }
   }
+
 
   // ── syncNow: push local state then pull any newer server changes ───────────
   async function syncNow() {
@@ -1399,6 +1483,9 @@ function HomeFlow() {
   useEffect(() => {
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   }, []);
+
+  // Seed local sync snapshot once after mount so localStorage-only modules are detected.
+  useEffect(() => { seedLocalSyncSnapshot(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Track keystroke time (never sync while typing) ─────────────────────────
   const syncTimeoutRef = useRef(null);
@@ -10119,9 +10206,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         if (!householdId) {
           const hid = "hh_" + uid();
           setHouseholdId(hid);
-          await pushHouseholdData(authToken, hid);
+          await pushHouseholdData(authToken, hid, { force: true });
         } else {
-          await pushHouseholdData(authToken, householdId);
+          await pushHouseholdData(authToken, householdId, { force: true });
         }
         setLastSynced(new Date().toLocaleTimeString());
         setSyncStatus("synced");
