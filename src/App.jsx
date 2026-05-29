@@ -1234,20 +1234,12 @@ function HomeFlow() {
   async function signOut() {
     try { await supabase.auth.signOut(); } catch {}
     if (authToken) { try { await sbSignOut(authToken); } catch {} }
-    // Clear auth state without reloading the whole app.
     try { localStorage.removeItem("af_authToken"); } catch {}
     try { localStorage.removeItem("af_authUser"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
     try { localStorage.removeItem("af_lastPushedAt"); } catch {}
-    dirtySyncKeysRef.current.clear();
-    setAuthToken(null);
-    setAuthUser(null);
-    setHouseholdId(null);
-    setSyncStatus("idle");
-    setShowHouseholdModal(false);
-    // Show auth modal so the app doesn't render with null auth state
-    setShowAuthModal(true);
+    window.location.reload();
   }
 
   async function pushHouseholdData(token, hid, options = {}) {
