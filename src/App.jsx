@@ -1467,7 +1467,7 @@ function HomeFlow() {
     if (!authToken || !householdId) return;
     try {
       setSyncStatus("syncing");
-      await pushHouseholdData(authToken, householdId);
+      await pushHouseholdData(authToken, householdId, { force: true });
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
       if (!rows || !rows.length || !rows[0].data) { setSyncStatus("synced"); return; }
       const serverTs = rows[0].updated_at || "";
