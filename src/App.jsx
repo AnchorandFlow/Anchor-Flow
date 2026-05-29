@@ -1252,7 +1252,7 @@ function HomeFlow() {
 
   async function pushHouseholdData(token, hid, options = {}) {
     if (!token || !hid) return;
-    if (syncInFlightRef.current) return;
+    if (syncInFlightRef.current && !force) return;
     const force = !!options.force;
     collectLocallyChangedSyncKeys();
     const dirtyKeys = force ? new Set(SYNC_KEYS) : new Set(dirtySyncKeysRef.current);
