@@ -1946,15 +1946,87 @@ function PetsSection() {
 // ── Packing Templates Panel (part of Travel Profile) ─────────────────────────
 var DEFAULT_PACKING_TEMPLATES = [
   {
+    id: "mybag", name: "My Bag", emoji: "🧳", locked: false,
+    items: {
+      "Clothing":    [{text:"Pants"},{text:"Shirts"},{text:"Dress"},{text:"Underwear"},{text:"Bras"},{text:"Shoes / flip flops / sandals"},{text:"Pajamas"},{text:"Bathing suit"},{text:"Cover-up"},{text:"Jacket"}],
+      "Accessories": [{text:"Sunglasses x2"},{text:"Glasses"},{text:"Hat"},{text:"Jewelry"}],
+      "Toiletries":  [{text:"Makeup"},{text:"Shampoo / conditioner"},{text:"Hair products"},{text:"Crimper / hair dryer"},{text:"Clips"},{text:"Brush"},{text:"Deo"},{text:"Toothbrush / toothpaste"},{text:"Sunscreen"},{text:"Chapstick"},{text:"Nail file"}],
+      "Health":      [{text:"Advil"},{text:"Arnica / muscle mist"},{text:"Pads / tampons"},{text:"Snore thing"},{text:"Bug / eucalyptus"}],
+      "Electronics": [{text:"Cell phone charger / battery pack"}]
+    }
+  },
+  {
+    id: "kid1", name: "Kid 1", emoji: "👦", locked: false,
+    items: {
+      "Clothing":      [{text:"Pants"},{text:"Shirts"},{text:"Underwear"},{text:"Socks"},{text:"Shoes / flip flops / crocs"},{text:"Pajamas"},{text:"Bathing suit"},{text:"Jacket"}],
+      "Comfort":       [{text:"Blanket"},{text:"Stuffed animal"}],
+      "Accessories":   [{text:"Sunglasses"},{text:"Hat"},{text:"Snorkel / goggles"}],
+      "Toiletries":    [{text:"Toothbrush / toothpaste"},{text:"Hair gel"},{text:"Chapstick"}],
+      "Entertainment": [{text:"Tablet / computer + charger"},{text:"Download movies before leaving"},{text:"Toys"},{text:"Coloring / learning activities"},{text:"Airplane tray"}]
+    }
+  },
+  {
+    id: "kid2", name: "Kid 2", emoji: "👧", locked: false,
+    items: {
+      "Clothing":      [{text:"Pants"},{text:"Shirts"},{text:"Underwear"},{text:"Socks"},{text:"Shoes / flip flops"},{text:"Pajamas"},{text:"Bathing suit"},{text:"Jacket"}],
+      "Comfort":       [{text:"Blanket"},{text:"Stuffed animal"}],
+      "Accessories":   [{text:"Sunglasses"},{text:"Hat"}],
+      "Toiletries":    [{text:"Toothbrush / toothpaste"},{text:"Chapstick"},{text:"Hair ties / accessories"}],
+      "Entertainment": [{text:"Tablet + headphones"},{text:"Toys"},{text:"Books / activities"},{text:"Airplane tray"}]
+    }
+  },
+  {
+    id: "kid3", name: "Kid 3 (Baby)", emoji: "👶", locked: false,
+    items: {
+      "Clothing":   [{text:"Outfits"},{text:"Diapers / swim diapers"},{text:"Bathing suit / cover up"},{text:"Socks / shoes"},{text:"Pajamas x2"},{text:"Jacket"},{text:"Bows / accessories"}],
+      "Sleep":      [{text:"Sleep sack"},{text:"Sound machine"},{text:"Blankets"}],
+      "Feeding":    [{text:"Burp cloths / bibs"},{text:"Snacks"},{text:"Spoon"},{text:"Tupperware cups"}],
+      "Toiletries": [{text:"Wipes"},{text:"Toothbrush / toothpaste"},{text:"Aquaphor"},{text:"Lotion"},{text:"Shampoo"},{text:"Diaper cream"}],
+      "Accessories":[{text:"Sunglasses"},{text:"Hat"},{text:"Backpack"},{text:"Stuffed animal"},{text:"Toys"}],
+      "Travel":     [{text:"Airplane tray"},{text:"iPad / extra phone"},{text:"Car seat"},{text:"Tush baby"},{text:"Sling"}]
+    }
+  },
+  {
+    id: "diaperbag", name: "Diaper Bag", emoji: "👜", locked: false,
+    items: {
+      "Baby essentials": [{text:"Diapers"},{text:"Wipes"},{text:"Sanitizing wipes"},{text:"Disposable table things"},{text:"Bib"},{text:"Spoon"},{text:"Burp cloths"},{text:"Diaper cream"}],
+      "Baby extras":     [{text:"Baby table / seat"},{text:"Baby toys"}],
+      "Family":          [{text:"Sunglasses x4"},{text:"Water bottles"},{text:"Seat belt extender"},{text:"Tampons"},{text:"Advil"},{text:"Hairbrush / ties"},{text:"Chapstick"},{text:"Trash bags"},{text:"Snacks"}]
+    }
+  },
+  {
+    id: "extrabag", name: "Extra Bag", emoji: "🎒", locked: false,
+    items: {
+      "Beach / outdoor": [{text:"Beach toys"},{text:"Beach towels"},{text:"Powder sand"},{text:"Laundry bags"}],
+      "Travel gear":     [{text:"Stroller / bag / cup holder"},{text:"Booster seat / car seat"},{text:"Airplane bed thing"},{text:"Tray table covers"},{text:"Air tags"},{text:"Luggage straps"}],
+      "Misc":            [{text:"Spoons"},{text:"Nightlights"},{text:"Laundry soap / bags"},{text:"Cash"},{text:"Chargers / battery pack / extension cord"}]
+    }
+  },
+  {
+    id: "overnight", name: "Overnight Bag", emoji: "🌙", locked: false,
+    items: {
+      "Adult":      [{text:"Change of clothes"},{text:"Pajamas"},{text:"Toothbrush / toothpaste"},{text:"Makeup basics"},{text:"Deo"},{text:"Chapstick"},{text:"Phone charger"},{text:"Pads / tampons"}],
+      "Older kids": [{text:"Change of clothes"},{text:"Pajamas"},{text:"Toothbrush / toothpaste"},{text:"Blanket"},{text:"Stuffed animal"}],
+      "Baby":       [{text:"Outfit + extra"},{text:"Pajamas"},{text:"Diapers (travel amount)"},{text:"Wipes"},{text:"Sleep sack"},{text:"Sound machine"},{text:"Bib / burp cloth"},{text:"Snacks"}],
+      "Shared":     [{text:"Aquaphor"},{text:"Advil"},{text:"Sunscreen"},{text:"Water bottles"},{text:"Charger"}]
+    }
+  },
+  {
+    id: "pretodo", name: "Pre-Trip To-Do", emoji: "✅", locked: false,
+    items: {
+      "Before leaving": [{text:"Download music / games / videos"},{text:"Label luggage"},{text:"Charge everything — battery pack"},{text:"Back up phones"},{text:"Turn on tracking"},{text:"Cash"}],
+      "Admin":          [{text:"Taxes"},{text:"Moving reimbursement"}]
+    }
+  },
+  {
     id: "flight", name: "Flight Trip", emoji: "✈️", locked: false,
     items: {
       "Clothing":    [{text:"Underwear"},{text:"Socks"},{text:"T-shirts"},{text:"Pants/Shorts"},{text:"Pajamas"},{text:"Jacket/Sweater"},{text:"Shoes (extra pair)"},{text:"Swimsuit"}],
-      "Toiletries":  [{text:"Toothbrush"},{text:"Toothpaste"},{text:"Shampoo (travel size)"},{text:"Conditioner"},{text:"Body wash"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Razor"},{text:"Chapstick"}],
-      "Electronics": [{text:"Phone charger"},{text:"Headphones"},{text:"Power bank"},{text:"Adapter (if intl)"},{text:"Laptop + charger"}],
-      "Medications": [{text:"Prescription medications"},{text:"Ibuprofen / Tylenol"},{text:"Allergy medicine"},{text:"Melatonin"},{text:"Band-aids"}],
-      "Documents":   [{text:"Passport / ID"},{text:"Boarding passes"},{text:"Travel insurance docs"},{text:"Credit cards"},{text:"Cash"}],
-      "Kids stuff":  [],
-      "Snacks":      [{text:"Protein bars"},{text:"Water bottle (empty for TSA)"},{text:"Gum / mints"}],
+      "Toiletries":  [{text:"Toothbrush"},{text:"Toothpaste"},{text:"Shampoo (travel size)"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Chapstick"}],
+      "Electronics": [{text:"Phone charger"},{text:"Headphones"},{text:"Power bank"},{text:"Laptop + charger"}],
+      "Medications": [{text:"Prescription medications"},{text:"Ibuprofen / Tylenol"},{text:"Allergy medicine"},{text:"Band-aids"}],
+      "Documents":   [{text:"Passport / ID"},{text:"Boarding passes"},{text:"Credit cards"},{text:"Cash"}],
+      "Kids stuff":  [{text:"Tablets + headphones"},{text:"Snacks"},{text:"Comfort item"}],
       "Misc":        [{text:"Neck pillow"},{text:"Eye mask"},{text:"Luggage tag"},{text:"TSA lock"}]
     }
   },
@@ -1963,41 +2035,29 @@ var DEFAULT_PACKING_TEMPLATES = [
     items: {
       "Clothing":    [{text:"Underwear"},{text:"Socks"},{text:"T-shirts"},{text:"Pants"},{text:"Comfy shoes"},{text:"Jacket"}],
       "Toiletries":  [{text:"Toothbrush + toothpaste"},{text:"Deodorant"},{text:"Sunscreen"},{text:"Hand sanitizer"},{text:"Wet wipes"}],
-      "Electronics": [{text:"Phone charger (car)"},{text:"Aux cable / Bluetooth"},{text:"Portable phone mount"},{text:"Dash cam"}],
+      "Electronics": [{text:"Phone charger (car)"},{text:"Aux cable / Bluetooth"},{text:"Phone mount"}],
       "Medications": [{text:"Prescriptions"},{text:"Motion sickness meds"},{text:"First aid kit"},{text:"Ibuprofen"}],
-      "Documents":   [{text:"Driver's license"},{text:"Car insurance card"},{text:"Registration"},{text:"AAA card"}],
+      "Documents":   [{text:"Driver's license"},{text:"Car insurance card"},{text:"Registration"}],
       "Kids stuff":  [{text:"Tablets + headphones"},{text:"Activity books"},{text:"Car games"},{text:"Carsick bags"}],
-      "Snacks":      [{text:"Cooler + drinks"},{text:"Road trip snacks"},{text:"Paper towels"},{text:"Trash bag for car"}],
-      "Misc":        [{text:"Atlas / offline maps"},{text:"Jumper cables"},{text:"Emergency kit"},{text:"Blanket"}]
+      "Snacks":      [{text:"Cooler + drinks"},{text:"Road trip snacks"},{text:"Trash bag for car"}],
+      "Misc":        [{text:"Jumper cables"},{text:"Emergency kit"},{text:"Blanket"}]
     }
   },
   {
     id: "beach", name: "Beach Trip", emoji: "🏖️", locked: false,
     items: {
-      "Clothing":    [{text:"Swimsuit (x2)"},{text:"Cover-up"},{text:"Flip flops"},{text:"Sandals"},{text:"Hat"},{text:"Sunglasses"},{text:"Light dress/shorts"}],
-      "Toiletries":  [{text:"SPF 50+ sunscreen"},{text:"After-sun lotion"},{text:"Waterproof mascara"},{text:"Deodorant"},{text:"Hair ties"}],
-      "Electronics": [{text:"Waterproof phone case"},{text:"Portable speaker"},{text:"Action cam (optional)"},{text:"Charging cables"}],
+      "Clothing":    [{text:"Swimsuit (x2)"},{text:"Cover-up"},{text:"Flip flops"},{text:"Hat"},{text:"Sunglasses"},{text:"Light dress/shorts"}],
+      "Toiletries":  [{text:"SPF 50+ sunscreen"},{text:"After-sun lotion"},{text:"Deodorant"},{text:"Hair ties"}],
+      "Electronics": [{text:"Waterproof phone case"},{text:"Portable speaker"},{text:"Charging cables"}],
       "Medications": [{text:"Allergy meds"},{text:"Ibuprofen"},{text:"Aloe vera gel"},{text:"Bug spray"}],
-      "Documents":   [{text:"ID"},{text:"Beach parking pass"},{text:"Cash for vendors"}],
       "Kids stuff":  [{text:"Life jackets"},{text:"Sand toys"},{text:"Swim diapers"},{text:"Kids sunscreen (SPF 70)"}],
-      "Snacks":      [{text:"Cooler"},{text:"Reusable water bottles"},{text:"Fruit"},{text:"Sandwiches"}],
-      "Misc":        [{text:"Beach towels"},{text:"Beach umbrella"},{text:"Sand-proof blanket"},{text:"Mesh bag for wet stuff"}]
-    }
-  },
-  {
-    id: "overnight", name: "Overnight Bag", emoji: "🌙", locked: false,
-    items: {
-      "Clothing":    [{text:"Change of clothes (each person)"},{text:"Pajamas"},{text:"Extra underwear/socks"}],
-      "Toiletries":  [{text:"Toothbrush / toothpaste"},{text:"Deodorant"},{text:"Chapstick"},{text:"Face wash"},{text:"Makeup basics"}],
-      "Kids":        [{text:"Kids pajamas"},{text:"Stuffed animal / comfort item"},{text:"Diapers (small amount)"},{text:"Wipes"},{text:"Sleep sack / sound machine"}],
-      "Electronics": [{text:"Phone charger"},{text:"Power bank"}],
-      "Medications": [{text:"Advil"},{text:"Any daily medications"}],
-      "Misc":        [{text:"Snacks"},{text:"Water bottles"},{text:"Cash"}]
+      "Snacks":      [{text:"Cooler"},{text:"Reusable water bottles"},{text:"Fruit"}],
+      "Misc":        [{text:"Beach towels"},{text:"Beach umbrella"},{text:"Sand-proof blanket"}]
     }
   }
 ]
 
-var PACK_CATS = ["Clothing","Toiletries","Electronics","Medications","Documents","Kids stuff","Kids","Snacks","Misc"]
+var PACK_CATS = ["Clothing","Accessories","Toiletries","Health","Electronics","Entertainment","Comfort","Sleep","Feeding","Travel","Baby essentials","Baby extras","Beach / outdoor","Travel gear","Adult","Older kids","Baby","Family","Shared","Before leaving","Admin","Documents","Kids stuff","Kids","Snacks","Misc"]
 
 function PackingTemplatesPanel(props) {
   var sand=props.sand; var navy=props.navy; var warm=props.warm; var muted=props.muted; var border=props.border; var cardBg=props.cardBg; var coastal=props.coastal
