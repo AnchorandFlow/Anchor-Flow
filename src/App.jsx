@@ -986,6 +986,8 @@ function HomeFlow() {
   const [lastSyncTime,setLastSyncTime] = useState(null);
   const [showAuthModal,setShowAuthModal] = useState(false);
   const [showHouseholdModal,setShowHouseholdModal] = useState(false);
+  // settingsOpen lives in HomeFlow so accordion state survives SettingsTab remounts
+  const [settingsOpen, setSettingsOpen] = useState({family:true});
   const [anchorDayOpen,setAnchorDayOpen] = useState(false);
   const [googleCalToken,setGoogleCalToken]     = useSaved("googleCalToken", null);
   const [googleCalSyncing,setGoogleCalSyncing] = useState(false);
@@ -9226,7 +9228,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   function SettingsTab(){
     console.log("[AF RENDER] SettingsTab");
-    const [settingsOpen, setSettingsOpen] = useState({family:true});
     React.useEffect(function(){ console.log("[AF SETTINGS] settingsOpen:", JSON.stringify(settingsOpen)); }, [settingsOpen]);
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
