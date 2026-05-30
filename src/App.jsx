@@ -326,36 +326,10 @@ class ErrorBoundary extends React.Component {
       <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",fontFamily:"sans-serif",background:"#f5f0e8",textAlign:"center"}}>
         <div style={{fontSize:"3rem",marginBottom:"1rem"}}>⚓️</div>
         <h2 style={{marginBottom:"0.5rem",color:"#2a2a38"}}>Something went wrong</h2>
-        <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data in the cloud is safe — tap restart to reload it.</p>
-        <button onClick={()=>{
-          try {
-            // Save auth keys before clearing
-            const authToken = localStorage.getItem("af_authToken");
-            const authUser = localStorage.getItem("af_authUser");
-            const householdId = localStorage.getItem("af_householdId");
-            const theme = localStorage.getItem("af_theme");
-            const flowMode = localStorage.getItem("af_flowMode");
-            // Wipe everything
-            localStorage.clear();
-            sessionStorage.clear();
-            // Restore only auth so Supabase can pull data back
-            if (authToken) localStorage.setItem("af_authToken", authToken);
-            if (authUser) localStorage.setItem("af_authUser", authUser);
-            if (householdId) localStorage.setItem("af_householdId", householdId);
-            if (theme) localStorage.setItem("af_theme", theme);
-            if (flowMode) localStorage.setItem("af_flowMode", flowMode);
-          } catch(e) {
-            // If all else fails, just clear and reload
-            try { localStorage.clear(); } catch {}
-          }
-          window.location.reload();
-        }}
+        <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data is safe on this device. Reload to recover.</p>
+        <button onClick={function(){ window.location.reload(); }}
           style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>
-          Restart & Restore My Data
-        </button>
-        <button onClick={()=>window.location.reload()}
-          style={{background:"transparent",color:"#8a8a9a",border:"1px solid #ccc",borderRadius:"0.75rem",padding:"0.5rem 1rem",cursor:"pointer",fontSize:"0.85rem"}}>
-          Try again without clearing
+          Reload App
         </button>
         <details style={{marginTop:"1.5rem",color:"#8a8a9a",fontSize:"0.72rem",maxWidth:400,textAlign:"left"}}>
           <summary style={{cursor:"pointer"}}>Error details</summary>
@@ -429,6 +403,8 @@ function isJwtExpired(err) {
 }
 
 // Household data keys that get synced to Supabase
+const APP_VERSION = "2026.05.30-1";
+
 const SYNC_KEYS = [
   // Core data
   "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
@@ -1002,6 +978,46 @@ function HomeFlow() {
     return [val, setSaved];
   }
 
+  // ── safeSave: validated, logged, synced save ─────────────────────────────
+  // Use this instead of direct setter for any important household data.
+  function safeSave(key, setter, value) {
+    try {
+      var isValid = value !== null && value !== undefined;
+      if (Array.isArray(value)) isValid = true; // empty arrays are valid (intentional clears)
+      if (typeof value === "string") isValid = true;
+      if (typeof value === "object" && !Array.isArray(value)) isValid = value !== null;
+      console.log("[AF SAVE]", key, "valid:", isValid);
+      if (!isValid) { console.warn("[AF SAVE] blocked invalid value for", key); return; }
+      setter(value);
+      console.log("[AF SAVE] local saved:", key);
+      try {
+        markDirtySyncKey(key);
+        window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+        console.log("[AF SAVE] sync queued:", key);
+      } catch(e) { console.warn("[AF SAVE] sync queue failed:", key, e.message); }
+    } catch(e) { console.error("[AF SAVE] failed:", key, e.message); }
+  }
+
+  // ── Save status indicator ────────────────────────────────────────────────
+  const [saveStatus, setSaveStatus] = useState(null); // null | "saving" | "saved" | "failed" | "cloud-failed"
+  function showSaving() { setSaveStatus("saving"); }
+  function showSaved()  { setSaveStatus("saved");  setTimeout(function(){ setSaveStatus(null); }, 2500); }
+  function showSaveFailed(cloudOnly) {
+    setSaveStatus(cloudOnly ? "cloud-failed" : "failed");
+    setTimeout(function(){ setSaveStatus(null); }, 4000);
+  }
+  const SaveStatusBadge = saveStatus ? (
+    <div style={{position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 72px)",left:"50%",transform:"translateX(-50%)",zIndex:9999,pointerEvents:"none",
+      background: saveStatus==="saved"?"#1d9e75":saveStatus==="saving"?"#3a6b8a":saveStatus==="cloud-failed"?"#c8a97a":"#c0392b",
+      color:"#fff",fontSize:"0.75rem",fontWeight:700,padding:"0.38rem 1rem",borderRadius:"2rem",
+      boxShadow:"0 2px 12px rgba(0,0,0,0.18)",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.02em",whiteSpace:"nowrap"}}>
+      {saveStatus==="saving"&&"Saving…"}
+      {saveStatus==="saved"&&"✓ Saved"}
+      {saveStatus==="failed"&&"⚠ Save failed"}
+      {saveStatus==="cloud-failed"&&"Saved on device · cloud sync failed"}
+    </div>
+  ) : null;
+
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
   const T = THEMES[themeName];
 
@@ -1338,6 +1354,13 @@ function HomeFlow() {
     });
     if (!Object.keys(payload).length) return;
 
+    // Tag every push with version metadata so stale PWA versions can be detected
+    payload._meta = {
+      schema_version: 1,
+      app_version: APP_VERSION,
+      updated_by: ((() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })())?.id || "unknown"
+    };
+
     syncInFlightRef.current = true;
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
@@ -1356,6 +1379,7 @@ function HomeFlow() {
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
         console.log("[AF SYNC] pushed household", serverTs);
+        try { showSaved(); } catch {}
       } else {
         try {
           const insertRows = await sbFetch("/rest/v1/households", {
@@ -1405,6 +1429,7 @@ function HomeFlow() {
         console.warn("[AF] Session expired — please sign in again");
       } else {
         console.warn("[AF] pushHouseholdData failed:", e.message);
+        try { showSaveFailed(true); } catch {}
         throw e;
       }
     } finally {
@@ -1484,10 +1509,19 @@ function HomeFlow() {
   // ── Helper: apply server data to React state ──────────────────────────────
   function applyServerData(data, serverTs) {
     if (!data || typeof data !== "object") return;
+    // Warn if incoming data is from an older app version
+    if (data._meta && data._meta.app_version && data._meta.app_version < APP_VERSION) {
+      console.warn("[AF SYNC] incoming data from older app version:", data._meta.app_version, "local:", APP_VERSION);
+    }
     applyingServerDataRef.current = true;
     try {
       const clean = sanitizeHouseholdData(data);
       SYNC_KEYS.forEach(k => {
+        // Never overwrite a key the user has edited locally since last sync
+        if (dirtySyncKeysRef.current.has(k)) {
+          console.log("[AF SYNC] preserving local edits for:", k);
+          return;
+        }
         if (clean[k] !== undefined && clean[k] !== null) {
           try {
             const raw = JSON.stringify(clean[k]);
@@ -1516,6 +1550,9 @@ function HomeFlow() {
       try { if (clean.familyProfile != null)                   setFamilyProfile(clean.familyProfile); } catch(e) {}
       try { if (typeof clean.flowMode === "string")            setFlowMode(clean.flowMode); } catch(e) {}
       try { if (typeof clean.theme === "string")               setThemeNameRaw(clean.theme); } catch(e) {}
+      // Tide Pool and Recipes need explicit state sync (not just localStorage)
+      try { if (clean.coveData !== undefined && !dirtySyncKeysRef.current.has("coveData")) setCoveData(clean.coveData); } catch(e) {}
+      try { if (Array.isArray(clean.recipes) && !dirtySyncKeysRef.current.has("recipes")) setRecipes(clean.recipes); } catch(e) {}
 
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
@@ -1548,7 +1585,13 @@ function HomeFlow() {
 
   // Register Service Worker
   useEffect(() => {
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      // Force SW update check on each app load — catches stale PWA caches
+      navigator.serviceWorker.ready.then(function(reg) {
+        reg.update().catch(function(){});
+      });
+    }
   }, []);
 
   // Seed local sync snapshot once after mount so localStorage-only modules are detected.
@@ -2739,23 +2782,41 @@ Respond ONLY with valid JSON array, no markdown:
       })});
       const d = await r.json();
       const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
-      setRecipeResult(JSON.parse(txt.replace(/```json|```/g,"").trim()));
+      try {
+        const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
+        if (!parsed || typeof parsed !== "object") throw new Error("Invalid recipe data");
+        // Normalise ingredients to array
+        if (typeof parsed.ingredients === "string") parsed.ingredients = parsed.ingredients.split("\n").filter(Boolean);
+        if (!Array.isArray(parsed.ingredients)) parsed.ingredients = [];
+        // Preserve the source URL if AI didn't fill it in
+        if (!parsed.source && recipeUrl.trim()) parsed.source = recipeUrl.trim();
+        setRecipeResult(parsed);
+      } catch {
+        setRecipeError("Couldn't parse that URL. Try entering the recipe manually below.");
+      }
     } catch { setRecipeError("Couldn't parse that URL. Try entering the recipe manually below."); }
     setRecipeLoading(false);
   }
 
   function saveImportedRecipe() {
-    if (recipeResult) {
-      setRecipes(p=>[...p,{...recipeResult,id:uid(),savedAt:new Date().toISOString()}]);
-      setRecipeResult(null); setRecipeUrl(""); setShowRecipeImport(false);
+    if (!recipeResult) return;
+    if (!recipeResult.name || !recipeResult.name.trim()) {
+      setRecipeError("Please add a recipe name before saving.");
+      return;
     }
+    setRecipes(function(p){ return [...p, {...recipeResult, source: recipeResult.source||recipeUrl.trim()||"", id:uid(), savedAt:new Date().toISOString()}]; });
+    setRecipeResult(null); setRecipeUrl(""); setRecipeError(""); setShowRecipeImport(false);
   }
 
   function saveManualRecipe() {
-    if (!manualRecipe.name.trim()) return;
-    const ing = manualRecipe.ingredients.split("\n").filter(Boolean);
-    setRecipes(p=>[...p,{...manualRecipe,ingredients:ing,id:uid(),savedAt:new Date().toISOString()}]);
+    if (!manualRecipe.name.trim()) {
+      setRecipeError("Recipe name is required.");
+      return;
+    }
+    const ing = (manualRecipe.ingredients||"").split("\n").filter(Boolean);
+    setRecipes(function(p){ return [...p, {...manualRecipe, ingredients:ing, id:uid(), savedAt:new Date().toISOString()}]; });
     setManualRecipe({name:"",ingredients:"",servings:"",notes:"",source:""});
+    setRecipeError("");
     setShowRecipeImport(false);
   }
 
@@ -5940,8 +6001,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             {recipeResult&&(
               <div style={{...card({background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.9rem"})}}>
-                <p style={{fontWeight:700,color:T.sageDark,fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
-                <p style={{fontSize:"0.78rem",color:T.textMid}}>{recipeResult.ingredients?.length} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
+                {(!recipeResult.name||!recipeResult.name.trim()) ? (
+                  <div style={{marginBottom:"0.65rem"}}>
+                    <p style={{color:T.rose,fontSize:"0.77rem",marginBottom:"0.4rem",fontWeight:700}}>⚠ No recipe name found — add one to save:</p>
+                    <input value={recipeResult.name||""} onChange={function(e){setRecipeResult(function(r){return Object.assign({},r,{name:e.target.value});});}} placeholder="Recipe name" autoFocus style={{...inp({fontSize:"0.88rem"})}}/>
+                  </div>
+                ) : (
+                  <p style={{fontWeight:700,color:T.sageDark,fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
+                )}
+                <p style={{fontSize:"0.78rem",color:T.textMid}}>{Array.isArray(recipeResult.ingredients)?recipeResult.ingredients.length:0} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
                 <button onClick={saveImportedRecipe} style={{...btnP(T.sage,{marginTop:"0.65rem",display:"flex",alignItems:"center",gap:"0.4rem"})}}><Icon name="check" size={14} color="#fff"/> Save Recipe</button>
               </div>
             )}
@@ -10394,11 +10462,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
         {/* Reset Household */}
+        <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginBottom:"0.5rem"}}>
+          <div style={{fontSize:"0.65rem",color:T.textFaint,fontFamily:"monospace"}}>v{APP_VERSION}</div>
+        </div>
         <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginBottom:"1rem"}}>
           <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.rose,marginBottom:"0.5rem"}}>Start fresh</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.6rem"}}>Clears this device's household connection so you can generate a new code. Your account stays intact.</div>
           <button onClick={async function(){
-            if(!window.confirm("Reset household on this device? You'll get a new household code after reloading.")) return;
+            if(!window.confirm("Reset household on this device? This removes your local household connection.")) return;
+            if(!window.confirm("Are you sure? Your cloud data will NOT be deleted but this device will disconnect from the household.")) return;
             var tok = authToken || "";
             var anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
             var base = "https://sbgbyptkunvyxjfpzght.supabase.co";
@@ -11061,6 +11133,7 @@ function FlowWrapper({ onHome, onSignOut }) {
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
 
+        {SaveStatusBadge}
         <ErrorBoundary>
           <HomeFlow />
         </ErrorBoundary>
