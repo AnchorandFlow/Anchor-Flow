@@ -6212,15 +6212,19 @@ function RippleSection() {
   var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
   var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
   var SAGE = "#7a9e8e"
+  var allPeople = hLoadPeople()
+  var tagPeople = allPeople.filter(function(p) { return p.role==="Kid"||p.role==="Teen"||p.role==="Baby" })
+  if (tagPeople.length === 0) tagPeople = allPeople
   function loadR() { try { return JSON.parse(localStorage.getItem("af_ripples") || "[]") } catch { return [] } }
   function persistR(v) { try { localStorage.setItem("af_ripples", JSON.stringify(v)) } catch {} }
   var [ripples, setRipples] = React.useState(function() { return loadR() })
   var [cat, setCat] = React.useState("all")
+  var [personFolder, setPersonFolder] = React.useState("all")
   var [modal, setModal] = React.useState(false)
   var [form, setForm] = React.useState({ name: "", who: "", category: "milestone", date: "", note: "" })
   var [editId, setEditId] = React.useState(null)
   function saveR(v) { setRipples(v); persistR(v) }
-  function openAdd() { setForm({ name: "", who: "", category: "milestone", date: new Date().toISOString().slice(0,10), note: "" }); setEditId(null); setModal(true) }
+  function openAdd() { setForm({ name: "", who: personFolder !== "all" ? personFolder : "", category: "milestone", date: new Date().toISOString().slice(0,10), note: "" }); setEditId(null); setModal(true) }
   function openEdit(r) { setForm({ name: r.name, who: r.who||"", category: r.category||"milestone", date: r.date||"", note: r.note||"" }); setEditId(r.id); setModal(true) }
   function closeModal() { setModal(false); setEditId(null) }
   function submit() {
@@ -6230,7 +6234,11 @@ function RippleSection() {
     closeModal()
   }
   function deleteRipple(id) { saveR(ripples.filter(function(r) { return r.id !== id })) }
-  var filtered = cat==="all" ? ripples : ripples.filter(function(r) { return r.category===cat })
+  var filtered = ripples.filter(function(r) {
+    var matchPerson = personFolder === "all" || r.who === personFolder
+    var matchCat = cat === "all" || r.category === cat
+    return matchPerson && matchCat
+  })
   var sorted = filtered.slice().sort(function(a,b) {
     if (!a.date && !b.date) return 0; if (!a.date) return 1; if (!b.date) return -1
     return new Date(b.date) - new Date(a.date)
@@ -6253,6 +6261,26 @@ function RippleSection() {
         React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Every moment worth keeping")
       ),
       React.createElement("button", { onClick: openAdd, style: { background: GOLD, border: "none", borderRadius: 9, padding: "8px 16px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer" } }, "+ Capture")
+    ),
+    tagPeople.length > 0 && React.createElement("div", { style: { marginBottom: 12 } },
+      React.createElement("div", { style: { fontSize: 10, color: "rgba(200,169,122,0.5)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 6, fontFamily: "DM Sans,sans-serif", fontWeight: 700 } }, "📁 Folders"),
+      React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
+        [{ id: "all", name: "All" }].concat(tagPeople).map(function(p) {
+          var fid = p.id === "all" ? "all" : p.name
+          var active = personFolder === fid
+          var count = fid === "all" ? ripples.length : ripples.filter(function(r) { return r.who === fid }).length
+          return React.createElement("button", { key: p.id || "all", onClick: function() { setPersonFolder(fid) },
+            style: { display: "flex", alignItems: "center", gap: 4, padding: "4px 12px", borderRadius: 20,
+              background: active ? GOLD+"22" : "transparent",
+              border: active ? "0.5px solid "+GOLD : BORD,
+              color: active ? GOLD : "rgba(250,248,244,0.5)",
+              fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: active ? 700 : 400 } },
+            fid === "all" ? "All" : (p.color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0, display: "inline-block" } }) : null),
+            fid === "all" ? null : p.name,
+            React.createElement("span", { style: { fontSize: 9, opacity: 0.6 } }, "("+count+")")
+          )
+        })
+      )
     ),
     React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 } },
       RIPPLE_CATS.map(function(c) {
@@ -6294,7 +6322,24 @@ function RippleSection() {
         React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 16 } }, editId ? "Edit ripple" : "Capture a ripple"),
         React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "What happened?"), React.createElement("input", { style: inp, placeholder: "e.g. Lost first tooth, First goal scored", value: form.name, onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
-          React.createElement("div", null, React.createElement("label", { style: lbl }, "Who"), React.createElement("input", { style: inp, placeholder: "e.g. Eli, Clara", value: form.who, onChange: function(e) { setForm(Object.assign({},form,{who:e.target.value})) } })),
+          React.createElement("div", null,
+            React.createElement("label", { style: lbl }, "Who"),
+            tagPeople.length > 0 && React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 } },
+              tagPeople.map(function(p) {
+                var selected = form.who === p.name
+                return React.createElement("button", { key: p.id, onClick: function() { setForm(Object.assign({},form,{who: selected ? "" : p.name})) },
+                  style: { display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20,
+                    background: selected ? GOLD+"33" : "rgba(255,255,255,0.05)",
+                    border: selected ? "0.5px solid "+GOLD : BORD,
+                    color: selected ? GOLD : "rgba(250,248,244,0.55)",
+                    fontSize: 11, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: selected ? 700 : 400 } },
+                  p.color && React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: p.color, flexShrink: 0 } }),
+                  p.name
+                )
+              })
+            ),
+            React.createElement("input", { style: inp, placeholder: "Or type a name…", value: form.who, onChange: function(e) { setForm(Object.assign({},form,{who:e.target.value})) } })
+          ),
           React.createElement("div", null, React.createElement("label", { style: lbl }, "Date"), React.createElement("input", { style: inp, type: "date", value: form.date, onChange: function(e) { setForm(Object.assign({},form,{date:e.target.value})) } }))
         ),
         React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Category"),

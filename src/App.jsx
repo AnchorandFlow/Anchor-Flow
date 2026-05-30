@@ -6748,6 +6748,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         kidId: k.id,
         kidName: k.name,
         shells: 0,
+        shellGoal: 10,
         chores: [
           {id:uid(),name:"Make bed",pts:1,done:false},
           {id:uid(),name:"Clear dishes",pts:1,done:false},
@@ -6776,7 +6777,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var merged = rawKids.map(function(p){
         var existing = saved.find(function(d){ return d.kidId===p.id; });
         if(existing) return existing;
-        return {kidId:p.id,kidName:p.name,shells:0,chores:[
+        return {kidId:p.id,kidName:p.name,shells:0,shellGoal:10,chores:[
           {id:uid(),name:"Make bed",pts:1,done:false},
           {id:uid(),name:"Clear dishes",pts:1,done:false},
         ],treasures:[
@@ -6796,6 +6797,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [claimed, setClaimed] = useState(null);
     var [flyName, setFlyName] = useState("");
     var [flyPts, setFlyPts] = useState(1);
+    var [showKidSettings, setShowKidSettings] = useState(false);
 
     // ── Daily chore reset ──
     React.useEffect(function(){
@@ -6825,6 +6827,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     }
 
+    function updateKidByIdx(idx, patch) {
+      setKids(function(prev){
+        var next = prev.map(function(k,i){ return i===idx?Object.assign({},k,patch):k; });
+        setCoveData(next);
+        return next;
+      });
+    }
+
     function toggleChore(choreId) {
       var ch = kid.chores.find(function(c){ return c.id===choreId; });
       if(!ch) return;
@@ -6842,7 +6852,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function openChest() {
-      if(kid.shells < COVE_MIN_OPEN) return;
+      if(kid.shells < (kid.shellGoal||COVE_MIN_OPEN)) return;
       setChestOpen(true);
       setSelectedTreasure(null);
       setClaimed(null);
@@ -6863,8 +6873,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     var shellCount = kid.shells;
-    var ready = shellCount >= COVE_MIN_OPEN;
-    var nextThreshold = Math.ceil((shellCount + 1) / COVE_MIN_OPEN) * COVE_MIN_OPEN;
+    var kidGoal = kid.shellGoal||COVE_MIN_OPEN;
+    var ready = shellCount >= kidGoal;
+    var nextThreshold = Math.ceil((shellCount + 1) / kidGoal) * kidGoal;
     var shellSlots = Math.max(nextThreshold, shellCount + 5);
     var sortedTreasures = (kid.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;});
 
@@ -6880,7 +6891,38 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+          <button onClick={function(){setShowKidSettings(function(v){return !v;});}} title="Parent settings"
+            style={{position:"absolute",right:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"4px",opacity:0.4,fontSize:"1rem"}}>⚙️</button>
         </div>
+
+        {/* Parent settings panel */}
+        {showKidSettings && (
+          <div style={{...card({background:T.bgAlt,border:"1.5px dashed "+T.border}),marginBottom:"1.25rem"}}>
+            <div style={{fontWeight:700,fontSize:"0.8rem",color:T.textDark,marginBottom:"0.75rem",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <span>⚙️ Parent Settings</span>
+              <button onClick={function(){setShowKidSettings(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",color:T.textSoft,lineHeight:1}}>✕</button>
+            </div>
+            <div style={{fontSize:"0.72rem",color:T.textSoft,marginBottom:"0.75rem"}}>Set how many shells each child needs to open the chest.</div>
+            {kids.map(function(k,i){
+              return (
+                <div key={k.kidId} style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.5rem"}}>
+                  <div style={{flex:1,fontSize:"0.84rem",fontWeight:600,color:T.textDark}}>{k.kidName}</div>
+                  <div style={{fontSize:"0.72rem",color:T.textSoft}}>Shells to open:</div>
+                  <input
+                    type="number" min="1" max="100"
+                    value={k.shellGoal||10}
+                    onChange={function(e){
+                      var v=parseInt(e.target.value)||10;
+                      if(v<1)v=1;
+                      updateKidByIdx(i,{shellGoal:v});
+                    }}
+                    style={{...inp({width:60,padding:"0.3rem 0.4rem",fontSize:"0.85rem",textAlign:"center"})}}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Kid selector */}
         {kids.length > 1 && (
@@ -6929,7 +6971,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
 
           <div style={{fontSize:"0.8rem",marginTop:"0.4rem",minHeight:"1.2rem",fontWeight:ready&&!chestOpen?700:400,color:ready&&!chestOpen?tealHex:T.textSoft}}>
-            {chestOpen?"":ready?"Tap the chest to open it!":`${COVE_MIN_OPEN-shellCount} more shell${COVE_MIN_OPEN-shellCount===1?"":"s"} to open`}
+            {chestOpen?"":ready?"Tap the chest to open it!":`${kidGoal-shellCount} more shell${kidGoal-shellCount===1?"":"s"} to open`}
           </div>
         </div>
 
@@ -6946,7 +6988,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{textAlign:"center",fontSize:"0.72rem",color:T.textFaint,marginBottom:"1.25rem"}}>
           {ready&&!chestOpen
             ? <span style={{color:tealHex,fontWeight:600}}>🎉 Ready to open!</span>
-            : shellCount<COVE_MIN_OPEN&&<span>{COVE_MIN_OPEN-shellCount} more shell{COVE_MIN_OPEN-shellCount===1?"":"s"} to open</span>
+            : shellCount<kidGoal&&<span>{kidGoal-shellCount} more shell{kidGoal-shellCount===1?"":"s"} to open</span>
           }
         </div>
 
@@ -6957,7 +6999,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{textAlign:"center",padding:"0.5rem 0"}}>
                 <div style={{fontSize:"2.5rem",marginBottom:"0.4rem"}}>{claimed.icon}</div>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:"#412402",marginBottom:"0.2rem"}}>{kid.kidName} claimed: {claimed.name}!</div>
-                <div style={{fontSize:"0.8rem",color:"#633806",marginBottom:"0.85rem"}}>{kid.shells>0?(kid.shells>=COVE_MIN_OPEN?"Ready to open again! ":"Keep collecting — ")+kid.shells+" shell"+(kid.shells===1?"":"s")+" saved.":"Keep earning shells to fill the beach again! 🐚"}</div>
+                <div style={{fontSize:"0.8rem",color:"#633806",marginBottom:"0.85rem"}}>{kid.shells>0?(kid.shells>=kidGoal?"Ready to open again! ":"Keep collecting — ")+kid.shells+" shell"+(kid.shells===1?"":"s")+" saved.":"Keep earning shells to fill the beach again! 🐚"}</div>
                 <button onClick={closeChest} style={{...btnS(),fontSize:"0.8rem",border:"1px solid "+sandHex,color:"#854f0b"}}>Close chest</button>
               </div>
             ) : (
@@ -7657,8 +7699,114 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Food bank (Baby's first 100 foods) ───────────────────────────────────
+    function toggleFoodIntro(itemId) {
+      setCoveItemsMap(function(prev) {
+        var items = (prev[activeListId] || []).slice();
+        var item = items.find(function(i) { return i.id === itemId; });
+        if (!item) return prev;
+        var newItems;
+        if (item.introOrder != null) {
+          var removedOrder = item.introOrder;
+          newItems = items.map(function(i) {
+            if (i.id === itemId) return Object.assign({}, i, {introOrder: null});
+            if (i.introOrder != null && i.introOrder > removedOrder) return Object.assign({}, i, {introOrder: i.introOrder - 1});
+            return i;
+          });
+        } else {
+          var maxOrder = 0;
+          items.forEach(function(i) { if (i.introOrder != null && i.introOrder > maxOrder) maxOrder = i.introOrder; });
+          newItems = items.map(function(i) { return i.id === itemId ? Object.assign({}, i, {introOrder: maxOrder + 1}) : i; });
+        }
+        return Object.assign({}, prev, {[activeListId]: newItems});
+      });
+    }
+
+    function renderFoodBank() {
+      var navyC = "#1a2744"; var goldC = "#c8a97a"; var tealC = "#1d9e75";
+      var introducedItems = activeItems.filter(function(i) { return i.introOrder != null; });
+      introducedItems.sort(function(a,b) { return a.introOrder - b.introOrder; });
+      var totalCount = activeItems.length;
+      var introPct = totalCount > 0 ? Math.round((introducedItems.length / totalCount) * 100) : 0;
+      return (
+        <div style={{paddingBottom:"3rem"}}>
+          {/* Header */}
+          <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
+            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:4}}>
+              <Icon name="arrow-left" size={18} color={T.textSoft}/>
+            </button>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"1.4rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:navyC}}>🍼 Baby's First 100 Foods</div>
+              <div style={{fontSize:"0.66rem",color:T.textFaint,marginTop:2}}>{introducedItems.length} introduced · {totalCount - introducedItems.length} remaining · tap a food to mark it introduced</div>
+            </div>
+          </div>
+          {/* Progress */}
+          <div style={{padding:"0 16px 6px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:600}}>{introducedItems.length} of {totalCount} foods</span>
+              <span style={{fontSize:"0.7rem",color:tealC,fontWeight:700}}>{introPct}%</span>
+            </div>
+            <div style={{height:4,background:T.borderSoft,borderRadius:2,overflow:"hidden"}}>
+              <div style={{height:"100%",background:goldC,width:introPct+"%",borderRadius:2,transition:"width 0.4s"}}/>
+            </div>
+          </div>
+          {/* Introduced log */}
+          {introducedItems.length > 0 && (
+            <div style={{padding:"8px 16px 4px"}}>
+              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>First Foods Log</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                {introducedItems.map(function(it) {
+                  return (
+                    <div key={it.id} onClick={function(){if(window.confirm("Remove "+it.content+" from the list?")){toggleFoodIntro(it.id);}}}
+                      style={{display:"inline-flex",alignItems:"center",gap:4,background:goldC+"22",border:"1.5px solid "+goldC,borderRadius:999,padding:"3px 10px 3px 6px",cursor:"pointer",fontSize:"0.76rem",color:navyC,fontWeight:600}}>
+                      <span style={{background:goldC,color:"#fff",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",fontWeight:800,flexShrink:0}}>#{it.introOrder}</span>
+                      {it.content}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div style={{height:1,background:T.borderSoft,margin:"10px 16px"}}/>
+          {/* Food bank by section */}
+          <div style={{padding:"0 16px"}}>
+            <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Food Bank — tap to introduce</div>
+            {activeSections.map(function(sec) {
+              var secItems = activeItems.filter(function(i) { return i.section_id === sec.id; });
+              var secIntroduced = secItems.filter(function(i) { return i.introOrder != null; }).length;
+              return (
+                <div key={sec.id} style={{marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                    <span style={{fontSize:"0.72rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textMid}}>{sec.title}</span>
+                    <span style={{fontSize:"0.62rem",color:T.textFaint,background:T.bgAlt,borderRadius:999,padding:"1px 7px",border:"1px solid "+T.border}}>{secIntroduced}/{secItems.length}</span>
+                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                    {secItems.map(function(item) {
+                      var introduced = item.introOrder != null;
+                      return (
+                        <button key={item.id} onClick={function(){
+                          if(introduced){if(window.confirm("Remove "+item.content+" from the log?")){toggleFoodIntro(item.id);}}
+                          else{toggleFoodIntro(item.id);}
+                        }}
+                          style={{display:"inline-flex",alignItems:"center",gap:4,padding:introduced?"3px 10px 3px 6px":"4px 11px",borderRadius:999,border:"1.5px solid "+(introduced?goldC:T.border),background:introduced?goldC+"22":T.surface,color:introduced?navyC:T.textMid,fontSize:"0.76rem",fontWeight:introduced?700:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                          {introduced && <span style={{background:goldC,color:"#fff",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.58rem",fontWeight:800,flexShrink:0}}>#{item.introOrder}</span>}
+                          {item.content}
+                          {item.tags&&item.tags.includes("allergen")&&<span style={{fontSize:"0.55rem",color:"#c0392b",fontWeight:800,opacity:0.7}}>⚠</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     // ── Detail view ───────────────────────────────────────────────────────────
     if (view === "detail" && activeList) {
+      if (activeList.template_id === "first-100-foods") return renderFoodBank();
       var unsectionedItems = activeItems.filter(function(i){ return !i.section_id; });
       return (
         <div style={{paddingBottom:"3rem"}}>
