@@ -734,9 +734,17 @@ function ScrollTabs({ children, style={} }) {
 // ── Section — outside HomeFlow so it never remounts when HomeFlow state changes ──
 function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
   var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
+  var lastToggleRef = React.useRef(0);
+  function handleToggle(e) {
+    e.stopPropagation();
+    var now = Date.now();
+    if (now - lastToggleRef.current < 250) return;
+    lastToggleRef.current = now;
+    toggleSetting(id, defaultOpen);
+  }
   return(
     <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
-      <button onClick={function(e){e.preventDefault();toggleSetting(id,defaultOpen);}} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
+      <button type="button" onPointerUp={handleToggle} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
         <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
         <div style={{flex:1}}>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
@@ -9224,6 +9232,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
     function dismissPwaBanner(){ try { localStorage.setItem("af_pwaBannerDismissed", "true"); } catch {} }
+    const [editingName, setEditingName] = useState(false);
+    const [nameDraft, setNameDraft] = useState("");
+    function savePreferredName() {
+      var v = nameDraft.trim();
+      if (v) {
+        setPreferredName(v);
+        var updated = Object.assign({}, authUser, {displayName:v});
+        setAuthUser(updated);
+        try { localStorage.setItem("af_authUser", JSON.stringify(updated)); } catch {}
+        window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "preferredName" } }));
+      }
+      setEditingName(false);
+    }
+    function cancelPreferredName() { setNameDraft(preferredName||""); setEditingName(false); }
     function toggleSetting(key,defaultOpen){
       setSettingsOpen(function(p){
         var current = key in p ? p[key] : (defaultOpen||false);
@@ -9356,8 +9378,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <Sec id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
-              <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                <input defaultValue={preferredName} onBlur={function(e){var v=e.target.value.trim();if(!v){e.target.value=preferredName;return;}setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} onKeyDown={function(e){if(e.key==="Enter")e.target.blur();}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+              <div style={{display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
+                {editingName ? (
+                  <>
+                    <input value={nameDraft} onChange={function(e){setNameDraft(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")savePreferredName();if(e.key==="Escape")cancelPreferredName();}} autoFocus placeholder="e.g. Lindsey" style={{width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem",border:"1.5px solid "+T.blue,borderRadius:"0.6rem",background:T.surface,color:T.textDark,fontFamily:"'DM Sans',sans-serif",outline:"none",boxSizing:"border-box"}}/>
+                    <button onClick={savePreferredName} style={{fontSize:"0.75rem",padding:"0.28rem 0.65rem",background:T.sage,color:"#fff",border:"none",borderRadius:"0.5rem",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Save</button>
+                    <button onClick={cancelPreferredName} style={{fontSize:"0.75rem",padding:"0.28rem 0.65rem",background:"transparent",color:T.textFaint,border:"1px solid "+T.borderSoft,borderRadius:"0.5rem",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{fontSize:"0.85rem",color:preferredName?T.textDark:T.textFaint,fontFamily:"'DM Sans',sans-serif",fontStyle:preferredName?"normal":"italic"}}>{preferredName||"Not set"}</span>
+                    <button onClick={function(){setNameDraft(preferredName||"");setEditingName(true);}} style={{fontSize:"0.75rem",padding:"0.28rem 0.65rem",background:"transparent",color:T.blue,border:"1px solid "+T.blue+"55",borderRadius:"0.5rem",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Edit</button>
+                  </>
+                )}
               </div>
             </Row>
             <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
