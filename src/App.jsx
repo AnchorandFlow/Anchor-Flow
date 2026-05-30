@@ -921,7 +921,12 @@ function HomeFlow() {
       // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
       setVal(prev => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); markDirtySyncKey(key); rememberSyncSnapshotKey(key); } catch {}
+        try {
+          localStorage.setItem("af_" + key, JSON.stringify(resolved));
+          markDirtySyncKey(key);
+          rememberSyncSnapshotKey(key);
+          window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+        } catch {}
         return resolved;
       });
     }
@@ -1279,6 +1284,7 @@ function HomeFlow() {
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        console.log("[AF SYNC] pushed household", serverTs);
       } else {
         try {
           const insertRows = await sbFetch("/rest/v1/households", {
@@ -1288,9 +1294,7 @@ function HomeFlow() {
             body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
           });
           const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-          try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
           try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
-          dirtyKeys.forEach(k => { dirtySyncKeysRef.current.delete(k); rememberSyncSnapshotKey(k); });
         } catch(insertErr) {
           if (insertErr.message && insertErr.message.includes("owner_id_unique")) {
             const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+ownerId+"&select=id&limit=1", { _token: token });
@@ -1314,9 +1318,8 @@ function HomeFlow() {
                 body: JSON.stringify({ data: payload, updated_at: updatedAt })
               });
               const realServerTs = (realPatchRows && realPatchRows[0] && realPatchRows[0].updated_at) ? realPatchRows[0].updated_at : updatedAt;
-              try { localStorage.setItem("af_lastHHSync", realServerTs); } catch {}
               try { localStorage.setItem("af_lastPushedAt", realServerTs); } catch {}
-              dirtyKeys.forEach(k => { dirtySyncKeysRef.current.delete(k); rememberSyncSnapshotKey(k); });
+
             }
           } else {
             throw insertErr;
@@ -1448,6 +1451,7 @@ function HomeFlow() {
     } finally {
       applyingServerDataRef.current = false;
       seedLocalSyncSnapshot();
+      console.log("[AF SYNC] applied server data");
     }
   }
 
@@ -1487,12 +1491,23 @@ function HomeFlow() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  // ── Debounced sync: fires 2s after any data change ────────────────────────
+  // ── Debounced sync: fires 1s after any data change ────────────────────────
   function debouncedSync() {
     if (!authToken || !householdId) return;
     clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(syncNow, 2000);
+    syncTimeoutRef.current = setTimeout(syncNow, 1000);
   }
+
+  // ── Listen for local data changes and trigger debounced sync ──────────────
+  useEffect(() => {
+    function onDataChanged(e) {
+      console.log("[AF SYNC] local change", e.detail?.key || "");
+      debouncedSync();
+    }
+    window.addEventListener("af-data-changed", onDataChanged);
+    return () => window.removeEventListener("af-data-changed", onDataChanged);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, householdId]);
 
   // ── Realtime + fallback poll ───────────────────────────────────────────────
   useEffect(() => {
@@ -1518,7 +1533,7 @@ function HomeFlow() {
         window._pendingSync = setTimeout(function() { handleIncoming(row); }, 5000);
         return;
       }
-      console.log("[AF] Applying incoming from", serverTs);
+      console.log("[AF SYNC] incoming household update", serverTs);
       applyServerData(row.data, serverTs);
     }
 
@@ -9760,7 +9775,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
               {lastSyncTime&&<p style={{fontSize:"0.74rem",color:T.sage,fontWeight:700,marginBottom:"0.65rem"}}>Last synced: {lastSyncTime}</p>}
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>setShowHouseholdModal(true)} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
+                <button onClick={function(e){e.preventDefault();setShowHouseholdModal(true);}} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
                   👥 Manage household
                 </button>
                 <button onClick={syncNow} style={btnS({fontSize:"0.8rem",padding:"0.55rem 0.85rem",display:"flex",alignItems:"center",gap:"0.3rem"})}>
