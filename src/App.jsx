@@ -734,17 +734,14 @@ function ScrollTabs({ children, style={} }) {
 // ── Section — outside HomeFlow so it never remounts when HomeFlow state changes ──
 function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
   var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
-  var lastToggleRef = React.useRef(0);
-  function handleToggle(e) {
-    e.stopPropagation();
-    var now = Date.now();
-    if (now - lastToggleRef.current < 250) return;
-    lastToggleRef.current = now;
-    toggleSetting(id, defaultOpen);
-  }
   return(
     <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
-      <button type="button" onPointerUp={handleToggle} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
+      <button type="button" onClick={function(e){
+        e.stopPropagation();
+        var current = id in settingsOpen ? settingsOpen[id] : (defaultOpen||false);
+        console.log("[AF SETTINGS] toggle",id,"before:",current,"after:",!current);
+        toggleSetting(id,defaultOpen);
+      }} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
         <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
         <div style={{flex:1}}>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
