@@ -1006,17 +1006,7 @@ function HomeFlow() {
     setSaveStatus(cloudOnly ? "cloud-failed" : "failed");
     setTimeout(function(){ setSaveStatus(null); }, 4000);
   }
-  const SaveStatusBadge = saveStatus ? (
-    <div style={{position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 72px)",left:"50%",transform:"translateX(-50%)",zIndex:9999,pointerEvents:"none",
-      background: saveStatus==="saved"?"#1d9e75":saveStatus==="saving"?"#3a6b8a":saveStatus==="cloud-failed"?"#c8a97a":"#c0392b",
-      color:"#fff",fontSize:"0.75rem",fontWeight:700,padding:"0.38rem 1rem",borderRadius:"2rem",
-      boxShadow:"0 2px 12px rgba(0,0,0,0.18)",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.02em",whiteSpace:"nowrap"}}>
-      {saveStatus==="saving"&&"Saving…"}
-      {saveStatus==="saved"&&"✓ Saved"}
-      {saveStatus==="failed"&&"⚠ Save failed"}
-      {saveStatus==="cloud-failed"&&"Saved on device · cloud sync failed"}
-    </div>
-  ) : null;
+
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
   const T = THEMES[themeName];
@@ -1358,7 +1348,7 @@ function HomeFlow() {
     payload._meta = {
       schema_version: 1,
       app_version: APP_VERSION,
-      updated_by: ((() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })())?.id || "unknown"
+      updated_by: (function(){ try { var u=JSON.parse(localStorage.getItem("af_authUser")||"null"); return u && u.id ? u.id : "unknown"; } catch { return "unknown"; } })()
     };
 
     syncInFlightRef.current = true;
@@ -11133,7 +11123,11 @@ function FlowWrapper({ onHome, onSignOut }) {
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
 
-        {SaveStatusBadge}
+        {saveStatus&&(
+          <div style={{position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 72px)",left:"50%",transform:"translateX(-50%)",zIndex:9999,pointerEvents:"none",background:saveStatus==="saved"?"#1d9e75":saveStatus==="saving"?"#3a6b8a":saveStatus==="cloud-failed"?"#c8a97a":"#c0392b",color:"#fff",fontSize:"0.75rem",fontWeight:700,padding:"0.38rem 1rem",borderRadius:"2rem",boxShadow:"0 2px 12px rgba(0,0,0,0.18)",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.02em",whiteSpace:"nowrap"}}>
+            {saveStatus==="saving"&&"Saving…"}{saveStatus==="saved"&&"✓ Saved"}{saveStatus==="failed"&&"⚠ Save failed"}{saveStatus==="cloud-failed"&&"Saved on device · cloud sync failed"}
+          </div>
+        )}
         <ErrorBoundary>
           <HomeFlow />
         </ErrorBoundary>
