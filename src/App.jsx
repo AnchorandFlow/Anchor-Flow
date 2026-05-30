@@ -866,7 +866,6 @@ function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
 const homeFlowRef = { tab: "anchor", goTab: () => {} };
 
 function HomeFlow() {
-  React.useEffect(function(){ console.log("[HOMEFLOW RENDER]"); });
 
   // ── Launch stability helpers ─────────────────────────────────────────────
   // These reduce jumpiness by avoiding full-page reloads and reduce household
@@ -943,7 +942,9 @@ function HomeFlow() {
       catch { return fallback; }
     });
     function setSaved(next) {
-      console.log("[SAVED WRITE]", key);
+      // Use React's functional updater so we always operate on the latest state,
+      // avoiding stale-closure bugs when setSaved is called inside timeouts or
+      // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
       setVal(prev => {
         const resolved = typeof next === "function" ? next(prev) : next;
         try {
@@ -9237,7 +9238,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   function SettingsTab(){
     console.log("[AF RENDER] SettingsTab");
     React.useEffect(function(){ console.log("[AF SETTINGS] settingsOpen:", JSON.stringify(settingsOpen)); }, [settingsOpen]);
-    React.useEffect(function(){ console.log("[SETTINGS RENDER] SettingsTab re-rendered"); });
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
@@ -9348,7 +9348,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ════════════════════════════════════
             1. FAMILY
         ════════════════════════════════════ */}
-        <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
           <div style={{paddingTop:"0.75rem"}}>
             {/* People list */}
             <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
@@ -9380,12 +9380,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
             </Row>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             2. FLOW (YOU)
         ════════════════════════════════════ */}
-        <Sec id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
               <div style={{display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
@@ -9419,12 +9419,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
             </div>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             3. MIND
         ════════════════════════════════════ */}
-        <Sec id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{paddingBottom:"0.75rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Default view</div>
@@ -9433,12 +9433,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Categories & colours</div>
             <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             4. MEALS
         ════════════════════════════════════ */}
-        <Sec id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
@@ -9455,12 +9455,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </Row>
             <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             5. SHOPPING
         ════════════════════════════════════ */}
-        <Sec id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
             {stores.map(function(store,i){
@@ -9483,12 +9483,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             )}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             6. TIDE POOL
         ════════════════════════════════════ */}
-        <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
           <div style={{paddingTop:"0.75rem"}}>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
@@ -9540,14 +9540,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       );
                     })}
                     <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                      <input
-                        value={newChoreName}
-                        ref={function(el){ if(el){ console.log("[INPUT MOUNT] newChoreName"); } else { console.log("[INPUT UNMOUNT] newChoreName"); } }}
-                        onChange={function(e){ console.log("[INPUT CHANGE]", e.target.value); setNewChoreName(e.target.value); }}
-                        onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}}
-                        placeholder="New chore…"
-                        style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}
-                      />
+                      <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
                       <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                         <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
                       </select>
@@ -9589,12 +9582,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })()}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             7. WEEKLY RHYTHM
         ════════════════════════════════════ */}
-        <Sec id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
             {(function(){
@@ -9645,12 +9638,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })()}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             8. SCHOOL
         ════════════════════════════════════ */}
-        <Sec id="school" emoji="📚" title="School" sub="School type and settings for each child">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="school" emoji="📚" title="School" sub="School type and settings for each child">
           <div style={{paddingTop:"0.75rem"}}>
             {minorKids.length===0&&(
               <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
@@ -9694,12 +9687,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             9. APPEARANCE & NOTIFICATIONS
         ════════════════════════════════════ */}
-        <Sec id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.55rem"}}>Theme</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.55rem",marginBottom:"1rem"}}>
@@ -9783,7 +9776,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             )}
           </div>
-        </Sec>
+        </Section>
 
         {/* PWA install nudge — only shows when opened in a browser, not from home screen */}
         {showPwaBanner && (function(){
@@ -9843,7 +9836,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ════════════════════════════════════
             Sign In & Sync — always last
         ════════════════════════════════════ */}
-        <Sec id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
           <div style={{paddingTop:"0.75rem"}}>
           {false ? (
             <div>
@@ -9876,11 +9869,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
           </div>
-        </Sec>
+        </Section>
 
         {/* AI memory */}
         {Object.keys(aiMemory).length>0&&(
-          <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
+          <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
             <div style={{paddingTop:"0.75rem"}}>
               <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
                 <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
@@ -9892,7 +9885,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );})}
             </div>
-          </Sec>
+          </Section>
         )}
 
         <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
