@@ -371,12 +371,17 @@ const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
 
 async function sbFetch(path, opts={}) {
+  const token = opts._token || null;
+  if (!token && path.includes("/rest/v1/households")) {
+    console.warn("[AF AUTH] token present: false — blocking household request to", path.split("?")[0]);
+    throw new Error("No auth token for household request");
+  }
   const url = SUPABASE_URL + path;
   const r = await fetch(url, {
     ...opts,
     headers: {
       "apikey": SUPABASE_KEY,
-      "Authorization": "Bearer " + (opts._token || SUPABASE_KEY),
+      "Authorization": "Bearer " + (token || SUPABASE_KEY),
       "Content-Type": "application/json",
       ...(opts.headers || {}),
     }
@@ -385,7 +390,13 @@ async function sbFetch(path, opts={}) {
   const body = ct.includes("json") ? await r.json() : await r.text();
   if (!r.ok) {
     const errMsg = typeof body === "object" ? JSON.stringify(body) : body;
+    if (r.status === 401 && path.includes("/rest/v1/households")) {
+      console.warn("[AF SYNC] household pull unauthorized — token may be expired");
+    }
     throw new Error(errMsg);
+  }
+  if (path.includes("/rest/v1/households") && r.ok) {
+    console.log("[AF SYNC] household pull success", path.split("?")[0]);
   }
   return body;
 }
@@ -982,11 +993,11 @@ function HomeFlow() {
     sbFetch("/auth/v1/user", { _token: authToken })
       .catch((e) => {
         if (isJwtExpired(e)) {
-          // Token expired — clear silently, user will see signed-out state
           try { localStorage.removeItem("af_authToken"); } catch {}
           try { localStorage.removeItem("af_authUser"); } catch {}
           setAuthToken(null);
           setAuthUser(null);
+          setShowAuthModal(true);
         }
         // Non-JWT errors (network offline etc) — keep token, try again later
       });
@@ -1330,6 +1341,8 @@ function HomeFlow() {
       if (isJwtExpired(e)) {
         try { localStorage.removeItem("af_authToken"); } catch {}
         setAuthToken(null);
+        setShowAuthModal(true);
+        console.warn("[AF] Session expired — please sign in again");
       } else {
         console.warn("[AF] pushHouseholdData failed:", e.message);
         throw e;
@@ -1498,6 +1511,18 @@ function HomeFlow() {
     syncTimeoutRef.current = setTimeout(syncNow, 1000);
   }
 
+  // ── Log auth token presence on mount ──────────────────────────────────────
+  useEffect(() => {
+    const tok = localStorage.getItem("af_authToken");
+    const present = !!(tok && tok !== "null");
+    console.log("[AF AUTH] token present:", present);
+    if (!present && authToken) {
+      // State says logged in but localStorage is empty — clear state
+      setAuthToken(null);
+      setShowAuthModal(true);
+    }
+  }, []); // eslint-disable-line
+
   // ── Listen for local data changes and trigger debounced sync ──────────────
   useEffect(() => {
     function onDataChanged(e) {
@@ -1553,7 +1578,15 @@ function HomeFlow() {
       try {
         const rows = await sbFetch("/rest/v1/households?id=eq."+householdId+"&select=updated_at,data", { _token: authToken });
         if (rows && rows.length > 0) handleIncoming(rows[0]);
-      } catch {}
+      } catch(e) {
+        if (e.message && (e.message.includes("401") || e.message.includes("Unauthorized") || e.message.includes("No auth token"))) {
+          console.warn("[AF SYNC] household pull unauthorized — stopping poll, showing sign-in");
+          setAuthToken(null);
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          setShowAuthModal(true);
+          clearInterval(poll);
+        }
+      }
     }, 15000);
 
     return () => { supabase.removeChannel(channel); clearInterval(poll); clearTimeout(window._pendingSync); };
@@ -1572,7 +1605,16 @@ function HomeFlow() {
         await pushHouseholdData(authToken, householdId);
         setSyncStatus("synced");
         setLastSyncTime(new Date().toLocaleTimeString());
-      } catch(e) { if (!isJwtExpired(e)) setSyncStatus("error"); }
+      } catch(e) {
+        if (e.message && (e.message.includes("401") || e.message.includes("Unauthorized") || e.message.includes("No auth token"))) {
+          console.warn("[AF SYNC] push unauthorized — stopping, showing sign-in");
+          setAuthToken(null);
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          setShowAuthModal(true);
+        } else if (!isJwtExpired(e)) {
+          setSyncStatus("error");
+        }
+      }
     }, 10000);
     return () => clearInterval(iv);
   // eslint-disable-next-line react-hooks/exhaustive-deps
