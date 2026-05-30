@@ -1247,16 +1247,16 @@ function HomeFlow() {
     if (syncInFlightRef.current && !force) return;
     const force = !!options.force;
     collectLocallyChangedSyncKeys();
-    const dirtyKeys = force ? new Set(SYNC_KEYS) : new Set(dirtySyncKeysRef.current);
-    if (!dirtyKeys.size) return;
-
     const payload = {};
-    dirtyKeys.forEach(k => {
+    SYNC_KEYS.forEach(k => {
       try {
         const raw = localStorage.getItem("af_" + k);
         if (raw && raw !== "null") {
           const parsed = JSON.parse(raw);
-          if (parsed !== null && parsed !== undefined) payload[k] = parsed;
+          if (parsed !== null && parsed !== undefined) {
+            if (Array.isArray(parsed) && parsed.length === 0) return;
+            payload[k] = parsed;
+          }
         }
       } catch {}
     });
@@ -1278,9 +1278,7 @@ function HomeFlow() {
           body: JSON.stringify({ data: merged, updated_at: updatedAt })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
-        dirtyKeys.forEach(k => { dirtySyncKeysRef.current.delete(k); rememberSyncSnapshotKey(k); });
       } else {
         try {
           const insertRows = await sbFetch("/rest/v1/households", {
