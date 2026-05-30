@@ -733,6 +733,7 @@ function ScrollTabs({ children, style={} }) {
 
 // ── Section — outside HomeFlow so it never remounts when HomeFlow state changes ──
 function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
+  console.log("[AF RENDER] Section", id);
   var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
   return(
     <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
@@ -1469,7 +1470,7 @@ function HomeFlow() {
     } finally {
       applyingServerDataRef.current = false;
       seedLocalSyncSnapshot();
-      console.log("[AF SYNC] applied server data");
+      console.log("[AF SYNC] applied server data — triggers HomeFlow rerender + SettingsTab remount if inside HomeFlow");
     }
   }
 
@@ -9224,7 +9225,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   function SettingsTab(){
+    console.log("[AF RENDER] SettingsTab");
     const [settingsOpen, setSettingsOpen] = useState({family:true});
+    React.useEffect(function(){ console.log("[AF SETTINGS] settingsOpen:", JSON.stringify(settingsOpen)); }, [settingsOpen]);
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
