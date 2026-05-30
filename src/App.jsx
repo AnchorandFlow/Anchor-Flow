@@ -1544,13 +1544,12 @@ function HomeFlow() {
       // Skip our own pushes
       const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
       if (serverTs && serverTs === lastPushedAt) {
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         setSyncStatus("synced");
         return;
       }
       // Skip if we already applied this exact server timestamp
       const lastSync = localStorage.getItem("af_lastHHSync") || "";
-      if (serverTs && serverTs === lastSync) return;
+      if (serverTs && serverTs === lastSync && serverTs !== lastPushedAt) return;
       // Skip if user is actively typing — retry in 5s
       const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
       if (isTyping) {
