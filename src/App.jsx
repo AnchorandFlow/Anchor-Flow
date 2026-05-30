@@ -6797,7 +6797,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [claimed, setClaimed] = useState(null);
     var [flyName, setFlyName] = useState("");
     var [flyPts, setFlyPts] = useState(1);
-    var [showKidSettings, setShowKidSettings] = useState(false);
 
     // ── Daily chore reset ──
     React.useEffect(function(){
@@ -6891,38 +6890,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
-          <button onClick={function(){setShowKidSettings(function(v){return !v;});}} title="Parent settings"
+          <button onClick={function(){try{sessionStorage.setItem("af_settingsTarget","tidepool");}catch{}goTab("settings");}} title="Tide Pool settings"
             style={{position:"absolute",right:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"4px",opacity:0.4,fontSize:"1rem"}}>⚙️</button>
         </div>
-
-        {/* Parent settings panel */}
-        {showKidSettings && (
-          <div style={{...card({background:T.bgAlt,border:"1.5px dashed "+T.border}),marginBottom:"1.25rem"}}>
-            <div style={{fontWeight:700,fontSize:"0.8rem",color:T.textDark,marginBottom:"0.75rem",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <span>⚙️ Parent Settings</span>
-              <button onClick={function(){setShowKidSettings(false);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1rem",color:T.textSoft,lineHeight:1}}>✕</button>
-            </div>
-            <div style={{fontSize:"0.72rem",color:T.textSoft,marginBottom:"0.75rem"}}>Set how many shells each child needs to open the chest.</div>
-            {kids.map(function(k,i){
-              return (
-                <div key={k.kidId} style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.5rem"}}>
-                  <div style={{flex:1,fontSize:"0.84rem",fontWeight:600,color:T.textDark}}>{k.kidName}</div>
-                  <div style={{fontSize:"0.72rem",color:T.textSoft}}>Shells to open:</div>
-                  <input
-                    type="number" min="1" max="100"
-                    value={k.shellGoal||10}
-                    onChange={function(e){
-                      var v=parseInt(e.target.value)||10;
-                      if(v<1)v=1;
-                      updateKidByIdx(i,{shellGoal:v});
-                    }}
-                    style={{...inp({width:60,padding:"0.3rem 0.4rem",fontSize:"0.85rem",textAlign:"center"})}}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         {/* Kid selector */}
         {kids.length > 1 && (
@@ -7730,7 +7700,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var introPct = totalCount > 0 ? Math.round((introducedItems.length / totalCount) * 100) : 0;
       return (
         <div style={{paddingBottom:"3rem"}}>
-          {/* Header */}
           <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
             <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:4}}>
               <Icon name="arrow-left" size={18} color={T.textSoft}/>
@@ -7740,7 +7709,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontSize:"0.66rem",color:T.textFaint,marginTop:2}}>{introducedItems.length} introduced · {totalCount - introducedItems.length} remaining · tap a food to mark it introduced</div>
             </div>
           </div>
-          {/* Progress */}
           <div style={{padding:"0 16px 6px"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
               <span style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:600}}>{introducedItems.length} of {totalCount} foods</span>
@@ -7750,14 +7718,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{height:"100%",background:goldC,width:introPct+"%",borderRadius:2,transition:"width 0.4s"}}/>
             </div>
           </div>
-          {/* Introduced log */}
           {introducedItems.length > 0 && (
             <div style={{padding:"8px 16px 4px"}}>
               <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>First Foods Log</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
                 {introducedItems.map(function(it) {
                   return (
-                    <div key={it.id} onClick={function(){if(window.confirm("Remove "+it.content+" from the list?")){toggleFoodIntro(it.id);}}}
+                    <div key={it.id} onClick={function(){if(window.confirm("Remove "+it.content+" from the log?")){toggleFoodIntro(it.id);}}}
                       style={{display:"inline-flex",alignItems:"center",gap:4,background:goldC+"22",border:"1.5px solid "+goldC,borderRadius:999,padding:"3px 10px 3px 6px",cursor:"pointer",fontSize:"0.76rem",color:navyC,fontWeight:600}}>
                       <span style={{background:goldC,color:"#fff",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",fontWeight:800,flexShrink:0}}>#{it.introOrder}</span>
                       {it.content}
@@ -7768,7 +7735,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
           <div style={{height:1,background:T.borderSoft,margin:"10px 16px"}}/>
-          {/* Food bank by section */}
           <div style={{padding:"0 16px"}}>
             <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Food Bank — tap to introduce</div>
             {activeSections.map(function(sec) {
@@ -9386,6 +9352,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   function SettingsTab(){
     console.log("[AF RENDER] SettingsTab");
     React.useEffect(function(){ console.log("[AF SETTINGS] settingsOpen:", JSON.stringify(settingsOpen)); }, [settingsOpen]);
+    React.useEffect(function(){
+      var target;
+      try { target = sessionStorage.getItem("af_settingsTarget"); sessionStorage.removeItem("af_settingsTarget"); } catch {}
+      if (target) {
+        setSettingsOpen(function(p){ return Object.assign({},p,{[target]:true}); });
+        setTimeout(function(){
+          var el = document.getElementById("settings-sec-"+target);
+          if (el) el.scrollIntoView({behavior:"smooth",block:"start"});
+        }, 120);
+      }
+    }, []);
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
@@ -9636,7 +9613,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ════════════════════════════════════
             6. TIDE POOL
         ════════════════════════════════════ */}
-        <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+        <div id="settings-sec-tidepool"><Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
           <div style={{paddingTop:"0.75rem"}}>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
@@ -9670,6 +9647,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
                   })}
                 </div>
+
+                {/* Per-kid shell goal */}
+                <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",borderRadius:"0.65rem",background:T.bgAlt,border:"1px solid "+T.borderSoft,marginBottom:"0.65rem"}}>
+                  <span style={{fontSize:"1rem"}}>🐚</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark}}>Shells to open the chest</div>
+                    <div style={{fontSize:"0.7rem",color:T.textSoft,marginTop:1}}>How many {sKid.name} needs to earn before opening</div>
+                  </div>
+                  <input
+                    type="number" min="1" max="100"
+                    value={(function(){ var d=saved.find(function(x){return x.kidId===sKid.id;}); return (d&&d.shellGoal)||10; })()}
+                    onChange={function(e){
+                      var v=parseInt(e.target.value)||10;
+                      if(v<1)v=1;
+                      updateSaved({shellGoal:v});
+                    }}
+                    style={{...inp({width:64,padding:"0.35rem 0.4rem",fontSize:"0.9rem",textAlign:"center",fontWeight:700})}}
+                  />
+                </div>
+
                 <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
                   {["chores","treasures"].map(function(t){
                     return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
@@ -9730,7 +9727,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })()}
           </div>
-        </Sec>
+        </Sec></div>
 
         {/* ════════════════════════════════════
             7. WEEKLY RHYTHM

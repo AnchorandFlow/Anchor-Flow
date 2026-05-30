@@ -6275,9 +6275,9 @@ function RippleSection() {
               border: active ? "0.5px solid "+GOLD : BORD,
               color: active ? GOLD : "rgba(250,248,244,0.5)",
               fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: active ? 700 : 400 } },
-            fid === "all" ? "All" : (p.color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0, display: "inline-block" } }) : null),
-            fid === "all" ? null : p.name,
-            React.createElement("span", { style: { fontSize: 9, opacity: 0.6 } }, "("+count+")")
+            fid !== "all" && p.color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0, display: "inline-block" } }) : null,
+            fid === "all" ? "All" : p.name,
+            React.createElement("span", { style: { fontSize: 9, opacity: 0.6, marginLeft: 2 } }, "("+count+")")
           )
         })
       )
