@@ -370,6 +370,15 @@ class ErrorBoundary extends React.Component {
 const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
 
+// Returns true if event e covers the given dateStr (YYYY-MM-DD)
+// Handles single-day (e.date only) and multi-day (e.date + e.endDate)
+function eventCoversDay(e, dateStr) {
+  if (!e.date) return false;
+  if (!e.endDate || e.endDate <= e.date) return e.date === dateStr;
+  return dateStr >= e.date && dateStr <= e.endDate;
+}
+
+
 async function sbFetch(path, opts={}) {
   const token = opts._token || null;
   if (!token && path.includes("/rest/v1/households")) {
@@ -2121,7 +2130,7 @@ function HomeFlow() {
     });
     const brainPending = brainItems.filter(b=>!b.done&&!b.scheduledDay);
     const next7 = Array.from({length:7},function(_,i){var d=new Date(TODAY);d.setDate(d.getDate()+i+1);return d.toISOString().split("T")[0];});
-    const upcomingEvts7 = calEvents.filter(e=>next7.includes(e.date)).slice(0,6);
+    const upcomingEvts7 = calEvents.filter(e=>next7.some(function(d){return eventCoversDay(e,d);})).slice(0,6);
     const THEME_TO_CATS_BRIEF = {
       "reset":    ["household","errands"],
       "errands":  ["errands","orders"],
@@ -2451,7 +2460,7 @@ Respond ONLY with valid JSON array, no markdown:
     const pendingTasks= todayTasks.filter(t => !t.done);
     const todayMeal   = (meals[TODAY_NAME]||{}).dinner;
     const todayDateStr= TODAY.toISOString().split("T")[0];
-    const todayEvts   = calEvents.filter(e => e.date === todayDateStr).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+    const todayEvts   = calEvents.filter(e => eventCoversDay(e, todayDateStr)).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     const tmrName     = DAY_NAMES[new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).getDay()];
     const tmrMeal     = (meals[tmrName]||{}).dinner;
     const familyCtx   = familyProfile ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids. Work: ${familyProfile.workSituation||"not set"}.` : "";
@@ -2514,7 +2523,7 @@ Respond ONLY with valid JSON array, no markdown:
     const eveningTime = todayAt(17);
     if (eveningTime > now && notifSettings.evening !== false) {
       const tmrDateStr = new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).toISOString().split("T")[0];
-      const tmrEvtsList = calEvents.filter(e=>e.date===tmrDateStr);
+      const tmrEvtsList = calEvents.filter(e=>eventCoversDay(e,tmrDateStr));
       const tmrStr = [
         ...tmrEvtsList.map(e=>`${e.time?fmtTime(e.time)+" ":""} ${e.title}`),
         ...(tmrMeal?[`Dinner: ${tmrMeal}`]:[])
@@ -4740,7 +4749,7 @@ Respond ONLY in valid JSON:
       var diff=mealIdx-todayIdx;if(diff<0)diff+=7;
       var dayDate=new Date(TODAY);dayDate.setDate(dayDate.getDate()+diff);
       var dateStr=dayDate.getFullYear()+"-"+String(dayDate.getMonth()+1).padStart(2,"0")+"-"+String(dayDate.getDate()).padStart(2,"0");
-      var dayEvents=calEvents.filter(function(e){return e.date===dateStr&&!e._birthday;});
+      var dayEvents=calEvents.filter(function(e){return eventCoversDay(e,dateStr)&&!e._birthday;});
       var dinner=(meals[day]||{}).dinner||"";
       var dayTasks=tasks.filter(function(t){return(t.day===day||t.day==="Daily")&&!t.archived&&!t.done;});
       var isBusy=dayEvents.length>=2;
@@ -10426,6 +10435,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem",marginBottom:"0.9rem"}}>
           <div><label style={lbl}>Date</label><input type="date" value={f.date} onChange={e=>setF(p=>({...p,date:e.target.value}))} style={inp()}/></div>
           <div><label style={lbl}>Time (optional)</label><input type="time" value={f.time} onChange={e=>setF(p=>({...p,time:e.target.value}))} style={inp()}/></div>
+        </div>
+        <div style={{marginBottom:"0.9rem"}}>
+          <label style={lbl}>End Date <span style={{fontWeight:400,color:T.textFaint}}>(optional — for multi-day events)</span></label>
+          <input type="date" value={f.endDate||""} min={f.date||""} onChange={e=>setF(p=>({...p,endDate:e.target.value||""}))} style={inp()}/>
+          {f.endDate&&f.endDate>f.date&&<div style={{fontSize:"0.72rem",color:T.blue,marginTop:"0.3rem"}}>📅 Spans {Math.round((new Date(f.endDate)-new Date(f.date))/(1000*60*60*24)+1)} days</div>}
         </div>
         <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Note (optional)</label><textarea value={f.note||""} onChange={e=>setF(p=>({...p,note:e.target.value}))} placeholder="Any details, reminders…" style={{...inp({height:68,resize:"none"})}}/></div>
         {/* Inline reminder */}
