@@ -866,6 +866,7 @@ function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
 const homeFlowRef = { tab: "anchor", goTab: () => {} };
 
 function HomeFlow() {
+  React.useEffect(function(){ console.log("[HOMEFLOW RENDER]"); });
 
   // ── Launch stability helpers ─────────────────────────────────────────────
   // These reduce jumpiness by avoiding full-page reloads and reduce household
@@ -942,9 +943,7 @@ function HomeFlow() {
       catch { return fallback; }
     });
     function setSaved(next) {
-      // Use React's functional updater so we always operate on the latest state,
-      // avoiding stale-closure bugs when setSaved is called inside timeouts or
-      // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
+      console.log("[SAVED WRITE]", key);
       setVal(prev => {
         const resolved = typeof next === "function" ? next(prev) : next;
         try {
@@ -6748,7 +6747,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         kidId: k.id,
         kidName: k.name,
         shells: 0,
-        shellGoal: 10,
         chores: [
           {id:uid(),name:"Make bed",pts:1,done:false},
           {id:uid(),name:"Clear dishes",pts:1,done:false},
@@ -6777,7 +6775,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var merged = rawKids.map(function(p){
         var existing = saved.find(function(d){ return d.kidId===p.id; });
         if(existing) return existing;
-        return {kidId:p.id,kidName:p.name,shells:0,shellGoal:10,chores:[
+        return {kidId:p.id,kidName:p.name,shells:0,chores:[
           {id:uid(),name:"Make bed",pts:1,done:false},
           {id:uid(),name:"Clear dishes",pts:1,done:false},
         ],treasures:[
@@ -6826,14 +6824,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     }
 
-    function updateKidByIdx(idx, patch) {
-      setKids(function(prev){
-        var next = prev.map(function(k,i){ return i===idx?Object.assign({},k,patch):k; });
-        setCoveData(next);
-        return next;
-      });
-    }
-
     function toggleChore(choreId) {
       var ch = kid.chores.find(function(c){ return c.id===choreId; });
       if(!ch) return;
@@ -6851,7 +6841,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function openChest() {
-      if(kid.shells < (kid.shellGoal||COVE_MIN_OPEN)) return;
+      if(kid.shells < COVE_MIN_OPEN) return;
       setChestOpen(true);
       setSelectedTreasure(null);
       setClaimed(null);
@@ -6872,9 +6862,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     var shellCount = kid.shells;
-    var kidGoal = kid.shellGoal||COVE_MIN_OPEN;
-    var ready = shellCount >= kidGoal;
-    var nextThreshold = Math.ceil((shellCount + 1) / kidGoal) * kidGoal;
+    var ready = shellCount >= COVE_MIN_OPEN;
+    var nextThreshold = Math.ceil((shellCount + 1) / COVE_MIN_OPEN) * COVE_MIN_OPEN;
     var shellSlots = Math.max(nextThreshold, shellCount + 5);
     var sortedTreasures = (kid.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;});
 
@@ -6890,8 +6879,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
-          <button onClick={function(){try{sessionStorage.setItem("af_settingsTarget","tidepool");}catch{}goTab("settings");}} title="Tide Pool settings"
-            style={{position:"absolute",right:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"4px",opacity:0.4,fontSize:"1rem"}}>⚙️</button>
         </div>
 
         {/* Kid selector */}
@@ -6941,7 +6928,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
 
           <div style={{fontSize:"0.8rem",marginTop:"0.4rem",minHeight:"1.2rem",fontWeight:ready&&!chestOpen?700:400,color:ready&&!chestOpen?tealHex:T.textSoft}}>
-            {chestOpen?"":ready?"Tap the chest to open it!":`${kidGoal-shellCount} more shell${kidGoal-shellCount===1?"":"s"} to open`}
+            {chestOpen?"":ready?"Tap the chest to open it!":`${COVE_MIN_OPEN-shellCount} more shell${COVE_MIN_OPEN-shellCount===1?"":"s"} to open`}
           </div>
         </div>
 
@@ -6958,7 +6945,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{textAlign:"center",fontSize:"0.72rem",color:T.textFaint,marginBottom:"1.25rem"}}>
           {ready&&!chestOpen
             ? <span style={{color:tealHex,fontWeight:600}}>🎉 Ready to open!</span>
-            : shellCount<kidGoal&&<span>{kidGoal-shellCount} more shell{kidGoal-shellCount===1?"":"s"} to open</span>
+            : shellCount<COVE_MIN_OPEN&&<span>{COVE_MIN_OPEN-shellCount} more shell{COVE_MIN_OPEN-shellCount===1?"":"s"} to open</span>
           }
         </div>
 
@@ -6969,7 +6956,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{textAlign:"center",padding:"0.5rem 0"}}>
                 <div style={{fontSize:"2.5rem",marginBottom:"0.4rem"}}>{claimed.icon}</div>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:"#412402",marginBottom:"0.2rem"}}>{kid.kidName} claimed: {claimed.name}!</div>
-                <div style={{fontSize:"0.8rem",color:"#633806",marginBottom:"0.85rem"}}>{kid.shells>0?(kid.shells>=kidGoal?"Ready to open again! ":"Keep collecting — ")+kid.shells+" shell"+(kid.shells===1?"":"s")+" saved.":"Keep earning shells to fill the beach again! 🐚"}</div>
+                <div style={{fontSize:"0.8rem",color:"#633806",marginBottom:"0.85rem"}}>{kid.shells>0?(kid.shells>=COVE_MIN_OPEN?"Ready to open again! ":"Keep collecting — ")+kid.shells+" shell"+(kid.shells===1?"":"s")+" saved.":"Keep earning shells to fill the beach again! 🐚"}</div>
                 <button onClick={closeChest} style={{...btnS(),fontSize:"0.8rem",border:"1px solid "+sandHex,color:"#854f0b"}}>Close chest</button>
               </div>
             ) : (
@@ -7669,110 +7656,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
-    // ── Food bank (Baby's first 100 foods) ───────────────────────────────────
-    function toggleFoodIntro(itemId) {
-      setCoveItemsMap(function(prev) {
-        var items = (prev[activeListId] || []).slice();
-        var item = items.find(function(i) { return i.id === itemId; });
-        if (!item) return prev;
-        var newItems;
-        if (item.introOrder != null) {
-          var removedOrder = item.introOrder;
-          newItems = items.map(function(i) {
-            if (i.id === itemId) return Object.assign({}, i, {introOrder: null});
-            if (i.introOrder != null && i.introOrder > removedOrder) return Object.assign({}, i, {introOrder: i.introOrder - 1});
-            return i;
-          });
-        } else {
-          var maxOrder = 0;
-          items.forEach(function(i) { if (i.introOrder != null && i.introOrder > maxOrder) maxOrder = i.introOrder; });
-          newItems = items.map(function(i) { return i.id === itemId ? Object.assign({}, i, {introOrder: maxOrder + 1}) : i; });
-        }
-        return Object.assign({}, prev, {[activeListId]: newItems});
-      });
-    }
-
-    function renderFoodBank() {
-      var navyC = "#1a2744"; var goldC = "#c8a97a"; var tealC = "#1d9e75";
-      var introducedItems = activeItems.filter(function(i) { return i.introOrder != null; });
-      introducedItems.sort(function(a,b) { return a.introOrder - b.introOrder; });
-      var totalCount = activeItems.length;
-      var introPct = totalCount > 0 ? Math.round((introducedItems.length / totalCount) * 100) : 0;
-      return (
-        <div style={{paddingBottom:"3rem"}}>
-          <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
-            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:4}}>
-              <Icon name="arrow-left" size={18} color={T.textSoft}/>
-            </button>
-            <div style={{flex:1}}>
-              <div style={{fontSize:"1.4rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:navyC}}>🍼 Baby's First 100 Foods</div>
-              <div style={{fontSize:"0.66rem",color:T.textFaint,marginTop:2}}>{introducedItems.length} introduced · {totalCount - introducedItems.length} remaining · tap a food to mark it introduced</div>
-            </div>
-          </div>
-          <div style={{padding:"0 16px 6px"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:600}}>{introducedItems.length} of {totalCount} foods</span>
-              <span style={{fontSize:"0.7rem",color:tealC,fontWeight:700}}>{introPct}%</span>
-            </div>
-            <div style={{height:4,background:T.borderSoft,borderRadius:2,overflow:"hidden"}}>
-              <div style={{height:"100%",background:goldC,width:introPct+"%",borderRadius:2,transition:"width 0.4s"}}/>
-            </div>
-          </div>
-          {introducedItems.length > 0 && (
-            <div style={{padding:"8px 16px 4px"}}>
-              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>First Foods Log</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                {introducedItems.map(function(it) {
-                  return (
-                    <div key={it.id} onClick={function(){if(window.confirm("Remove "+it.content+" from the log?")){toggleFoodIntro(it.id);}}}
-                      style={{display:"inline-flex",alignItems:"center",gap:4,background:goldC+"22",border:"1.5px solid "+goldC,borderRadius:999,padding:"3px 10px 3px 6px",cursor:"pointer",fontSize:"0.76rem",color:navyC,fontWeight:600}}>
-                      <span style={{background:goldC,color:"#fff",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.62rem",fontWeight:800,flexShrink:0}}>#{it.introOrder}</span>
-                      {it.content}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div style={{height:1,background:T.borderSoft,margin:"10px 16px"}}/>
-          <div style={{padding:"0 16px"}}>
-            <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>Food Bank — tap to introduce</div>
-            {activeSections.map(function(sec) {
-              var secItems = activeItems.filter(function(i) { return i.section_id === sec.id; });
-              var secIntroduced = secItems.filter(function(i) { return i.introOrder != null; }).length;
-              return (
-                <div key={sec.id} style={{marginBottom:14}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                    <span style={{fontSize:"0.72rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:T.textMid}}>{sec.title}</span>
-                    <span style={{fontSize:"0.62rem",color:T.textFaint,background:T.bgAlt,borderRadius:999,padding:"1px 7px",border:"1px solid "+T.border}}>{secIntroduced}/{secItems.length}</span>
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                    {secItems.map(function(item) {
-                      var introduced = item.introOrder != null;
-                      return (
-                        <button key={item.id} onClick={function(){
-                          if(introduced){if(window.confirm("Remove "+item.content+" from the log?")){toggleFoodIntro(item.id);}}
-                          else{toggleFoodIntro(item.id);}
-                        }}
-                          style={{display:"inline-flex",alignItems:"center",gap:4,padding:introduced?"3px 10px 3px 6px":"4px 11px",borderRadius:999,border:"1.5px solid "+(introduced?goldC:T.border),background:introduced?goldC+"22":T.surface,color:introduced?navyC:T.textMid,fontSize:"0.76rem",fontWeight:introduced?700:500,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                          {introduced && <span style={{background:goldC,color:"#fff",borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.58rem",fontWeight:800,flexShrink:0}}>#{item.introOrder}</span>}
-                          {item.content}
-                          {item.tags&&item.tags.includes("allergen")&&<span style={{fontSize:"0.55rem",color:"#c0392b",fontWeight:800,opacity:0.7}}>⚠</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
-
     // ── Detail view ───────────────────────────────────────────────────────────
     if (view === "detail" && activeList) {
-      if (activeList.template_id === "first-100-foods") return renderFoodBank();
       var unsectionedItems = activeItems.filter(function(i){ return !i.section_id; });
       return (
         <div style={{paddingBottom:"3rem"}}>
@@ -9352,17 +9237,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   function SettingsTab(){
     console.log("[AF RENDER] SettingsTab");
     React.useEffect(function(){ console.log("[AF SETTINGS] settingsOpen:", JSON.stringify(settingsOpen)); }, [settingsOpen]);
-    React.useEffect(function(){
-      var target;
-      try { target = sessionStorage.getItem("af_settingsTarget"); sessionStorage.removeItem("af_settingsTarget"); } catch {}
-      if (target) {
-        setSettingsOpen(function(p){ return Object.assign({},p,{[target]:true}); });
-        setTimeout(function(){
-          var el = document.getElementById("settings-sec-"+target);
-          if (el) el.scrollIntoView({behavior:"smooth",block:"start"});
-        }, 120);
-      }
-    }, []);
+    React.useEffect(function(){ console.log("[SETTINGS RENDER] SettingsTab re-rendered"); });
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
@@ -9613,7 +9488,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ════════════════════════════════════
             6. TIDE POOL
         ════════════════════════════════════ */}
-        <div id="settings-sec-tidepool"><Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+        <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
           <div style={{paddingTop:"0.75rem"}}>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
@@ -9647,35 +9522,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
                   })}
                 </div>
-
-                {/* Per-kid shell goal */}
-                <div style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",borderRadius:"0.65rem",background:T.bgAlt,border:"1px solid "+T.borderSoft,marginBottom:"0.65rem"}}>
-                  <span style={{fontSize:"1rem"}}>🐚</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark}}>Shells to open the chest</div>
-                    <div style={{fontSize:"0.7rem",color:T.textSoft,marginTop:1}}>How many {sKid.name} needs to earn before opening</div>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                    <button
-                      onPointerDown={function(e){e.preventDefault();}}
-                      onClick={function(){
-                        var cur=(function(){var d=saved.find(function(x){return x.kidId===sKid.id;});return (d&&d.shellGoal)||10;})();
-                        if(cur>1) updateSaved({shellGoal:cur-1});
-                      }}
-                      style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid "+T.border,background:T.white,color:T.textMid,fontSize:"1rem",lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>−</button>
-                    <span style={{fontWeight:700,fontSize:"1rem",color:T.textDark,minWidth:28,textAlign:"center"}}>
-                      {(function(){var d=saved.find(function(x){return x.kidId===sKid.id;});return (d&&d.shellGoal)||10;})()}
-                    </span>
-                    <button
-                      onPointerDown={function(e){e.preventDefault();}}
-                      onClick={function(){
-                        var cur=(function(){var d=saved.find(function(x){return x.kidId===sKid.id;});return (d&&d.shellGoal)||10;})();
-                        if(cur<100) updateSaved({shellGoal:cur+1});
-                      }}
-                      style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid "+T.border,background:T.white,color:T.textMid,fontSize:"1rem",lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>+</button>
-                  </div>
-                </div>
-
                 <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
                   {["chores","treasures"].map(function(t){
                     return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
@@ -9694,7 +9540,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       );
                     })}
                     <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                      <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                      <input
+                        value={newChoreName}
+                        ref={function(el){ if(el){ console.log("[INPUT MOUNT] newChoreName"); } else { console.log("[INPUT UNMOUNT] newChoreName"); } }}
+                        onChange={function(e){ console.log("[INPUT CHANGE]", e.target.value); setNewChoreName(e.target.value); }}
+                        onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}}
+                        placeholder="New chore…"
+                        style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}
+                      />
                       <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                         <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
                       </select>
@@ -9736,7 +9589,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })()}
           </div>
-        </Sec></div>
+        </Sec>
 
         {/* ════════════════════════════════════
             7. WEEKLY RHYTHM
