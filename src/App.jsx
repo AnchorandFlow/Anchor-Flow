@@ -741,6 +741,49 @@ function ScrollTabs({ children, style={} }) {
 }
 
 // ── Section — outside HomeFlow so it never remounts when HomeFlow state changes ──
+function SafeTextInput(props) {
+  var value = props.value;
+  var placeholder = props.placeholder;
+  var onSave = props.onSave;
+  var inputStyle = props.inputStyle;
+  var buttonStyle = props.buttonStyle;
+  var autoFocus = props.autoFocus || false;
+  var [draft, setDraft] = React.useState(value || "");
+  var [isDirty, setIsDirty] = React.useState(false);
+  React.useEffect(function() {
+    if (!isDirty) setDraft(value || "");
+  }, [value, isDirty]);
+  function save() {
+    var next = draft.trim();
+    onSave(next);
+    setIsDirty(false);
+  }
+  function cancel() {
+    setDraft(value || "");
+    setIsDirty(false);
+  }
+  var saveBtn = buttonStyle || {fontSize:"0.72rem",padding:"0.22rem 0.6rem",borderRadius:"0.45rem",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:600,background:"#3a6b8a",color:"#fff"};
+  var cancelBtn = Object.assign({},saveBtn,{background:"transparent",color:"#888780",border:"1px solid #e5e3de"});
+  return (
+    <div style={{display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
+      <input
+        value={draft}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        onChange={function(e){ setDraft(e.target.value); setIsDirty(true); }}
+        onKeyDown={function(e){ if(e.key==="Enter") save(); if(e.key==="Escape") cancel(); }}
+        style={inputStyle}
+      />
+      {isDirty && (
+        <React.Fragment>
+          <button type="button" onClick={save} style={saveBtn}>Save</button>
+          <button type="button" onClick={cancel} style={cancelBtn}>Cancel</button>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
 function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
   console.log("[AF RENDER] Section", id);
   var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
@@ -9374,10 +9417,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             {/* ZIP code + home vibe */}
             <Row label="ZIP code" sub="For local weather and notification timing">
-              <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
+              <SafeTextInput value={(familyProfile&&familyProfile.zipcode)||""} placeholder="e.g. 80903" inputStyle={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             </Row>
             <Row label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
-              <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+              <SafeTextInput value={(familyProfile&&familyProfile.homeVibe)||""} placeholder="e.g. calm & faith-led" inputStyle={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             </Row>
           </div>
         </Section>
@@ -9389,18 +9432,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{paddingTop:"0.75rem"}}>
             <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
               <div style={{display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
-                {editingName ? (
-                  <>
-                    <input value={nameDraft} onChange={function(e){setNameDraft(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")savePreferredName();if(e.key==="Escape")cancelPreferredName();}} autoFocus placeholder="e.g. Lindsey" style={{width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem",border:"1.5px solid "+T.blue,borderRadius:"0.6rem",background:T.surface,color:T.textDark,fontFamily:"'DM Sans',sans-serif",outline:"none",boxSizing:"border-box"}}/>
-                    <button onClick={savePreferredName} style={{fontSize:"0.75rem",padding:"0.28rem 0.65rem",background:T.sage,color:"#fff",border:"none",borderRadius:"0.5rem",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Save</button>
-                    <button onClick={cancelPreferredName} style={{fontSize:"0.75rem",padding:"0.28rem 0.65rem",background:"transparent",color:T.textFaint,border:"1px solid "+T.borderSoft,borderRadius:"0.5rem",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Cancel</button>
-                  </>
-                ) : (
-                  <>
-                    <span style={{fontSize:"0.85rem",color:preferredName?T.textDark:T.textFaint,fontFamily:"'DM Sans',sans-serif",fontStyle:preferredName?"normal":"italic"}}>{preferredName||"Not set"}</span>
-                    <button onClick={function(){setNameDraft(preferredName||"");setEditingName(true);}} style={{fontSize:"0.75rem",padding:"0.28rem 0.65rem",background:"transparent",color:T.blue,border:"1px solid "+T.blue+"55",borderRadius:"0.5rem",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Edit</button>
-                  </>
-                )}
+                <SafeTextInput
+                  value={preferredName||""}
+                  placeholder="e.g. Lindsey"
+                  inputStyle={{width:130,fontSize:"0.8rem",padding:"0.28rem 0.55rem",border:"1.5px solid "+T.blue,borderRadius:"0.6rem",background:T.surface,color:T.textDark,fontFamily:"'DM Sans',sans-serif",outline:"none",boxSizing:"border-box"}}
+                  onSave={function(v){if(v){setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{}window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"preferredName"}}));}}}
+                />
               </div>
             </Row>
             <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
@@ -9447,13 +9484,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
             <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
             </Row>
-            <input defaultValue={(familyProfile&&familyProfile.favoriteDinner)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:e.target.value});});}} placeholder="e.g. Tacos, sheet pan chicken, pasta" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+            <SafeTextInput value={(familyProfile&&familyProfile.favoriteDinner)||""} placeholder="e.g. Tacos, sheet pan chicken, pasta" inputStyle={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             <Row label="Dietary needs" sub="Allergies, intolerances, or preferences">
             </Row>
-            <input defaultValue={(familyProfile&&familyProfile.dietaryNeeds)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:e.target.value});});}} placeholder="e.g. Dairy-free, nut allergy" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+            <SafeTextInput value={(familyProfile&&familyProfile.dietaryNeeds)||""} placeholder="e.g. Dairy-free, nut allergy" inputStyle={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             <Row label="Cooking style" sub="Helps Compass suggest appropriate recipes">
             </Row>
-            <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
+            <SafeTextInput value={(familyProfile&&familyProfile.cookingStyle)||""} placeholder="e.g. Quick & simple, batch cook weekends" inputStyle={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
           </div>
         </Section>
 
