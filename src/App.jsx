@@ -9655,17 +9655,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark}}>Shells to open the chest</div>
                     <div style={{fontSize:"0.7rem",color:T.textSoft,marginTop:1}}>How many {sKid.name} needs to earn before opening</div>
                   </div>
-                  <input
-                    key={sKid.id+"_sg"}
-                    type="number" min="1" max="100"
-                    defaultValue={(function(){ var d=saved.find(function(x){return x.kidId===sKid.id;}); return (d&&d.shellGoal)||10; })()}
-                    onBlur={function(e){
-                      var v=parseInt(e.target.value)||10;
-                      if(v<1)v=1;
-                      updateSaved({shellGoal:v});
-                    }}
-                    style={{...inp({width:64,padding:"0.35rem 0.4rem",fontSize:"0.9rem",textAlign:"center",fontWeight:700})}}
-                  />
+                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                    <button
+                      onPointerDown={function(e){e.preventDefault();}}
+                      onClick={function(){
+                        var cur=(function(){var d=saved.find(function(x){return x.kidId===sKid.id;});return (d&&d.shellGoal)||10;})();
+                        if(cur>1) updateSaved({shellGoal:cur-1});
+                      }}
+                      style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid "+T.border,background:T.white,color:T.textMid,fontSize:"1rem",lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>−</button>
+                    <span style={{fontWeight:700,fontSize:"1rem",color:T.textDark,minWidth:28,textAlign:"center"}}>
+                      {(function(){var d=saved.find(function(x){return x.kidId===sKid.id;});return (d&&d.shellGoal)||10;})()}
+                    </span>
+                    <button
+                      onPointerDown={function(e){e.preventDefault();}}
+                      onClick={function(){
+                        var cur=(function(){var d=saved.find(function(x){return x.kidId===sKid.id;});return (d&&d.shellGoal)||10;})();
+                        if(cur<100) updateSaved({shellGoal:cur+1});
+                      }}
+                      style={{width:28,height:28,borderRadius:"50%",border:"1.5px solid "+T.border,background:T.white,color:T.textMid,fontSize:"1rem",lineHeight:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>+</button>
+                  </div>
                 </div>
 
                 <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
