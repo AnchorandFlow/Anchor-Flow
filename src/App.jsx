@@ -9656,9 +9656,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <div style={{fontSize:"0.7rem",color:T.textSoft,marginTop:1}}>How many {sKid.name} needs to earn before opening</div>
                   </div>
                   <input
+                    key={sKid.id+"_sg"}
                     type="number" min="1" max="100"
-                    value={(function(){ var d=saved.find(function(x){return x.kidId===sKid.id;}); return (d&&d.shellGoal)||10; })()}
-                    onChange={function(e){
+                    defaultValue={(function(){ var d=saved.find(function(x){return x.kidId===sKid.id;}); return (d&&d.shellGoal)||10; })()}
+                    onBlur={function(e){
                       var v=parseInt(e.target.value)||10;
                       if(v<1)v=1;
                       updateSaved({shellGoal:v});
