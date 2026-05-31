@@ -327,14 +327,7 @@ class ErrorBoundary extends React.Component {
         <div style={{fontSize:"3rem",marginBottom:"1rem"}}>⚓️</div>
         <h2 style={{marginBottom:"0.5rem",color:"#2a2a38"}}>Something went wrong</h2>
         <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data in the cloud is safe — tap restart to reload it.</p>
-        <button onClick={()=>{
- <button onClick={function(){ window.location.reload(); }}
-          style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>
-          Reload App
-        </button>Click={()=>window.location.reload()}
-          style={{background:"transparent",color:"#8a8a9a",border:"1px solid #ccc",borderRadius:"0.75rem",padding:"0.5rem 1rem",cursor:"pointer",fontSize:"0.85rem"}}>
-          Try again without clearing
-        </button>
+        <button onClick={function(){ window.location.reload(); }} style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>Reload App</button>
         <details style={{marginTop:"1.5rem",color:"#8a8a9a",fontSize:"0.72rem",maxWidth:400,textAlign:"left"}}>
           <summary style={{cursor:"pointer"}}>Error details</summary>
           <pre style={{marginTop:"0.5rem",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{String(this.state.error)}</pre>
