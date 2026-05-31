@@ -797,6 +797,45 @@ function HomeFlow() {
 
 
   // ── Sanitize data from Supabase — removes null array entries, ensures safe types ──
+function createLocalBackup() {
+    try {
+      var snapshot = {};
+      Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) snapshot[k] = localStorage.getItem(k); });
+      var key = "af_backup_" + Date.now();
+      localStorage.setItem(key, JSON.stringify(snapshot));
+      console.log("[AF SAFETY] backup created", key);
+      var backupKeys = Object.keys(localStorage).filter(function(k){ return k.startsWith("af_backup_"); }).sort();
+      while(backupKeys.length > 10){ try { localStorage.removeItem(backupKeys.shift()); } catch {} }
+    } catch(e) { console.warn("[AF SAFETY] backup failed", e.message); }
+  }
+
+  function isRemotePayloadSafe(remoteData, remoteTs) {
+    if (!remoteData || typeof remoteData !== "object") {
+      console.log("[AF SAFETY] refused empty remote apply — null or non-object");
+      return false;
+    }
+    var remoteKeyCount = Object.keys(remoteData).filter(function(k){ return remoteData[k] !== null; }).length;
+    if (remoteKeyCount < 2) {
+      console.log("[AF SAFETY] refused empty remote apply — only", remoteKeyCount, "non-null keys");
+      return false;
+    }
+    var coreKeys = ["tasks","meals","brainItems","shoppingItems","people"];
+    var hasCoreData = coreKeys.some(function(k){
+      try { var v = JSON.parse(localStorage.getItem("af_"+k)||"null"); return Array.isArray(v) && v.length > 0; } catch { return false; }
+    });
+    if (hasCoreData) {
+      var remoteCoreCount = coreKeys.filter(function(k){ return Array.isArray(remoteData[k]) && remoteData[k].length > 0; }).length;
+      var localCoreCount = coreKeys.filter(function(k){
+        try { var v = JSON.parse(localStorage.getItem("af_"+k)||"null"); return Array.isArray(v) && v.length > 0; } catch { return false; }
+      }).length;
+      if (remoteCoreCount === 0 && localCoreCount > 0) {
+        console.log("[AF SAFETY] refused empty remote apply — remote has 0 core arrays, local has", localCoreCount);
+        return false;
+      }
+    }
+    return true;
+  }
+
   function sanitizeHouseholdData(data) {
     if (!data || typeof data !== "object") return {};
     const out = {};
