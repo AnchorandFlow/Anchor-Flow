@@ -328,32 +328,9 @@ class ErrorBoundary extends React.Component {
         <h2 style={{marginBottom:"0.5rem",color:"#2a2a38"}}>Something went wrong</h2>
         <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data in the cloud is safe — tap restart to reload it.</p>
         <button onClick={()=>{
-          try {
-            // Save auth keys before clearing
-            const authToken = localStorage.getItem("af_authToken");
-            const authUser = localStorage.getItem("af_authUser");
-            const householdId = localStorage.getItem("af_householdId");
-            const theme = localStorage.getItem("af_theme");
-            const flowMode = localStorage.getItem("af_flowMode");
-            // Wipe everything
-            localStorage.clear();
-            sessionStorage.clear();
-            // Restore only auth so Supabase can pull data back
-            if (authToken) localStorage.setItem("af_authToken", authToken);
-            if (authUser) localStorage.setItem("af_authUser", authUser);
-            if (householdId) localStorage.setItem("af_householdId", householdId);
-            if (theme) localStorage.setItem("af_theme", theme);
-            if (flowMode) localStorage.setItem("af_flowMode", flowMode);
-          } catch(e) {
-            // If all else fails, just clear and reload
-            try { localStorage.clear(); } catch {}
-          }
-          window.location.reload();
-        }}
+ <button onClick={function(){ window.location.reload(); }}
           style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>
-          Restart & Restore My Data
-        </button>
-        <button onClick={()=>window.location.reload()}
+          Reload App
           style={{background:"transparent",color:"#8a8a9a",border:"1px solid #ccc",borderRadius:"0.75rem",padding:"0.5rem 1rem",cursor:"pointer",fontSize:"0.85rem"}}>
           Try again without clearing
         </button>
