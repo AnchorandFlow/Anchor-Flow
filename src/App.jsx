@@ -9278,6 +9278,42 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser&&(authUser.displayName||authUser.email)||"Signed in"}</div>
                   <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser&&authUser.email||""}</div>
                 </div>
+              <button onClick={function(){
+                  var data = {};
+                  Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) data[k] = localStorage.getItem(k); });
+                  var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement("a");
+                  a.href = url;
+                  a.download = "anchor-flow-backup-" + new Date().toISOString().slice(0,10) + ".json";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.sage})}>Export Backup</button>
+                <button onClick={function(){
+                  var input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = ".json";
+                  input.onchange = function(e){
+                    var file = e.target.files[0];
+                    if(!file) return;
+                    var reader = new FileReader();
+                    reader.onload = function(ev){
+                      try {
+                        var data = JSON.parse(ev.target.result);
+                        if(!data || typeof data !== "object") { alert("Invalid backup file."); return; }
+                        var keys = Object.keys(data).filter(function(k){ return k.startsWith("af_"); });
+                        if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
+                        if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
+                        keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
+                        console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
+                        alert("Backup restored. Reloading...");
+                        window.location.reload();
+                      } catch(err) { alert("Could not read backup file: " + err.message); }
+                    };
+                    reader.readAsText(file);
+                  };
+                  input.click();
+                }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue})}>Import Backup</button>
                 <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
               </div>
               {lastSyncTime&&<p style={{fontSize:"0.74rem",color:T.sage,fontWeight:700,marginBottom:"0.65rem"}}>Last synced: {lastSyncTime}</p>}
