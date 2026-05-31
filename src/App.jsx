@@ -1003,17 +1003,11 @@ function HomeFlow() {
 
   // ── Save status indicator ────────────────────────────────────────────────
   const [saveStatus, setSaveStatus] = useState(null); // null | "saving" | "saved" | "failed" | "cloud-failed"
-  const saveStatusTimerRef = useRef(null);
   function showSaving() { setSaveStatus("saving"); }
-  function showSaved()  {
-    clearTimeout(saveStatusTimerRef.current);
-    setSaveStatus("saved");
-    saveStatusTimerRef.current = setTimeout(function(){ setSaveStatus(null); }, 2500);
-  }
+  function showSaved()  { setSaveStatus("saved");  setTimeout(function(){ setSaveStatus(null); }, 2500); }
   function showSaveFailed(cloudOnly) {
-    clearTimeout(saveStatusTimerRef.current);
     setSaveStatus(cloudOnly ? "cloud-failed" : "failed");
-    saveStatusTimerRef.current = setTimeout(function(){ setSaveStatus(null); }, 4000);
+    setTimeout(function(){ setSaveStatus(null); }, 4000);
   }
 
 
