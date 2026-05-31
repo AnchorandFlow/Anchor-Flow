@@ -1871,7 +1871,7 @@ function HomeFlow() {
       const res = await fetch("/api/claude",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:sysPrompt,messages:[{role:"user",content:ctx}]})
+        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:600,system:sysPrompt,messages:[{role:"user",content:ctx}]})
       });
       const dat = await res.json();
       const txt = dat.content?.find(b=>b.type==="text")?.text||"{}";
@@ -1994,7 +1994,7 @@ function HomeFlow() {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
+          model:"claude-sonnet-4-5",
           max_tokens:1000,
           system:`You are Compass, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
 
@@ -2138,7 +2138,7 @@ Respond ONLY with valid JSON array, no markdown:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 160,
+          model: "claude-sonnet-4-5", max_tokens: 160,
           system, messages: [{ role: "user", content: userContent }]
         })
       });
@@ -2394,7 +2394,7 @@ Respond ONLY with valid JSON array, no markdown:
     setRecipeLoading(true); setRecipeError(""); setRecipeResult(null);
     try {
       const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-20250514", max_tokens:800,
+        model:"claude-sonnet-4-5", max_tokens:800,
         system:`Extract recipe info from a URL. Respond ONLY in JSON: {"name":"","ingredients":[],"servings":"","time":"","notes":"","source":""}. If social media video, set name to "Paste ingredients below" and notes to "Social media video — please paste the ingredient list manually."`,
         messages:[{role:"user",content:`URL: ${recipeUrl.trim()}`}]
       })});
@@ -2751,7 +2751,7 @@ Respond ONLY with valid JSON array, no markdown:
       }
       try {
         const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1000,
+          model:"claude-sonnet-4-5", max_tokens:1000,
           system:`You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
           messages:msgs.map(m=>({role:m.role,content:m.text}))
         })});
@@ -3106,7 +3106,7 @@ Respond ONLY with valid JSON array, no markdown:
         tmrRhythm.theme ? "Theme: "+tmrRhythm.theme : "",
       ].filter(Boolean).join(". ");
       fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",max_tokens:300,
+        model:"claude-sonnet-4-5",max_tokens:300,
         system:"Generate 3-4 specific tonight prep tasks based on tomorrow. Each under 8 words. Return ONLY JSON: {\"preps\":[\"task\"]}",
         messages:[{role:"user",content:ctx||"Standard family evening."}]
       })}).then(r=>r.json()).then(d=>{
@@ -3121,7 +3121,7 @@ Respond ONLY with valid JSON array, no markdown:
       setClosing(true); setReflLoad(true);
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:120,
+          model:"claude-sonnet-4-5",max_tokens:120,
           system:"You are Compass. Write ONE warm closing sentence under 20 words. Be specific. Make them feel seen.",
           messages:[{role:"user",content:"Done: "+(done.map(t=>t.text).join(", ")||"nothing")+". Let go: "+letGo.length+". Tomorrow: "+(tmrEvts.map(e=>e.title).join(", ")||"quiet day")+". Mode: "+flowMode}]
         })});
@@ -3353,7 +3353,7 @@ Respond ONLY with valid JSON array, no markdown:
 
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:700,
+          model:"claude-sonnet-4-5", max_tokens:700,
           system:`You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
 
 RULES:
@@ -4736,7 +4736,7 @@ Respond ONLY in valid JSON:
       var bankNames=[...MEAL_BANK_DATA,...(mealBankCustom||[])].map(function(m){return m.name;}).join(", ");
       try{
         var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:700,
+          model:"claude-sonnet-4-5",max_tokens:700,
           system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
           messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
         })});
@@ -4924,7 +4924,7 @@ Respond ONLY in valid JSON:
       setRescueLoading(true);setRescueResults(null);setRescueError(null);
       try{
         const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:800,
+          model:"claude-sonnet-4-5",max_tokens:800,
           system:`You are a helpful family meal assistant. Given ingredients on hand, suggest 3 simple family-friendly dinners.
 Respond ONLY with a valid JSON array, no markdown, no explanation, nothing else.
 Format: [{"name":"Meal Name","desc":"1-2 sentence description of how to make it"}]
@@ -5407,7 +5407,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             setPrepAiLoading(true);setPrepAiError("");
             try{
               var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-                model:"claude-sonnet-4-20250514",max_tokens:800,
+                model:"claude-sonnet-4-5",max_tokens:800,
                 system:"You are a practical family meal prep assistant. Given a week of meals and their ingredients, generate smart prep tips. Focus on: shared ingredients that can be prepped once (e.g. chop all onions Sunday), leftover opportunities (e.g. swap meals to use leftovers), batch cooking ideas, and time-saving shortcuts. Also suggest if swapping 2 meals would create a leftover chain. Respond ONLY as JSON: {\"shared\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"swaps\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"batch\":[{\"tip\":\"string\",\"emoji\":\"string\"}]}. Max 3 items per category. Keep tips under 80 chars.",
                 messages:[{role:"user",content:"Flow mode: "+flowMode+"\n\nThis week's meals:\n"+weekMealSummary.map(function(d){return d.day+": "+d.meals.join(", ")+(d.ingredients.length?" (ingredients: "+d.ingredients.slice(0,6).join(", ")+")":"");}).join("\n")}]
               })});
@@ -5680,7 +5680,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(uncategorized.length===0){setAutoCatStatus("All items already have categories!");setTimeout(()=>setAutoCatStatus(""),2500);return;}
       setIsAutoCategorizing(true);setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
       try{
-        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCatLabels().join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
+        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCatLabels().join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
         var d=await r.json();
         var txt=d.content?.find(function(b){return b.type==="text";})||{};
         var parsed=JSON.parse((txt.text||"[]").replace(/```json|```/g,"").trim());
@@ -5706,7 +5706,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var base64=await new Promise(function(res){var reader=new FileReader();reader.onload=function(){res(reader.result.split(",")[1]);};reader.readAsDataURL(file);});
       const photoUrl=URL.createObjectURL(file);
       try{
-        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
         const d=await r.json();const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
         const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCatLabels().includes(parsed.category)?parsed.category:"";
         setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
@@ -6114,7 +6114,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setAiRecatLoading(true);
       try {
         const catList = allCats.map(c=>c.id+"="+c.label).join(", ");
-        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:"Categorize brain dump items into these categories: "+catList+", or uncategorized. Return ONLY JSON: {results:[{id,cat}]}. Use exact category IDs.",messages:[{role:"user",content:"Categorize:\n"+pending.map(b=>b.id+": "+b.text).join("\n")}]})});
+        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,system:"Categorize brain dump items into these categories: "+catList+", or uncategorized. Return ONLY JSON: {results:[{id,cat}]}. Use exact category IDs.",messages:[{role:"user",content:"Categorize:\n"+pending.map(b=>b.id+": "+b.text).join("\n")}]})});
         const d = await res.json();
         const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
         const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -6130,7 +6130,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var grouped={};
         pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
         var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
-        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
+        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
           .then(function(r){return r.json();})
           .then(function(d){var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg)setPatternMsg(msg);})
           .catch(function(){})
@@ -7213,7 +7213,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var res = await fetch("/api/anthropic", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]}),
+          body: JSON.stringify({model:"claude-sonnet-4-5",max_tokens:400,messages:[{role:"user",content:prompt}]}),
         });
         var data = await res.json();
         var text = (data.content||[]).map(function(b){ return b.text||""; }).join("");
