@@ -761,7 +761,6 @@ function SafeTextInput(props) {
 }
 
 function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
-  console.log("[AF RENDER] Section", id);
   var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
   return(
     <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
@@ -883,6 +882,8 @@ function getDaysInMonth(year,month){return new Date(year,month+1,0).getDate();}
 function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
 
 const homeFlowRef = { tab: "anchor", goTab: () => {} };
+// Tracks birthday event IDs already injected this session — prevents double-injection on household pulls
+const _injectedBirthdayIds = new Set();
 
 function HomeFlow() {
 
@@ -1002,11 +1003,17 @@ function HomeFlow() {
 
   // ── Save status indicator ────────────────────────────────────────────────
   const [saveStatus, setSaveStatus] = useState(null); // null | "saving" | "saved" | "failed" | "cloud-failed"
+  const saveStatusTimerRef = useRef(null);
   function showSaving() { setSaveStatus("saving"); }
-  function showSaved()  { setSaveStatus("saved");  setTimeout(function(){ setSaveStatus(null); }, 2500); }
+  function showSaved()  {
+    clearTimeout(saveStatusTimerRef.current);
+    setSaveStatus("saved");
+    saveStatusTimerRef.current = setTimeout(function(){ setSaveStatus(null); }, 2500);
+  }
   function showSaveFailed(cloudOnly) {
+    clearTimeout(saveStatusTimerRef.current);
     setSaveStatus(cloudOnly ? "cloud-failed" : "failed");
-    setTimeout(function(){ setSaveStatus(null); }, 4000);
+    saveStatusTimerRef.current = setTimeout(function(){ setSaveStatus(null); }, 4000);
   }
 
 
@@ -1328,8 +1335,8 @@ function HomeFlow() {
 
   async function pushHouseholdData(token, hid, options = {}) {
     if (!token || !hid) return;
-    if (syncInFlightRef.current && !force) return;
     const force = !!options.force;
+    if (syncInFlightRef.current && !force) return;
     collectLocallyChangedSyncKeys();
     const payload = {};
     SYNC_KEYS.forEach(k => {
@@ -1617,7 +1624,6 @@ function HomeFlow() {
   // ── Listen for local data changes and trigger debounced sync ──────────────
   useEffect(() => {
     function onDataChanged(e) {
-      console.log("[AF SYNC] local change", e.detail?.key || "");
       debouncedSync();
     }
     window.addEventListener("af-data-changed", onDataChanged);
@@ -1626,6 +1632,7 @@ function HomeFlow() {
   }, [authToken, householdId]);
 
   // ── Realtime + fallback poll ───────────────────────────────────────────────
+  const pendingSyncRef = useRef(null);
   useEffect(() => {
     if (!authToken || !householdId) return;
 
@@ -1644,11 +1651,10 @@ function HomeFlow() {
       // Skip if user is actively typing — retry in 5s
       const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
       if (isTyping) {
-        clearTimeout(window._pendingSync);
-        window._pendingSync = setTimeout(function() { handleIncoming(row); }, 5000);
+        clearTimeout(pendingSyncRef.current);
+        pendingSyncRef.current = setTimeout(function() { handleIncoming(row); }, 5000);
         return;
       }
-      console.log("[AF SYNC] incoming household update", serverTs);
       applyServerData(row.data, serverTs);
     }
 
@@ -1658,7 +1664,6 @@ function HomeFlow() {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "households", filter: "id=eq." + householdId },
         function(payload) { handleIncoming(payload.new); })
       .subscribe(function(status) {
-        console.log("[AF] Realtime:", status);
         if (status === "SUBSCRIBED") setSyncStatus("synced");
       });
 
@@ -1679,36 +1684,10 @@ function HomeFlow() {
       }
     }, 15000);
 
-    return () => { supabase.removeChannel(channel); clearInterval(poll); clearTimeout(window._pendingSync); };
+    return () => { supabase.removeChannel(channel); clearInterval(poll); clearTimeout(pendingSyncRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
 
-  // ── Push every 10s when data has changed ──────────────────────────────────
-  useEffect(() => {
-    if (!authToken || !householdId) return;
-    const iv = setInterval(async () => {
-      if (!authToken) return;
-      const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
-      const typedRecently = (Date.now() - lastTypedRef.current) < 1500;
-      if (isTyping || typedRecently) return;
-      try {
-        await pushHouseholdData(authToken, householdId);
-        setSyncStatus("synced");
-        setLastSyncTime(new Date().toLocaleTimeString());
-      } catch(e) {
-        if (e.message && (e.message.includes("401") || e.message.includes("Unauthorized") || e.message.includes("No auth token"))) {
-          console.warn("[AF SYNC] push unauthorized — stopping, showing sign-in");
-          setAuthToken(null);
-          try { localStorage.removeItem("af_authToken"); } catch {}
-          setShowAuthModal(true);
-        } else if (!isJwtExpired(e)) {
-          setSyncStatus("error");
-        }
-      }
-    }, 10000);
-    return () => clearInterval(iv);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken, householdId]);
 
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
@@ -2091,7 +2070,8 @@ function HomeFlow() {
         if(d<today||d>horizon)return;
         var ds=yr+"-"+String(b.month).padStart(2,"0")+"-"+String(b.day).padStart(2,"0");
         var genId="bday_"+b.id+"_"+yr;
-        if(!calEvents.some(function(e){return e.id===genId;})){
+        if(!calEvents.some(function(e){return e.id===genId;}) && !_injectedBirthdayIds.has(genId)){
+          _injectedBirthdayIds.add(genId);
           var age=b.year?yr-b.year:null;
           toAdd.push({id:genId,title:"🎂 "+b.name+(age?" (turns "+age+")":""),date:ds,time:"",color:"#c878a8",colorLabel:"Birthday",note:"",_birthday:true});
         }
@@ -9335,8 +9315,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   function SettingsTab(){
-    console.log("[AF RENDER] SettingsTab");
-    React.useEffect(function(){ console.log("[AF SETTINGS] settingsOpen:", JSON.stringify(settingsOpen)); }, [settingsOpen]);
     var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
     var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
     var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
@@ -10927,12 +10905,21 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
   }
 
   useEffect(() => {
+    let rafPending = false;
+    let lastClientX = 0;
+    let lastClientY = 0;
     function onMove(e) {
       if (!ds.current.id) return;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
       const clone = ds.current.clone;
-      if (clone) {
-        clone.style.left = (e.clientX - clone.offsetWidth / 2) + "px";
-        clone.style.top  = (e.clientY - 28) + "px";
+      if (clone && !rafPending) {
+        rafPending = true;
+        requestAnimationFrame(function() {
+          clone.style.left = (lastClientX - clone.offsetWidth / 2) + "px";
+          clone.style.top  = (lastClientY - 28) + "px";
+          rafPending = false;
+        });
         clone.style.display = "none";
       }
       const el = document.elementFromPoint(e.clientX, e.clientY);
