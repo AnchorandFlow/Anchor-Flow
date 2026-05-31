@@ -970,7 +970,9 @@ function HomeFlow() {
           localStorage.setItem("af_" + key, JSON.stringify(resolved));
           markDirtySyncKey(key);
           rememberSyncSnapshotKey(key);
-          window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+          if (!applyingServerDataRef.current) {
+            window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+          }
         } catch {}
         return resolved;
       });
@@ -1540,10 +1542,6 @@ function HomeFlow() {
       try { if (clean.familyProfile != null)                   setFamilyProfile(clean.familyProfile); } catch(e) {}
       try { if (typeof clean.flowMode === "string")            setFlowMode(clean.flowMode); } catch(e) {}
       try { if (typeof clean.theme === "string")               setThemeNameRaw(clean.theme); } catch(e) {}
-      // Tide Pool and Recipes need explicit state sync (not just localStorage)
-      try { if (clean.coveData !== undefined && !dirtySyncKeysRef.current.has("coveData")) setCoveData(clean.coveData); } catch(e) {}
-      try { if (Array.isArray(clean.recipes) && !dirtySyncKeysRef.current.has("recipes")) setRecipes(clean.recipes); } catch(e) {}
-
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
     } catch(applyErr) {
