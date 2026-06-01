@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-meta-backup-fix-1";
+const APP_VERSION = "2026-06-01-stale-guard-v2";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1861,18 +1861,22 @@ function createLocalBackup() {
     if (!token || !hid) return;
     console.log("[AF SYNC] push start", hid);
 
-    // ── Patch 1: stale-push guard ──────────────────────────────────────────
-    // Fetch server updated_at before doing anything. If server is newer than
-    // what this device last applied, our local data is stale — do not push.
+    // ── Stale-push guard ──────────────────────────────────────────────────
+    // Fetch server updated_at before doing anything.
+    // Rule 1: if lastHHSync is missing, device has never confirmed server data — pull first.
+    // Rule 2: if server is newer than lastHHSync, local data is stale — pull first.
     try {
       const checkRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at,updated_by&limit=1`, { _token: token });
       if (checkRows && checkRows.length > 0) {
         const serverUpdatedAt = checkRows[0].updated_at || "";
         const lastApplied = localStorage.getItem("af_lastHHSync") || "";
-        console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied);
-        if (serverUpdatedAt && lastApplied && serverUpdatedAt > lastApplied) {
-          console.warn("[AF SYNC] push blocked stale — server newer than local", { serverUpdatedAt, lastApplied });
-          console.log("[AF SYNC] server newer than local — will pull on next poll tick");
+        console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied || "(none)");
+        if (serverUpdatedAt && !lastApplied) {
+          console.warn("[AF SYNC] push blocked — no lastHHSync; pulling first", { serverUpdatedAt });
+          return;
+        }
+        if (serverUpdatedAt && lastApplied && new Date(serverUpdatedAt).getTime() > new Date(lastApplied).getTime()) {
+          console.warn("[AF SYNC] push blocked stale", { serverUpdatedAt, lastApplied });
           return;
         }
         console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
