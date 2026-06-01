@@ -1002,15 +1002,18 @@ function createLocalBackup() {
           const existingHH = existingRows[0];
           // Use the Supabase household (it has the real data)
           try { localStorage.setItem("af_householdId", JSON.stringify(existingHH.id)); } catch {}
-          if (existingHH.data && Object.keys(existingHH.data).length > 0) {
+         if (existingHH.data && Object.keys(existingHH.data).length > 0) {
             // Household has real data — restore it all
-            const clean = sanitizeHouseholdData(existingHH.data);
-            SYNC_KEYS.forEach(k => {
-              if (clean[k] !== undefined) {
-                try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-              }
-            });
-            try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
+            if (isRemotePayloadSafe(existingHH.data, existingHH.updated_at)) {
+              createLocalBackup();
+              const clean = sanitizeHouseholdData(existingHH.data);
+              SYNC_KEYS.forEach(k => {
+                if (clean[k] !== undefined) {
+                  try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                }
+              });
+              try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
+            }
           }
         } else {
           // No household owned by this user — re-fetch their user record fresh from Supabase
@@ -1030,16 +1033,19 @@ function createLocalBackup() {
           if (joinedHhId) {
             try {
               const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
-              if (joinedRows && joinedRows.length > 0 && joinedRows[0].data) {
+             if (joinedRows && joinedRows.length > 0 && joinedRows[0].data) {
                 try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
-                const clean = sanitizeHouseholdData(joinedRows[0].data);
-                SYNC_KEYS.forEach(k => {
-                  if (clean[k] !== undefined) {
-                    try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-                  }
-                });
-                try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
-                console.log("[AF] Restored joined household on sign-in:", joinedHhId);
+                if (isRemotePayloadSafe(joinedRows[0].data, joinedRows[0].updated_at)) {
+                  createLocalBackup();
+                  const clean = sanitizeHouseholdData(joinedRows[0].data);
+                  SYNC_KEYS.forEach(k => {
+                    if (clean[k] !== undefined) {
+                      try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                    }
+                  });
+                  try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
+                  console.log("[AF] Restored joined household on sign-in:", joinedHhId);
+                }
               }
             } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
           }
