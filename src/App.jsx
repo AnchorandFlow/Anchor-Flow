@@ -781,7 +781,7 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 }
 
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,SecHead,ModalBox}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal}){
     React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
   const [settingsOpen, setSettingsOpen] = useState({family:true});
   function toggleSetting(key,defaultOpen){
@@ -10145,6 +10145,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   signOut={signOut} showInAppBanner={showInAppBanner}
                   T={T} inp={inp} lbl={lbl} btnP={btnP} btnS={btnS} PC={PC}
                   SecHead={SecHead} ModalBox={ModalBox}
+                  themeName={themeName} setThemeNameRaw={setThemeNameRaw}
+                  setShowHouseholdModal={setShowHouseholdModal}
                 />}
                 {t==="ai" && <RippleTab/>}
               </div>
