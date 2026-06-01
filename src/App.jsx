@@ -781,6 +781,112 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 }
 
 
+function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
+  React.useEffect(function(){console.log("[AF MOUNT] TidePoolSection");return function(){console.log("[AF UNMOUNT] TidePoolSection");};},[]);
+  var _tpRender=React.useRef(0);_tpRender.current++;console.count("[AF RENDER] TidePool-section");
+  var [tpKidIdx,setTpKidIdx]=useState(0);
+  var [tpTab,setTpTab]=useState("chores");
+  var [newChoreName,setNewChoreName]=useState("");
+  var [newChorePts,setNewChorePts]=useState(1);
+  var [newTreasureName,setNewTreasureName]=useState("");
+  var [newTreasureCost,setNewTreasureCost]=useState("");
+  var [settingsOpen,setSettingsOpen]=useState({tidepool:false});
+  function toggleSetting(key,defaultOpen){
+    setSettingsOpen(function(p){var current=key in p?p[key]:(defaultOpen||false);return Object.assign({},p,{[key]:!current});});
+  }
+  var rawKids=people.filter(function(p){return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0);});
+  var saved=coveData||[];
+  var sKidIdx=Math.min(tpKidIdx,Math.max(rawKids.length-1,0));
+  var sKid=rawKids[sKidIdx];
+  var sKidData=sKid?(saved.find(function(d){return d.kidId===sKid.id;})||{kidId:sKid.id,kidName:sKid.name,shells:0,chores:[],treasures:[]}):null;
+  var sKidIdx2=sKid?saved.findIndex(function(d){return d.kidId===sKid.id;}):-1;
+  function updateSaved(patch){
+    setCoveData(function(prev){
+      var arr=(prev||[]).slice();
+      if(sKidIdx2>=0) arr[sKidIdx2]=Object.assign({},arr[sKidIdx2],patch);
+      else if(sKidData) arr.push(Object.assign({},sKidData,patch));
+      return arr;
+    });
+  }
+  return(
+    <Section id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T}>
+      <div style={{paddingTop:"0.75rem"}}>
+        {rawKids.length===0?(
+          <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>No children added yet. Add them in the <strong>Family</strong> section above — then come back here to set up their chores and treasures.</div>
+        ):(
+          <div>
+            <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
+              {rawKids.map(function(k,i){
+                return <button key={k.id} onClick={function(){setTpKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
+              })}
+            </div>
+            <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
+              {["chores","treasures"].map(function(t){
+                return <button key={t} onClick={function(){setTpTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:tpTab===t?T.sand:"transparent",color:tpTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
+              })}
+            </div>
+            {tpTab==="chores"&&(
+              <div>
+                {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet — add one below.</div>}
+                {(sKidData.chores||[]).map(function(ch){
+                  return(
+                    <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
+                      <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
+                      <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
+                      <button onClick={function(){updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                    </div>
+                  );
+                })}
+                <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
+                  <input value={newChoreName}
+                    onFocus={function(){console.log("[AF INPUT FOCUS] tidepool-chore");}}
+                    onBlur={function(){console.log("[AF INPUT BLUR] tidepool-chore");}}
+                    onChange={function(e){console.log("[AF INPUT CHANGE] tidepool-chore",e.target.value);setNewChoreName(e.target.value);}}
+                    onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                  <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
+                    <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
+                  </select>
+                  <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
+                </div>
+              </div>
+            )}
+            {tpTab==="treasures"&&(
+              <div>
+                {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet — add some below.</div>}
+                {(sKidData.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;}).map(function(t){
+                  return(
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
+                      <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
+                      <span style={{flex:1,color:T.textDark}}>{t.name}</span>
+                      <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
+                      <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                    </div>
+                  );
+                })}
+                <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
+                  <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                  <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚" style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
+                  <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
+                </div>
+                {rawKids.length>1&&(
+                  <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
+                    <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:700,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
+                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                      {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
+                        return <button key={k.id} onClick={function(){var fromData=saved.find(function(d){return d.kidId===k.id;});if(!fromData)return;updateSaved({treasures:(fromData.treasures||[]).map(function(t){return Object.assign({},t,{id:uid()});})});}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,btnP,PC,ROLES}){
   React.useEffect(function(){console.log("[AF MOUNT] FamilySection");return function(){console.log("[AF UNMOUNT] FamilySection");};},[]);
   var _fsRender=React.useRef(0);_fsRender.current++;console.count("[AF RENDER] Family-section");
@@ -942,13 +1048,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
   var [editingStore,setEditingStore]=useState(null);
   var [storeEditVal,setStoreEditVal]=useState("");
 
-  // ── tide pool state (hoisted out of IIFE to obey hooks rules) ──
-  var [tpKidIdx,setTpKidIdx]=useState(0);
-  var [tpTab,setTpTab]=useState("chores");
-  var [newChoreName,setNewChoreName]=useState("");
-  var [newChorePts,setNewChorePts]=useState(1);
-  var [newTreasureName,setNewTreasureName]=useState("");
-  var [newTreasureCost,setNewTreasureCost]=useState("");
+
 
   // ── weekly rhythm state (hoisted out of IIFE) ──
   var [rhythmEditingDay,setRhythmEditingDay]=useState(null);
@@ -1077,101 +1177,10 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
       {/* ════════════════════════════════════
           6. TIDE POOL
       ════════════════════════════════════ */}
-      <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
-        <div style={{paddingTop:"0.75rem"}}>
-        {(function(){
-          console.count("[AF RENDER] TidePool-section");
-          var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
-          if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>No children added yet. Add them in the <strong>Family</strong> section above — then come back here to set up their chores and treasures.</div>;
-
-          var saved = coveData || [];
-          var sKidIdx = tpKidIdx; var setSKidIdx = setTpKidIdx;
-          var sTab = tpTab; var setSTab = setTpTab;
-          var sKid = rawKids[Math.min(sKidIdx, rawKids.length-1)];
-          var sKidData = saved.find(function(d){ return d.kidId===sKid.id; }) || {kidId:sKid.id,kidName:sKid.name,shells:0,chores:[],treasures:[]};
-          var sKidIdx2 = saved.findIndex(function(d){ return d.kidId===sKid.id; });
-
-          function updateSaved(patch) {
-            setCoveData(function(prev){
-              var arr = (prev||[]).slice();
-              if(sKidIdx2>=0) arr[sKidIdx2]=Object.assign({},arr[sKidIdx2],patch);
-              else arr.push(Object.assign({},sKidData,patch));
-              return arr;
-            });
-          }
-
-          return (
-            <div>
-              <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
-                {rawKids.map(function(k,i){
-                  return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
-                })}
-              </div>
-              <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
-                {["chores","treasures"].map(function(t){
-                  return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
-                })}
-              </div>
-              {sTab==="chores"&&(
-                <div>
-                  {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet — add one below.</div>}
-                  {(sKidData.chores||[]).map(function(ch){
-                    return(
-                      <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
-                        <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
-                        <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
-                        <button onClick={function(){updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
-                      </div>
-                    );
-                  })}
-                  <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                    <input value={newChoreName}
-                      onFocus={function(){console.log("[AF INPUT FOCUS] tidepool-chore");}}
-                      onBlur={function(){console.log("[AF INPUT BLUR] tidepool-chore");}}
-                      onChange={function(e){console.log("[AF INPUT CHANGE] tidepool-chore", e.target.value); setNewChoreName(e.target.value);}}
-                      onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
-                    <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
-                      <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
-                    </select>
-                    <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
-                  </div>
-                </div>
-              )}
-              {sTab==="treasures"&&(
-                <div>
-                  {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet — add some below.</div>}
-                  {(sKidData.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;}).map(function(t){
-                    return(
-                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
-                        <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
-                        <span style={{flex:1,color:T.textDark}}>{t.name}</span>
-                        <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
-                        <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
-                      </div>
-                    );
-                  })}
-                  <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                    <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
-                    <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚" style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
-                    <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
-                  </div>
-                  {rawKids.length>1&&(
-                    <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
-                      <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:700,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
-                      <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                        {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
-                          return <button key={k.id} onClick={function(){var fromData=saved.find(function(d){return d.kidId===k.id;});if(!fromData)return;updateSaved({treasures:(fromData.treasures||[]).map(function(t){return Object.assign({},t,{id:uid()});})});}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-        </div>
-      </Sec>
+      <TidePoolSection
+        people={people} coveData={coveData} setCoveData={setCoveData}
+        T={T} inp={inp} btnP={btnP} btnS={btnS}
+      />
 
       {/* ════════════════════════════════════
           7. WEEKLY RHYTHM
