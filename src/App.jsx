@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-stale-guard-v2";
+const APP_VERSION = "2026-06-01-pull-on-block-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1872,11 +1872,13 @@ function createLocalBackup() {
         const lastApplied = localStorage.getItem("af_lastHHSync") || "";
         console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied || "(none)");
         if (serverUpdatedAt && !lastApplied) {
-          console.warn("[AF SYNC] push blocked — no lastHHSync; pulling first", { serverUpdatedAt });
+          console.warn("[AF SYNC] push blocked — no lastHHSync; pulling latest now", { serverUpdatedAt });
+          await pullLatestHouseholdData("no-lastHHSync");
           return;
         }
         if (serverUpdatedAt && lastApplied && new Date(serverUpdatedAt).getTime() > new Date(lastApplied).getTime()) {
-          console.warn("[AF SYNC] push blocked stale", { serverUpdatedAt, lastApplied });
+          console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
+          await pullLatestHouseholdData("stale-push-block");
           return;
         }
         console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
@@ -1994,6 +1996,36 @@ function createLocalBackup() {
       window.location.reload();
       return { ok: true };
     } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
+  }
+
+  // ── pullLatestHouseholdData — safe pull/apply, callable from anywhere in HomeFlow ──
+  // Same safe path as checkForUpdates: fetch → safety check → sanitize → write → reload.
+  // Called directly when push is blocked stale, so the phone pulls immediately.
+  async function pullLatestHouseholdData(reason) {
+    if (!authToken || !householdId) { console.warn("[AF SYNC] pullLatest skipped — no auth/household"); return; }
+    console.log("[AF SYNC] pullLatestHouseholdData start", { reason, householdId });
+    try {
+      const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
+      if (!rows || !rows.length || !rows[0].data) { console.log("[AF SYNC] pullLatest — no rows returned"); return; }
+      const row = rows[0];
+      const serverTs = row.updated_at || "";
+      console.log("[AF SYNC] pullLatest remote updated_at", serverTs);
+      const _safe = isRemotePayloadSafe(row.data, serverTs);
+      console.log("[AF SYNC] pullLatest remote safe", _safe);
+      if (!_safe) { console.warn("[AF SYNC] pullLatest blocked by safety check"); return; }
+      createLocalBackup();
+      const clean = sanitizeHouseholdData(row.data);
+      console.log("[AF SYNC] applying remote keys", Object.keys(clean));
+      const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+      SYNC_KEYS.forEach(k => {
+        if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
+        if (clean[k] !== undefined) { try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {} }
+      });
+      try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+      console.log("[AF SYNC] pullLatest localStorage updated tasks", localStorage.getItem("af_tasks"));
+      console.log("[AF SYNC] reloading now");
+      window.location.reload();
+    } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
   }
 
   async function syncNow() {
