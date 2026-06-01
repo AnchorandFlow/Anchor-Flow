@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-sync-diagnostics-1";
+const APP_VERSION = "2026-06-01-sync-fix-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1877,8 +1877,7 @@ function createLocalBackup() {
           body: JSON.stringify({ data: payload, updated_at: updatedAt, updated_by: ownerId })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
         console.log("[AF SYNC] push success updated_at", serverTs);
       } else {
         // Row does not exist — INSERT (first time only)
@@ -1889,7 +1888,7 @@ function createLocalBackup() {
           body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+        // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
       }
     } catch(e) {
       console.warn("[AF] pushHouseholdData failed:", e.message);
@@ -2048,7 +2047,7 @@ function createLocalBackup() {
   // Each tick fetches the server row and compares updated_at to af_lastHHSync.
   // If server is newer and the user isn't actively typing, writes fresh data
   // and reloads so the other household member's changes appear automatically.
-  // Our own pushes update af_lastHHSync, so we never reload on our own writes.
+  // af_lastPushedAt tracks our own pushes. checkForUpdates skips reloading if serverTs === lastPushedAt.
   useEffect(() => {
     if (!authToken || !householdId) {
       console.log("[AF SYNC] poll waiting for auth/household", { hasToken: !!authToken, householdId });
