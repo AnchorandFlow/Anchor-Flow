@@ -781,6 +781,109 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 }
 
 
+function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,btnP,PC,ROLES}){
+  React.useEffect(function(){console.log("[AF MOUNT] FamilySection");return function(){console.log("[AF UNMOUNT] FamilySection");};},[]);
+  var _fsRender=React.useRef(0);_fsRender.current++;console.count("[AF RENDER] Family-section");
+  var [newMemberName,setNewMemberName]=useState("");
+  var [newMemberAge,setNewMemberAge]=useState("");
+  var [newMemberRole,setNewMemberRole]=useState("");
+  var [settingsOpen,setSettingsOpen]=useState({family:true});
+  function toggleSetting(key,defaultOpen){
+    setSettingsOpen(function(p){
+      var current=key in p?p[key]:(defaultOpen||false);
+      return Object.assign({},p,{[key]:!current});
+    });
+  }
+  function FRow({label,sub,children,tight}){
+    return(
+      <div style={{paddingTop:tight?"0.55rem":"0.75rem",paddingBottom:tight?"0.55rem":"0.1rem",borderBottom:"1px solid "+T.borderSoft}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5rem"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>{label}</div>
+            {sub&&<div style={{fontSize:"0.72rem",color:T.textFaint,marginTop:1,lineHeight:1.45}}>{sub}</div>}
+          </div>
+          <div style={{flexShrink:0}}>{children}</div>
+        </div>
+      </div>
+    );
+  }
+  function addMember(){
+    if(!newMemberName.trim())return;
+    var ageStr=newMemberAge.trim();var ageNum=ageStr?parseInt(ageStr,10):null;var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
+    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
+    setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+  }
+  return(
+    <Section id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true} settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T}>
+      <div style={{paddingTop:"0.75rem"}}>
+        {/* People list */}
+        <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
+        {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
+          return(
+            <div key={p.id} style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
+                <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+                <input
+                  key={p.id+"_name"}
+                  defaultValue={p.name}
+                  onFocus={function(){console.log("[AF INPUT FOCUS] family-name-"+p.id);}}
+                  onBlur={function(e){console.log("[AF INPUT BLUR] family-name-"+p.id);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                  onChange={function(e){console.log("[AF INPUT CHANGE] family-name",e.target.value);}}
+                  style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
+                />
+                <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
+                  <Icon name="trash" size={13} color={T.textFaint}/>
+                </button>
+              </div>
+              <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
+                <input type="number" min={0} max={120} key={p.id+"_age"} defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""} onBlur={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
+                <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
+                  <option value="">Role…</option>
+                  {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+                </select>
+                <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
+                  {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
+                    <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+                  );})}
+                  <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                    <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+                  </label>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {/* Add member */}
+        <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
+          <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
+          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
+            <input value={newMemberName}
+              onFocus={function(){console.log("[AF INPUT FOCUS] family-addname");}}
+              onBlur={function(){console.log("[AF INPUT BLUR] family-addname");}}
+              onChange={function(e){console.log("[AF INPUT CHANGE] family-addname",e.target.value);setNewMemberName(e.target.value);}}
+              onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+            <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+          </div>
+          <div style={{display:"flex",gap:"0.4rem"}}>
+            <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
+              <option value="">Role (optional)</option>
+              {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+            </select>
+            <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
+          </div>
+        </div>
+        {/* ZIP code + home vibe */}
+        <FRow label="ZIP code" sub="For local weather and notification timing">
+          <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
+        </FRow>
+        <FRow label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
+          <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+        </FRow>
+      </div>
+    </Section>
+  );
+}
+
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
     React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
   const _stRenderCount = React.useRef(0); _stRenderCount.current++; console.count("[AF RENDER] SettingsTab");
@@ -833,17 +936,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
     );
   }
 
-  // ── local add-member state ──
-  var [newMemberName,setNewMemberName]=useState("");
-  var [newMemberAge,setNewMemberAge]=useState("");
-  var [newMemberRole,setNewMemberRole]=useState("");
   var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
-  function addMember(){
-    if(!newMemberName.trim())return;
-    var ageStr=newMemberAge.trim(); var ageNum=ageStr?parseInt(ageStr,10):null; var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
-    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
-    setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
-  }
 
   // ── stores editing state ──
   var [editingStore,setEditingStore]=useState(null);
@@ -883,75 +976,11 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
       {/* ════════════════════════════════════
           1. FAMILY
       ════════════════════════════════════ */}
-      <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
-        <div style={{paddingTop:"0.75rem"}}>
-          {console.count("[AF RENDER] Family-section")||null}
-          {/* People list */}
-          <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
-          {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
-            var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
-            return(
-              <div key={p.id} style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
-                  <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
-                  <input
-                    key={p.id+"_name"}
-                    defaultValue={p.name}
-                    onFocus={function(){console.log("[AF INPUT FOCUS] family-name-"+p.id);}}
-                    onBlur={function(e){console.log("[AF INPUT BLUR] family-name-"+p.id); setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
-                    onChange={function(e){console.log("[AF INPUT CHANGE] family-name", e.target.value);}}
-                    style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
-                  />
-                  <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
-                    <Icon name="trash" size={13} color={T.textFaint}/>
-                  </button>
-                </div>
-                <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
-                  <input type="number" min={0} max={120} key={p.id+"_age"} defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""} onBlur={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
-                  <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
-                    <option value="">Role…</option>
-                    {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-                  </select>
-                  <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
-                    {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
-                      <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
-                    );})}
-                    <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                      <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {/* Add member */}
-          <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
-            <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
-            <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-              <input value={newMemberName}
-                  onFocus={function(){console.log("[AF INPUT FOCUS] family-addname");}}
-                  onBlur={function(){console.log("[AF INPUT BLUR] family-addname");}}
-                  onChange={function(e){console.log("[AF INPUT CHANGE] family-addname", e.target.value); setNewMemberName(e.target.value);}}
-                  onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-              <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
-            </div>
-            <div style={{display:"flex",gap:"0.4rem"}}>
-              <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
-                <option value="">Role (optional)</option>
-                {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-              </select>
-              <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
-            </div>
-          </div>
-          {/* ZIP code + home vibe */}
-          <Row label="ZIP code" sub="For local weather and notification timing">
-            <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
-          </Row>
-          <Row label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
-            <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
-          </Row>
-        </div>
-      </Sec>
+      <FamilySection
+        people={people} setPeople={setPeople}
+        familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
+        T={T} inp={inp} btnP={btnP} PC={PC} ROLES={ROLES}
+      />
 
       {/* ════════════════════════════════════
           2. FLOW (YOU)
