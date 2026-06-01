@@ -781,7 +781,7 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 }
 
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
     React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
   const [settingsOpen, setSettingsOpen] = useState({family:true});
   function toggleSetting(key,defaultOpen){
@@ -10147,6 +10147,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   SecHead={SecHead} ModalBox={ModalBox}
                   themeName={themeName} setThemeNameRaw={setThemeNameRaw}
                   setShowHouseholdModal={setShowHouseholdModal}
+                  notifications={notifications} setNotifications={setNotifications}
+                  aiMemory={aiMemory} setAiMemory={setAiMemory}
+                  setShowAuthModal={setShowAuthModal}
+                  syncNow={syncNow} lastSyncTime={lastSyncTime}
+                  card={card}
                 />}
                 {t==="ai" && <RippleTab/>}
               </div>
