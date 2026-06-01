@@ -326,8 +326,11 @@ class ErrorBoundary extends React.Component {
       <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",fontFamily:"sans-serif",background:"#f5f0e8",textAlign:"center"}}>
         <div style={{fontSize:"3rem",marginBottom:"1rem"}}>⚓️</div>
         <h2 style={{marginBottom:"0.5rem",color:"#2a2a38"}}>Something went wrong</h2>
-        <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data in the cloud is safe — tap restart to reload it.</p>
-        <button onClick={function(){ window.location.reload(); }} style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>Reload App</button>
+        <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data is safe on this device. Reload to recover.</p>
+        <button onClick={function(){ window.location.reload(); }}
+          style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>
+          Reload App
+        </button>
         <details style={{marginTop:"1.5rem",color:"#8a8a9a",fontSize:"0.72rem",maxWidth:400,textAlign:"left"}}>
           <summary style={{cursor:"pointer"}}>Error details</summary>
           <pre style={{marginTop:"0.5rem",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{String(this.state.error)}</pre>
@@ -341,13 +344,27 @@ class ErrorBoundary extends React.Component {
 const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
 
+// Returns true if event e covers the given dateStr (YYYY-MM-DD)
+// Handles single-day (e.date only) and multi-day (e.date + e.endDate)
+function eventCoversDay(e, dateStr) {
+  if (!e.date) return false;
+  if (!e.endDate || e.endDate <= e.date) return e.date === dateStr;
+  return dateStr >= e.date && dateStr <= e.endDate;
+}
+
+
 async function sbFetch(path, opts={}) {
+  const token = opts._token || null;
+  if (!token && path.includes("/rest/v1/households")) {
+    console.warn("[AF AUTH] token present: false — blocking household request to", path.split("?")[0]);
+    throw new Error("No auth token for household request");
+  }
   const url = SUPABASE_URL + path;
   const r = await fetch(url, {
     ...opts,
     headers: {
       "apikey": SUPABASE_KEY,
-      "Authorization": "Bearer " + (opts._token || SUPABASE_KEY),
+      "Authorization": "Bearer " + (token || SUPABASE_KEY),
       "Content-Type": "application/json",
       ...(opts.headers || {}),
     }
@@ -356,7 +373,13 @@ async function sbFetch(path, opts={}) {
   const body = ct.includes("json") ? await r.json() : await r.text();
   if (!r.ok) {
     const errMsg = typeof body === "object" ? JSON.stringify(body) : body;
+    if (r.status === 401 && path.includes("/rest/v1/households")) {
+      console.warn("[AF SYNC] household pull unauthorized — token may be expired");
+    }
     throw new Error(errMsg);
+  }
+  if (path.includes("/rest/v1/households") && r.ok) {
+    console.log("[AF SYNC] household pull success", path.split("?")[0]);
   }
   return body;
 }
@@ -372,7 +395,16 @@ async function sbSignOut(token) {
   return sbFetch("/auth/v1/logout", { method:"POST", _token: token });
 }
 
+function isJwtExpired(err) {
+  var msg = (err && err.message) ? err.message.toLowerCase() : "";
+  return msg.includes("jwt expired") || msg.includes("invalid jwt") ||
+         msg.includes("401") || msg.includes("unauthorized") ||
+         msg.includes("forbidden") || msg.includes("403");
+}
+
 // Household data keys that get synced to Supabase
+const APP_VERSION = "2026.05.30-1";
+
 const SYNC_KEYS = [
   // Core data
   "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
@@ -385,13 +417,19 @@ const SYNC_KEYS = [
   // Reminders & notifications
   "notifications","recurring","notifSettings",
   // App preferences & state that should survive a reset
-  "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
+  "sections","flowMode","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
+  // Moments
+  "moments",
+  // Vault sections missing from sync
+  "subs","coupons","perks","career","health","travel_profile",
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
-  "schoolData","coveData","dietaryFilters","mealThemeEnabled"
+  "schoolData","coveData","dietaryFilters","mealThemeEnabled",
+  // App config that should be shared across all household members
+  "theme","nwMealCount"
 ];
 
 const TODAY = new Date();
@@ -678,6 +716,141 @@ function ScrollTabs({ children, style={} }) {
   )
 }
 
+// ── Section — outside HomeFlow so it never remounts when HomeFlow state changes ──
+function SafeTextInput(props) {
+  var value = props.value;
+  var placeholder = props.placeholder;
+  var onSave = props.onSave;
+  var inputStyle = props.inputStyle;
+  var buttonStyle = props.buttonStyle;
+  var autoFocus = props.autoFocus || false;
+  var [draft, setDraft] = React.useState(value || "");
+  var [isDirty, setIsDirty] = React.useState(false);
+  React.useEffect(function() {
+    if (!isDirty) setDraft(value || "");
+  }, [value, isDirty]);
+  function save() {
+    var next = draft.trim();
+    onSave(next);
+    setIsDirty(false);
+  }
+  function cancel() {
+    setDraft(value || "");
+    setIsDirty(false);
+  }
+  var saveBtn = buttonStyle || {fontSize:"0.72rem",padding:"0.22rem 0.6rem",borderRadius:"0.45rem",border:"none",cursor:"pointer",fontFamily:"inherit",fontWeight:600,background:"#3a6b8a",color:"#fff"};
+  var cancelBtn = Object.assign({},saveBtn,{background:"transparent",color:"#888780",border:"1px solid #e5e3de"});
+  return (
+    <div style={{display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
+      <input
+        value={draft}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        onChange={function(e){ setDraft(e.target.value); setIsDirty(true); }}
+        onKeyDown={function(e){ if(e.key==="Enter") save(); if(e.key==="Escape") cancel(); }}
+        style={inputStyle}
+      />
+      {isDirty && (
+        <React.Fragment>
+          <button type="button" onClick={save} style={saveBtn}>Save</button>
+          <button type="button" onClick={cancel} style={cancelBtn}>Cancel</button>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
+  var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
+  return(
+    <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
+      <button type="button" onClick={function(e){
+        e.stopPropagation();
+        var current = id in settingsOpen ? settingsOpen[id] : (defaultOpen||false);
+        console.log("[AF SETTINGS] toggle",id,"before:",current,"after:",!current);
+        toggleSetting(id,defaultOpen);
+      }} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
+        <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
+          {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
+        </div>
+        <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
+      </button>
+      <div style={{display:isOpen?"block":"none",padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── PersonCard — outside App so it never remounts when parent state changes ──
+function PersonCard({ p, setPeople, T, inp, ROLES, COLORS }) {
+  // No React state — DOM inputs hold their own values natively.
+  // This means React re-renders (even full remounts) never interrupt typing.
+  function saveName(e) {
+    var v = e.target.value.trim();
+    if (v && v !== p.name) setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{name:v}) : x; }); });
+    else if (!v) e.target.value = p.name; // restore if cleared
+  }
+  function saveAge(e) {
+    var v = e.target.value;
+    var ageNum = v === "" ? null : parseInt(v, 10);
+    var age = (ageNum !== null && !isNaN(ageNum)) ? ageNum : null;
+    setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{age:age,isMinor:age!=null&&age<18}) : x; }); });
+  }
+  function saveRole(e) {
+    setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{role:e.target.value||null}) : x; }); });
+  }
+  function saveColor(c) {
+    setPeople(function(prev){ return prev.map(function(x){ return x.id===p.id ? Object.assign({},x,{color:c}) : x; }); });
+  }
+  function removePerson() {
+    setPeople(function(prev){ return prev.filter(function(x){ return x.id!==p.id; }); });
+  }
+  var nameInpStyle = {flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0};
+  var ageInpStyle  = Object.assign({},inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"}));
+  var roleSelStyle = Object.assign({},inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"}));
+  return (
+    <div style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
+        <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+        <input
+          defaultValue={p.name}
+          onBlur={saveName}
+          onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
+          style={nameInpStyle}
+        />
+        <button onClick={removePerson} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
+          <Icon name="trash" size={13} color={T.textFaint}/>
+        </button>
+      </div>
+      <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
+        <input
+          type="number" min={0} max={120}
+          defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""}
+          onBlur={saveAge}
+          onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
+          placeholder="Age"
+          style={ageInpStyle}
+        />
+        <select defaultValue={p.role||""} onChange={saveRole} style={roleSelStyle}>
+          <option value="">Role…</option>
+          {ROLES.map(function(r){ return <option key={r} value={r}>{r}</option>; })}
+        </select>
+        <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
+          {COLORS.map(function(c){ return (
+            <button key={c} onClick={function(){ saveColor(c); }} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+          ); })}
+          <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+            <input type="color" defaultValue={p.color||"#6A9BB5"} onChange={function(e){ saveColor(e.target.value); }} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Icon({name,size=16,color}){
   const s={width:size,height:size,display:"block",flexShrink:0};
   const p={fill:"none",stroke:color||"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"};
@@ -709,8 +882,69 @@ function getDaysInMonth(year,month){return new Date(year,month+1,0).getDate();}
 function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
 
 const homeFlowRef = { tab: "anchor", goTab: () => {} };
+// Tracks birthday event IDs already injected this session — prevents double-injection on household pulls
+const _injectedBirthdayIds = new Set();
 
 function HomeFlow() {
+
+  // ── Launch stability helpers ─────────────────────────────────────────────
+  // These reduce jumpiness by avoiding full-page reloads and reduce household
+  // overwrite risk by syncing only keys that changed on this device.
+  const dirtySyncKeysRef = useRef(new Set());
+  const applyingServerDataRef = useRef(false);
+  const syncInFlightRef = useRef(false);
+  const localSyncSnapshotRef = useRef({});
+
+  function markDirtySyncKey(key) {
+    try {
+      if (!applyingServerDataRef.current && SYNC_KEYS.includes(key)) {
+        dirtySyncKeysRef.current.add(key);
+      }
+    } catch {}
+  }
+
+  function rememberSyncSnapshotKey(key) {
+    try {
+      const raw = localStorage.getItem("af_" + key) || "";
+      localSyncSnapshotRef.current[key] = raw;
+    } catch {}
+  }
+
+  function seedLocalSyncSnapshot() {
+    try { SYNC_KEYS.forEach(rememberSyncSnapshotKey); } catch {}
+  }
+
+  function getStoredHouseholdId() {
+    try { return JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch { return null; }
+  }
+
+  function collectLocallyChangedSyncKeys() {
+    try {
+      SYNC_KEYS.forEach(k => {
+        const raw = localStorage.getItem("af_" + k) || "";
+        const prev = localSyncSnapshotRef.current[k];
+        if (prev === undefined) {
+          localSyncSnapshotRef.current[k] = raw;
+          return;
+        }
+        if (!applyingServerDataRef.current && raw !== prev) {
+          dirtySyncKeysRef.current.add(k);
+          localSyncSnapshotRef.current[k] = raw;
+        }
+      });
+    } catch {}
+  }
+
+  function finishAuthSession(token, userObj, hid) {
+    if (token !== undefined) setAuthToken(token || null);
+    if (userObj !== undefined) setAuthUser(userObj || null);
+    if (hid !== undefined) setHouseholdId(hid || null);
+    setShowAuthModal(false);
+    setShowHouseholdModal(false);
+    setSyncStatus("synced");
+    setLastSyncTime(new Date().toLocaleTimeString());
+    seedLocalSyncSnapshot();
+  }
 
   function useSaved(key, fallback) {
     const [val, setVal] = useState(() => {
@@ -733,12 +967,49 @@ function HomeFlow() {
       // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
       setVal(prev => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
+        try {
+          localStorage.setItem("af_" + key, JSON.stringify(resolved));
+          markDirtySyncKey(key);
+          rememberSyncSnapshotKey(key);
+          if (!applyingServerDataRef.current) {
+            window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+          }
+        } catch {}
         return resolved;
       });
     }
     return [val, setSaved];
   }
+
+  // ── safeSave: validated, logged, synced save ─────────────────────────────
+  // Use this instead of direct setter for any important household data.
+  function safeSave(key, setter, value) {
+    try {
+      var isValid = value !== null && value !== undefined;
+      if (Array.isArray(value)) isValid = true; // empty arrays are valid (intentional clears)
+      if (typeof value === "string") isValid = true;
+      if (typeof value === "object" && !Array.isArray(value)) isValid = value !== null;
+      console.log("[AF SAVE]", key, "valid:", isValid);
+      if (!isValid) { console.warn("[AF SAVE] blocked invalid value for", key); return; }
+      setter(value);
+      console.log("[AF SAVE] local saved:", key);
+      try {
+        markDirtySyncKey(key);
+        window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+        console.log("[AF SAVE] sync queued:", key);
+      } catch(e) { console.warn("[AF SAVE] sync queue failed:", key, e.message); }
+    } catch(e) { console.error("[AF SAVE] failed:", key, e.message); }
+  }
+
+  // ── Save status indicator ────────────────────────────────────────────────
+  const [saveStatus, setSaveStatus] = useState(null); // null | "saving" | "saved" | "failed" | "cloud-failed"
+  function showSaving() { setSaveStatus("saving"); }
+  function showSaved()  { setSaveStatus("saved");  setTimeout(function(){ setSaveStatus(null); }, 2500); }
+  function showSaveFailed(cloudOnly) {
+    setSaveStatus(cloudOnly ? "cloud-failed" : "failed");
+    setTimeout(function(){ setSaveStatus(null); }, 4000);
+  }
+
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
   const T = THEMES[themeName];
@@ -776,6 +1047,8 @@ function HomeFlow() {
   const [lastSyncTime,setLastSyncTime] = useState(null);
   const [showAuthModal,setShowAuthModal] = useState(false);
   const [showHouseholdModal,setShowHouseholdModal] = useState(false);
+  // settingsOpen lives in HomeFlow so accordion state survives SettingsTab remounts
+  const [settingsOpen, setSettingsOpen] = useState({family:true});
   const [anchorDayOpen,setAnchorDayOpen] = useState(false);
   const [googleCalToken,setGoogleCalToken]     = useSaved("googleCalToken", null);
   const [googleCalSyncing,setGoogleCalSyncing] = useState(false);
@@ -787,66 +1060,37 @@ function HomeFlow() {
   useEffect(() => {
     if (!authToken) return;
     sbFetch("/auth/v1/user", { _token: authToken })
-      .catch(() => {
-        try { localStorage.removeItem("af_authToken"); } catch {}
-        try { localStorage.removeItem("af_authUser"); } catch {}
-        setAuthToken(null);
-        setAuthUser(null);
+      .catch((e) => {
+        if (isJwtExpired(e)) {
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          try { localStorage.removeItem("af_authUser"); } catch {}
+          setAuthToken(null);
+          setAuthUser(null);
+          setShowAuthModal(true);
+        }
+        // Non-JWT errors (network offline etc) — keep token, try again later
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // ── Sanitize data from Supabase — removes null array entries, ensures safe types ──
-function createLocalBackup() {
-    try {
-      var snapshot = {};
-      Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) snapshot[k] = localStorage.getItem(k); });
-      var key = "af_backup_" + Date.now();
-      localStorage.setItem(key, JSON.stringify(snapshot));
-      console.log("[AF SAFETY] backup created", key);
-      var backupKeys = Object.keys(localStorage).filter(function(k){ return k.startsWith("af_backup_"); }).sort();
-      while(backupKeys.length > 10){ try { localStorage.removeItem(backupKeys.shift()); } catch {} }
-    } catch(e) { console.warn("[AF SAFETY] backup failed", e.message); }
-  }
-
-  function isRemotePayloadSafe(remoteData, remoteTs) {
-    if (!remoteData || typeof remoteData !== "object") {
-      console.log("[AF SAFETY] refused empty remote apply — null or non-object");
-      return false;
-    }
-    var remoteKeyCount = Object.keys(remoteData).filter(function(k){ return remoteData[k] !== null; }).length;
-    if (remoteKeyCount < 2) {
-      console.log("[AF SAFETY] refused empty remote apply — only", remoteKeyCount, "non-null keys");
-      return false;
-    }
-    var coreKeys = ["tasks","meals","brainItems","shoppingItems","people"];
-    var hasCoreData = coreKeys.some(function(k){
-      try { var v = JSON.parse(localStorage.getItem("af_"+k)||"null"); return Array.isArray(v) && v.length > 0; } catch { return false; }
-    });
-    if (hasCoreData) {
-      var remoteCoreCount = coreKeys.filter(function(k){ return Array.isArray(remoteData[k]) && remoteData[k].length > 0; }).length;
-      var localCoreCount = coreKeys.filter(function(k){
-        try { var v = JSON.parse(localStorage.getItem("af_"+k)||"null"); return Array.isArray(v) && v.length > 0; } catch { return false; }
-      }).length;
-      if (remoteCoreCount === 0 && localCoreCount > 0) {
-        console.log("[AF SAFETY] refused empty remote apply — remote has 0 core arrays, local has", localCoreCount);
-        return false;
-      }
-    }
-    return true;
-  }
-
   function sanitizeHouseholdData(data) {
     if (!data || typeof data !== "object") return {};
     const out = {};
     // Arrays: filter out null/undefined entries
-    ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
+    ["brainItems","shoppingItems","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
      "brainCats","homeSystems","dietaryFilters"].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
       } else if (data[k] !== undefined) {
         out[k] = data[k];
+      }
+    });
+    // tasks and notifications require an id to be safe to render
+    ["tasks","notifications"].forEach(k => {
+      if (Array.isArray(data[k])) {
+        out[k] = data[k].filter(item => item != null && item.id);
       }
     });
     // people: filter nulls, ensure each has id/name/color
@@ -879,9 +1123,17 @@ function createLocalBackup() {
     }
     // Scalar values
     if (typeof data.mealCount === "number") out.mealCount = data.mealCount;
+    if (typeof data.nwMealCount === "number") out.nwMealCount = data.nwMealCount;
     if (typeof data.mealThemeEnabled === "boolean") out.mealThemeEnabled = data.mealThemeEnabled;
-    // Objects: pass through if valid
-    ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels","coveData","schoolData"].forEach(k => {
+    // Pass through theme so all household members share the same app theme
+    if (typeof data.theme === "string") out.theme = data.theme;
+    // Objects and remaining keys: pass through if valid
+    ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels","coveData","schoolData",
+     "sections","flowMode","weatherLocation","notifSettings",
+     "recurring","rhythm","homeSystems","birthdays",
+     "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
+     "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates"
+    ].forEach(k => {
       if (data[k] !== undefined) out[k] = data[k];
     });
     return out;
@@ -930,10 +1182,10 @@ function createLocalBackup() {
         const userObj = { id: data.user?.id || "unknown", email, displayName: displayName || email.split("@")[0] };
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
-        try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
-        // Don't auto-create household on signup — user will join or create via UI
-        setSyncStatus("synced");
-        window.location.reload();
+        try { localStorage.removeItem("af_lastHHSync"); } catch {}
+        // Don't auto-create household on signup — user will join or create via UI.
+        // Keep the app mounted so the UI does not jump/reload after signup.
+        finishAuthSession(token, userObj, getStoredHouseholdId());
         return { ok: true };
       }
 
@@ -994,65 +1246,60 @@ function createLocalBackup() {
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
 
       // Always look up Supabase on sign-in to find the real household with data
-      // This ensures any device gets the right household, not a stale empty local one
+      // Priority: joined_household_id metadata > owned household
       try {
-        // Filter by owner_id so each user only finds their own household, never a stranger's
-        const existingRows = await sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=*&order=updated_at.desc&limit=1`, { _token: token });
-        if (existingRows && existingRows.length > 0) {
-          const existingHH = existingRows[0];
-          // Use the Supabase household (it has the real data)
-          try { localStorage.setItem("af_householdId", JSON.stringify(existingHH.id)); } catch {}
-         if (existingHH.data && Object.keys(existingHH.data).length > 0) {
-            // Household has real data — restore it all
-            if (isRemotePayloadSafe(existingHH.data, existingHH.updated_at)) {
-              createLocalBackup();
+        // Step 1: fetch fresh metadata — joined_household_id takes priority over owned household
+        let joinedHhId = data.user?.user_metadata?.joined_household_id || data.user?.user_metadata?.householdId || null;
+        try {
+          const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
+            headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
+          });
+          const freshUser = await freshResp.json();
+          joinedHhId = freshUser?.user_metadata?.joined_household_id || freshUser?.user_metadata?.householdId || joinedHhId;
+        } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
+
+        // Step 2: if user has explicitly joined another household, always use that first
+        if (joinedHhId) {
+          const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
+          if (joinedRows && joinedRows.length > 0) {
+            const hh = joinedRows[0];
+            try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
+            if (hh.data && Object.keys(hh.data).length > 0) {
+              const clean = sanitizeHouseholdData(hh.data);
+              SYNC_KEYS.forEach(k => {
+                if (clean[k] !== undefined && clean[k] !== null) {
+                  try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                }
+              });
+              try { localStorage.setItem("af_lastHHSync", hh.updated_at || Date.now().toString()); } catch {}
+            }
+            console.log("[AF] Restored joined household on sign-in:", joinedHhId);
+          }
+        } else {
+          // Step 3: no joined household — fall back to household owned by this user
+          const existingRows = await sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=*&order=updated_at.desc&limit=1`, { _token: token });
+          if (existingRows && existingRows.length > 0) {
+            const existingHH = existingRows[0];
+            try { localStorage.setItem("af_householdId", JSON.stringify(existingHH.id)); } catch {}
+            if (existingHH.data && Object.keys(existingHH.data).length > 0) {
               const clean = sanitizeHouseholdData(existingHH.data);
               SYNC_KEYS.forEach(k => {
-                if (clean[k] !== undefined) {
+                if (clean[k] !== undefined && clean[k] !== null) {
                   try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
                 }
               });
               try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
             }
-          }
-        } else {
-          // No household owned by this user — re-fetch their user record fresh from Supabase
-          // so we get the latest metadata (local data.user may be stale from the login response).
-          let joinedHhId = data.user?.user_metadata?.joined_household_id || null;
-          // Re-fetch user fresh using raw fetch (no apikey header) to get latest metadata
-          try {
-            const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
-              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
-            });
-            const freshUser = await freshResp.json();
-            if (freshUser?.user_metadata?.joined_household_id) {
-              joinedHhId = freshUser.user_metadata.joined_household_id;
+          } else {
+            const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+            if (!storedHHId) {
+              const hid = "hh_" + uid();
+              try { localStorage.setItem("af_householdId", JSON.stringify(hid)); } catch {}
             }
-          } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
-          console.log("[AF] No owned household. joined_household_id:", joinedHhId);
-          if (joinedHhId) {
-            try {
-              const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
-             if (joinedRows && joinedRows.length > 0 && joinedRows[0].data) {
-                try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
-                if (isRemotePayloadSafe(joinedRows[0].data, joinedRows[0].updated_at)) {
-                  createLocalBackup();
-                  const clean = sanitizeHouseholdData(joinedRows[0].data);
-                  SYNC_KEYS.forEach(k => {
-                    if (clean[k] !== undefined) {
-                      try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-                    }
-                  });
-                  try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
-                  console.log("[AF] Restored joined household on sign-in:", joinedHhId);
-                }
-              }
-            } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
           }
         }
       } catch(hhErr) {
         console.warn("Household lookup failed:", hhErr.message);
-        // Fallback — ensure we at least have a household ID
         const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
         if (!storedHHId) {
           const hid = "hh_" + uid();
@@ -1060,7 +1307,8 @@ function createLocalBackup() {
         }
       }
 
-      window.location.reload();
+      const finalHid = getStoredHouseholdId();
+      finishAuthSession(token, { id: data.user.id, email: data.user.email, displayName }, finalHid);
       return { ok: true };
     } catch(e) {
       setSyncStatus("error");
@@ -1071,57 +1319,118 @@ function createLocalBackup() {
   async function signOut() {
     try { await supabase.auth.signOut(); } catch {}
     if (authToken) { try { await sbSignOut(authToken); } catch {} }
-    // Clear localStorage directly then reload — avoids null authUser render crash
     try { localStorage.removeItem("af_authToken"); } catch {}
     try { localStorage.removeItem("af_authUser"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
+    try { localStorage.removeItem("af_lastPushedAt"); } catch {}
     window.location.reload();
   }
 
- async function pushHouseholdData(token, hid) {
+  async function pushHouseholdData(token, hid, options = {}) {
     if (!token || !hid) return;
+    const force = !!options.force;
+    if (syncInFlightRef.current && !force) return;
+    collectLocallyChangedSyncKeys();
     const payload = {};
-    SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
-    const nonNullCount = Object.values(payload).filter(v => v !== null).length;
-    if (nonNullCount < 2) {
-      console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
-      return;
-    }
+    SYNC_KEYS.forEach(k => {
+      try {
+        const raw = localStorage.getItem("af_" + k);
+        if (raw && raw !== "null") {
+          const parsed = JSON.parse(raw);
+          if (parsed !== null && parsed !== undefined) {
+            if (Array.isArray(parsed) && parsed.length === 0) return;
+            payload[k] = parsed;
+          }
+        }
+      } catch {}
+    });
+    if (!Object.keys(payload).length) return;
+
+    // Tag every push with version metadata so stale PWA versions can be detected
+    payload._meta = {
+      schema_version: 1,
+      app_version: APP_VERSION,
+      updated_by: (function(){ try { var u=JSON.parse(localStorage.getItem("af_authUser")||"null"); return u && u.id ? u.id : "unknown"; } catch { return "unknown"; } })()
+    };
+
+    syncInFlightRef.current = true;
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
     try {
-      // Check if row exists first to decide POST vs PATCH
-      const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id&limit=1`, { _token: token });
+      const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id,data&limit=1`, { _token: token });
       if (existing && existing.length > 0) {
-        // Row exists — always PATCH (avoids 409 conflict)
+        const serverData = (existing[0].data && typeof existing[0].data === "object") ? existing[0].data : {};
+        const merged = Object.assign({}, serverData, payload);
         const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
           method: "PATCH",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ data: payload, updated_at: updatedAt, updated_by: ownerId })
+          body: JSON.stringify({ data: merged, updated_at: updatedAt })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        console.log("[AF SYNC] pushed household", serverTs);
+        try { showSaved(); } catch {}
       } else {
-        // Row does not exist — INSERT (first time only)
-        const insertRows = await sbFetch("/rest/v1/households", {
-          method: "POST",
-          _token: token,
-          headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
-        });
-        const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+        try {
+          const insertRows = await sbFetch("/rest/v1/households", {
+            method: "POST",
+            _token: token,
+            headers: { "Prefer": "return=representation" },
+            body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
+          });
+          const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
+          try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        } catch(insertErr) {
+          if (insertErr.message && insertErr.message.includes("owner_id_unique")) {
+            const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+ownerId+"&select=id&limit=1", { _token: token });
+            if (ownedRows && ownedRows.length > 0) {
+              const realHid = ownedRows[0].id;
+              console.log("[AF] Switching to existing household:", realHid);
+              try { localStorage.setItem("af_householdId", JSON.stringify(realHid)); } catch {}
+              setHouseholdId(realHid);
+              try {
+                const anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
+                await fetch(SUPABASE_URL+"/auth/v1/user", {
+                  method:"PUT",
+                  headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":anon},
+                  body:JSON.stringify({data:{householdId:realHid}})
+                });
+              } catch(e2) {}
+              const realPatchRows = await sbFetch("/rest/v1/households?id=eq."+realHid, {
+                method: "PATCH",
+                _token: token,
+                headers: { "Prefer": "return=representation" },
+                body: JSON.stringify({ data: payload, updated_at: updatedAt })
+              });
+              const realServerTs = (realPatchRows && realPatchRows[0] && realPatchRows[0].updated_at) ? realPatchRows[0].updated_at : updatedAt;
+              try { localStorage.setItem("af_lastPushedAt", realServerTs); } catch {}
+
+            }
+          } else {
+            throw insertErr;
+          }
+        }
       }
     } catch(e) {
-      console.warn("[AF] pushHouseholdData failed:", e.message);
+      if (isJwtExpired(e)) {
+        try { localStorage.removeItem("af_authToken"); } catch {}
+        setAuthToken(null);
+        setShowAuthModal(true);
+        console.warn("[AF] Session expired — please sign in again");
+      } else {
+        console.warn("[AF] pushHouseholdData failed:", e.message);
+        try { showSaveFailed(true); } catch {}
+        throw e;
+      }
+    } finally {
+      syncInFlightRef.current = false;
     }
   }
 
- async function pullHouseholdData(token) {
+  async function pullHouseholdData(token) {
     if (!token) return;
     const storedHid = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
     const url = storedHid
@@ -1131,16 +1440,8 @@ function createLocalBackup() {
     if (!rows || !rows.length) return;
     const row = rows[0];
     if (!row.data) return;
-    if (!isRemotePayloadSafe(row.data, row.updated_at)) return;
-    createLocalBackup();
     setHouseholdId(row.id); // always trust Supabase over stale localStorage
-    const clean1 = sanitizeHouseholdData(row.data);
-    SYNC_KEYS.forEach(k => {
-      if (clean1[k] !== undefined) {
-        try { localStorage.setItem("af_"+k, JSON.stringify(clean1[k])); } catch {}
-      }
-    });
-    window.location.reload();
+    applyServerData(row.data, row.updated_at || new Date().toISOString());
   }
 
   async function joinHousehold(token, joinCode) {
@@ -1155,14 +1456,14 @@ function createLocalBackup() {
       // Write joined household ID into Supabase user_metadata
       // Must use raw fetch — sbFetch includes apikey header which causes 403 on auth endpoints
       try {
+        const anon2 = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
         const metaResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
           method: "PUT",
-          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ data: { joined_household_id: joinCode } })
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json", "apikey": anon2 },
+          body: JSON.stringify({ data: { householdId: joinCode, joined_household_id: joinCode } })
         });
-        const metaBody = await metaResp.json();
-        console.log("[AF] Metadata write status:", metaResp.status, "joined_household_id:", metaBody?.user_metadata?.joined_household_id);
-      } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
+        console.log("[AF] Metadata write status:", metaResp.status);
+      } catch(e) { console.warn("[AF] Could not save householdId to metadata:", e.message); }
       // Pull the FRESHEST data from Supabase for this household (re-fetch after metadata save)
       const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
       const sourceRow = (freshRows && freshRows.length > 0) ? freshRows[0] : rows[0];
@@ -1177,194 +1478,210 @@ function createLocalBackup() {
       }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
-      window.location.reload();
+      // Apply joined household data directly to state — no reload needed
+      if (sourceRow && sourceRow.data) {
+        const cj = sanitizeHouseholdData(sourceRow.data);
+        try { if (Array.isArray(cj.tasks))         setTasks(cj.tasks); } catch(e) {}
+        try { if (cj.meals && typeof cj.meals === "object") setMealsRaw(cj.meals); } catch(e) {}
+        try { if (Array.isArray(cj.calEvents))     setCalEvents(cj.calEvents); } catch(e) {}
+        try { if (Array.isArray(cj.shoppingItems)) setShoppingItems(cj.shoppingItems); } catch(e) {}
+        try { if (Array.isArray(cj.people))        setPeople(cj.people); } catch(e) {}
+        try { if (Array.isArray(cj.notifications)) setNotifications(cj.notifications); } catch(e) {}
+        try { if (Array.isArray(cj.brainItems))    setBrainItems(cj.brainItems); } catch(e) {}
+        try { if (Array.isArray(cj.stores))        setStores(cj.stores); } catch(e) {}
+        try { if (Array.isArray(cj.birthdays))     setBirthdays(cj.birthdays); } catch(e) {}
+        try { if (Array.isArray(cj.homeSystems))   setHomeSystems(cj.homeSystems); } catch(e) {}
+        try { if (cj.rhythm && typeof cj.rhythm === "object") setRhythm(cj.rhythm); } catch(e) {}
+        try { if (cj.familyProfile !== undefined)  setFamilyProfile(cj.familyProfile); } catch(e) {}
+        try { if (typeof cj.flowMode === "string") setFlowMode(cj.flowMode); } catch(e) {}
+      }
       return { ok: true };
     } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
   }
 
+  // ── Helper: apply server data to React state ──────────────────────────────
+  function applyServerData(data, serverTs) {
+    if (!data || typeof data !== "object") return;
+    // Warn if incoming data is from an older app version
+    if (data._meta && data._meta.app_version && data._meta.app_version < APP_VERSION) {
+      console.warn("[AF SYNC] incoming data from older app version:", data._meta.app_version, "local:", APP_VERSION);
+    }
+    applyingServerDataRef.current = true;
+    try {
+      const clean = sanitizeHouseholdData(data);
+      SYNC_KEYS.forEach(k => {
+        // Never overwrite a key the user has edited locally since last sync
+        if (dirtySyncKeysRef.current.has(k)) {
+          console.log("[AF SYNC] preserving local edits for:", k);
+          return;
+        }
+        if (clean[k] !== undefined && clean[k] !== null) {
+          try {
+            const raw = JSON.stringify(clean[k]);
+            localStorage.setItem("af_" + k, raw);
+            localSyncSnapshotRef.current[k] = raw;
+            dirtySyncKeysRef.current.delete(k);
+          } catch {}
+        }
+      });
+      try { localStorage.setItem("af_lastHHSync", serverTs || new Date().toISOString()); } catch {}
+
+      // Apply important shared sections directly to React state so there is no reload/flicker.
+      // Empty arrays are allowed here so deletes/clears sync correctly between household members.
+      try { if (Array.isArray(clean.tasks))                    setTasks(clean.tasks); } catch(e) {}
+      try { if (Array.isArray(clean.calEvents))                setCalEvents(clean.calEvents); } catch(e) {}
+      try { if (Array.isArray(clean.shoppingItems))            setShoppingItems(clean.shoppingItems); } catch(e) {}
+      try { if (Array.isArray(clean.people))                   setPeople(clean.people); } catch(e) {}
+      try { if (Array.isArray(clean.notifications))            setNotifications(clean.notifications); } catch(e) {}
+      try { if (Array.isArray(clean.brainItems))               setBrainItems(clean.brainItems); } catch(e) {}
+      try { if (Array.isArray(clean.stores))                   setStores(clean.stores); } catch(e) {}
+      try { if (Array.isArray(clean.shopCategories))           setShopCategories(clean.shopCategories); } catch(e) {}
+      try { if (Array.isArray(clean.birthdays))                setBirthdays(clean.birthdays); } catch(e) {}
+      try { if (Array.isArray(clean.homeSystems))              setHomeSystems(clean.homeSystems); } catch(e) {}
+      try { if (clean.meals && typeof clean.meals === "object") setMealsRaw(clean.meals); } catch(e) {}
+      try { if (clean.rhythm && typeof clean.rhythm === "object") setRhythm(clean.rhythm); } catch(e) {}
+      try { if (clean.familyProfile != null)                   setFamilyProfile(clean.familyProfile); } catch(e) {}
+      try { if (typeof clean.flowMode === "string")            setFlowMode(clean.flowMode); } catch(e) {}
+      try { if (typeof clean.theme === "string")               setThemeNameRaw(clean.theme); } catch(e) {}
+      setSyncStatus("synced");
+      setLastSyncTime(new Date().toLocaleTimeString());
+    } catch(applyErr) {
+      console.warn("[AF] applyServerData failed:", applyErr.message);
+    } finally {
+      applyingServerDataRef.current = false;
+      seedLocalSyncSnapshot();
+      console.log("[AF SYNC] applied server data — triggers HomeFlow rerender + SettingsTab remount if inside HomeFlow");
+    }
+  }
+
+
+  // ── syncNow: push local state then pull any newer server changes ───────────
   async function syncNow() {
     if (!authToken || !householdId) return;
     try {
       setSyncStatus("syncing");
-      // Push our current local state up first
-      await pushHouseholdData(authToken, householdId);
-      // Then pull back from server to confirm and get any changes from the other user
+      await pushHouseholdData(authToken, householdId, { force: true });
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-   if (rows && rows.length > 0 && rows[0].data) {
-        const lastSync = localStorage.getItem("af_lastHHSync");
-        if (lastSync !== (rows[0].updated_at || "")) {
-          if (!isRemotePayloadSafe(rows[0].data, rows[0].updated_at)) { setSyncStatus("synced"); return; }
-          createLocalBackup();
-          const clean = sanitizeHouseholdData(rows[0].data);
-          SYNC_KEYS.forEach(k => {
-            if (clean[k] !== undefined) {
-              try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
-            }
-          });
-          try { localStorage.setItem("af_lastHHSync", rows[0].updated_at || Date.now().toString()); } catch {}
-          sessionStorage.removeItem("af_synced_this_session");
-          // Never reload if user is actively typing or typed in the last 15s
-          const activeEl2 = document.activeElement;
-          const isTyping2 = activeEl2 && (activeEl2.tagName === "INPUT" || activeEl2.tagName === "TEXTAREA");
-          const typedRecently2 = (Date.now() - lastTypedRef.current) < 15000;
-          if (isTyping2 || typedRecently2) { setSyncStatus("synced"); return; }
-          window.location.reload();
-          return;
-        }
-      }
-      setSyncStatus("synced");
-      setLastSyncTime(new Date().toLocaleTimeString());
-    } catch { setSyncStatus("error"); }
+      if (!rows || !rows.length || !rows[0].data) { setSyncStatus("synced"); return; }
+      const serverTs = rows[0].updated_at || "";
+      const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
+      // If server timestamp matches what we just pushed, nothing new from other devices
+      if (serverTs === lastPushedAt) { setSyncStatus("synced"); setLastSyncTime(new Date().toLocaleTimeString()); return; }
+      // Server has data from another device — apply it
+      applyServerData(rows[0].data, serverTs);
+    } catch(e) { if (!isJwtExpired(e)) setSyncStatus("error"); }
   }
 
-  // Register Service Worker on first load (enables caching + persistent notifications)
+  // Register Service Worker
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
+      // Force SW update check on each app load — catches stale PWA caches
+      navigator.serviceWorker.ready.then(function(reg) {
+        reg.update().catch(function(){});
+      });
     }
   }, []);
 
-  // ── Startup: correct household ID by owner_id ────────────────────────────
-  // Runs once on mount. If the stored household is owned by this user, use it.
-  // If the stored household belongs to someone else (joined household), keep it.
-  useEffect(() => {
-    if (!authToken) return;
-    const userId = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null")?.id; } catch { return null; } })();
-    if (!userId) return;
-    const currentId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
-    // First check if the current household is valid (exists in Supabase)
-    if (currentId) {
-      sbFetch(`/rest/v1/households?id=eq.${currentId}&select=id,owner_id&limit=1`, { _token: authToken })
-        .then(rows => {
-          if (rows && rows.length > 0) {
-            // Household exists — keep it regardless of owner (could be a joined household)
-            console.log("[AF] Household ID valid:", currentId);
-          } else {
-            // Household doesn't exist — find the one owned by this user
-            sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
-              .then(owned => {
-                if (owned && owned.length > 0) {
-                  console.log("[AF] Correcting to owned household:", owned[0].id);
-                  localStorage.setItem("af_householdId", JSON.stringify(owned[0].id));
-                  window.location.reload();
-                } else {
-                  console.log("[AF] No household found for user:", userId);
-                }
-              }).catch(() => {});
-          }
-        }).catch(() => {});
-    } else {
-      // No household stored — find the one owned by this user
-      sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
-        .then(rows => {
-          if (rows && rows.length > 0) {
-            console.log("[AF] Setting owned household:", rows[0].id);
-            localStorage.setItem("af_householdId", JSON.stringify(rows[0].id));
-            window.location.reload();
-          } else {
-            console.log("[AF] No household found for user:", userId);
-          }
-        }).catch(() => {});
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Seed local sync snapshot once after mount so localStorage-only modules are detected.
+  useEffect(() => { seedLocalSyncSnapshot(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Background household sync — polls every 60s ─────────────────────────
-  // Each tick fetches the server row and compares updated_at to af_lastHHSync.
-  // If server is newer and the user isn't actively typing, writes fresh data
-  // and reloads so the other household member's changes appear automatically.
-  // Our own pushes update af_lastHHSync, so we never reload on our own writes.
-  useEffect(() => {
-    if (!authToken || !householdId) return;
-
-    async function checkForUpdates() {
-      try {
-        const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-        if (!rows || !rows.length || !rows[0].data) return;
-        const row = rows[0];
-        const serverTs = row.updated_at || "";
-        const lastSync = localStorage.getItem("af_lastHHSync") || "";
-        if (serverTs && serverTs !== lastSync) {
-          // If this new timestamp matches what WE just pushed, it's our own write — don't reload
-          const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
-          if (serverTs === lastPushedAt) {
-            try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-            setSyncStatus("synced");
-            setLastSyncTime(new Date().toLocaleTimeString());
-            return;
-          }
-          const activeEl = document.activeElement;
-          const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT");
-          const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-          const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
-          const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
-          if (isTyping || typedRecently || isDragging || hasOpenModal) return;
-          if (!isRemotePayloadSafe(row.data, serverTs)) return;
-          createLocalBackup();
-          const cleanBg = sanitizeHouseholdData(row.data);
-          const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
-          SYNC_KEYS.forEach(k => {
-            // Don't overwrite mealsWeekOf from server if local already has this week's value
-            if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
-            if (cleanBg[k] !== undefined) {
-              try { localStorage.setItem("af_" + k, JSON.stringify(cleanBg[k])); } catch {}
-            }
-          });
-          localStorage.setItem("af_lastHHSync", serverTs);
-          window.location.reload();
-          setSyncStatus("synced");
-          setLastSyncTime(new Date().toLocaleTimeString());
-        }
-      } catch {}
-    }
-
-    // First check after 5s, then every 60s — but never if user is actively typing
-    const initial = setTimeout(function(){
-      const active = document.activeElement;
-      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
-      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-      if (!isTyping && !typedRecently) checkForUpdates();
-    }, 5000);
-    const interval = setInterval(function(){
-      const active = document.activeElement;
-      const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
-      const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
-      const shopFocused = window._shopInputFocused;
-      if(!isTyping && !typedRecently && !shopFocused) checkForUpdates();
-    }, 60000);
-    return () => { clearTimeout(initial); clearInterval(interval); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Push local changes every 30s ───────────────────────────────────────────
-  // Only pushes — no reloads. Cross-device updates appear on next app open.
-  useEffect(() => {
-    if (!authToken || !householdId) return;
-    const iv = setInterval(async () => {
-      try {
-        await pushHouseholdData(authToken, householdId);
-        setSyncStatus("synced");
-        setLastSyncTime(new Date().toLocaleTimeString());
-      } catch {}
-    }, 30000);
-    return () => clearInterval(iv);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken, householdId]);
-
-  // Sync on task/meal/cal changes (debounced)
+  // ── Track keystroke time (never sync while typing) ─────────────────────────
   const syncTimeoutRef = useRef(null);
-  // Track last keystroke time — never reload within 15s of any typing
   const lastTypedRef = useRef(0);
   useEffect(() => {
+    window._appStartTime = Date.now();
     function onKey() { lastTypedRef.current = Date.now(); }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
+
+  // ── Debounced sync: fires 1s after any data change ────────────────────────
   function debouncedSync() {
     if (!authToken || !householdId) return;
     clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(syncNow, 3000);
+    syncTimeoutRef.current = setTimeout(syncNow, 1000);
   }
+
+  // ── Log auth token presence on mount ──────────────────────────────────────
+  useEffect(() => {
+    const tok = localStorage.getItem("af_authToken");
+    const present = !!(tok && tok !== "null");
+    console.log("[AF AUTH] token present:", present);
+    if (!present && authToken) {
+      // State says logged in but localStorage is empty — clear state
+      setAuthToken(null);
+      setShowAuthModal(true);
+    }
+  }, []); // eslint-disable-line
+
+  // ── Listen for local data changes and trigger debounced sync ──────────────
+  useEffect(() => {
+    function onDataChanged(e) {
+      debouncedSync();
+    }
+    window.addEventListener("af-data-changed", onDataChanged);
+    return () => window.removeEventListener("af-data-changed", onDataChanged);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, householdId]);
+
+  // ── Realtime + fallback poll ───────────────────────────────────────────────
+  const pendingSyncRef = useRef(null);
+  useEffect(() => {
+    if (!authToken || !householdId) return;
+
+    function handleIncoming(row) {
+      if (!row || !row.data) return;
+      const serverTs = row.updated_at || "";
+      // Skip our own pushes
+      const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
+      if (serverTs && serverTs === lastPushedAt) {
+        setSyncStatus("synced");
+        return;
+      }
+      // Skip if we already applied this exact server timestamp
+      const lastSync = localStorage.getItem("af_lastHHSync") || "";
+      if (serverTs && serverTs === lastSync && serverTs !== lastPushedAt) return;
+      // Skip if user is actively typing — retry in 5s
+      const isTyping = document.activeElement && ["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName);
+      if (isTyping) {
+        clearTimeout(pendingSyncRef.current);
+        pendingSyncRef.current = setTimeout(function() { handleIncoming(row); }, 5000);
+        return;
+      }
+      applyServerData(row.data, serverTs);
+    }
+
+    // Realtime subscription
+    const channel = supabase
+      .channel("hh-" + householdId)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "households", filter: "id=eq." + householdId },
+        function(payload) { handleIncoming(payload.new); })
+      .subscribe(function(status) {
+        if (status === "SUBSCRIBED") setSyncStatus("synced");
+      });
+
+    // Fallback poll every 15s — catches missed realtime and mobile background
+    const poll = setInterval(async function() {
+      if (!authToken) return;
+      try {
+        const rows = await sbFetch("/rest/v1/households?id=eq."+householdId+"&select=updated_at,data", { _token: authToken });
+        if (rows && rows.length > 0) handleIncoming(rows[0]);
+      } catch(e) {
+        if (e.message && (e.message.includes("401") || e.message.includes("Unauthorized") || e.message.includes("No auth token"))) {
+          console.warn("[AF SYNC] household pull unauthorized — stopping poll, showing sign-in");
+          setAuthToken(null);
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          setShowAuthModal(true);
+          clearInterval(poll);
+        }
+      }
+    }, 15000);
+
+    return () => { supabase.removeChannel(channel); clearInterval(poll); clearTimeout(pendingSyncRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken, householdId]);
+
 
   // ── All state ───────────────────────────────────────────────────────────────
   const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
@@ -1747,7 +2064,8 @@ function createLocalBackup() {
         if(d<today||d>horizon)return;
         var ds=yr+"-"+String(b.month).padStart(2,"0")+"-"+String(b.day).padStart(2,"0");
         var genId="bday_"+b.id+"_"+yr;
-        if(!calEvents.some(function(e){return e.id===genId;})){
+        if(!calEvents.some(function(e){return e.id===genId;}) && !_injectedBirthdayIds.has(genId)){
+          _injectedBirthdayIds.add(genId);
           var age=b.year?yr-b.year:null;
           toAdd.push({id:genId,title:"🎂 "+b.name+(age?" (turns "+age+")":""),date:ds,time:"",color:"#c878a8",colorLabel:"Birthday",note:"",_birthday:true});
         }
@@ -1860,7 +2178,7 @@ function createLocalBackup() {
     });
     const brainPending = brainItems.filter(b=>!b.done&&!b.scheduledDay);
     const next7 = Array.from({length:7},function(_,i){var d=new Date(TODAY);d.setDate(d.getDate()+i+1);return d.toISOString().split("T")[0];});
-    const upcomingEvts7 = calEvents.filter(e=>next7.includes(e.date)).slice(0,6);
+    const upcomingEvts7 = calEvents.filter(e=>next7.some(function(d){return eventCoversDay(e,d);})).slice(0,6);
     const THEME_TO_CATS_BRIEF = {
       "reset":    ["household","errands"],
       "errands":  ["errands","orders"],
@@ -1897,7 +2215,7 @@ function createLocalBackup() {
       const res = await fetch("/api/claude",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:sysPrompt,messages:[{role:"user",content:ctx}]})
+        body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:600,system:sysPrompt,messages:[{role:"user",content:ctx}]})
       });
       const dat = await res.json();
       const txt = dat.content?.find(b=>b.type==="text")?.text||"{}";
@@ -2020,7 +2338,7 @@ function createLocalBackup() {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
+          model:"claude-sonnet-4-5",
           max_tokens:1000,
           system:`You are Compass, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
 
@@ -2164,7 +2482,7 @@ Respond ONLY with valid JSON array, no markdown:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 160,
+          model: "claude-sonnet-4-5", max_tokens: 160,
           system, messages: [{ role: "user", content: userContent }]
         })
       });
@@ -2190,7 +2508,7 @@ Respond ONLY with valid JSON array, no markdown:
     const pendingTasks= todayTasks.filter(t => !t.done);
     const todayMeal   = (meals[TODAY_NAME]||{}).dinner;
     const todayDateStr= TODAY.toISOString().split("T")[0];
-    const todayEvts   = calEvents.filter(e => e.date === todayDateStr).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+    const todayEvts   = calEvents.filter(e => eventCoversDay(e, todayDateStr)).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
     const tmrName     = DAY_NAMES[new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).getDay()];
     const tmrMeal     = (meals[tmrName]||{}).dinner;
     const familyCtx   = familyProfile ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids. Work: ${familyProfile.workSituation||"not set"}.` : "";
@@ -2253,7 +2571,7 @@ Respond ONLY with valid JSON array, no markdown:
     const eveningTime = todayAt(17);
     if (eveningTime > now && notifSettings.evening !== false) {
       const tmrDateStr = new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+1).toISOString().split("T")[0];
-      const tmrEvtsList = calEvents.filter(e=>e.date===tmrDateStr);
+      const tmrEvtsList = calEvents.filter(e=>eventCoversDay(e,tmrDateStr));
       const tmrStr = [
         ...tmrEvtsList.map(e=>`${e.time?fmtTime(e.time)+" ":""} ${e.title}`),
         ...(tmrMeal?[`Dinner: ${tmrMeal}`]:[])
@@ -2397,7 +2715,7 @@ Respond ONLY with valid JSON array, no markdown:
   }, []); // eslint-disable-line
 
   // Sync household data when key state changes
-  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems]); // eslint-disable-line
+  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems, people, notifications, familyProfile, rhythm, homeSystems, stores, shopCategories, brainItems, flowMode, sections, birthdays]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
@@ -2420,29 +2738,47 @@ Respond ONLY with valid JSON array, no markdown:
     setRecipeLoading(true); setRecipeError(""); setRecipeResult(null);
     try {
       const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-20250514", max_tokens:800,
+        model:"claude-sonnet-4-5", max_tokens:800,
         system:`Extract recipe info from a URL. Respond ONLY in JSON: {"name":"","ingredients":[],"servings":"","time":"","notes":"","source":""}. If social media video, set name to "Paste ingredients below" and notes to "Social media video — please paste the ingredient list manually."`,
         messages:[{role:"user",content:`URL: ${recipeUrl.trim()}`}]
       })});
       const d = await r.json();
       const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
-      setRecipeResult(JSON.parse(txt.replace(/```json|```/g,"").trim()));
+      try {
+        const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
+        if (!parsed || typeof parsed !== "object") throw new Error("Invalid recipe data");
+        // Normalise ingredients to array
+        if (typeof parsed.ingredients === "string") parsed.ingredients = parsed.ingredients.split("\n").filter(Boolean);
+        if (!Array.isArray(parsed.ingredients)) parsed.ingredients = [];
+        // Preserve the source URL if AI didn't fill it in
+        if (!parsed.source && recipeUrl.trim()) parsed.source = recipeUrl.trim();
+        setRecipeResult(parsed);
+      } catch {
+        setRecipeError("Couldn't parse that URL. Try entering the recipe manually below.");
+      }
     } catch { setRecipeError("Couldn't parse that URL. Try entering the recipe manually below."); }
     setRecipeLoading(false);
   }
 
   function saveImportedRecipe() {
-    if (recipeResult) {
-      setRecipes(p=>[...p,{...recipeResult,id:uid(),savedAt:new Date().toISOString()}]);
-      setRecipeResult(null); setRecipeUrl(""); setShowRecipeImport(false);
+    if (!recipeResult) return;
+    if (!recipeResult.name || !recipeResult.name.trim()) {
+      setRecipeError("Please add a recipe name before saving.");
+      return;
     }
+    setRecipes(function(p){ return [...p, {...recipeResult, source: recipeResult.source||recipeUrl.trim()||"", id:uid(), savedAt:new Date().toISOString()}]; });
+    setRecipeResult(null); setRecipeUrl(""); setRecipeError(""); setShowRecipeImport(false);
   }
 
   function saveManualRecipe() {
-    if (!manualRecipe.name.trim()) return;
-    const ing = manualRecipe.ingredients.split("\n").filter(Boolean);
-    setRecipes(p=>[...p,{...manualRecipe,ingredients:ing,id:uid(),savedAt:new Date().toISOString()}]);
+    if (!manualRecipe.name.trim()) {
+      setRecipeError("Recipe name is required.");
+      return;
+    }
+    const ing = (manualRecipe.ingredients||"").split("\n").filter(Boolean);
+    setRecipes(function(p){ return [...p, {...manualRecipe, ingredients:ing, id:uid(), savedAt:new Date().toISOString()}]; });
     setManualRecipe({name:"",ingredients:"",servings:"",notes:"",source:""});
+    setRecipeError("");
     setShowRecipeImport(false);
   }
 
@@ -2777,7 +3113,7 @@ Respond ONLY with valid JSON array, no markdown:
       }
       try {
         const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:1000,
+          model:"claude-sonnet-4-5", max_tokens:1000,
           system:`You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
           messages:msgs.map(m=>({role:m.role,content:m.text}))
         })});
@@ -3132,7 +3468,7 @@ Respond ONLY with valid JSON array, no markdown:
         tmrRhythm.theme ? "Theme: "+tmrRhythm.theme : "",
       ].filter(Boolean).join(". ");
       fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",max_tokens:300,
+        model:"claude-sonnet-4-5",max_tokens:300,
         system:"Generate 3-4 specific tonight prep tasks based on tomorrow. Each under 8 words. Return ONLY JSON: {\"preps\":[\"task\"]}",
         messages:[{role:"user",content:ctx||"Standard family evening."}]
       })}).then(r=>r.json()).then(d=>{
@@ -3147,7 +3483,7 @@ Respond ONLY with valid JSON array, no markdown:
       setClosing(true); setReflLoad(true);
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:120,
+          model:"claude-sonnet-4-5",max_tokens:120,
           system:"You are Compass. Write ONE warm closing sentence under 20 words. Be specific. Make them feel seen.",
           messages:[{role:"user",content:"Done: "+(done.map(t=>t.text).join(", ")||"nothing")+". Let go: "+letGo.length+". Tomorrow: "+(tmrEvts.map(e=>e.title).join(", ")||"quiet day")+". Mode: "+flowMode}]
         })});
@@ -3379,7 +3715,7 @@ Respond ONLY with valid JSON array, no markdown:
 
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514", max_tokens:700,
+          model:"claude-sonnet-4-5", max_tokens:700,
           system:`You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
 
 RULES:
@@ -4479,7 +4815,7 @@ Respond ONLY in valid JSON:
       var diff=mealIdx-todayIdx;if(diff<0)diff+=7;
       var dayDate=new Date(TODAY);dayDate.setDate(dayDate.getDate()+diff);
       var dateStr=dayDate.getFullYear()+"-"+String(dayDate.getMonth()+1).padStart(2,"0")+"-"+String(dayDate.getDate()).padStart(2,"0");
-      var dayEvents=calEvents.filter(function(e){return e.date===dateStr&&!e._birthday;});
+      var dayEvents=calEvents.filter(function(e){return eventCoversDay(e,dateStr)&&!e._birthday;});
       var dinner=(meals[day]||{}).dinner||"";
       var dayTasks=tasks.filter(function(t){return(t.day===day||t.day==="Daily")&&!t.archived&&!t.done;});
       var isBusy=dayEvents.length>=2;
@@ -4762,7 +5098,7 @@ Respond ONLY in valid JSON:
       var bankNames=[...MEAL_BANK_DATA,...(mealBankCustom||[])].map(function(m){return m.name;}).join(", ");
       try{
         var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:700,
+          model:"claude-sonnet-4-5",max_tokens:700,
           system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
           messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
         })});
@@ -4950,7 +5286,7 @@ Respond ONLY in valid JSON:
       setRescueLoading(true);setRescueResults(null);setRescueError(null);
       try{
         const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:800,
+          model:"claude-sonnet-4-5",max_tokens:800,
           system:`You are a helpful family meal assistant. Given ingredients on hand, suggest 3 simple family-friendly dinners.
 Respond ONLY with a valid JSON array, no markdown, no explanation, nothing else.
 Format: [{"name":"Meal Name","desc":"1-2 sentence description of how to make it"}]
@@ -5433,7 +5769,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             setPrepAiLoading(true);setPrepAiError("");
             try{
               var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-                model:"claude-sonnet-4-20250514",max_tokens:800,
+                model:"claude-sonnet-4-5",max_tokens:800,
                 system:"You are a practical family meal prep assistant. Given a week of meals and their ingredients, generate smart prep tips. Focus on: shared ingredients that can be prepped once (e.g. chop all onions Sunday), leftover opportunities (e.g. swap meals to use leftovers), batch cooking ideas, and time-saving shortcuts. Also suggest if swapping 2 meals would create a leftover chain. Respond ONLY as JSON: {\"shared\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"swaps\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"batch\":[{\"tip\":\"string\",\"emoji\":\"string\"}]}. Max 3 items per category. Keep tips under 80 chars.",
                 messages:[{role:"user",content:"Flow mode: "+flowMode+"\n\nThis week's meals:\n"+weekMealSummary.map(function(d){return d.day+": "+d.meals.join(", ")+(d.ingredients.length?" (ingredients: "+d.ingredients.slice(0,6).join(", ")+")":"");}).join("\n")}]
               })});
@@ -5627,8 +5963,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             {recipeResult&&(
               <div style={{...card({background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.9rem"})}}>
-                <p style={{fontWeight:700,color:T.sageDark,fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
-                <p style={{fontSize:"0.78rem",color:T.textMid}}>{recipeResult.ingredients?.length} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
+                {(!recipeResult.name||!recipeResult.name.trim()) ? (
+                  <div style={{marginBottom:"0.65rem"}}>
+                    <p style={{color:T.rose,fontSize:"0.77rem",marginBottom:"0.4rem",fontWeight:700}}>⚠ No recipe name found — add one to save:</p>
+                    <input value={recipeResult.name||""} onChange={function(e){setRecipeResult(function(r){return Object.assign({},r,{name:e.target.value});});}} placeholder="Recipe name" autoFocus style={{...inp({fontSize:"0.88rem"})}}/>
+                  </div>
+                ) : (
+                  <p style={{fontWeight:700,color:T.sageDark,fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
+                )}
+                <p style={{fontSize:"0.78rem",color:T.textMid}}>{Array.isArray(recipeResult.ingredients)?recipeResult.ingredients.length:0} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
                 <button onClick={saveImportedRecipe} style={{...btnP(T.sage,{marginTop:"0.65rem",display:"flex",alignItems:"center",gap:"0.4rem"})}}><Icon name="check" size={14} color="#fff"/> Save Recipe</button>
               </div>
             )}
@@ -5706,7 +6049,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(uncategorized.length===0){setAutoCatStatus("All items already have categories!");setTimeout(()=>setAutoCatStatus(""),2500);return;}
       setIsAutoCategorizing(true);setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
       try{
-        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCatLabels().join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
+        var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCatLabels().join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
         var d=await r.json();
         var txt=d.content?.find(function(b){return b.type==="text";})||{};
         var parsed=JSON.parse((txt.text||"[]").replace(/```json|```/g,"").trim());
@@ -5732,7 +6075,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var base64=await new Promise(function(res){var reader=new FileReader();reader.onload=function(){res(reader.result.split(",")[1]);};reader.readAsDataURL(file);});
       const photoUrl=URL.createObjectURL(file);
       try{
-        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
+        const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
         const d=await r.json();const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
         const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCatLabels().includes(parsed.category)?parsed.category:"";
         setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
@@ -6140,7 +6483,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setAiRecatLoading(true);
       try {
         const catList = allCats.map(c=>c.id+"="+c.label).join(", ");
-        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:"Categorize brain dump items into these categories: "+catList+", or uncategorized. Return ONLY JSON: {results:[{id,cat}]}. Use exact category IDs.",messages:[{role:"user",content:"Categorize:\n"+pending.map(b=>b.id+": "+b.text).join("\n")}]})});
+        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,system:"Categorize brain dump items into these categories: "+catList+", or uncategorized. Return ONLY JSON: {results:[{id,cat}]}. Use exact category IDs.",messages:[{role:"user",content:"Categorize:\n"+pending.map(b=>b.id+": "+b.text).join("\n")}]})});
         const d = await res.json();
         const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
         const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -6156,7 +6499,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var grouped={};
         pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
         var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
-        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
+        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-5",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
           .then(function(r){return r.json();})
           .then(function(d){var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg)setPatternMsg(msg);})
           .catch(function(){})
@@ -7239,7 +7582,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var res = await fetch("/api/anthropic", {
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:prompt}]}),
+          body: JSON.stringify({model:"claude-sonnet-4-5",max_tokens:400,messages:[{role:"user",content:prompt}]}),
         });
         var data = await res.json();
         var text = (data.content||[]).map(function(b){ return b.text||""; }).join("");
@@ -7735,6 +8078,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       { id: "umbrella",   label: "Umbrella",   emoji: "☂️" },
       { id: "curricula",  label: "Curricula",  emoji: "📚" },
       { id: "lessons",    label: "Lessons",    emoji: "✏️" },
+      { id: "monthly",    label: "Monthly",    emoji: "📅" },
       { id: "attendance", label: "Attendance", emoji: "📋" },
       { id: "activities", label: "Activities", emoji: "🌟" },
     ];
@@ -8087,8 +8431,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           })}
           {showCurriculumModal && (
             <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
+              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingTop: "1.25rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "min(92dvh, 600px)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem" }}>
+                  <div style={{ fontWeight: 700, color: T.textDark }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
+                  <button onClick={function(){setShowCurriculumModal(false);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textFaint,padding:"0.1rem 0.3rem"}}>✕</button>
+                </div>
                 {[["subject","Subject","text"],["name","Curriculum Name","text"],["website","Website","url"]].map(function(f) {
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
@@ -8330,12 +8677,44 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {lessonSubTab === "history" && (
             <div>
-              <div style={card()}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>🗂️ Past Lesson Plans</div>
-                <div style={{ color: T.textMid, fontSize: "0.82rem", lineHeight: 1.6 }}>
-                  Past plans are saved automatically each week when you clear or plan a new week. This feature is coming soon — for now your current week plan persists until you clear it.
-                </div>
-              </div>
+              {(function(){
+                var allLessons = (childData.homeschool.lessons||[]).slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+                if(allLessons.length===0) return <div style={{color:T.textFaint,textAlign:"center",padding:"2rem 0",fontSize:"0.85rem"}}>No lessons logged yet — add lessons in the Planner tab</div>;
+                // Group by month
+                var byMonth = {};
+                allLessons.forEach(function(l){
+                  var key = l.date ? l.date.slice(0,7) : "undated";
+                  if(!byMonth[key]) byMonth[key]=[];
+                  byMonth[key].push(l);
+                });
+                return Object.keys(byMonth).map(function(monthKey){
+                  var monthLabel = monthKey==="undated" ? "Undated" : new Date(monthKey+"-15").toLocaleDateString(undefined,{month:"long",year:"numeric"});
+                  return(
+                    <div key={monthKey} style={{marginBottom:"1rem"}}>
+                      <div style={{fontSize:"0.7rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.4rem"}}>{monthLabel}</div>
+                      {byMonth[monthKey].map(function(l){
+                        return(
+                          <div key={l.id} style={card({borderLeft:"3px solid "+T.lavender+"80",marginBottom:"0.4rem"})}>
+                            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"0.5rem"}}>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{l.title||"Untitled lesson"}</div>
+                                <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginTop:"0.2rem"}}>
+                                  {l.subject&&<span style={{fontSize:"0.7rem",color:T.lavender,fontWeight:700,background:T.lavender+"18",borderRadius:"999px",padding:"0.05rem 0.45rem"}}>{l.subject}</span>}
+                                  {l.date&&<span style={{fontSize:"0.7rem",color:T.textFaint}}>📅 {new Date(l.date+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}</span>}
+                                  {l.duration&&<span style={{fontSize:"0.7rem",color:T.textFaint}}>⏱ {l.duration}</span>}
+                                </div>
+                                {l.description&&<div style={{color:T.textSoft,fontSize:"0.76rem",marginTop:"0.3rem",lineHeight:1.5}}>{l.description}</div>}
+                                {l.resources&&<div style={{color:T.textSoft,fontSize:"0.73rem",marginTop:"0.2rem",fontStyle:"italic"}}>📚 {l.resources}</div>}
+                              </div>
+                              <button onClick={function(){ setLessonForm({date:l.date||"",subject:l.subject||"",title:l.title||"",description:l.description||"",resources:l.resources||"",duration:l.duration||""}); setEditingLesson(l.id); setShowLessonModal(true); }} style={btnS({padding:"0.25rem 0.55rem",fontSize:"0.7rem",flexShrink:0})}>Edit</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
 
@@ -8452,13 +8831,156 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
-    function HSActivities() {
+    function HSMonthly() {
+      var now = new Date();
+      var defaultMonthKey = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0");
+      var [activeMonth, setActiveMonth] = React.useState(defaultMonthKey);
+      var [showWorkModal, setShowWorkModal] = React.useState(false);
+      var [workForm, setWorkForm] = React.useState({ title:"", subject:"", url:"", notes:"" });
+      var [editingWork, setEditingWork] = React.useState(null);
+
+      var monthlyPlans = childData.homeschool.monthlyPlans || {};
+      var plan = monthlyPlans[activeMonth] || { theme:"", focus:"", goals:"", recap:"", workSamples:[] };
+
+      function savePlan(patch) {
+        var updated = Object.assign({}, monthlyPlans);
+        updated[activeMonth] = Object.assign({}, plan, patch);
+        saveHS({ monthlyPlans: updated });
+      }
+      function saveWork(patch) {
+        savePlan({ workSamples: patch });
+      }
+
+      // Build month options: 12 months back + 3 forward
+      var monthOptions = [];
+      for (var i = -11; i <= 2; i++) {
+        var d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        var k = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+        var label = d.toLocaleDateString(undefined, { month:"long", year:"numeric" });
+        monthOptions.push({ key: k, label: label });
+      }
+      monthOptions.reverse();
+
+      var monthLabel = (function(){ var d = new Date(activeMonth+"-15"); return d.toLocaleDateString(undefined,{month:"long",year:"numeric"}); })();
+      var workSamples = plan.workSamples || [];
+
+      return (
+        <div>
+          {/* Month picker */}
+          <div style={{marginBottom:"1rem"}}>
+            <select value={activeMonth} onChange={function(e){setActiveMonth(e.target.value);}} style={Object.assign({},inp({fontSize:"0.85rem",fontWeight:700,padding:"0.45rem 0.75rem"}))}>
+              {monthOptions.map(function(o){ return <option key={o.key} value={o.key}>{o.label}</option>; })}
+            </select>
+          </div>
+
+          {/* Plan card */}
+          <div style={card({borderLeft:"3px solid "+T.blue,marginBottom:"0.75rem"})}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>📅 {monthLabel} — Plan</div>
+            <div style={{marginBottom:"0.55rem"}}>
+              <label style={lbl}>Monthly Theme</label>
+              <input key={activeMonth+"_theme"} defaultValue={plan.theme} onBlur={function(e){savePlan({theme:e.target.value});}} onKeyDown={function(e){if(e.key==="Enter")e.target.blur();}} placeholder="e.g. Nature & Science, Ancient History..." style={inp()} />
+            </div>
+            <div style={{marginBottom:"0.55rem"}}>
+              <label style={lbl}>Main Focus</label>
+              <input key={activeMonth+"_focus"} defaultValue={plan.focus} onBlur={function(e){savePlan({focus:e.target.value});}} onKeyDown={function(e){if(e.key==="Enter")e.target.blur();}} placeholder="e.g. Multiplication facts, chapter books..." style={inp()} />
+            </div>
+            <div style={{marginBottom:"0.25rem"}}>
+              <label style={lbl}>Goals for the Month</label>
+              <textarea key={activeMonth+"_goals"} defaultValue={plan.goals} onBlur={function(e){savePlan({goals:e.target.value});}} placeholder="What do you want to accomplish this month?" style={Object.assign({},inp(),{minHeight:70,resize:"vertical"})} />
+            </div>
+          </div>
+
+          {/* Recap card */}
+          <div style={card({borderLeft:"3px solid "+T.sage,marginBottom:"0.75rem"})}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>✨ {monthLabel} — Recap</div>
+            <div>
+              <label style={lbl}>How did it go? What stood out?</label>
+              <textarea key={activeMonth+"_recap"} defaultValue={plan.recap} onBlur={function(e){savePlan({recap:e.target.value});}} placeholder="Wins, struggles, funny moments, things to remember..." style={Object.assign({},inp(),{minHeight:90,resize:"vertical"})} />
+            </div>
+          </div>
+
+          {/* Work samples */}
+          <div style={card({marginBottom:"0.75rem"})}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.65rem"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark}}>🖼️ Work Samples</div>
+              <button onClick={function(){setWorkForm({title:"",subject:"",url:"",notes:""});setEditingWork(null);setShowWorkModal(true);}} style={btnP(T.sand,{fontSize:"0.75rem",padding:"0.3rem 0.75rem"})}>+ Add</button>
+            </div>
+            {workSamples.length===0&&<div style={{color:T.textFaint,fontSize:"0.82rem",textAlign:"center",padding:"1rem 0"}}>No work samples yet — add a photo URL or link to a piece of work</div>}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:"0.6rem"}}>
+              {workSamples.map(function(w){
+                return(
+                  <div key={w.id} style={{borderRadius:"0.75rem",overflow:"hidden",border:"1.5px solid "+T.borderSoft,background:T.white}}>
+                    {w.url&&(
+                      <div style={{height:100,overflow:"hidden",background:T.bgAlt}}>
+                        <img src={w.url} alt={w.title} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={function(e){e.target.parentNode.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:'+T.textFaint+';font-size:0.72rem;padding:0.5rem;text-align:center">🔗 Link only</div>';}}/>
+                      </div>
+                    )}
+                    <div style={{padding:"0.45rem 0.5rem"}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",color:T.textDark,marginBottom:"0.15rem",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{w.title||"Untitled"}</div>
+                      {w.subject&&<div style={{fontSize:"0.68rem",color:T.sage,fontWeight:700}}>{w.subject}</div>}
+                      {w.notes&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{w.notes}</div>}
+                      <div style={{display:"flex",gap:"0.3rem",marginTop:"0.35rem"}}>
+                        <button onClick={function(){setWorkForm({title:w.title||"",subject:w.subject||"",url:w.url||"",notes:w.notes||""});setEditingWork(w.id);setShowWorkModal(true);}} style={btnS({padding:"0.2rem 0.45rem",fontSize:"0.68rem"})}>Edit</button>
+                        <button onClick={function(){saveWork(workSamples.filter(function(x){return x.id!==w.id;}));}} style={btnS({padding:"0.2rem 0.45rem",fontSize:"0.68rem",color:T.rose})}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Work sample modal */}
+          {showWorkModal&&(
+            <div style={{position:"fixed",inset:0,background:T.modalOverlay,zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+              <div style={{background:T.surface,borderRadius:"1.2rem 1.2rem 0 0",padding:"1.5rem",paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom,0px))",width:"min(480px,100%)",maxHeight:"min(88dvh,560px)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
+                  <div style={{fontWeight:700,color:T.textDark}}>{editingWork?"Edit Work Sample":"Add Work Sample"}</div>
+                  <button onClick={function(){setShowWorkModal(false);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textFaint}}>✕</button>
+                </div>
+                {[["title","Title","text","e.g. Math worksheet, Art project..."],["subject","Subject","text","Math, Reading, Art..."]].map(function(f){
+                  return(
+                    <div key={f[0]} style={{marginBottom:"0.6rem"}}>
+                      <label style={lbl}>{f[1]}</label>
+                      <input type={f[2]} key={f[0]+"_"+(editingWork||"new")} defaultValue={workForm[f[0]]} onBlur={function(e){var v=e.target.value;var fk=f[0];setWorkForm(function(p){var n=Object.assign({},p);n[fk]=v;return n;});}} placeholder={f[3]} style={inp()} />
+                    </div>
+                  );
+                })}
+                <div style={{marginBottom:"0.6rem"}}>
+                  <label style={lbl}>Photo URL <span style={{fontWeight:400,color:T.textFaint,fontSize:"0.72rem"}}>(paste image link from Google Photos, iCloud, etc.)</span></label>
+                  <input type="url" key={"url_"+(editingWork||"new")} defaultValue={workForm.url} onBlur={function(e){var v=e.target.value.trim();setWorkForm(function(p){return Object.assign({},p,{url:v});});}} placeholder="https://..." style={inp()} />
+                  {workForm.url&&<div style={{marginTop:"0.4rem",borderRadius:"0.6rem",overflow:"hidden",maxHeight:110}}><img src={workForm.url} alt="preview" style={{width:"100%",objectFit:"cover",maxHeight:110,display:"block"}} onError={function(e){e.target.style.display="none";}}/></div>}
+                </div>
+                <div style={{marginBottom:"0.85rem"}}>
+                  <label style={lbl}>Notes</label>
+                  <textarea key={"notes_"+(editingWork||"new")} defaultValue={workForm.notes} onBlur={function(e){var v=e.target.value;setWorkForm(function(p){return Object.assign({},p,{notes:v});});}} placeholder="What did they learn? What are you proud of?" style={Object.assign({},inp(),{minHeight:55})} />
+                </div>
+                <div style={{display:"flex",gap:"0.5rem"}}>
+                  <button onClick={function(){
+                    if(!workForm.title.trim()&&!workForm.url.trim()) return;
+                    if(editingWork){
+                      saveWork(workSamples.map(function(x){return x.id===editingWork?Object.assign({},workForm,{id:x.id}):x;}));
+                    } else {
+                      saveWork(workSamples.concat([Object.assign({},workForm,{id:suid(),date:activeMonth})]));
+                    }
+                    setShowWorkModal(false);
+                  }} style={btnP(T.sand,{flex:1})}>Save</button>
+                  <button onClick={function(){setShowWorkModal(false);}} style={btnS({flex:1})}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+        function HSActivities() {
       var activities = (childData.homeschool.activities || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
       var upcoming = activities.filter(function(a) { return a.date >= todayISO; });
       var past = activities.filter(function(a) { return a.date < todayISO; });
       return (
         <div>
-          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
+          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", photoUrl: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
           {upcoming.length > 0 && (
             <div style={{ marginBottom: "0.5rem" }}>
               <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Upcoming</div>
@@ -8472,11 +8994,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         {a.location && <div style={{ color: T.textMid, fontSize: "0.75rem" }}>📍 {a.location}</div>}
                       </div>
                       <div style={{ display: "flex", gap: "0.4rem" }}>
-                        <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
+                        <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, photoUrl: a.photoUrl||"", notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
                         <button onClick={function() { saveHS({ activities: activities.filter(function(x) { return x.id !== a.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
                       </div>
                     </div>
                     {a.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{a.notes}</div>}
+                    {a.photoUrl&&<div style={{marginTop:"0.5rem",borderRadius:"0.6rem",overflow:"hidden"}}><img src={a.photoUrl} alt={a.title} style={{width:"100%",maxHeight:140,objectFit:"cover",display:"block",borderRadius:"0.6rem"}} onError={function(e){e.target.style.display="none";}}/></div>}
                   </div>
                 );
               })}
@@ -8487,9 +9010,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Past</div>
               {past.slice(-5).reverse().map(function(a) {
                 return (
-                  <div key={a.id} style={card({ opacity: 0.65 })}>
-                    <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
-                    {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                  <div key={a.id} style={card({ opacity: 0.75 })}>
+                    <div style={{display:"flex",gap:"0.65rem",alignItems:"flex-start"}}>
+                      {a.photoUrl&&<img src={a.photoUrl} alt={a.title} style={{width:52,height:52,objectFit:"cover",borderRadius:"0.5rem",flexShrink:0}} onError={function(e){e.target.style.display="none";}}/>}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
+                        {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                        {a.location&&<div style={{color:T.textFaint,fontSize:"0.73rem"}}>📍 {a.location}</div>}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -8508,6 +9037,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                   );
                 })}
+                <div style={{ marginBottom: "0.65rem" }}>
+                  <label style={lbl}>Photo URL <span style={{fontWeight:400,color:T.textFaint,fontSize:"0.72rem"}}>(paste a link to an image)</span></label>
+                  <input type="url" key={"photoUrl_"+(editingActivity?editingActivity:"new")} defaultValue={activityForm.photoUrl||""} onBlur={function(e){ var v=e.target.value.trim(); setActivityForm(function(p){ return Object.assign({},p,{photoUrl:v}); }); }} placeholder="https://..." style={inp()} />
+                  {activityForm.photoUrl&&(
+                    <div style={{marginTop:"0.4rem",borderRadius:"0.65rem",overflow:"hidden",maxHeight:120,background:T.bgAlt}}>
+                      <img src={activityForm.photoUrl} alt="preview" style={{width:"100%",objectFit:"cover",maxHeight:120,display:"block"}} onError={function(e){e.target.style.display="none";}}/>
+                    </div>
+                  )}
+                </div>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Notes</label>
                   <textarea defaultValue={activityForm.notes} onBlur={function(e) { var v = e.target.value; setActivityForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
@@ -8762,6 +9300,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {subTab === "curricula"  && <HSCurricula />}
             {subTab === "lessons"    && <HSLessons />}
             {subTab === "attendance" && <HSAttendance />}
+            {subTab === "monthly"    && <HSMonthly />}
             {subTab === "activities" && <HSActivities />}
           </React.Fragment>
         )}
@@ -8769,30 +9308,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  // Section lives OUTSIDE SettingsTab so React never remounts it on SettingsTab re-renders.
-  // Children stay mounted (display:none when closed) so inputs never lose focus.
-  function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting}){
-    var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
-    return(
-      <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
-        <button onClick={function(e){e.preventDefault();toggleSetting(id,defaultOpen);}} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
-          <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
-          <div style={{flex:1}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
-            {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
-          </div>
-          <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
-        </button>
-        {/* display:none keeps children mounted so inputs never lose focus */}
-        <div style={{display:isOpen?"block":"none",padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>
-          {children}
-        </div>
-      </div>
-    );
-  }
-
   function SettingsTab(){
-    const [settingsOpen, setSettingsOpen] = useState({family:true});
+    var isStandalonePWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    var pwaBannerDismissed = (function(){ try { return JSON.parse(localStorage.getItem("af_pwaBannerDismissed")||"false"); } catch { return false; } })();
+    var showPwaBanner = !isStandalonePWA && !pwaBannerDismissed;
+    function dismissPwaBanner(){ try { localStorage.setItem("af_pwaBannerDismissed", "true"); } catch {} }
+    const [editingName, setEditingName] = useState(false);
+    const [nameDraft, setNameDraft] = useState("");
+    function savePreferredName() {
+      var v = nameDraft.trim();
+      if (v) {
+        setPreferredName(v);
+        var updated = Object.assign({}, authUser, {displayName:v});
+        setAuthUser(updated);
+        try { localStorage.setItem("af_authUser", JSON.stringify(updated)); } catch {}
+        window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "preferredName" } }));
+      }
+      setEditingName(false);
+    }
+    function cancelPreferredName() { setNameDraft(preferredName||""); setEditingName(false); }
     function toggleSetting(key,defaultOpen){
       setSettingsOpen(function(p){
         var current = key in p ? p[key] : (defaultOpen||false);
@@ -8802,7 +9336,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
     // Pass settingsOpen + toggleSetting down explicitly.
-    function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting})); }
+    function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting,T})); }
 
     function Row({label,sub,children,tight}){
       return(
@@ -8838,15 +9372,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     // ── local add-member state ──
-    var [newMemberName,setNewMemberName]=useState("");
-    var [newMemberAge,setNewMemberAge]=useState("");
-    var [newMemberRole,setNewMemberRole]=useState("");
     var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
+    var addFormRef = useRef(null);
     function addMember(){
-      if(!newMemberName.trim())return;
-      var ageStr=newMemberAge.trim(); var ageNum=ageStr?parseInt(ageStr,10):null; var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
-      setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
-      setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+      if(!addFormRef.current) return;
+      var nameEl = addFormRef.current.querySelector(".add-name");
+      var ageEl  = addFormRef.current.querySelector(".add-age");
+      var roleEl = addFormRef.current.querySelector(".add-role");
+      var name = nameEl ? nameEl.value.trim() : "";
+      if(!name) return;
+      var ageStr = ageEl ? ageEl.value.trim() : "";
+      var ageNum = ageStr ? parseInt(ageStr,10) : null;
+      var age = (ageNum!==null&&!isNaN(ageNum)) ? ageNum : null;
+      var role = roleEl ? roleEl.value : "";
+      setPeople(function(p){return[...p,{id:uid(),name:name,color:PC[p.length%PC.length],age:age,role:role||null,isMinor:age!=null&&age<18}];});
+      // Clear the DOM inputs directly — no state needed
+      if(nameEl) nameEl.value = "";
+      if(ageEl)  ageEl.value  = "";
+      if(roleEl) roleEl.value = "";
+      if(nameEl) nameEl.focus();
     }
 
     // ── stores editing state ──
@@ -8875,77 +9419,53 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ════════════════════════════════════
             1. FAMILY
         ════════════════════════════════════ */}
-        <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
           <div style={{paddingTop:"0.75rem"}}>
             {/* People list */}
             <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
             {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
-              var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
-              return(
-                <div key={p.id} style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
-                    <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
-                    <input
-                      key={p.id+"_name"}
-                      defaultValue={p.name}
-                      onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
-                      style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
-                    />
-                    <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
-                      <Icon name="trash" size={13} color={T.textFaint}/>
-                    </button>
-                  </div>
-                  <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
-                    <input type="number" min={0} max={120} value={p.age!=null&&!isNaN(p.age)?p.age:""} onChange={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
-                    <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
-                      <option value="">Role…</option>
-                      {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-                    </select>
-                    <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
-                      {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
-                        <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
-                      );})}
-                      <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                        <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              );
+              return <PersonCard key={p.id} p={p} setPeople={setPeople} T={T} inp={inp} btnP={btnP} ROLES={ROLES} COLORS={["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"]}/>;
             })}
             {/* Add member */}
             <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
+              <div ref={addFormRef} style={{display:"contents"}}>
               <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-                <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+                <input className="add-name" defaultValue="" onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+                <input className="add-age" type="number" min={0} max={120} defaultValue="" onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
               </div>
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
+                <select className="add-role" defaultValue="" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
                   <option value="">Role (optional)</option>
                   {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
                 </select>
                 <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
               </div>
+              </div>
             </div>
             {/* ZIP code + home vibe */}
             <Row label="ZIP code" sub="For local weather and notification timing">
-              <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
+              <SafeTextInput value={(familyProfile&&familyProfile.zipcode)||""} placeholder="e.g. 80903" inputStyle={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             </Row>
             <Row label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
-              <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+              <SafeTextInput value={(familyProfile&&familyProfile.homeVibe)||""} placeholder="e.g. calm & faith-led" inputStyle={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             </Row>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             2. FLOW (YOU)
         ════════════════════════════════════ */}
-        <Sec id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
-              <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                <input value={preferredName} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(){var updated=Object.assign({},authUser,{displayName:preferredName.trim()||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+              <div style={{display:"flex",gap:"0.4rem",alignItems:"center",flexWrap:"wrap"}}>
+                <SafeTextInput
+                  value={preferredName||""}
+                  placeholder="e.g. Lindsey"
+                  inputStyle={{width:130,fontSize:"0.8rem",padding:"0.28rem 0.55rem",border:"1.5px solid "+T.blue,borderRadius:"0.6rem",background:T.surface,color:T.textDark,fontFamily:"'DM Sans',sans-serif",outline:"none",boxSizing:"border-box"}}
+                  onSave={function(v){if(v){setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{}window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"preferredName"}}));}}}
+                />
               </div>
             </Row>
             <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
@@ -8964,12 +9484,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
             </div>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             3. MIND
         ════════════════════════════════════ */}
-        <Sec id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{paddingBottom:"0.75rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.5rem"}}>
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Default view</div>
@@ -8978,12 +9498,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Categories & colours</div>
             <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             4. MEALS
         ════════════════════════════════════ */}
-        <Sec id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
               <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
@@ -8992,20 +9512,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
             <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
             </Row>
-            <input defaultValue={(familyProfile&&familyProfile.favoriteDinner)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:e.target.value});});}} placeholder="e.g. Tacos, sheet pan chicken, pasta" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+            <SafeTextInput value={(familyProfile&&familyProfile.favoriteDinner)||""} placeholder="e.g. Tacos, sheet pan chicken, pasta" inputStyle={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             <Row label="Dietary needs" sub="Allergies, intolerances, or preferences">
             </Row>
-            <input defaultValue={(familyProfile&&familyProfile.dietaryNeeds)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:e.target.value});});}} placeholder="e.g. Dairy-free, nut allergy" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+            <SafeTextInput value={(familyProfile&&familyProfile.dietaryNeeds)||""} placeholder="e.g. Dairy-free, nut allergy" inputStyle={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
             <Row label="Cooking style" sub="Helps Compass suggest appropriate recipes">
             </Row>
-            <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
+            <SafeTextInput value={(familyProfile&&familyProfile.cookingStyle)||""} placeholder="e.g. Quick & simple, batch cook weekends" inputStyle={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}} onSave={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:v});});window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"familyProfile"}}));}}/>
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             5. SHOPPING
         ════════════════════════════════════ */}
-        <Sec id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
             {stores.map(function(store,i){
@@ -9028,12 +9548,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             )}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             6. TIDE POOL
         ════════════════════════════════════ */}
-        <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
           <div style={{paddingTop:"0.75rem"}}>
           {(function(){
             var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
@@ -9127,12 +9647,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })()}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             7. WEEKLY RHYTHM
         ════════════════════════════════════ */}
-        <Sec id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
             {(function(){
@@ -9183,12 +9703,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })()}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             8. SCHOOL
         ════════════════════════════════════ */}
-        <Sec id="school" emoji="📚" title="School" sub="School type and settings for each child">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="school" emoji="📚" title="School" sub="School type and settings for each child">
           <div style={{paddingTop:"0.75rem"}}>
             {minorKids.length===0&&(
               <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
@@ -9232,12 +9752,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })}
           </div>
-        </Sec>
+        </Section>
 
         {/* ════════════════════════════════════
             9. APPEARANCE & NOTIFICATIONS
         ════════════════════════════════════ */}
-        <Sec id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
           <div style={{paddingTop:"0.75rem"}}>
             <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.55rem"}}>Theme</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.55rem",marginBottom:"1rem"}}>
@@ -9289,24 +9809,99 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
             {notifications.filter(function(n){return !n.fired;}).length>0&&(
               <div style={{marginTop:"0.85rem"}}>
-                <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
-                {notifications.filter(function(n){return !n.fired;}).map(function(n){return(
-                  <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                    <span style={{fontSize:"0.8rem"}}>🔔</span>
-                    <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{n.entityTitle}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textSoft}}>{n.date} {n.time}</span>
-                    <button onClick={()=>setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});})} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
-                  </div>
-                );})}
+                <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Upcoming reminders</div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                {notifications.filter(function(n){return !n.fired;}).map(function(n){
+                  var recurList2 = (function(){ try{ return JSON.parse(localStorage.getItem("af_recurring")||"[]")||[]; }catch{ return []; } })();
+                  var linkedRecur = recurList2.find(function(r){return r.id===n.entityId;});
+                  var linkedTask  = tasks.find(function(t){return t.id===n.entityId;});
+                  var rawLastDone = linkedRecur&&linkedRecur.lastDone ? linkedRecur.lastDone : (linkedTask&&linkedTask.lastDone ? linkedTask.lastDone : null);
+                  var lastDoneStr = rawLastDone ? new Date(rawLastDone).toLocaleDateString(undefined,{month:"short",day:"numeric"}) : null;
+                  var isToday = n.date===TODAY.toISOString().split("T")[0];
+                  var isPast  = n.date && n.date < TODAY.toISOString().split("T")[0];
+                  var dueLabel = isToday ? "Today" : n.date ? new Date(n.date+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}) : "";
+                  return(
+                    <div key={n.id} style={{background:isPast?T.rose+"10":isToday?"rgba(200,169,122,0.08)":T.surface,borderRadius:"0.85rem",border:"1.5px solid "+(isPast?T.rose+"40":isToday?T.sand+"50":T.borderSoft),padding:"0.55rem 0.75rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <span style={{fontSize:"0.9rem",flexShrink:0}}>{linkedRecur&&linkedRecur.emoji?linkedRecur.emoji:"🔔"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"0.82rem",fontWeight:700,color:isPast?T.rose:T.textDark,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginTop:"0.18rem",flexWrap:"wrap"}}>
+                            <span style={{fontSize:"0.7rem",color:isToday?T.sandDark:isPast?T.rose:T.textSoft,fontWeight:isToday||isPast?700:400}}>{dueLabel}{n.time?" · "+fmtTime(n.time):""}</span>
+                            {lastDoneStr&&<span style={{fontSize:"0.68rem",color:T.sage,fontWeight:700,background:T.sage+"15",borderRadius:"999px",padding:"0.05rem 0.45rem"}}>✓ last done {lastDoneStr}</span>}
+                            {n.note&&<span style={{fontSize:"0.68rem",color:T.textSoft,fontStyle:"italic"}}>{n.note}</span>}
+                          </div>
+                        </div>
+                        <button onClick={function(){setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:"0.15rem",display:"flex",flexShrink:0,opacity:0.5}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                </div>
               </div>
             )}
           </div>
-        </Sec>
+        </Section>
+
+        {/* PWA install nudge — only shows when opened in a browser, not from home screen */}
+        {showPwaBanner && (function(){
+          var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+          var isAndroid = /android/i.test(navigator.userAgent);
+          return (
+            <div style={{background:T.navy,borderRadius:"1rem",padding:"1.1rem 1.1rem 1rem",marginBottom:"1.25rem",position:"relative",border:"1.5px solid "+T.blue+"60"}}>
+              <button onClick={function(){dismissPwaBanner(); window.location.reload();}} style={{position:"absolute",top:"0.65rem",right:"0.75rem",background:"none",border:"none",cursor:"pointer",color:"rgba(250,248,244,0.6)",fontSize:"1.1rem",lineHeight:1,padding:"0.1rem 0.3rem"}}>✕</button>
+              <div style={{display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"0.6rem"}}>
+                <span style={{fontSize:"1.3rem"}}>📱</span>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:"#faf8f4",letterSpacing:"0.02em"}}>Install for best experience</div>
+              </div>
+              <p style={{color:"rgba(250,248,244,0.85)",fontSize:"0.8rem",lineHeight:1.65,margin:"0 0 0.8rem 0"}}>
+                {"You're viewing Anchor & Flow in a browser. For sync to work reliably, always open from your "}
+                <strong style={{color:"#faf8f4"}}>home screen icon</strong>
+                {" — not a browser tab."}
+              </p>
+              {isIOS && (
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.9)",lineHeight:1.8}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.2rem"}}>Save to iPhone / iPad:</strong>
+                  {"1. Tap the "}
+                  <strong style={{color:"#faf8f4"}}>Share button</strong>
+                  {" (box with arrow ↑) in Safari"}<br/>
+                  {"2. Tap "}
+                  <strong style={{color:"#faf8f4"}}>"Add to Home Screen"</strong><br/>
+                  {"3. Tap "}
+                  <strong style={{color:"#faf8f4"}}>Add</strong>
+                  {" — then always open from that icon"}
+                </div>
+              )}
+              {isAndroid && (
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.9)",lineHeight:1.8}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.2rem"}}>Save to Android home screen:</strong>
+                  {"1. Tap the "}
+                  <strong style={{color:"#faf8f4"}}>⋮ menu</strong>
+                  {" in Chrome"}<br/>
+                  {"2. Tap "}
+                  <strong style={{color:"#faf8f4"}}>"Add to Home screen"</strong>
+                  {" or "}
+                  <strong style={{color:"#faf8f4"}}>"Install app"</strong><br/>
+                  {"3. Tap "}
+                  <strong style={{color:"#faf8f4"}}>Add</strong>
+                  {" — then always open from that icon"}
+                </div>
+              )}
+              {!isIOS && !isAndroid && (
+                <div style={{background:"rgba(250,248,244,0.1)",borderRadius:"0.7rem",padding:"0.75rem 0.9rem",fontSize:"0.79rem",color:"rgba(250,248,244,0.9)",lineHeight:1.8}}>
+                  <strong style={{color:"#faf8f4",display:"block",marginBottom:"0.2rem"}}>On desktop:</strong>
+                  {"Look for the install icon "}<strong style={{color:"#faf8f4"}}>(⊕)</strong>{" in your browser's address bar."}<br/>
+                  {"On mobile: use Safari (iOS) or Chrome (Android) and tap \"Add to Home Screen\"."}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ════════════════════════════════════
             Sign In & Sync — always last
         ════════════════════════════════════ */}
-        <Sec id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
+        <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
           <div style={{paddingTop:"0.75rem"}}>
           {false ? (
             <div>
@@ -9325,47 +9920,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser&&(authUser.displayName||authUser.email)||"Signed in"}</div>
                   <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser&&authUser.email||""}</div>
                 </div>
-              <button onClick={function(){
-                  var data = {};
-                  Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) data[k] = localStorage.getItem(k); });
-                  var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
-                  var url = URL.createObjectURL(blob);
-                  var a = document.createElement("a");
-                  a.href = url;
-                  a.download = "anchor-flow-backup-" + new Date().toISOString().slice(0,10) + ".json";
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.sage})}>Export Backup</button>
-                <button onClick={function(){
-                  var input = document.createElement("input");
-                  input.type = "file";
-                  input.accept = ".json";
-                  input.onchange = function(e){
-                    var file = e.target.files[0];
-                    if(!file) return;
-                    var reader = new FileReader();
-                    reader.onload = function(ev){
-                      try {
-                        var data = JSON.parse(ev.target.result);
-                        if(!data || typeof data !== "object") { alert("Invalid backup file."); return; }
-                        var keys = Object.keys(data).filter(function(k){ return k.startsWith("af_"); });
-                        if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
-                        if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
-                        keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
-                        console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
-                        alert("Backup restored. Reloading...");
-                        window.location.reload();
-                      } catch(err) { alert("Could not read backup file: " + err.message); }
-                    };
-                    reader.readAsText(file);
-                  };
-                  input.click();
-                }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue})}>Import Backup</button>
                 <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
               </div>
               {lastSyncTime&&<p style={{fontSize:"0.74rem",color:T.sage,fontWeight:700,marginBottom:"0.65rem"}}>Last synced: {lastSyncTime}</p>}
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>setShowHouseholdModal(true)} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
+                <button onClick={function(e){e.preventDefault();setShowHouseholdModal(true);}} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
                   👥 Manage household
                 </button>
                 <button onClick={syncNow} style={btnS({fontSize:"0.8rem",padding:"0.55rem 0.85rem",display:"flex",alignItems:"center",gap:"0.3rem"})}>
@@ -9375,11 +9934,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
           </div>
-        </Sec>
+        </Section>
 
         {/* AI memory */}
         {Object.keys(aiMemory).length>0&&(
-          <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
+          <Section settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T} id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
             <div style={{paddingTop:"0.75rem"}}>
               <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
                 <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
@@ -9391,7 +9950,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );})}
             </div>
-          </Sec>
+          </Section>
         )}
 
         <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
@@ -9801,9 +10360,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         if (!householdId) {
           const hid = "hh_" + uid();
           setHouseholdId(hid);
-          await pushHouseholdData(authToken, hid);
+          await pushHouseholdData(authToken, hid, { force: true });
         } else {
-          await pushHouseholdData(authToken, householdId);
+          await pushHouseholdData(authToken, householdId, { force: true });
         }
         setLastSynced(new Date().toLocaleTimeString());
         setSyncStatus("synced");
@@ -9846,7 +10405,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.sage,marginBottom:"0.6rem"}}>Join a household</div>
           <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6,marginBottom:"0.75rem"}}>Have a household code from another device? Enter it here to sync and share all data.</div>
           <div style={{display:"flex",gap:"0.5rem"}}>
-            <input value={joinCode} onChange={e=>setJoinCode(e.target.value)} placeholder="Paste household code…" style={{...inp({flex:1})}}/>
+            <input value={joinCode} onChange={function(e){setJoinCode(e.target.value);}} placeholder="Paste household code…" style={{flex:1,padding:"0.55rem 0.75rem",border:"1.5px solid "+T.borderSoft,borderRadius:"0.6rem",fontSize:"0.9rem",background:T.surface,color:T.textDark,fontFamily:"'DM Sans',sans-serif",minWidth:0}}/>
             <button onClick={handleJoin} disabled={loading} style={btnP(T.sage,{flexShrink:0,opacity:loading?0.7:1})}>
               {loading?"Joining…":"Join"}
             </button>
@@ -9858,10 +10417,53 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <strong style={{color:T.sageDark}}>How it works:</strong><br/>
             • Both people sign in with their own email + password<br/>
             • One person shares their household code<br/>
-            • The other enters it to join — data syncs automatically every 60 seconds<br/>
-            • Changes on either device appear on the other within a minute
+            • The other enters it to join — data syncs live via Realtime<br/>
+            • Changes on either device appear on the other almost instantly
           </div>
         </div>
+        {/* Reset Household */}
+        <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginBottom:"0.5rem"}}>
+          <div style={{fontSize:"0.65rem",color:T.textFaint,fontFamily:"monospace"}}>v{APP_VERSION}</div>
+        </div>
+        <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginBottom:"1rem"}}>
+          <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.rose,marginBottom:"0.5rem"}}>Start fresh</div>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.6rem"}}>Clears this device's household connection so you can generate a new code. Your account stays intact.</div>
+          <button onClick={async function(){
+            if(!window.confirm("Reset household on this device? This removes your local household connection.")) return;
+            if(!window.confirm("Are you sure? Your cloud data will NOT be deleted but this device will disconnect from the household.")) return;
+            var tok = authToken || "";
+            var anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
+            var base = "https://sbgbyptkunvyxjfpzght.supabase.co";
+            try {
+              // 1. Clear joined_household_id from user metadata
+              await fetch(base+"/auth/v1/user", {
+                method:"PUT",
+                headers:{"Authorization":"Bearer "+tok,"Content-Type":"application/json","apikey":anon},
+                body:JSON.stringify({data:{joined_household_id:null}})
+              });
+            } catch(e) { console.warn("metadata clear:",e.message); }
+            try {
+              // 2. Delete the household row so next login creates a fresh one
+              if(householdId) {
+                await fetch(base+"/rest/v1/households?id=eq."+householdId, {
+                  method:"DELETE",
+                  headers:{"Authorization":"Bearer "+tok,"apikey":anon,"Content-Type":"application/json"}
+                });
+              }
+            } catch(e) { console.warn("household delete:",e.message); }
+            // 3. Clear all local data but keep auth credentials
+            var savedToken = localStorage.getItem("af_authToken");
+            var savedUser  = localStorage.getItem("af_authUser");
+            localStorage.clear();
+            sessionStorage.clear();
+            if(savedToken) localStorage.setItem("af_authToken", savedToken);
+            if(savedUser)  localStorage.setItem("af_authUser",  savedUser);
+            window.location.reload();
+          }} style={btnS({fontSize:"0.78rem",color:T.rose,borderColor:T.rose+"60",padding:"0.45rem 1rem"})}>
+            Reset household on this device
+          </button>
+        </div>
+
         <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:"0.75rem",color:syncStatus==="synced"?T.sage:syncStatus==="syncing"?T.sand:T.textFaint,fontWeight:700}}>
             {syncStatus==="synced"&&"✓ Synced "+lastSyncTime}
@@ -9902,6 +10504,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem",marginBottom:"0.9rem"}}>
           <div><label style={lbl}>Date</label><input type="date" value={f.date} onChange={e=>setF(p=>({...p,date:e.target.value}))} style={inp()}/></div>
           <div><label style={lbl}>Time (optional)</label><input type="time" value={f.time} onChange={e=>setF(p=>({...p,time:e.target.value}))} style={inp()}/></div>
+        </div>
+        <div style={{marginBottom:"0.9rem"}}>
+          <label style={lbl}>End Date <span style={{fontWeight:400,color:T.textFaint}}>(optional — for multi-day events)</span></label>
+          <input type="date" value={f.endDate||""} min={f.date||""} onChange={e=>setF(p=>({...p,endDate:e.target.value||""}))} style={inp()}/>
+          {f.endDate&&f.endDate>f.date&&<div style={{fontSize:"0.72rem",color:T.blue,marginTop:"0.3rem"}}>📅 Spans {Math.round((new Date(f.endDate)-new Date(f.date))/(1000*60*60*24)+1)} days</div>}
         </div>
         <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Note (optional)</label><textarea value={f.note||""} onChange={e=>setF(p=>({...p,note:e.target.value}))} placeholder="Any details, reminders…" style={{...inp({height:68,resize:"none"})}}/></div>
         {/* Inline reminder */}
@@ -10053,6 +10660,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1.1)}}
         @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
         [draggable]:active{cursor:grabbing!important}
+        button,a,[role="button"]{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+        input,select,textarea{touch-action:manipulation}
       `}</style>
 
       {/* ── In-app notification banner (iOS + fallback) ── */}
@@ -10290,12 +10899,21 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
   }
 
   useEffect(() => {
+    let rafPending = false;
+    let lastClientX = 0;
+    let lastClientY = 0;
     function onMove(e) {
       if (!ds.current.id) return;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
       const clone = ds.current.clone;
-      if (clone) {
-        clone.style.left = (e.clientX - clone.offsetWidth / 2) + "px";
-        clone.style.top  = (e.clientY - 28) + "px";
+      if (clone && !rafPending) {
+        rafPending = true;
+        requestAnimationFrame(function() {
+          clone.style.left = (lastClientX - clone.offsetWidth / 2) + "px";
+          clone.style.top  = (lastClientY - 28) + "px";
+          rafPending = false;
+        });
         clone.style.display = "none";
       }
       const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -10484,6 +11102,11 @@ function FlowWrapper({ onHome, onSignOut }) {
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
 
+        {saveStatus&&(
+          <div style={{position:"fixed",bottom:"calc(env(safe-area-inset-bottom,0px) + 72px)",left:"50%",transform:"translateX(-50%)",zIndex:9999,pointerEvents:"none",background:saveStatus==="saved"?"#1d9e75":saveStatus==="saving"?"#3a6b8a":saveStatus==="cloud-failed"?"#c8a97a":"#c0392b",color:"#fff",fontSize:"0.75rem",fontWeight:700,padding:"0.38rem 1rem",borderRadius:"2rem",boxShadow:"0 2px 12px rgba(0,0,0,0.18)",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.02em",whiteSpace:"nowrap"}}>
+            {saveStatus==="saving"&&"Saving…"}{saveStatus==="saved"&&"✓ Saved"}{saveStatus==="failed"&&"⚠ Save failed"}{saveStatus==="cloud-failed"&&"Saved on device · cloud sync failed"}
+          </div>
+        )}
         <ErrorBoundary>
           <HomeFlow />
         </ErrorBoundary>
@@ -10513,18 +11136,113 @@ export default function App() {
     return <div style={{ minHeight: "100dvh", background: "#1a2744", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "serif", fontSize: "20px", color: "rgba(250,248,244,0.4)" }}>anchor & flow</div>
   }
 
-  if (!session) return <AuthScreen onAuth={(s) => {
+  if (!session) return <AuthScreen onAuth={async (s) => {
     setSession(s)
-    // Set displayName in localStorage so original app greeting works
-    if (s?.user) {
-      const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0]
+    if (!s?.user) return;
+    const token = s.access_token;
+    const userId = s.user.id;
+    const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0];
+    try {
+      localStorage.setItem("af_authUser", JSON.stringify({ id: userId, email: s.user.email, displayName }));
+      if (token) {
+        localStorage.setItem("af_token", token);
+        localStorage.setItem("af_authToken", JSON.stringify(token));
+      }
+    } catch(e) {}
+
+    // ── Pull household data immediately on login ──────────────────────────────
+    // This ensures Twyla (or any joined member) gets the shared household data
+    // right away without waiting for the 30s background sync.
+    if (!token) return;
+    try {
+      localStorage.removeItem("af_lastHHSync"); // force fresh pull
+      const anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
+
+      // Step 1: get fresh metadata (always re-fetch — login token can be stale)
+      let freshMeta = {};
       try {
-        localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
-        if (s.access_token) {
-          localStorage.setItem("af_token", s.access_token)
-          localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
-        }
+        const mr = await fetch(SUPABASE_URL+"/auth/v1/user", {
+          headers:{"Authorization":"Bearer "+token,"apikey":anon}
+        });
+        const mu = await mr.json();
+        freshMeta = mu?.user_metadata || {};
       } catch(e) {}
+
+      let sourceRow = null;
+
+      // Step 2: check metadata for a known householdId first (fastest path)
+      const metaHid = freshMeta.householdId || freshMeta.joined_household_id || null;
+      if (metaHid) {
+        const metaRows = await sbFetch("/rest/v1/households?id=eq."+metaHid+"&select=*&limit=1", { _token: token });
+        if (metaRows && metaRows.length > 0) {
+          sourceRow = metaRows[0];
+          try { localStorage.setItem("af_householdId", JSON.stringify(metaHid)); } catch {}
+        }
+      }
+
+      // Step 3: fall back to owner_id lookup
+      if (!sourceRow) {
+        const ownedRows = await sbFetch("/rest/v1/households?owner_id=eq."+userId+"&select=*&order=updated_at.desc&limit=1", { _token: token });
+        if (ownedRows && ownedRows.length > 0) {
+          sourceRow = ownedRows[0];
+          try { localStorage.setItem("af_householdId", JSON.stringify(sourceRow.id)); } catch {}
+          // Save to metadata so other devices with same account reconnect automatically
+          try {
+            await fetch(SUPABASE_URL+"/auth/v1/user", {
+              method:"PUT",
+              headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":anon},
+              body: JSON.stringify({data:{householdId: sourceRow.id}})
+            });
+          } catch(e) {}
+        }
+      }
+      if (sourceRow && sourceRow.data && Object.keys(sourceRow.data).length > 0) {
+        // Write all shared household data to localStorage before HomeFlow mounts
+        const SHARED_KEYS = ["people","familyProfile","schoolData","tasks","brainItems","brainCats",
+          "calEvents","connectedCals","calColorLabels","meals","mealsWeekOf","nextWeekMeals",
+          "mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
+          "shoppingItems","stores","shopCategories","notifications","recurring","notifSettings",
+          "sections","flowMode","weatherLocation","birthdays",
+          "rhythm","homeSystems","aiMemory","theme","nwMealCount","dietaryFilters",
+          "coveData","cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
+          "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates"];
+        const data = sourceRow.data;
+        SHARED_KEYS.forEach(function(k) {
+          if (data[k] !== undefined) {
+            try { localStorage.setItem("af_"+k, JSON.stringify(data[k])); } catch {}
+          }
+        });
+        try { localStorage.setItem("af_lastHHSync", sourceRow.updated_at || String(Date.now())); } catch {}
+        console.log("[AF] onAuth: household data pulled for", userId, "hh:", sourceRow.id);
+      } else {
+        // No household found — generate a fresh one
+        var newHid = "hh_" + Math.random().toString(36).slice(2,9);
+        try { localStorage.setItem("af_householdId", JSON.stringify(newHid)); } catch {}
+        // Create the row in Supabase
+        try {
+          await fetch("https://sbgbyptkunvyxjfpzght.supabase.co/rest/v1/households", {
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer " + token,
+              "Content-Type": "application/json",
+              "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0",
+              "Prefer": "return=representation"
+            },
+            body: JSON.stringify({ id: newHid, owner_id: userId, data: {}, updated_at: new Date().toISOString() })
+          });
+          console.log("[AF] onAuth: created fresh household", newHid);
+          // Save to metadata so same account on other devices reconnects
+          try {
+            await fetch(SUPABASE_URL+"/auth/v1/user", {
+              method:"PUT",
+              headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","apikey":anon},
+              body: JSON.stringify({data:{householdId: newHid}})
+            });
+          } catch(e) {}
+        } catch(e) { console.warn("[AF] onAuth: could not create household row:", e.message); }
+      }
+    } catch(e) {
+      console.warn("[AF] onAuth household pull failed:", e.message);
     }
   }} />
 
