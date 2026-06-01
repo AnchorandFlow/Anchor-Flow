@@ -783,6 +783,11 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
     React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
+  const _stRenderCount = React.useRef(0); _stRenderCount.current++; console.count("[AF RENDER] SettingsTab");
+  React.useEffect(() => { console.log("[AF STATE CHANGE] people changed, SettingsTab render #" + _stRenderCount.current); }, [people]);
+  React.useEffect(() => { console.log("[AF STATE CHANGE] familyProfile changed, SettingsTab render #" + _stRenderCount.current); }, [familyProfile]);
+  React.useEffect(() => { console.log("[AF STATE CHANGE] stores changed, SettingsTab render #" + _stRenderCount.current); }, [stores]);
+  React.useEffect(() => { console.log("[AF STATE CHANGE] T/theme changed, SettingsTab render #" + _stRenderCount.current); }, [T]);
   const [settingsOpen, setSettingsOpen] = useState({family:true});
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){
@@ -880,6 +885,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
       ════════════════════════════════════ */}
       <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
         <div style={{paddingTop:"0.75rem"}}>
+          {console.count("[AF RENDER] Family-section")||null}
           {/* People list */}
           <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
           {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
@@ -891,7 +897,9 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                   <input
                     key={p.id+"_name"}
                     defaultValue={p.name}
-                    onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                    onFocus={function(){console.log("[AF INPUT FOCUS] family-name-"+p.id);}}
+                    onBlur={function(e){console.log("[AF INPUT BLUR] family-name-"+p.id); setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                    onChange={function(e){console.log("[AF INPUT CHANGE] family-name", e.target.value);}}
                     style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
                   />
                   <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
@@ -920,7 +928,11 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
           <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
             <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
             <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-              <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+              <input value={newMemberName}
+                  onFocus={function(){console.log("[AF INPUT FOCUS] family-addname");}}
+                  onBlur={function(){console.log("[AF INPUT BLUR] family-addname");}}
+                  onChange={function(e){console.log("[AF INPUT CHANGE] family-addname", e.target.value); setNewMemberName(e.target.value);}}
+                  onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
               <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
             </div>
             <div style={{display:"flex",gap:"0.4rem"}}>
@@ -1039,6 +1051,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
       <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
         <div style={{paddingTop:"0.75rem"}}>
         {(function(){
+          console.count("[AF RENDER] TidePool-section");
           var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
           if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>No children added yet. Add them in the <strong>Family</strong> section above — then come back here to set up their chores and treasures.</div>;
 
@@ -1083,7 +1096,11 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                     );
                   })}
                   <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                    <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                    <input value={newChoreName}
+                      onFocus={function(){console.log("[AF INPUT FOCUS] tidepool-chore");}}
+                      onBlur={function(){console.log("[AF INPUT BLUR] tidepool-chore");}}
+                      onChange={function(e){console.log("[AF INPUT CHANGE] tidepool-chore", e.target.value); setNewChoreName(e.target.value);}}
+                      onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
                     <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                       <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
                     </select>
@@ -1134,6 +1151,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         <div style={{paddingTop:"0.75rem"}}>
           <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
           {(function(){
+            console.count("[AF RENDER] WeeklyRhythm-section");
             var editingDay = rhythmEditingDay; var setEditingDay = setRhythmEditingDay;
             var editForm = rhythmEditForm; var setEditForm = setRhythmEditForm;
             const DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
