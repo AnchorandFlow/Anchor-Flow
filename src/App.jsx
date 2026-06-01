@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-sync-fix-1";
+const APP_VERSION = "2026-06-01-theme-crash-fix-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1502,7 +1502,11 @@ function useSaved(key, fallback) {
 function HomeFlow() {
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
-  const T = THEMES[themeName];
+  if (!THEMES[themeName]) {
+    console.warn("[AF THEME] Invalid theme", themeName, "falling back to coastal");
+  }
+  const safeThemeName = THEMES[themeName] ? themeName : "coastal";
+  const T = THEMES[safeThemeName];
 
   const inp  = (x={}) => ({width:"100%",background:T.inputBg,border:`1.5px solid ${T.border}`,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit",...x});
   const lbl  = {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
