@@ -408,6 +408,7 @@ const getThisMonday = () => {
   return d.toISOString().slice(0, 10);
 };
 const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
 const WEEKDAYS_SUN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 const THEMES = {
@@ -709,6 +710,699 @@ function getDaysInMonth(year,month){return new Date(year,month+1,0).getDate();}
 function getFirstDayOfMonth(year,month){return new Date(year,month,1).getDay();}
 
 const homeFlowRef = { tab: "anchor", goTab: () => {} };
+
+
+function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
+  var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
+  return(
+    <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
+      <button onClick={function(e){e.preventDefault();toggleSetting(id,defaultOpen);}} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
+        <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
+        <div style={{flex:1}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
+          {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
+        </div>
+        <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
+      </button>
+      {/* display:none keeps children mounted so inputs never lose focus */}
+      <div style={{display:isOpen?"block":"none",padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
+  const [editingCatId,setEditingCatId] = useState(null);
+  const [editCatName,setEditCatName] = useState("");
+  const [newCatName,setNewCatName] = useState("");
+  const [newCatEmoji,setNewCatEmoji] = useState("");
+  const [newCatColor,setNewCatColor] = useState("#7a9e8e");
+  const PRESETS=["#e05c5c","#e07c3a","#d4a82a","#5a9e6a","#3a8ab4","#6a6ab4","#b46aaa","#7a9e8e","#c8a97a","#888780"];
+  function addCat(){ if(!newCatName.trim())return; setBrainCats(function(p){return[...p,{id:"cat_"+Date.now(),label:newCatName.trim(),emoji:newCatEmoji||"📌",color:newCatColor}];}); setNewCatName(""); setNewCatEmoji(""); setNewCatColor("#7a9e8e"); }
+  function saveEdit(cat){ setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,label:editCatName.trim()||c.label}:c;});}); setEditingCatId(null); }
+  return (
+    <div>
+      <div style={{marginBottom:"1rem"}}>
+        <div style={{fontSize:"0.78rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Add a category</div>
+        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
+          <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addCat();}} placeholder="Name…" style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
+          <input value={newCatEmoji} onChange={function(e){setNewCatEmoji(e.target.value);}} placeholder="🏷️" style={{...inp({width:46,textAlign:"center",fontSize:"1rem"})}}/>
+        </div>
+        <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"0.5rem",alignItems:"center"}}>
+          {PRESETS.map(function(c){return(
+            <button key={c} onClick={function(){setNewCatColor(c);}} style={{width:22,height:22,borderRadius:"50%",background:c,border:newCatColor===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0,transition:"border 0.1s"}}/>
+          );})}
+          <input type="color" value={newCatColor} onChange={function(e){setNewCatColor(e.target.value);}} title="Custom color" style={{width:22,height:22,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none"}}/>
+          <span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.25rem"}}>{newCatColor}</span>
+        </div>
+        <button onClick={addCat} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45})}}>Add Category</button>
+      </div>
+      <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.75rem"}}>
+        <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Your categories</div>
+        {brainCats.map(function(cat){return(
+          <div key={cat.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:T.surface,borderRadius:"0.65rem",marginBottom:"0.35rem",border:"1px solid "+T.borderSoft}}>
+            <div style={{width:12,height:12,borderRadius:"50%",background:cat.color,flexShrink:0}}/>
+            {editingCatId===cat.id?(
+              <input value={editCatName} onChange={function(e){setEditCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")saveEdit(cat); if(e.key==="Escape")setEditingCatId(null);}} style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.2rem 0.45rem"})}} autoFocus/>
+            ):(
+              <span style={{flex:1,fontSize:"0.85rem",color:T.textDark}}>{cat.emoji} {cat.label}</span>
+            )}
+            <input type="color" value={cat.color} onChange={function(e){var nc=e.target.value; setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,color:nc}:c;});});}} title="Change color" style={{width:20,height:20,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none",flexShrink:0}}/>
+            <button onClick={function(){setEditingCatId(cat.id);setEditCatName(cat.label);}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit"}}>rename</button>
+            <button onClick={function(){setBrainCats(function(p){return p.filter(function(c){return c.id!==cat.id;});});}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>✕</button>
+          </div>
+        );})}
+        <div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.5rem"}}>Tap the color circle to change it inline</div>
+      </div>
+    </div>
+  );
+}
+
+
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,SecHead,ModalBox}){
+    React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
+  const [settingsOpen, setSettingsOpen] = useState({family:true});
+  function toggleSetting(key,defaultOpen){
+    setSettingsOpen(function(p){
+      var current = key in p ? p[key] : (defaultOpen||false);
+      return Object.assign({},p,{[key]:!current});
+    });
+  }
+
+  // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
+  // Pass settingsOpen + toggleSetting down explicitly.
+  function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting,T})); }
+
+  function Row({label,sub,children,tight}){
+    return(
+      <div style={{paddingTop:tight?"0.55rem":"0.75rem",paddingBottom:tight?"0.55rem":"0.1rem",borderBottom:"1px solid "+T.borderSoft}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5rem"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>{label}</div>
+            {sub&&<div style={{fontSize:"0.72rem",color:T.textFaint,marginTop:1,lineHeight:1.45}}>{sub}</div>}
+          </div>
+          <div style={{flexShrink:0}}>{children}</div>
+        </div>
+      </div>
+    );
+  }
+  function Toggle({on,onToggle,color}){
+    return(
+      <button onClick={onToggle} style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:on?(color||T.sage):T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}>
+        <div style={{position:"absolute",top:3,left:on?23:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
+      </button>
+    );
+  }
+  function Pills({options,value,onChange,color}){
+    return(
+      <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
+        {options.map(function(o){
+          var v=typeof o==="object"?o.value:o;
+          var l=typeof o==="object"?(o.emoji?" "+o.emoji+" "+o.label:o.label):o;
+          var sel=value===v;
+          return <button key={v} onClick={()=>onChange(v)} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(sel?(color||T.blue):T.border),background:sel?(color||T.blue)+"18":"transparent",color:sel?(color||T.blue):T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>;
+        })}
+      </div>
+    );
+  }
+
+  // ── local add-member state ──
+  var [newMemberName,setNewMemberName]=useState("");
+  var [newMemberAge,setNewMemberAge]=useState("");
+  var [newMemberRole,setNewMemberRole]=useState("");
+  var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
+  function addMember(){
+    if(!newMemberName.trim())return;
+    var ageStr=newMemberAge.trim(); var ageNum=ageStr?parseInt(ageStr,10):null; var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
+    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
+    setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+  }
+
+  // ── stores editing state ──
+  var [editingStore,setEditingStore]=useState(null);
+  var [storeEditVal,setStoreEditVal]=useState("");
+
+  // ── tide pool state (hoisted out of IIFE to obey hooks rules) ──
+  var [tpKidIdx,setTpKidIdx]=useState(0);
+  var [tpTab,setTpTab]=useState("chores");
+  var [newChoreName,setNewChoreName]=useState("");
+  var [newChorePts,setNewChorePts]=useState(1);
+  var [newTreasureName,setNewTreasureName]=useState("");
+  var [newTreasureCost,setNewTreasureCost]=useState("");
+
+  // ── weekly rhythm state (hoisted out of IIFE) ──
+  var [rhythmEditingDay,setRhythmEditingDay]=useState(null);
+  var [rhythmEditForm,setRhythmEditForm]=useState({theme:"",emoji:"",desc:""});
+
+  // ── school type per kid state ──
+  // schoolData already persisted from SchoolTab — we read/write it here too
+  var [sData,setSDataLocal]=useState(function(){
+    try{var s=localStorage.getItem("af_schoolData");return s?JSON.parse(s):{};}catch{return {};}
+  });
+  function setKidSchoolType(kidId,type){
+    var next=Object.assign({},sData);
+    if(!next[kidId]) next[kidId]={type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
+    next[kidId]=Object.assign({},next[kidId],{type:type});
+    setSDataLocal(next);
+    try{localStorage.setItem("af_schoolData",JSON.stringify(next));}catch{}
+  }
+
+  var minorKids = people.filter(function(p){return p&&p.name&&(p.isMinor||(p.age!=null&&p.age<18));});
+
+  return(
+    <div>
+      <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here" onBack={function(){goTab("anchor");}}/>
+
+      {/* ════════════════════════════════════
+          1. FAMILY
+      ════════════════════════════════════ */}
+      <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
+        <div style={{paddingTop:"0.75rem"}}>
+          {/* People list */}
+          <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
+          {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
+            var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
+            return(
+              <div key={p.id} style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
+                  <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+                  <input
+                    key={p.id+"_name"}
+                    defaultValue={p.name}
+                    onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                    style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
+                  />
+                  <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
+                    <Icon name="trash" size={13} color={T.textFaint}/>
+                  </button>
+                </div>
+                <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
+                  <input type="number" min={0} max={120} key={p.id+"_age"} defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""} onBlur={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
+                  <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
+                    <option value="">Role…</option>
+                    {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+                  </select>
+                  <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
+                    {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
+                      <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
+                    );})}
+                    <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                      <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {/* Add member */}
+          <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
+            <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
+            <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
+              <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
+              <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+            </div>
+            <div style={{display:"flex",gap:"0.4rem"}}>
+              <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
+                <option value="">Role (optional)</option>
+                {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
+              </select>
+              <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
+            </div>
+          </div>
+          {/* ZIP code + home vibe */}
+          <Row label="ZIP code" sub="For local weather and notification timing">
+            <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
+          </Row>
+          <Row label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
+            <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+          </Row>
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          2. FLOW (YOU)
+      ════════════════════════════════════ */}
+      <Sec id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
+        <div style={{paddingTop:"0.75rem"}}>
+          <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
+            <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
+              <input defaultValue={preferredName} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+            </div>
+          </Row>
+          <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Greeting tone</div>
+            <Pills options={[{value:"warm",label:"Warm",emoji:"🌿"},{value:"calm",label:"Calm",emoji:"🌊"},{value:"motivating",label:"Energising",emoji:"⚡"},{value:"gentle",label:"Gentle",emoji:"🕊️"}]} value={flowGreetingTone} onChange={setFlowGreetingTone} color={T.blue}/>
+          </div>
+          <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Flow mode default</div>
+            <Pills options={[{value:"Smooth",label:"Smooth",emoji:"🌊"},{value:"Busy",label:"Busy",emoji:"⚡"},{value:"Survival",label:"Survival",emoji:"🆘"}]} value={flowMode} onChange={setFlowMode} color={T.sage}/>
+          </div>
+          <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem"}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.2rem"}}>Turn on notifications</div>
+            <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.55rem"}}>Compass will check in with you throughout the day</div>
+            {notifPermission==="denied"&&<div style={{fontSize:"0.78rem",color:T.rose,lineHeight:1.5}}>🚫 Notifications are blocked — open browser settings → Site permissions to allow.</div>}
+            {notifPermission==="default"&&<button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.82rem",padding:"0.5rem 1.1rem"})}}>🔔 Enable Compass notifications</button>}
+            {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
+          </div>
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          3. MIND
+      ════════════════════════════════════ */}
+      <Sec id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
+        <div style={{paddingTop:"0.75rem"}}>
+          <div style={{paddingBottom:"0.75rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.5rem"}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Default view</div>
+            <Pills options={[{value:"all",label:"All entries"},{value:"mine",label:"My list only"}]} value={(familyProfile&&familyProfile.mindDefault)||"all"} onChange={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{mindDefault:v});});}} color={T.lavender}/>
+          </div>
+          <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Categories & colours</div>
+          <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats} T={T} inp={inp} btnP={btnP}/>
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          4. MEALS
+      ════════════════════════════════════ */}
+      <Sec id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
+        <div style={{paddingTop:"0.75rem"}}>
+          <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
+            <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
+            <Pills options={[{value:1,label:"Dinner only",emoji:"🌙"},{value:2,label:"Lunch + Dinner",emoji:"☀️"},{value:3,label:"All 3 meals",emoji:"🌅"}]} value={mealCount} onChange={setMealCount} color={T.sage}/>
+          </div>
+
+          <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
+          </Row>
+          <input defaultValue={(familyProfile&&familyProfile.favoriteDinner)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:e.target.value});});}} placeholder="e.g. Tacos, sheet pan chicken, pasta" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+          <Row label="Dietary needs" sub="Allergies, intolerances, or preferences">
+          </Row>
+          <input defaultValue={(familyProfile&&familyProfile.dietaryNeeds)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:e.target.value});});}} placeholder="e.g. Dairy-free, nut allergy" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
+          <Row label="Cooking style" sub="Helps Compass suggest appropriate recipes">
+          </Row>
+          <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          5. SHOPPING
+      ════════════════════════════════════ */}
+      <Sec id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
+        <div style={{paddingTop:"0.75rem"}}>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
+          {stores.map(function(store,i){
+            return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.7rem",borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
+                <span style={{fontSize:"0.95rem"}}>🛒</span>
+                {editingStore===i?(
+                  <input autoFocus value={storeEditVal} onChange={function(e){setStoreEditVal(e.target.value);}} onBlur={function(){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}} onKeyDown={function(e){if(e.key==="Enter"){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}}} style={{...inp({flex:1,fontSize:"0.85rem",padding:"0.22rem 0.5rem"})}}/>
+                ):(
+                  <span onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{flex:1,fontSize:"0.85rem",fontWeight:600,color:T.textDark,cursor:"pointer"}}>{store}</span>
+                )}
+                <button onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 5px"}}>✏️</button>
+                <button onClick={function(){setStores(function(p){return p.filter(function(_,j){return j!==i;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.85rem",padding:"2px 5px"}}>✕</button>
+              </div>
+            );
+          })}
+          {stores.length<6&&(
+            <button onClick={function(){setStores(function(p){return [...p,"New Store"];});setEditingStore(stores.length);setStoreEditVal("New Store");}} style={{...btnS({fontSize:"0.8rem",padding:"0.38rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem",marginTop:"0.2rem"})}}>
+              <Icon name="plus" size={13} color={T.textMid}/> Add store
+            </button>
+          )}
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          6. TIDE POOL
+      ════════════════════════════════════ */}
+      <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
+        <div style={{paddingTop:"0.75rem"}}>
+        {(function(){
+          var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
+          if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>No children added yet. Add them in the <strong>Family</strong> section above — then come back here to set up their chores and treasures.</div>;
+
+          var saved = coveData || [];
+          var sKidIdx = tpKidIdx; var setSKidIdx = setTpKidIdx;
+          var sTab = tpTab; var setSTab = setTpTab;
+          var sKid = rawKids[Math.min(sKidIdx, rawKids.length-1)];
+          var sKidData = saved.find(function(d){ return d.kidId===sKid.id; }) || {kidId:sKid.id,kidName:sKid.name,shells:0,chores:[],treasures:[]};
+          var sKidIdx2 = saved.findIndex(function(d){ return d.kidId===sKid.id; });
+
+          function updateSaved(patch) {
+            setCoveData(function(prev){
+              var arr = (prev||[]).slice();
+              if(sKidIdx2>=0) arr[sKidIdx2]=Object.assign({},arr[sKidIdx2],patch);
+              else arr.push(Object.assign({},sKidData,patch));
+              return arr;
+            });
+          }
+
+          return (
+            <div>
+              <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
+                {rawKids.map(function(k,i){
+                  return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
+                })}
+              </div>
+              <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
+                {["chores","treasures"].map(function(t){
+                  return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
+                })}
+              </div>
+              {sTab==="chores"&&(
+                <div>
+                  {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet — add one below.</div>}
+                  {(sKidData.chores||[]).map(function(ch){
+                    return(
+                      <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
+                        <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
+                        <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
+                        <button onClick={function(){updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                      </div>
+                    );
+                  })}
+                  <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
+                    <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                    <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
+                      <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
+                    </select>
+                    <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
+                  </div>
+                </div>
+              )}
+              {sTab==="treasures"&&(
+                <div>
+                  {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet — add some below.</div>}
+                  {(sKidData.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;}).map(function(t){
+                    return(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
+                        <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
+                        <span style={{flex:1,color:T.textDark}}>{t.name}</span>
+                        <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
+                        <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                      </div>
+                    );
+                  })}
+                  <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
+                    <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                    <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚" style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
+                    <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
+                  </div>
+                  {rawKids.length>1&&(
+                    <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
+                      <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:700,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
+                      <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                        {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
+                          return <button key={k.id} onClick={function(){var fromData=saved.find(function(d){return d.kidId===k.id;});if(!fromData)return;updateSaved({treasures:(fromData.treasures||[]).map(function(t){return Object.assign({},t,{id:uid()});})});}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          7. WEEKLY RHYTHM
+      ════════════════════════════════════ */}
+      <Sec id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
+        <div style={{paddingTop:"0.75rem"}}>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
+          {(function(){
+            var editingDay = rhythmEditingDay; var setEditingDay = setRhythmEditingDay;
+            var editForm = rhythmEditForm; var setEditForm = setRhythmEditForm;
+            const DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
+            function openEdit(day){setEditingDay(day);setEditForm(Object.assign({},rhythm[day]||{}));}
+            function saveEdit(){setRhythm(function(p){return Object.assign({},p,{[editingDay]:Object.assign({},editForm)});});setEditingDay(null);}
+            return(
+              <div>
+                {MEAL_DAYS.map(function(day,di){
+                  var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
+                  var isToday=day===TODAY_NAME;
+                  return(
+                    <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.58rem 0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+                      <span style={{fontSize:"1.05rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                          <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.86rem"}}>{day}</span>
+                          {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
+                          {dr.theme&&<span style={{fontSize:"0.75rem",color:T.textSoft}}>· {dr.theme}</span>}
+                        </div>
+                        {dr.desc&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
+                      </div>
+                      <button onClick={()=>openEdit(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+                    </div>
+                  );
+                })}
+                {editingDay&&(
+                  <ModalBox title={"Edit "+editingDay} onClose={()=>setEditingDay(null)}>
+                    <div style={{marginBottom:"0.75rem"}}>
+                      <label style={lbl}>Quick Presets</label>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
+                        {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){if(pr.theme==="Custom"){setEditForm(function(p){return Object.assign({},p,{emoji:pr.emoji});});return;}setEditForm({theme:pr.theme,emoji:pr.emoji,desc:pr.desc});}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
+                      <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+                      <div><label style={lbl}>Theme</label><input defaultValue={editForm.theme} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{theme:e.target.value});});}} placeholder="e.g. Batch Cook" style={inp()}/></div>
+                    </div>
+                    <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{desc:e.target.value});});}} placeholder="What happens on this day…" style={inp()}/></div>
+                    <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                      <button onClick={()=>setEditingDay(null)} style={btnS()}>Cancel</button>
+                      <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
+                    </div>
+                  </ModalBox>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          8. SCHOOL
+      ════════════════════════════════════ */}
+      <Sec id="school" emoji="📚" title="School" sub="School type and settings for each child">
+        <div style={{paddingTop:"0.75rem"}}>
+          {minorKids.length===0&&(
+            <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
+          )}
+          {minorKids.map(function(kid){
+            var kidD = sData[kid.id];
+            var currentType = kidD&&kidD.type;
+            var SCHOOL_TYPES = [
+              {value:"homeschool", label:"Homeschool",      emoji:"🏠", desc:"Learning at home — full curriculum"},
+              {value:"public",     label:"Public school",   emoji:"🏫", desc:"Standard public school"},
+              {value:"private",    label:"Private school",  emoji:"🎓", desc:"Private or charter school"},
+              {value:"co-op",      label:"Co-op / hybrid",  emoji:"🤝", desc:"Mix of home and group learning"},
+              {value:"online",     label:"Online school",   emoji:"💻", desc:"Accredited online program"},
+              {value:"other",      label:"Other",           emoji:"📋", desc:"Something else entirely"},
+            ];
+            return(
+              <div key={kid.id} style={{marginBottom:"0.85rem",padding:"0.75rem",borderRadius:"0.9rem",border:"1.5px solid "+T.borderSoft,background:T.surface}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
+                  <div style={{width:12,height:12,borderRadius:"50%",background:kid.color||T.blue,flexShrink:0}}/>
+                  <span style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{kid.name}</span>
+                  {kid.age!=null&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft}}>Age {kid.age}</span>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
+                  {SCHOOL_TYPES.map(function(type){
+                    var selected = currentType===type.value;
+                    return(
+                      <button key={type.value} onClick={function(){setKidSchoolType(kid.id,selected?null:type.value);}} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0.75rem",borderRadius:"0.7rem",border:"1.5px solid "+(selected?T.blue:T.border),background:selected?T.bluePale:"transparent",cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
+                        <span style={{fontSize:"1.05rem",flexShrink:0}}>{type.emoji}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:"0.84rem",fontWeight:700,color:selected?T.blue:T.textDark}}>{type.label}</div>
+                          <div style={{fontSize:"0.7rem",color:T.textFaint}}>{type.desc}</div>
+                        </div>
+                        <div style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(selected?T.blue:T.border),background:selected?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          {selected&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff"}}/>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          9. APPEARANCE & NOTIFICATIONS
+      ════════════════════════════════════ */}
+      <Sec id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
+        <div style={{paddingTop:"0.75rem"}}>
+          <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.55rem"}}>Theme</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.55rem",marginBottom:"1rem"}}>
+            {Object.entries(THEMES).map(function(entry){
+              var key=entry[0];var th=entry[1];
+              return(
+                <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:"2px solid "+(themeName===key?T.blue:T.border),borderRadius:"0.9rem",padding:"0.75rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
+                  <div style={{fontSize:"1.4rem",marginBottom:"0.25rem"}}>{th.emoji}</div>
+                  <div style={{fontWeight:700,fontSize:"0.78rem"}}>{th.label}</div>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{height:"1px",background:T.borderSoft,margin:"0.75rem 0"}}/>
+          <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>Notification schedule</div>
+          <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.65rem"}}>Compass sends warm check-ins throughout your day</div>
+          {(function(){
+            var NOTIF_LIST = [
+              {key:"morning",  time:"7:00 am",     emoji:"🌅", label:"Morning anchor",      desc:"Your agenda, tasks & events for the day"},
+              {key:"midday",   time:"12:00 pm",    emoji:"🌊", label:"Midday check-in",     desc:"Progress update & encouragement"},
+              {key:"dinner",   time:"3:00 pm",     emoji:"🍽️", label:"Dinner heads-up",     desc:"Defrost reminder & meal prep nudge"},
+              {key:"evening",  time:"5:00 pm",     emoji:"🌙", label:"Evening recap",       desc:"Day summary + tomorrow preview"},
+              {key:"events",   time:"2hrs before", emoji:"⏰", label:"Event nudges",        desc:"Smart reminder before each appointment"},
+              {key:"recurring",time:"varies",      emoji:"🔁", label:"Recurring reminders", desc:"Trash, HVAC, street sweeping, custom"},
+            ];
+            return(
+              <div style={{borderRadius:"0.9rem",border:"1px solid "+T.borderSoft,overflow:"hidden",marginBottom:"0.65rem"}}>
+                {NOTIF_LIST.map(function(n,i){
+                  var on = notifSettings[n.key]!==false;
+                  return(
+                    <div key={n.key} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.62rem 0.9rem",borderBottom:i<NOTIF_LIST.length-1?"1px solid "+T.borderSoft:"none",background:on?"transparent":T.bgAlt+"60"}}>
+                      <span style={{fontSize:"1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,color:on?T.textDark:T.textFaint,fontSize:"0.82rem"}}>{n.label}</div>
+                        <div style={{color:T.textSoft,fontSize:"0.7rem"}}>{n.desc} · <span style={{color:T.textFaint}}>{n.time}</span></div>
+                      </div>
+                      <Toggle on={on} onToggle={function(){setNotifSettings(function(p){var next=Object.assign({},p||{});next[n.key]=!on;return next;});setTimeout(function(){setDailySummaryScheduled(null);scheduleAllDailyNotifications();},100);}} color={T.sage}/>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          {notifPermission==="granted"&&(
+            <div style={{display:"flex",gap:"0.4rem"}}>
+              <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();}} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.4rem 0.85rem",flex:1,justifyContent:"center"})}>🔄 Reschedule today</button>
+              <button onClick={()=>{var todayTasks=tasks.filter(function(t){return (t.day===TODAY_NAME||t.day==="Daily")&&!t.archived;});var todayMeal=(meals[TODAY_NAME]||{}).dinner;var todayEvts=calEvents.filter(function(e){return e.date===TODAY.toISOString().split("T")[0];});showInAppBanner("🌅 Morning anchor preview",(todayEvts.length>0?"First up: "+todayEvts[0].title+". ":"")+(todayTasks.filter(function(t){return !t.done;}).length+" tasks today.")+(todayMeal?" Dinner: "+todayMeal:""));}} style={btnS({fontSize:"0.76rem",padding:"0.4rem 0.85rem",flex:1})}>Preview</button>
+            </div>
+          )}
+          {notifications.filter(function(n){return !n.fired;}).length>0&&(
+            <div style={{marginTop:"0.85rem"}}>
+              <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
+              {notifications.filter(function(n){return !n.fired;}).map(function(n){return(
+                <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                  <span style={{fontSize:"0.8rem"}}>🔔</span>
+                  <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{n.entityTitle}</span>
+                  <span style={{fontSize:"0.7rem",color:T.textSoft}}>{n.date} {n.time}</span>
+                  <button onClick={()=>setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});})} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
+                </div>
+              );})}
+            </div>
+          )}
+        </div>
+      </Sec>
+
+      {/* ════════════════════════════════════
+          Sign In & Sync — always last
+      ════════════════════════════════════ */}
+      <Sec id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
+        <div style={{paddingTop:"0.75rem"}}>
+        {false ? (
+          <div>
+            <p style={{color:T.textMid,fontSize:"0.82rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Sign in to sync your household across multiple devices and share with your partner.</p>
+            <button onClick={()=>setShowAuthModal(true)} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.8rem",fontSize:"0.9rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem",marginBottom:"0.5rem"})}>
+              ⚓️ Sign in / Create account
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.65rem 0.85rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.75rem",border:"1px solid "+T.borderSoft}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,"+T.blue+","+T.sage+")",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                <span style={{color:"#fff",fontWeight:800,fontSize:"0.9rem"}}>{((authUser&&(authUser.displayName||authUser.email)||"?").charAt(0)).toUpperCase()}</span>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser&&(authUser.displayName||authUser.email)||"Signed in"}</div>
+                <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser&&authUser.email||""}</div>
+              </div>
+            <button onClick={function(){
+                var data = {};
+                Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) data[k] = localStorage.getItem(k); });
+                var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = "anchor-flow-backup-" + new Date().toISOString().slice(0,10) + ".json";
+                a.click();
+                URL.revokeObjectURL(url);
+              }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.sage})}>Export Backup</button>
+              <button onClick={function(){
+                var input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".json";
+                input.onchange = function(e){
+                  var file = e.target.files[0];
+                  if(!file) return;
+                  var reader = new FileReader();
+                  reader.onload = function(ev){
+                    try {
+                      var data = JSON.parse(ev.target.result);
+                      if(!data || typeof data !== "object") { alert("Invalid backup file."); return; }
+                      var keys = Object.keys(data).filter(function(k){ return k.startsWith("af_"); });
+                      if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
+                      if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
+                      keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
+                      console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
+                      alert("Backup restored. Reloading...");
+                      window.location.reload();
+                    } catch(err) { alert("Could not read backup file: " + err.message); }
+                  };
+                  reader.readAsText(file);
+                };
+                input.click();
+              }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue})}>Import Backup</button>
+              <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
+            </div>
+            {lastSyncTime&&<p style={{fontSize:"0.74rem",color:T.sage,fontWeight:700,marginBottom:"0.65rem"}}>Last synced: {lastSyncTime}</p>}
+            <div style={{display:"flex",gap:"0.4rem"}}>
+              <button onClick={()=>setShowHouseholdModal(true)} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
+                👥 Manage household
+              </button>
+              <button onClick={syncNow} style={btnS({fontSize:"0.8rem",padding:"0.55rem 0.85rem",display:"flex",alignItems:"center",gap:"0.3rem"})}>
+                <Icon name="sync" size={13} color={T.textMid}/> Sync
+              </button>
+            </div>
+          </div>
+        )}
+        </div>
+      </Sec>
+
+      {/* AI memory */}
+      {Object.keys(aiMemory).length>0&&(
+        <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
+          <div style={{paddingTop:"0.75rem"}}>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
+              <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
+            </div>
+            {Object.entries(aiMemory).map(function(entry,i){return(
+              <div key={i} style={{padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{entry[0]}</div>
+                <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{entry[1]}</div>
+              </div>
+            );})}
+          </div>
+        </Sec>
+      )}
+
+      <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
+        <AnchorLogo size={44} color={T.blue}/>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
+        <div style={{color:T.textSoft,fontSize:"0.8rem",fontStyle:"italic",marginTop:"0.15rem",fontFamily:"'Cormorant Garamond',serif"}}>A steadier home, in every season</div>
+        <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.72,marginTop:"0.85rem",marginBottom:0}}>Data saved locally · AI powered by Claude · Native app coming soon</p>
+      </div>
+    </div>
+  );
+}
+
 
 function HomeFlow() {
 
@@ -1960,6 +2654,7 @@ function createLocalBackup() {
 
       // ── Meals: full week plan ──────────────────────────────────────────────
       const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
       const mealSummary = MEAL_DAYS
         .map(day=>{
           const m=meals[day]||{};
@@ -6419,55 +7114,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function BrainCatsEditor({brainCats, setBrainCats}) {
-    const [editingCatId,setEditingCatId] = useState(null);
-    const [editCatName,setEditCatName] = useState("");
-    const [newCatName,setNewCatName] = useState("");
-    const [newCatEmoji,setNewCatEmoji] = useState("");
-    const [newCatColor,setNewCatColor] = useState("#7a9e8e");
-    const PRESETS=["#e05c5c","#e07c3a","#d4a82a","#5a9e6a","#3a8ab4","#6a6ab4","#b46aaa","#7a9e8e","#c8a97a","#888780"];
-    function addCat(){ if(!newCatName.trim())return; setBrainCats(function(p){return[...p,{id:"cat_"+Date.now(),label:newCatName.trim(),emoji:newCatEmoji||"📌",color:newCatColor}];}); setNewCatName(""); setNewCatEmoji(""); setNewCatColor("#7a9e8e"); }
-    function saveEdit(cat){ setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,label:editCatName.trim()||c.label}:c;});}); setEditingCatId(null); }
-    return (
-      <div>
-        <div style={{marginBottom:"1rem"}}>
-          <div style={{fontSize:"0.78rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Add a category</div>
-          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <input value={newCatName} onChange={function(e){setNewCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addCat();}} placeholder="Name…" style={{...inp({flex:1,fontSize:"0.85rem"})}}/>
-            <input value={newCatEmoji} onChange={function(e){setNewCatEmoji(e.target.value);}} placeholder="🏷️" style={{...inp({width:46,textAlign:"center",fontSize:"1rem"})}}/>
-          </div>
-          <div style={{display:"flex",gap:"5px",flexWrap:"wrap",marginBottom:"0.5rem",alignItems:"center"}}>
-            {PRESETS.map(function(c){return(
-              <button key={c} onClick={function(){setNewCatColor(c);}} style={{width:22,height:22,borderRadius:"50%",background:c,border:newCatColor===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0,transition:"border 0.1s"}}/>
-            );})}
-            <input type="color" value={newCatColor} onChange={function(e){setNewCatColor(e.target.value);}} title="Custom color" style={{width:22,height:22,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none"}}/>
-            <span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.25rem"}}>{newCatColor}</span>
-          </div>
-          <button onClick={addCat} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45})}}>Add Category</button>
-        </div>
-        <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.75rem"}}>
-          <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Your categories</div>
-          {brainCats.map(function(cat){return(
-            <div key={cat.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.6rem",background:T.surface,borderRadius:"0.65rem",marginBottom:"0.35rem",border:"1px solid "+T.borderSoft}}>
-              <div style={{width:12,height:12,borderRadius:"50%",background:cat.color,flexShrink:0}}/>
-              {editingCatId===cat.id?(
-                <input value={editCatName} onChange={function(e){setEditCatName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")saveEdit(cat); if(e.key==="Escape")setEditingCatId(null);}} style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.2rem 0.45rem"})}} autoFocus/>
-              ):(
-                <span style={{flex:1,fontSize:"0.85rem",color:T.textDark}}>{cat.emoji} {cat.label}</span>
-              )}
-              <input type="color" value={cat.color} onChange={function(e){var nc=e.target.value; setBrainCats(function(p){return p.map(function(c){return c.id===cat.id?{...c,color:nc}:c;});});}} title="Change color" style={{width:20,height:20,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none",flexShrink:0}}/>
-              <button onClick={function(){setEditingCatId(cat.id);setEditCatName(cat.label);}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit"}}>rename</button>
-              <button onClick={function(){setBrainCats(function(p){return p.filter(function(c){return c.id!==cat.id;});});}} style={{background:"none",border:"none",fontSize:"0.72rem",color:T.rose,cursor:"pointer",fontFamily:"inherit"}}>✕</button>
-            </div>
-          );})}
-          <div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.5rem"}}>Tap the color circle to change it inline</div>
-        </div>
-      </div>
-    );
-  }
-
   // ── Tide Pool ───────────────────────────────────────────────────────────────
-  const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
   const COVE_MIN_OPEN  = 10;
 
   function getDefaultTidePoolData() {
@@ -8769,649 +9416,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  // Section lives OUTSIDE SettingsTab so React never remounts it on SettingsTab re-renders.
   // Children stay mounted (display:none when closed) so inputs never lose focus.
-  function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting}){
-    var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
-    return(
-      <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>
-        <button onClick={function(e){e.preventDefault();toggleSetting(id,defaultOpen);}} style={{width:"100%",display:"flex",alignItems:"center",gap:"0.6rem",background:"none",border:"none",cursor:"pointer",padding:"0.85rem 1rem",textAlign:"left",fontFamily:"inherit"}}>
-          <span style={{fontSize:"1.15rem",flexShrink:0}}>{emoji}</span>
-          <div style={{flex:1}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.2}}>{title}</div>
-            {sub&&<div style={{fontSize:"0.71rem",color:T.textFaint,marginTop:1}}>{sub}</div>}
-          </div>
-          <span style={{fontSize:"0.75rem",color:T.textFaint,transform:isOpen?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▾</span>
-        </button>
-        {/* display:none keeps children mounted so inputs never lose focus */}
-        <div style={{display:isOpen?"block":"none",padding:"0 1rem 1rem",borderTop:"1px solid "+T.borderSoft}}>
-          {children}
-        </div>
-      </div>
-    );
-  }
-
-  function SettingsTab(){
-    const [settingsOpen, setSettingsOpen] = useState({family:true});
-    function toggleSetting(key,defaultOpen){
-      setSettingsOpen(function(p){
-        var current = key in p ? p[key] : (defaultOpen||false);
-        return Object.assign({},p,{[key]:!current});
-      });
-    }
-
-    // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
-    // Pass settingsOpen + toggleSetting down explicitly.
-    function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting})); }
-
-    function Row({label,sub,children,tight}){
-      return(
-        <div style={{paddingTop:tight?"0.55rem":"0.75rem",paddingBottom:tight?"0.55rem":"0.1rem",borderBottom:"1px solid "+T.borderSoft}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:"0.5rem"}}>
-            <div style={{flex:1}}>
-              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>{label}</div>
-              {sub&&<div style={{fontSize:"0.72rem",color:T.textFaint,marginTop:1,lineHeight:1.45}}>{sub}</div>}
-            </div>
-            <div style={{flexShrink:0}}>{children}</div>
-          </div>
-        </div>
-      );
-    }
-    function Toggle({on,onToggle,color}){
-      return(
-        <button onClick={onToggle} style={{width:44,height:24,borderRadius:"2rem",border:"none",cursor:"pointer",background:on?(color||T.sage):T.border,position:"relative",transition:"background 0.22s",flexShrink:0}}>
-          <div style={{position:"absolute",top:3,left:on?23:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
-        </button>
-      );
-    }
-    function Pills({options,value,onChange,color}){
-      return(
-        <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
-          {options.map(function(o){
-            var v=typeof o==="object"?o.value:o;
-            var l=typeof o==="object"?(o.emoji?" "+o.emoji+" "+o.label:o.label):o;
-            var sel=value===v;
-            return <button key={v} onClick={()=>onChange(v)} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(sel?(color||T.blue):T.border),background:sel?(color||T.blue)+"18":"transparent",color:sel?(color||T.blue):T.textMid,fontSize:"0.76rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>;
-          })}
-        </div>
-      );
-    }
-
-    // ── local add-member state ──
-    var [newMemberName,setNewMemberName]=useState("");
-    var [newMemberAge,setNewMemberAge]=useState("");
-    var [newMemberRole,setNewMemberRole]=useState("");
-    var ROLES=["Mom","Dad","Guardian","Kid","Teen","Baby","Grandparent","Roommate","Other"];
-    function addMember(){
-      if(!newMemberName.trim())return;
-      var ageStr=newMemberAge.trim(); var ageNum=ageStr?parseInt(ageStr,10):null; var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
-      setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
-      setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
-    }
-
-    // ── stores editing state ──
-    var [editingStore,setEditingStore]=useState(null);
-    var [storeEditVal,setStoreEditVal]=useState("");
-
-    // ── tide pool state (hoisted out of IIFE to obey hooks rules) ──
-    var [tpKidIdx,setTpKidIdx]=useState(0);
-    var [tpTab,setTpTab]=useState("chores");
-    var [newChoreName,setNewChoreName]=useState("");
-    var [newChorePts,setNewChorePts]=useState(1);
-    var [newTreasureName,setNewTreasureName]=useState("");
-    var [newTreasureCost,setNewTreasureCost]=useState("");
-
-    // ── weekly rhythm state (hoisted out of IIFE) ──
-    var [rhythmEditingDay,setRhythmEditingDay]=useState(null);
-    var [rhythmEditForm,setRhythmEditForm]=useState({theme:"",emoji:"",desc:""});
-
-    // ── school type per kid state ──
-    // schoolData already persisted from SchoolTab — we read/write it here too
-    var [sData,setSDataLocal]=useState(function(){
-      try{var s=localStorage.getItem("af_schoolData");return s?JSON.parse(s):{};}catch{return {};}
-    });
-    function setKidSchoolType(kidId,type){
-      var next=Object.assign({},sData);
-      if(!next[kidId]) next[kidId]={type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
-      next[kidId]=Object.assign({},next[kidId],{type:type});
-      setSDataLocal(next);
-      try{localStorage.setItem("af_schoolData",JSON.stringify(next));}catch{}
-    }
-
-    var minorKids = people.filter(function(p){return p&&p.name&&(p.isMinor||(p.age!=null&&p.age<18));});
-
-    return(
-      <div>
-        <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here" onBack={function(){goTab("anchor");}}/>
-
-        {/* ════════════════════════════════════
-            1. FAMILY
-        ════════════════════════════════════ */}
-        <Sec id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true}>
-          <div style={{paddingTop:"0.75rem"}}>
-            {/* People list */}
-            <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.55rem"}}>People in this home</div>
-            {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){
-              var isMinorFlag=p.isMinor!=null?p.isMinor:(p.age!=null&&p.age<18);
-              return(
-                <div key={p.id} style={{padding:"0.65rem 0.75rem",borderRadius:"0.75rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.45rem"}}>
-                    <div style={{width:14,height:14,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
-                    <input
-                      key={p.id+"_name"}
-                      defaultValue={p.name}
-                      onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
-                      style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
-                    />
-                    <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
-                      <Icon name="trash" size={13} color={T.textFaint}/>
-                    </button>
-                  </div>
-                  <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
-                    <input type="number" min={0} max={120} key={p.id+"_age"} defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""} onBlur={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
-                    <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
-                      <option value="">Role…</option>
-                      {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-                    </select>
-                    <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
-                      {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
-                        <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
-                      );})}
-                      <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                        <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {/* Add member */}
-            <div style={{background:T.surface,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",border:"1.5px dashed "+T.border,marginBottom:"0.5rem"}}>
-              <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
-              <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                <input value={newMemberName} onChange={function(e){setNewMemberName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-                <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
-              </div>
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
-                  <option value="">Role (optional)</option>
-                  {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
-                </select>
-                <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
-              </div>
-            </div>
-            {/* ZIP code + home vibe */}
-            <Row label="ZIP code" sub="For local weather and notification timing">
-              <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
-            </Row>
-            <Row label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
-              <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
-            </Row>
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            2. FLOW (YOU)
-        ════════════════════════════════════ */}
-        <Sec id="flow" emoji="🌊" title="Flow — Your Preferences" sub="Name, tone, and daily defaults">
-          <div style={{paddingTop:"0.75rem"}}>
-            <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
-              <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                <input defaultValue={preferredName} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
-              </div>
-            </Row>
-            <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
-              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Greeting tone</div>
-              <Pills options={[{value:"warm",label:"Warm",emoji:"🌿"},{value:"calm",label:"Calm",emoji:"🌊"},{value:"motivating",label:"Energising",emoji:"⚡"},{value:"gentle",label:"Gentle",emoji:"🕊️"}]} value={flowGreetingTone} onChange={setFlowGreetingTone} color={T.blue}/>
-            </div>
-            <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
-              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Flow mode default</div>
-              <Pills options={[{value:"Smooth",label:"Smooth",emoji:"🌊"},{value:"Busy",label:"Busy",emoji:"⚡"},{value:"Survival",label:"Survival",emoji:"🆘"}]} value={flowMode} onChange={setFlowMode} color={T.sage}/>
-            </div>
-            <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem"}}>
-              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.2rem"}}>Turn on notifications</div>
-              <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.55rem"}}>Compass will check in with you throughout the day</div>
-              {notifPermission==="denied"&&<div style={{fontSize:"0.78rem",color:T.rose,lineHeight:1.5}}>🚫 Notifications are blocked — open browser settings → Site permissions to allow.</div>}
-              {notifPermission==="default"&&<button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.82rem",padding:"0.5rem 1.1rem"})}}>🔔 Enable Compass notifications</button>}
-              {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
-            </div>
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            3. MIND
-        ════════════════════════════════════ */}
-        <Sec id="mind" emoji="💭" title="Mind" sub="Clear Your Mind categories and defaults">
-          <div style={{paddingTop:"0.75rem"}}>
-            <div style={{paddingBottom:"0.75rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.5rem"}}>
-              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Default view</div>
-              <Pills options={[{value:"all",label:"All entries"},{value:"mine",label:"My list only"}]} value={(familyProfile&&familyProfile.mindDefault)||"all"} onChange={function(v){setFamilyProfile(function(p){return Object.assign({},p||{},{mindDefault:v});});}} color={T.lavender}/>
-            </div>
-            <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,marginBottom:"0.5rem"}}>Categories & colours</div>
-            <BrainCatsEditor brainCats={brainCats} setBrainCats={setBrainCats}/>
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            4. MEALS
-        ════════════════════════════════════ */}
-        <Sec id="meals" emoji="🍽️" title="Meals" sub="Planning preferences, dietary needs, and go-to dinners">
-          <div style={{paddingTop:"0.75rem"}}>
-            <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
-              <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
-              <Pills options={[{value:1,label:"Dinner only",emoji:"🌙"},{value:2,label:"Lunch + Dinner",emoji:"☀️"},{value:3,label:"All 3 meals",emoji:"🌅"}]} value={mealCount} onChange={setMealCount} color={T.sage}/>
-            </div>
-
-            <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
-            </Row>
-            <input defaultValue={(familyProfile&&familyProfile.favoriteDinner)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{favoriteDinner:e.target.value});});}} placeholder="e.g. Tacos, sheet pan chicken, pasta" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
-            <Row label="Dietary needs" sub="Allergies, intolerances, or preferences">
-            </Row>
-            <input defaultValue={(familyProfile&&familyProfile.dietaryNeeds)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{dietaryNeeds:e.target.value});});}} placeholder="e.g. Dairy-free, nut allergy" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem",marginBottom:"0.65rem"})}}/>
-            <Row label="Cooking style" sub="Helps Compass suggest appropriate recipes">
-            </Row>
-            <input defaultValue={(familyProfile&&familyProfile.cookingStyle)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{cookingStyle:e.target.value});});}} placeholder="e.g. Quick & simple, batch cook weekends" style={{...inp({width:"100%",fontSize:"0.82rem",marginTop:"0.35rem"})}}/>
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            5. SHOPPING
-        ════════════════════════════════════ */}
-        <Sec id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
-          <div style={{paddingTop:"0.75rem"}}>
-            <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
-            {stores.map(function(store,i){
-              return(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.7rem",borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
-                  <span style={{fontSize:"0.95rem"}}>🛒</span>
-                  {editingStore===i?(
-                    <input autoFocus value={storeEditVal} onChange={function(e){setStoreEditVal(e.target.value);}} onBlur={function(){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}} onKeyDown={function(e){if(e.key==="Enter"){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}}} style={{...inp({flex:1,fontSize:"0.85rem",padding:"0.22rem 0.5rem"})}}/>
-                  ):(
-                    <span onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{flex:1,fontSize:"0.85rem",fontWeight:600,color:T.textDark,cursor:"pointer"}}>{store}</span>
-                  )}
-                  <button onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 5px"}}>✏️</button>
-                  <button onClick={function(){setStores(function(p){return p.filter(function(_,j){return j!==i;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.85rem",padding:"2px 5px"}}>✕</button>
-                </div>
-              );
-            })}
-            {stores.length<6&&(
-              <button onClick={function(){setStores(function(p){return [...p,"New Store"];});setEditingStore(stores.length);setStoreEditVal("New Store");}} style={{...btnS({fontSize:"0.8rem",padding:"0.38rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem",marginTop:"0.2rem"})}}>
-                <Icon name="plus" size={13} color={T.textMid}/> Add store
-              </button>
-            )}
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            6. TIDE POOL
-        ════════════════════════════════════ */}
-        <Sec id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child">
-          <div style={{paddingTop:"0.75rem"}}>
-          {(function(){
-            var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
-            if(rawKids.length===0) return <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>No children added yet. Add them in the <strong>Family</strong> section above — then come back here to set up their chores and treasures.</div>;
-
-            var saved = coveData || [];
-            var sKidIdx = tpKidIdx; var setSKidIdx = setTpKidIdx;
-            var sTab = tpTab; var setSTab = setTpTab;
-            var sKid = rawKids[Math.min(sKidIdx, rawKids.length-1)];
-            var sKidData = saved.find(function(d){ return d.kidId===sKid.id; }) || {kidId:sKid.id,kidName:sKid.name,shells:0,chores:[],treasures:[]};
-            var sKidIdx2 = saved.findIndex(function(d){ return d.kidId===sKid.id; });
-
-            function updateSaved(patch) {
-              setCoveData(function(prev){
-                var arr = (prev||[]).slice();
-                if(sKidIdx2>=0) arr[sKidIdx2]=Object.assign({},arr[sKidIdx2],patch);
-                else arr.push(Object.assign({},sKidData,patch));
-                return arr;
-              });
-            }
-
-            return (
-              <div>
-                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
-                  {rawKids.map(function(k,i){
-                    return <button key={k.id} onClick={function(){setSKidIdx(i);}} style={{...btnS({fontSize:"0.76rem",padding:"0.28rem 0.85rem",borderRadius:"99px"}),background:i===sKidIdx?T.sand:"transparent",color:i===sKidIdx?"#fff":T.textMid,borderColor:i===sKidIdx?T.sand:T.border}}>{k.name}</button>;
-                  })}
-                </div>
-                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem"}}>
-                  {["chores","treasures"].map(function(t){
-                    return <button key={t} onClick={function(){setSTab(t);}} style={{flex:1,padding:"0.38rem",borderRadius:"0.6rem",border:"none",background:sTab===t?T.sand:"transparent",color:sTab===t?"#fff":T.textMid,fontWeight:700,fontSize:"0.76rem",cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{t==="chores"?"🧹 Chores":"🎁 Treasures"}</button>;
-                  })}
-                </div>
-                {sTab==="chores"&&(
-                  <div>
-                    {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet — add one below.</div>}
-                    {(sKidData.chores||[]).map(function(ch){
-                      return(
-                        <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
-                          <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
-                          <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
-                          <button onClick={function(){updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
-                        </div>
-                      );
-                    })}
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                      <input value={newChoreName} onChange={function(e){setNewChoreName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
-                      <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
-                        <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
-                      </select>
-                      <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
-                    </div>
-                  </div>
-                )}
-                {sTab==="treasures"&&(
-                  <div>
-                    {(sKidData.treasures||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No treasures yet — add some below.</div>}
-                    {(sKidData.treasures||[]).slice().sort(function(a,b){return a.cost-b.cost;}).map(function(t){
-                      return(
-                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
-                          <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
-                          <span style={{flex:1,color:T.textDark}}>{t.name}</span>
-                          <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
-                          <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
-                        </div>
-                      );
-                    })}
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
-                      <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
-                      <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚" style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
-                      <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
-                    </div>
-                    {rawKids.length>1&&(
-                      <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
-                        <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:700,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
-                        <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                          {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
-                            return <button key={k.id} onClick={function(){var fromData=saved.find(function(d){return d.kidId===k.id;});if(!fromData)return;updateSaved({treasures:(fromData.treasures||[]).map(function(t){return Object.assign({},t,{id:uid()});})});}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            7. WEEKLY RHYTHM
-        ════════════════════════════════════ */}
-        <Sec id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
-          <div style={{paddingTop:"0.75rem"}}>
-            <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
-            {(function(){
-              var editingDay = rhythmEditingDay; var setEditingDay = setRhythmEditingDay;
-              var editForm = rhythmEditForm; var setEditForm = setRhythmEditForm;
-              const DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
-              function openEdit(day){setEditingDay(day);setEditForm(Object.assign({},rhythm[day]||{}));}
-              function saveEdit(){setRhythm(function(p){return Object.assign({},p,{[editingDay]:Object.assign({},editForm)});});setEditingDay(null);}
-              return(
-                <div>
-                  {MEAL_DAYS.map(function(day,di){
-                    var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
-                    var isToday=day===TODAY_NAME;
-                    return(
-                      <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.58rem 0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
-                        <span style={{fontSize:"1.05rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                            <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.86rem"}}>{day}</span>
-                            {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
-                            {dr.theme&&<span style={{fontSize:"0.75rem",color:T.textSoft}}>· {dr.theme}</span>}
-                          </div>
-                          {dr.desc&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
-                        </div>
-                        <button onClick={()=>openEdit(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
-                      </div>
-                    );
-                  })}
-                  {editingDay&&(
-                    <ModalBox title={"Edit "+editingDay} onClose={()=>setEditingDay(null)}>
-                      <div style={{marginBottom:"0.75rem"}}>
-                        <label style={lbl}>Quick Presets</label>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-                          {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){if(pr.theme==="Custom"){setEditForm(function(p){return Object.assign({},p,{emoji:pr.emoji});});return;}setEditForm({theme:pr.theme,emoji:pr.emoji,desc:pr.desc});}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
-                        </div>
-                      </div>
-                      <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-                        <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
-                        <div><label style={lbl}>Theme</label><input defaultValue={editForm.theme} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{theme:e.target.value});});}} placeholder="e.g. Batch Cook" style={inp()}/></div>
-                      </div>
-                      <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{desc:e.target.value});});}} placeholder="What happens on this day…" style={inp()}/></div>
-                      <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
-                        <button onClick={()=>setEditingDay(null)} style={btnS()}>Cancel</button>
-                        <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
-                      </div>
-                    </ModalBox>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            8. SCHOOL
-        ════════════════════════════════════ */}
-        <Sec id="school" emoji="📚" title="School" sub="School type and settings for each child">
-          <div style={{paddingTop:"0.75rem"}}>
-            {minorKids.length===0&&(
-              <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
-            )}
-            {minorKids.map(function(kid){
-              var kidD = sData[kid.id];
-              var currentType = kidD&&kidD.type;
-              var SCHOOL_TYPES = [
-                {value:"homeschool", label:"Homeschool",      emoji:"🏠", desc:"Learning at home — full curriculum"},
-                {value:"public",     label:"Public school",   emoji:"🏫", desc:"Standard public school"},
-                {value:"private",    label:"Private school",  emoji:"🎓", desc:"Private or charter school"},
-                {value:"co-op",      label:"Co-op / hybrid",  emoji:"🤝", desc:"Mix of home and group learning"},
-                {value:"online",     label:"Online school",   emoji:"💻", desc:"Accredited online program"},
-                {value:"other",      label:"Other",           emoji:"📋", desc:"Something else entirely"},
-              ];
-              return(
-                <div key={kid.id} style={{marginBottom:"0.85rem",padding:"0.75rem",borderRadius:"0.9rem",border:"1.5px solid "+T.borderSoft,background:T.surface}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
-                    <div style={{width:12,height:12,borderRadius:"50%",background:kid.color||T.blue,flexShrink:0}}/>
-                    <span style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{kid.name}</span>
-                    {kid.age!=null&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft}}>Age {kid.age}</span>}
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                    {SCHOOL_TYPES.map(function(type){
-                      var selected = currentType===type.value;
-                      return(
-                        <button key={type.value} onClick={function(){setKidSchoolType(kid.id,selected?null:type.value);}} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0.75rem",borderRadius:"0.7rem",border:"1.5px solid "+(selected?T.blue:T.border),background:selected?T.bluePale:"transparent",cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
-                          <span style={{fontSize:"1.05rem",flexShrink:0}}>{type.emoji}</span>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:"0.84rem",fontWeight:700,color:selected?T.blue:T.textDark}}>{type.label}</div>
-                            <div style={{fontSize:"0.7rem",color:T.textFaint}}>{type.desc}</div>
-                          </div>
-                          <div style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(selected?T.blue:T.border),background:selected?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                            {selected&&<div style={{width:8,height:8,borderRadius:"50%",background:"#fff"}}/>}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            9. APPEARANCE & NOTIFICATIONS
-        ════════════════════════════════════ */}
-        <Sec id="appearance" emoji="🎨" title="Appearance & Notifications" sub="Theme and notification schedule">
-          <div style={{paddingTop:"0.75rem"}}>
-            <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.55rem"}}>Theme</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.55rem",marginBottom:"1rem"}}>
-              {Object.entries(THEMES).map(function(entry){
-                var key=entry[0];var th=entry[1];
-                return(
-                  <button key={key} onClick={()=>setThemeNameRaw(key)} style={{background:themeName===key?T.blue:T.white,color:themeName===key?"#fff":T.textDark,border:"2px solid "+(themeName===key?T.blue:T.border),borderRadius:"0.9rem",padding:"0.75rem 0.5rem",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",textAlign:"center"}}>
-                    <div style={{fontSize:"1.4rem",marginBottom:"0.25rem"}}>{th.emoji}</div>
-                    <div style={{fontWeight:700,fontSize:"0.78rem"}}>{th.label}</div>
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{height:"1px",background:T.borderSoft,margin:"0.75rem 0"}}/>
-            <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>Notification schedule</div>
-            <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.65rem"}}>Compass sends warm check-ins throughout your day</div>
-            {(function(){
-              var NOTIF_LIST = [
-                {key:"morning",  time:"7:00 am",     emoji:"🌅", label:"Morning anchor",      desc:"Your agenda, tasks & events for the day"},
-                {key:"midday",   time:"12:00 pm",    emoji:"🌊", label:"Midday check-in",     desc:"Progress update & encouragement"},
-                {key:"dinner",   time:"3:00 pm",     emoji:"🍽️", label:"Dinner heads-up",     desc:"Defrost reminder & meal prep nudge"},
-                {key:"evening",  time:"5:00 pm",     emoji:"🌙", label:"Evening recap",       desc:"Day summary + tomorrow preview"},
-                {key:"events",   time:"2hrs before", emoji:"⏰", label:"Event nudges",        desc:"Smart reminder before each appointment"},
-                {key:"recurring",time:"varies",      emoji:"🔁", label:"Recurring reminders", desc:"Trash, HVAC, street sweeping, custom"},
-              ];
-              return(
-                <div style={{borderRadius:"0.9rem",border:"1px solid "+T.borderSoft,overflow:"hidden",marginBottom:"0.65rem"}}>
-                  {NOTIF_LIST.map(function(n,i){
-                    var on = notifSettings[n.key]!==false;
-                    return(
-                      <div key={n.key} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.62rem 0.9rem",borderBottom:i<NOTIF_LIST.length-1?"1px solid "+T.borderSoft:"none",background:on?"transparent":T.bgAlt+"60"}}>
-                        <span style={{fontSize:"1rem",flexShrink:0,opacity:on?1:0.4}}>{n.emoji}</span>
-                        <div style={{flex:1}}>
-                          <div style={{fontWeight:700,color:on?T.textDark:T.textFaint,fontSize:"0.82rem"}}>{n.label}</div>
-                          <div style={{color:T.textSoft,fontSize:"0.7rem"}}>{n.desc} · <span style={{color:T.textFaint}}>{n.time}</span></div>
-                        </div>
-                        <Toggle on={on} onToggle={function(){setNotifSettings(function(p){var next=Object.assign({},p||{});next[n.key]=!on;return next;});setTimeout(function(){setDailySummaryScheduled(null);scheduleAllDailyNotifications();},100);}} color={T.sage}/>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-            {notifPermission==="granted"&&(
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>{setDailySummaryScheduled(null);scheduleAllDailyNotifications();}} style={btnP(T.blue,{fontSize:"0.76rem",padding:"0.4rem 0.85rem",flex:1,justifyContent:"center"})}>🔄 Reschedule today</button>
-                <button onClick={()=>{var todayTasks=tasks.filter(function(t){return (t.day===TODAY_NAME||t.day==="Daily")&&!t.archived;});var todayMeal=(meals[TODAY_NAME]||{}).dinner;var todayEvts=calEvents.filter(function(e){return e.date===TODAY.toISOString().split("T")[0];});showInAppBanner("🌅 Morning anchor preview",(todayEvts.length>0?"First up: "+todayEvts[0].title+". ":"")+(todayTasks.filter(function(t){return !t.done;}).length+" tasks today.")+(todayMeal?" Dinner: "+todayMeal:""));}} style={btnS({fontSize:"0.76rem",padding:"0.4rem 0.85rem",flex:1})}>Preview</button>
-              </div>
-            )}
-            {notifications.filter(function(n){return !n.fired;}).length>0&&(
-              <div style={{marginTop:"0.85rem"}}>
-                <div style={{fontSize:"0.68rem",color:T.textSoft,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.35rem"}}>Upcoming reminders</div>
-                {notifications.filter(function(n){return !n.fired;}).map(function(n){return(
-                  <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.38rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                    <span style={{fontSize:"0.8rem"}}>🔔</span>
-                    <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{n.entityTitle}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textSoft}}>{n.date} {n.time}</span>
-                    <button onClick={()=>setNotifications(function(p){return p.filter(function(x){return x.id!==n.id;});})} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
-                  </div>
-                );})}
-              </div>
-            )}
-          </div>
-        </Sec>
-
-        {/* ════════════════════════════════════
-            Sign In & Sync — always last
-        ════════════════════════════════════ */}
-        <Sec id="sync" emoji="🔐" title="Sign In & Sync" sub="Sync across devices and with your household">
-          <div style={{paddingTop:"0.75rem"}}>
-          {false ? (
-            <div>
-              <p style={{color:T.textMid,fontSize:"0.82rem",lineHeight:1.65,marginBottom:"0.85rem"}}>Sign in to sync your household across multiple devices and share with your partner.</p>
-              <button onClick={()=>setShowAuthModal(true)} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.8rem",fontSize:"0.9rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem",marginBottom:"0.5rem"})}>
-                ⚓️ Sign in / Create account
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.65rem 0.85rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.75rem",border:"1px solid "+T.borderSoft}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,"+T.blue+","+T.sage+")",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  <span style={{color:"#fff",fontWeight:800,fontSize:"0.9rem"}}>{((authUser&&(authUser.displayName||authUser.email)||"?").charAt(0)).toUpperCase()}</span>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{authUser&&(authUser.displayName||authUser.email)||"Signed in"}</div>
-                  <div style={{color:T.textSoft,fontSize:"0.74rem"}}>{authUser&&authUser.email||""}</div>
-                </div>
-              <button onClick={function(){
-                  var data = {};
-                  Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) data[k] = localStorage.getItem(k); });
-                  var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
-                  var url = URL.createObjectURL(blob);
-                  var a = document.createElement("a");
-                  a.href = url;
-                  a.download = "anchor-flow-backup-" + new Date().toISOString().slice(0,10) + ".json";
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.sage})}>Export Backup</button>
-                <button onClick={function(){
-                  var input = document.createElement("input");
-                  input.type = "file";
-                  input.accept = ".json";
-                  input.onchange = function(e){
-                    var file = e.target.files[0];
-                    if(!file) return;
-                    var reader = new FileReader();
-                    reader.onload = function(ev){
-                      try {
-                        var data = JSON.parse(ev.target.result);
-                        if(!data || typeof data !== "object") { alert("Invalid backup file."); return; }
-                        var keys = Object.keys(data).filter(function(k){ return k.startsWith("af_"); });
-                        if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
-                        if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
-                        keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
-                        console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
-                        alert("Backup restored. Reloading...");
-                        window.location.reload();
-                      } catch(err) { alert("Could not read backup file: " + err.message); }
-                    };
-                    reader.readAsText(file);
-                  };
-                  input.click();
-                }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue})}>Import Backup</button>
-                <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
-              </div>
-              {lastSyncTime&&<p style={{fontSize:"0.74rem",color:T.sage,fontWeight:700,marginBottom:"0.65rem"}}>Last synced: {lastSyncTime}</p>}
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>setShowHouseholdModal(true)} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
-                  👥 Manage household
-                </button>
-                <button onClick={syncNow} style={btnS({fontSize:"0.8rem",padding:"0.55rem 0.85rem",display:"flex",alignItems:"center",gap:"0.3rem"})}>
-                  <Icon name="sync" size={13} color={T.textMid}/> Sync
-                </button>
-              </div>
-            </div>
-          )}
-          </div>
-        </Sec>
-
-        {/* AI memory */}
-        {Object.keys(aiMemory).length>0&&(
-          <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
-            <div style={{paddingTop:"0.75rem"}}>
-              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
-                <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
-              </div>
-              {Object.entries(aiMemory).map(function(entry,i){return(
-                <div key={i} style={{padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                  <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{entry[0]}</div>
-                  <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{entry[1]}</div>
-                </div>
-              );})}
-            </div>
-          </Sec>
-        )}
-
-        <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
-          <AnchorLogo size={44} color={T.blue}/>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
-          <div style={{color:T.textSoft,fontSize:"0.8rem",fontStyle:"italic",marginTop:"0.15rem",fontFamily:"'Cormorant Garamond',serif"}}>A steadier home, in every season</div>
-          <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.72,marginTop:"0.85rem",marginBottom:0}}>Data saved locally · AI powered by Claude · Native app coming soon</p>
-        </div>
-      </div>
-    );
-  }
-
     // ── Google Calendar Modal ────────────────────────────────────────────────────
   function GoogleCalendarModal({onClose}) {
     const isConnected = connectedCals.includes("google") && googleCalToken;
@@ -10119,7 +10124,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="brain"    && <BrainTab/>}
                 {t==="school"   && <SchoolTab/>}
                 {t==="career"   && <CareerTab/>}
-                {t==="settings" && <SettingsTab/>}
+                {t==="settings" && <SettingsTab
+                  people={people} setPeople={setPeople}
+                  familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
+                  flowMode={flowMode} setFlowMode={setFlowMode}
+                  flowGreetingTone={flowGreetingTone} setFlowGreetingTone={setFlowGreetingTone}
+                  mealCount={mealCount} setMealCount={setMealCount}
+                  stores={stores} setStores={setStores}
+                  rhythm={rhythm} setRhythm={setRhythm}
+                  brainCats={brainCats} setBrainCats={setBrainCats}
+                  coveData={coveData} setCoveData={setCoveData}
+                  authUser={authUser} setAuthUser={setAuthUser}
+                  preferredName={preferredName} setPreferredName={setPreferredName}
+                  notifSettings={notifSettings} setNotifSettings={setNotifSettings}
+                  setDailySummaryScheduled={setDailySummaryScheduled}
+                  tasks={tasks} meals={meals} calEvents={calEvents}
+                  goTab={goTab} notifPermission={notifPermission}
+                  requestNotifPermission={requestNotifPermission}
+                  scheduleAllDailyNotifications={scheduleAllDailyNotifications}
+                  signOut={signOut} showInAppBanner={showInAppBanner}
+                  T={T} inp={inp} lbl={lbl} btnP={btnP} btnS={btnS} PC={PC}
+                  SecHead={SecHead} ModalBox={ModalBox}
+                />}
                 {t==="ai" && <RippleTab/>}
               </div>
             );
