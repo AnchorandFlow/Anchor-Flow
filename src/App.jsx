@@ -394,6 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
+const APP_VERSION = "2026-06-01-sync-diagnostics-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -781,6 +782,67 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 }
 
 
+function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
+  React.useEffect(function(){console.log("[AF MOUNT] WeeklyRhythmSection");return function(){console.log("[AF UNMOUNT] WeeklyRhythmSection");};},[]);
+  var _wrRender=React.useRef(0);_wrRender.current++;console.count("[AF RENDER] WeeklyRhythm-section");
+  var [editingDay,setEditingDay]=useState(null);
+  var [editForm,setEditForm]=useState({theme:"",emoji:"",desc:""});
+  var [settingsOpen,setSettingsOpen]=useState({weekly:false});
+  function toggleSetting(key,defaultOpen){
+    setSettingsOpen(function(p){var current=key in p?p[key]:(defaultOpen||false);return Object.assign({},p,{[key]:!current});});
+  }
+  var WRlbl={display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
+  var DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
+  function openEdit(day){setEditingDay(day);setEditForm(Object.assign({},rhythm[day]||{}));}
+  function saveEdit(){setRhythm(function(p){return Object.assign({},p,{[editingDay]:Object.assign({},editForm)});});setEditingDay(null);}
+  return(
+    <Section id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T}>
+      <div style={{paddingTop:"0.75rem"}}>
+        <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
+        <div>
+          {MEAL_DAYS.map(function(day,di){
+            var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
+            var isToday=day===TODAY_NAME;
+            return(
+              <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.58rem 0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
+                <span style={{fontSize:"1.05rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
+                    <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.86rem"}}>{day}</span>
+                    {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
+                    {dr.theme&&<span style={{fontSize:"0.75rem",color:T.textSoft}}>· {dr.theme}</span>}
+                  </div>
+                  {dr.desc&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
+                </div>
+                <button onClick={function(){openEdit(day);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+              </div>
+            );
+          })}
+          {editingDay&&(
+            <ModalBox title={"Edit "+editingDay} onClose={function(){setEditingDay(null);}}>
+              <div style={{marginBottom:"0.75rem"}}>
+                <label style={WRlbl}>Quick Presets</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
+                  {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){if(pr.theme==="Custom"){setEditForm(function(p){return Object.assign({},p,{emoji:pr.emoji});});return;}setEditForm({theme:pr.theme,emoji:pr.emoji,desc:pr.desc});}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
+                <div><label style={WRlbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
+                <div><label style={WRlbl}>Theme</label><input defaultValue={editForm.theme} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{theme:e.target.value});});}} placeholder="e.g. Batch Cook" style={inp()}/></div>
+              </div>
+              <div style={{marginBottom:"1rem"}}><label style={WRlbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{desc:e.target.value});});}} placeholder="What happens on this day…" style={inp()}/></div>
+              <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                <button onClick={function(){setEditingDay(null);}} style={btnS()}>Cancel</button>
+                <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
+              </div>
+            </ModalBox>
+          )}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   React.useEffect(function(){console.log("[AF MOUNT] TidePoolSection");return function(){console.log("[AF UNMOUNT] TidePoolSection");};},[]);
   var _tpRender=React.useRef(0);_tpRender.current++;console.count("[AF RENDER] TidePool-section");
@@ -1050,9 +1112,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 
 
 
-  // ── weekly rhythm state (hoisted out of IIFE) ──
-  var [rhythmEditingDay,setRhythmEditingDay]=useState(null);
-  var [rhythmEditForm,setRhythmEditForm]=useState({theme:"",emoji:"",desc:""});
+
 
   // ── school type per kid state ──
   // schoolData already persisted from SchoolTab — we read/write it here too
@@ -1183,62 +1243,13 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
       />
 
       {/* ════════════════════════════════════
+      {/* ════════════════════════════════════
           7. WEEKLY RHYTHM
       ════════════════════════════════════ */}
-      <Sec id="weekly" emoji="📅" title="Weekly Rhythm" sub="Themes for each day of the week">
-        <div style={{paddingTop:"0.75rem"}}>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>Give each day a focus — Compass uses these to shape daily suggestions and your weekly overview.</div>
-          {(function(){
-            console.count("[AF RENDER] WeeklyRhythm-section");
-            var editingDay = rhythmEditingDay; var setEditingDay = setRhythmEditingDay;
-            var editForm = rhythmEditForm; var setEditForm = setRhythmEditForm;
-            const DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
-            function openEdit(day){setEditingDay(day);setEditForm(Object.assign({},rhythm[day]||{}));}
-            function saveEdit(){setRhythm(function(p){return Object.assign({},p,{[editingDay]:Object.assign({},editForm)});});setEditingDay(null);}
-            return(
-              <div>
-                {MEAL_DAYS.map(function(day,di){
-                  var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
-                  var isToday=day===TODAY_NAME;
-                  return(
-                    <div key={day} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.58rem 0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
-                      <span style={{fontSize:"1.05rem",flexShrink:0}}>{dr.emoji||"📋"}</span>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                          <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.86rem"}}>{day}</span>
-                          {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px"}}>Today</span>}
-                          {dr.theme&&<span style={{fontSize:"0.75rem",color:T.textSoft}}>· {dr.theme}</span>}
-                        </div>
-                        {dr.desc&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>{dr.desc}</div>}
-                      </div>
-                      <button onClick={()=>openEdit(day)} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
-                    </div>
-                  );
-                })}
-                {editingDay&&(
-                  <ModalBox title={"Edit "+editingDay} onClose={()=>setEditingDay(null)}>
-                    <div style={{marginBottom:"0.75rem"}}>
-                      <label style={lbl}>Quick Presets</label>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-                        {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){if(pr.theme==="Custom"){setEditForm(function(p){return Object.assign({},p,{emoji:pr.emoji});});return;}setEditForm({theme:pr.theme,emoji:pr.emoji,desc:pr.desc});}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
-                      </div>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-                      <div><label style={lbl}>Emoji</label><input defaultValue={editForm.emoji} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} placeholder="🗓️" style={{...inp({textAlign:"center",fontSize:"1.2rem",padding:"0.5rem"})}}/></div>
-                      <div><label style={lbl}>Theme</label><input defaultValue={editForm.theme} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{theme:e.target.value});});}} placeholder="e.g. Batch Cook" style={inp()}/></div>
-                    </div>
-                    <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return Object.assign({},p,{desc:e.target.value});});}} placeholder="What happens on this day…" style={inp()}/></div>
-                    <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
-                      <button onClick={()=>setEditingDay(null)} style={btnS()}>Cancel</button>
-                      <button onClick={saveEdit} style={btnP(T.sage)}>Save</button>
-                    </div>
-                  </ModalBox>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      </Sec>
+      <WeeklyRhythmSection
+        rhythm={rhythm} setRhythm={setRhythm}
+        T={T} inp={inp} btnP={btnP} btnS={btnS} lbl={lbl} ModalBox={ModalBox}
+      />
 
       {/* ════════════════════════════════════
           8. SCHOOL
@@ -1506,6 +1517,17 @@ function HomeFlow() {
   // ── Auth & Household Sync State ─────────────────────────────────────────────
   const [authToken,  setAuthToken]  = useSaved("authToken",  null);
   const [authUser,   setAuthUser]   = useSaved("authUser",   null);
+  // ── Startup diagnostics ──
+  useEffect(() => {
+    const _au = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
+    const _hid = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+    console.log("[AF DEBUG] email", _au?.email);
+    console.log("[AF DEBUG] user id", _au?.id);
+    console.log("[AF DEBUG] household id", _hid);
+    console.log("[AF DEBUG] app version", APP_VERSION);
+    console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
+    console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
+  }, []);
   // Sync Supabase session into original app auth on mount
   useEffect(() => {
     try {
@@ -1831,8 +1853,10 @@ function createLocalBackup() {
 
  async function pushHouseholdData(token, hid) {
     if (!token || !hid) return;
+    console.log("[AF SYNC] push start", hid);
     const payload = {};
     SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
+    console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
     const nonNullCount = Object.values(payload).filter(v => v !== null).length;
     if (nonNullCount < 2) {
       console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
@@ -1855,6 +1879,7 @@ function createLocalBackup() {
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        console.log("[AF SYNC] push success updated_at", serverTs);
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -2025,15 +2050,22 @@ function createLocalBackup() {
   // and reloads so the other household member's changes appear automatically.
   // Our own pushes update af_lastHHSync, so we never reload on our own writes.
   useEffect(() => {
-    if (!authToken || !householdId) return;
+    if (!authToken || !householdId) {
+      console.log("[AF SYNC] poll waiting for auth/household", { hasToken: !!authToken, householdId });
+      return;
+    }
+    console.log("[AF SYNC] poll started", householdId);
 
     async function checkForUpdates() {
       try {
+        console.log("[AF SYNC] check start", householdId);
         const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-        if (!rows || !rows.length || !rows[0].data) return;
+        if (!rows || !rows.length || !rows[0].data) { console.log("[AF SYNC] check — no rows returned"); return; }
         const row = rows[0];
         const serverTs = row.updated_at || "";
         const lastSync = localStorage.getItem("af_lastHHSync") || "";
+        console.log("[AF SYNC] remote updated_at", serverTs);
+        console.log("[AF SYNC] last seen updated_at", lastSync);
         if (serverTs && serverTs !== lastSync) {
           // If this new timestamp matches what WE just pushed, it's our own write — don't reload
           const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
@@ -2049,9 +2081,12 @@ function createLocalBackup() {
           const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
           const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
           if (isTyping || typedRecently || isDragging || hasOpenModal) return;
-          if (!isRemotePayloadSafe(row.data, serverTs)) return;
+          const _safe = isRemotePayloadSafe(row.data, serverTs);
+          console.log("[AF SYNC] remote safe", _safe);
+          if (!_safe) return;
           createLocalBackup();
           const cleanBg = sanitizeHouseholdData(row.data);
+          console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
           const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
           SYNC_KEYS.forEach(k => {
             // Don't overwrite mealsWeekOf from server if local already has this week's value
@@ -2061,6 +2096,8 @@ function createLocalBackup() {
             }
           });
           localStorage.setItem("af_lastHHSync", serverTs);
+          console.log("[AF SYNC] localStorage updated tasks", localStorage.getItem("af_tasks"));
+          console.log("[AF SYNC] reloading now");
           window.location.reload();
           setSyncStatus("synced");
           setLastSyncTime(new Date().toLocaleTimeString());
@@ -2082,9 +2119,13 @@ function createLocalBackup() {
       const shopFocused = window._shopInputFocused;
       if(!isTyping && !typedRecently && !shopFocused) checkForUpdates();
     }, 60000);
-    return () => { clearTimeout(initial); clearInterval(interval); };
+    return () => {
+      console.log("[AF SYNC] poll stopped", householdId);
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authToken, householdId]);
 
   // ── Push local changes every 30s ───────────────────────────────────────────
   // Only pushes — no reloads. Cross-device updates appear on next app open.
