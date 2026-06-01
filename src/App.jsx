@@ -1190,9 +1190,11 @@ function createLocalBackup() {
       await pushHouseholdData(authToken, householdId);
       // Then pull back from server to confirm and get any changes from the other user
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-      if (rows && rows.length > 0 && rows[0].data) {
+   if (rows && rows.length > 0 && rows[0].data) {
         const lastSync = localStorage.getItem("af_lastHHSync");
         if (lastSync !== (rows[0].updated_at || "")) {
+          if (!isRemotePayloadSafe(rows[0].data, rows[0].updated_at)) { setSyncStatus("synced"); return; }
+          createLocalBackup();
           const clean = sanitizeHouseholdData(rows[0].data);
           SYNC_KEYS.forEach(k => {
             if (clean[k] !== undefined) {
