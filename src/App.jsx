@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-theme-crash-fix-1";
+const APP_VERSION = "2026-06-01-sdata-crash-fix-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1117,7 +1117,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
   // ── school type per kid state ──
   // schoolData already persisted from SchoolTab — we read/write it here too
   var [sData,setSDataLocal]=useState(function(){
-    try{var s=localStorage.getItem("af_schoolData");return s?JSON.parse(s):{};}catch{return {};}
+    try{var s=localStorage.getItem("af_schoolData");var parsed=s?JSON.parse(s):{};return parsed&&typeof parsed==="object"?parsed:{};}catch{return {};}
   });
   function setKidSchoolType(kidId,type){
     var next=Object.assign({},sData);
@@ -1260,7 +1260,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
             <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
           )}
           {minorKids.map(function(kid){
-            var kidD = sData[kid.id];
+            var kidD = (sData||{})[kid.id];
             var currentType = kidD&&kidD.type;
             var SCHOOL_TYPES = [
               {value:"homeschool", label:"Homeschool",      emoji:"🏠", desc:"Learning at home — full curriculum"},
