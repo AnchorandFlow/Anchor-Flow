@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-sdata-crash-fix-1";
+const APP_VERSION = "2026-06-01-stale-push-guard-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1531,6 +1531,7 @@ function HomeFlow() {
     console.log("[AF DEBUG] app version", APP_VERSION);
     console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
     console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
+    console.log("[AF SYNC] deviceId", localStorage.getItem("af_deviceId") || "(not yet set)");
   }, []);
   // Sync Supabase session into original app auth on mount
   useEffect(() => {
@@ -1858,6 +1859,28 @@ function createLocalBackup() {
  async function pushHouseholdData(token, hid) {
     if (!token || !hid) return;
     console.log("[AF SYNC] push start", hid);
+
+    // ── Patch 1: stale-push guard ──────────────────────────────────────────
+    // Fetch server updated_at before doing anything. If server is newer than
+    // what this device last applied, our local data is stale — do not push.
+    try {
+      const checkRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at,updated_by&limit=1`, { _token: token });
+      if (checkRows && checkRows.length > 0) {
+        const serverUpdatedAt = checkRows[0].updated_at || "";
+        const lastApplied = localStorage.getItem("af_lastHHSync") || "";
+        console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied);
+        if (serverUpdatedAt && lastApplied && serverUpdatedAt > lastApplied) {
+          console.warn("[AF SYNC] push blocked stale — server newer than local", { serverUpdatedAt, lastApplied });
+          console.log("[AF SYNC] server newer than local — will pull on next poll tick");
+          return;
+        }
+        console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
+      }
+    } catch(e) {
+      console.warn("[AF SYNC] stale-check failed, proceeding with push:", e.message);
+    }
+    // ── end stale-push guard ───────────────────────────────────────────────
+
     const payload = {};
     SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
     console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
@@ -1869,6 +1892,14 @@ function createLocalBackup() {
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
+    // ── Patch 2: device ID ────────────────────────────────────────────────
+    let deviceId = localStorage.getItem("af_deviceId");
+    if (!deviceId) {
+      try { deviceId = crypto.randomUUID(); } catch { deviceId = Date.now().toString(36) + Math.random().toString(36).slice(2); }
+      try { localStorage.setItem("af_deviceId", deviceId); } catch {}
+    }
+    console.log("[AF SYNC] deviceId", deviceId);
+    // ── end device ID ─────────────────────────────────────────────────────
     try {
       // Check if row exists first to decide POST vs PATCH
       const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id&limit=1`, { _token: token });
@@ -1878,7 +1909,7 @@ function createLocalBackup() {
           method: "PATCH",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ data: payload, updated_at: updatedAt, updated_by: ownerId })
+          body: JSON.stringify({ data: payload, updated_at: updatedAt, updated_by: ownerId, updated_by_device: deviceId })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
@@ -1889,7 +1920,7 @@ function createLocalBackup() {
           method: "POST",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt })
+          body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt, updated_by_device: deviceId })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
         // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
