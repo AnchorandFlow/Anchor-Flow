@@ -1422,35 +1422,35 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 }
 
 
-function HomeFlow() {
-
-  function useSaved(key, fallback) {
-    const [val, setVal] = useState(() => {
-      try {
-        const s = localStorage.getItem("af_" + key);
-        if (!s) return fallback;
-        const parsed = JSON.parse(s);
-        // If parsed is null/undefined, return fallback instead
-        // This handles the case where "null" is stored as a string
-        if (parsed === null || parsed === undefined) return fallback;
-        // If fallback is an array, ensure we return an array not null
-        if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
-        return parsed;
-      }
-      catch { return fallback; }
-    });
-    function setSaved(next) {
-      // Use React's functional updater so we always operate on the latest state,
-      // avoiding stale-closure bugs when setSaved is called inside timeouts or
-      // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
-      setVal(prev => {
-        const resolved = typeof next === "function" ? next(prev) : next;
-        try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
-        return resolved;
-      });
+function useSaved(key, fallback) {
+  const [val, setVal] = useState(() => {
+    try {
+      const s = localStorage.getItem("af_" + key);
+      if (!s) return fallback;
+      const parsed = JSON.parse(s);
+      // If parsed is null/undefined, return fallback instead
+      // This handles the case where "null" is stored as a string
+      if (parsed === null || parsed === undefined) return fallback;
+      // If fallback is an array, ensure we return an array not null
+      if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+      return parsed;
     }
-    return [val, setSaved];
+    catch { return fallback; }
+  });
+  function setSaved(next) {
+    // Use React's functional updater so we always operate on the latest state,
+    // avoiding stale-closure bugs when setSaved is called inside timeouts or
+    // rapid successive updates (e.g. AnchorCheckItem animation + toggle).
+    setVal(prev => {
+      const resolved = typeof next === "function" ? next(prev) : next;
+      try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
+      return resolved;
+    });
   }
+  return [val, setSaved];
+}
+
+function HomeFlow() {
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
   const T = THEMES[themeName];
