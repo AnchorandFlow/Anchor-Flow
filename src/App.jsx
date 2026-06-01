@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-stale-push-guard-1";
+const APP_VERSION = "2026-06-01-meta-backup-fix-1";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1576,14 +1576,15 @@ function HomeFlow() {
   // ── Sanitize data from Supabase — removes null array entries, ensures safe types ──
 function createLocalBackup() {
     try {
+      // Prune to keep only 2 existing backups before adding a new one (keeps last 3 total)
+      var existing = Object.keys(localStorage).filter(function(k){ return k.startsWith("af_backup_"); }).sort();
+      while (existing.length >= 3) { try { localStorage.removeItem(existing.shift()); } catch {} }
       var snapshot = {};
-      Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) snapshot[k] = localStorage.getItem(k); });
+      Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_") && !k.startsWith("af_backup_")) snapshot[k] = localStorage.getItem(k); });
       var key = "af_backup_" + Date.now();
       localStorage.setItem(key, JSON.stringify(snapshot));
       console.log("[AF SAFETY] backup created", key);
-      var backupKeys = Object.keys(localStorage).filter(function(k){ return k.startsWith("af_backup_"); }).sort();
-      while(backupKeys.length > 10){ try { localStorage.removeItem(backupKeys.shift()); } catch {} }
-    } catch(e) { console.warn("[AF SAFETY] backup failed", e.message); }
+    } catch(e) { console.warn("[AF SAFETY] backup failed —", e.message); }
   }
 
   function isRemotePayloadSafe(remoteData, remoteTs) {
@@ -1909,7 +1910,7 @@ function createLocalBackup() {
           method: "PATCH",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ data: payload, updated_at: updatedAt, updated_by: ownerId, updated_by_device: deviceId })
+          body: JSON.stringify({ data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt, updated_by: ownerId })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
@@ -1920,7 +1921,7 @@ function createLocalBackup() {
           method: "POST",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ id: hid, owner_id: ownerId, data: payload, updated_at: updatedAt, updated_by_device: deviceId })
+          body: JSON.stringify({ id: hid, owner_id: ownerId, data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
         // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
