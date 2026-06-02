@@ -1465,6 +1465,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
         <div style={{color:T.textSoft,fontSize:"0.8rem",fontStyle:"italic",marginTop:"0.15rem",fontFamily:"'Cormorant Garamond',serif"}}>A steadier home, in every season</div>
         <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.72,marginTop:"0.85rem",marginBottom:0}}>Data saved locally · AI powered by Claude · Native app coming soon</p>
+        <p style={{color:T.textFaint,fontSize:"0.62rem",fontFamily:"monospace",marginTop:"0.35rem",marginBottom:0,textAlign:"center"}}>{APP_VERSION}</p>
       </div>
     </div>
   );
@@ -1561,6 +1562,7 @@ function HomeFlow() {
     console.log("[AF DEBUG] user id", _au?.id);
     console.log("[AF DEBUG] household id", _hid);
     console.log("[AF DEBUG] app version", APP_VERSION);
+    console.warn("[AF VERSION]", APP_VERSION);
     console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
     console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
     console.log("[AF SYNC] deviceId", localStorage.getItem("af_deviceId") || "(not yet set)");
