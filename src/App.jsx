@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-own-write-fix";
+const APP_VERSION = "2026-06-02-debounce-fix";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -3421,7 +3421,7 @@ Respond ONLY with valid JSON array, no markdown:
     }
     console.log("[AF SYNC] user change detected — syncing");
     debouncedSync();
-  }, [tasks, meals, calEvents, shoppingItems]); // eslint-disable-line
+  }, [tasks, meals, calEvents, shoppingItems, brainItems, brainCats, people, familyProfile, rhythm, stores, shopCategories, homeSystems, notifications, birthdays, aiMemory, coveData, dietaryFilters, recipes, mealBankCustom, favMeals, notifSettings, flowMode, sections]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
