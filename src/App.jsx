@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-debug-household";
+const APP_VERSION = "2026-06-02-own-write-fix";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -2267,8 +2267,7 @@ function createLocalBackup() {
         if (serverTs && serverTs !== lastSync) {
           // If this new timestamp matches what WE just pushed, it's our own write — don't reload
           if (serverTs === lastPushedAt) {
-            console.warn("[AF POLL RETURN] own-write guard", { serverTs, lastPushedAt });
-            try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+            console.warn("[AF POLL RETURN] own write — no apply, not stamping lastHHSync");
             setSyncStatus("synced");
             setLastSyncTime(new Date().toLocaleTimeString());
             return;
