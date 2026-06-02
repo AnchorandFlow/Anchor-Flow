@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-quiet-claude-loop";
+const APP_VERSION = "2026-06-01-token-refresh";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1471,6 +1471,38 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 }
 
 
+// ── Supabase token refresh ──────────────────────────────────────────────────
+// Reads refresh_token from localStorage, calls Supabase, saves new tokens.
+// Returns new access_token string or null on failure.
+async function refreshAuthToken() {
+  try {
+    const refreshToken = localStorage.getItem("af_refreshToken");
+    if (!refreshToken) { console.warn("[AF AUTH] no refresh_token stored — cannot refresh"); return null; }
+    const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
+    const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_KEY,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    if (!res.ok) {
+      console.warn("[AF AUTH] token refresh failed", res.status);
+      return null;
+    }
+    const data = await res.json();
+    if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
+    try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
+    if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
+    console.log("[AF AUTH] token refreshed successfully");
+    return data.access_token;
+  } catch(e) {
+    console.warn("[AF AUTH] token refresh error:", e.message);
+    return null;
+  }
+}
+
 function useSaved(key, fallback) {
   const [val, setVal] = useState(() => {
     try {
@@ -1560,15 +1592,25 @@ function HomeFlow() {
   const syncChannelRef = useRef(null);
 
 
-  // ── Validate auth token on load — clear if expired ───────────────────────
+  // ── Validate auth token on load — refresh if expired ────────────────────
   useEffect(() => {
     if (!authToken) return;
     sbFetch("/auth/v1/user", { _token: authToken })
-      .catch(() => {
-        try { localStorage.removeItem("af_authToken"); } catch {}
-        try { localStorage.removeItem("af_authUser"); } catch {}
-        setAuthToken(null);
-        setAuthUser(null);
+      .catch(async () => {
+        console.warn("[AF AUTH] token validation failed — attempting refresh");
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+          console.log("[AF AUTH] refresh succeeded — updating state");
+          setAuthToken(newToken);
+        } else {
+          console.warn("[AF AUTH] refresh failed — clearing session");
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          try { localStorage.removeItem("af_authUser"); } catch {}
+          try { localStorage.removeItem("af_refreshToken"); } catch {}
+          setAuthToken(null);
+          setAuthUser(null);
+          showInAppBanner("Session expired — please sign in again.", "error");
+        }
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1707,6 +1749,7 @@ function createLocalBackup() {
         const token = data.access_token;
         const userObj = { id: data.user?.id || "unknown", email, displayName: displayName || email.split("@")[0] };
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
+        if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
         try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
         // Don't auto-create household on signup — user will join or create via UI
@@ -1767,6 +1810,7 @@ function createLocalBackup() {
       const displayName = data.user?.user_metadata?.full_name || data.user?.user_metadata?.name || data.user?.user_metadata?.displayName || email.split("@")[0];
 
       try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
+      if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
       try { localStorage.setItem("af_authUser", JSON.stringify({ id: data.user.id, email: data.user.email, displayName })); } catch {}
       try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
@@ -1852,6 +1896,7 @@ function createLocalBackup() {
     // Clear localStorage directly then reload — avoids null authUser render crash
     try { localStorage.removeItem("af_authToken"); } catch {}
     try { localStorage.removeItem("af_authUser"); } catch {}
+    try { localStorage.removeItem("af_refreshToken"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
     window.location.reload();
@@ -1893,7 +1938,10 @@ function createLocalBackup() {
       }
     } catch(e) {
       if (isAuthExpiredError(e)) {
-        console.warn("[AF SYNC] stale-check auth expired — stopping sync, prompting sign-in");
+        console.warn("[AF SYNC] stale-check auth expired — attempting token refresh");
+        const newToken = await refreshAuthToken();
+        if (newToken) { setAuthToken(newToken); console.log("[AF AUTH] refreshed mid-sync"); return; }
+        console.warn("[AF SYNC] stale-check auth expired — refresh failed, prompting sign-in");
         setSyncStatus("error");
         showInAppBanner("Session expired — please sign in again.", "error");
       } else if (e?.message?.toLowerCase().includes("failed to fetch") || e?.message?.toLowerCase().includes("networkerror") || e?.message?.toLowerCase().includes("network request failed")) {
@@ -1954,7 +2002,10 @@ function createLocalBackup() {
       }
     } catch(e) {
       if (isAuthExpiredError(e)) {
-        console.warn("[AF SYNC] push auth expired — stopping sync, prompting sign-in");
+        console.warn("[AF SYNC] push auth expired — attempting token refresh");
+        const newToken = await refreshAuthToken();
+        if (newToken) { setAuthToken(newToken); console.log("[AF AUTH] refreshed mid-push"); return; }
+        console.warn("[AF SYNC] push auth expired — refresh failed, prompting sign-in");
         setSyncStatus("error");
         showInAppBanner("Session expired — please sign in again.", "error");
         return;
@@ -2200,7 +2251,10 @@ function createLocalBackup() {
         }
       } catch(e) {
         if (isAuthExpiredError(e)) {
-          console.warn("[AF SYNC] poll auth expired — stopping poll, prompting sign-in");
+          console.warn("[AF SYNC] poll auth expired — attempting token refresh");
+          const newToken = await refreshAuthToken();
+          if (newToken) { setAuthToken(newToken); console.log("[AF AUTH] refreshed mid-poll"); return; }
+          console.warn("[AF SYNC] poll auth expired — refresh failed, stopping poll");
           setSyncStatus("error");
           showInAppBanner("Session expired — please sign in again.", "error");
           clearInterval(interval);
