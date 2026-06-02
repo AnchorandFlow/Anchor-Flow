@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-safe-stale-check";
+const APP_VERSION = "2026-06-01-quiet-claude-loop";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -3055,6 +3055,10 @@ Respond ONLY with valid JSON array, no markdown:
           system, messages: [{ role: "user", content: userContent }]
         })
       });
+      if (!r.ok) {
+        console.warn("[AF CLAUDE] request failed", r.status, "— using fallback, no retry");
+        return fallback;
+      }
       const d = await r.json();
       return d.content?.find(b => b.type === "text")?.text || fallback;
     } catch { return fallback; }
@@ -3066,10 +3070,14 @@ Respond ONLY with valid JSON array, no markdown:
     // On iOS, native notifications aren't supported but we still run this
     // to schedule in-app banners. On other platforms, require permission.
     if (!isIOS && notifPermission !== "granted") return;
-    // Note: we intentionally do NOT guard with dailySummaryScheduled here.
-    // setTimeout-based notifications don't survive the app being closed/refreshed,
-    // so we reschedule every time the app opens. Times that have already passed
-    // are filtered out below by checking `fireAt > now` in each branch.
+    // Session guard: only call Claude APIs once per app session per day.
+    // Prevents repeated /api/claude calls on re-renders or repeated useEffect triggers.
+    const sessionKey = "af_notifScheduled_" + TODAY.toDateString();
+    if (sessionStorage.getItem(sessionKey)) {
+      console.log("[AF CLAUDE] notifications already scheduled this session — skipping");
+      return;
+    }
+    sessionStorage.setItem(sessionKey, "1");
     setDailySummaryScheduled(TODAY.toDateString());
 
     const todayTasks  = tasks.filter(t => (t.day===TODAY_NAME||t.day==="Daily") && !t.archived);
