@@ -2330,6 +2330,7 @@ function createLocalBackup() {
       const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       const shopFocused = window._shopInputFocused;
       console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
+      console.warn("[AF FOCUS]", { tag: active?.tagName, type: active?.type, className: active?.className, id: active?.id });
       if (isTyping) { console.warn("[AF POLL RETURN] interval — isTyping"); return; }
       if (typedRecently) { console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
       if (shopFocused) { console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
