@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-poll-diagnostics";
+const APP_VERSION = "2026-06-02-dirty-flags";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1526,6 +1526,15 @@ function useSaved(key, fallback) {
     setVal(prev => {
       const resolved = typeof next === "function" ? next(prev) : next;
       try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
+      // Mark this key dirty so only this device pushes its own changes
+      try {
+        const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+        if (!dirty.includes(key)) {
+          dirty.push(key);
+          localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+          console.log("[AF DIRTY] marked dirty:", key);
+        }
+      } catch {}
       return resolved;
     });
   }
@@ -1958,6 +1967,13 @@ function createLocalBackup() {
     }
     // ── end stale-push guard ───────────────────────────────────────────────
 
+    // ── Dirty flag check ──────────────────────────────────────────────────
+    const dirtyKeys = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
+    // Manual sync (syncNow) bypasses dirty check — always pushes
+    // debouncedSync only calls this if dirty keys exist
+    console.log("[AF SYNC] dirty keys at push time:", dirtyKeys);
+    // ── end dirty flag check ───────────────────────────────────────────────
+
     const payload = {};
     SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
     console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
@@ -1990,7 +2006,8 @@ function createLocalBackup() {
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
-        console.log("[AF SYNC] push success updated_at", serverTs);
+        try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
+        console.log("[AF SYNC] push success updated_at", serverTs, "— dirty keys cleared");
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -2000,6 +2017,8 @@ function createLocalBackup() {
           body: JSON.stringify({ id: hid, owner_id: ownerId, data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
+        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
         // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
       }
     } catch(e) {
@@ -2354,8 +2373,15 @@ function createLocalBackup() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
   function debouncedSync() {
-    // AUTO-PUSH DISABLED — push only via manual sync button until source of truth is established
-    console.log("[AF SYNC] debouncedSync suppressed — manual sync only");
+    if (!authToken || !householdId) return;
+    const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
+    if (dirty.length === 0) {
+      console.log("[AF SYNC] debouncedSync skipped — no dirty keys");
+      return;
+    }
+    console.log("[AF SYNC] debouncedSync triggered — dirty keys:", dirty);
+    clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(syncNow, 3000);
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
