@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-dirty-flags";
+const APP_VERSION = "2026-06-02-dirty-flags-v2";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1527,14 +1527,21 @@ function useSaved(key, fallback) {
       const resolved = typeof next === "function" ? next(prev) : next;
       try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
       // Mark this key dirty so only this device pushes its own changes
-      try {
-        const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
-        if (!dirty.includes(key)) {
-          dirty.push(key);
-          localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
-          console.log("[AF DIRTY] marked dirty:", key);
-        }
-      } catch {}
+      // Exclude system/session keys that are not user data
+      const _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId",
+        "dailySummaryScheduled","lastSeenDate","checkedCalEvents","checkedMealItems",
+        "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
+        "deviceId","dirtyKeys","theme","activeTab"];
+      if (!_DIRTY_EXCLUDE.includes(key)) {
+        try {
+          const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+          if (!dirty.includes(key)) {
+            dirty.push(key);
+            localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+            console.log("[AF DIRTY] marked dirty:", key);
+          }
+        } catch {}
+      }
       return resolved;
     });
   }
@@ -2225,10 +2232,7 @@ function createLocalBackup() {
     console.log("[AF SYNC] poll started", householdId);
 
     async function checkForUpdates() {
-      if (window._af_restoring) {
-        console.log("[AF RESTORE] poll skipped during emergency restore");
-        return;
-      }
+
       try {
         console.log("[AF SYNC] check start", householdId);
         const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
@@ -2324,39 +2328,7 @@ function createLocalBackup() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
 
-  // ── TEMPORARY: Emergency restore function exposed to console ─────────────────
-  // Usage: await window.afEmergencyRestore(itemsArray)
-  // Remove after source of truth is confirmed.
-  // Registered directly (not in useEffect) so it's always available.
-  window.afEmergencyRestore = async function(correctItems) {
-      if (!authToken || !householdId) { console.error("[AF RESTORE] no auth/household"); return; }
-      console.warn("[AF RESTORE] writing", correctItems.length, "items to React state + localStorage");
-      window._af_restoring = true;
-      try {
-        // 1. Set React state
-        setBrainItems(correctItems);
-        // 2. Set localStorage directly
-        try { localStorage.setItem("af_brainItems", JSON.stringify(correctItems)); } catch(e) { console.error(e); }
-        // 3. Set lastHHSync = lastPushedAt so stale guard allows push
-        const lastPushed = localStorage.getItem("af_lastPushedAt");
-        if (lastPushed) { try { localStorage.setItem("af_lastHHSync", lastPushed); } catch {} }
-        // 4. Push directly — bypassing syncNow's pull-after step
-        console.warn("[AF RESTORE] pushing to Supabase...");
-        await pushHouseholdData(authToken, householdId);
-        // 5. Verify
-        const token = authToken;
-        const hid = householdId;
-        try {
-          const rows = await sbFetch("/rest/v1/households?id=eq."+hid+"&select=data", { _token: token });
-          const sbItems = rows?.[0]?.data?.brainItems;
-          console.warn("[AF RESTORE] Supabase now has", Array.isArray(sbItems) ? sbItems.length : "?", "brainItems:", sbItems?.map(i=>i.text));
-        } catch(e) { console.warn("[AF RESTORE] verify failed:", e.message); }
-      } finally {
-        window._af_restoring = false;
-        console.warn("[AF RESTORE] poll unpaused");
-      }
-  };
-  // ── END TEMPORARY ─────────────────────────────────────────────────────────────
+  // (emergency restore removed — no longer needed)
 
   // ── Automatic 30s push DISABLED ─────────────────────────────────────────────
   // Push only happens on actual user edits (debouncedSync) and manual sync button.
