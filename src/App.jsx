@@ -10869,21 +10869,27 @@ export default function App() {
 
   if (!session) return <AuthScreen onAuth={(s) => {
     setSession(s)
-    // Set displayName in localStorage so original app greeting works
-    if (s?.user) {
-      const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0]
-      try {
-        localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
-        if (s.access_token) {
-          localStorage.setItem("af_token", s.access_token)
-          localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
-        }
-        if (s.refresh_token) {
-          localStorage.setItem("af_refreshToken", s.refresh_token)
-        }
-        console.log("[AF AUTH] stored refresh token", !!localStorage.getItem("af_refreshToken"))
-      } catch(e) {}
-    }
+    // Normalize both session shapes:
+    // shape A: data.session = { access_token, refresh_token, user }
+    // shape B: legacy { session: { ... }, user } or bare session
+    const sess = s?.session || s
+    const user = sess?.user || s?.user || null
+    const accessToken = sess?.access_token || s?.access_token || null
+    const refreshToken = sess?.refresh_token || s?.refresh_token || null
+    try {
+      if (user) {
+        const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split("@")[0]
+        localStorage.setItem("af_authUser", JSON.stringify({ id: user.id, email: user.email, displayName }))
+      }
+      if (accessToken) {
+        localStorage.setItem("af_token", accessToken)
+        localStorage.setItem("af_authToken", JSON.stringify(accessToken))
+      }
+      if (refreshToken) {
+        localStorage.setItem("af_refreshToken", refreshToken)
+      }
+      console.log("[AF AUTH] onAuth stored", { hasUser: !!user, hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken })
+    } catch(e) { console.warn("[AF AUTH] storage error", e) }
   }} />
 
   return <FlowWrapper onHome={() => setMode(null)} onSignOut={signOut} />
