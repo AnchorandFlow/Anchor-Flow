@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-token-refresh";
+const APP_VERSION = "2026-06-01-poll-diagnostics";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -2204,6 +2204,10 @@ function createLocalBackup() {
     console.log("[AF SYNC] poll started", householdId);
 
     async function checkForUpdates() {
+      if (window._af_restoring) {
+        console.log("[AF RESTORE] poll skipped during emergency restore");
+        return;
+      }
       try {
         console.log("[AF SYNC] check start", householdId);
         const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
@@ -2211,12 +2215,18 @@ function createLocalBackup() {
         const row = rows[0];
         const serverTs = row.updated_at || "";
         const lastSync = localStorage.getItem("af_lastHHSync") || "";
+        const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
+        console.warn("[AF POLL] heartbeat", { serverTs, lastHHSync: lastSync, lastPushedAt });
         console.log("[AF SYNC] remote updated_at", serverTs);
         console.log("[AF SYNC] last seen updated_at", lastSync);
+        if (!serverTs || serverTs === lastSync) {
+          console.warn("[AF POLL RETURN] serverTs === lastSync (no change)");
+          return;
+        }
         if (serverTs && serverTs !== lastSync) {
           // If this new timestamp matches what WE just pushed, it's our own write — don't reload
-          const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
           if (serverTs === lastPushedAt) {
+            console.warn("[AF POLL RETURN] own-write guard", { serverTs, lastPushedAt });
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
             setSyncStatus("synced");
             setLastSyncTime(new Date().toLocaleTimeString());
@@ -2227,10 +2237,13 @@ function createLocalBackup() {
           const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
           const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
           const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
-          if (isTyping || typedRecently || isDragging || hasOpenModal) return;
+          if (isTyping) { console.warn("[AF POLL RETURN] isTyping", activeEl?.tagName); return; }
+          if (typedRecently) { console.warn("[AF POLL RETURN] typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
+          if (isDragging) { console.warn("[AF POLL RETURN] isDragging"); return; }
+          if (hasOpenModal) { console.warn("[AF POLL RETURN] hasOpenModal"); return; }
           const _safe = isRemotePayloadSafe(row.data, serverTs);
           console.log("[AF SYNC] remote safe", _safe);
-          if (!_safe) return;
+          if (!_safe) { console.warn("[AF POLL RETURN] remote unsafe"); return; }
           createLocalBackup();
           const cleanBg = sanitizeHouseholdData(row.data);
           console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
@@ -2276,7 +2289,11 @@ function createLocalBackup() {
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
       const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       const shopFocused = window._shopInputFocused;
-      if(!isTyping && !typedRecently && !shopFocused) checkForUpdates();
+      console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
+      if (isTyping) { console.warn("[AF POLL RETURN] interval — isTyping"); return; }
+      if (typedRecently) { console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
+      if (shopFocused) { console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
+      checkForUpdates();
     }, 60000);
     return () => {
       console.log("[AF SYNC] poll stopped", householdId);
@@ -2285,6 +2302,40 @@ function createLocalBackup() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
+
+  // ── TEMPORARY: Emergency restore function exposed to console ─────────────────
+  // Usage: await window.afEmergencyRestore(itemsArray)
+  // Remove after source of truth is confirmed.
+  // Registered directly (not in useEffect) so it's always available.
+  window.afEmergencyRestore = async function(correctItems) {
+      if (!authToken || !householdId) { console.error("[AF RESTORE] no auth/household"); return; }
+      console.warn("[AF RESTORE] writing", correctItems.length, "items to React state + localStorage");
+      window._af_restoring = true;
+      try {
+        // 1. Set React state
+        setBrainItems(correctItems);
+        // 2. Set localStorage directly
+        try { localStorage.setItem("af_brainItems", JSON.stringify(correctItems)); } catch(e) { console.error(e); }
+        // 3. Set lastHHSync = lastPushedAt so stale guard allows push
+        const lastPushed = localStorage.getItem("af_lastPushedAt");
+        if (lastPushed) { try { localStorage.setItem("af_lastHHSync", lastPushed); } catch {} }
+        // 4. Push directly — bypassing syncNow's pull-after step
+        console.warn("[AF RESTORE] pushing to Supabase...");
+        await pushHouseholdData(authToken, householdId);
+        // 5. Verify
+        const token = authToken;
+        const hid = householdId;
+        try {
+          const rows = await sbFetch("/rest/v1/households?id=eq."+hid+"&select=data", { _token: token });
+          const sbItems = rows?.[0]?.data?.brainItems;
+          console.warn("[AF RESTORE] Supabase now has", Array.isArray(sbItems) ? sbItems.length : "?", "brainItems:", sbItems?.map(i=>i.text));
+        } catch(e) { console.warn("[AF RESTORE] verify failed:", e.message); }
+      } finally {
+        window._af_restoring = false;
+        console.warn("[AF RESTORE] poll unpaused");
+      }
+  };
+  // ── END TEMPORARY ─────────────────────────────────────────────────────────────
 
   // ── Automatic 30s push DISABLED ─────────────────────────────────────────────
   // Push only happens on actual user edits (debouncedSync) and manual sync button.
@@ -2301,9 +2352,8 @@ function createLocalBackup() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
   function debouncedSync() {
-    if (!authToken || !householdId) return;
-    clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(syncNow, 3000);
+    // AUTO-PUSH DISABLED — push only via manual sync button until source of truth is established
+    console.log("[AF SYNC] debouncedSync suppressed — manual sync only");
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
