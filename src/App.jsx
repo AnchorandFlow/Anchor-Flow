@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-debounce-fix";
+const APP_VERSION = "2026-06-02-mind-logs";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -3419,7 +3419,8 @@ Respond ONLY with valid JSON array, no markdown:
       console.log("[AF SYNC] skipping initial hydration sync");
       return;
     }
-    console.log("[AF SYNC] user change detected — syncing");
+    const dirty2 = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
+    console.log("[AF SYNC] user change detected — syncing, dirty keys:", dirty2);
     debouncedSync();
   }, [tasks, meals, calEvents, shoppingItems, brainItems, brainCats, people, familyProfile, rhythm, stores, shopCategories, homeSystems, notifications, birthdays, aiMemory, coveData, dietaryFilters, recipes, mealBankCustom, favMeals, notifSettings, flowMode, sections]); // eslint-disable-line
 
@@ -7133,6 +7134,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(!newText.trim()) return;
       const detected = smartCat(newText.trim());
       const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
+      console.warn("[AF MIND ADD]", { text: newText.trim(), cat });
       setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
       setNewText("");
       setTimeout(function(){if(brainInputRef.current)brainInputRef.current.focus();},0);
@@ -7245,7 +7247,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
               )}
             </div>
-            <button onClick={function(){setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+            <button onClick={function(){ console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
           </div>
           {/* Controls row: File · Date · Initials */}
           <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
