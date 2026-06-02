@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-01-pull-on-block-1";
+const APP_VERSION = "2026-06-01-safe-stale-check";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1857,6 +1857,14 @@ function createLocalBackup() {
     window.location.reload();
   }
 
+ function isAuthExpiredError(err) {
+    const msg = String(err?.message || err || "").toLowerCase();
+    return msg.includes("jwt expired") ||
+           msg.includes("401") ||
+           msg.includes("unauthorized") ||
+           msg.includes("invalid jwt");
+  }
+
  async function pushHouseholdData(token, hid) {
     if (!token || !hid) return;
     console.log("[AF SYNC] push start", hid);
@@ -1884,7 +1892,19 @@ function createLocalBackup() {
         console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
       }
     } catch(e) {
-      console.warn("[AF SYNC] stale-check failed, proceeding with push:", e.message);
+      if (isAuthExpiredError(e)) {
+        console.warn("[AF SYNC] stale-check auth expired — stopping sync, prompting sign-in");
+        setSyncStatus("error");
+        showInAppBanner("Session expired — please sign in again.", "error");
+      } else if (e?.message?.toLowerCase().includes("failed to fetch") || e?.message?.toLowerCase().includes("networkerror") || e?.message?.toLowerCase().includes("network request failed")) {
+        console.warn("[AF SYNC] stale-check network error — push paused", e.message);
+        setSyncStatus("error");
+        showInAppBanner("Sync paused — offline or network error.", "error");
+      } else {
+        console.warn("[AF SYNC] stale-check unknown error — push blocked (safe default)", e.message);
+        setSyncStatus("error");
+      }
+      return; // never proceed with push after a failed safety check
     }
     // ── end stale-push guard ───────────────────────────────────────────────
 
@@ -1933,6 +1953,12 @@ function createLocalBackup() {
         // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
       }
     } catch(e) {
+      if (isAuthExpiredError(e)) {
+        console.warn("[AF SYNC] push auth expired — stopping sync, prompting sign-in");
+        setSyncStatus("error");
+        showInAppBanner("Session expired — please sign in again.", "error");
+        return;
+      }
       console.warn("[AF] pushHouseholdData failed:", e.message);
     }
   }
@@ -2003,7 +2029,7 @@ function createLocalBackup() {
   // Called directly when push is blocked stale, so the phone pulls immediately.
   async function pullLatestHouseholdData(reason) {
     if (!authToken || !householdId) { console.warn("[AF SYNC] pullLatest skipped — no auth/household"); return; }
-    console.log("[AF SYNC] pullLatestHouseholdData start", { reason, householdId });
+    console.warn("[AF PULL] EXECUTING", reason, new Date().toISOString());
     try {
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
       if (!rows || !rows.length || !rows[0].data) { console.log("[AF SYNC] pullLatest — no rows returned"); return; }
@@ -2015,15 +2041,14 @@ function createLocalBackup() {
       if (!_safe) { console.warn("[AF SYNC] pullLatest blocked by safety check"); return; }
       createLocalBackup();
       const clean = sanitizeHouseholdData(row.data);
-      console.log("[AF SYNC] applying remote keys", Object.keys(clean));
+      console.warn("[AF PULL] APPLYING REMOTE", Object.keys(clean));
       const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
       SYNC_KEYS.forEach(k => {
         if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
         if (clean[k] !== undefined) { try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {} }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-      console.log("[AF SYNC] pullLatest localStorage updated tasks", localStorage.getItem("af_tasks"));
-      console.log("[AF SYNC] reloading now");
+      console.warn("[AF PULL] RELOADING");
       window.location.reload();
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
   }
@@ -2173,7 +2198,16 @@ function createLocalBackup() {
           setSyncStatus("synced");
           setLastSyncTime(new Date().toLocaleTimeString());
         }
-      } catch {}
+      } catch(e) {
+        if (isAuthExpiredError(e)) {
+          console.warn("[AF SYNC] poll auth expired — stopping poll, prompting sign-in");
+          setSyncStatus("error");
+          showInAppBanner("Session expired — please sign in again.", "error");
+          clearInterval(interval);
+          clearTimeout(initial);
+          return;
+        }
+      }
     }
 
     // First check after 5s, then every 60s — but never if user is actively typing
@@ -2198,20 +2232,10 @@ function createLocalBackup() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
 
-  // ── Push local changes every 30s ───────────────────────────────────────────
-  // Only pushes — no reloads. Cross-device updates appear on next app open.
-  useEffect(() => {
-    if (!authToken || !householdId) return;
-    const iv = setInterval(async () => {
-      try {
-        await pushHouseholdData(authToken, householdId);
-        setSyncStatus("synced");
-        setLastSyncTime(new Date().toLocaleTimeString());
-      } catch {}
-    }, 30000);
-    return () => clearInterval(iv);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authToken, householdId]);
+  // ── Automatic 30s push DISABLED ─────────────────────────────────────────────
+  // Push only happens on actual user edits (debouncedSync) and manual sync button.
+  // Idle devices must never upload — they should only poll and pull.
+  // (interval removed to prevent stale devices from overwriting newer cloud data)
 
   // Sync on task/meal/cal changes (debounced)
   const syncTimeoutRef = useRef(null);
@@ -3259,8 +3283,17 @@ Respond ONLY with valid JSON array, no markdown:
     return () => window.removeEventListener("af-request-notif-permission", handleNotifRequest);
   }, []); // eslint-disable-line
 
-  // Sync household data when key state changes
-  useEffect(() => { debouncedSync(); }, [tasks, meals, calEvents, shoppingItems]); // eslint-disable-line
+  // Sync household data when key state changes — skip initial hydration
+  const hasMountedSync = useRef(false);
+  useEffect(() => {
+    if (!hasMountedSync.current) {
+      hasMountedSync.current = true;
+      console.log("[AF SYNC] skipping initial hydration sync");
+      return;
+    }
+    console.log("[AF SYNC] user change detected — syncing");
+    debouncedSync();
+  }, [tasks, meals, calEvents, shoppingItems]); // eslint-disable-line
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
