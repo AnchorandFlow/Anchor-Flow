@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-sanitize-fix";
+const APP_VERSION = "2026-06-02-crash-fix";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1677,7 +1677,7 @@ function createLocalBackup() {
   function sanitizeHouseholdData(data) {
     if (!data || typeof data !== "object") return {};
     const out = {};
-    // Arrays: filter out null/undefined entries
+    // Arrays: only preserve if actually an array — never pass null/object through
     ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
      "brainCats","homeSystems","dietaryFilters",
@@ -1687,9 +1687,8 @@ function createLocalBackup() {
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
-      } else if (data[k] !== undefined) {
-        out[k] = data[k];
       }
+      // If not an array (null, object, undefined) — skip entirely, do not write
     });
     // people: filter nulls, ensure each has id/name/color
     if (Array.isArray(data.people)) {
@@ -1868,8 +1867,13 @@ function createLocalBackup() {
             if (isRemotePayloadSafe(existingHH.data, existingHH.updated_at)) {
               createLocalBackup();
               const clean = sanitizeHouseholdData(existingHH.data);
+              const _AK1 = ["tasks","brainItems","shoppingItems","notifications","calEvents",
+                "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
+                "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
+                "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
               SYNC_KEYS.forEach(k => {
                 if (clean[k] !== undefined) {
+                  if (_AK1.includes(k) && !Array.isArray(clean[k])) return;
                   try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
                 }
               });
@@ -1899,8 +1903,13 @@ function createLocalBackup() {
                 if (isRemotePayloadSafe(joinedRows[0].data, joinedRows[0].updated_at)) {
                   createLocalBackup();
                   const clean = sanitizeHouseholdData(joinedRows[0].data);
+                  const _AK2 = ["tasks","brainItems","shoppingItems","notifications","calEvents",
+                "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
+                "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
+                "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
                   SYNC_KEYS.forEach(k => {
                     if (clean[k] !== undefined) {
+                      if (_AK2.includes(k) && !Array.isArray(clean[k])) return;
                       try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
                     }
                   });
@@ -2143,9 +2152,16 @@ function createLocalBackup() {
       const clean = sanitizeHouseholdData(row.data);
       console.warn("[AF PULL] APPLYING REMOTE", Object.keys(clean));
       const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+      const _ARRAY_KEYS = ["tasks","brainItems","shoppingItems","notifications","calEvents",
+        "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
+        "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
+        "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
       SYNC_KEYS.forEach(k => {
         if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
-        if (clean[k] !== undefined) { try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {} }
+        if (clean[k] !== undefined) {
+          if (_ARRAY_KEYS.includes(k) && !Array.isArray(clean[k])) return;
+          try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+        }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
       console.warn("[AF PULL] RELOADING");
@@ -2167,8 +2183,13 @@ function createLocalBackup() {
           if (!isRemotePayloadSafe(rows[0].data, rows[0].updated_at)) { setSyncStatus("synced"); return; }
           createLocalBackup();
           const clean = sanitizeHouseholdData(rows[0].data);
+          const _AK3 = ["tasks","brainItems","shoppingItems","notifications","calEvents",
+                "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
+                "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
+                "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
           SYNC_KEYS.forEach(k => {
             if (clean[k] !== undefined) {
+              if (_AK3.includes(k) && !Array.isArray(clean[k])) return;
               try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
             }
           });
@@ -2309,10 +2330,15 @@ function createLocalBackup() {
           const cleanBg = sanitizeHouseholdData(row.data);
           console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
           const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+          const _ARRAY_KEYS_BG = ["tasks","brainItems","shoppingItems","notifications","calEvents",
+            "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
+            "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
+            "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
           SYNC_KEYS.forEach(k => {
             // Don't overwrite mealsWeekOf from server if local already has this week's value
             if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
             if (cleanBg[k] !== undefined) {
+              if (_ARRAY_KEYS_BG.includes(k) && !Array.isArray(cleanBg[k])) return;
               try { localStorage.setItem("af_" + k, JSON.stringify(cleanBg[k])); } catch {}
             }
           });
@@ -2356,7 +2382,7 @@ function createLocalBackup() {
       if (typedRecently) { console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
       if (shopFocused) { console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
       checkForUpdates();
-    }, 60000);
+    }, 15000);
     return () => {
       console.log("[AF SYNC] poll stopped", householdId);
       clearTimeout(initial);
