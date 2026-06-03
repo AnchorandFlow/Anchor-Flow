@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-crash-fix";
+const APP_VERSION = "2026-06-03-blur-fix";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -7184,7 +7184,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       console.warn("[AF MIND ADD]", { text: newText.trim(), cat });
       setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
       setNewText("");
-      setTimeout(function(){if(brainInputRef.current)brainInputRef.current.focus();},0);
+      setTimeout(function(){if(brainInputRef.current)brainInputRef.current.blur();},0);
     }
 
     function scheduleItem(id, day){
