@@ -443,6 +443,19 @@ function InventorySection({ onAddToShopping }) {
     })
     return init
   })
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "inventory") {
+        try {
+          var saved = JSON.parse(localStorage.getItem("af_inventory") || "null")
+          var migrated = migrateInventory(saved)
+          if (migrated) { setItems(migrated) }
+        } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
   const [activeTab, setActiveTab] = useState("inventory")
   const [activeCat, setActiveCat] = useState("pantry")
   const [toast, setToast] = useState(null)
@@ -882,6 +895,22 @@ function CelebrationsSection({ calEvents }) {
   const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
   const [expandedGifts, setExpandedGifts] = useState(null) // celebId with gift panel open
   const [newGiftText, setNewGiftText] = useState("")
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "celebrations") {
+        try {
+          const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
+          const saved = Array.isArray(rawSaved) ? rawSaved : []
+          const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+          const migrated = bdays.filter(function(b) { return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" }) })
+            .map(function(b) { return { id: b.id, type: "birthday", name: b.name, month: b.month, day: b.day, year: b.year || null, notes: "" } })
+          setCelebrations([...saved, ...migrated])
+        } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
 
   // Load/save gifts keyed by celebId
   const [giftMap, setGiftMap] = useState(function() {
@@ -1138,6 +1167,15 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
   const [gifts, setGifts] = useState(function() {
     try { const _g = JSON.parse(localStorage.getItem("af_gifts") || "[]"); return Array.isArray(_g) ? _g : []; } catch { return [] }
   })
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "gifts") {
+        try { var _g = JSON.parse(localStorage.getItem("af_gifts") || "[]"); setGifts(Array.isArray(_g) ? _g : []) } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
   const [view, setView] = useState("upcoming")
   const [activePerson, setActivePerson] = useState(null)
   const [activeOccasion, setActiveOccasion] = useState(null)
@@ -1496,6 +1534,15 @@ function PetsSection() {
   const [pets, setPets] = useState(function() {
     try { const _p = JSON.parse(localStorage.getItem("af_pets") || "[]"); return Array.isArray(_p) ? _p : []; } catch { return [] }
   })
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "pets") {
+        try { var _p = JSON.parse(localStorage.getItem("af_pets") || "[]"); setPets(Array.isArray(_p) ? _p : []) } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
   const [activePetId, setActivePetId] = useState(null)
   const [adding, setAdding] = useState(false)
   const [newPetForm, setNewPetForm] = useState({ name: "", type: "Dog", breed: "", color: "", dob: "", photo: null })
@@ -4747,6 +4794,15 @@ var TAX_CHECKLIST_DEFAULTS = [
 
 function HouseFileSection() {
   var s_cards=useState(hfLoad); var cards=s_cards[0]; var setCards=s_cards[1];
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "houseFile") {
+        setCards(hfLoad())
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
   var s_cat=useState("home"); var activeCat=s_cat[0]; var setActiveCat=s_cat[1];
   var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
   var s_adding=useState(false); var adding=s_adding[0]; var setAdding=s_adding[1];
@@ -5272,6 +5328,15 @@ function RecurringRemindersSection() {
     return []
   })
 
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "recurring") {
+        try { var _r = recurLoad(); setReminders(Array.isArray(_r) ? _r : []) } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
   var [editing, setEditing] = useState(null) // null | "new" | reminder id
   var [draft, setDraft] = useState(null)
   var [showBuiltins, setShowBuiltins] = useState(false)
@@ -6224,6 +6289,15 @@ function RippleSection() {
   function loadR() { try { var _lr=JSON.parse(localStorage.getItem("af_ripples") || "[]"); return Array.isArray(_lr)?_lr:[]; } catch { return [] } }
   function persistR(v) { try { localStorage.setItem("af_ripples", JSON.stringify(v)); afVaultChanged("ripples"); } catch {} }
   var [ripples, setRipples] = React.useState(function() { return loadR() })
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "ripples") {
+        try { var _lr = loadR(); setRipples(Array.isArray(_lr) ? _lr : []) } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
   var [cat, setCat] = React.useState("all")
   var [personFolder, setPersonFolder] = React.useState("all")
   var [modal, setModal] = React.useState(false)

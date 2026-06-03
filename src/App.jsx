@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-03-vault-sync";
+const APP_VERSION = "2026-06-03-vault-refresh";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
