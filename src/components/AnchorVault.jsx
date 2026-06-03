@@ -881,7 +881,8 @@ function CelebrationsSection({ calEvents }) {
     try {
       const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
       const saved = Array.isArray(rawSaved) ? rawSaved : []
-      const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+      const rawBdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+      const bdays = Array.isArray(rawBdays) ? rawBdays : []
       const migrated = bdays.filter(function(b) { return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" }) })
         .map(function(b) { return { id: b.id, type: "birthday", name: b.name, month: b.month, day: b.day, year: b.year || null, notes: "" } })
       return [...saved, ...migrated]
@@ -901,7 +902,8 @@ function CelebrationsSection({ calEvents }) {
         try {
           const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
           const saved = Array.isArray(rawSaved) ? rawSaved : []
-          const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+          const rawBdays3 = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+          const bdays = Array.isArray(rawBdays3) ? rawBdays3 : []
           const migrated = bdays.filter(function(b) { return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" }) })
             .map(function(b) { return { id: b.id, type: "birthday", name: b.name, month: b.month, day: b.day, year: b.year || null, notes: "" } })
           setCelebrations([...saved, ...migrated])
@@ -5597,7 +5599,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     try {
       const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
       const saved = Array.isArray(rawSaved) ? rawSaved : []
-      const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+      const rawBdays2 = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
+      const bdays = Array.isArray(rawBdays2) ? rawBdays2 : []
       const migrated = bdays.filter(function(b) {
         return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" })
       }).map(function(b) {
