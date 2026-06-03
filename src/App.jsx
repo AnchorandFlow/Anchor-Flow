@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-02-mind-logs";
+const APP_VERSION = "2026-06-02-sanitize-fix";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1680,7 +1680,11 @@ function createLocalBackup() {
     // Arrays: filter out null/undefined entries
     ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
-     "brainCats","homeSystems","dietaryFilters"].forEach(k => {
+     "brainCats","homeSystems","dietaryFilters",
+     // Vault arrays
+     "recurring","celebrations","gifts","inventory","pets","houseFile",
+     "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked"
+    ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
       } else if (data[k] !== undefined) {
@@ -1718,10 +1722,27 @@ function createLocalBackup() {
     // Scalar values
     if (typeof data.mealCount === "number") out.mealCount = data.mealCount;
     if (typeof data.mealThemeEnabled === "boolean") out.mealThemeEnabled = data.mealThemeEnabled;
-    // Objects: pass through if valid
-    ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels","coveData","schoolData"].forEach(k => {
+    // String scalars
+    ["preferredName","flowGreetingTone","weatherLocation","flowMode","mealsWeekOf"].forEach(k => {
+      if (typeof data[k] === "string") out[k] = data[k];
+    });
+    // Boolean scalars
+    ["mealThemeEnabled"].forEach(k => {
+      if (typeof data[k] === "boolean") out[k] = data[k];
+    });
+    // Objects: pass through if valid (non-null object)
+    ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
+     "coveData","schoolData","cove_items_v1","notifSettings","sections",
+     "calColorLabels","connectedCals"
+    ].forEach(k => {
       if (data[k] !== undefined) out[k] = data[k];
     });
+    // ripples: preserve as-is (may be object or array depending on version)
+    if (data.ripples !== undefined) out.ripples = data.ripples;
+    // cove_items_v1: object map — pass through if object
+    if (data["cove_items_v1"] && typeof data["cove_items_v1"] === "object") {
+      out["cove_items_v1"] = data["cove_items_v1"];
+    }
     return out;
   }
 
