@@ -388,6 +388,7 @@ const SYNC_KEYS = [
   "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
+  "moments","subs","vaultSystems",
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
@@ -1683,7 +1684,8 @@ function createLocalBackup() {
      "brainCats","homeSystems","dietaryFilters",
      // Vault arrays
      "recurring","celebrations","gifts","inventory","pets","houseFile",
-     "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked"
+     "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
+     "moments","subs","vaultSystems","packing_templates"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
