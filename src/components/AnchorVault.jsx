@@ -509,6 +509,7 @@ function InventorySection({ onAddToShopping }) {
 
   function save(updated) {
     setItems(updated)
+    afVaultChanged("inventory");
     try { localStorage.setItem("af_inventory", JSON.stringify(updated)) } catch {}
   }
 
@@ -865,7 +866,8 @@ function CelebrationsSection({ calEvents }) {
   calEvents = calEvents || []
   const [celebrations, setCelebrations] = useState(function() {
     try {
-      const saved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
+      const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
+      const saved = Array.isArray(rawSaved) ? rawSaved : []
       const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
       const migrated = bdays.filter(function(b) { return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" }) })
         .map(function(b) { return { id: b.id, type: "birthday", name: b.name, month: b.month, day: b.day, year: b.year || null, notes: "" } })
@@ -907,6 +909,7 @@ function CelebrationsSection({ calEvents }) {
 
   function save(updated) {
     setCelebrations(updated)
+    afVaultChanged("celebrations");
     try { localStorage.setItem("af_celebrations", JSON.stringify(updated)) } catch {}
   }
 
@@ -1133,7 +1136,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
   calEvents = calEvents || []
 
   const [gifts, setGifts] = useState(function() {
-    try { return JSON.parse(localStorage.getItem("af_gifts") || "[]") } catch { return [] }
+    try { const _g = JSON.parse(localStorage.getItem("af_gifts") || "[]"); return Array.isArray(_g) ? _g : []; } catch { return [] }
   })
   const [view, setView] = useState("upcoming")
   const [activePerson, setActivePerson] = useState(null)
@@ -1151,6 +1154,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
 
   function saveGifts(updated) {
     setGifts(updated)
+    afVaultChanged("gifts");
     try { localStorage.setItem("af_gifts", JSON.stringify(updated)) } catch {}
   }
 
@@ -1490,7 +1494,7 @@ const PET_TYPES = ["Dog","Cat","Bird","Rabbit","Fish","Reptile","Other"]
 
 function PetsSection() {
   const [pets, setPets] = useState(function() {
-    try { return JSON.parse(localStorage.getItem("af_pets") || "[]") } catch { return [] }
+    try { const _p = JSON.parse(localStorage.getItem("af_pets") || "[]"); return Array.isArray(_p) ? _p : []; } catch { return [] }
   })
   const [activePetId, setActivePetId] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -1506,6 +1510,7 @@ function PetsSection() {
 
   function save(updated) {
     setPets(updated)
+    afVaultChanged("pets");
     try { localStorage.setItem("af_pets", JSON.stringify(updated)) } catch {}
   }
 
@@ -4678,8 +4683,8 @@ var HF_CATS = [
 // Card types: "note" (freeform fields), "checklist" (items with checkboxes)
 // Each card: { id, catId, type, title, fields:[{label,value}], items:[{id,text,done}], notes }
 
-function hfLoad() { try { var s=localStorage.getItem("af_houseFile"); return s?JSON.parse(s):[]; } catch(e){return [];} }
-function hfSave(v) { try { localStorage.setItem("af_houseFile",JSON.stringify(v)); } catch(e){} }
+function hfLoad() { try { var s=localStorage.getItem("af_houseFile"); if(!s) return []; var _hf=JSON.parse(s); return Array.isArray(_hf)?_hf:[]; } catch(e){return [];} }
+function hfSave(v) { try { localStorage.setItem("af_houseFile",JSON.stringify(v)); afVaultChanged("houseFile"); } catch(e){} }
 
 var HF_FIELD_TEMPLATES = {
   home: [
@@ -5169,10 +5174,10 @@ var BUILTIN_REMINDERS = [
 ]
 
 function recurLoad() {
-  try { var s = localStorage.getItem("af_recurring"); return s ? JSON.parse(s) : [] } catch { return [] }
+  try { var s = localStorage.getItem("af_recurring"); if(!s) return []; var _r=JSON.parse(s); return Array.isArray(_r)?_r:[]; } catch { return [] }
 }
 function recurSave(v) {
-  try { localStorage.setItem("af_recurring", JSON.stringify(v)) } catch {}
+  try { localStorage.setItem("af_recurring", JSON.stringify(v)); afVaultChanged("recurring"); } catch {}
 }
 function recurId() { return "r" + Math.random().toString(36).slice(2,9) }
 
@@ -5521,7 +5526,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   // ── Live data readers ──────────────────────────────────────────────────────
   function readCelebrations() {
     try {
-      const saved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
+      const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
+      const saved = Array.isArray(rawSaved) ? rawSaved : []
       const bdays = JSON.parse(localStorage.getItem("af_birthdays") || "[]")
       const migrated = bdays.filter(function(b) {
         return !saved.find(function(c) { return c.name === b.name && c.type === "birthday" })
@@ -5540,9 +5546,9 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     } catch { return [] }
   }
 
-  function readPets() { try { return JSON.parse(localStorage.getItem("af_pets") || "[]") } catch { return [] } }
-  function readGifts() { try { return JSON.parse(localStorage.getItem("af_gifts") || "[]") } catch { return [] } }
-  function readMoments() { try { return JSON.parse(localStorage.getItem("af_moments") || "[]") } catch { return [] } }
+  function readPets() { try { var _rp=JSON.parse(localStorage.getItem("af_pets") || "[]"); return Array.isArray(_rp)?_rp:[]; } catch { return [] } }
+  function readGifts() { try { var _rg=JSON.parse(localStorage.getItem("af_gifts") || "[]"); return Array.isArray(_rg)?_rg:[]; } catch { return [] } }
+  function readMoments() { try { var _rm=JSON.parse(localStorage.getItem("af_moments") || "[]"); return Array.isArray(_rm)?_rm:[]; } catch { return [] } }
   function readHealth() { try { var s = localStorage.getItem("af_health"); return s ? JSON.parse(s) : {} } catch { return {} } }
   function readInventory() { try { return JSON.parse(localStorage.getItem("af_inventory") || "null") } catch { return null } }
 
@@ -6215,8 +6221,8 @@ function RippleSection() {
   var allPeople = hLoadPeople()
   var tagPeople = allPeople.filter(function(p) { return p.role==="Kid"||p.role==="Teen"||p.role==="Baby" })
   if (tagPeople.length === 0) tagPeople = allPeople
-  function loadR() { try { return JSON.parse(localStorage.getItem("af_ripples") || "[]") } catch { return [] } }
-  function persistR(v) { try { localStorage.setItem("af_ripples", JSON.stringify(v)) } catch {} }
+  function loadR() { try { var _lr=JSON.parse(localStorage.getItem("af_ripples") || "[]"); return Array.isArray(_lr)?_lr:[]; } catch { return [] } }
+  function persistR(v) { try { localStorage.setItem("af_ripples", JSON.stringify(v)); afVaultChanged("ripples"); } catch {} }
   var [ripples, setRipples] = React.useState(function() { return loadR() })
   var [cat, setCat] = React.useState("all")
   var [personFolder, setPersonFolder] = React.useState("all")
@@ -6275,9 +6281,9 @@ function RippleSection() {
               border: active ? "0.5px solid "+GOLD : BORD,
               color: active ? GOLD : "rgba(250,248,244,0.5)",
               fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: active ? 700 : 400 } },
-            fid === "all" ? "All" : (p.color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0, display: "inline-block" } }) : null),
-            fid === "all" ? null : p.name,
-            React.createElement("span", { style: { fontSize: 9, opacity: 0.6 } }, "("+count+")")
+            fid !== "all" && p.color ? React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0, display: "inline-block" } }) : null,
+            fid === "all" ? "All" : p.name,
+            React.createElement("span", { style: { fontSize: 9, opacity: 0.6, marginLeft: 2 } }, "("+count+")")
           )
         })
       )
@@ -6357,6 +6363,18 @@ function RippleSection() {
       )
     )
   )
+}
+
+// Notify HomeFlow that vault data changed so debouncedSync fires
+function afVaultChanged(key) {
+  try {
+    const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+    if (!dirty.includes(key)) {
+      dirty.push(key);
+      localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+    }
+    window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key } }));
+  } catch(e) {}
 }
 
 export default function AnchorVault({ onClose, calEvents, vaultSection }) {

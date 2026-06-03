@@ -394,7 +394,7 @@ const SYNC_KEYS = [
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
 ];
 
-const APP_VERSION = "2026-06-03-blur-fix";
+const APP_VERSION = "2026-06-03-vault-sync";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -2657,6 +2657,21 @@ function createLocalBackup() {
     window.addEventListener("af-shopping-add", onAddToShopping);
     return () => window.removeEventListener("af-shopping-add", onAddToShopping);
   }, [stores]); // eslint-disable-line
+
+  // ── AnchorVault sync trigger ─────────────────────────────────────────────
+  // AnchorVault dispatches "af-data-changed" after writing vault keys.
+  // We listen here and call debouncedSync if dirty keys exist.
+  React.useEffect(() => {
+    function onVaultChanged() {
+      const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
+      if (dirty.length > 0) {
+        console.log("[AF SYNC] vault change detected — dirty keys:", dirty);
+        debouncedSync();
+      }
+    }
+    window.addEventListener("af-data-changed", onVaultChanged);
+    return () => window.removeEventListener("af-data-changed", onVaultChanged);
+  }, []); // eslint-disable-line
   const [moreDrawerOpen,setMoreDrawerOpen] = useState(false);
   const [newPersonName,setNewPersonName]   = useState("");
   const [syncing,setSyncing]           = useState(false);
