@@ -972,10 +972,7 @@ function CelebrationsSection({ calEvents }) {
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
   const INP = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
 
-  console.warn("[AF CELEBRATIONS RENDER]", {
-    celebrationsLength: celebrations?.length,
-    localStorageLength: JSON.parse(localStorage.getItem("af_celebrations") || "[]").length
-  })
+
   const celebEntries = celebrations.map(function(c) {
     const typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPES[6]
     const next = new Date(year, c.month-1, c.day)
