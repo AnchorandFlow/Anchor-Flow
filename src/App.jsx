@@ -2261,21 +2261,7 @@ function createLocalBackup() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── TEMPORARY DEBUG — remove before production ──────────────────────────
-  window.afDebugHousehold = async function() {
-    const rows = await sbFetch("/rest/v1/households?id=eq." + householdId + "&select=*", { _token: authToken });
-    const d = rows?.[0]?.data || {};
-    console.warn("[AF DEBUG HOUSEHOLD]", {
-      updated_at: rows?.[0]?.updated_at,
-      keys: Object.keys(d),
-      brainItems: Array.isArray(d.brainItems) ? d.brainItems.map(i => i.text) : d.brainItems,
-      recurring: Array.isArray(d.recurring) ? d.recurring.length : typeof d.recurring,
-      ripples: Array.isArray(d.ripples) ? d.ripples.length : typeof d.ripples,
-      celebrations: Array.isArray(d.celebrations) ? d.celebrations.length : typeof d.celebrations,
-      meta: d._meta
-    });
-  };
-  console.warn("[AF DEBUG] afDebugHousehold registered");
+
 
   // ── Background household sync — polls every 60s ─────────────────────────
   // Each tick fetches the server row and compares updated_at to af_lastHHSync.
