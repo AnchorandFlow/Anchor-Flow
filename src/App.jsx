@@ -389,6 +389,7 @@ const SYNC_KEYS = [
   // Anchor Vault — shared household data
   "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
   "moments","subs","vaultSystems",
+  "health","career","travel_profile",
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
@@ -1734,9 +1735,10 @@ function createLocalBackup() {
     // Objects: pass through if valid (non-null object)
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
      "coveData","schoolData","cove_items_v1","notifSettings","sections",
-     "calColorLabels","connectedCals"
+     "calColorLabels","connectedCals",
+     "health","career","travel_profile"
     ].forEach(k => {
-      if (data[k] !== undefined) out[k] = data[k];
+      if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
     });
     // ripples: preserve as-is (may be object or array depending on version)
     if (data.ripples !== undefined) out.ripples = data.ripples;
