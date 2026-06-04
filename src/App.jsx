@@ -785,6 +785,8 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 
 
 function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
+  React.useEffect(function(){console.log("[AF MOUNT] WeeklyRhythmSection");return function(){console.log("[AF UNMOUNT] WeeklyRhythmSection");};},[]);
+  var _wrRender=React.useRef(0);_wrRender.current++;console.count("[AF RENDER] WeeklyRhythm-section");
   var [editingDay,setEditingDay]=useState(null);
   var [editForm,setEditForm]=useState({theme:"",emoji:"",desc:""});
   var [settingsOpen,setSettingsOpen]=useState({weekly:false});
@@ -844,6 +846,8 @@ function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
 }
 
 function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
+  React.useEffect(function(){console.log("[AF MOUNT] TidePoolSection");return function(){console.log("[AF UNMOUNT] TidePoolSection");};},[]);
+  var _tpRender=React.useRef(0);_tpRender.current++;console.count("[AF RENDER] TidePool-section");
   var [tpKidIdx,setTpKidIdx]=useState(0);
   var [tpTab,setTpTab]=useState("chores");
   var [newChoreName,setNewChoreName]=useState("");
@@ -899,9 +903,9 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                 })}
                 <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
                   <input value={newChoreName}
-                    onFocus={function(){}}
-                    onBlur={function(){}}
-                    onChange={function(e){setNewChoreName(e.target.value);}}
+                    onFocus={function(){console.log("[AF INPUT FOCUS] tidepool-chore");}}
+                    onBlur={function(){console.log("[AF INPUT BLUR] tidepool-chore");}}
+                    onChange={function(e){console.log("[AF INPUT CHANGE] tidepool-chore",e.target.value);setNewChoreName(e.target.value);}}
                     onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
                   <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                     <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
@@ -948,6 +952,8 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
 }
 
 function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,btnP,PC,ROLES}){
+  React.useEffect(function(){console.log("[AF MOUNT] FamilySection");return function(){console.log("[AF UNMOUNT] FamilySection");};},[]);
+  var _fsRender=React.useRef(0);_fsRender.current++;console.count("[AF RENDER] Family-section");
   var [newMemberName,setNewMemberName]=useState("");
   var [newMemberAge,setNewMemberAge]=useState("");
   var [newMemberRole,setNewMemberRole]=useState("");
@@ -990,7 +996,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
                 <input
                   key={p.id+"_name"}
                   defaultValue={p.name}
-                  onBlur={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                  onFocus={function(){console.log("[AF INPUT FOCUS] family-name-"+p.id);}}
+                  onBlur={function(e){console.log("[AF INPUT BLUR] family-name-"+p.id);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                  onChange={function(e){console.log("[AF INPUT CHANGE] family-name",e.target.value);}}
                   style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
                 />
                 <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
@@ -1020,6 +1028,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
           <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
             <input value={newMemberName}
+              onFocus={function(){console.log("[AF INPUT FOCUS] family-addname");}}
+              onBlur={function(){console.log("[AF INPUT BLUR] family-addname");}}
+              onChange={function(e){console.log("[AF INPUT CHANGE] family-addname",e.target.value);setNewMemberName(e.target.value);}}
               onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
             <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
           </div>
@@ -1044,6 +1055,12 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 }
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
+    React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
+  const _stRenderCount = React.useRef(0); _stRenderCount.current++; console.count("[AF RENDER] SettingsTab");
+  React.useEffect(() => { console.log("[AF STATE CHANGE] people changed, SettingsTab render #" + _stRenderCount.current); }, [people]);
+  React.useEffect(() => { console.log("[AF STATE CHANGE] familyProfile changed, SettingsTab render #" + _stRenderCount.current); }, [familyProfile]);
+  React.useEffect(() => { console.log("[AF STATE CHANGE] stores changed, SettingsTab render #" + _stRenderCount.current); }, [stores]);
+  React.useEffect(() => { console.log("[AF STATE CHANGE] T/theme changed, SettingsTab render #" + _stRenderCount.current); }, [T]);
   const [settingsOpen, setSettingsOpen] = useState({family:true});
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){
@@ -1523,6 +1540,7 @@ function useSaved(key, fallback) {
           if (!dirty.includes(key)) {
             dirty.push(key);
             localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+            console.log("[AF DIRTY] marked dirty:", key);
           }
         } catch {}
       }
@@ -1558,6 +1576,14 @@ function HomeFlow() {
   useEffect(() => {
     const _au = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const _hid = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
+    console.log("[AF DEBUG] email", _au?.email);
+    console.log("[AF DEBUG] user id", _au?.id);
+    console.log("[AF DEBUG] household id", _hid);
+    console.log("[AF DEBUG] app version", APP_VERSION);
+    console.warn("[AF VERSION]", APP_VERSION);
+    console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
+    console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
+    console.log("[AF SYNC] deviceId", localStorage.getItem("af_deviceId") || "(not yet set)");
   }, []);
   // Sync Supabase session into original app auth on mount
   useEffect(() => {
@@ -1714,10 +1740,8 @@ function createLocalBackup() {
     ].forEach(k => {
       if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
     });
-    // ripples: normalize to array — was stored as object in earlier versions
-    if (data.ripples !== undefined) {
-      out.ripples = Array.isArray(data.ripples) ? data.ripples : [];
-    }
+    // ripples: preserve as-is (may be object or array depending on version)
+    if (data.ripples !== undefined) out.ripples = data.ripples;
     // cove_items_v1: object map — pass through if object
     if (data["cove_items_v1"] && typeof data["cove_items_v1"] === "object") {
       out["cove_items_v1"] = data["cove_items_v1"];
@@ -1999,37 +2023,6 @@ function createLocalBackup() {
       console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
       return;
     }
-
-    // ── Pre-push count guard (warn only) ──────────────────────────────────
-    // Compare local array counts to server before pushing.
-    // If local < server, log and warn — does NOT block push.
-    // Future: add explicit delete markers to allow smart blocking.
-    const GUARDED_ARRAY_KEYS = [
-      "brainItems","tasks","shoppingItems","people","recurring",
-      "celebrations","gifts","inventory","pets","houseFile",
-      "moments","subs"
-    ];
-    try {
-      const guardRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=data&limit=1`, { _token: token });
-      const serverData = guardRows?.[0]?.data || {};
-      const countViolations = [];
-      GUARDED_ARRAY_KEYS.forEach(k => {
-        const localVal = payload[k];
-        const serverVal = serverData[k];
-        if (!Array.isArray(localVal) || !Array.isArray(serverVal)) return;
-        if (localVal.length < serverVal.length) {
-          countViolations.push({ key: k, local: localVal.length, server: serverVal.length });
-        }
-      });
-      if (countViolations.length > 0) {
-        console.warn("[AF SAFETY] pre-push count mismatch (push NOT blocked):", countViolations);
-        showInAppBanner("Sync notice: local data may be behind server. Pull to refresh if something looks missing.", "error");
-      }
-    } catch(guardErr) {
-      console.warn("[AF SAFETY] pre-push count guard fetch failed — continuing:", guardErr.message);
-    }
-    // ── end pre-push count guard ───────────────────────────────────────────
-
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
@@ -2039,6 +2032,7 @@ function createLocalBackup() {
       try { deviceId = crypto.randomUUID(); } catch { deviceId = Date.now().toString(36) + Math.random().toString(36).slice(2); }
       try { localStorage.setItem("af_deviceId", deviceId); } catch {}
     }
+    console.log("[AF SYNC] deviceId", deviceId);
     // ── end device ID ─────────────────────────────────────────────────────
     try {
       // Check if row exists first to decide POST vs PATCH
@@ -2372,9 +2366,11 @@ function createLocalBackup() {
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
       const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       const shopFocused = window._shopInputFocused;
-      if (isTyping) { return; }
-      if (typedRecently) { return; }
-      if (shopFocused) { return; }
+      console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
+      console.warn("[AF FOCUS]", { tag: active?.tagName, type: active?.type, className: active?.className, id: active?.id });
+      if (isTyping) { console.warn("[AF POLL RETURN] interval — isTyping"); return; }
+      if (typedRecently) { console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
+      if (shopFocused) { console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
       checkForUpdates();
     }, 15000);
     return () => {
@@ -7190,6 +7186,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(!newText.trim()) return;
       const detected = smartCat(newText.trim());
       const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
+      console.warn("[AF MIND ADD]", { text: newText.trim(), cat });
       setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
       setNewText("");
       setTimeout(function(){if(brainInputRef.current)brainInputRef.current.blur();},0);
@@ -7302,7 +7299,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
               )}
             </div>
-            <button onClick={function(){ setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+            <button onClick={function(){ console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
           </div>
           {/* Controls row: File · Date · Initials */}
           <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
@@ -10950,9 +10947,6 @@ export default function App() {
         if (s.access_token) {
           localStorage.setItem("af_token", s.access_token)
           localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
-        }
-        if (s.refresh_token) {
-          localStorage.setItem("af_refreshToken", s.refresh_token)
         }
       } catch(e) {}
     }
