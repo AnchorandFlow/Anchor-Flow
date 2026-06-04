@@ -2315,10 +2315,7 @@ function createLocalBackup() {
           const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
           const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
           const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
-          if (isTyping) { console.warn("[AF POLL RETURN] isTyping", activeEl?.tagName); return; }
-          if (typedRecently) { console.warn("[AF POLL RETURN] typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
-          if (isDragging) { console.warn("[AF POLL RETURN] isDragging"); return; }
-          if (hasOpenModal) { console.warn("[AF POLL RETURN] hasOpenModal"); return; }
+          if (isTyping || typedRecently || isDragging || hasOpenModal) { setStaleBanner(true); return; }
           const _safe = isRemotePayloadSafe(row.data, serverTs);
           console.log("[AF SYNC] remote safe", _safe);
           if (!_safe) { console.warn("[AF POLL RETURN] remote unsafe"); return; }
@@ -2339,8 +2336,7 @@ function createLocalBackup() {
             }
           });
           localStorage.setItem("af_lastHHSync", serverTs);
-          console.log("[AF SYNC] localStorage updated tasks", localStorage.getItem("af_tasks"));
-          console.log("[AF SYNC] reloading now");
+          setStaleBanner(false);
           window.location.reload();
           setSyncStatus("synced");
           setLastSyncTime(new Date().toLocaleTimeString());
@@ -2694,6 +2690,7 @@ function createLocalBackup() {
     morning:true, midday:true, dinner:true, evening:true, events:true, recurring:true
   });
   const [inAppBanner,setInAppBanner] = useState(null); // {title, body} shown as in-app toast
+  const [staleBanner,setStaleBanner] = useState(false);
 
   // ── New feature state (all useSaved first, then useState) ───────────────────
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
@@ -10455,6 +10452,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       `}</style>
 
       {/* ── In-app notification banner (iOS + fallback) ── */}
+      {staleBanner&&(
+        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:9999,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#fff",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",display:"flex",gap:"0.75rem",alignItems:"center",animation:"slideDown 0.3s ease"}}>
+          <span style={{fontSize:"1.2rem",flexShrink:0}}>🔄</span>
+          <div style={{flex:1,fontSize:"0.82rem",fontWeight:500}}>New household updates available</div>
+          <button onClick={()=>{setStaleBanner(false);pullHouseholdData(authToken);}} style={{background:"rgba(200,169,122,0.25)",border:"1px solid rgba(200,169,122,0.5)",borderRadius:"0.5rem",color:"#c8a97a",fontSize:"0.75rem",fontWeight:700,padding:"0.3rem 0.7rem",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Refresh Now</button>
+          <span onClick={()=>setStaleBanner(false)} style={{fontSize:"0.75rem",opacity:0.5,cursor:"pointer",flexShrink:0}}>✕</span>
+        </div>
+      )}
       {inAppBanner&&(
         <div onClick={()=>setInAppBanner(null)} style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:9999,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#fff",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",cursor:"pointer",display:"flex",gap:"0.75rem",alignItems:"flex-start",animation:"slideDown 0.3s ease"}}>
           <span style={{fontSize:"1.3rem",flexShrink:0}}>⚓️</span>
