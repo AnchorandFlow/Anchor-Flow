@@ -785,7 +785,6 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 
 
 function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
-  var _wrRender=React.useRef(0);_wrRender.current++;console.count("[AF RENDER] WeeklyRhythm-section");
   var [editingDay,setEditingDay]=useState(null);
   var [editForm,setEditForm]=useState({theme:"",emoji:"",desc:""});
   var [settingsOpen,setSettingsOpen]=useState({weekly:false});
@@ -845,7 +844,6 @@ function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
 }
 
 function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
-  var _tpRender=React.useRef(0);_tpRender.current++;console.count("[AF RENDER] TidePool-section");
   var [tpKidIdx,setTpKidIdx]=useState(0);
   var [tpTab,setTpTab]=useState("chores");
   var [newChoreName,setNewChoreName]=useState("");
@@ -950,7 +948,6 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
 }
 
 function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,btnP,PC,ROLES}){
-  var _fsRender=React.useRef(0);_fsRender.current++;console.count("[AF RENDER] Family-section");
   var [newMemberName,setNewMemberName]=useState("");
   var [newMemberAge,setNewMemberAge]=useState("");
   var [newMemberRole,setNewMemberRole]=useState("");
@@ -1047,7 +1044,6 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 }
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
-  const _stRenderCount = React.useRef(0); _stRenderCount.current++; console.count("[AF RENDER] SettingsTab");
   const [settingsOpen, setSettingsOpen] = useState({family:true});
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){
