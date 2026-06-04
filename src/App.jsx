@@ -10949,6 +10949,9 @@ export default function App() {
           localStorage.setItem("af_token", s.access_token)
           localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
         }
+        if (s.refresh_token) {
+          localStorage.setItem("af_refreshToken", s.refresh_token)
+        }
       } catch(e) {}
     }
   }} />
