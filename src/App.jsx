@@ -877,6 +877,24 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
       return arr;
     });
   }
+  // Daily chore reset — runs when kid changes or on mount
+  var todayStr = TODAY.toISOString().split("T")[0];
+  React.useEffect(function(){
+    if(!sKidData) return;
+    var lastReset = sKidData.choreLastReset || "";
+    if(lastReset !== todayStr){
+      var resetChores = (sKidData.chores||[]).map(function(ch){ return Object.assign({},ch,{done:false}); });
+      updateSaved({chores:resetChores, choreLastReset:todayStr});
+    }
+  },[sKid&&sKid.id, todayStr]);
+  function toggleChore(chId){
+    var ch = (sKidData.chores||[]).find(function(c){return c.id===chId;});
+    if(!ch) return;
+    var wasChecked = !!ch.done;
+    var newChores = (sKidData.chores||[]).map(function(c){ return c.id===chId ? Object.assign({},c,{done:!wasChecked}) : c; });
+    var shellDelta = wasChecked ? -(ch.pts||1) : (ch.pts||1);
+    updateSaved({chores:newChores, shells:Math.max(0,(sKidData.shells||0)+shellDelta)});
+  }
   return(
     <Section id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T}>
       <div style={{paddingTop:"0.75rem"}}>
@@ -899,10 +917,13 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                 {(sKidData.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.5rem"}}>No chores yet — add one below.</div>}
                 {(sKidData.chores||[]).map(function(ch){
                   return(
-                    <div key={ch.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+T.borderSoft,background:T.white,marginBottom:"0.3rem",fontSize:"0.83rem"}}>
-                      <span style={{flex:1,color:T.textDark}}>{ch.name}</span>
+                    <div key={ch.id} onClick={function(){toggleChore(ch.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.42rem 0.65rem",borderRadius:"0.6rem",border:"1px solid "+(ch.done?T.borderSoft:T.border),background:ch.done?T.surface:T.white,marginBottom:"0.3rem",fontSize:"0.83rem",cursor:"pointer",transition:"all 0.15s"}}>
+                      <div style={{width:18,height:18,borderRadius:"50%",border:"1.5px solid "+(ch.done?T.sand:T.border),background:ch.done?T.sand:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
+                        {ch.done&&<svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <span style={{flex:1,color:ch.done?T.textFaint:T.textDark,textDecoration:ch.done?"line-through":"none",transition:"all 0.15s"}}>{ch.name}</span>
                       <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
-                      <button onClick={function(){updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                      <button onClick={function(e){e.stopPropagation();updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
                     </div>
                   );
                 })}
@@ -7862,6 +7883,74 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
 
+  // ── ItemRow — lifted outside CoveTab to prevent React hooks error #300 ──────
+  function ItemRow(props) {
+    var item = props.item;
+    var dragFromId = props.dragFromId;
+    var dragOverId = props.dragOverId;
+    var accent = props.accent;
+    var T = props.T;
+    var itemPointerDown = props.itemPointerDown;
+    var toggleItem = props.toggleItem;
+    var renameItem = props.renameItem;
+    var deleteItem = props.deleteItem;
+    var [editing, setEditing] = useState(false);
+    var [draft, setDraft] = useState(item.content);
+    var isDragging = dragFromId === item.id;
+    var isOver = dragOverId === item.id && dragFromId !== item.id;
+    return (
+      <div data-itemid={item.id}
+        onPointerDown={function(e){ itemPointerDown(e, item); }}
+        style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",
+          borderBottom:"1px solid "+T.borderSoft,
+          borderTop: isOver ? "2px solid "+accent : "none",
+          opacity: isDragging ? 0.3 : 1,
+          cursor: "grab", userSelect:"none",
+          background: isOver ? accent+"0a" : "transparent",
+          transition:"background 0.1s"}}>
+        {/* Drag handle */}
+        <div style={{opacity:0.2,flexShrink:0,cursor:"grab",paddingRight:2}}>
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
+            <circle cx="3" cy="3" r="1.2" fill={T.textSoft}/>
+            <circle cx="7" cy="3" r="1.2" fill={T.textSoft}/>
+            <circle cx="3" cy="7" r="1.2" fill={T.textSoft}/>
+            <circle cx="7" cy="7" r="1.2" fill={T.textSoft}/>
+            <circle cx="3" cy="11" r="1.2" fill={T.textSoft}/>
+            <circle cx="7" cy="11" r="1.2" fill={T.textSoft}/>
+          </svg>
+        </div>
+        {/* Check circle */}
+        <div onClick={function(e){ e.stopPropagation(); toggleItem(item.id); }}
+          onPointerDown={function(e){ e.stopPropagation(); }}
+          style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
+          {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        </div>
+        {/* Text — single tap to edit */}
+        {editing
+          ? <input autoFocus value={draft}
+              onChange={function(e){setDraft(e.target.value);}}
+              onBlur={function(){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }}
+              onKeyDown={function(e){
+                if(e.key==="Enter"){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }
+                if(e.key==="Escape"){ setDraft(item.content); setEditing(false); }
+              }}
+              onPointerDown={function(e){ e.stopPropagation(); }}
+              style={{flex:1,fontSize:"0.85rem",border:"none",borderBottom:"1.5px solid "+accent,background:"transparent",color:T.textDark,padding:"0 0 1px",outline:"none",fontFamily:"inherit"}}/>
+          : <span
+              onClick={function(e){ e.stopPropagation(); setEditing(true); setDraft(item.content); }}
+              onPointerDown={function(e){ e.stopPropagation(); }}
+              style={{flex:1,fontSize:"0.85rem",color:item.checked?T.textFaint:T.textDark,textDecoration:item.checked?"line-through":"none",cursor:"text",lineHeight:1.45}}>
+              {item.content}
+            </span>
+        }
+        {/* Delete */}
+        <button onClick={function(e){ e.stopPropagation(); deleteItem(item.id); }}
+          onPointerDown={function(e){ e.stopPropagation(); }}
+          style={{background:"none",border:"none",cursor:"pointer",opacity:0.25,padding:"0 2px",display:"flex",flexShrink:0,fontSize:13,color:T.textSoft,lineHeight:1}}>✕</button>
+      </div>
+    );
+  }
+
   // ── Cove — organized lists, ideas, plans & keeps ────────────────────────────
   function CoveTab() {
     const COVE_ACCENT_COLORS = [
@@ -8364,65 +8453,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       e.preventDefault();
     }
 
-    // ── Item row ──────────────────────────────────────────────────────────────
-    function ItemRow(props) {
-      var item = props.item;
-      var [editing, setEditing] = useState(false);
-      var [draft, setDraft] = useState(item.content);
-      var isDragging = dragFromId === item.id;
-      var isOver = dragOverId === item.id && dragFromId !== item.id;
-      return (
-        <div data-itemid={item.id}
-          onPointerDown={function(e){ itemPointerDown(e, item); }}
-          style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",
-            borderBottom:"1px solid "+T.borderSoft,
-            borderTop: isOver ? "2px solid "+accent : "none",
-            opacity: isDragging ? 0.3 : 1,
-            cursor: "grab", userSelect:"none",
-            background: isOver ? accent+"0a" : "transparent",
-            transition:"background 0.1s"}}>
-          {/* Drag handle */}
-          <div style={{opacity:0.2,flexShrink:0,cursor:"grab",paddingRight:2}}>
-            <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
-              <circle cx="3" cy="3" r="1.2" fill={T.textSoft}/>
-              <circle cx="7" cy="3" r="1.2" fill={T.textSoft}/>
-              <circle cx="3" cy="7" r="1.2" fill={T.textSoft}/>
-              <circle cx="7" cy="7" r="1.2" fill={T.textSoft}/>
-              <circle cx="3" cy="11" r="1.2" fill={T.textSoft}/>
-              <circle cx="7" cy="11" r="1.2" fill={T.textSoft}/>
-            </svg>
-          </div>
-          {/* Check circle */}
-          <div onClick={function(e){ e.stopPropagation(); toggleItem(item.id); }}
-            onPointerDown={function(e){ e.stopPropagation(); }}
-            style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(item.checked?accent:T.border),background:item.checked?accent:"transparent",flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
-            {item.checked && <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          </div>
-          {/* Text — single tap to edit */}
-          {editing
-            ? <input autoFocus value={draft}
-                onChange={function(e){setDraft(e.target.value);}}
-                onBlur={function(){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }}
-                onKeyDown={function(e){
-                  if(e.key==="Enter"){ renameItem(item.id,draft.trim()||item.content); setEditing(false); }
-                  if(e.key==="Escape"){ setDraft(item.content); setEditing(false); }
-                }}
-                onPointerDown={function(e){ e.stopPropagation(); }}
-                style={{flex:1,fontSize:"0.85rem",border:"none",borderBottom:"1.5px solid "+accent,background:"transparent",color:T.textDark,padding:"0 0 1px",outline:"none",fontFamily:"inherit"}}/>
-            : <span
-                onClick={function(e){ e.stopPropagation(); setEditing(true); setDraft(item.content); }}
-                onPointerDown={function(e){ e.stopPropagation(); }}
-                style={{flex:1,fontSize:"0.85rem",color:item.checked?T.textFaint:T.textDark,textDecoration:item.checked?"line-through":"none",cursor:"text",lineHeight:1.45}}>
-                {item.content}
-              </span>
-          }
-          {/* Delete */}
-          <button onClick={function(e){ e.stopPropagation(); deleteItem(item.id); }}
-            onPointerDown={function(e){ e.stopPropagation(); }}
-            style={{background:"none",border:"none",cursor:"pointer",opacity:0.25,padding:"0 2px",display:"flex",flexShrink:0,fontSize:13,color:T.textSoft,lineHeight:1}}>✕</button>
-        </div>
-      );
-    }
+    // ── Item row ── (lifted above CoveTab — see ItemRow component above) ───────
 
     // ── Detail view ───────────────────────────────────────────────────────────
     if (view === "detail" && activeList) {
@@ -8461,7 +8492,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{padding:"0 16px"}}>
             {/* Unsectioned items drop zone */}
             <div data-secid="__none__">
-              {unsectionedItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
+              {unsectionedItems.map(function(item){ return <ItemRow key={item.id} item={item} dragFromId={dragFromId} dragOverId={dragOverId} accent={accent} T={T} itemPointerDown={itemPointerDown} toggleItem={toggleItem} renameItem={renameItem} deleteItem={deleteItem}/>; })}
               <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:activeSections.length>0?"1px solid "+T.borderSoft:"none"}}>
                 <div style={{width:17,height:17,flexShrink:0,opacity:0.3}}>
                   <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
@@ -8515,7 +8546,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   {/* Section items — collapsible, draggable */}
                   {!isCollapsed && (
                     <div data-secid={sec.id}>
-                      {secItems.map(function(item){ return <ItemRow key={item.id} item={item}/>; })}
+                      {secItems.map(function(item){ return <ItemRow key={item.id} item={item} dragFromId={dragFromId} dragOverId={dragOverId} accent={accent} T={T} itemPointerDown={itemPointerDown} toggleItem={toggleItem} renameItem={renameItem} deleteItem={deleteItem}/>; })}
                       {/* Add to section */}
                       <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0 2px"}}>
                         <div style={{width:10+8+2,flexShrink:0}}/>
