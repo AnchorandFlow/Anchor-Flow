@@ -1745,8 +1745,10 @@ function createLocalBackup() {
     ].forEach(k => {
       if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
     });
-    // ripples: preserve as-is (may be object or array depending on version)
-    if (data.ripples !== undefined) out.ripples = data.ripples;
+    // ripples: normalize to array — was stored as object in earlier versions
+    if (data.ripples !== undefined) {
+      out.ripples = Array.isArray(data.ripples) ? data.ripples : [];
+    }
     // cove_items_v1: object map — pass through if object
     if (data["cove_items_v1"] && typeof data["cove_items_v1"] === "object") {
       out["cove_items_v1"] = data["cove_items_v1"];
@@ -10952,6 +10954,9 @@ export default function App() {
         if (s.access_token) {
           localStorage.setItem("af_token", s.access_token)
           localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
+        }
+        if (s.refresh_token) {
+          localStorage.setItem("af_refreshToken", s.refresh_token)
         }
       } catch(e) {}
     }
