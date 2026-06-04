@@ -248,6 +248,11 @@ function RippleNotificationBanner() {
 // Cleans any null entries from localStorage arrays so they never reach render
 (function sanitizeLocalStorageOnLoad() {
   try {
+    // Remove keys that were written as the string "null" — causes crashes in components
+    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates"];
+    NULL_SAFE_KEYS.forEach(function(k) {
+      try { if (localStorage.getItem(k) === "null") localStorage.removeItem(k); } catch {}
+    });
     const ARRAY_KEYS = ["af_tasks", "af_brainItems", "af_shoppingItems", "af_notifications", "af_calEvents", "af_connectedCals", "af_favMeals", "af_checkedCalEvents", "af_checkedMealItems", "af_burnoutChecked", "af_recurring"];
     const MEAL_DAYS_S = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
