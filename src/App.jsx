@@ -1997,6 +1997,37 @@ function createLocalBackup() {
       console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
       return;
     }
+
+    // ── Pre-push count guard (warn only) ──────────────────────────────────
+    // Compare local array counts to server before pushing.
+    // If local < server, log and warn — does NOT block push.
+    // Future: add explicit delete markers to allow smart blocking.
+    const GUARDED_ARRAY_KEYS = [
+      "brainItems","tasks","shoppingItems","people","recurring",
+      "celebrations","gifts","inventory","pets","houseFile",
+      "moments","subs"
+    ];
+    try {
+      const guardRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=data&limit=1`, { _token: token });
+      const serverData = guardRows?.[0]?.data || {};
+      const countViolations = [];
+      GUARDED_ARRAY_KEYS.forEach(k => {
+        const localVal = payload[k];
+        const serverVal = serverData[k];
+        if (!Array.isArray(localVal) || !Array.isArray(serverVal)) return;
+        if (localVal.length < serverVal.length) {
+          countViolations.push({ key: k, local: localVal.length, server: serverVal.length });
+        }
+      });
+      if (countViolations.length > 0) {
+        console.warn("[AF SAFETY] pre-push count mismatch (push NOT blocked):", countViolations);
+        showInAppBanner("Sync notice: local data may be behind server. Pull to refresh if something looks missing.", "error");
+      }
+    } catch(guardErr) {
+      console.warn("[AF SAFETY] pre-push count guard fetch failed — continuing:", guardErr.message);
+    }
+    // ── end pre-push count guard ───────────────────────────────────────────
+
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
