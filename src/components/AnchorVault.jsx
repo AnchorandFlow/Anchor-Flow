@@ -1999,15 +1999,21 @@ function PetsSection() {
 
 
 // ── Packing Templates Panel (part of Travel Profile) ─────────────────────────
-var TRIP_BAGS = ["My Bag","Kid 1","Kid 2","Kid 3","Extra Bag","Overnight Bag","Toiletries","Snacks","Extras"]
+var TRIP_BAGS = ["My Bag","Cosmetics","Kid 1","Kid 2","Kid 3","Diaper Bag","Carry-On","Backpack","Overnight Bag","Extra Bag","Snacks","Extras"]
 
 var DEFAULT_BAG_ITEMS = {
   "My Bag": {
     "Clothing":    ["Pants","Shirts","Dress","Underwear","Bras","Shoes / flip flops / sandals","Pajamas","Bathing suit","Cover-up","Jacket"],
     "Accessories": ["Sunglasses x2","Glasses","Hat","Jewelry"],
-    "Toiletries":  ["Makeup","Shampoo / conditioner","Hair products","Crimper / hair dryer","Clips","Brush","Deo","Toothbrush / toothpaste","Sunscreen","Chapstick","Nail file"],
+    "Toiletries":  ["Shampoo / conditioner","Hair products","Crimper / hair dryer","Clips","Brush","Deo","Toothbrush / toothpaste","Sunscreen","Chapstick","Nail file"],
     "Health":      ["Advil","Arnica / muscle mist","Pads / tampons","Snore thing","Bug / eucalyptus"],
     "Electronics": ["Cell phone charger / battery pack"]
+  },
+  "Cosmetics": {
+    "Face":   ["Foundation / BB cream","Concealer","Blush / bronzer","Setting powder","Setting spray","Mascara","Eyeliner","Eyeshadow palette","Lip color"],
+    "Tools":  ["Makeup brushes","Makeup sponge","Eyelash curler","Tweezers"],
+    "Skin":   ["Moisturizer","SPF face sunscreen","Eye cream","Micellar water / makeup remover","Face wash","Toner","Serum"],
+    "Extras": ["Cotton rounds","Q-tips","Makeup wipes","Mirror"]
   },
   "Kid 1": {
     "Clothing":      ["Pants","Shirts","Underwear","Socks","Shoes / flip flops / crocs","Pajamas","Bathing suit","Jacket"],
@@ -2024,40 +2030,39 @@ var DEFAULT_BAG_ITEMS = {
     "Entertainment": ["Tablet + headphones","Toys","Books / activities","Airplane tray"]
   },
   "Kid 3": {
-    "Clothing":   ["Outfits","Diapers / swim diapers","Bathing suit / cover up","Socks / shoes","Pajamas x2","Jacket","Bows / accessories"],
-    "Sleep":      ["Sleep sack","Sound machine","Blankets"],
-    "Feeding":    ["Burp cloths / bibs","Snacks","Spoon","Tupperware cups"],
-    "Toiletries": ["Wipes","Toothbrush / toothpaste","Aquaphor","Lotion","Shampoo","Diaper cream"],
-    "Accessories":["Sunglasses","Hat","Backpack","Stuffed animal","Toys"],
-    "Travel":     ["Airplane tray","iPad / extra phone","Car seat","Tush baby","Sling"]
+    "Clothing":    ["Outfits","Bathing suit / cover up","Socks / shoes","Pajamas x2","Jacket","Bows / accessories"],
+    "Sleep":       ["Sleep sack","Sound machine","Blankets"],
+    "Feeding":     ["Burp cloths / bibs","Snacks","Spoon","Tupperware cups"],
+    "Accessories": ["Sunglasses","Hat","Stuffed animal","Toys"],
+    "Travel":      ["Airplane tray","iPad / extra phone","Car seat","Tush baby","Sling"]
   },
-  "Cosmetics": {
-    "Face":   ["Foundation / BB cream","Concealer","Blush / bronzer","Setting powder","Setting spray","Mascara","Eyeliner","Eyeshadow palette","Lip color"],
-    "Tools":  ["Makeup brushes","Makeup sponge","Eyelash curler","Tweezers"],
-    "Skin":   ["Moisturizer","SPF face sunscreen","Eye cream","Micellar water / makeup remover","Face wash","Toner","Serum"],
-    "Extras": ["Cotton rounds","Q-tips","Makeup wipes","Mirror"]
-  },
-  "Bag 1": {
+  "Diaper Bag": {
     "Baby essentials": ["Diapers","Wipes","Sanitizing wipes","Disposable table things","Bib","Spoon","Burp cloths","Diaper cream"],
     "Baby extras":     ["Baby table / seat","Baby toys"],
     "Family":          ["Sunglasses x4","Water bottles","Seat belt extender","Tampons","Advil","Hairbrush / ties","Chapstick","Trash bags","Snacks"]
   },
-  "Bag 2": {
+  "Carry-On": {
+    "Documents":   ["Passport / ID","Boarding passes","Travel insurance docs","Credit cards","Cash"],
+    "Comfort":     ["Neck pillow","Eye mask","Noise-canceling headphones","Blanket / wrap"],
+    "Essentials":  ["Empty water bottle","Snacks","Phone charger","AirPods","TSA lock"],
+    "Kids":        ["Tablet + headphones","Coloring activities","Airplane tray","Snacks","Small toy"]
+  },
+  "Backpack": {
+    "Daily essentials": ["Water bottle","Snacks","Sunscreen","Chapstick","Phone charger"],
+    "Activities":       ["Camera","Notebook","Earbuds"]
+  },
+  "Overnight Bag": {},
+  "Extra Bag": {
     "Beach / outdoor": ["Beach toys","Beach towels","Powder sand","Laundry bags"],
     "Travel gear":     ["Stroller / bag / cup holder","Booster seat / car seat","Airplane bed thing","Tray table covers","Air tags","Luggage straps"],
     "Misc":            ["Spoons","Nightlights","Laundry soap / bags","Cash","Chargers / battery pack / extension cord"]
-  },
-  "Overnight Bag": {
-    "Adult":      ["Change of clothes","Pajamas","Toothbrush / toothpaste","Makeup basics","Deo","Chapstick","Phone charger","Pads / tampons"],
-    "Older kids": ["Change of clothes","Pajamas","Toothbrush / toothpaste","Blanket","Stuffed animal"],
-    "Baby":       ["Outfit + extra","Pajamas","Diapers (travel amount)","Wipes","Sleep sack","Sound machine","Bib / burp cloth","Snacks"],
-    "Shared":     ["Aquaphor","Advil","Sunscreen","Water bottles","Charger"]
   }
 }
 
-function makeTripBags(extras) {
+function makeTripBags(extras, bagList) {
+  var list = bagList || TRIP_BAGS
   var bags = {}
-  TRIP_BAGS.forEach(function(bag) {
+  list.forEach(function(bag) {
     var baseCats = DEFAULT_BAG_ITEMS[bag] || {}
     var extraCats = (extras && extras[bag]) ? extras[bag] : {}
     var merged = {}
@@ -2075,26 +2080,29 @@ function makeTripBags(extras) {
 var DEFAULT_PACKING_TEMPLATES = [
   {
     id: "flight", name: "Flight Trip", emoji: "✈️", type: "trip", locked: false,
+    bagList: ["My Bag","Cosmetics","Kid 1","Kid 2","Kid 3","Diaper Bag","Carry-On","Backpack","Overnight Bag","Extra Bag","Snacks","Extras"],
     bags: makeTripBags({
       "My Bag": { "Travel docs": ["Passport / ID","Boarding passes","Travel insurance docs","Credit cards","Cash"] },
-      "Bag 1": { "Flight extras": ["Neck pillow","Eye mask","Noise-canceling headphones","TSA lock","Empty water bottle"] }
+      "Carry-On": { "Flight extras": ["Neck pillow","Eye mask","Noise-canceling headphones","TSA lock","Empty water bottle"] }
     })
   },
   {
     id: "roadtrip", name: "Road Trip", emoji: "🚗", type: "trip", locked: false,
+    bagList: ["My Bag","Cosmetics","Kid 1","Kid 2","Kid 3","Diaper Bag","Backpack","Overnight Bag","Extra Bag","Snacks","Extras"],
     bags: makeTripBags({
       "My Bag": { "Car essentials": ["Driver's license","Car insurance card","Registration","AAA card"] },
-      "Bag 2": { "Car extras": ["Aux cable / Bluetooth","Phone mount","Dash cam","Jumper cables","Emergency kit","Motion sickness meds"] }
+      "Extra Bag": { "Car extras": ["Aux cable / Bluetooth","Phone mount","Dash cam","Jumper cables","Emergency kit","Motion sickness meds"] }
     })
   },
   {
     id: "beach", name: "Beach Trip", emoji: "🏖️", type: "trip", locked: false,
+    bagList: ["My Bag","Cosmetics","Kid 1","Kid 2","Kid 3","Diaper Bag","Carry-On","Backpack","Overnight Bag","Extra Bag","Snacks","Extras"],
     bags: makeTripBags({
       "My Bag": { "Beach": ["After-sun lotion","Waterproof mascara","Extra hair ties"] },
       "Kid 1": { "Beach": ["Snorkel / goggles","Rashguard","Water shoes"] },
       "Kid 2": { "Beach": ["Rashguard","Water shoes"] },
       "Kid 3": { "Beach": ["Swim diapers (extra)","Rashguard","Baby sunscreen SPF 70","Float / puddle jumper"] },
-      "Bag 2": { "Beach": ["Beach umbrella","Sand-proof blanket","Mesh bag for wet stuff","Portable speaker","Cooler"] }
+      "Extra Bag": { "Beach": ["Beach umbrella","Sand-proof blanket","Mesh bag for wet stuff","Portable speaker","Cooler"] }
     })
   },
   {
@@ -2106,7 +2114,7 @@ var DEFAULT_PACKING_TEMPLATES = [
   }
 ]
 
-var PACK_CATS = ["Clothing","Accessories","Toiletries","Health","Electronics","Entertainment","Comfort","Sleep","Feeding","Travel","Baby essentials","Baby extras","Beach / outdoor","Travel gear","Adult","Older kids","Baby","Family","Shared","Face","Tools","Skin","Extras","Car essentials","Car extras","Beach","Flight extras","Travel docs","Before leaving","Admin","Documents","Kids stuff","Misc"]
+var PACK_CATS = ["Clothing","Accessories","Toiletries","Health","Electronics","Entertainment","Comfort","Sleep","Feeding","Travel","Baby essentials","Baby extras","Beach / outdoor","Travel gear","Adult","Older kids","Baby","Family","Shared","Face","Tools","Skin","Extras","Car essentials","Car extras","Beach","Flight extras","Travel docs","Documents","Daily essentials","Activities","Before leaving","Admin","Kids stuff","Misc","Kids"]
 
 // ── Expanded Packing Modal ────────────────────────────────────────────────────
 function ExpandedPackingModal(props) {
@@ -2114,21 +2122,32 @@ function ExpandedPackingModal(props) {
   var saveBagCat = props.saveBagCat; var saveCat = props.saveCat; var printTemplate = props.printTemplate; var onClose = props.onClose
   var warm = props.warm; var sand = props.sand; var navy = props.navy; var muted = props.muted; var border = props.border; var coastal = props.coastal
 
-  // collapsed state: object of bag/section keys → bool
   var collapsedPair = useState({}); var collapsed = collapsedPair[0]; var setCollapsed = collapsedPair[1]
-  // editing item: {bag, cat, idx} or null
   var editingPair = useState(null); var editing = editingPair[0]; var setEditing = editingPair[1]
   var editValPair = useState(""); var editVal = editValPair[0]; var setEditVal = editValPair[1]
-  // adding item: {bag, cat} or null
   var addingPair = useState(null); var adding = addingPair[0]; var setAdding = addingPair[1]
   var addValPair = useState(""); var addVal = addValPair[0]; var setAddVal = addValPair[1]
-  // adding category: bag key or "custom" or null
   var addingCatPair = useState(null); var addingCat = addingCatPair[0]; var setAddingCat = addingCatPair[1]
   var addCatValPair = useState(""); var addCatVal = addCatValPair[0]; var setAddCatVal = addCatValPair[1]
   var editingCatPair = useState(null); var editingCat = editingCatPair[0]; var setEditingCat = editingCatPair[1]
   var editCatValPair = useState(""); var editCatVal = editCatValPair[0]; var setEditCatVal = editCatValPair[1]
+  // template name editing
+  var editingNamePair = useState(false); var editingName = editingNamePair[0]; var setEditingName = editingNamePair[1]
+  var editNameValPair = useState(""); var editNameVal = editNameValPair[0]; var setEditNameVal = editNameValPair[1]
+  // bag management panel
+  var showBagMgrPair = useState(false); var showBagMgr = showBagMgrPair[0]; var setShowBagMgr = showBagMgrPair[1]
+  var newBagNamePair = useState(""); var newBagName = newBagNamePair[0]; var setNewBagName = newBagNamePair[1]
+  var editingBagPair = useState(null); var editingBag = editingBagPair[0]; var setEditingBag = editingBagPair[1]
+  var editBagValPair = useState(""); var editBagVal = editBagValPair[0]; var setEditBagVal = editBagValPair[1]
+  // packed section collapse
+  var packedCollapsedPair = useState(true); var packedCollapsed = packedCollapsedPair[0]; var setPackedCollapsed = packedCollapsedPair[1]
 
   var inputSt = { background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 11px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", flex:1 }
+
+  function getBagList() {
+    if (t.type !== "trip") return []
+    return t.bagList || TRIP_BAGS
+  }
 
   function toggleCollapse(key) {
     setCollapsed(function(prev){ var n=Object.assign({},prev); n[key]=!n[key]; return n })
@@ -2136,7 +2155,8 @@ function ExpandedPackingModal(props) {
 
   function getBagsForModal() {
     if (t.type === "trip") {
-      return TRIP_BAGS.filter(function(b){ return (t.bags||{})[b] !== undefined })
+      var list = getBagList()
+      return list.filter(function(b){ return (t.bags||{})[b] !== undefined })
     }
     return ["__custom__"]
   }
@@ -2227,7 +2247,8 @@ function ExpandedPackingModal(props) {
       if (tmpl.id !== t.id) return tmpl
       if (tmpl.type === "trip") {
         var nb = JSON.parse(JSON.stringify(tmpl.bags||{}))
-        TRIP_BAGS.forEach(function(bag){ if(nb[bag]) Object.keys(nb[bag]).forEach(function(cat){ nb[bag][cat]=(nb[bag][cat]||[]).map(function(x){ return Object.assign({},x,{done:false}) }) }) })
+        var bl = tmpl.bagList || TRIP_BAGS
+        bl.forEach(function(bag){ if(nb[bag]) Object.keys(nb[bag]).forEach(function(cat){ nb[bag][cat]=(nb[bag][cat]||[]).map(function(x){ return Object.assign({},x,{done:false}) }) }) })
         return Object.assign({},tmpl,{bags:nb})
       } else {
         var ni = JSON.parse(JSON.stringify(tmpl.items||{}))
@@ -2238,7 +2259,63 @@ function ExpandedPackingModal(props) {
     saveTemplates(updated)
   }
 
-  // compute totals
+  // ── Move item to a different bag ──────────────────────────────────────────
+  function moveItemToBag(fromBag, cat, idx, toBag) {
+    if (fromBag === toBag) return
+    var item = getItemsForBagCat(fromBag, cat)[idx]
+    if (!item) return
+    // remove from source
+    var srcItems = getItemsForBagCat(fromBag, cat).filter(function(_,i){ return i!==idx })
+    // add to dest bag, same category name if it exists, else create it
+    var destItems = getItemsForBagCat(toBag, cat).concat([Object.assign({},item,{done:false})])
+    var nb = JSON.parse(JSON.stringify(t.bags||{}))
+    if (!nb[fromBag]) nb[fromBag] = {}
+    nb[fromBag][cat] = srcItems
+    if (!nb[toBag]) nb[toBag] = {}
+    nb[toBag][cat] = destItems
+    saveTemplates(templates.map(function(tmpl){ return tmpl.id===t.id ? Object.assign({},tmpl,{bags:nb}) : tmpl }))
+  }
+
+  // ── Rename template ───────────────────────────────────────────────────────
+  function saveTemplateName() {
+    if (!editNameVal.trim()) { setEditingName(false); return }
+    saveTemplates(templates.map(function(tmpl){ return tmpl.id===t.id ? Object.assign({},tmpl,{name:editNameVal.trim()}) : tmpl }))
+    setEditingName(false)
+  }
+
+  // ── Bag management ────────────────────────────────────────────────────────
+  function addBag() {
+    if (!newBagName.trim()) return
+    var name = newBagName.trim()
+    var nb = JSON.parse(JSON.stringify(t.bags||{}))
+    nb[name] = {}
+    var newList = (t.bagList || TRIP_BAGS.slice()).concat([name])
+    saveTemplates(templates.map(function(tmpl){ return tmpl.id===t.id ? Object.assign({},tmpl,{bags:nb,bagList:newList}) : tmpl }))
+    setNewBagName("")
+  }
+
+  function renameBag(oldName, newName) {
+    if (!newName.trim() || newName.trim() === oldName) { setEditingBag(null); setEditBagVal(""); return }
+    var name = newName.trim()
+    var nb = JSON.parse(JSON.stringify(t.bags||{}))
+    var entries = Object.entries(nb)
+    var rebuilt = {}
+    entries.forEach(function(pair){ rebuilt[pair[0]===oldName ? name : pair[0]] = pair[1] })
+    var oldList = t.bagList || TRIP_BAGS.slice()
+    var newList = oldList.map(function(b){ return b===oldName ? name : b })
+    saveTemplates(templates.map(function(tmpl){ return tmpl.id===t.id ? Object.assign({},tmpl,{bags:rebuilt,bagList:newList}) : tmpl }))
+    setEditingBag(null); setEditBagVal("")
+  }
+
+  function deleteBag(bag) {
+    if (!window.confirm("Remove bag \"" + bag + "\" and all its items?")) return
+    var nb = JSON.parse(JSON.stringify(t.bags||{}))
+    delete nb[bag]
+    var newList = (t.bagList || TRIP_BAGS.slice()).filter(function(b){ return b!==bag })
+    saveTemplates(templates.map(function(tmpl){ return tmpl.id===t.id ? Object.assign({},tmpl,{bags:nb,bagList:newList}) : tmpl }))
+  }
+
+  // ── Totals ────────────────────────────────────────────────────────────────
   var doneCount = 0; var totalCount = 0
   getBagsForModal().forEach(function(bag) {
     getCatsForBag(bag).forEach(function(cat) {
@@ -2249,6 +2326,8 @@ function ExpandedPackingModal(props) {
   })
   var pct = totalCount > 0 ? Math.round((doneCount/totalCount)*100) : 0
 
+  var allBagsForMove = getBagsForModal()
+
   return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"#0d1624", zIndex:9999, overflowY:"auto" }}>
 
@@ -2256,9 +2335,23 @@ function ExpandedPackingModal(props) {
       <div style={{ position:"sticky", top:0, background:"rgba(13,22,36,0.97)", backdropFilter:"blur(8px)", borderBottom:"1px solid rgba(255,255,255,0.08)", padding:"13px 18px", display:"flex", alignItems:"center", gap:10, zIndex:10 }}>
         <span style={{ fontSize:22 }}>{t.emoji||"🧳"}</span>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontSize:16, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{t.name}</div>
+          {editingName ? (
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <input value={editNameVal} onChange={function(e){setEditNameVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveTemplateName(); if(e.key==="Escape") setEditingName(false) }} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:6, padding:"4px 9px", fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", minWidth:180 }} autoFocus/>
+              <button onClick={saveTemplateName} style={{ background:coastal, border:"none", borderRadius:6, padding:"4px 10px", fontSize:12, color:"#fff", cursor:"pointer", fontWeight:600 }}>Save</button>
+              <button onClick={function(){ setEditingName(false) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:12 }}>✕</button>
+            </div>
+          ) : (
+            <div onClick={function(){ setEditingName(true); setEditNameVal(t.name) }} style={{ fontSize:16, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", cursor:"text", display:"flex", alignItems:"center", gap:6 }}>
+              {t.name}
+              <span style={{ fontSize:11, color:muted, fontWeight:400 }}>✎</span>
+            </div>
+          )}
           <div style={{ fontSize:11, color:muted, fontFamily:"DM Sans,sans-serif" }}>{doneCount}/{totalCount} packed &nbsp;•&nbsp; {pct}%</div>
         </div>
+        {t.type==="trip" && (
+          <button onClick={function(){ setShowBagMgr(function(v){ return !v }) }} style={{ background:showBagMgr?"rgba(200,169,122,0.2)":"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"7px 11px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0 }}>🎒 Bags</button>
+        )}
         <button onClick={function(){ printTemplate(t) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>🖨 Print</button>
         <button onClick={onClose} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"7px 12px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0 }}>✕ Close</button>
       </div>
@@ -2268,18 +2361,61 @@ function ExpandedPackingModal(props) {
         <div style={{ height:4, width:pct+"%", background:"linear-gradient(90deg,#5dcaa5,"+coastal+")", transition:"width 0.35s" }}/>
       </div>
 
+      {/* ── Bag manager panel ── */}
+      {showBagMgr && t.type==="trip" && (
+        <div style={{ background:"rgba(200,169,122,0.06)", borderBottom:"1px solid rgba(200,169,122,0.15)", padding:"14px 18px", maxWidth:780, margin:"0 auto" }}>
+          <div style={{ fontSize:12, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:sand, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>Manage Bags</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10 }}>
+            {getBagList().map(function(bag) {
+              var inTemplate = (t.bags||{})[bag] !== undefined
+              return (
+                <div key={bag} style={{ display:"flex", alignItems:"center", gap:4, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"4px 8px" }}>
+                  {editingBag===bag ? (
+                    <>
+                      <input value={editBagVal} onChange={function(e){setEditBagVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") renameBag(bag,editBagVal); if(e.key==="Escape"){setEditingBag(null);setEditBagVal("")} }} style={{ width:90, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:5, padding:"3px 6px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
+                      <button onClick={function(){ renameBag(bag,editBagVal) }} style={{ background:coastal, border:"none", borderRadius:4, padding:"2px 7px", fontSize:11, color:"#fff", cursor:"pointer" }}>Save</button>
+                      <button onClick={function(){setEditingBag(null);setEditBagVal("")}} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:11 }}>✕</button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize:12, color:inTemplate?warm:muted, fontFamily:"DM Sans,sans-serif" }}>{bag}</span>
+                      <button onClick={function(){ setEditingBag(bag); setEditBagVal(bag) }} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.4)", cursor:"pointer", fontSize:11, padding:"0 2px" }} title="Rename">✎</button>
+                      {!TRIP_BAGS.includes(bag) && (
+                        <button onClick={function(){ deleteBag(bag) }} style={{ background:"none", border:"none", color:"rgba(220,80,80,0.35)", cursor:"pointer", fontSize:12, padding:"0 2px" }} title="Remove bag">×</button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            <input value={newBagName} onChange={function(e){setNewBagName(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") addBag() }} placeholder="New bag name…" style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"6px 10px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
+            <button onClick={addBag} style={{ background:sand, border:"none", borderRadius:7, padding:"6px 14px", fontSize:12, color:navy, cursor:"pointer", fontWeight:700 }}>+ Add Bag</button>
+          </div>
+        </div>
+      )}
+
       {/* ── Bag sections ── */}
       <div style={{ padding:"16px 16px 60px", maxWidth:780, margin:"0 auto" }}>
         {getBagsForModal().map(function(bag) {
           var cats = getCatsForBag(bag)
           var bagKey = "bag-"+bag
           var bagCollapsed = collapsed[bagKey]
-          var bagDone = 0; var bagTotal = 0
-          cats.forEach(function(cat){ var items=getItemsForBagCat(bag,cat); bagTotal+=items.length; bagDone+=items.filter(function(i){return i.done}).length })
+          var bagUnpacked = []; var bagPacked = []
+          cats.forEach(function(cat){
+            var items = getItemsForBagCat(bag,cat)
+            items.forEach(function(item, idx){
+              if (item.done) bagPacked.push({cat:cat, item:item, idx:idx})
+              else bagUnpacked.push({cat:cat, item:item, idx:idx})
+            })
+          })
+          var bagTotal = bagUnpacked.length + bagPacked.length
+          var bagDone = bagPacked.length
           return (
             <div key={bag} style={{ marginBottom:14, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
 
-              {/* Bag header — tappable to collapse */}
+              {/* Bag header */}
               <div onClick={function(){ toggleCollapse(bagKey) }} style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", cursor:"pointer", userSelect:"none" }}>
                 <span style={{ fontSize:13, color:muted, transition:"transform 0.2s", display:"inline-block", transform:bagCollapsed?"rotate(-90deg)":"rotate(0deg)" }}>▾</span>
                 <div style={{ flex:1 }}>
@@ -2298,7 +2434,9 @@ function ExpandedPackingModal(props) {
                     var catKey = bag+"-"+cat
                     var catCollapsed = collapsed[catKey]
                     var items = getItemsForBagCat(bag, cat)
-                    var catDone = items.filter(function(i){ return i.done }).length
+                    var unpacked = items.filter(function(i){ return !i.done })
+                    var packed = items.filter(function(i){ return i.done })
+                    var catDone = packed.length
                     return (
                       <div key={cat} style={{ marginBottom:10, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:9 }}>
 
@@ -2319,22 +2457,33 @@ function ExpandedPackingModal(props) {
                           )}
                         </div>
 
-                        {/* Items */}
+                        {/* Unpacked items */}
                         {!catCollapsed && (
                           <div style={{ padding:"0 10px 10px" }}>
-                            {items.map(function(item, i) {
+                            {unpacked.map(function(item) {
+                              var i = items.indexOf(item)
                               var isEditing = editing && editing.bag===bag && editing.cat===cat && editing.idx===i
                               return (
-                                <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:7, background: item.done?"rgba(93,202,165,0.05)":"transparent", border:"1px solid "+(item.done?"rgba(93,202,165,0.12)":"rgba(255,255,255,0.05)"), marginBottom:3 }}>
+                                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:7, background:"transparent", border:"1px solid rgba(255,255,255,0.05)", marginBottom:3 }}>
                                   {/* Checkbox */}
-                                  <div onClick={function(){ if(!isEditing) toggleItem(bag, cat, i) }} style={{ width:20, height:20, borderRadius:4, border:"1.5px solid "+(item.done?"#5dcaa5":"rgba(250,248,244,0.22)"), background:item.done?"rgba(29,158,117,0.25)":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                                    {item.done && <span style={{ fontSize:12, color:"#5dcaa5", fontWeight:800, lineHeight:1 }}>✓</span>}
-                                  </div>
+                                  <div onClick={function(){ if(!isEditing) toggleItem(bag, cat, i) }} style={{ width:20, height:20, borderRadius:4, border:"1.5px solid rgba(250,248,244,0.22)", background:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}/>
                                   {/* Text or edit input */}
                                   {isEditing ? (
                                     <input value={editVal} onChange={function(e){setEditVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveEditItem(bag,cat,i); if(e.key==="Escape"){setEditing(null);setEditVal("")} }} style={Object.assign({},inputSt,{fontSize:13,padding:"4px 8px"})} autoFocus/>
                                   ) : (
-                                    <span onClick={function(){ setEditing({bag:bag,cat:cat,idx:i}); setEditVal(item.text) }} style={{ flex:1, fontSize:14, color: item.done?"rgba(250,248,244,0.25)":warm, fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none", cursor:"text" }}>{item.text}</span>
+                                    <span onClick={function(){ setEditing({bag:bag,cat:cat,idx:i}); setEditVal(item.text) }} style={{ flex:1, fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif", cursor:"text" }}>{item.text}</span>
+                                  )}
+                                  {/* Bag assignment pill — only for trip templates */}
+                                  {t.type==="trip" && !isEditing && allBagsForMove.length > 1 && (
+                                    <select
+                                      value={bag}
+                                      onChange={function(e){ moveItemToBag(bag, cat, i, e.target.value) }}
+                                      onClick={function(e){ e.stopPropagation() }}
+                                      style={{ background:"rgba(107,163,196,0.1)", border:"1px solid rgba(107,163,196,0.25)", borderRadius:6, padding:"3px 6px", fontSize:11, color:coastal, fontFamily:"DM Sans,sans-serif", cursor:"pointer", outline:"none", maxWidth:90, overflow:"hidden", textOverflow:"ellipsis" }}
+                                      title="Move to bag"
+                                    >
+                                      {allBagsForMove.map(function(b){ return <option key={b} value={b} style={{ background:"#1a2744", color:warm }}>{b}</option> })}
+                                    </select>
                                   )}
                                   {/* Edit save / delete */}
                                   {isEditing ? (
@@ -2345,6 +2494,28 @@ function ExpandedPackingModal(props) {
                                 </div>
                               )
                             })}
+
+                            {/* ── Already Packed section ── */}
+                            {packed.length > 0 && (
+                              <div style={{ marginTop:6 }}>
+                                <div onClick={function(){ setPackedCollapsed(function(v){ return !v }) }} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 8px", cursor:"pointer", userSelect:"none", borderRadius:6, background:"rgba(93,202,165,0.04)", border:"1px solid rgba(93,202,165,0.1)" }}>
+                                  <span style={{ fontSize:10, color:"rgba(93,202,165,0.6)", display:"inline-block", transform:packedCollapsed?"rotate(-90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▾</span>
+                                  <span style={{ fontSize:11, color:"rgba(93,202,165,0.7)", fontFamily:"DM Sans,sans-serif", fontWeight:600, letterSpacing:"0.06em" }}>✓ Already packed ({packed.length})</span>
+                                </div>
+                                {!packedCollapsed && packed.map(function(item) {
+                                  var i = items.indexOf(item)
+                                  return (
+                                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:7, background:"rgba(93,202,165,0.05)", border:"1px solid rgba(93,202,165,0.1)", marginTop:2 }}>
+                                      <div onClick={function(){ toggleItem(bag, cat, i) }} style={{ width:20, height:20, borderRadius:4, border:"1.5px solid #5dcaa5", background:"rgba(29,158,117,0.25)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
+                                        <span style={{ fontSize:12, color:"#5dcaa5", fontWeight:800, lineHeight:1 }}>✓</span>
+                                      </div>
+                                      <span style={{ flex:1, fontSize:13, color:"rgba(250,248,244,0.25)", fontFamily:"DM Sans,sans-serif", textDecoration:"line-through" }}>{item.text}</span>
+                                      <button onClick={function(){ deleteItem(bag, cat, i) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.1)", cursor:"pointer", fontSize:15, padding:"0 3px", lineHeight:1 }}>×</button>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
 
                             {/* Add item row */}
                             {adding && adding.bag===bag && adding.cat===cat ? (
@@ -2412,6 +2583,14 @@ function PackingTemplatesPanel(props) {
   var newTypePair = useState("custom"); var newType = newTypePair[0]; var setNewType = newTypePair[1]
   var toastPair = useState(""); var toast = toastPair[0]; var setToast = toastPair[1]
   var expandedPair = useState(false); var expanded = expandedPair[0]; var setExpanded = expandedPair[1]
+  var editingNamePair = useState(false); var editingName = editingNamePair[0]; var setEditingName = editingNamePair[1]
+  var editNameValPair = useState(""); var editNameVal = editNameValPair[0]; var setEditNameVal = editNameValPair[1]
+
+  function saveTemplateName() {
+    if (!editNameVal.trim() || !activeId) { setEditingName(false); return }
+    saveTemplates(templates.map(function(tmpl){ return tmpl.id===activeId ? Object.assign({},tmpl,{name:editNameVal.trim()}) : tmpl }))
+    setEditingName(false)
+  }
 
   function saveTemplates(updated) {
     setTemplatesRaw(updated)
@@ -2500,7 +2679,8 @@ function PackingTemplatesPanel(props) {
 
   function getBags() {
     if (!activeTemplate || activeTemplate.type !== "trip") return []
-    return TRIP_BAGS.filter(function(b){ return (activeTemplate.bags||{})[b] !== undefined })
+    var list = activeTemplate.bagList || TRIP_BAGS
+    return list.filter(function(b){ return (activeTemplate.bags||{})[b] !== undefined })
   }
 
   function copyTemplate(t) {
@@ -2532,7 +2712,8 @@ function PackingTemplatesPanel(props) {
     var total = countTemplate(t)
     lines.push("<div class=\"meta\">" + (t.type==="trip"?"Trip template":"Custom list") + " &nbsp;•&nbsp; " + total + " items total &nbsp;•&nbsp; Printed " + new Date().toLocaleDateString() + "</div>")
     if (t.type === "trip") {
-      TRIP_BAGS.forEach(function(bag) {
+      var printBagList = t.bagList || TRIP_BAGS
+      printBagList.forEach(function(bag) {
         var bagData = (t.bags||{})[bag]||{}
         var cats = Object.keys(bagData)
         if (!cats.length) return
@@ -2573,6 +2754,7 @@ function PackingTemplatesPanel(props) {
     if (!newName.trim()) return
     var t = { id: Date.now().toString(), name: newName.trim(), emoji: newEmoji, type: newType, locked: false }
     if (newType === "trip") {
+      t.bagList = TRIP_BAGS.slice()
       t.bags = makeTripBags({})
     } else {
       t.items = {}
@@ -2621,7 +2803,7 @@ function PackingTemplatesPanel(props) {
               return (
                 <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.12)", borderRadius:10, cursor:"pointer" }} onClick={function(){
                   setActiveId(t.id)
-                  if (t.type === "trip") { setActiveBag(TRIP_BAGS[0]); setActiveCat(Object.keys(((t.bags||{})[TRIP_BAGS[0]])||{})[0]||null) }
+                  if (t.type === "trip") { var bl=t.bagList||TRIP_BAGS; var firstBag=bl[0]; setActiveBag(firstBag); setActiveCat(Object.keys(((t.bags||{})[firstBag])||{})[0]||null) }
                   else { setActiveBag(null); setActiveCat(Object.keys(t.items||{})[0]||null) }
                 }}>
                   <span style={{ fontSize:20 }}>{t.emoji||"🧳"}</span>
@@ -2667,10 +2849,21 @@ function PackingTemplatesPanel(props) {
         <div>
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
             <button onClick={function(){ setActiveId(null); setActiveBag(null); setActiveCat(null) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"4px 0" }}>← All templates</button>
-            <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ flex:1, display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
               <span style={{ fontSize:18 }}>{activeTemplate.emoji||"🧳"}</span>
-              <div style={{ fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.name}</div>
-              <div style={{ fontSize:10, color:muted, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.type==="trip"?"Trip":"Custom"}</div>
+              {editingName ? (
+                <div style={{ display:"flex", alignItems:"center", gap:5, flex:1 }}>
+                  <input value={editNameVal} onChange={function(e){setEditNameVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveTemplateName(); if(e.key==="Escape") setEditingName(false) }} style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.35)", borderRadius:6, padding:"4px 8px", fontSize:14, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
+                  <button onClick={saveTemplateName} style={{ background:coastal, border:"none", borderRadius:5, padding:"4px 9px", fontSize:11, color:"#fff", cursor:"pointer", fontWeight:600 }}>Save</button>
+                  <button onClick={function(){ setEditingName(false) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:12 }}>✕</button>
+                </div>
+              ) : (
+                <div onClick={function(){ setEditingName(true); setEditNameVal(activeTemplate.name) }} style={{ display:"flex", alignItems:"center", gap:5, cursor:"text" }}>
+                  <div style={{ fontSize:14, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{activeTemplate.name}</div>
+                  <span style={{ fontSize:10, color:muted }}>✎</span>
+                </div>
+              )}
+              <div style={{ fontSize:10, color:muted, fontFamily:"DM Sans,sans-serif", flexShrink:0 }}>{activeTemplate.type==="trip"?"Trip":"Custom"}</div>
             </div>
             <button onClick={function(){ copyTemplate(activeTemplate) }} style={btnSm()}>📋 Copy</button>
             <button onClick={function(){ setExpanded(true) }} style={btnSm(coastal, "#fff")}>⛶ Expand</button>
@@ -2680,7 +2873,7 @@ function PackingTemplatesPanel(props) {
           {/* Bag tabs for trip templates */}
           {activeTemplate.type === "trip" && (
             <div style={{ overflowX:"auto", display:"flex", gap:4, marginBottom:12, paddingBottom:8, borderBottom:"1px solid "+border }}>
-              {TRIP_BAGS.map(function(bag){
+              {(activeTemplate.bagList||TRIP_BAGS).map(function(bag){
                 var bagData = (activeTemplate.bags||{})[bag] || {}
                 var cnt = Object.values(bagData).reduce(function(n,items){ return n+items.length },0)
                 return (
