@@ -538,18 +538,18 @@ const BRAIN_CATS = [
 ];
 
 const TABS = [
-  {id:"anchor",   label:"Anchor",   emoji:"⚓️"},
-  {id:"calendar", label:"Calendar", emoji:"📆"},
-  {id:"meals",    label:"Meals",    emoji:"🍽️"},
-  {id:"shop",     label:"Shopping", emoji:"🛒"},
-  {id:"ai",       label:"Ripple",   emoji:"〜"},
-  {id:"tidepool", label:"Tide Pool", emoji:"🏝️"},
-  {id:"cove",     label:"Cove",      emoji:"🪸"},
-  {id:"weekly",   label:"Weekly",   emoji:"📅"},
-  {id:"home",     label:"Home",     emoji:"🏠"},
-  {id:"brain",    label:"Mind",     emoji:"💭"},
-  {id:"school",   label:"School",   emoji:"🏫"},
-  {id:"settings", label:"Settings", emoji:"⚙️"},
+  {id:"anchor",   label:"Today",      emoji:"🏠"},
+  {id:"calendar", label:"Calendar",   emoji:"📆"},
+  {id:"meals",    label:"Meals",      emoji:"🍽️"},
+  {id:"shop",     label:"Shopping",   emoji:"🛒"},
+  {id:"ai",       label:"Ripples",    emoji:"✨"},
+  {id:"tidepool", label:"Tide Pool",  emoji:"🐚"},
+  {id:"cove",     label:"Coves",      emoji:"🗺️"},
+  {id:"weekly",   label:"Rhythm",     emoji:"📅"},
+  {id:"home",     label:"Home",       emoji:"🏡"},
+  {id:"brain",    label:"Exhale",     emoji:"🌬️"},
+  {id:"school",   label:"Lighthouse", emoji:"🏮"},
+  {id:"settings", label:"Settings",   emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop","ai"];
 const MORE_TABS    = ["weekly","home","brain","school","tidepool","cove","settings"];
@@ -2489,26 +2489,6 @@ function createLocalBackup() {
   homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
-  // Forecast: tracks whether user has chosen today's forecast mode
-  // Stored in sessionStorage so it resets each new browser session (once per day feel)
-  const [forecastChosen, setForecastChosen] = useState(function() {
-    try {
-      const stored = sessionStorage.getItem("af_forecastDate");
-      return stored === TODAY.toDateString();
-    } catch { return false; }
-  });
-  function chooseForecast(mode) {
-    setFlowMode(mode);
-    setForecastChosen(true);
-    try { sessionStorage.setItem("af_forecastDate", TODAY.toDateString()); } catch {}
-    // Open the day briefing immediately after forecast selection
-    setAnchorDayOpen(true);
-  }
-  function resetForecast() {
-    setForecastChosen(false);
-    setAnchorDayOpen(false);
-    try { sessionStorage.removeItem("af_forecastDate"); } catch {}
-  }
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
   const [tasks,setTasks]                       = useSaved("tasks",[]);
   // meals — sanitized at read time; rolls over to next week's plan if the calendar week has changed
@@ -4284,10 +4264,10 @@ Respond ONLY with valid JSON array, no markdown:
     }
 
     if(closing) return (
-      <div style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(12px)",zIndex:1500,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1.5rem) 1.5rem env(safe-area-inset-bottom,1.5rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-        <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.8rem",padding:"2rem",maxWidth:400,width:"100%",textAlign:"center",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 3rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-          <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>🌙</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:T.textDark,marginBottom:"0.5rem"}}>You made it.</div>
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(170deg,#24364D 0%,#3D4F5C 20%,#5C4A42 38%,#A57B68 58%,#E6A57E 78%,#F1C49A 100%)",backdropFilter:"blur(4px)",zIndex:1500,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1.5rem) 1.5rem env(safe-area-inset-bottom,1.5rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+        <div style={{background:"rgba(36,54,77,0.82)",border:"1px solid rgba(230,165,126,0.2)",backdropFilter:"blur(16px)",borderRadius:"1.5rem",padding:"2rem",maxWidth:420,width:"100%",textAlign:"center",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 3rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>🌇</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.9rem",fontWeight:300,color:"#F1C49A",marginBottom:"0.4rem"}}>You made it.</div>
           {done.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",justifyContent:"center",marginBottom:"0.75rem"}}>{done.map(t=><span key={t.id} style={{background:T.sagePale,color:T.sageDark,borderRadius:"2rem",padding:"0.2rem 0.65rem",fontSize:"0.73rem",fontWeight:600}}>✓ {t.text}</span>)}</div>}
           {reflLoad?<div style={{color:T.textFaint,fontSize:"0.85rem",margin:"1rem 0"}}>✨ Reflecting on your day...</div>:(
             <>
@@ -4301,11 +4281,11 @@ Respond ONLY with valid JSON array, no markdown:
     );
 
     return (
-      <div style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(12px)",zIndex:1500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-        <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.4rem 1.4rem 0 0",padding:"1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom,0px))",maxWidth:520,width:"100%",maxHeight:"calc(90dvh - env(safe-area-inset-top,0px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-          <div style={{width:40,height:4,borderRadius:2,background:T.border,margin:"0 auto 1rem"}}/>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem",textAlign:"center"}}>🌙 Wind Down</div>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"1.25rem",textAlign:"center"}}>{TODAY_NAME} · Review and close your day</div>
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(170deg,#24364D 0%,#3D4F5C 20%,#5C4A42 38%,#A57B68 58%,#E6A57E 78%,#F1C49A 100%)",backdropFilter:"blur(4px)",zIndex:1500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+        <div style={{background:"rgba(36,54,77,0.88)",border:"1px solid rgba(230,165,126,0.18)",backdropFilter:"blur(16px)",borderRadius:"1.4rem 1.4rem 0 0",padding:"1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom,0px))",maxWidth:520,width:"100%",maxHeight:"calc(90dvh - env(safe-area-inset-top,0px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div style={{width:40,height:4,borderRadius:2,background:"rgba(241,196,154,0.3)",margin:"0 auto 1rem"}}/>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:300,color:"#F1C49A",marginBottom:"0.2rem",textAlign:"center"}}>🌇 Sunset</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"0.88rem",fontStyle:"italic",color:"rgba(241,196,154,0.6)",marginBottom:"1.25rem",textAlign:"center"}}>As the sun sets on today — let's gather what mattered.</div>
 
           {/* Card 1: Tasks */}
           <div style={{background:"rgba(122,158,142,0.08)",border:"1.5px solid "+T.sage,borderRadius:"1rem",padding:"1rem",marginBottom:"0.75rem"}}>
@@ -4364,8 +4344,8 @@ Respond ONLY with valid JSON array, no markdown:
             ))}
           </div>
 
-          <button onClick={closeDay} style={{...btnP("linear-gradient(135deg,"+T.blue+","+T.sage+")",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem"})}}>
-            Close My Day 🌙
+          <button onClick={closeDay} style={{...btnP("linear-gradient(135deg,rgba(230,165,126,0.25),rgba(93,123,122,0.2))",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem",border:"1px solid rgba(230,165,126,0.3)",color:"#F1C49A",fontFamily:"'Cormorant Garamond',serif",fontWeight:300,letterSpacing:"0.04em"})}}>
+            Good night ✦
           </button>
           <button onClick={()=>setShowEndOfDay(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit",width:"100%",marginTop:"0.5rem",padding:"0.3rem"}}>Not tonight</button>
         </div>
@@ -4377,69 +4357,6 @@ Respond ONLY with valid JSON array, no markdown:
 
 
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
-
-  // ── Forecast Screen ─────────────────────────────────────────────────────────
-  // Shown once per day before the briefing. Maps to existing flowMode values.
-  function ForecastScreen() {
-    const modes = [
-      { key: "Smooth",   emoji: "⚓️", label: "Calm Seas",     sub: "Feeling balanced",  color: "#7a9e8e", bg: "rgba(122,158,142,0.12)", border: "rgba(122,158,142,0.35)" },
-      { key: "Busy",     emoji: "🌊", label: "Some Waves",    sub: "A bit stretched",   color: "#6A9BB5", bg: "rgba(106,155,181,0.12)", border: "rgba(106,155,181,0.35)" },
-      { key: "Survival", emoji: "🛟", label: "Survival Mode", sub: "Just today",        color: "#c87a8a", bg: "rgba(200,122,138,0.12)", border: "rgba(200,122,138,0.35)" },
-    ];
-    const name = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null);
-    const todayWeather = weatherData && weatherData.find(function(d){ return d.date === TODAY.toISOString().split("T")[0]; });
-
-    return (
-      <div style={{minHeight:"70vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem 1.25rem",textAlign:"center"}}>
-        {/* Date + weather */}
-        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
-          <div style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.85)",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
-          {todayWeather && (
-            <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:"rgba(255,255,255,0.08)",borderRadius:"50px",padding:"2px 8px"}}>
-              <span style={{fontSize:"0.85rem"}}>{todayWeather.emoji}</span>
-              <span style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(250,248,244,0.85)"}}>{todayWeather.high}°</span>
-            </div>
-          )}
-          {!weatherLocation && (
-            <button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>
-          )}
-        </div>
-
-        {/* Greeting */}
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2.1rem",fontWeight:700,color:"#faf8f4",lineHeight:1.1,marginBottom:"0.4rem"}}>
-          Good morning{name ? ", "+name : ""} ✦
-        </div>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontStyle:"italic",color:"rgba(245,240,232,0.5)",marginBottom:"2.5rem",lineHeight:1.5}}>
-          What's the forecast today?
-        </div>
-
-        {/* Mode buttons */}
-        <div style={{display:"flex",flexDirection:"column",gap:"0.75rem",width:"100%",maxWidth:320}}>
-          {modes.map(function(m) {
-            return (
-              <button key={m.key} onClick={function(){ chooseForecast(m.key); }}
-                style={{display:"flex",alignItems:"center",gap:"1rem",padding:"1rem 1.25rem",background:m.bg,border:"2px solid "+m.border,borderRadius:"1.2rem",cursor:"pointer",transition:"all 0.18s",textAlign:"left",width:"100%",fontFamily:"inherit"}}
-                onMouseEnter={function(e){ e.currentTarget.style.transform="translateX(3px)"; e.currentTarget.style.borderColor=m.color; }}
-                onMouseLeave={function(e){ e.currentTarget.style.transform=""; e.currentTarget.style.borderColor=m.border; }}
-              >
-                <span style={{fontSize:"1.8rem",flexShrink:0}}>{m.emoji}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#faf8f4",lineHeight:1.1}}>{m.label}</div>
-                  <div style={{fontSize:"0.72rem",color:"rgba(245,240,232,0.5)",marginTop:"0.15rem"}}>{m.sub}</div>
-                </div>
-                <span style={{fontSize:"0.85rem",color:m.color,opacity:0.7}}>→</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{marginTop:"1.75rem",fontSize:"0.68rem",color:"rgba(245,240,232,0.3)",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>
-          Compass will shape your day around your answer.
-        </div>
-      </div>
-    );
-  }
-
   function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
     const [newTaskPerson,setNewTaskPerson] = useState("");
@@ -4638,11 +4555,6 @@ Respond ONLY in valid JSON:
       }
     }
 
-    // Show forecast screen if user hasn't chosen today's mode yet
-    if (!forecastChosen) {
-      return <ForecastScreen />;
-    }
-
     return (
       <div>
         {/* ── Hero greeting card ── */}
@@ -4667,14 +4579,11 @@ Respond ONLY in valid JSON:
             <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color="#faf8f4"/></button>
           </div>
 
-          {/* Flow mode chips + reset forecast */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
-            <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
-              {Object.entries(FM).map(([mode,m])=>(
-                <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
-              ))}
-            </div>
-            <button onClick={resetForecast} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.62rem",color:"rgba(250,248,244,0.3)",fontFamily:"inherit",padding:"2px 4px",flexShrink:0}} title="Reset today's forecast">✕ reset</button>
+          {/* Flow mode chips */}
+          <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+            {Object.entries(FM).map(([mode,m])=>(
+              <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
+            ))}
           </div>
           {flowMode!=="Survival"
             ?<div style={{fontSize:"0.7rem",color:"rgba(250,248,244,0.45)",marginBottom:"0.75rem",paddingLeft:"0.2rem",fontStyle:"italic"}}>Hard day? Tap 🛟 Survival — it's okay.</div>
@@ -10725,8 +10634,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {primaryVisible.map(t=>(
             <button key={t.id} onClick={()=>{goTab(t.id);setMoreDrawerOpen(false);}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"0.6rem 0.4rem",minWidth:48,flex:1,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
               <span style={{fontSize:"1.25rem",filter:tab===t.id?"none":"grayscale(0.3)",opacity:tab===t.id?1:0.6,transition:"all 0.15s"}}>{t.emoji}</span>
-              <span style={{fontSize:"0.58rem",color:tab===t.id?T.blue:T.textFaint,fontWeight:tab===t.id?800:500,letterSpacing:"0.02em",whiteSpace:"nowrap",transition:"color 0.15s"}}>{t.label}</span>
-              {tab===t.id&&<div style={{width:18,height:2.5,borderRadius:2,background:T.blue,marginTop:1}}/>}
+              <span style={{fontSize:"0.58rem",color:tab===t.id?"#c8a97a":T.textFaint,fontWeight:tab===t.id?700:500,letterSpacing:"0.02em",whiteSpace:"nowrap",transition:"color 0.15s"}}>{t.label}</span>
+              {tab===t.id&&<div style={{width:18,height:2.5,borderRadius:2,background:"#c8a97a",marginTop:1}}/>}
             </button>
           ))}
           <button onClick={()=>setMoreDrawerOpen(o=>!o)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"0.6rem 0.4rem",minWidth:48,flex:1,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
@@ -10927,17 +10836,17 @@ function FlowWrapper({ onHome, onSignOut }) {
   const [showAnchor, setShowAnchor] = React.useState(false)
   const [vaultSection, setVaultSection] = React.useState("home")
   const NAV = [
-    { id: "anchor",   label: "Flow",     emoji: "🌊" },
-    { id: "brain",    label: "Mind",     emoji: "💭" },
-    { id: "calendar", label: "Calendar", emoji: "📆" },
-    { id: "meals",    label: "Meals",    emoji: "🍽️" },
-    { id: "shop",     label: "Shopping", emoji: "🛒" },
-    { id: "tidepool", label: "Tide Pool", emoji: "🏝️" },
-    { id: "cove",     label: "Cove",     emoji: "🪸" },
-    { id: "home",     label: "Home",     emoji: "🏡" },
-    { id: "weekly",   label: "Weekly",   emoji: "📅" },
-    { id: "school",   label: "School",   emoji: "🏫" },
-    { id: "settings", label: "Settings", emoji: "⚙️" },
+    { id: "anchor",   label: "Today",      emoji: "🏠" },
+    { id: "brain",    label: "Exhale",     emoji: "🌬️" },
+    { id: "calendar", label: "Calendar",   emoji: "📆" },
+    { id: "meals",    label: "Meals",      emoji: "🍽️" },
+    { id: "shop",     label: "Shopping",   emoji: "🛒" },
+    { id: "tidepool", label: "Tide Pool",  emoji: "🐚" },
+    { id: "cove",     label: "Coves",      emoji: "🗺️" },
+    { id: "home",     label: "Home",       emoji: "🏡" },
+    { id: "weekly",   label: "Rhythm",     emoji: "📅" },
+    { id: "school",   label: "Lighthouse", emoji: "🏮" },
+    { id: "settings", label: "Settings",   emoji: "⚙️" },
   ]
   const VAULT_NAV = [
     { id: "recurring", label: "Reminders", emoji: "🔁" },
@@ -10950,7 +10859,7 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "pets",      label: "Pets",      emoji: "🐾" },
     { id: "moments",   label: "Moments",   emoji: "✨" },
     { id: "travel",    label: "Travel",    emoji: "✈️" },
-    { id: "ripples",   label: "Ripples",   emoji: "🌊" },
+    { id: "ripples",   label: "Ripples",   emoji: "✨" },
     { id: "settings",  label: "Settings",  emoji: "⚙️" },
   ]
   const [anchorHidden, setAnchorHidden] = React.useState(function() {
@@ -10973,35 +10882,38 @@ function FlowWrapper({ onHome, onSignOut }) {
   }, [sections, activeTab])
   return (
     <div style={{ display: "flex", minHeight: "100dvh" }}>
-      <div style={{ width: "68px", background: "#1a2744", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 8px", gap: "2px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(255,255,255,0.06)", overflowY: "auto" }}>
+      <div style={{ width: "196px", background: "#0e1b2e", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "14px 8px 16px", gap: "1px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(200,169,122,0.08)", overflowY: "auto" }}>
         <button onClick={onHome} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: "8px", padding: "6px 0", width: "100%", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "#f5f0e8", letterSpacing: "0.02em", lineHeight: 1.1, textAlign: "left", paddingLeft: "4px" }}>Anchor <span style={{color:"#c8a97a",fontStyle:"italic"}}>& </span><span style={{color:"#c8a97a"}}>Flow</span></div>
         </button>
 
         {/* ── ⚓ Anchor vault button — always visible ── */}
-        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor Vault" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px", flexShrink: 0 }}>
-          <span style={{ fontSize: "15px" }}>⚓</span>
-          <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
+        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor" style={{ background: showAnchor ? "rgba(200,169,122,0.10)" : "none", border: "none", borderLeft: showAnchor ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", marginBottom: "2px", flexShrink: 0, transition: "all 0.15s" }}>
+          <span style={{ fontSize: "0.88rem" }}>⚓</span>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+            <span style={{ fontSize: "0.78rem", color: showAnchor ? "#dfc49a" : "rgba(245,240,232,0.55)", fontWeight: showAnchor ? 600 : 400, fontFamily: "'DM Sans', sans-serif" }}>Anchor</span>
+            <span style={{ fontSize: "0.57rem", color: "rgba(245,240,232,0.32)", fontFamily: "'DM Sans', sans-serif", marginTop: "1px" }}>Everything you carry</span>
+          </div>
         </button>
 
-        <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px", flexShrink: 0 }} />
+        <div style={{ width: "calc(100% - 16px)", height: "1px", background: "rgba(200,169,122,0.07)", margin: "6px 8px", flexShrink: 0 }} />
 
         {showAnchor ? (
           <>
             {/* ── 🌊 Flow — always shown even inside vault ── */}
-            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Flow" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>🌊</span>
-              <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Flow</span>
+            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Today" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", transition: "all 0.15s", flexShrink: 0, opacity: 0.6 }}>
+              <span style={{ fontSize: "0.82rem", lineHeight: 1 }}>🏠</span>
+              <span style={{ fontSize: "0.72rem", color: "rgba(200,169,122,0.6)", fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>← Today</span>
             </button>
-            <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.06)", margin: "2px 0 4px", flexShrink: 0 }} />
+            <div style={{ width: "calc(100% - 16px)", height: "1px", background: "rgba(200,169,122,0.07)", margin: "4px 8px", flexShrink: 0 }} />
             {/* ── Vault section nav ── */}
             {VAULT_NAV.map(item => {
               var isActive = vaultSection === item.id;
               var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
               return (
-                <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1, flexShrink: 0 }}>
-                  <span style={{ fontSize: "14px", lineHeight: 1 }}>{item.emoji}</span>
-                  <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+                <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.10)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "8px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1, flexShrink: 0 }}>
+                  <span style={{ fontSize: "0.82rem", lineHeight: 1 }}>{item.emoji}</span>
+                  <span style={{ fontSize: "0.72rem", color: isActive ? "#dfc49a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 600 : 400, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.01em" }}>{item.label}</span>
                 </button>
               );
             })}
@@ -11013,18 +10925,20 @@ function FlowWrapper({ onHome, onSignOut }) {
             var isHidden = item.id !== "settings" && item.id !== "anchor" && item.id !== "cove" && sections && sections[item.id] === false;
             if (isHidden) return null;
             return (
-              <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
-                <span style={{ fontSize: "14px", lineHeight: 1, opacity: isActive ? 1 : 0.5 }}>{item.emoji}</span>
-                <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
+              <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.10)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", transition: "all 0.15s", flexShrink: 0 }}>
+                <span style={{ fontSize: "0.88rem", lineHeight: 1, opacity: isActive ? 1 : 0.55, flexShrink: 0 }}>{item.emoji}</span>
+                <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                  <span style={{ fontSize: "0.78rem", color: isActive ? "#dfc49a" : "rgba(245,240,232,0.55)", fontWeight: isActive ? 600 : 400, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.01em", lineHeight: 1 }}>{item.label}</span>
+                </div>
               </button>
             );
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0 }}>
-          <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
+          <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", opacity: 0.4, color: "#faf8f4", fontFamily: "'DM Sans', sans-serif", fontSize: "0.73rem", transition: "opacity 0.15s" }} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="0.4"}><span style={{fontSize:"0.82rem"}}>→</span>Sign out</button>
         </div>
       </div>
-      <div style={{ marginLeft: "68px", flex: 1, minWidth: 0 }}>
+      <div style={{ marginLeft: "196px", flex: 1, minWidth: 0 }}>
         <style>{`
           div[style*="bottom:0,left:0,right:0"],
           div[style*="position:sticky"][style*="top:0"],
