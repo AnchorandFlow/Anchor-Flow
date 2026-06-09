@@ -6069,13 +6069,13 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     var bgColor = hasAlert ? "rgba(200,131,74,0.05)" : "rgba(255,255,255,0.035)"
 
     return (
-      <div style={{ background: hasAlert ? "rgba(200,131,74,0.05)" : "rgba(22,36,64,0.55)", border: "1px solid " + (hasAlert ? "rgba(200,122,138,0.25)" : "rgba(200,169,122,0.12)"), borderRadius: 11, marginBottom: 8, overflow: "hidden", transition: "box-shadow 0.15s", backdropFilter: "blur(10px)" }}>
+      <div className="af-dash-card">
         {/* Header — always visible */}
-        <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", cursor: "pointer", transition: "background 0.12s", userSelect: "none" }} onMouseEnter={function(e){e.currentTarget.style.background="rgba(200,169,122,0.05)"}} onMouseLeave={function(e){e.currentTarget.style.background="transparent"}}>
+        <div onClick={function() { setOpen(function(p) { return !p }) }} className="af-dash-header">
           <span style={{ fontSize: 17, flexShrink: 0 }}>{icon}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontFamily: "DM Sans,sans-serif", fontSize: 13.3, fontWeight: 400, color: "#f5f0e8" }}>{label}</div>
+              <div className="af-dash-label">{label}</div>
               {summary.count > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.7)", background: "rgba(200,169,122,0.1)", borderRadius: 20, padding: "1px 7px" }}>{summary.count}</div>}
             </div>
             {summary.highlight && (
@@ -6095,18 +6095,18 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
         {/* Expanded content */}
         {open && (
-          <div style={{ borderTop: "1px solid rgba(200,169,122,0.07)", padding: "0 15px 12px" }}>
+          <div className="af-dash-body">
             {summary.count === 0 ? (
               <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>Nothing here yet — tap Open to add.</div>
             ) : (
               <div style={{ marginBottom: 10 }}>
                 {(summary.entries || []).map(function(e, i) {
                   return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 4px", borderBottom: i < (summary.entries.length - 1) ? "1px solid rgba(200,169,122,0.07)" : "none", borderRadius: 5, cursor: "pointer", transition: "all 0.11s" }} onMouseEnter={function(e){e.currentTarget.style.background="rgba(200,169,122,0.05)";e.currentTarget.style.paddingLeft="8px"}} onMouseLeave={function(e){e.currentTarget.style.background="transparent";e.currentTarget.style.paddingLeft="4px"}}>
-                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#c8a97a", flexShrink: 0, opacity: 0.5 }}/>
+                    <div key={i} className="af-dash-entry">
+                      <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#c8a97a", flexShrink: 0, opacity: 0.6 }}/>
                       <span style={{ flex: 1, fontSize: 12, color: "rgba(250,248,244,0.75)", fontFamily: "DM Sans,sans-serif" }}>
                         {e.label || e.name || e.text || "—"}
-                        {e.sub && <span style={{ color: "rgba(245,240,232,0.35)", marginLeft: 6, fontSize: 11 }}>{e.sub}</span>}
+                        {e.sub && <span style={{ color: "rgba(250,248,244,0.4)", marginLeft: 6 }}>{e.sub}</span>}
                       </span>
                       {e.badge && <span style={{ fontSize: 10, fontWeight: 700, color: e.badgeAlert ? "#c8834a" : "#c8a97a" }}>{e.badge}</span>}
                     </div>
@@ -6114,9 +6114,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
                 })}
               </div>
             )}
-            <div onClick={function() { onOpen(id) }} style={{ fontSize: 11, color: "rgba(245,240,232,0.35)", padding: "8px 4px 2px", cursor: "pointer", fontFamily: "DM Sans,sans-serif", transition: "color 0.12s" }} onMouseEnter={function(e){e.currentTarget.style.color="#c8a97a"}} onMouseLeave={function(e){e.currentTarget.style.color="rgba(245,240,232,0.35)"}}>
-              Open {label} →
-            </div>
+            <div onClick={function() { onOpen(id) }} className="af-dash-open">Open {label} →</div>
           </div>
         )}
       </div>
@@ -6177,12 +6175,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   return (
     <div style={{ paddingBottom: "2rem" }}>
       <div style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 24, fontWeight: 400, color: "#f5f0e8", letterSpacing: "0.01em", lineHeight: 1 }}>Anchor</div>
-            <div style={{ fontSize: 10.5, color: "rgba(245,240,232,0.32)", fontFamily: "DM Sans,sans-serif", marginTop: 4, lineHeight: 1.4 }}>Everything your family needs to run. Put it down.</div>
-          </div>
-        </div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 24, fontWeight: 400, color: "#f5f0e8", letterSpacing: "0.01em", lineHeight: 1 }}>Anchor</div>
+        <div style={{ fontSize: 10.5, color: "rgba(245,240,232,0.32)", fontFamily: "DM Sans,sans-serif", marginTop: 4, lineHeight: 1.4 }}>Everything your family needs to run. Put it down.</div>
       </div>
 
       <DashCard id="recurring" icon="🔁" label="Recurring Reminders" onOpen={onNavigate}
