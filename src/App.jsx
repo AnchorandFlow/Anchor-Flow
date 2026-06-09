@@ -2739,6 +2739,11 @@ function createLocalBackup() {
   });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
+  React.useEffect(function(){
+    function onShowEOD(){ setShowEndOfDay(true); }
+    window.addEventListener("af-show-eod", onShowEOD);
+    return function(){ window.removeEventListener("af-show-eod", onShowEOD); };
+  }, []);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
   const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
   // Personal anchor items — per user, stored separately so each person has their own morning checklist
@@ -4264,10 +4269,10 @@ Respond ONLY with valid JSON array, no markdown:
     }
 
     if(closing) return (
-      <div style={{position:"fixed",inset:0,background:"linear-gradient(170deg,#24364D 0%,#3D4F5C 20%,#5C4A42 38%,#A57B68 58%,#E6A57E 78%,#F1C49A 100%)",backdropFilter:"blur(4px)",zIndex:1500,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1.5rem) 1.5rem env(safe-area-inset-bottom,1.5rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-        <div style={{background:"rgba(36,54,77,0.82)",border:"1px solid rgba(230,165,126,0.2)",backdropFilter:"blur(16px)",borderRadius:"1.5rem",padding:"2rem",maxWidth:420,width:"100%",textAlign:"center",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 3rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(170deg,#24364D 0%,#3D4F5C 20%,#5C4A42 38%,#A57B68 58%,#E6A57E 78%,#F1C49A 100%)",zIndex:1500,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1.5rem) 1.5rem env(safe-area-inset-bottom,1.5rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+        <div style={{background:"rgba(36,54,77,0.85)",border:"1px solid rgba(241,196,154,0.18)",backdropFilter:"blur(20px)",borderRadius:"1.5rem",padding:"2rem",maxWidth:420,width:"100%",textAlign:"center",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 3rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>🌇</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.9rem",fontWeight:300,color:"#F1C49A",marginBottom:"0.4rem"}}>You made it.</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.9rem",fontWeight:300,color:"#F1C49A",marginBottom:"0.5rem"}}>You made it.</div>
           {done.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",justifyContent:"center",marginBottom:"0.75rem"}}>{done.map(t=><span key={t.id} style={{background:T.sagePale,color:T.sageDark,borderRadius:"2rem",padding:"0.2rem 0.65rem",fontSize:"0.73rem",fontWeight:600}}>✓ {t.text}</span>)}</div>}
           {reflLoad?<div style={{color:T.textFaint,fontSize:"0.85rem",margin:"1rem 0"}}>✨ Reflecting on your day...</div>:(
             <>
@@ -4281,11 +4286,11 @@ Respond ONLY with valid JSON array, no markdown:
     );
 
     return (
-      <div style={{position:"fixed",inset:0,background:"linear-gradient(170deg,#24364D 0%,#3D4F5C 20%,#5C4A42 38%,#A57B68 58%,#E6A57E 78%,#F1C49A 100%)",backdropFilter:"blur(4px)",zIndex:1500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-        <div style={{background:"rgba(36,54,77,0.88)",border:"1px solid rgba(230,165,126,0.18)",backdropFilter:"blur(16px)",borderRadius:"1.4rem 1.4rem 0 0",padding:"1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom,0px))",maxWidth:520,width:"100%",maxHeight:"calc(90dvh - env(safe-area-inset-top,0px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+      <div style={{position:"fixed",inset:0,background:"linear-gradient(170deg,#24364D 0%,#3D4F5C 20%,#5C4A42 38%,#A57B68 58%,#E6A57E 78%,#F1C49A 100%)",zIndex:1500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+        <div style={{background:"rgba(36,54,77,0.90)",border:"1px solid rgba(241,196,154,0.15)",backdropFilter:"blur(20px)",borderRadius:"1.4rem 1.4rem 0 0",padding:"1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom,0px))",maxWidth:520,width:"100%",maxHeight:"calc(90dvh - env(safe-area-inset-top,0px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{width:40,height:4,borderRadius:2,background:"rgba(241,196,154,0.3)",margin:"0 auto 1rem"}}/>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:300,color:"#F1C49A",marginBottom:"0.2rem",textAlign:"center"}}>🌇 Sunset</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"0.88rem",fontStyle:"italic",color:"rgba(241,196,154,0.6)",marginBottom:"1.25rem",textAlign:"center"}}>As the sun sets on today — let's gather what mattered.</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:"0.88rem",color:"rgba(241,196,154,0.55)",marginBottom:"1.25rem",textAlign:"center"}}>As the sun sets on today — let's gather what mattered.</div>
 
           {/* Card 1: Tasks */}
           <div style={{background:"rgba(122,158,142,0.08)",border:"1.5px solid "+T.sage,borderRadius:"1rem",padding:"1rem",marginBottom:"0.75rem"}}>
@@ -4344,7 +4349,7 @@ Respond ONLY with valid JSON array, no markdown:
             ))}
           </div>
 
-          <button onClick={closeDay} style={{...btnP("linear-gradient(135deg,rgba(230,165,126,0.25),rgba(93,123,122,0.2))",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem",border:"1px solid rgba(230,165,126,0.3)",color:"#F1C49A",fontFamily:"'Cormorant Garamond',serif",fontWeight:300,letterSpacing:"0.04em"})}}>
+          <button onClick={closeDay} style={{width:"100%",padding:"0.9rem",fontSize:"0.92rem",borderRadius:"1rem",border:"1px solid rgba(241,196,154,0.3)",background:"rgba(241,196,154,0.08)",color:"#F1C49A",cursor:"pointer",fontFamily:"'Cormorant Garamond',serif",fontWeight:300,letterSpacing:"0.04em"}}>
             Good night ✦
           </button>
           <button onClick={()=>setShowEndOfDay(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit",width:"100%",marginTop:"0.5rem",padding:"0.3rem"}}>Not tonight</button>
@@ -4556,7 +4561,7 @@ Respond ONLY in valid JSON:
     }
 
     return (
-      <div>
+      <div className="af-flow-bg" style={{minHeight:"100%"}}>
         {/* ── Hero greeting card ── */}
         <div style={{background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
@@ -7396,7 +7401,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     return (
-      <div style={{paddingBottom:"2rem"}}>
+      <div className="af-flow-bg" style={{paddingBottom:"2rem",minHeight:"100%"}}>
         {/* Exhale header */}
         <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem",position:"relative"}}>
           <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
@@ -7661,7 +7666,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var tealHex = "#1d9e75";
 
     return (
-      <div>
+      <div className="af-flow-bg" style={{minHeight:"100%"}}>
         <div style={{textAlign:"center",marginBottom:"1.25rem",position:"relative"}}>
           <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
             <Icon name="arrow-left" size={17} color={T.textSoft}/>
@@ -8848,7 +8853,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function PublicOverview() {
       var [notes, setNotes] = React.useState(childData.public.notes || "");
       return (
-        <div>
+        <div className="af-flow-bg" style={{minHeight:"100%"}}>
           <div style={card()}>
             <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>📝 Important Notes</div>
             <textarea value={notes} onChange={function(e) { setNotes(e.target.value); }} onBlur={function() { savePub({ notes: notes }); }} placeholder="Allergies, accommodations, drop-off details, nurse info..." style={Object.assign({}, inp(), { minHeight: "90px", resize: "vertical" })} />
@@ -10487,6 +10492,90 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1.1)}}
         @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
         [draggable]:active{cursor:grabbing!important}
+
+        /* ══ MOCKUP DESIGN SYSTEM ═══════════════════════════════════════ */
+
+        /* ── FLOW sea-glass palette ── */
+        .af-flow-bg { background: #dce8e2 !important; }
+        .af-flow-bg input, .af-flow-bg textarea, .af-flow-bg select {
+          background: rgba(255,255,255,0.82) !important;
+          color: #1a2e3a !important;
+          border-color: rgba(100,148,130,0.3) !important;
+        }
+        /* Card backgrounds inside flow */
+        .af-flow-bg .af-card { background: rgba(255,255,255,0.82); border-color: rgba(100,148,130,0.18); box-shadow: 0 1px 8px rgba(26,46,58,.06); }
+        /* Section headings in flow */
+        .af-flow-bg .af-section-eyebrow { color: #3d7a6e; }
+        .af-flow-bg .af-section-title { color: #1a2e3a; }
+        .af-flow-bg .af-nudge { background: rgba(61,122,110,0.07); border-color: rgba(61,122,110,0.16); }
+        .af-flow-bg .af-nudge-text { color: rgba(26,46,58,0.68); }
+        .af-flow-bg .af-nudge-text strong { color: #1a2e3a; }
+
+        /* ── RIPPLES deep cove teal ── */
+        .af-ripples-bg { background: #2f5d62 !important; color: #f5f0e8 !important; }
+        .af-ripples-bg > div > div { background: transparent; }
+        .af-ripples-bg input, .af-ripples-bg textarea {
+          background: rgba(36,72,76,0.7) !important;
+          color: #f5f0e8 !important;
+          border-color: rgba(183,212,207,0.2) !important;
+        }
+        .af-ripples-bg .af-card { background: rgba(36,72,76,.65); border-color: rgba(183,212,207,.13); backdrop-filter: blur(12px); }
+
+        /* ── ANCHOR accordion ── */
+        .af-anc-mod { background: rgba(22,36,64,.55); border: 1px solid rgba(200,169,122,.12); border-radius: 11px; overflow: hidden; transition: box-shadow .15s; margin-bottom: 0; }
+        .af-anc-mod:hover { box-shadow: 0 2px 12px rgba(0,0,0,.12); }
+        .af-anc-row { display: flex; align-items: center; gap: 10px; padding: 13px 15px; cursor: pointer; user-select: none; transition: background .12s; }
+        .af-anc-row:hover { background: rgba(200,169,122,.05); }
+        .af-anc-ico { font-size: 1.1rem; flex-shrink: 0; }
+        .af-anc-label { flex: 1; font-size: .83rem; color: #f5f0e8; font-weight: 400; line-height: 1; }
+        .af-anc-sub { display: block; font-size: .59rem; color: rgba(245,240,232,.32); margin-top: 3px; font-weight: 300; }
+        .af-anc-badge { font-size: .58rem; padding: 2px 8px; border-radius: 20px; background: rgba(200,169,122,.10); color: #c8a97a; border: 1px solid rgba(200,169,122,.12); }
+        .af-anc-badge-warn { background: rgba(200,122,138,.1); color: #c87a8a; border-color: rgba(200,122,138,.2); }
+        .af-anc-chv { font-size: .47rem; color: rgba(245,240,232,.32); flex-shrink: 0; transition: transform .22s; display: inline-block; }
+        .af-anc-chv.open { transform: rotate(90deg); }
+        .af-anc-body { padding: 0 15px 12px; border-top: 1px solid rgba(200,169,122,.07); }
+        .af-anc-section-lbl { font-size: .57rem; letter-spacing: .18em; text-transform: uppercase; color: rgba(245,240,232,.32); padding: 10px 0 4px; display: flex; align-items: center; gap: 7px; }
+        .af-anc-section-lbl::after { content: ''; flex: 1; height: 1px; background: rgba(200,169,122,.07); }
+        .af-anc-item { display: flex; align-items: center; gap: 9px; padding: 8px 4px; border-bottom: 1px solid rgba(200,169,122,.07); cursor: pointer; transition: all .11s; border-radius: 5px; }
+        .af-anc-item:last-child { border-bottom: none; }
+        .af-anc-item:hover { background: rgba(200,169,122,.05); padding-left: 8px; }
+        .af-anc-item-ico { font-size: .85rem; flex-shrink: 0; }
+        .af-anc-item-text { flex: 1; font-size: .76rem; color: #f5f0e8; }
+        .af-anc-item-status { font-size: .61rem; color: rgba(245,240,232,.32); white-space: nowrap; }
+        .af-anc-item-status-ok { color: #7eb89a; }
+        .af-anc-item-status-warn { color: #c87a8a; }
+
+        /* ── PAGE HEADER ── */
+        .af-page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 4px; }
+        .af-page-title { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 400; color: #f5f0e8; line-height: 1; }
+        .af-page-sub { font-size: .67rem; color: rgba(245,240,232,.32); margin-top: 4px; }
+
+        /* ── CARD ── */
+        .af-card { background: rgba(22,36,64,.55); border: 1px solid rgba(200,169,122,.12); border-radius: 11px; backdrop-filter: blur(10px); overflow: hidden; }
+        .af-card-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 15px 9px; cursor: pointer; transition: background .12s; }
+        .af-card-header:hover { background: rgba(200,169,122,.05); }
+        .af-card-eyebrow { font-size: .54rem; letter-spacing: .2em; text-transform: uppercase; color: #c8a97a; font-weight: 500; margin-bottom: 2px; }
+        .af-card-title { font-family: 'Cormorant Garamond', serif; font-size: .88rem; font-weight: 500; color: #f5f0e8; }
+        .af-card-body { padding: 10px 15px 13px; }
+
+        /* ── NUDGE ── */
+        .af-nudge { display: flex; align-items: center; gap: 9px; padding: 8px 12px; background: rgba(200,169,122,.05); border: 1px solid rgba(200,169,122,.12); border-radius: 9px; }
+        .af-nudge-warn { background: rgba(200,122,138,.06); border-color: rgba(200,122,138,.18); }
+        .af-nudge-text { font-size: .71rem; color: rgba(245,240,232,.60); flex: 1; line-height: 1.4; }
+        .af-nudge-text strong { color: #f5f0e8; font-weight: 400; }
+
+        /* ── RIPPLES tab bar ── */
+        .af-rip-tabs { display: flex; gap: 3px; background: rgba(29,58,62,.5); border: 1px solid rgba(183,212,207,.1); border-radius: 10px; padding: 3px; }
+        .af-rip-tab { padding: 6px 13px; border-radius: 7px; font-size: .72rem; color: rgba(245,240,232,.4); cursor: pointer; transition: all .15s; border: 1px solid transparent; }
+        .af-rip-tab:hover { color: rgba(245,240,232,.65); }
+        .af-rip-tab.active { background: rgba(183,212,207,.14); color: rgba(245,240,232,.88); border-color: rgba(183,212,207,.18); }
+
+        /* ── SchoolTab sea-glass ── */
+        .af-school-bg { background: #dce8e2 !important; }
+
+        /* ── Sidebar scrollbar ── */
+        nav::-webkit-scrollbar { width: 3px; }
+        nav::-webkit-scrollbar-thumb { background: rgba(200,169,122,0.15); border-radius: 2px; }
       `}</style>
 
       {/* ── In-app notification banner (iOS + fallback) ── */}
@@ -10574,7 +10663,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   syncNow={syncNow} lastSyncTime={lastSyncTime}
                   card={card}
                 />}
-                {t==="ai" && <RippleTab/>}
+                {t==="ai" && <div className="af-ripples-bg" style={{minHeight:"100%",padding:"0"}}><RippleTab/></div>}
               </div>
             );
           })}
@@ -10836,17 +10925,17 @@ function FlowWrapper({ onHome, onSignOut }) {
   const [showAnchor, setShowAnchor] = React.useState(false)
   const [vaultSection, setVaultSection] = React.useState("home")
   const NAV = [
-    { id: "anchor",   label: "Today",      emoji: "🏠" },
-    { id: "brain",    label: "Exhale",     emoji: "🌬️" },
-    { id: "calendar", label: "Calendar",   emoji: "📆" },
-    { id: "meals",    label: "Meals",      emoji: "🍽️" },
-    { id: "shop",     label: "Shopping",   emoji: "🛒" },
-    { id: "tidepool", label: "Tide Pool",  emoji: "🐚" },
-    { id: "cove",     label: "Coves",      emoji: "🗺️" },
-    { id: "home",     label: "Home",       emoji: "🏡" },
-    { id: "weekly",   label: "Rhythm",     emoji: "📅" },
-    { id: "school",   label: "Lighthouse", emoji: "🏮" },
-    { id: "settings", label: "Settings",   emoji: "⚙️" },
+    { id: "anchor",   label: "Today",      emoji: "🏠",  sub: "Family briefing" },
+    { id: "brain",    label: "Exhale",     emoji: "🌬️", sub: "" },
+    { id: "calendar", label: "Calendar",   emoji: "📆",  sub: "" },
+    { id: "meals",    label: "Meals",      emoji: "🍽️", sub: "" },
+    { id: "shop",     label: "Shopping",   emoji: "🛒",  sub: "" },
+    { id: "tidepool", label: "Tide Pool",  emoji: "🐚",  sub: "" },
+    { id: "cove",     label: "Coves",      emoji: "🗺️", sub: "" },
+    { id: "home",     label: "Home",       emoji: "🏡",  sub: "" },
+    { id: "weekly",   label: "Rhythm",     emoji: "📅",  sub: "" },
+    { id: "school",   label: "Lighthouse", emoji: "🏮",  sub: "" },
+    { id: "settings", label: "Settings",   emoji: "⚙️", sub: "" },
   ]
   const VAULT_NAV = [
     { id: "recurring", label: "Reminders", emoji: "🔁" },
@@ -10882,75 +10971,105 @@ function FlowWrapper({ onHome, onSignOut }) {
   }, [sections, activeTab])
   return (
     <div style={{ display: "flex", minHeight: "100dvh" }}>
-      <div style={{ width: "196px", background: "#0e1b2e", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "14px 8px 16px", gap: "1px", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 200, borderRight: "1px solid rgba(200,169,122,0.08)", overflowY: "auto" }}>
-        <button onClick={onHome} style={{ background: "none", border: "none", cursor: "pointer", marginBottom: "8px", padding: "6px 0", width: "100%", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.05rem", color: "#f5f0e8", letterSpacing: "0.02em", lineHeight: 1.1, textAlign: "left", paddingLeft: "4px" }}>Anchor <span style={{color:"#c8a97a",fontStyle:"italic"}}>& </span><span style={{color:"#c8a97a"}}>Flow</span></div>
-        </button>
-
-        {/* ── ⚓ Anchor vault button — always visible ── */}
-        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor" style={{ background: showAnchor ? "rgba(200,169,122,0.10)" : "none", border: "none", borderLeft: showAnchor ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", marginBottom: "2px", flexShrink: 0, transition: "all 0.15s" }}>
-          <span style={{ fontSize: "0.88rem" }}>⚓</span>
-          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-            <span style={{ fontSize: "0.78rem", color: showAnchor ? "#dfc49a" : "rgba(245,240,232,0.55)", fontWeight: showAnchor ? 600 : 400, fontFamily: "'DM Sans', sans-serif" }}>Anchor</span>
-            <span style={{ fontSize: "0.57rem", color: "rgba(245,240,232,0.32)", fontFamily: "'DM Sans', sans-serif", marginTop: "1px" }}>Everything you carry</span>
-          </div>
-        </button>
-
-        <div style={{ width: "calc(100% - 16px)", height: "1px", background: "rgba(200,169,122,0.07)", margin: "6px 8px", flexShrink: 0 }} />
-
-        {showAnchor ? (
-          <>
-            {/* ── 🌊 Flow — always shown even inside vault ── */}
-            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Today" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", transition: "all 0.15s", flexShrink: 0, opacity: 0.6 }}>
-              <span style={{ fontSize: "0.82rem", lineHeight: 1 }}>🏠</span>
-              <span style={{ fontSize: "0.72rem", color: "rgba(200,169,122,0.6)", fontWeight: 500, fontFamily: "'DM Sans', sans-serif" }}>← Today</span>
-            </button>
-            <div style={{ width: "calc(100% - 16px)", height: "1px", background: "rgba(200,169,122,0.07)", margin: "4px 8px", flexShrink: 0 }} />
-            {/* ── Vault section nav ── */}
-            {VAULT_NAV.map(item => {
-              var isActive = vaultSection === item.id;
-              var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
-              return (
-                <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.10)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "8px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1, flexShrink: 0 }}>
-                  <span style={{ fontSize: "0.82rem", lineHeight: 1 }}>{item.emoji}</span>
-                  <span style={{ fontSize: "0.72rem", color: isActive ? "#dfc49a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 600 : 400, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.01em" }}>{item.label}</span>
-                </button>
-              );
-            })}
-          </>
-        ) : (
-          /* ── Regular app nav ── */
-          NAV.map(item => {
-            var isActive = !showAnchor && activeTab === item.id;
-            var isHidden = item.id !== "settings" && item.id !== "anchor" && item.id !== "cove" && sections && sections[item.id] === false;
-            if (isHidden) return null;
-            return (
-              <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.10)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 9px 9px 0", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", transition: "all 0.15s", flexShrink: 0 }}>
-                <span style={{ fontSize: "0.88rem", lineHeight: 1, opacity: isActive ? 1 : 0.55, flexShrink: 0 }}>{item.emoji}</span>
-                <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-                  <span style={{ fontSize: "0.78rem", color: isActive ? "#dfc49a" : "rgba(245,240,232,0.55)", fontWeight: isActive ? 600 : 400, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.01em", lineHeight: 1 }}>{item.label}</span>
-                </div>
-              </button>
-            );
-          })
-        )}
-        <div style={{ marginTop: "auto", flexShrink: 0 }}>
-          <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "9px 10px", width: "100%", display: "flex", flexDirection: "row", alignItems: "center", gap: "8px", opacity: 0.4, color: "#faf8f4", fontFamily: "'DM Sans', sans-serif", fontSize: "0.73rem", transition: "opacity 0.15s" }} onMouseEnter={e=>e.currentTarget.style.opacity="0.75"} onMouseLeave={e=>e.currentTarget.style.opacity="0.4"}><span style={{fontSize:"0.82rem"}}>→</span>Sign out</button>
+      <nav style={{ width:"196px", background:"#0e1b2e", display:"flex", flexDirection:"column", padding:"13px 10px 14px", gap:"1px", position:"fixed", top:0, left:0, bottom:0, zIndex:200, borderRight:"1px solid rgba(200,169,122,0.08)", overflowY:"auto" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"4px 2px 10px" }}>
+          <button onClick={onHome} style={{ background:"none", border:"none", cursor:"pointer", fontFamily:"'Cormorant Garamond',serif", fontSize:"1.1rem", fontWeight:500, color:"#f5f0e8", padding:0 }}>
+            Anchor <span style={{ color:"#c8a97a", fontStyle:"italic", fontWeight:300 }}>&amp;</span> <span style={{ color:"#c8a97a" }}>Flow</span>
+          </button>
+          <button onClick={() => _setActiveTab("settings")} style={{ width:26, height:26, borderRadius:7, border:"1px solid rgba(200,169,122,0.12)", background:"none", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"0.75rem", cursor:"pointer", color:"rgba(245,240,232,0.4)" }}>⚙️</button>
         </div>
-      </div>
+        <div style={{ height:1, background:"rgba(200,169,122,0.07)", margin:"0 4px 4px" }} />
+
+        <div onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }}
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", borderRadius:9, cursor:"pointer", transition:"all 0.15s", borderLeft:(!showAnchor&&activeTab==="anchor")?"2px solid #c8a97a":"2px solid transparent", background:(!showAnchor&&activeTab==="anchor")?"rgba(200,169,122,0.10)":"none" }}>
+          <span style={{ fontSize:"0.88rem" }}>🏠</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:"0.81rem", color:(!showAnchor&&activeTab==="anchor")?"#dfc49a":"rgba(245,240,232,0.55)", fontWeight:(!showAnchor&&activeTab==="anchor")?600:400, fontFamily:"'DM Sans',sans-serif" }}>Today</div>
+            <div style={{ fontSize:"0.57rem", color:"rgba(245,240,232,0.3)", fontFamily:"'DM Sans',sans-serif", marginTop:1 }}>Family briefing</div>
+          </div>
+        </div>
+
+        <div style={{ height:1, background:"rgba(200,169,122,0.07)", margin:"4px 4px" }} />
+        <div style={{ fontSize:"0.55rem", color:"rgba(245,240,232,0.28)", textTransform:"uppercase", letterSpacing:"0.1em", padding:"4px 10px 2px", fontFamily:"'DM Sans',sans-serif" }}>Flow</div>
+        {["brain","tidepool","school","weekly","calendar"].map(function(id){
+          var item=NAV.find(function(n){return n.id===id;});
+          if(!item)return null;
+          var isActive=!showAnchor&&activeTab===id;
+          if(sections&&sections[id]===false)return null;
+          return (
+            <div key={id} onClick={function(){setShowAnchor(false);_setActiveTab(id);}}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px 5px 20px", borderRadius:7, cursor:"pointer", transition:"all 0.11s", background:isActive?"rgba(200,169,122,0.08)":"none", borderLeft:isActive?"2px solid #c8a97a":"2px solid transparent" }}>
+              <span style={{ fontSize:"0.75rem", opacity:0.7 }}>{item.emoji}</span>
+              <span style={{ fontSize:"0.72rem", color:isActive?"#dfc49a":"rgba(245,240,232,0.45)", fontFamily:"'DM Sans',sans-serif" }}>{item.label}</span>
+            </div>
+          );
+        })}
+
+        <div style={{ height:1, background:"rgba(200,169,122,0.07)", margin:"4px 4px" }} />
+
+        <div onClick={function(){setShowAnchor(true);setVaultSection("home");}}
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", borderRadius:9, cursor:"pointer", transition:"all 0.15s", borderLeft:showAnchor?"2px solid #c8a97a":"2px solid transparent", background:showAnchor?"rgba(200,169,122,0.10)":"none" }}>
+          <span style={{ fontSize:"0.88rem" }}>⚓</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:"0.81rem", color:showAnchor?"#dfc49a":"rgba(245,240,232,0.55)", fontWeight:showAnchor?600:400, fontFamily:"'DM Sans',sans-serif" }}>Anchor</div>
+            <div style={{ fontSize:"0.57rem", color:"rgba(245,240,232,0.3)", fontFamily:"'DM Sans',sans-serif", marginTop:1 }}>Everything you carry</div>
+          </div>
+        </div>
+        {showAnchor&&VAULT_NAV.map(function(item){
+          var isActive=vaultSection===item.id;
+          var isDimmed=item.id!=="settings"&&item.id!=="home"&&anchorHidden[item.id];
+          return (
+            <div key={item.id} onClick={function(){setVaultSection(item.id);}}
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px 5px 20px", borderRadius:7, cursor:"pointer", transition:"all 0.11s", background:isActive?"rgba(200,169,122,0.08)":"none", borderLeft:isActive?"2px solid #c8a97a":"2px solid transparent", opacity:isDimmed?0.35:1 }}>
+              <span style={{ fontSize:"0.75rem", opacity:0.7 }}>{item.emoji}</span>
+              <span style={{ fontSize:"0.72rem", color:isActive?"#dfc49a":"rgba(245,240,232,0.45)", fontFamily:"'DM Sans',sans-serif" }}>{item.label}</span>
+            </div>
+          );
+        })}
+
+        <div style={{ height:1, background:"rgba(200,169,122,0.07)", margin:"4px 4px" }} />
+
+        <div onClick={function(){setShowAnchor(false);_setActiveTab("ai");}}
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", borderRadius:9, cursor:"pointer", transition:"all 0.15s", borderLeft:(!showAnchor&&activeTab==="ai")?"2px solid #c8a97a":"2px solid transparent", background:(!showAnchor&&activeTab==="ai")?"rgba(200,169,122,0.10)":"none" }}>
+          <span style={{ fontSize:"0.88rem" }}>✨</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:"0.81rem", color:(!showAnchor&&activeTab==="ai")?"#dfc49a":"rgba(245,240,232,0.55)", fontWeight:(!showAnchor&&activeTab==="ai")?600:400, fontFamily:"'DM Sans',sans-serif" }}>Ripples</div>
+            <div style={{ fontSize:"0.57rem", color:"rgba(245,240,232,0.3)", fontFamily:"'DM Sans',sans-serif", marginTop:1 }}>Family story</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop:"auto", paddingTop:10, display:"flex", flexDirection:"column", gap:2 }}>
+          <div style={{ height:1, background:"rgba(200,169,122,0.07)", margin:"0 4px 6px" }} />
+          <div onClick={function(){window.dispatchEvent(new CustomEvent("af-show-eod"));}}
+            style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px", borderRadius:9, cursor:"pointer", color:"rgba(245,240,232,0.38)", transition:"all 0.15s" }}
+            onMouseEnter={function(e){e.currentTarget.style.background="rgba(230,165,126,0.08)";e.currentTarget.style.color="#F1C49A";}}
+            onMouseLeave={function(e){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(245,240,232,0.38)";}}>
+            <span style={{ fontSize:"1rem" }}>🌇</span>
+            <div>
+              <div style={{ fontSize:"0.8rem", fontFamily:"'DM Sans',sans-serif" }}>Sunset</div>
+              <div style={{ fontSize:"0.57rem", opacity:0.7, fontFamily:"'DM Sans',sans-serif" }}>Close the day</div>
+            </div>
+          </div>
+          <div onClick={onSignOut}
+            style={{ display:"flex", alignItems:"center", gap:9, padding:"9px 10px", borderRadius:9, cursor:"pointer", color:"rgba(245,240,232,0.38)", transition:"all 0.15s" }}
+            onMouseEnter={function(e){e.currentTarget.style.background="rgba(200,122,138,0.08)";e.currentTarget.style.color="#c87a8a";}}
+            onMouseLeave={function(e){e.currentTarget.style.background="transparent";e.currentTarget.style.color="rgba(245,240,232,0.38)";}}>
+            <span style={{ fontSize:"1rem" }}>→</span>
+            <div style={{ fontSize:"0.8rem", fontFamily:"'DM Sans',sans-serif" }}>Sign out</div>
+          </div>
+        </div>
+      </nav>
       <div style={{ marginLeft: "196px", flex: 1, minWidth: 0 }}>
         <style>{`
-          div[style*="bottom:0,left:0,right:0"],
           div[style*="position:sticky"][style*="top:0"],
-          div[style*="borderBottom"][style*="sticky"],
-          div[style*="topBg"],
           div[style*="bottom: 0"][style*="left: 0"][style*="right: 0"],
           div[style*="bottom:0"][style*="left:0"][style*="right:0"] {
             display: none !important;
           }
+          nav::-webkit-scrollbar { width: 3px; }
+          nav::-webkit-scrollbar-thumb { background: rgba(200,169,122,0.15); border-radius: 2px; }
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
-
         <ErrorBoundary>
           <HomeFlow />
         </ErrorBoundary>
@@ -10958,7 +11077,6 @@ function FlowWrapper({ onHome, onSignOut }) {
     </div>
   )
 }
-
 export default function App() {
   const [session, setSession] = React.useState(undefined)
   const [mode, setMode] = React.useState(null)
