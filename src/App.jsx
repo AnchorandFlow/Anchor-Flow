@@ -2489,6 +2489,26 @@ function createLocalBackup() {
   homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
+  // Forecast: tracks whether user has chosen today's forecast mode
+  // Stored in sessionStorage so it resets each new browser session (once per day feel)
+  const [forecastChosen, setForecastChosen] = useState(function() {
+    try {
+      const stored = sessionStorage.getItem("af_forecastDate");
+      return stored === TODAY.toDateString();
+    } catch { return false; }
+  });
+  function chooseForecast(mode) {
+    setFlowMode(mode);
+    setForecastChosen(true);
+    try { sessionStorage.setItem("af_forecastDate", TODAY.toDateString()); } catch {}
+    // Open the day briefing immediately after forecast selection
+    setAnchorDayOpen(true);
+  }
+  function resetForecast() {
+    setForecastChosen(false);
+    setAnchorDayOpen(false);
+    try { sessionStorage.removeItem("af_forecastDate"); } catch {}
+  }
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
   const [tasks,setTasks]                       = useSaved("tasks",[]);
   // meals — sanitized at read time; rolls over to next week's plan if the calendar week has changed
@@ -4357,6 +4377,69 @@ Respond ONLY with valid JSON array, no markdown:
 
 
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
+
+  // ── Forecast Screen ─────────────────────────────────────────────────────────
+  // Shown once per day before the briefing. Maps to existing flowMode values.
+  function ForecastScreen() {
+    const modes = [
+      { key: "Smooth",   emoji: "⚓️", label: "Calm Seas",     sub: "Feeling balanced",  color: "#7a9e8e", bg: "rgba(122,158,142,0.12)", border: "rgba(122,158,142,0.35)" },
+      { key: "Busy",     emoji: "🌊", label: "Some Waves",    sub: "A bit stretched",   color: "#6A9BB5", bg: "rgba(106,155,181,0.12)", border: "rgba(106,155,181,0.35)" },
+      { key: "Survival", emoji: "🛟", label: "Survival Mode", sub: "Just today",        color: "#c87a8a", bg: "rgba(200,122,138,0.12)", border: "rgba(200,122,138,0.35)" },
+    ];
+    const name = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null);
+    const todayWeather = weatherData && weatherData.find(function(d){ return d.date === TODAY.toISOString().split("T")[0]; });
+
+    return (
+      <div style={{minHeight:"70vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem 1.25rem",textAlign:"center"}}>
+        {/* Date + weather */}
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
+          <div style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.85)",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
+          {todayWeather && (
+            <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:"rgba(255,255,255,0.08)",borderRadius:"50px",padding:"2px 8px"}}>
+              <span style={{fontSize:"0.85rem"}}>{todayWeather.emoji}</span>
+              <span style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(250,248,244,0.85)"}}>{todayWeather.high}°</span>
+            </div>
+          )}
+          {!weatherLocation && (
+            <button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>
+          )}
+        </div>
+
+        {/* Greeting */}
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2.1rem",fontWeight:700,color:"#faf8f4",lineHeight:1.1,marginBottom:"0.4rem"}}>
+          Good morning{name ? ", "+name : ""} ✦
+        </div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontStyle:"italic",color:"rgba(245,240,232,0.5)",marginBottom:"2.5rem",lineHeight:1.5}}>
+          What's the forecast today?
+        </div>
+
+        {/* Mode buttons */}
+        <div style={{display:"flex",flexDirection:"column",gap:"0.75rem",width:"100%",maxWidth:320}}>
+          {modes.map(function(m) {
+            return (
+              <button key={m.key} onClick={function(){ chooseForecast(m.key); }}
+                style={{display:"flex",alignItems:"center",gap:"1rem",padding:"1rem 1.25rem",background:m.bg,border:"2px solid "+m.border,borderRadius:"1.2rem",cursor:"pointer",transition:"all 0.18s",textAlign:"left",width:"100%",fontFamily:"inherit"}}
+                onMouseEnter={function(e){ e.currentTarget.style.transform="translateX(3px)"; e.currentTarget.style.borderColor=m.color; }}
+                onMouseLeave={function(e){ e.currentTarget.style.transform=""; e.currentTarget.style.borderColor=m.border; }}
+              >
+                <span style={{fontSize:"1.8rem",flexShrink:0}}>{m.emoji}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#faf8f4",lineHeight:1.1}}>{m.label}</div>
+                  <div style={{fontSize:"0.72rem",color:"rgba(245,240,232,0.5)",marginTop:"0.15rem"}}>{m.sub}</div>
+                </div>
+                <span style={{fontSize:"0.85rem",color:m.color,opacity:0.7}}>→</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{marginTop:"1.75rem",fontSize:"0.68rem",color:"rgba(245,240,232,0.3)",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>
+          Compass will shape your day around your answer.
+        </div>
+      </div>
+    );
+  }
+
   function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
     const [newTaskPerson,setNewTaskPerson] = useState("");
@@ -4555,6 +4638,11 @@ Respond ONLY in valid JSON:
       }
     }
 
+    // Show forecast screen if user hasn't chosen today's mode yet
+    if (!forecastChosen) {
+      return <ForecastScreen />;
+    }
+
     return (
       <div>
         {/* ── Hero greeting card ── */}
@@ -4579,11 +4667,14 @@ Respond ONLY in valid JSON:
             <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color="#faf8f4"/></button>
           </div>
 
-          {/* Flow mode chips */}
-          <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-            {Object.entries(FM).map(([mode,m])=>(
-              <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
-            ))}
+          {/* Flow mode chips + reset forecast */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
+            <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
+              {Object.entries(FM).map(([mode,m])=>(
+                <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
+              ))}
+            </div>
+            <button onClick={resetForecast} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.62rem",color:"rgba(250,248,244,0.3)",fontFamily:"inherit",padding:"2px 4px",flexShrink:0}} title="Reset today's forecast">✕ reset</button>
           </div>
           {flowMode!=="Survival"
             ?<div style={{fontSize:"0.7rem",color:"rgba(250,248,244,0.45)",marginBottom:"0.75rem",paddingLeft:"0.2rem",fontStyle:"italic"}}>Hard day? Tap 🛟 Survival — it's okay.</div>
