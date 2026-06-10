@@ -11097,7 +11097,7 @@ function FlowWrapper({ onHome, onSignOut }) {
   }, [sections, activeTab])
   return (
     <div style={{ display: "flex", minHeight: "100dvh" }}>
-      <nav className="af-sidebar">
+      <nav className="af-sidebar" style={{position:"fixed",top:0,left:0,bottom:0,width:"196px",background:"#0e1b2e",display:"flex",flexDirection:"column",overflowY:"auto",zIndex:200,borderRight:"1px solid rgba(200,169,122,0.08)"}}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"4px 2px 10px" }}>
           <button className="af-wordmark" onClick={onHome}>
             Anchor <span style={{ color:"#c8a97a", fontStyle:"italic", fontWeight:300 }}>&amp;</span> <span style={{ color:"#c8a97a" }}>Flow</span>
