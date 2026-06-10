@@ -2791,7 +2791,7 @@ function createLocalBackup() {
     } catch { return null; }
   });
 
-  const fm = FM[flowMode];
+  const fm = FM[flowMode] || FM[Object.keys(FM)[0]];
   const close = () => setModal(null);
   const MEALS_TO_SHOW = mealCount===1?["dinner"]:mealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
 
