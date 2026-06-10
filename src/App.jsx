@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
 import { askFamily } from "./compass/compassEngine";
+import TodayBriefing from "./shell/TodayBriefing";
+import CompassFab from "./shell/CompassFab";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
@@ -2787,6 +2789,7 @@ function createLocalBackup() {
   const [anchorNotifFor,setAnchorNotifFor]         = useState(null);
   const [insights,setInsights]                     = useSaved("insights",null);
   const [insightsBuilt,setInsightsBuilt]           = useSaved("insightsBuilt",null);
+  const [compassCache,setCompassCache] = useSaved("compassCache",{});
   const [insightsLoading,setInsightsLoading]       = useState(false);
   const [dismissedInsights,setDismissedInsights]   = useSaved("dismissedInsights",[]);
   const [expandedInsightReason,setExpandedInsightReason] = useState(null);
@@ -4586,7 +4589,7 @@ Respond ONLY in valid JSON:
     return (
       <div>
         {/* ── Hero greeting card ── */}
-        <div style={{background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
+        <div style={{display:"none",background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
             <div style={{flex:1}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
@@ -4659,6 +4662,8 @@ Respond ONLY in valid JSON:
           <RippleNotificationBanner />
         </div>
         {/* ── Ripple Insights ── */}
+        <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
+        <CompassFab/>
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
             <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
