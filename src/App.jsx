@@ -4582,13 +4582,13 @@ Respond ONLY in valid JSON:
               {id:"Calm",     emoji:"⚓", label:"Calm Seas",    border:"rgba(200,169,122,0.45)", bg:"rgba(200,169,122,0.1)"},
               {id:"Waves",     emoji:"🌊", label:"Some Waves",   border:"rgba(122,168,200,0.45)", bg:"rgba(122,168,200,0.1)"},
               {id:"Survival", emoji:"🛟", label:"Survival Mode",border:"rgba(200,122,138,0.45)", bg:"rgba(200,122,138,0.1)"},
-            ].map(function(m){
-              var isAct = flowMode===m.id;
+            ].map(function(mode){
+              var isAct = flowMode===mode.id;
               return (
-                <div key={m.id} onClick={function(){setFlowMode(m.id);}}
-                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"13px 8px 11px",borderRadius:11,cursor:"pointer",transition:"all 0.18s",border:"1px solid "+(isAct?m.border:"rgba(245,240,232,0.08)"),background:isAct?m.bg:"transparent"}}>
-                  <span style={{fontSize:"1.5rem"}}>{m.emoji}</span>
-                  <div style={{fontSize:"0.66rem",color:isAct?"#f5f0e8":"rgba(245,240,232,0.45)",fontWeight:isAct?500:400,textAlign:"center",lineHeight:1.3}}>{m.label}</div>
+                <div key={mode.id} onClick={function(){setFlowMode(mode.id);}}
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"13px 8px 11px",borderRadius:11,cursor:"pointer",transition:"all 0.18s",border:"1px solid "+(isAct?mode.border:"rgba(245,240,232,0.08)"),background:isAct?mode.bg:"transparent"}}>
+                  <span style={{fontSize:"1.5rem"}}>{mode.emoji}</span>
+                  <div style={{fontSize:"0.66rem",color:isAct?"#f5f0e8":"rgba(245,240,232,0.45)",fontWeight:isAct?500:400,textAlign:"center",lineHeight:1.3}}>{mode.label}</div>
                 </div>
               );
             })}
