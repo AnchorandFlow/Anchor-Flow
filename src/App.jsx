@@ -416,7 +416,7 @@ const SYNC_KEYS = [
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
-,"compassCache"];
+,"compassCache","compassEnabled"];
 
 function readHouseholdState() {
   var st = {};
@@ -1111,6 +1111,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 }
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
+  const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
     React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
   const _stRenderCount = React.useRef(0); _stRenderCount.current++; console.count("[AF RENDER] SettingsTab");
   React.useEffect(() => { console.log("[AF STATE CHANGE] people changed, SettingsTab render #" + _stRenderCount.current); }, [people]);
@@ -1209,6 +1210,9 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
             <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
               <input defaultValue={preferredName} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
             </div>
+          </Row>
+          <Row label="Compass AI" sub="Daily briefing, suggestions, and Ask Compass">
+            <Toggle on={compassEnabled!==false} onToggle={function(){setCompassEnabled(compassEnabled===false?true:false);}} color={T.sage}/>
           </Row>
           <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Greeting tone</div>

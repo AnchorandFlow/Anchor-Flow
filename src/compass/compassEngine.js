@@ -161,6 +161,7 @@ export async function runCompass(mode, state, opts) {
   opts = opts || {};
   var prompt = COMPASS_PROMPTS[mode];
   if (!prompt) throw new Error("Unknown Compass mode: " + mode);
+  if (state && state.compassEnabled === false) throw new Error("Compass is turned off in Settings.");
 
   var scope = mode === "briefing" ? "today" : mode === "weeklyReview" ? "week" : mode === "prep" ? "prep" : "ask";
   var context = buildCompassContext(state, scope, opts);

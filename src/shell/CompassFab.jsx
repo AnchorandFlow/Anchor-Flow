@@ -41,6 +41,8 @@ export default function CompassFab() {
 
   function onKey(e) { if (e.key === "Enter") send(); }
 
+  if (readHouseholdState().compassEnabled === false) return null;
+
   var suggestions = ["What needs attention this week?", "What's for dinner this week?", "What's coming up this weekend?"];
 
   function suggestionTap(s) { setInput(s); }
