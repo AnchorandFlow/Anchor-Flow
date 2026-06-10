@@ -765,7 +765,7 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
           <input type="color" value={newCatColor} onChange={function(e){setNewCatColor(e.target.value);}} title="Custom color" style={{width:22,height:22,borderRadius:"50%",border:"none",cursor:"pointer",padding:0,background:"none"}}/>
           <span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.25rem"}}>{newCatColor}</span>
         </div>
-        <button onClick={addCat} style={{...btnP(T.sand,{fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45})}}>Add Category</button>
+        <button onClick={addCat} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.78rem",padding:"0.35rem 0.85rem",opacity:newCatName.trim()?1:0.45}}>Add Category</button>
       </div>
       <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.75rem"}}>
         <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.5rem"}}>Your categories</div>
@@ -1192,7 +1192,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.2rem"}}>Turn on notifications</div>
             <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.55rem"}}>Compass will check in with you throughout the day</div>
             {notifPermission==="denied"&&<div style={{fontSize:"0.78rem",color:T.rose,lineHeight:1.5}}>🚫 Notifications are blocked — open browser settings → Site permissions to allow.</div>}
-            {notifPermission==="default"&&<button onClick={requestNotifPermission} style={{...btnP(T.sage,{fontSize:"0.82rem",padding:"0.5rem 1.1rem"})}}>🔔 Enable Compass notifications</button>}
+            {notifPermission==="default"&&<button onClick={requestNotifPermission} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.82rem",padding:"0.5rem 1.1rem"}}>🔔 Enable Compass notifications</button>}
             {notifPermission==="granted"&&<div style={{fontSize:"0.8rem",color:T.sage,fontWeight:700}}>✅ Notifications are on</div>}
           </div>
         </div>
@@ -2744,6 +2744,11 @@ function createLocalBackup() {
     window.addEventListener("af-show-eod", onShowEOD);
     return function(){ window.removeEventListener("af-show-eod", onShowEOD); };
   }, []);
+  React.useEffect(function(){
+    function onShowEOD(){ setShowEndOfDay(true); }
+    window.addEventListener("af-show-eod", onShowEOD);
+    return function(){ window.removeEventListener("af-show-eod", onShowEOD); };
+  }, []);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
   const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
   // Personal anchor items — per user, stored separately so each person has their own morning checklist
@@ -3929,7 +3934,7 @@ Respond ONLY with valid JSON array, no markdown:
         )}
         <div style={{padding:"0.75rem",borderTop:`1.5px solid ${T.borderSoft}`,display:"flex",gap:"0.5rem",alignItems:"flex-end",background:T.surface}}>
           <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={awaitingGTK?"Type your answer…":"Ask anything about your home…"} rows={1} style={{...inp({resize:"none",flex:1,lineHeight:1.5,maxHeight:80,overflowY:"auto"})}}/>
-          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{...btnP(T.blue,{padding:"0.56rem 0.75rem",borderRadius:"0.7rem",flexShrink:0,opacity:!input.trim()||loading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center"})}}>
+          <button onClick={()=>send()} disabled={!input.trim()||loading} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",padding:"0.56rem 0.75rem",borderRadius:"0.7rem",flexShrink:0,opacity:!input.trim()||loading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center"}}>
             <Icon name="send" size={16} color="#fff"/>
           </button>
         </div>
@@ -3955,7 +3960,7 @@ Respond ONLY with valid JSON array, no markdown:
             <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today</span>
             <span style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500}}>{TODAY.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
           </div>
-          <button onClick={()=>goTab("calendar")} style={{...btnP(T.blue,{fontSize:"0.72rem",padding:"0.26rem 0.65rem"})}}>Calendar</button>
+          <button onClick={()=>goTab("calendar")} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.72rem",padding:"0.26rem 0.65rem"}}>Calendar</button>
         </div>
         {!todayEvents.length&&<p style={{color:T.textFaint,fontSize:"0.82rem",fontWeight:600,textAlign:"center",padding:"0.4rem 0"}}>No events today — open space 🌿</p>}
         {upcoming.map(e=>(
@@ -4009,7 +4014,7 @@ Respond ONLY with valid JSON array, no markdown:
         {step>0&&<button onClick={()=>setStep(s=>s-1)} style={btnS({padding:"0.6rem 1rem",fontSize:"0.82rem"})}>← Back</button>}
         <div style={{flex:1}}/>
         {skipLabel&&<button onClick={()=>setStep(s=>s+1)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",padding:"0.6rem 0.9rem",fontFamily:"inherit"}}>{skipLabel}</button>}
-        <button onClick={onNext||(()=>setStep(s=>s+1))} disabled={!canNext} style={{...btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem",opacity:canNext?1:0.4,cursor:canNext?"pointer":"not-allowed"})}}>
+        <button onClick={onNext||(()=>setStep(s=>s+1))} disabled={!canNext} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem",opacity:canNext?1:0.4,cursor:canNext?"pointer":"not-allowed"}}>
           {nextLabel}
         </button>
       </div>
@@ -4028,7 +4033,7 @@ Respond ONLY with valid JSON array, no markdown:
                   ✓ Your family profile, tasks, meals, and settings are all here.<br/>To make changes, head to <strong>Settings</strong>.
                 </div>
                 <div style={{display:"flex",gap:"0.5rem",marginTop:"1.4rem",paddingTop:"0.9rem",borderTop:"1px solid "+T.borderSoft}}>
-                  <button onClick={()=>{onComplete();goTab&&goTab("settings");}} style={{...btnP(T.sage,{padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem"})}}>Go to Settings →</button>
+                  <button onClick={()=>{onComplete();goTab&&goTab("settings");}} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",padding:"0.65rem 1.3rem",fontSize:"0.88rem",borderRadius:"0.8rem"}}>Go to Settings →</button>
                   <button onClick={onComplete} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",padding:"0.6rem 0.9rem",fontFamily:"inherit"}}>Continue anyway</button>
                 </div>
               </div>
@@ -4278,7 +4283,7 @@ Respond ONLY with valid JSON array, no markdown:
             <>
               {refl&&<div style={{fontSize:"0.88rem",fontStyle:"italic",color:T.textSoft,lineHeight:1.6,margin:"0.75rem 0",padding:"0.75rem",background:T.bgAlt,borderRadius:"0.85rem"}}>{refl}</div>}
               {tomorrowNote&&<div style={{fontSize:"0.82rem",color:T.textMid,marginBottom:"1rem",padding:"0.6rem 0.85rem",background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",borderRadius:"0.85rem"}}><span style={{fontWeight:700,fontSize:"0.68rem",textTransform:"uppercase",color:T.lavender}}>Tomorrow · </span>{tomorrowNote}</div>}
-              <button onClick={function(){ setShowEndOfDay(false); var closerName = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null); setDayClosed(closerName || true); }} style={{...btnP(T.sage,{width:"100%",padding:"0.85rem",fontSize:"0.92rem",borderRadius:"1rem"})}}>Close my day ✓</button>
+              <button onClick={function(){ setShowEndOfDay(false); var closerName = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null); setDayClosed(closerName || true); }} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",width:"100%",padding:"0.85rem",fontSize:"0.92rem",borderRadius:"1rem"}}>Close my day ✓</button>
             </>
           )}
         </div>
@@ -5009,8 +5014,8 @@ Respond ONLY in valid JSON:
                     <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.lavender+"25"}}>
                       <div style={{width:8,height:8,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
                       <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:500}}>{b.text}</span>
-                      <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.lavender,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>+ Flow</button>
-                      <button onClick={function(){addQuickTask(b.text,"top3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.blue,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>Top</button>
+                      <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.68rem",padding:"0.22rem 0.6rem"}}>+ Flow</button>
+                      <button onClick={function(){addQuickTask(b.text,"top3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.68rem",padding:"0.22rem 0.6rem"}}>Top</button>
                     </div>
                   );})}
                 </div>
@@ -5240,7 +5245,7 @@ Respond ONLY in valid JSON:
 
                 {/* Close My Day button */}
                 <button onClick={()=>setShowEndOfDay(true)} style={{...btnP("linear-gradient(135deg,"+T.blue+","+T.sage+")",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.45rem"})}}>
-                  Close My Day 🌙
+                  Good night ✦
                 </button>
               </>
             )}
@@ -5285,55 +5290,55 @@ Respond ONLY in valid JSON:
     const [showCalNotif,setShowCalNotif]=useState(null);
     const [cnd,setCnd]=useState(""); const [cnt,setCnt]=useState(""); const [cnn,setCnn]=useState("");
     return (
-      <div>
+      <div className="pane active flow-skin" style={{flex:1,overflowY:"auto",padding:"20px 24px",minHeight:0}}>
         <SecHead emoji="📆" title="Calendar" sub="All your events in one place" onBack={function(){goTab("anchor");}}/>
         {/* Google Calendar connect banner */}
         <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.5rem"}}>
-          <button onClick={()=>openAddEvent("")} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.4rem",flex:1,justifyContent:"center",padding:"0.72rem",fontSize:"0.88rem",borderRadius:"0.9rem"})}}>
+          <button onClick={()=>openAddEvent("")} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",flex:1,justifyContent:"center",padding:"0.72rem",fontSize:"0.88rem",borderRadius:"0.9rem"}}>
             <Icon name="plus" size={15} color="#fff"/> Add Event
           </button>
-          <button onClick={()=>setModal("calSync")} style={{...btnS({display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.72rem 0.9rem",fontSize:"0.82rem",borderRadius:"0.9rem",background:connectedCals.includes("google")?T.sagePale:T.bgAlt,borderColor:connectedCals.includes("google")?T.sage+"60":T.border,color:connectedCals.includes("google")?T.sageDark:T.textMid})}}>
+          <button onClick={()=>setModal("calSync")} style={{...btnS({display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.72rem 0.9rem",fontSize:"0.82rem",borderRadius:"0.9rem",background:connectedCals.includes("google")?"rgba(100,148,130,0.14)":"rgba(220,232,226,0.7)",borderColor:connectedCals.includes("google")?"var(--fl-accent)"+"60":"var(--fl-border)",color:connectedCals.includes("google")?"#2a6058":"var(--fl-t2)"})}}>
             <Icon name="google" size={14}/>
             {connectedCals.includes("google")?"Synced":"Connect Google"}
           </button>
         </div>
-        <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.75rem",textAlign:"center",fontStyle:"italic"}}>
+        <div style={{fontSize:"0.72rem",color:"rgba(26,46,58,0.3)",marginBottom:"0.75rem",textAlign:"center",fontStyle:"italic"}}>
           More calendar sources syncing soon — Apple, Outlook & more.
         </div>
-        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
+        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:"rgba(220,232,226,0.7)",borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${"var(--fl-border)"}`}}>
           {["month","week","day"].map(v=>(
             <button key={v} onClick={()=>{
               setCalView(v);
               if(v==="week"&&selectedDay) setCalViewDate(new Date(selectedDay));
               else if(v==="day") setCalViewDate(selectedDay?new Date(selectedDay):new Date(TODAY));
-            }} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
+            }} style={{flex:1,background:calView===v?"var(--fl-accent)":"transparent",color:calView===v?"#fff":"var(--fl-t2)",border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
           ))}
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
-          <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
+          <button onClick={navPrev} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={"var(--fl-t2)"}/></button>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.25rem"}}>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:"var(--fl-t1)",textAlign:"center"}}>{navTitle()}</span>
             {calView==="month"&&(
               <div style={{display:"flex",gap:"0.3rem"}}>
-                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
-                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
+                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:"rgba(26,46,58,0.3)",fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
+                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:"rgba(26,46,58,0.3)",fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
               </div>
             )}
           </div>
-          <button onClick={navNext} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={T.textMid}/></button>
+          <button onClick={navNext} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={"var(--fl-t2)"}/></button>
         </div>
         {calView==="month"&&(
           <div style={{...card({padding:"0",overflow:"hidden",borderRadius:"1.1rem"})}}>
             {/* Day headers */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:"rgba(220,232,226,0.7)",borderBottom:`1px solid ${"rgba(100,148,130,0.15)"}`}}>
               {WEEKDAYS_SUN.map(d=>(
-                <div key={d} style={{textAlign:"center",padding:"0.45rem 0",fontSize:"0.65rem",fontWeight:800,color:T.textSoft,letterSpacing:"0.05em"}}>{d}</div>
+                <div key={d} style={{textAlign:"center",padding:"0.45rem 0",fontSize:"0.65rem",fontWeight:800,color:"var(--fl-t3)",letterSpacing:"0.05em"}}>{d}</div>
               ))}
             </div>
             {/* Calendar grid — fixed row heights */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
               {Array.from({length:firstDay}).map((_,i)=>(
-                <div key={`e${i}`} style={{height:88,borderRight:`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:T.bgAlt+"80"}}/>
+                <div key={`e${i}`} style={{height:88,borderRight:`1px solid ${"rgba(100,148,130,0.15)"}`,borderBottom:`1px solid ${"rgba(100,148,130,0.15)"}`,background:"rgba(220,232,226,0.7)"+"80"}}/>
               ))}
               {Array.from({length:daysInMonth}).map((_,i)=>{
                 const day=i+1;
@@ -5344,9 +5349,9 @@ Respond ONLY in valid JSON:
                 const isLastCol=(firstDay+i)%7===6;
                 return (
                   <div key={day} onClick={function(){var d=isSelected?null:thisDate;setSelectedDay(d);if(d)setCalViewDate(new Date(d));}}
-                    style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
+                    style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${"rgba(100,148,130,0.15)"}`,borderBottom:`1px solid ${"rgba(100,148,130,0.15)"}`,background:isSelected?"rgba(176,136,64,0.12)":todayFlag?"rgba(100,148,130,0.1)":"rgba(255,255,255,0.82)",cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
                     {/* Date number */}
-                    <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
+                    <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?"var(--fl-accent)":"transparent",color:todayFlag?"#fff":"var(--fl-t1)",fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(e=>(
                       <div key={e.id} style={{background:e.color+"28",borderLeft:`2.5px solid ${e.color}`,borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4}}>
@@ -5354,7 +5359,7 @@ Respond ONLY in valid JSON:
                       </div>
                     ))}
                     {dayEvts.length>2&&(
-                      <div style={{fontSize:"0.56rem",color:T.textSoft,fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
+                      <div style={{fontSize:"0.56rem",color:"var(--fl-t3)",fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
                     )}
                   </div>
                 );
@@ -5367,16 +5372,16 @@ Respond ONLY in valid JSON:
             {WEEKDAYS_SUN.map((dn,i)=>{
               const d=weekDates[i],todayFlag=isToday(d),dayEvts=eventsForDay(d.getDate(),d.getMonth(),d.getFullYear());
               return (
-                <div key={dn} onClick={()=>{setCalViewDate(d);setCalView("day");}} style={{display:"flex",alignItems:"flex-start",borderBottom:i<6?`1px solid ${T.borderSoft}`:"none",cursor:"pointer",background:todayFlag?T.bluePale:"transparent",padding:"0.55rem 0.85rem",gap:"0.85rem"}}>
+                <div key={dn} onClick={()=>{setCalViewDate(d);setCalView("day");}} style={{display:"flex",alignItems:"flex-start",borderBottom:i<6?`1px solid ${"rgba(100,148,130,0.15)"}`:"none",cursor:"pointer",background:todayFlag?"rgba(100,148,130,0.1)":"transparent",padding:"0.55rem 0.85rem",gap:"0.85rem"}}>
                   <div style={{width:44,flexShrink:0,textAlign:"center"}}>
-                    <div style={{fontSize:"0.62rem",fontWeight:800,color:todayFlag?T.blueDark:T.textSoft,letterSpacing:"0.08em",textTransform:"uppercase"}}>{dn}</div>
-                    <div style={{width:28,height:28,borderRadius:"50%",background:todayFlag?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0.2rem auto 0",fontSize:"0.88rem",fontWeight:700,color:todayFlag?"#fff":T.textDark}}>{d.getDate()}</div>
+                    <div style={{fontSize:"0.62rem",fontWeight:800,color:todayFlag?"#2a6058":"var(--fl-t3)",letterSpacing:"0.08em",textTransform:"uppercase"}}>{dn}</div>
+                    <div style={{width:28,height:28,borderRadius:"50%",background:todayFlag?"var(--fl-accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0.2rem auto 0",fontSize:"0.88rem",fontWeight:700,color:todayFlag?"#fff":"var(--fl-t1)"}}>{d.getDate()}</div>
                   </div>
                   <div style={{flex:1,minWidth:0,paddingTop:"0.2rem"}}>
                     {dayEvts.length===0
-                      ?<div style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
+                      ?<div style={{fontSize:"0.75rem",color:"rgba(26,46,58,0.3)",fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
                       :dayEvts.map(e=>(
-                        <div key={e.id} style={{background:e.color||T.blue,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:"#fff",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.time?e.time+" ":""}{e.title}</div>
+                        <div key={e.id} style={{background:e.color||"var(--fl-accent)",borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:"#fff",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.time?e.time+" ":""}{e.title}</div>
                       ))
                     }
                   </div>
@@ -5388,77 +5393,77 @@ Respond ONLY in valid JSON:
         {calView==="day"&&(
           <div style={{...card()}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
-              <button onClick={()=>openAddEvent(localDateStr(calViewDate))} style={{...btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.75rem",display:"flex",alignItems:"center",gap:"0.35rem"})}}><Icon name="plus" size={13} color="#fff"/> Add</button>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:"var(--fl-t1)"}}>{calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+              <button onClick={()=>openAddEvent(localDateStr(calViewDate))} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.76rem",padding:"0.32rem 0.75rem",display:"flex",alignItems:"center",gap:"0.35rem"}}><Icon name="plus" size={13} color="#fff"/> Add</button>
             </div>
-            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
+            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:"rgba(26,46,58,0.3)",fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(e=>(
-              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${"rgba(100,148,130,0.15)"}`}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:44}}>
                   <div style={{width:11,height:11,borderRadius:"50%",background:e.color,marginTop:3}}/>
-                  {e.time?<span style={{fontSize:"0.74rem",fontWeight:800,color:e.color}}>{e.time}</span>:<span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:600}}>all day</span>}
+                  {e.time?<span style={{fontSize:"0.74rem",fontWeight:800,color:e.color}}>{e.time}</span>:<span style={{fontSize:"0.68rem",color:"rgba(26,46,58,0.3)",fontWeight:600}}>all day</span>}
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{e.title}</div>
+                  <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.9rem"}}>{e.title}</div>
                   {e.colorLabel&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||e.colorCustom?.trim()||e.colorLabel}</div>}
-                  {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
-                  {notifications.some(n=>n.entityId===e.id)&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
+                  {e.note&&<div style={{color:"var(--fl-t2)",fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
+                  {notifications.some(n=>n.entityId===e.id)&&<div style={{color:"var(--fl-gold)",fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
                 </div>
                 <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
-                  <button onClick={()=>setShowCalNotif(showCalNotif===e.id?null:e.id)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="bell" size={13} color={T.sand}/></button>
-                  <button onClick={()=>openEditEvent(e)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={T.textMid}/></button>
-                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
+                  <button onClick={()=>setShowCalNotif(showCalNotif===e.id?null:e.id)} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="bell" size={13} color={"var(--fl-gold)"}/></button>
+                  <button onClick={()=>openEditEvent(e)} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={"var(--fl-t2)"}/></button>
+                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={"var(--fl-rose)"}/></button>
                 </div>
               </div>
             ))}
             {showCalNotif&&(
-              <div style={{background:T.bgAlt,border:`1px solid ${T.sand}50`,borderRadius:"0.8rem",padding:"0.85rem",marginTop:"0.5rem"}}>
-                <p style={{fontSize:"0.75rem",fontWeight:700,color:T.sandDark,marginBottom:"0.6rem"}}>🔔 Set reminder</p>
+              <div style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-gold)"}50`,borderRadius:"0.8rem",padding:"0.85rem",marginTop:"0.5rem"}}>
+                <p style={{fontSize:"0.75rem",fontWeight:700,color:"#7a6030",marginBottom:"0.6rem"}}>🔔 Set reminder</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.45rem",marginBottom:"0.45rem"}}>
                   <input type="date" value={cnd} onChange={e=>setCnd(e.target.value)} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
                   <input type="time" value={cnt} onChange={e=>setCnt(e.target.value)} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
                 </div>
                 <input value={cnn} onChange={e=>setCnn(e.target.value)} placeholder="Note…" style={{...inp({marginBottom:"0.5rem",padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}}/>
-                <button onClick={function(){var ev=calEvents.find(function(e){return e.id===showCalNotif;});if(ev)addNotification(ev.id,ev.title,cnd,cnt,cnn);setShowCalNotif(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
+                <button onClick={function(){var ev=calEvents.find(function(e){return e.id===showCalNotif;});if(ev)addNotification(ev.id,ev.title,cnd,cnt,cnn);setShowCalNotif(null);}} style={btnP("var(--fl-gold)",{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
               </div>
             )}
           </div>
         )}
         {calView==="month"&&selectedDay&&!calFormMode&&(
-          <div style={{...card({border:`2px solid ${T.sand}60`,background:`linear-gradient(to right,${T.sandPale},${T.surface})`})}}>
+          <div style={{...card({border:`2px solid ${"var(--fl-gold)"}60`,background:`linear-gradient(to right,${"rgba(176,136,64,0.12)"},${"rgba(255,255,255,0.82)"})`})}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{FORMAT_SHORT(selectedDay)}</span>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:"var(--fl-t1)"}}>{FORMAT_SHORT(selectedDay)}</span>
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>openAddEvent(localDateStr(selectedDay))} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.38rem 0.8rem",fontSize:"0.78rem",borderRadius:"0.65rem"})}}><Icon name="plus" size={13} color="#fff"/> Add Event</button>
+                <button onClick={()=>openAddEvent(localDateStr(selectedDay))} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.38rem 0.8rem",fontSize:"0.78rem",borderRadius:"0.65rem"}}><Icon name="plus" size={13} color="#fff"/> Add Event</button>
                 <button onClick={()=>setSelectedDay(null)} style={{...btnS({padding:"0.38rem 0.6rem",borderRadius:"0.65rem"})}}>✕</button>
               </div>
             </div>
-            {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
+            {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:"rgba(26,46,58,0.3)",fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
             :eventsForDay(selectedDay.getDate()).map(e=>(
-              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${"rgba(100,148,130,0.15)"}`}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
                   <div style={{width:11,height:11,borderRadius:"50%",background:e.color,marginTop:3}}/>
                   <span style={{fontSize:"0.54rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",textAlign:"center"}}>{calColorLabels[e.color]||e.colorCustom?.trim()||e.colorLabel||""}</span>
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{e.title}</div>
-                  {e.time&&<div style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginTop:"0.1rem"}}>⏰ {e.time}</div>}
-                  {e.note&&<div style={{color:T.textMid,fontSize:"0.79rem",marginTop:"0.35rem",lineHeight:1.5,fontStyle:"italic"}}>📝 {e.note}</div>}
+                  <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.88rem"}}>{e.title}</div>
+                  {e.time&&<div style={{color:"var(--fl-t3)",fontSize:"0.75rem",fontWeight:500,marginTop:"0.1rem"}}>⏰ {e.time}</div>}
+                  {e.note&&<div style={{color:"var(--fl-t2)",fontSize:"0.79rem",marginTop:"0.35rem",lineHeight:1.5,fontStyle:"italic"}}>📝 {e.note}</div>}
                 </div>
                 <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
-                  <button onClick={()=>openEditEvent(e)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={T.textMid}/></button>
-                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
+                  <button onClick={()=>openEditEvent(e)} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={"var(--fl-t2)"}/></button>
+                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:"rgba(220,232,226,0.7)",border:`1px solid ${"var(--fl-border)"}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={"var(--fl-rose)"}/></button>
                 </div>
               </div>
             ))}
           </div>
         )}
         {connectedCals.length===0&&(
-          <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}50`,textAlign:"center",padding:"1.5rem"})}}>
+          <div style={{...card({background:`linear-gradient(135deg,${"rgba(100,148,130,0.1)"},${"rgba(100,148,130,0.1)"})`,border:`2px solid ${"var(--fl-accent)"}50`,textAlign:"center",padding:"1.5rem"})}}>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>📆</div>
-            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.textDark,marginBottom:"0.4rem"}}>Connect Your Calendars</h3>
-            <p style={{color:T.textMid,fontSize:"0.83rem",fontWeight:500,marginBottom:"1rem",lineHeight:1.6}}>Sync Google, Apple, Outlook, or any iCal source.</p>
-            <button onClick={()=>setModal("calSync")} style={{...btnP(T.blue,{display:"inline-flex",alignItems:"center",gap:"0.5rem"})}}><Icon name="link" size={15} color="#fff"/> Connect a Calendar</button>
+            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:"var(--fl-t1)",marginBottom:"0.4rem"}}>Connect Your Calendars</h3>
+            <p style={{color:"var(--fl-t2)",fontSize:"0.83rem",fontWeight:500,marginBottom:"1rem",lineHeight:1.6}}>Sync Google, Apple, Outlook, or any iCal source.</p>
+            <button onClick={()=>setModal("calSync")} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:"0.5rem"}}><Icon name="link" size={15} color="#fff"/> Connect a Calendar</button>
           </div>
         )}
       </div>
@@ -5472,7 +5477,7 @@ Respond ONLY in valid JSON:
     const [taskPerson,setTaskPerson]=useState("");
     const [editingDay,setEditingDay]=useState(null);
     const [editForm,setEditForm]=useState({theme:"",emoji:"",desc:""});
-    const DAY_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,T.blue,T.sage];
+    const DAY_COLORS=["var(--fl-accent)","var(--fl-accent)","var(--fl-gold)","var(--fl-rose)","var(--fl-accent)","var(--fl-accent)","var(--fl-accent)"];
     function openEditDay(day){setEditingDay(day);setEditForm({...rhythm[day]});}
     function saveEditDay(){setRhythm(p=>({...p,[editingDay]:{...editForm}}));setEditingDay(null);}
     function applyPreset(preset){if(preset.theme==="Custom"){setEditForm(p=>({...p,emoji:preset.emoji}));return;}setEditForm({theme:preset.theme,emoji:preset.emoji,desc:preset.desc});}
@@ -5600,12 +5605,12 @@ Respond ONLY in valid JSON:
     });
 
     return (
-      <div>
+      <div className="pane active flow-skin" style={{flex:1,overflowY:"auto",padding:"20px 24px",minHeight:0}}>
         <SecHead emoji="📅" title="Weekly Rhythm" sub="Your week at a glance" onBack={function(){goTab("anchor");}}/>
         {/* Subtab nav */}
-        <div style={{display:"flex",gap:"0.35rem",marginBottom:"1rem",background:T.surface,borderRadius:"0.85rem",padding:"0.3rem"}}>
+        <div style={{display:"flex",gap:"0.35rem",marginBottom:"1rem",background:"rgba(255,255,255,0.82)",borderRadius:"0.85rem",padding:"0.3rem"}}>
           {[{id:"glance",label:"Glance",emoji:"👁"},{id:"rhythm",label:"Day Themes",emoji:"🗓️"},{id:"tasks",label:"Task Board",emoji:"✅"}].map(function(st){
-            return <button key={st.id} onClick={function(){setWeekSubTab(st.id);}} style={{flex:1,padding:"0.4rem 0.3rem",borderRadius:"0.6rem",border:"none",background:weekSubTab===st.id?T.white:"transparent",color:weekSubTab===st.id?T.textDark:T.textFaint,fontWeight:700,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit",boxShadow:weekSubTab===st.id?"0 1px 4px rgba(0,0,0,0.08)":"none"}}>{st.emoji} {st.label}</button>;
+            return <button key={st.id} onClick={function(){setWeekSubTab(st.id);}} style={{flex:1,padding:"0.4rem 0.3rem",borderRadius:"0.6rem",border:"none",background:weekSubTab===st.id?"rgba(255,255,255,0.9)":"transparent",color:weekSubTab===st.id?"var(--fl-t1)":"rgba(26,46,58,0.3)",fontWeight:700,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit",boxShadow:weekSubTab===st.id?"0 1px 4px rgba(0,0,0,0.08)":"none"}}>{st.emoji} {st.label}</button>;
           })}
         </div>
 
@@ -5614,25 +5619,25 @@ Respond ONLY in valid JSON:
           <div style={card()}>
             {glanceData.map(function(g,i){
               return(
-                <div key={g.day} style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:"0.5rem",padding:"0.55rem 0.25rem",borderBottom:i<glanceData.length-1?"1px solid "+T.borderSoft:"none",alignItems:"start"}}>
+                <div key={g.day} style={{display:"grid",gridTemplateColumns:"60px 1fr",gap:"0.5rem",padding:"0.55rem 0.25rem",borderBottom:i<glanceData.length-1?"1px solid "+"rgba(100,148,130,0.15)":"none",alignItems:"start"}}>
                   <div>
-                    <div style={{fontSize:"0.65rem",fontWeight:800,textTransform:"uppercase",color:g.isToday?T.blue:T.textFaint}}>{g.day.slice(0,3)}</div>
-                    {g.isToday&&<div style={{fontSize:"0.58rem",fontWeight:700,color:T.blue}}>Today</div>}
+                    <div style={{fontSize:"0.65rem",fontWeight:800,textTransform:"uppercase",color:g.isToday?"var(--fl-accent)":"rgba(26,46,58,0.3)"}}>{g.day.slice(0,3)}</div>
+                    {g.isToday&&<div style={{fontSize:"0.58rem",fontWeight:700,color:"var(--fl-accent)"}}>Today</div>}
                     {g.weather&&<div style={{fontSize:"0.72rem",marginTop:"2px"}}>{g.weather.emoji} {g.weather.high}°</div>}
                   </div>
                   <div>
-                    {g.dayEvents.length===0?<span style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic"}}>Open</span>:g.dayEvents.slice(0,2).map(function(e,ei){return <div key={ei} style={{fontSize:"0.75rem",color:T.textDark,marginBottom:"0.12rem"}}>{"· "+e.title}</div>;})}
-                    {g.dinner?<div style={{fontSize:"0.72rem",color:T.sage,marginTop:"0.15rem"}}>{"🍽 "+g.dinner}</div>:g.isBusy&&<div style={{fontSize:"0.72rem",color:T.rose,fontWeight:600,marginTop:"0.15rem"}}>⚠ No dinner set</div>}
-                    {g.dayTasks.length>0&&<div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:"0.1rem"}}>{g.dayTasks.length+" task"+(g.dayTasks.length!==1?"s":"")}</div>}
+                    {g.dayEvents.length===0?<span style={{fontSize:"0.75rem",color:"rgba(26,46,58,0.3)",fontStyle:"italic"}}>Open</span>:g.dayEvents.slice(0,2).map(function(e,ei){return <div key={ei} style={{fontSize:"0.75rem",color:"var(--fl-t1)",marginBottom:"0.12rem"}}>{"· "+e.title}</div>;})}
+                    {g.dinner?<div style={{fontSize:"0.72rem",color:"var(--fl-accent)",marginTop:"0.15rem"}}>{"🍽 "+g.dinner}</div>:g.isBusy&&<div style={{fontSize:"0.72rem",color:"var(--fl-rose)",fontWeight:600,marginTop:"0.15rem"}}>⚠ No dinner set</div>}
+                    {g.dayTasks.length>0&&<div style={{fontSize:"0.68rem",color:"rgba(26,46,58,0.3)",marginTop:"0.1rem"}}>{g.dayTasks.length+" task"+(g.dayTasks.length!==1?"s":"")}</div>}
                   </div>
                 </div>
               );
             })}
             {!weatherLocation&&(
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginTop:"0.75rem",padding:"0.5rem 0.75rem",background:T.bluePale,borderRadius:"0.75rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginTop:"0.75rem",padding:"0.5rem 0.75rem",background:"rgba(100,148,130,0.1)",borderRadius:"0.75rem"}}>
                 <span>🌤️</span>
-                <span style={{fontSize:"0.75rem",color:T.textMid,flex:1}}>Add weather to your week</span>
-                <button onClick={requestWeatherLocation} style={btnP(T.blue,{fontSize:"0.72rem",padding:"0.28rem 0.7rem"})}>Enable</button>
+                <span style={{fontSize:"0.75rem",color:"var(--fl-t2)",flex:1}}>Add weather to your week</span>
+                <button onClick={requestWeatherLocation} style={btnP("var(--fl-accent)",{fontSize:"0.72rem",padding:"0.28rem 0.7rem"})}>Enable</button>
               </div>
             )}
           </div>
@@ -5642,7 +5647,7 @@ Respond ONLY in valid JSON:
         {weekSubTab==="tasks"&&(
           <div>
             {/* Add task */}
-            <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55"})}}>
+            <div style={{...card({background:"rgba(100,148,130,0.1)",border:"2px solid "+"var(--fl-accent)"+"55"})}}>
               <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
                 <input value={newTaskText} onChange={function(e){setNewTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
                 <select value={taskDay} onChange={function(e){setTaskDay(e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
@@ -5652,9 +5657,9 @@ Respond ONLY in valid JSON:
                   <option value="">Anyone</option>
                   {people.map(function(p){return <option key={p.id} value={p.name}>{p.name}</option>;})}
                 </select>
-                <button onClick={function(){if(newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
+                <button onClick={function(){if(newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} style={btnP("var(--fl-accent)")}>Add</button>
               </div>
-              {cdDraggingId&&<div style={{marginTop:"0.5rem",fontSize:"0.72rem",color:T.blue,fontWeight:600,display:"flex",alignItems:"center",gap:"0.4rem"}}><span>↕</span> Drag to a different day to move it there</div>}
+              {cdDraggingId&&<div style={{marginTop:"0.5rem",fontSize:"0.72rem",color:"var(--fl-accent)",fontWeight:600,display:"flex",alignItems:"center",gap:"0.4rem"}}><span>↕</span> Drag to a different day to move it there</div>}
             </div>
 
             {/* Day columns */}
@@ -5667,15 +5672,15 @@ Respond ONLY in valid JSON:
               var hasContent=dayTasks.length>0||brainQueued.length>0;
               return (
                 <div key={day} data-cdday={day}
-                  style={{...card({borderLeft:"4px solid "+(day===TODAY_NAME?accent:isDayDropTarget?accent:T.borderSoft),background:isDayDropTarget?accent+"0A":undefined,transition:"background 0.15s,border-color 0.15s"})}}>
+                  style={{...card({borderLeft:"4px solid "+(day===TODAY_NAME?accent:isDayDropTarget?accent:"rgba(100,148,130,0.15)"),background:isDayDropTarget?accent+"0A":undefined,transition:"background 0.15s,border-color 0.15s"})}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:hasContent?"0.75rem":"0.1rem"}}>
                     <span style={{fontSize:"1rem"}}>{(dr&&dr.emoji)||"📋"}</span>
-                    <span style={{fontWeight:700,color:day===TODAY_NAME?accent:T.textDark,fontSize:"0.92rem"}}>{day}</span>
-                    {dr&&dr.theme&&<span style={{color:T.textSoft,fontSize:"0.76rem",fontWeight:500}}>{"· "+dr.theme}</span>}
+                    <span style={{fontWeight:700,color:day===TODAY_NAME?accent:"var(--fl-t1)",fontSize:"0.92rem"}}>{day}</span>
+                    {dr&&dr.theme&&<span style={{color:"var(--fl-t3)",fontSize:"0.76rem",fontWeight:500}}>{"· "+dr.theme}</span>}
                     <div style={{flex:1}}/>
-                    {brainQueued.length>0&&<span style={{fontSize:"0.62rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {brainQueued.length}</span>}
+                    {brainQueued.length>0&&<span style={{fontSize:"0.62rem",fontWeight:700,color:"var(--fl-accent)",background:"var(--fl-accent)"+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {brainQueued.length}</span>}
                     {day===TODAY_NAME&&<Pill label="Today" color={accent} tiny/>}
-                    {day!=="Daily"&&<button onClick={function(){openEditDay(day);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={T.textSoft}/> Edit Day</button>}
+                    {day!=="Daily"&&<button onClick={function(){openEditDay(day);}} style={{background:"none",border:"1px solid "+"var(--fl-border)",borderRadius:"0.5rem",cursor:"pointer",padding:"2px 7px",fontSize:"0.7rem",color:"var(--fl-t3)",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem"}}><Icon name="edit" size={11} color={"var(--fl-t3)"}/> Edit Day</button>}
                   </div>
 
                   {/* Tasks — cross-day draggable */}
@@ -5702,21 +5707,21 @@ Respond ONLY in valid JSON:
                   })}
 
                   {dayTasks.length===0&&brainQueued.length===0&&(
-                    <p style={{color:isDayDropTarget?accent:T.textFaint,fontSize:"0.77rem",fontWeight:isDayDropTarget?700:500,transition:"color 0.15s"}}>
+                    <p style={{color:isDayDropTarget?accent:"rgba(26,46,58,0.3)",fontSize:"0.77rem",fontWeight:isDayDropTarget?700:500,transition:"color 0.15s"}}>
                       {isDayDropTarget?"Drop here":"Nothing yet"}
                     </p>
                   )}
 
                   {/* Brain dump queue */}
                   {brainQueued.length>0&&(
-                    <div style={{marginTop:dayTasks.length?"0.65rem":"0",padding:"0.55rem 0.65rem",background:T.lavender+"12",border:"1px dashed "+T.lavender+"55",borderRadius:"0.75rem"}}>
-                      <div style={{fontSize:"0.62rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💭 Clear Your Mind</div>
+                    <div style={{marginTop:dayTasks.length?"0.65rem":"0",padding:"0.55rem 0.65rem",background:"var(--fl-accent)"+"12",border:"1px dashed "+"var(--fl-accent)"+"55",borderRadius:"0.75rem"}}>
+                      <div style={{fontSize:"0.62rem",fontWeight:800,color:"var(--fl-accent)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💭 Clear Your Mind</div>
                       {brainQueued.map(function(b){return(
-                        <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",borderBottom:"1px solid "+T.lavender+"20"}}>
-                          <div style={{width:7,height:7,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
-                          <span style={{fontSize:"0.8rem",color:T.textDark,flex:1,fontWeight:500}}>{b.text}</span>
+                        <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0",borderBottom:"1px solid "+"var(--fl-accent)"+"20"}}>
+                          <div style={{width:7,height:7,borderRadius:"50%",background:"var(--fl-accent)",flexShrink:0}}/>
+                          <span style={{fontSize:"0.8rem",color:"var(--fl-t1)",flex:1,fontWeight:500}}>{b.text}</span>
                           <button title="Move to tasks" onClick={function(){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:b.text,day:day,done:false,fromBrain:true,brainId:b.id}];});setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:day,linkedTaskId:nid}:x;});});}} style={{background:accent,border:"none",borderRadius:"0.4rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.65rem",color:"#fff",fontWeight:700,fontFamily:"inherit",flexShrink:0}}>+ Task</button>
-                          <button title="Clear from this day" onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:null}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+                          <button title="Clear from this day" onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:null}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"rgba(26,46,58,0.3)",padding:"0 2px",flexShrink:0}}>×</button>
                         </div>
                       );})}
                     </div>
@@ -5729,12 +5734,12 @@ Respond ONLY in valid JSON:
 
         {/* Day Themes subtab */}
         {weekSubTab==="rhythm"&&(
-          <div style={{...card({background:"linear-gradient(135deg,"+T.sandPale+","+T.lavPale+")",border:"1.5px solid "+T.sand+"55",padding:"0.85rem 1rem",marginBottom:"0.25rem"})}}>
+          <div style={{...card({background:"linear-gradient(135deg,"+"rgba(176,136,64,0.12)"+","+"rgba(100,148,130,0.1)"+")",border:"1.5px solid "+"var(--fl-gold)"+"55",padding:"0.85rem 1rem",marginBottom:"0.25rem"})}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
               <span style={{fontSize:"1.3rem"}}>🌊</span>
               <div>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>Give each day a shape</div>
-                <div style={{fontSize:"0.75rem",color:T.textMid,fontWeight:500,marginTop:"0.15rem"}}>When the week has a rhythm, the days run themselves.</div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.05rem",fontWeight:700,color:"var(--fl-t1)",lineHeight:1.3}}>Give each day a shape</div>
+                <div style={{fontSize:"0.75rem",color:"var(--fl-t2)",fontWeight:500,marginTop:"0.15rem"}}>When the week has a rhythm, the days run themselves.</div>
               </div>
             </div>
           </div>
@@ -5745,26 +5750,26 @@ Respond ONLY in valid JSON:
           var dayBrainCount=brainItems.filter(function(b){return b.scheduledDay===day&&!b.done;}).length;
           var isToday=day===TODAY_NAME;
           return(
-            <div key={day} style={{...card({borderLeft:"4px solid "+(isToday?accent:accent+"60"),background:isToday?T.white:T.surface})}}>
+            <div key={day} style={{...card({borderLeft:"4px solid "+(isToday?accent:accent+"60"),background:isToday?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.82)"})}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1}}>
                   <span style={{fontSize:"1.2rem"}}>{dr.emoji||"📋"}</span>
                   <div style={{flex:1}}>
                     <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                      <span style={{fontWeight:700,color:isToday?accent:T.textDark,fontSize:"0.9rem"}}>{day}</span>
+                      <span style={{fontWeight:700,color:isToday?accent:"var(--fl-t1)",fontSize:"0.9rem"}}>{day}</span>
                       {isToday&&<span style={{fontSize:"0.6rem",fontWeight:800,background:accent,color:"#fff",borderRadius:"2rem",padding:"1px 6px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Today</span>}
                     </div>
-                    {dr.theme&&<div style={{fontSize:"0.75rem",color:T.textMid,fontWeight:500}}>{dr.theme}</div>}
-                    {dr.desc&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginTop:"0.1rem"}}>{dr.desc}</div>}
+                    {dr.theme&&<div style={{fontSize:"0.75rem",color:"var(--fl-t2)",fontWeight:500}}>{dr.theme}</div>}
+                    {dr.desc&&<div style={{fontSize:"0.7rem",color:"rgba(26,46,58,0.3)",fontStyle:"italic",marginTop:"0.1rem"}}>{dr.desc}</div>}
                     {(dayTaskCount>0||dayBrainCount>0)&&(
                       <div style={{display:"flex",gap:"0.5rem",marginTop:"0.35rem"}}>
                         {dayTaskCount>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:accent,background:accent+"18",borderRadius:"2rem",padding:"1px 7px"}}>✅ {dayTaskCount} task{dayTaskCount!==1?"s":""}</span>}
-                        {dayBrainCount>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {dayBrainCount} queued</span>}
+                        {dayBrainCount>0&&<span style={{fontSize:"0.65rem",fontWeight:700,color:"var(--fl-accent)",background:"var(--fl-accent)"+"18",borderRadius:"2rem",padding:"1px 7px"}}>🧠 {dayBrainCount} queued</span>}
                       </div>
                     )}
                   </div>
                 </div>
-                <button onClick={function(){openEditDay(day);}} style={{background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:T.textSoft,fontWeight:700,fontFamily:"inherit",flexShrink:0}}>Edit</button>
+                <button onClick={function(){openEditDay(day);}} style={{background:"none",border:"1px solid "+"var(--fl-border)",borderRadius:"0.5rem",cursor:"pointer",padding:"2px 8px",fontSize:"0.7rem",color:"var(--fl-t3)",fontWeight:700,fontFamily:"inherit",flexShrink:0}}>Edit</button>
               </div>
             </div>
           );
@@ -5775,7 +5780,7 @@ Respond ONLY in valid JSON:
             <div style={{marginBottom:"0.75rem"}}>
               <label style={lbl}>Quick Presets</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
-                {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){applyPreset(pr);}} style={{background:editForm.theme===pr.theme?T.blue:T.white,color:editForm.theme===pr.theme?"#fff":T.textMid,border:"1.5px solid "+(editForm.theme===pr.theme?T.blue:T.border),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
+                {THEME_PRESETS.map(function(pr,i){return <button key={i} onClick={function(){applyPreset(pr);}} style={{background:editForm.theme===pr.theme?"var(--fl-accent)":"rgba(255,255,255,0.9)",color:editForm.theme===pr.theme?"#fff":"var(--fl-t2)",border:"1.5px solid "+(editForm.theme===pr.theme?"var(--fl-accent)":"var(--fl-border)"),borderRadius:"2rem",padding:"0.28rem 0.72rem",cursor:"pointer",fontSize:"0.75rem",fontFamily:"inherit",fontWeight:700}}>{pr.emoji} {pr.theme}</button>;})}
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
@@ -5785,7 +5790,7 @@ Respond ONLY in valid JSON:
             <div style={{marginBottom:"1rem"}}><label style={lbl}>Description</label><input defaultValue={editForm.desc} onBlur={function(e){setEditForm(function(p){return{...p,desc:e.target.value};});}} placeholder="What happens on this day…" style={inp()}/></div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
               <button onClick={function(){setEditingDay(null);}} style={btnS()}>Cancel</button>
-              <button onClick={saveEditDay} style={btnP(T.sage)}>Save</button>
+              <button onClick={saveEditDay} style={btnP("var(--fl-accent)")}>Save</button>
             </div>
           </ModalBox>
         )}
@@ -5846,7 +5851,7 @@ Respond ONLY in valid JSON:
               </label>
             );})}
             <div style={{display:"flex",gap:"0.4rem",marginTop:"0.5rem"}}>
-              <button onClick={addChecked} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>Add to shopping list</button>
+              <button onClick={addChecked} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.72rem",padding:"0.3rem 0.65rem"}}>Add to shopping list</button>
               <button onClick={function(){setCheckedIngs(Object.fromEntries((selected.ingredients||[]).map(function(_,i){return[i,true];})));}} style={{...btnS({fontSize:"0.72rem",padding:"0.3rem 0.55rem"})}}>All</button>
               <button onClick={function(){setSelected(null);}} style={{...btnS({fontSize:"0.72rem",padding:"0.3rem 0.55rem"})}}>✕</button>
             </div>
@@ -5926,7 +5931,7 @@ Respond ONLY in valid JSON:
           <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.65rem"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
               <span style={{fontSize:"0.75rem",fontWeight:700,color:weekTypeKey==="survival"?T.rose:T.sandDark}}>{weekTypeKey==="survival"?"🛟 Survival meal ideas":"⚡ Busy week meal ideas"}</span>
-              <button onClick={suggestMealsForMode} disabled={wtAiLoading} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sand,{fontSize:"0.72rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:wtAiLoading?0.6:1})}}>
+              <button onClick={suggestMealsForMode} disabled={wtAiLoading} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.72rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:wtAiLoading?0.6:1}}>
                 {wtAiLoading?"Thinking…":"✨ Suggest meals"}
               </button>
             </div>
@@ -5959,7 +5964,7 @@ Respond ONLY in valid JSON:
                     );
                   })}
                 </div>
-                <button onClick={applyAiMeals} disabled={wtSelected.length===0} style={{...btnP(weekTypeKey==="survival"?T.rose:T.sage,{width:"100%",justifyContent:"center",display:"flex",fontSize:"0.8rem",padding:"0.5rem",opacity:wtSelected.length===0?0.4:1})}}>
+                <button onClick={applyAiMeals} disabled={wtSelected.length===0} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",width:"100%",justifyContent:"center",display:"flex",fontSize:"0.8rem",padding:"0.5rem",opacity:wtSelected.length===0?0.4:1}}>
                   → Load {wtSelected.length} meal{wtSelected.length!==1?"s":""} into {targetWeek==="this"?"This Week":"Next Week"}
                 </button>
               </div>
@@ -6093,18 +6098,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"},{id:"bank",label:"Meal Bank",emoji:"📋"}];
 
     return (
-      <div>
+      <div className="pane active flow-skin" style={{flex:1,overflowY:"auto",padding:"20px 24px",minHeight:0}}>
         <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks"
           onBack={function(){goTab("anchor");}}
-          action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
+          action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?"var(--fl-accent)":"var(--fl-accent)",{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
             {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
           </button>}/>
 
         {showWeekTypePicker&&<WeekTypePicker weekTypeKey={weekTypeKey} applyWeekType={applyWeekType} setShowWeekTypePicker={setShowWeekTypePicker} flowMode={flowMode} dietaryFilters={dietaryFilters} setNextWeekMeals={setNextWeekMeals} setMeals={setMeals} setMealSubTab={setMealSubTab} mealBankCustom={mealBankCustom} targetWeek={mealSubTab==="week"?"this":"next"} wtAiMeals={wtAiMeals} setWtAiMeals={setWtAiMeals} wtSelected={wtSelected} setWtSelected={setWtSelected}/>}
 
-        <ScrollTabs style={{marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${T.border}`}}>
+        <ScrollTabs style={{marginBottom:"0.85rem",background:"rgba(220,232,226,0.7)",borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${"var(--fl-border)"}`}}>
           {subTabs.map(st=>(
-            <button key={st.id} onClick={()=>setMealSubTab(st.id)} style={{flexShrink:0,background:mealSubTab===st.id?T.sage:"transparent",color:mealSubTab===st.id?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.4rem 0.55rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem",justifyContent:"center"}}>
+            <button key={st.id} onClick={()=>setMealSubTab(st.id)} style={{flexShrink:0,background:mealSubTab===st.id?"var(--fl-accent)":"transparent",color:mealSubTab===st.id?"#fff":"var(--fl-t2)",border:"none",borderRadius:"0.55rem",padding:"0.4rem 0.55rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem",justifyContent:"center"}}>
               {st.emoji} {st.label}
             </button>
           ))}
@@ -6112,43 +6117,43 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="week"&&(
           <div>
-            <div style={{...card({padding:"0.85rem 1rem",background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.85rem"})}}>
+            <div style={{...card({padding:"0.85rem 1rem",background:"rgba(100,148,130,0.14)",border:`2px solid ${"var(--fl-accent)"}50`,marginBottom:"0.85rem"})}}>
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
                 {[{v:1,label:"Dinner Only",emoji:"🌙"},{v:2,label:"Lunch + Dinner",emoji:"☀️🌙"},{v:3,label:"All 3 Meals",emoji:"🌅☀️🌙"}].map(o=>(
-                  <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?T.sage:T.white,color:mealCount===o.v?"#fff":T.textMid,border:`2px solid ${mealCount===o.v?T.sage:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.emoji} {o.label}</button>
+                  <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?"var(--fl-accent)":"rgba(255,255,255,0.9)",color:mealCount===o.v?"#fff":"var(--fl-t2)",border:`2px solid ${mealCount===o.v?"var(--fl-accent)":"var(--fl-border)"}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.emoji} {o.label}</button>
                 ))}
               </div>
 
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",alignItems:"center"}}>
-                <button onClick={()=>setShowRecipes(v=>!v)} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.55rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="recipe" size={11} color={T.textMid}/> Recipes ({recipes.length})</button>
+                <button onClick={()=>setShowRecipes(v=>!v)} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.55rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="recipe" size={11} color={"var(--fl-t2)"}/> Recipes ({recipes.length})</button>
               </div>
             </div>
             {showRecipes&&(
-              <div style={{...card({border:`2px solid ${T.sand}50`,background:`linear-gradient(135deg,${T.sandPale},${T.surface})`})}}>
+              <div style={{...card({border:`2px solid ${"var(--fl-gold)"}50`,background:`linear-gradient(135deg,${"rgba(176,136,64,0.12)"},${"rgba(255,255,255,0.82)"})`})}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>
-                  <button onClick={()=>setShowRecipeImport(true)} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>+ Import</button>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:"var(--fl-t1)"}}>My Recipes</span>
+                  <button onClick={()=>setShowRecipeImport(true)} style={btnP("var(--fl-gold)",{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>+ Import</button>
                 </div>
-                {recipes.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontWeight:600,textAlign:"center"}}>No recipes yet — import from a URL or add manually.</p>}
+                {recipes.length===0&&<p style={{color:"rgba(26,46,58,0.3)",fontSize:"0.8rem",fontWeight:600,textAlign:"center"}}>No recipes yet — import from a URL or add manually.</p>}
                 {recipes.map(r=>(
-                  <div key={r.id} style={{padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+                  <div key={r.id} style={{padding:"0.65rem 0",borderBottom:`1px solid ${"rgba(100,148,130,0.15)"}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div>
-                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.87rem"}}>{r.name}</div>
-                        <div style={{color:T.textSoft,fontSize:"0.72rem",marginTop:"0.1rem"}}>{r.servings&&`${r.servings} servings · `}{r.time&&`${r.time} · `}{r.source&&`from ${r.source}`}</div>
-                        {Array.isArray(r.ingredients)&&r.ingredients.length>0&&<div style={{color:T.textMid,fontSize:"0.71rem",marginTop:"0.22rem"}}>{r.ingredients.slice(0,3).join(", ")}{r.ingredients.length>3?` +${r.ingredients.length-3} more`:""}</div>}
+                        <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.87rem"}}>{r.name}</div>
+                        <div style={{color:"var(--fl-t3)",fontSize:"0.72rem",marginTop:"0.1rem"}}>{r.servings&&`${r.servings} servings · `}{r.time&&`${r.time} · `}{r.source&&`from ${r.source}`}</div>
+                        {Array.isArray(r.ingredients)&&r.ingredients.length>0&&<div style={{color:"var(--fl-t2)",fontSize:"0.71rem",marginTop:"0.22rem"}}>{r.ingredients.slice(0,3).join(", ")}{r.ingredients.length>3?` +${r.ingredients.length-3} more`:""}</div>}
                       </div>
-                      <button onClick={()=>setRecipes(p=>p.filter(x=>x.id!==r.id))} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                      <button onClick={()=>setRecipes(p=>p.filter(x=>x.id!==r.id))} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={"rgba(26,46,58,0.3)"}/></button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
             {swapDay&&(
-              <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
+              <div style={{background:"var(--fl-gold)"+"22",border:"2px dashed "+"var(--fl-gold)",borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
                 <span style={{fontSize:"0.85rem"}}>🔄</span>
-                <span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark,flex:1}}>Swapping <strong>{swapDay}</strong> with… tap another day</span>
-                <button onClick={()=>setSwapDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.85rem",fontWeight:700,padding:"2px 6px",fontFamily:"inherit"}}>Cancel</button>
+                <span style={{fontSize:"0.82rem",fontWeight:700,color:"#7a6030",flex:1}}>Swapping <strong>{swapDay}</strong> with… tap another day</span>
+                <button onClick={()=>setSwapDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(26,46,58,0.3)",fontSize:"0.85rem",fontWeight:700,padding:"2px 6px",fontFamily:"inherit"}}>Cancel</button>
               </div>
             )}
             {MEAL_DAYS.map(day=>{
@@ -6158,39 +6163,39 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               const isSwapTarget=swapDay&&swapDay!==day;
               return (
                 <div key={day} onClick={isSwapTarget?function(){setMeals(function(p){var n=Object.assign({},p);var tmp=n[swapDay]||{};n[swapDay]=n[day]||{};n[day]=tmp;return n;});setSwapDay(null);}:undefined}
-                  style={{...card({borderLeft:`4px solid ${isSwapSource?T.sand:isToday?T.sage:T.borderSoft}`,background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":isToday?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
+                  style={{...card({borderLeft:`4px solid ${isSwapSource?"var(--fl-gold)":isToday?"var(--fl-accent)":"rgba(100,148,130,0.15)"}`,background:isSwapSource?`linear-gradient(to right,${"rgba(176,136,64,0.12)"},${"rgba(255,255,255,0.82)"})`:isSwapTarget?"linear-gradient(to right,"+"var(--fl-gold)"+"18,"+"rgba(255,255,255,0.82)"+")":isToday?`linear-gradient(to right,${"rgba(100,148,130,0.14)"},${"rgba(255,255,255,0.82)"})`:"rgba(255,255,255,0.82)",cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+"var(--fl-gold)"+"80":"none",outlineOffset:"-2px"})}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
                     <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-                      <span style={{fontWeight:700,color:isSwapSource?T.sandDark:isToday?T.sageDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
-                      {isToday&&!isSwapSource&&<Pill label="Today" color={T.sage} tiny/>}
-                      {isSwapSource&&<Pill label="Swapping…" color={T.sand} tiny/>}
-                      {isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px"}}>tap to swap</span>}
-                      {mealThemeEnabled&&themeDay&&!isSwapSource&&!isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px",border:`1px solid ${T.sand}35`}}>{themeDay.emoji} {themeDay.theme}</span>}
+                      <span style={{fontWeight:700,color:isSwapSource?"#7a6030":isToday?"#2a6058":"var(--fl-t1)",fontSize:"0.93rem"}}>{day}</span>
+                      {isToday&&!isSwapSource&&<Pill label="Today" color={"var(--fl-accent)"} tiny/>}
+                      {isSwapSource&&<Pill label="Swapping…" color={"var(--fl-gold)"} tiny/>}
+                      {isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:"var(--fl-gold)",background:"rgba(176,136,64,0.12)",borderRadius:"2rem",padding:"2px 8px"}}>tap to swap</span>}
+                      {mealThemeEnabled&&themeDay&&!isSwapSource&&!isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:"var(--fl-gold)",background:"rgba(176,136,64,0.12)",borderRadius:"2rem",padding:"2px 8px",border:`1px solid ${"var(--fl-gold)"}35`}}>{themeDay.emoji} {themeDay.theme}</span>}
                     </div>
                     <div style={{display:"flex",gap:"0.35rem"}}>
-                      {!swapDay&&isToday&&m.dinner&&<button onClick={()=>setMealSubTab("tonight")} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🌙 Tonight</button>}
-                      {!swapDay&&<button onClick={function(e){e.stopPropagation();openEdit(day);}} style={btnS({padding:"0.28rem 0.7rem",fontSize:"0.74rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="edit" size={11} color={T.textMid}/> Edit</button>}
-                      <button onClick={function(e){e.stopPropagation();setSwapDay(isSwapSource?null:day);}} title="Swap this day" style={{...btnS({padding:"0.28rem 0.55rem",display:"flex",alignItems:"center"}),background:isSwapSource?T.sand:"transparent",borderColor:isSwapSource?T.sand:T.border}}>
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M2 5l3-3M2 5l3 3M14 11H4M14 11l-3-3M14 11l-3 3" stroke={isSwapSource?"#fff":T.textMid} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {!swapDay&&isToday&&m.dinner&&<button onClick={()=>setMealSubTab("tonight")} style={btnP("var(--fl-accent)",{fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🌙 Tonight</button>}
+                      {!swapDay&&<button onClick={function(e){e.stopPropagation();openEdit(day);}} style={btnS({padding:"0.28rem 0.7rem",fontSize:"0.74rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="edit" size={11} color={"var(--fl-t2)"}/> Edit</button>}
+                      <button onClick={function(e){e.stopPropagation();setSwapDay(isSwapSource?null:day);}} title="Swap this day" style={{...btnS({padding:"0.28rem 0.55rem",display:"flex",alignItems:"center"}),background:isSwapSource?"var(--fl-gold)":"transparent",borderColor:isSwapSource?"var(--fl-gold)":"var(--fl-border)"}}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M2 5l3-3M2 5l3 3M14 11H4M14 11l-3-3M14 11l-3 3" stroke={isSwapSource?"#fff":"var(--fl-t2)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </button>
                     </div>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:`repeat(${MEALS_TO_SHOW.length},1fr)`,gap:"0.45rem"}}>
                     {MEALS_TO_SHOW.map(meal=>(
-                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:MEALS_TO_SHOW.length===3?"0.4rem 0.45rem":"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
-                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.55rem":"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800,marginBottom:"0.15rem"}}>{meal}</div>
-                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.75rem":"0.82rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
+                      <div key={meal} style={{background:"rgba(255,255,255,0.9)",borderRadius:"0.65rem",padding:MEALS_TO_SHOW.length===3?"0.4rem 0.45rem":"0.58rem 0.7rem",border:`1.5px solid ${"rgba(100,148,130,0.15)"}`}}>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.55rem":"0.6rem",color:"var(--fl-t2)",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800,marginBottom:"0.15rem"}}>{meal}</div>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.75rem":"0.82rem",color:m[meal]?"var(--fl-t1)":"rgba(26,46,58,0.3)",fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
                         <MealBankDrawer mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                       </div>
                     ))}
                   </div>
                   {bankMatch&&(
                     <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginTop:"0.55rem",alignItems:"center"}}>
-                      <span style={{fontSize:"0.65rem",color:T.textSoft,fontWeight:600}}>⏱ {bankMatch.time} min · 🧹 {bankMatch.cleanup}</span>
-                      {(bankMatch.tags||[]).slice(0,3).map(function(tag){var tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?React.createElement("span",{key:tag,style:{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:"1px solid "+T.sage+"30"}},tf.emoji+" "+tf.label):null;})}
+                      <span style={{fontSize:"0.65rem",color:"var(--fl-t3)",fontWeight:600}}>⏱ {bankMatch.time} min · 🧹 {bankMatch.cleanup}</span>
+                      {(bankMatch.tags||[]).slice(0,3).map(function(tag){var tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?React.createElement("span",{key:tag,style:{fontSize:"0.62rem",color:"var(--fl-accent)",background:"rgba(100,148,130,0.14)",borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:"1px solid "+"var(--fl-accent)"+"30"}},tf.emoji+" "+tf.label):null;})}
                     </div>
                   )}
-                  {m.notes&&<div style={{marginTop:"0.5rem",fontSize:"0.77rem",color:T.textMid,fontStyle:"italic"}}>📝 {m.notes}</div>}
+                  {m.notes&&<div style={{marginTop:"0.5rem",fontSize:"0.77rem",color:"var(--fl-t2)",fontStyle:"italic"}}>📝 {m.notes}</div>}
                 </div>
               );
             })}
@@ -6199,24 +6204,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="nextweek"&&(
           <div>
-            <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
-              <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
+            <div style={{...card({background:`linear-gradient(135deg,${"rgba(100,148,130,0.1)"},${"rgba(100,148,130,0.1)"})`,border:`2px solid ${"var(--fl-accent)"}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:"var(--fl-t1)",marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
+              <p style={{color:"var(--fl-t3)",fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.7rem"}}>
                 {[{v:1,label:"Dinner Only",emoji:"🌙"},{v:2,label:"Lunch + Dinner",emoji:"☀️🌙"},{v:3,label:"All 3 Meals",emoji:"🌅☀️🌙"}].map(o=>(
-                  <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={{background:nextWeekMealCount===o.v?T.blue:T.white,color:nextWeekMealCount===o.v?"#fff":T.textMid,border:`2px solid ${nextWeekMealCount===o.v?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.emoji} {o.label}</button>
+                  <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={{background:nextWeekMealCount===o.v?"var(--fl-accent)":"rgba(255,255,255,0.9)",color:nextWeekMealCount===o.v?"#fff":"var(--fl-t2)",border:`2px solid ${nextWeekMealCount===o.v?"var(--fl-accent)":"var(--fl-border)"}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.emoji} {o.label}</button>
                 ))}
               </div>
                 </div>
             {MEAL_DAYS.map(function(day){
               var m=nextWeekMeals[day]||{};
               return (
-                <div key={day} style={{...card({borderLeft:"4px solid "+T.blue+"50"})}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem",marginBottom:"0.65rem"}}>{day}</div>
+                <div key={day} style={{...card({borderLeft:"4px solid "+"var(--fl-accent)"+"50"})}}>
+                  <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.93rem",marginBottom:"0.65rem"}}>{day}</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat("+nwMealsToShow.length+",1fr)",gap:"0.45rem",marginBottom:"0.55rem"}}>
                     {nwMealsToShow.map(function(meal){return(
-                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
-                        <div style={{fontSize:"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
+                      <div key={meal} style={{background:"rgba(255,255,255,0.9)",borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+"rgba(100,148,130,0.15)"}}>
+                        <div style={{fontSize:"0.6rem",color:"var(--fl-t2)",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:"0.22rem"}}>{meal}</div>
                         <input key={day+meal} defaultValue={m[meal]||""} onBlur={function(e){var v=e.target.value;setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=v;return nd;});}} placeholder="—" style={{...inp({padding:"0.28rem 0.45rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                         <div style={{marginTop:"0.35rem"}}>
                           <MealBankDrawer key={meal} mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setNextWeekMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
@@ -6235,7 +6240,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               });
               setNextWeekMeals({});
               setMealSubTab("week");
-            }} style={{...btnP(T.blue,{width:"100%",padding:"0.85rem",fontSize:"0.9rem",marginTop:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem"})}}>
+            }} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",width:"100%",padding:"0.85rem",fontSize:"0.9rem",marginTop:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.5rem"}}>
               ✓ Apply as This Week's Meals
             </button>
           </div>
@@ -6249,15 +6254,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var monthMeals=getMonthMeals();
           return(
             <div>
-              <div style={{...card({background:"linear-gradient(135deg,"+T.lavPale||T.bluePale+","+T.surface+")",border:"2px solid "+T.blue+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>📅 Monthly Meal Plan</div>
-                <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Plan dinners across four weeks. Hit Load Week to pull any week into your current plan.</p>
+              <div style={{...card({background:"linear-gradient(135deg,"+"rgba(100,148,130,0.1)"||"rgba(100,148,130,0.1)"+","+"rgba(255,255,255,0.82)"+")",border:"2px solid "+"var(--fl-accent)"+"40",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:"var(--fl-t1)",marginBottom:"0.2rem"}}>📅 Monthly Meal Plan</div>
+                <p style={{color:"var(--fl-t3)",fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Plan dinners across four weeks. Hit Load Week to pull any week into your current plan.</p>
               </div>
               {WEEK_LABELS.map(function(wLabel,wi){
                 return(
                   <div key={wi} style={{marginBottom:"1rem"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.45rem"}}>
-                      <span style={{fontSize:"0.75rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid}}>{wLabel}</span>
+                      <span style={{fontSize:"0.75rem",fontWeight:800,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--fl-t2)"}}>{wLabel}</span>
                       <button onClick={function(){
                         setMeals(function(prev){
                           var next={...prev};
@@ -6268,14 +6273,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                           return next;
                         });
                         setMealSubTab("week");
-                      }} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.7rem"})}>Load Week</button>
+                      }} style={btnP("var(--fl-accent)",{fontSize:"0.7rem",padding:"0.25rem 0.7rem"})}>Load Week</button>
                     </div>
                     <div style={card({padding:"0.5rem 0.75rem"})}>
                       {MEAL_DAYS.map(function(day){
                         var k="w"+(wi+1)+"_"+day;
                         return(
-                          <div key={day} style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:"0.5rem",alignItems:"center",padding:"0.28rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                            <span style={{fontSize:"0.72rem",fontWeight:700,color:T.textFaint}}>{day.slice(0,3)}</span>
+                          <div key={day} style={{display:"grid",gridTemplateColumns:"70px 1fr auto",gap:"0.5rem",alignItems:"center",padding:"0.28rem 0",borderBottom:"1px solid "+"rgba(100,148,130,0.15)"}}>
+                            <span style={{fontSize:"0.72rem",fontWeight:700,color:"rgba(26,46,58,0.3)"}}>{day.slice(0,3)}</span>
                             <input defaultValue={monthMeals[k]||""} onBlur={function(e){var d=getMonthMeals();d[k]=e.target.value;saveMonthMeals(d);}} placeholder="Dinner…" style={{...inp({padding:"0.28rem 0.5rem",fontSize:"0.8rem",border:"none",background:"transparent",width:"100%"})}}/>
                             <MealBankDrawer mealType="dinner" allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){var d=getMonthMeals();d[k]=mb.name;saveMonthMeals(d);}} onAddToShopping={addIngredientToShopping}/>
                           </div>
@@ -6301,37 +6306,37 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           function addAll(ings){ings.forEach(function(ing){if(!inList(ing))setShoppingItems(function(p){return[...p,{id:uid(),text:ing,store:"Grocery Store",done:false}];});});}
           return(
             <div>
-              <div style={{...card({background:"linear-gradient(135deg,"+T.sagePale+","+T.surface+")",border:"2px solid "+T.sage+"50",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>🛒 Meals → Grocery</div>
-                <p style={{color:T.textSoft,fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Tap ingredients to add to your shopping list, or add everything at once.</p>
+              <div style={{...card({background:"linear-gradient(135deg,"+"rgba(100,148,130,0.14)"+","+"rgba(255,255,255,0.82)"+")",border:"2px solid "+"var(--fl-accent)"+"50",padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:"var(--fl-t1)",marginBottom:"0.2rem"}}>🛒 Meals → Grocery</div>
+                <p style={{color:"var(--fl-t3)",fontSize:"0.8rem",lineHeight:1.5,margin:0}}>Tap ingredients to add to your shopping list, or add everything at once.</p>
               </div>
               {weekMeals.length===0?(
                 <div style={{...card({textAlign:"center",padding:"2rem"})}}>
-                  <p style={{color:T.textFaint,fontSize:"0.85rem"}}>No meals planned this week yet.</p>
-                  <button onClick={function(){setMealSubTab("week");}} style={btnP(T.sage,{marginTop:"0.75rem",fontSize:"0.8rem"})}>Plan this week</button>
+                  <p style={{color:"rgba(26,46,58,0.3)",fontSize:"0.85rem"}}>No meals planned this week yet.</p>
+                  <button onClick={function(){setMealSubTab("week");}} style={btnP("var(--fl-accent)",{marginTop:"0.75rem",fontSize:"0.8rem"})}>Plan this week</button>
                 </div>
               ):weekMeals.map(function(d){
                 return(
                   <div key={d.day} style={{...card({marginBottom:"0.65rem"})}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
                       <div>
-                        <div style={{fontSize:"0.65rem",fontWeight:800,textTransform:"uppercase",color:d.isToday?T.sage:T.textFaint,letterSpacing:"0.06em"}}>{d.day}{d.isToday?" · Tonight":""}</div>
-                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{d.dinner}</div>
+                        <div style={{fontSize:"0.65rem",fontWeight:800,textTransform:"uppercase",color:d.isToday?"var(--fl-accent)":"rgba(26,46,58,0.3)",letterSpacing:"0.06em"}}>{d.day}{d.isToday?" · Tonight":""}</div>
+                        <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.92rem"}}>{d.dinner}</div>
                       </div>
-                      {d.ingredients.length>0&&<button onClick={function(){addAll(d.ingredients);}} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Add all</button>}
+                      {d.ingredients.length>0&&<button onClick={function(){addAll(d.ingredients);}} style={btnP("var(--fl-accent)",{fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Add all</button>}
                     </div>
                     {d.ingredients.length>0?(
                       <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem"}}>
                         {d.ingredients.map(function(ing){
                           var added=inList(ing);
                           return(
-                            <button key={ing} onClick={function(){addIng(ing);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1px solid "+(added?T.sage:T.border),background:added?T.sagePale:"transparent",color:added?T.sageDark:T.textMid,fontSize:"0.73rem",fontWeight:600,cursor:added?"default":"pointer",fontFamily:"inherit"}}>
+                            <button key={ing} onClick={function(){addIng(ing);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1px solid "+(added?"var(--fl-accent)":"var(--fl-border)"),background:added?"rgba(100,148,130,0.14)":"transparent",color:added?"#2a6058":"var(--fl-t2)",fontSize:"0.73rem",fontWeight:600,cursor:added?"default":"pointer",fontFamily:"inherit"}}>
                               {added?"✓ ":""}{ing}
                             </button>
                           );
                         })}
                       </div>
-                    ):<p style={{color:T.textFaint,fontSize:"0.78rem",fontStyle:"italic"}}>Not in meal bank — add ingredients manually.</p>}
+                    ):<p style={{color:"rgba(26,46,58,0.3)",fontSize:"0.78rem",fontStyle:"italic"}}>Not in meal bank — add ingredients manually.</p>}
                   </div>
                 );
               })}
@@ -6343,55 +6348,55 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div>
             {tonightMealData?(
               <div>
-                <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.surface})`,border:`2px solid ${T.sage}60`,padding:"1.25rem"})}}>
-                  <div style={{fontSize:"0.65rem",color:T.sageDark,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800,marginBottom:"0.3rem"}}>Tonight · {TODAY_NAME}</div>
-                  <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.6rem",fontWeight:700,color:T.textDark,margin:"0 0 0.35rem"}}>{tonightMealData.name}</h2>
+                <div style={{...card({background:`linear-gradient(135deg,${"rgba(100,148,130,0.14)"},${"rgba(255,255,255,0.82)"})`,border:`2px solid ${"var(--fl-accent)"}60`,padding:"1.25rem"})}}>
+                  <div style={{fontSize:"0.65rem",color:"#2a6058",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800,marginBottom:"0.3rem"}}>Tonight · {TODAY_NAME}</div>
+                  <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.6rem",fontWeight:700,color:"var(--fl-t1)",margin:"0 0 0.35rem"}}>{tonightMealData.name}</h2>
                   <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
-                    <span style={{fontSize:"0.72rem",fontWeight:600,color:T.textMid}}>⏱ {tonightMealData.time} min</span>
-                    <span style={{fontSize:"0.72rem",fontWeight:600,color:T.textMid}}>· 🧹 {tonightMealData.cleanup}</span>
+                    <span style={{fontSize:"0.72rem",fontWeight:600,color:"var(--fl-t2)"}}>⏱ {tonightMealData.time} min</span>
+                    <span style={{fontSize:"0.72rem",fontWeight:600,color:"var(--fl-t2)"}}>· 🧹 {tonightMealData.cleanup}</span>
                     <span style={{fontSize:"0.72rem"}}>{"⭐".repeat(tonightMealData.kidRating)} kid rating</span>
                   </div>
                 </div>
                 <div style={{...card()}}>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:T.textDark,marginBottom:"0.65rem"}}>You'll Need</div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:"var(--fl-t1)",marginBottom:"0.65rem"}}>You'll Need</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem"}}>
                     {tonightMealData.ingredients.map((ing,i)=>(
-                      <span key={i} style={{fontSize:"0.8rem",fontWeight:600,color:T.textDark,background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"2rem",padding:"0.22rem 0.75rem"}}>{ing}</span>
+                      <span key={i} style={{fontSize:"0.8rem",fontWeight:600,color:"var(--fl-t1)",background:"rgba(176,136,64,0.12)",border:`1px solid ${"var(--fl-gold)"}40`,borderRadius:"2rem",padding:"0.22rem 0.75rem"}}>{ing}</span>
                     ))}
                   </div>
                 </div>
                 <div style={{...card()}}>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:T.textDark,marginBottom:"0.75rem"}}>How to Make It</div>
+                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:"var(--fl-t1)",marginBottom:"0.75rem"}}>How to Make It</div>
                   {tonightMealData.steps.map((step,i)=>(
                     <div key={i} style={{display:"flex",gap:"0.75rem",marginBottom:"0.6rem",alignItems:"flex-start"}}>
-                      <div style={{width:24,height:24,borderRadius:"50%",background:T.sage,color:"#fff",fontSize:"0.72rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{i+1}</div>
-                      <span style={{fontSize:"0.86rem",color:T.textDark,fontWeight:500,lineHeight:1.55}}>{step}</span>
+                      <div style={{width:24,height:24,borderRadius:"50%",background:"var(--fl-accent)",color:"#fff",fontSize:"0.72rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{i+1}</div>
+                      <span style={{fontSize:"0.86rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.55}}>{step}</span>
                     </div>
                   ))}
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.55rem",marginBottom:"0.55rem"}}>
-                  <div style={{...card({background:T.bluePale,border:`1.5px solid ${T.blue}40`,padding:"0.85rem"})}}>
-                    <div style={{fontSize:"0.68rem",fontWeight:800,color:T.blueDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💡 Easy Swap</div>
-                    <div style={{fontSize:"0.8rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{tonightMealData.swap}</div>
+                  <div style={{...card({background:"rgba(100,148,130,0.1)",border:`1.5px solid ${"var(--fl-accent)"}40`,padding:"0.85rem"})}}>
+                    <div style={{fontSize:"0.68rem",fontWeight:800,color:"#2a6058",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💡 Easy Swap</div>
+                    <div style={{fontSize:"0.8rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.5}}>{tonightMealData.swap}</div>
                   </div>
-                  <div style={{...card({background:T.rosePale,border:`1.5px solid ${T.rose}40`,padding:"0.85rem"})}}>
-                    <div style={{fontSize:"0.68rem",fontWeight:800,color:T.roseDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>😮‍💨 If Overwhelmed</div>
-                    <div style={{fontSize:"0.8rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{tonightMealData.skip}</div>
+                  <div style={{...card({background:"rgba(176,90,104,0.1)",border:`1.5px solid ${"var(--fl-rose)"}40`,padding:"0.85rem"})}}>
+                    <div style={{fontSize:"0.68rem",fontWeight:800,color:"#8a3a48",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>😮‍💨 If Overwhelmed</div>
+                    <div style={{fontSize:"0.8rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.5}}>{tonightMealData.skip}</div>
                   </div>
                 </div>
-                <div style={{...card({background:T.sandPale,border:`1.5px solid ${T.sand}40`,padding:"0.85rem"})}}>
-                  <div style={{fontSize:"0.68rem",fontWeight:800,color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.3rem"}}>🍱 Leftovers</div>
-                  <div style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500}}>{tonightMealData.leftovers}</div>
+                <div style={{...card({background:"rgba(176,136,64,0.12)",border:`1.5px solid ${"var(--fl-gold)"}40`,padding:"0.85rem"})}}>
+                  <div style={{fontSize:"0.68rem",fontWeight:800,color:"#7a6030",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.3rem"}}>🍱 Leftovers</div>
+                  <div style={{fontSize:"0.82rem",color:"var(--fl-t1)",fontWeight:500}}>{tonightMealData.leftovers}</div>
                 </div>
               </div>
             ):(
               <div style={{...card({textAlign:"center",padding:"2rem"})}}>
                 <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🌙</div>
-                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.4rem"}}>No dinner set for tonight</p>
-                <p style={{color:T.textMid,fontSize:"0.83rem",marginBottom:"1rem"}}>Head to This Week to plan {TODAY_NAME}'s dinner, or use Rescue Mode.</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"var(--fl-t1)",marginBottom:"0.4rem"}}>No dinner set for tonight</p>
+                <p style={{color:"var(--fl-t2)",fontSize:"0.83rem",marginBottom:"1rem"}}>Head to This Week to plan {TODAY_NAME}'s dinner, or use Rescue Mode.</p>
                 <div style={{display:"flex",gap:"0.5rem",justifyContent:"center",flexWrap:"wrap"}}>
-                  <button onClick={()=>setMealSubTab("week")} style={btnP(T.sage)}>Plan This Week</button>
-                  <button onClick={()=>setMealSubTab("rescue")} style={btnP(T.rose)}>🆘 SOS Mode</button>
+                  <button onClick={()=>setMealSubTab("week")} style={btnP("var(--fl-accent)")}>Plan This Week</button>
+                  <button onClick={()=>setMealSubTab("rescue")} style={btnP("var(--fl-rose)")}>🆘 SOS Mode</button>
                 </div>
               </div>
             )}
@@ -6401,9 +6406,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {mealSubTab==="bank"&&(
           <div>
             {/* ── Inner tab bar: Meals | Recipes ── */}
-            <div style={{display:"flex",gap:"0.3rem",marginBottom:"1rem",background:T.bgAlt,borderRadius:"0.7rem",padding:"0.22rem",border:`1px solid ${T.border}`}}>
+            <div style={{display:"flex",gap:"0.3rem",marginBottom:"1rem",background:"rgba(220,232,226,0.7)",borderRadius:"0.7rem",padding:"0.22rem",border:`1px solid ${"var(--fl-border)"}`}}>
               {[{id:"meals",label:"Meal Bank",emoji:"📋"},{id:"recipes",label:"Recipes",emoji:"📖"}].map(function(it){return(
-                <button key={it.id} onClick={function(){setBankInnerTab(it.id);}} style={{flex:1,background:bankInnerTab===it.id?T.sage:"transparent",color:bankInnerTab===it.id?"#fff":T.textMid,border:"none",borderRadius:"0.5rem",padding:"0.42rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}>
+                <button key={it.id} onClick={function(){setBankInnerTab(it.id);}} style={{flex:1,background:bankInnerTab===it.id?"var(--fl-accent)":"transparent",color:bankInnerTab===it.id?"#fff":"var(--fl-t2)",border:"none",borderRadius:"0.5rem",padding:"0.42rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}>
                   {it.emoji} {it.label}
                 </button>
               );})}
@@ -6412,66 +6417,66 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {/* ── MEALS inner tab ── */}
             <div style={{display:bankInnerTab==="meals"?"block":"none"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
-                  <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
-                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
+                  <p style={{color:"var(--fl-t2)",fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
+                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP("var(--fl-accent)",{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
                   {MEAL_TAG_FILTERS.map(function(tf){return(
-                    <button key={tf.id} onClick={function(){setBankFilters(function(p){return p.includes(tf.id)?p.filter(function(x){return x!==tf.id;}):[...p,tf.id];});}} style={{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <button key={tf.id} onClick={function(){setBankFilters(function(p){return p.includes(tf.id)?p.filter(function(x){return x!==tf.id;}):[...p,tf.id];});}} style={{background:bankFilters.includes(tf.id)?"var(--fl-accent)":"rgba(255,255,255,0.9)",color:bankFilters.includes(tf.id)?"#fff":"var(--fl-t2)",border:`1.5px solid ${bankFilters.includes(tf.id)?"var(--fl-accent)":"var(--fl-border)"}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
                       {tf.emoji} {tf.label}
                     </button>
                   );})}
-                  {bankFilters.length>0&&<button onClick={function(){setBankFilters([]);}} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",fontWeight:600}}>Clear</button>}
+                  {bankFilters.length>0&&<button onClick={function(){setBankFilters([]);}} style={{background:"none",border:"none",color:"rgba(26,46,58,0.3)",cursor:"pointer",fontSize:"0.72rem",fontFamily:"inherit",fontWeight:600}}>Clear</button>}
                 </div>
-                <p style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginBottom:"0.65rem"}}>{filteredBank.length} meal{filteredBank.length!==1?"s":""} found</p>
+                <p style={{color:"var(--fl-t3)",fontSize:"0.75rem",fontWeight:500,marginBottom:"0.65rem"}}>{filteredBank.length} meal{filteredBank.length!==1?"s":""} found</p>
                 {filteredBank.map(function(m){return(
-                  <div key={m.id} onClick={function(){setSelectedBankMeal(selectedBankMeal===m.id?null:m.id);}} style={{...card({cursor:"pointer",borderLeft:`4px solid ${selectedBankMeal===m.id?T.sage:(m.isCustom?T.sand:T.borderSoft)}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,transition:"all 0.15s"})}}>
+                  <div key={m.id} onClick={function(){setSelectedBankMeal(selectedBankMeal===m.id?null:m.id);}} style={{...card({cursor:"pointer",borderLeft:`4px solid ${selectedBankMeal===m.id?"var(--fl-accent)":(m.isCustom?"var(--fl-gold)":"rgba(100,148,130,0.15)")}`,background:selectedBankMeal===m.id?`linear-gradient(to right,${"rgba(100,148,130,0.14)"},${"rgba(255,255,255,0.82)"})`:"rgba(255,255,255,0.82)",transition:"all 0.15s"})}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"0.5rem"}}>
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                          <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{m.name}</div>
-                          {m.isCustom&&<span style={{fontSize:"0.6rem",color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"1px 6px",fontWeight:700,border:`1px solid ${T.sand}40`}}>custom</span>}
+                          <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.92rem"}}>{m.name}</div>
+                          {m.isCustom&&<span style={{fontSize:"0.6rem",color:"var(--fl-gold)",background:"rgba(176,136,64,0.12)",borderRadius:"2rem",padding:"1px 6px",fontWeight:700,border:`1px solid ${"var(--fl-gold)"}40`}}>custom</span>}
                         </div>
                         {(m.time||m.cleanup||m.kidRating)&&(
                           <div style={{display:"flex",gap:"0.5rem",marginTop:"0.2rem"}}>
-                            <span style={{fontSize:"0.69rem",color:T.textSoft,fontWeight:600}}>{m.time?`⏱ ${m.time} min`:""}{m.cleanup?` · 🧹 ${m.cleanup}`:""}{m.kidRating?` · ${"⭐".repeat(m.kidRating)}`:""}</span>
+                            <span style={{fontSize:"0.69rem",color:"var(--fl-t3)",fontWeight:600}}>{m.time?`⏱ ${m.time} min`:""}{m.cleanup?` · 🧹 ${m.cleanup}`:""}{m.kidRating?` · ${"⭐".repeat(m.kidRating)}`:""}</span>
                           </div>
                         )}
-                        {m.notes&&!selectedBankMeal&&<div style={{fontSize:"0.74rem",color:T.textSoft,marginTop:"0.2rem",fontStyle:"italic"}}>{m.notes}</div>}
+                        {m.notes&&!selectedBankMeal&&<div style={{fontSize:"0.74rem",color:"var(--fl-t3)",marginTop:"0.2rem",fontStyle:"italic"}}>{m.notes}</div>}
                         <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.4rem"}}>
-                          {(m.tags||[]).slice(0,4).map(function(tag){const tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?<span key={tag} style={{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${T.sage}30`}}>{tf.emoji} {tf.label}</span>:null;})}
+                          {(m.tags||[]).slice(0,4).map(function(tag){const tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?<span key={tag} style={{fontSize:"0.62rem",color:"var(--fl-accent)",background:"rgba(100,148,130,0.14)",borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:`1px solid ${"var(--fl-accent)"}30`}}>{tf.emoji} {tf.label}</span>:null;})}
                         </div>
                       </div>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"0.3rem"}}>
-                        <Icon name={selectedBankMeal===m.id?"chevD":"chevR"} size={16} color={T.textSoft}/>
-                        {m.isCustom&&<button onClick={function(e){e.stopPropagation();setMealBankCustom(function(p){return p.filter(function(x){return x.id!==m.id;});});if(selectedBankMeal===m.id)setSelectedBankMeal(null);}} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.7rem",padding:0,fontFamily:"inherit"}}>✕</button>}
+                        <Icon name={selectedBankMeal===m.id?"chevD":"chevR"} size={16} color={"var(--fl-t3)"}/>
+                        {m.isCustom&&<button onClick={function(e){e.stopPropagation();setMealBankCustom(function(p){return p.filter(function(x){return x.id!==m.id;});});if(selectedBankMeal===m.id)setSelectedBankMeal(null);}} style={{background:"none",border:"none",color:"rgba(26,46,58,0.3)",cursor:"pointer",fontSize:"0.7rem",padding:0,fontFamily:"inherit"}}>✕</button>}
                       </div>
                     </div>
                     {selectedBankMeal===m.id&&(
-                      <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:`1px solid ${T.borderSoft}`}}>
-                        {m.notes&&<div style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,marginBottom:"0.65rem",fontStyle:"italic"}}>{m.notes}</div>}
+                      <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:`1px solid ${"rgba(100,148,130,0.15)"}`}}>
+                        {m.notes&&<div style={{fontSize:"0.82rem",color:"var(--fl-t1)",fontWeight:500,marginBottom:"0.65rem",fontStyle:"italic"}}>{m.notes}</div>}
                         {m.ingredients&&m.ingredients.length>0&&(
                           <div>
-                            <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Ingredients</div>
+                            <div style={{fontSize:"0.72rem",fontWeight:800,color:"var(--fl-t3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Ingredients</div>
                             <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginBottom:"0.75rem"}}>
-                              {m.ingredients.map(function(ing,i){return <span key={i} style={{fontSize:"0.77rem",color:T.textDark,background:T.sandPale,border:`1px solid ${T.sand}30`,borderRadius:"2rem",padding:"1px 8px",fontWeight:500}}>{ing}</span>;})}
+                              {m.ingredients.map(function(ing,i){return <span key={i} style={{fontSize:"0.77rem",color:"var(--fl-t1)",background:"rgba(176,136,64,0.12)",border:`1px solid ${"var(--fl-gold)"}30`,borderRadius:"2rem",padding:"1px 8px",fontWeight:500}}>{ing}</span>;})}
                             </div>
                           </div>
                         )}
                         {m.steps&&m.steps.length>0&&(
                           <div>
-                            <div style={{fontSize:"0.72rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Steps</div>
+                            <div style={{fontSize:"0.72rem",fontWeight:800,color:"var(--fl-t3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.4rem"}}>Steps</div>
                             {m.steps.map(function(step,i){return(
                               <div key={i} style={{display:"flex",gap:"0.6rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
-                                <div style={{width:20,height:20,borderRadius:"50%",background:T.sage,color:"#fff",fontSize:"0.65rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
-                                <span style={{fontSize:"0.82rem",color:T.textDark,fontWeight:500,lineHeight:1.5}}>{step}</span>
+                                <div style={{width:20,height:20,borderRadius:"50%",background:"var(--fl-accent)",color:"#fff",fontSize:"0.65rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
+                                <span style={{fontSize:"0.82rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.5}}>{step}</span>
                               </div>
                             );})}
                           </div>
                         )}
-                        {m.swap&&<div style={{background:T.bluePale,border:`1px solid ${T.blue}30`,borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:T.textDark,fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>}
+                        {m.swap&&<div style={{background:"rgba(100,148,130,0.1)",border:`1px solid ${"var(--fl-accent)"}30`,borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:"var(--fl-t1)",fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>}
                         <div style={{marginTop:"0.65rem",display:"flex",gap:"0.45rem",flexWrap:"wrap"}}>
-                          <button onClick={function(e){e.stopPropagation();setMeals(function(p){return{...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}};});setMealSubTab("tonight");}} style={btnP(T.sage,{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
+                          <button onClick={function(e){e.stopPropagation();setMeals(function(p){return{...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}};});setMealSubTab("tonight");}} style={btnP("var(--fl-accent)",{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
                           <button onClick={function(e){e.stopPropagation();openEdit(TODAY_NAME);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Add to Week</button>
                         </div>
                       </div>
@@ -6479,8 +6484,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 );})}
                 {filteredBank.length===0&&<div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
-                  <p style={{color:T.textMid,fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one or add a new meal.</p>
-                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{marginTop:"0.65rem",fontSize:"0.78rem"})}>+ Add Meal</button>
+                  <p style={{color:"var(--fl-t2)",fontWeight:600,fontSize:"0.85rem"}}>No meals match those filters. Try removing one or add a new meal.</p>
+                  <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP("var(--fl-accent)",{marginTop:"0.65rem",fontSize:"0.78rem"})}>+ Add Meal</button>
                 </div>}
 
                 {/* ── Add to Meal Bank modal ── */}
@@ -6498,7 +6503,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <label style={lbl}>Tags</label>
                       <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginTop:"0.3rem"}}>
                         {MEAL_TAG_FILTERS.map(function(tf){var on=(newBankMeal.tags||[]).includes(tf.id);return(
-                          <button key={tf.id} onClick={function(){setNewBankMeal(function(p){return{...p,tags:on?p.tags.filter(function(x){return x!==tf.id;}):[...(p.tags||[]),tf.id]};});}} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
+                          <button key={tf.id} onClick={function(){setNewBankMeal(function(p){return{...p,tags:on?p.tags.filter(function(x){return x!==tf.id;}):[...(p.tags||[]),tf.id]};});}} style={{background:on?"var(--fl-accent)":"rgba(255,255,255,0.9)",color:on?"#fff":"var(--fl-t2)",border:`1.5px solid ${on?"var(--fl-accent)":"var(--fl-border)"}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
                             {tf.emoji} {tf.label}
                           </button>
                         );})}
@@ -6506,7 +6511,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                     <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
                       <button onClick={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnS()}>Cancel</button>
-                      <button disabled={!newBankMeal.name.trim()} onClick={function(){if(!newBankMeal.name.trim())return;setMealBankCustom(function(p){return[...p,{...newBankMeal,id:"c"+Date.now(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{opacity:newBankMeal.name.trim()?1:0.5})}>Save to Bank</button>
+                      <button disabled={!newBankMeal.name.trim()} onClick={function(){if(!newBankMeal.name.trim())return;setMealBankCustom(function(p){return[...p,{...newBankMeal,id:"c"+Date.now(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP("var(--fl-accent)",{opacity:newBankMeal.name.trim()?1:0.5})}>Save to Bank</button>
                     </div>
                   </ModalBox>
                 )}
@@ -6557,48 +6562,48 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           return(
             <div>
-              <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}55`,padding:"1.2rem",textAlign:"center"})}}>
+              <div style={{...card({background:`linear-gradient(135deg,${"rgba(100,148,130,0.14)"},${"rgba(100,148,130,0.1)"})`,border:`2px solid ${"var(--fl-accent)"}55`,padding:"1.2rem",textAlign:"center"})}}>
                 <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🫙</div>
-                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,margin:"0 0 0.35rem"}}>This Week's Prep</h2>
-                <p style={{color:T.textMid,fontSize:"0.83rem",lineHeight:1.6,maxWidth:280,margin:"0 auto 0.75rem"}}>20 minutes on Sunday changes everything.</p>
-                <button onClick={loadAiPrepTips} disabled={prepAiLoading} style={{...btnP(T.sage,{fontSize:"0.8rem",padding:"0.45rem 1.1rem",display:"inline-flex",alignItems:"center",gap:"0.4rem",opacity:prepAiLoading?0.6:1})}}>
+                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:"var(--fl-t1)",margin:"0 0 0.35rem"}}>This Week's Prep</h2>
+                <p style={{color:"var(--fl-t2)",fontSize:"0.83rem",lineHeight:1.6,maxWidth:280,margin:"0 auto 0.75rem"}}>20 minutes on Sunday changes everything.</p>
+                <button onClick={loadAiPrepTips} disabled={prepAiLoading} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.8rem",padding:"0.45rem 1.1rem",display:"inline-flex",alignItems:"center",gap:"0.4rem",opacity:prepAiLoading?0.6:1}}>
                   {prepAiLoading?"✨ Analyzing meals…":"✨ Get smart prep tips"}
                 </button>
               </div>
 
-              {prepAiError&&<div style={{...card({background:T.rosePale,border:`1.5px solid ${T.rose}50`,textAlign:"center"})}}><p style={{color:T.rose,fontWeight:600,fontSize:"0.83rem",margin:0}}>{prepAiError}</p></div>}
+              {prepAiError&&<div style={{...card({background:"rgba(176,90,104,0.1)",border:`1.5px solid ${"var(--fl-rose)"}50`,textAlign:"center"})}}><p style={{color:"var(--fl-rose)",fontWeight:600,fontSize:"0.83rem",margin:0}}>{prepAiError}</p></div>}
 
               {prepAiTips&&(
                 <div>
                   {prepAiTips.shared&&prepAiTips.shared.length>0&&(
-                    <div style={{...card({borderLeft:`4px solid ${T.sage}`})}}>
-                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:T.sage,marginBottom:"0.5rem"}}>🧅 Batch prep once</div>
+                    <div style={{...card({borderLeft:`4px solid ${"var(--fl-accent)"}`})}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--fl-accent)",marginBottom:"0.5rem"}}>🧅 Batch prep once</div>
                       {prepAiTips.shared.map(function(t,i){return(
-                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.shared.length-1?"1px solid "+T.borderSoft:"none"}}>
+                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.shared.length-1?"1px solid "+"rgba(100,148,130,0.15)":"none"}}>
                           <span style={{fontSize:"1rem",flexShrink:0}}>{t.emoji||"🔪"}</span>
-                          <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
+                          <span style={{fontSize:"0.83rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
                         </div>
                       );})}
                     </div>
                   )}
                   {prepAiTips.swaps&&prepAiTips.swaps.length>0&&(
-                    <div style={{...card({borderLeft:`4px solid ${T.sand}`})}}>
-                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:T.sandDark,marginBottom:"0.5rem"}}>🔄 Leftover opportunities</div>
+                    <div style={{...card({borderLeft:`4px solid ${"var(--fl-gold)"}`})}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:"#7a6030",marginBottom:"0.5rem"}}>🔄 Leftover opportunities</div>
                       {prepAiTips.swaps.map(function(t,i){return(
-                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.swaps.length-1?"1px solid "+T.borderSoft:"none"}}>
+                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.swaps.length-1?"1px solid "+"rgba(100,148,130,0.15)":"none"}}>
                           <span style={{fontSize:"1rem",flexShrink:0}}>{t.emoji||"♻️"}</span>
-                          <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
+                          <span style={{fontSize:"0.83rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
                         </div>
                       );})}
                     </div>
                   )}
                   {prepAiTips.batch&&prepAiTips.batch.length>0&&(
-                    <div style={{...card({borderLeft:`4px solid ${T.blue}`})}}>
-                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:T.blue,marginBottom:"0.5rem"}}>⏱ Time savers</div>
+                    <div style={{...card({borderLeft:`4px solid ${"var(--fl-accent)"}`})}}>
+                      <div style={{fontWeight:700,fontSize:"0.78rem",textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--fl-accent)",marginBottom:"0.5rem"}}>⏱ Time savers</div>
                       {prepAiTips.batch.map(function(t,i){return(
-                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.batch.length-1?"1px solid "+T.borderSoft:"none"}}>
+                        <div key={i} style={{display:"flex",gap:"0.6rem",alignItems:"flex-start",padding:"0.35rem 0",borderBottom:i<prepAiTips.batch.length-1?"1px solid "+"rgba(100,148,130,0.15)":"none"}}>
                           <span style={{fontSize:"1rem",flexShrink:0}}>{t.emoji||"⚡"}</span>
-                          <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
+                          <span style={{fontSize:"0.83rem",color:"var(--fl-t1)",fontWeight:500,lineHeight:1.45}}>{t.tip}</span>
                         </div>
                       );})}
                     </div>
@@ -6609,62 +6614,62 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {activePrepTasks.map(function(t){
                 var done=prepChecked.includes(t.id);
                 return (
-                  <button key={t.id} onClick={()=>setPrepChecked(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])} style={{...card({cursor:"pointer",display:"flex",alignItems:"center",gap:"0.9rem",padding:"1rem 1.1rem",background:done?`linear-gradient(135deg,${T.sagePale},${T.sage}15)`:T.surface,border:`2px solid ${done?T.sage:T.borderSoft}`,width:"100%",textAlign:"left",transition:"all 0.18s"})}}>
+                  <button key={t.id} onClick={()=>setPrepChecked(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])} style={{...card({cursor:"pointer",display:"flex",alignItems:"center",gap:"0.9rem",padding:"1rem 1.1rem",background:done?`linear-gradient(135deg,${"rgba(100,148,130,0.14)"},${"var(--fl-accent)"}15)`:"rgba(255,255,255,0.82)",border:`2px solid ${done?"var(--fl-accent)":"rgba(100,148,130,0.15)"}`,width:"100%",textAlign:"left",transition:"all 0.18s"})}}>
                     <span style={{fontSize:"1.4rem"}}>{t.emoji}</span>
-                    <span style={{flex:1,fontWeight:600,color:done?T.sageDark:T.textDark,fontSize:"0.88rem",textDecoration:done?"line-through":"none"}}>{t.text}</span>
-                    <div style={{width:24,height:24,borderRadius:"50%",border:`2.5px solid ${done?T.sage:T.border}`,background:done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{done&&<Icon name="check" size={12} color="#fff"/>}</div>
+                    <span style={{flex:1,fontWeight:600,color:done?"#2a6058":"var(--fl-t1)",fontSize:"0.88rem",textDecoration:done?"line-through":"none"}}>{t.text}</span>
+                    <div style={{width:24,height:24,borderRadius:"50%",border:`2.5px solid ${done?"var(--fl-accent)":"var(--fl-border)"}`,background:done?"var(--fl-accent)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{done&&<Icon name="check" size={12} color="#fff"/>}</div>
                   </button>
                 );
               })}
               {prepChecked.length===activePrepTasks.length&&activePrepTasks.length>0&&(
-                <div style={{...card({background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,textAlign:"center",padding:"1.5rem"})}}>
-                  <p style={{color:T.sageDark,fontWeight:700,fontSize:"1rem"}}>🌿 Prep complete. This week is going to be so much easier.</p>
+                <div style={{...card({background:`linear-gradient(135deg,${"rgba(100,148,130,0.14)"},${"rgba(100,148,130,0.1)"})`,border:`2px solid ${"var(--fl-accent)"}60`,textAlign:"center",padding:"1.5rem"})}}>
+                  <p style={{color:"#2a6058",fontWeight:700,fontSize:"1rem"}}>🌿 Prep complete. This week is going to be so much easier.</p>
                 </div>
               )}
-              <div style={{...card({background:T.sandPale,border:`1.5px solid ${T.sand}40`,padding:"0.9rem"})}}>
-                <div style={{fontSize:"0.68rem",fontWeight:800,color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💡 Skip this if needed</div>
-                <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.58}}>Buy pre-cut produce, microwave rice pouches, and rotisserie chicken. No-prep weeks are valid weeks.</p>
+              <div style={{...card({background:"rgba(176,136,64,0.12)",border:`1.5px solid ${"var(--fl-gold)"}40`,padding:"0.9rem"})}}>
+                <div style={{fontSize:"0.68rem",fontWeight:800,color:"#7a6030",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:"0.35rem"}}>💡 Skip this if needed</div>
+                <p style={{color:"var(--fl-t2)",fontSize:"0.8rem",lineHeight:1.58}}>Buy pre-cut produce, microwave rice pouches, and rotisserie chicken. No-prep weeks are valid weeks.</p>
               </div>
             </div>
           );
         })()}
         {mealSubTab==="rescue"&&(
           <div>
-            <div style={{...card({background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}50`,padding:"1.2rem",textAlign:"center"})}}>
+            <div style={{...card({background:`linear-gradient(135deg,${"rgba(176,90,104,0.1)"},${"rgba(176,136,64,0.12)"})`,border:`2px solid ${"var(--fl-rose)"}50`,padding:"1.2rem",textAlign:"center"})}}>
               <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🆘</div>
-              <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,margin:"0 0 0.3rem"}}>What Can I Make Tonight?</h2>
-              <p style={{color:T.textMid,fontSize:"0.82rem",lineHeight:1.6,maxWidth:280,margin:"0 auto"}}>Tell me what you have. I'll find something.</p>
+              <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:"var(--fl-t1)",margin:"0 0 0.3rem"}}>What Can I Make Tonight?</h2>
+              <p style={{color:"var(--fl-t2)",fontSize:"0.82rem",lineHeight:1.6,maxWidth:280,margin:"0 auto"}}>Tell me what you have. I'll find something.</p>
             </div>
             <div style={{...card()}}>
               <label style={lbl}>What's in your fridge / pantry?</label>
               <textarea value={rescueInput} onChange={e=>{setRescueInput(e.target.value);if(rescueError)setRescueError(null);}} placeholder="e.g. chicken, rice, black beans, avocado, tortillas, eggs…" style={{...inp({height:80,resize:"none",marginBottom:"0.75rem"})}}/>
-              <button onClick={findRescueMeals} disabled={!rescueInput.trim()||rescueLoading} style={btnP(T.rose,{width:"100%",justifyContent:"center",display:"flex",opacity:!rescueInput.trim()||rescueLoading?0.5:1,fontSize:"0.88rem",padding:"0.65rem"})}>
+              <button onClick={findRescueMeals} disabled={!rescueInput.trim()||rescueLoading} style={btnP("var(--fl-rose)",{width:"100%",justifyContent:"center",display:"flex",opacity:!rescueInput.trim()||rescueLoading?0.5:1,fontSize:"0.88rem",padding:"0.65rem"})}>
                 {rescueLoading?"Finding meals…":"🆘 Find My Dinner"}
               </button>
             </div>
             {rescueError&&(
-              <div style={{...card({background:T.rosePale,border:`1.5px solid ${T.rose}50`,textAlign:"center",padding:"1.1rem"})}}>
+              <div style={{...card({background:"rgba(176,90,104,0.1)",border:`1.5px solid ${"var(--fl-rose)"}50`,textAlign:"center",padding:"1.1rem"})}}>
                 <div style={{fontSize:"1.3rem",marginBottom:"0.35rem"}}>⚠️</div>
-                <p style={{color:T.rose,fontWeight:700,fontSize:"0.85rem",margin:"0 0 0.55rem"}}>{rescueError}</p>
-                <button onClick={()=>{setRescueError(null);findRescueMeals();}} style={btnP(T.rose,{fontSize:"0.78rem",padding:"0.35rem 0.85rem"})}>Try again</button>
+                <p style={{color:"var(--fl-rose)",fontWeight:700,fontSize:"0.85rem",margin:"0 0 0.55rem"}}>{rescueError}</p>
+                <button onClick={()=>{setRescueError(null);findRescueMeals();}} style={btnP("var(--fl-rose)",{fontSize:"0.78rem",padding:"0.35rem 0.85rem"})}>Try again</button>
               </div>
             )}
             {rescueResults&&rescueResults.length>0&&(
               <div>
-                <p style={{color:T.textSoft,fontSize:"0.78rem",fontWeight:600,marginBottom:"0.55rem"}}>You can make any of these right now:</p>
+                <p style={{color:"var(--fl-t3)",fontSize:"0.78rem",fontWeight:600,marginBottom:"0.55rem"}}>You can make any of these right now:</p>
                 {rescueResults.map((r,i)=>(
-                  <div key={i} style={{...card({borderLeft:`4px solid ${T.rose}`,background:`linear-gradient(to right,${T.rosePale},${T.surface})`})}}>
-                    <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem",marginBottom:"0.3rem"}}>{r.name}</div>
-                    <div style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.5}}>{r.desc}</div>
-                    <button onClick={()=>{setMeals(p=>({...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:r.name}}));setMealSubTab("tonight");}} style={btnP(T.rose,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",marginTop:"0.65rem"})}>🌙 Make This Tonight</button>
+                  <div key={i} style={{...card({borderLeft:`4px solid ${"var(--fl-rose)"}`,background:`linear-gradient(to right,${"rgba(176,90,104,0.1)"},${"rgba(255,255,255,0.82)"})`})}}>
+                    <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.92rem",marginBottom:"0.3rem"}}>{r.name}</div>
+                    <div style={{color:"var(--fl-t2)",fontSize:"0.8rem",lineHeight:1.5}}>{r.desc}</div>
+                    <button onClick={()=>{setMeals(p=>({...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:r.name}}));setMealSubTab("tonight");}} style={btnP("var(--fl-rose)",{fontSize:"0.74rem",padding:"0.3rem 0.75rem",marginTop:"0.65rem"})}>🌙 Make This Tonight</button>
                   </div>
                 ))}
               </div>
             )}
             {rescueResults&&rescueResults.length===0&&<div style={{...card({textAlign:"center",padding:"1.5rem"})}}>
               <div style={{fontSize:"1.3rem",marginBottom:"0.4rem"}}>🤔</div>
-              <p style={{color:T.textMid,fontWeight:600,margin:"0 0 0.5rem"}}>Hmm, couldn't find a match.</p>
-              <p style={{color:T.textSoft,fontSize:"0.8rem",margin:"0 0 0.75rem"}}>Try adding a protein, grain, or pantry staple to your list.</p>
+              <p style={{color:"var(--fl-t2)",fontWeight:600,margin:"0 0 0.5rem"}}>Hmm, couldn't find a match.</p>
+              <p style={{color:"var(--fl-t3)",fontSize:"0.8rem",margin:"0 0 0.75rem"}}>Try adding a protein, grain, or pantry staple to your list.</p>
               <button onClick={()=>{setRescueResults(null);}} style={btnS({fontSize:"0.78rem",padding:"0.35rem 0.85rem"})}>Edit my ingredients</button>
             </div>}
           </div>
@@ -6672,7 +6677,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {editDay&&(
           <ModalBox title={`Meals for ${editDay}`} onClose={()=>setEditDay(null)}>
-            {mealThemeEnabled&&mealThemes[editDay]&&<div style={{background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.5rem 0.8rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.5rem"}}><span style={{fontSize:"1.1rem"}}>{mealThemes[editDay].emoji}</span><span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark}}>{mealThemes[editDay].theme}</span></div>}
+            {mealThemeEnabled&&mealThemes[editDay]&&<div style={{background:"rgba(176,136,64,0.12)",border:`1px solid ${"var(--fl-gold)"}40`,borderRadius:"0.65rem",padding:"0.5rem 0.8rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.5rem"}}><span style={{fontSize:"1.1rem"}}>{mealThemes[editDay].emoji}</span><span style={{fontSize:"0.82rem",fontWeight:700,color:"#7a6030"}}>{mealThemes[editDay].theme}</span></div>}
             {MEALS_TO_SHOW.map(m=>(
               <div key={m} style={{marginBottom:"0.9rem"}}>
                 <label style={lbl}>{m}</label>
@@ -6692,57 +6697,57 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
                 {(editMeal.groceryItems||[]).map((g,i)=>(
                   <div key={i} style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{g}</span>
-                    <button onClick={()=>setEditMeal(p=>({...p,groceryItems:(p.groceryItems||[]).filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:"0.8rem"}}>✕</button>
+                    <span style={{flex:1,fontSize:"0.83rem",color:"var(--fl-t1)"}}>{g}</span>
+                    <button onClick={()=>setEditMeal(p=>({...p,groceryItems:(p.groceryItems||[]).filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",color:"rgba(26,46,58,0.3)",cursor:"pointer",fontSize:"0.8rem"}}>✕</button>
                   </div>
                 ))}
                 <div style={{display:"flex",gap:"0.4rem"}}>
                   <input value={editMeal.groceryInput||""} onChange={e=>setEditMeal(p=>({...p,groceryInput:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&(editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} placeholder="Add grocery item…" style={{...inp({flex:1,fontSize:"0.82rem"})}}/>
-                  <button onClick={()=>{if((editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
+                  <button onClick={()=>{if((editMeal.groceryInput||"").trim()){setEditMeal(p=>({...p,groceryItems:[...(p.groceryItems||[]),p.groceryInput.trim()],groceryInput:""}));}}} style={btnP("var(--fl-accent)",{fontSize:"0.78rem",padding:"0.35rem 0.7rem"})}>Add</button>
                 </div>
               </div>
             </div>
-            <div style={{marginBottom:"0.9rem",background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.65rem 0.8rem"}}>
-              <label style={{...lbl,color:T.sandDark,marginBottom:"0.4rem"}}>📋 Save a meal to Meal Bank</label>
+            <div style={{marginBottom:"0.9rem",background:"rgba(176,136,64,0.12)",border:`1px solid ${"var(--fl-gold)"}40`,borderRadius:"0.65rem",padding:"0.65rem 0.8rem"}}>
+              <label style={{...lbl,color:"#7a6030",marginBottom:"0.4rem"}}>📋 Save a meal to Meal Bank</label>
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <input defaultValue={addToBankMealName} onBlur={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:T.white})}}/>
-                <button disabled={!addToBankMealName.trim()} onClick={function(){if(!addToBankMealName.trim())return;var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===addToBankMealName.trim().toLowerCase();});if(!already){setMealBankCustom(function(p){return[...p,{id:"c"+Date.now(),name:addToBankMealName.trim(),tags:[],notes:"",isCustom:true}];});}setAddToBankMealName("");}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.7rem",opacity:addToBankMealName.trim()?1:0.5})}>Add</button>
+                <input defaultValue={addToBankMealName} onBlur={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:"rgba(255,255,255,0.9)"})}}/>
+                <button disabled={!addToBankMealName.trim()} onClick={function(){if(!addToBankMealName.trim())return;var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===addToBankMealName.trim().toLowerCase();});if(!already){setMealBankCustom(function(p){return[...p,{id:"c"+Date.now(),name:addToBankMealName.trim(),tags:[],notes:"",isCustom:true}];});}setAddToBankMealName("");}} style={btnP("var(--fl-gold)",{fontSize:"0.76rem",padding:"0.35rem 0.7rem",opacity:addToBankMealName.trim()?1:0.5})}>Add</button>
               </div>
             </div>
-            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>setEditDay(null)} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP(T.sage)}>Save</button></div>
+            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>setEditDay(null)} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP("var(--fl-accent)")}>Save</button></div>
           </ModalBox>
         )}
         {editingThemes&&(
           <ModalBox title="Themed Days" onClose={()=>setEditingThemes(false)} wide>
             {MEAL_DAYS.map(day=>(
               <div key={day} style={{display:"flex",gap:"0.5rem",alignItems:"center",marginBottom:"0.55rem"}}>
-                <span style={{minWidth:90,fontSize:"0.82rem",fontWeight:700,color:T.textMid}}>{day}</span>
+                <span style={{minWidth:90,fontSize:"0.82rem",fontWeight:700,color:"var(--fl-t2)"}}>{day}</span>
                 <input value={mealThemes[day]?.emoji||""} onChange={e=>setMealThemes(p=>({...p,[day]:{...p[day],emoji:e.target.value}}))} style={{...inp({width:52,textAlign:"center",fontSize:"1.1rem",padding:"0.35rem"})}} placeholder="🍽️"/>
                 <input value={mealThemes[day]?.theme||""} onChange={e=>setMealThemes(p=>({...p,[day]:{...p[day],theme:e.target.value}}))} style={{...inp({flex:1})}} placeholder="e.g. Taco Tuesday"/>
               </div>
             ))}
-            <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}><button onClick={()=>setEditingThemes(false)} style={btnP(T.sage)}>Done</button></div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}><button onClick={()=>setEditingThemes(false)} style={btnP("var(--fl-accent)")}>Done</button></div>
           </ModalBox>
         )}
         {showRecipeImport&&(
           <ModalBox title="Import Recipe" onClose={()=>{setShowRecipeImport(false);setRecipeResult(null);setRecipeError("");setRecipeUrl("");}} wide>
             <div style={{marginBottom:"0.9rem"}}>
               <label style={lbl}>Paste a URL</label>
-              <p style={{color:T.textSoft,fontSize:"0.77rem",marginBottom:"0.6rem",lineHeight:1.5}}>Works with recipe websites and Pinterest. For TikTok/Instagram, paste ingredients manually below.</p>
+              <p style={{color:"var(--fl-t3)",fontSize:"0.77rem",marginBottom:"0.6rem",lineHeight:1.5}}>Works with recipe websites and Pinterest. For TikTok/Instagram, paste ingredients manually below.</p>
               <div style={{display:"flex",gap:"0.5rem"}}>
                 <input value={recipeUrl} onChange={e=>setRecipeUrl(e.target.value)} placeholder="https://..." style={{...inp({flex:1})}}/>
-                <button onClick={importRecipeFromUrl} disabled={recipeLoading||!recipeUrl.trim()} style={btnP(T.blue,{flexShrink:0,opacity:recipeLoading||!recipeUrl.trim()?0.5:1})}>{recipeLoading?"…":"Import"}</button>
+                <button onClick={importRecipeFromUrl} disabled={recipeLoading||!recipeUrl.trim()} style={btnP("var(--fl-accent)",{flexShrink:0,opacity:recipeLoading||!recipeUrl.trim()?0.5:1})}>{recipeLoading?"…":"Import"}</button>
               </div>
-              {recipeError&&<p style={{color:T.rose,fontSize:"0.77rem",marginTop:"0.4rem"}}>{recipeError}</p>}
+              {recipeError&&<p style={{color:"var(--fl-rose)",fontSize:"0.77rem",marginTop:"0.4rem"}}>{recipeError}</p>}
             </div>
             {recipeResult&&(
-              <div style={{...card({background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.9rem"})}}>
-                <p style={{fontWeight:700,color:T.sageDark,fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
-                <p style={{fontSize:"0.78rem",color:T.textMid}}>{recipeResult.ingredients?.length} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
-                <button onClick={saveImportedRecipe} style={{...btnP(T.sage,{marginTop:"0.65rem",display:"flex",alignItems:"center",gap:"0.4rem"})}}><Icon name="check" size={14} color="#fff"/> Save Recipe</button>
+              <div style={{...card({background:"rgba(100,148,130,0.14)",border:`2px solid ${"var(--fl-accent)"}50`,marginBottom:"0.9rem"})}}>
+                <p style={{fontWeight:700,color:"#2a6058",fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
+                <p style={{fontSize:"0.78rem",color:"var(--fl-t2)"}}>{recipeResult.ingredients?.length} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
+                <button onClick={saveImportedRecipe} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",marginTop:"0.65rem",display:"flex",alignItems:"center",gap:"0.4rem"}}><Icon name="check" size={14} color="#fff"/> Save Recipe</button>
               </div>
             )}
-            <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.9rem"}}>
+            <div style={{borderTop:`1px solid ${"rgba(100,148,130,0.15)"}`,paddingTop:"0.9rem"}}>
               <label style={lbl}>Or enter manually</label>
               <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
                 <input value={manualRecipe.name} onChange={e=>setManualRecipe(p=>({...p,name:e.target.value}))} placeholder="Recipe name" style={inp()}/>
@@ -6752,7 +6757,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <input value={manualRecipe.source} onChange={e=>setManualRecipe(p=>({...p,source:e.target.value}))} placeholder="Source" style={inp()}/>
                 </div>
                 <textarea value={manualRecipe.notes} onChange={e=>setManualRecipe(p=>({...p,notes:e.target.value}))} placeholder="Notes or instructions" style={{...inp({height:65,resize:"none"})}}/>
-                <button onClick={saveManualRecipe} disabled={!manualRecipe.name.trim()} style={btnP(T.blue,{opacity:manualRecipe.name.trim()?1:0.5})}>Save Recipe</button>
+                <button onClick={saveManualRecipe} disabled={!manualRecipe.name.trim()} style={btnP("var(--fl-accent)",{opacity:manualRecipe.name.trim()?1:0.5})}>Save Recipe</button>
               </div>
             </div>
           </ModalBox>
@@ -7091,7 +7096,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
     return(
       <div>
-        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" onBack={function(){goTab("anchor");}} action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
+        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" onBack={function(){goTab("anchor");}} action={<button onClick={openNew} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
         {homeSystems.map((sys,i)=>(
           <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
             style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
@@ -7282,7 +7287,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     // Build person tabs from people state
     var MINOR_ROLES=["Kid","Teen","Baby"];
-    var personTabs = people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor && !(p.age!=null && p.age<18) && !MINOR_ROLES.includes(p.role); }).map(function(p){ return {id:"person_"+p.id, label:p.name, initials:(p.name||"?")[0].toUpperCase(), color:p.color||T.blue}; });
+    var personTabs = people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor && !(p.age!=null && p.age<18) && !MINOR_ROLES.includes(p.role); }).map(function(p){ return {id:"person_"+p.id, label:p.name, initials:(p.name||"?")[0].toUpperCase(), color:p.color||"var(--fl-accent)"}; });
 
     // Items for current tab
     function getTabItems(){
@@ -7329,14 +7334,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <button onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}} style={btnP(color,{fontSize:"0.7rem",padding:"0.25rem 0.5rem"})}>✓</button>
                 </div>
               ):(
-                <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
+                <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?"rgba(26,46,58,0.3)":"var(--fl-t1)",textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
               )}
             </div>
-            <button onClick={function(){ console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+            <button onClick={function(){ console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"rgba(26,46,58,0.3)",padding:"0 2px",flexShrink:0}}>×</button>
           </div>
           {/* Controls row: File · Date · Initials */}
           <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
-            <select value={item.cat||"uncategorized"} onChange={function(e){fileItem(item.id,e.target.value);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
+            <select value={item.cat||"uncategorized"} onChange={function(e){fileItem(item.id,e.target.value);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:"var(--fl-t2)",fontFamily:"inherit",cursor:"pointer"}}>
               <option value="uncategorized">📁 Unfiled</option>
               {brainCats.map(function(c){return <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>;})}
             </select>
@@ -7348,27 +7353,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var hasDate = !!item.scheduledDay;
               return (
                 <div style={{position:"relative",display:"inline-block"}}>
-                  <button onClick={function(){setDateOpen(function(v){return !v;});}} style={{fontSize:"0.7rem",padding:"2px 7px",borderRadius:5,border:"0.5px solid "+(hasDate?color:color+"50"),background:hasDate?color+"18":"rgba(255,255,255,0.6)",color:hasDate?color:T.textMid,fontFamily:"inherit",cursor:"pointer",display:"flex",alignItems:"center",gap:"3px",fontWeight:hasDate?700:400}}>
+                  <button onClick={function(){setDateOpen(function(v){return !v;});}} style={{fontSize:"0.7rem",padding:"2px 7px",borderRadius:5,border:"0.5px solid "+(hasDate?color:color+"50"),background:hasDate?color+"18":"rgba(255,255,255,0.6)",color:hasDate?color:"var(--fl-t2)",fontFamily:"inherit",cursor:"pointer",display:"flex",alignItems:"center",gap:"3px",fontWeight:hasDate?700:400}}>
                     📅 {hasDate?item.scheduledDay:"Date"}
                     {hasDate&&<span onClick={function(e){e.stopPropagation();scheduleItem(item.id,null);}} style={{marginLeft:2,opacity:0.6,fontWeight:900,fontSize:"0.8rem",lineHeight:1}}>×</span>}
                   </button>
                   {dateOpen&&(
-                    <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,zIndex:200,background:T.surface,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",boxShadow:"0 8px 32px rgba(0,0,0,0.14)",minWidth:220}}>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Quick pick</div>
+                    <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,zIndex:200,background:"rgba(255,255,255,0.82)",border:"1.5px solid "+"var(--fl-border)",borderRadius:"0.85rem",padding:"0.65rem 0.75rem",boxShadow:"0 8px 32px rgba(0,0,0,0.14)",minWidth:220}}>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(26,46,58,0.3)",marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Quick pick</div>
                       <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
                         {quickDays.map(function(q){
                           var isSel=item.scheduledDay===q.val;
-                          return <button key={q.val} onClick={function(){scheduleItem(item.id,q.val);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 9px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{q.label}</button>;
+                          return <button key={q.val} onClick={function(){scheduleItem(item.id,q.val);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 9px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:"var(--fl-border)"),background:isSel?color:"transparent",color:isSel?"#fff":"var(--fl-t2)",fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{q.label}</button>;
                         })}
                       </div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>This week</div>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(26,46,58,0.3)",marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>This week</div>
                       <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
                         {remainingDays.map(function(d){
                           var isSel=item.scheduledDay===d;
-                          return <button key={d} onClick={function(){scheduleItem(item.id,d);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 8px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{d.slice(0,3)}</button>;
+                          return <button key={d} onClick={function(){scheduleItem(item.id,d);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 8px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:"var(--fl-border)"),background:isSel?color:"transparent",color:isSel?"#fff":"var(--fl-t2)",fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{d.slice(0,3)}</button>;
                         })}
                       </div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Specific date</div>
+                      <div style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(26,46,58,0.3)",marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Specific date</div>
                       <input type="date" defaultValue={item.scheduledExactDate||""} onChange={function(e){
                         var raw=e.target.value;
                         if(!raw){scheduleItem(item.id,null);return;}
@@ -7379,7 +7384,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,scheduledDay:label,scheduledExactDate:raw}:x;});});
                         setDateOpen(false);
                       }} style={{...inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}}/>
-                      {hasDate&&<button onClick={function(){scheduleItem(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.rose,fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
+                      {hasDate&&<button onClick={function(){scheduleItem(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:"var(--fl-rose)",fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
                     </div>
                   )}
                 </div>
@@ -7389,7 +7394,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
               var isAssigned=item.assignedTo===p.name;
               return(
-                <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
+                <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||"var(--fl-accent)"):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":"var(--fl-t2)",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
                   {(p.name||"?")[0].toUpperCase()}
                 </button>
               );
@@ -7405,33 +7410,33 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Exhale header */}
         <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem",position:"relative"}}>
           <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
-            <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            <Icon name="arrow-left" size={17} color={"var(--fl-t3)"}/>
           </button>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>Exhale.</div>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Clear your mind — then let it go.</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:"var(--fl-t1)",letterSpacing:"0.03em"}}>Exhale.</div>
+          <div style={{fontSize:"0.78rem",color:"var(--fl-t3)",marginTop:"0.15rem",lineHeight:1.6}}>Clear your mind — then let it go.</div>
         </div>
         {/* AI Pattern banner */}
         {patternMsg&&(
-          <div style={{background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",border:"1px solid "+T.lavender+"40",borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",gap:"0.6rem",alignItems:"flex-start"}}>
+          <div style={{background:"linear-gradient(135deg,"+"rgba(100,148,130,0.1)"+","+"rgba(100,148,130,0.1)"+")",border:"1px solid "+"var(--fl-accent)"+"40",borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",gap:"0.6rem",alignItems:"flex-start"}}>
             <span style={{fontSize:"1rem",flexShrink:0}}>✦</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Compass noticed</div>
-              <div style={{fontSize:"0.83rem",color:T.textDark,lineHeight:1.55}}>{patternMsg}</div>
+              <div style={{fontSize:"0.68rem",fontWeight:800,color:"var(--fl-accent)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Compass noticed</div>
+              <div style={{fontSize:"0.83rem",color:"var(--fl-t1)",lineHeight:1.55}}>{patternMsg}</div>
             </div>
-            <button onClick={function(){setPatternMsg(null);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
+            <button onClick={function(){setPatternMsg(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(26,46,58,0.3)",fontSize:16,flexShrink:0}}>×</button>
           </div>
         )}
 
         {/* Input */}
-        <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
+        <div style={{background:"rgba(255,255,255,0.82)",border:"1.5px solid "+"var(--fl-border)",borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
             <input ref={brainInputRef} value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="Type it here — exhale…" style={{...inp({flex:1,fontSize:"0.88rem"})}} autoFocus/>
-            <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
+            <button onClick={addItem} disabled={!newText.trim()} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4}}>Add</button>
           </div>
           <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
             {brainCats.map(function(c){
               var isSel=newCat===c.id;
-              return <button key={c.id} onClick={function(){setNewCat(c.id);try{sessionStorage.setItem("af_brainNewCat",c.id);}catch{}_setBrainActiveTab(c.id);}} style={{background:isSel?c.color:"transparent",color:isSel?"#fff":T.textMid,border:"1.5px solid "+(isSel?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:isSel?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
+              return <button key={c.id} onClick={function(){setNewCat(c.id);try{sessionStorage.setItem("af_brainNewCat",c.id);}catch{}_setBrainActiveTab(c.id);}} style={{background:isSel?c.color:"transparent",color:isSel?"#fff":"var(--fl-t2)",border:"1.5px solid "+(isSel?c.color:"var(--fl-border)"),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:isSel?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
             })}
           </div>
         </div>
@@ -7439,28 +7444,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Search */}
         <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.6rem"}}>
           <input value={search} onChange={function(e){setBrainSearch(e.target.value);}} placeholder="Search..." style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.35rem 0.65rem"})}}/>
-          <div style={{fontSize:"0.72rem",color:T.textFaint}}>{active.length} active</div>
-          <button onClick={aiRecategorize} disabled={aiRecatLoading} style={{background:"none",border:"1.5px solid "+T.lavender,borderRadius:"2rem",padding:"0.2rem 0.65rem",cursor:"pointer",fontSize:"0.7rem",fontWeight:700,color:T.lavender,opacity:aiRecatLoading?0.6:1,flexShrink:0}}>
+          <div style={{fontSize:"0.72rem",color:"rgba(26,46,58,0.3)"}}>{active.length} active</div>
+          <button onClick={aiRecategorize} disabled={aiRecatLoading} style={{background:"none",border:"1.5px solid "+"var(--fl-accent)",borderRadius:"2rem",padding:"0.2rem 0.65rem",cursor:"pointer",fontSize:"0.7rem",fontWeight:700,color:"var(--fl-accent)",opacity:aiRecatLoading?0.6:1,flexShrink:0}}>
             {aiRecatLoading?"⟳":"✨"} AI sort
           </button>
         </div>
 
         {/* Tab bar */}
-        <ScrollTabs style={{borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem"}}>
-          <button onClick={function(){_setBrainActiveTab("all");}} style={{background:"none",border:"none",borderBottom:activeTab==="all"?"2.5px solid "+T.blue:"2.5px solid transparent",color:activeTab==="all"?T.blue:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="all"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+        <ScrollTabs style={{borderBottom:"1.5px solid "+"rgba(100,148,130,0.15)",marginBottom:"0.75rem"}}>
+          <button onClick={function(){_setBrainActiveTab("all");}} style={{background:"none",border:"none",borderBottom:activeTab==="all"?"2.5px solid "+"var(--fl-accent)":"2.5px solid transparent",color:activeTab==="all"?"var(--fl-accent)":"rgba(26,46,58,0.3)",padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="all"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
             🗂 All
-            <span style={{background:T.blue+"22",color:T.blue,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{active.length}</span>
+            <span style={{background:"var(--fl-accent)"+"22",color:"var(--fl-accent)",borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{active.length}</span>
           </button>
-          <button onClick={function(){_setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+          <button onClick={function(){_setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":"rgba(26,46,58,0.3)",padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
             📥 Unfiled
             {unfiled.length>0&&<span style={{background:"#e05c5c",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{unfiled.length}</span>}
           </button>
           {personTabs.map(function(pt){
             var count=active.filter(function(b){var pname=people.find(function(p){return p.id===pt.id.replace("person_","");})?.name||""; return b.assignedTo===pname;}).length;
             return(
-              <button key={pt.id} onClick={function(){_setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||T.blue):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||T.blue):T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+              <button key={pt.id} onClick={function(){_setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||"var(--fl-accent)"):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||"var(--fl-accent)"):"rgba(26,46,58,0.3)",padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
                 {pt.label}
-                {count>0&&<span style={{background:pt.color||T.blue,color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>}
+                {count>0&&<span style={{background:pt.color||"var(--fl-accent)",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>}
               </button>
             );
           })}
@@ -7468,7 +7473,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             var count=active.filter(function(b){return b.cat===cat.id;}).length;
             if(count===0) return null;
             return(
-              <button key={cat.id} onClick={function(){_setBrainActiveTab(cat.id);}} style={{background:"none",border:"none",borderBottom:activeTab===cat.id?"2.5px solid "+cat.color:"2.5px solid transparent",color:activeTab===cat.id?cat.color:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===cat.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+              <button key={cat.id} onClick={function(){_setBrainActiveTab(cat.id);}} style={{background:"none",border:"none",borderBottom:activeTab===cat.id?"2.5px solid "+cat.color:"2.5px solid transparent",color:activeTab===cat.id?cat.color:"rgba(26,46,58,0.3)",padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===cat.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
                 <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block",flexShrink:0}}/>
                 {cat.label}
                 <span style={{background:cat.color+"22",color:cat.color,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>
@@ -7479,7 +7484,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* Items */}
         {tabItems.length===0&&(
-          <div style={{textAlign:"center",padding:"2rem 1rem",color:T.textFaint,fontStyle:"italic",fontSize:"0.84rem"}}>
+          <div style={{textAlign:"center",padding:"2rem 1rem",color:"rgba(26,46,58,0.3)",fontStyle:"italic",fontSize:"0.84rem"}}>
             {activeTab==="all"?"Nothing in your Clear Your Mind list yet ✓":activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
           </div>
         )}
@@ -7487,10 +7492,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* Done */}
         {done.length>0&&(
-          <div style={{marginTop:"1rem",paddingTop:"0.75rem",borderTop:"1px dashed "+T.borderSoft}}>
+          <div style={{marginTop:"1rem",paddingTop:"0.75rem",borderTop:"1px dashed "+"rgba(100,148,130,0.15)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
-              <div style={{fontSize:"0.78rem",color:T.textFaint,fontWeight:700}}>✓ Done ({done.length})</div>
-              <button onClick={function(){setBrainItems(function(p){return p.filter(function(b){return !b.done;});});}} style={{fontSize:"0.72rem",color:T.rose||"#d85a30",background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"2rem",padding:"0.18rem 0.65rem",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🗑 Clear completed</button>
+              <div style={{fontSize:"0.78rem",color:"rgba(26,46,58,0.3)",fontWeight:700}}>✓ Done ({done.length})</div>
+              <button onClick={function(){setBrainItems(function(p){return p.filter(function(b){return !b.done;});});}} style={{fontSize:"0.72rem",color:"var(--fl-rose)"||"#d85a30",background:"none",border:"1.5px solid "+"rgba(100,148,130,0.15)",borderRadius:"2rem",padding:"0.18rem 0.65rem",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🗑 Clear completed</button>
             </div>
             {done.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
           </div>
@@ -7669,10 +7674,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div className="flow-skin" style={{minHeight:"100%"}}>
         <div style={{textAlign:"center",marginBottom:"1.25rem",position:"relative"}}>
           <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
-            <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            <Icon name="arrow-left" size={17} color={"var(--fl-t3)"}/>
           </button>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:"var(--fl-t1)",letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
+          <div style={{fontSize:"0.78rem",color:"var(--fl-t3)",marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
         </div>
 
         {/* Kid selector */}
@@ -7681,7 +7686,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {kids.map(function(k,i){
               return (
                 <button key={k.kidId} onClick={function(){setSelIdx(i);setChestOpen(false);setSelectedTreasure(null);setClaimed(null);}}
-                  style={{padding:"0.35rem 1.1rem",borderRadius:"99px",border:"1.5px solid "+(i===selIdx?navyHex:T.border),background:i===selIdx?navyHex:"transparent",color:i===selIdx?"#faf8f4":T.textMid,fontSize:"0.82rem",cursor:"pointer",fontFamily:"inherit",fontWeight:i===selIdx?700:500,transition:"all 0.15s"}}>
+                  style={{padding:"0.35rem 1.1rem",borderRadius:"99px",border:"1.5px solid "+(i===selIdx?navyHex:"var(--fl-border)"),background:i===selIdx?navyHex:"transparent",color:i===selIdx?"#faf8f4":"var(--fl-t2)",fontSize:"0.82rem",cursor:"pointer",fontFamily:"inherit",fontWeight:i===selIdx?700:500,transition:"all 0.15s"}}>
                   {k.kidName}
                 </button>
               );
@@ -7691,7 +7696,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* Shell counter + Chest */}
         <div style={{textAlign:"center",marginBottom:"1rem"}}>
-          <div style={{fontSize:"0.8rem",color:T.textSoft,marginBottom:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"}}>
+          <div style={{fontSize:"0.8rem",color:"var(--fl-t3)",marginBottom:"0.5rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"}}>
             <span style={{fontSize:"1.1rem"}}>🐚</span>
             <span style={{fontSize:"1.5rem",fontWeight:700,color:navyHex,fontFamily:"'Cormorant Garamond',serif"}}>{shellCount}</span>
             <span style={{fontSize:"0.8rem"}}>shells</span>
@@ -7721,7 +7726,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </svg>
           </div>
 
-          <div style={{fontSize:"0.8rem",marginTop:"0.4rem",minHeight:"1.2rem",fontWeight:ready&&!chestOpen?700:400,color:ready&&!chestOpen?tealHex:T.textSoft}}>
+          <div style={{fontSize:"0.8rem",marginTop:"0.4rem",minHeight:"1.2rem",fontWeight:ready&&!chestOpen?700:400,color:ready&&!chestOpen?tealHex:"var(--fl-t3)"}}>
             {chestOpen?"":ready?"Tap the chest to open it!":`${COVE_MIN_OPEN-shellCount} more shell${COVE_MIN_OPEN-shellCount===1?"":"s"} to open`}
           </div>
         </div>
@@ -7736,7 +7741,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })}
         </div>
-        <div style={{textAlign:"center",fontSize:"0.72rem",color:T.textFaint,marginBottom:"1.25rem"}}>
+        <div style={{textAlign:"center",fontSize:"0.72rem",color:"rgba(26,46,58,0.3)",marginBottom:"1.25rem"}}>
           {ready&&!chestOpen
             ? <span style={{color:tealHex,fontWeight:600}}>🎉 Ready to open!</span>
             : shellCount<COVE_MIN_OPEN&&<span>{COVE_MIN_OPEN-shellCount} more shell{COVE_MIN_OPEN-shellCount===1?"":"s"} to open</span>
@@ -7787,24 +7792,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* Chores */}
         <div style={card()}>
-          <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",marginBottom:"0.75rem"}}>Today's chores</div>
-          {(kid.chores||[]).length===0&&<div style={{color:T.textSoft,fontSize:"0.82rem",marginBottom:"0.65rem"}}>No chores yet — add some in Settings.</div>}
+          <div style={{fontWeight:700,color:"var(--fl-t1)",fontSize:"0.88rem",marginBottom:"0.75rem"}}>Today's chores</div>
+          {(kid.chores||[]).length===0&&<div style={{color:"var(--fl-t3)",fontSize:"0.82rem",marginBottom:"0.65rem"}}>No chores yet — add some in Settings.</div>}
           {(kid.chores||[]).map(function(ch){
             return (
               <div key={ch.id} onClick={function(){toggleChore(ch.id);}}
-                style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",borderRadius:"0.65rem",border:"1px solid "+(ch.done?T.sage+"60":T.border),background:ch.done?T.sagePale:T.white,marginBottom:"0.45rem",cursor:"pointer",transition:"all 0.15s"}}>
+                style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.55rem 0.75rem",borderRadius:"0.65rem",border:"1px solid "+(ch.done?"var(--fl-accent)"+"60":"var(--fl-border)"),background:ch.done?"rgba(100,148,130,0.14)":"rgba(255,255,255,0.9)",marginBottom:"0.45rem",cursor:"pointer",transition:"all 0.15s"}}>
                 <div style={{width:20,height:20,borderRadius:"50%",border:"1.5px solid "+(ch.done?tealHex:sandHex),background:ch.done?tealHex:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:"11px",color:ch.done?"#fff":"transparent",transition:"all 0.15s"}}>
                   {ch.done?"✓":""}
                 </div>
-                <div style={{flex:1,fontSize:"0.85rem",color:ch.done?T.textSoft:T.textDark,textDecoration:ch.done?"line-through":"none"}}>{ch.name}</div>
+                <div style={{flex:1,fontSize:"0.85rem",color:ch.done?"var(--fl-t3)":"var(--fl-t1)",textDecoration:ch.done?"line-through":"none"}}>{ch.name}</div>
                 <div style={{fontSize:"0.76rem",color:"#8a6a3a",fontWeight:600}}>+{ch.pts} 🐚</div>
               </div>
             );
           })}
 
           {/* Bonus Tide */}
-          <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:"1px solid "+T.borderSoft}}>
-            <div style={{fontSize:"0.7rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Bonus Tide</div>
+          <div style={{marginTop:"0.85rem",paddingTop:"0.85rem",borderTop:"1px solid "+"rgba(100,148,130,0.15)"}}>
+            <div style={{fontSize:"0.7rem",fontWeight:800,color:"var(--fl-t3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"}}>Bonus Tide</div>
             <div style={{display:"flex",gap:"0.4rem"}}>
               <input value={flyName} onChange={function(e){setFlyName(e.target.value);}}
                 placeholder="Something helpful they did..."
@@ -7815,7 +7820,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <option value={2}>+2 🐚</option>
                 <option value={3}>+3 🐚</option>
               </select>
-              <button onClick={giveShell} style={{...btnP(T.sand),fontSize:"0.8rem",padding:"0.42rem 0.85rem",whiteSpace:"nowrap"}}>+ Bonus Tide</button>
+              <button onClick={giveShell} style={{...btnP("var(--fl-gold)"),fontSize:"0.8rem",padding:"0.42rem 0.85rem",whiteSpace:"nowrap"}}>+ Bonus Tide</button>
             </div>
           </div>
         </div>
@@ -8177,7 +8182,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
               <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
             </div>
-            <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
+            <button onClick={newNote} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5}}>
               <Icon name="plus" size={12} color="#fff"/> New note
             </button>
           </div>
@@ -8200,7 +8205,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{fontSize:"2rem",marginBottom:8}}>📝</div>
                 <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>No notes yet.</div>
                 <div style={{fontSize:"0.75rem",color:T.textFaint,marginBottom:16}}>Tap + to jot down anything — ideas, plans, thoughts.</div>
-                <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 1rem"})}}>+ New note</button>
+                <button onClick={newNote} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.78rem",padding:"0.4rem 1rem"}}>+ New note</button>
               </div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -8644,7 +8649,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               style={{flex:1,fontSize:"0.84rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit"}}
             />
             {newForm.title.trim()&&(
-              <button onClick={createBlank} style={{...btnP(T.blue,{fontSize:"0.7rem",padding:"3px 10px"})}}>Create</button>
+              <button onClick={createBlank} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.7rem",padding:"3px 10px"}}>Create</button>
             )}
           </div>
 
@@ -8817,31 +8822,31 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🏫</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>School</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
-          <button onClick={function() { goTab("settings"); }} style={btnP(T.blue)}>Go to Settings</button>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: "var(--fl-t1)", marginBottom: "0.5rem" }}>School</div>
+          <div style={{ color: "var(--fl-t2)", fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
+          <button onClick={function() { goTab("settings"); }} style={btnP("var(--fl-accent)")}>Go to Settings</button>
         </div>
       );
     }
 
     function TypePicker() {
       return (
-        <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-          <div style={{ background: T.surface, borderRadius: "1.2rem", padding: "2rem", width: "min(360px,100%)", boxShadow: "0 8px 40px rgba(0,0,0,0.18)", maxHeight: "calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)", overflowY: "auto" }}>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.4rem", textAlign: "center" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem", padding: "2rem", width: "min(360px,100%)", boxShadow: "0 8px 40px rgba(0,0,0,0.18)", maxHeight: "calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)", overflowY: "auto" }}>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: "var(--fl-t1)", marginBottom: "0.4rem", textAlign: "center" }}>
               School type for {child ? child.name : ""}?
             </div>
-            <div style={{ color: T.textMid, fontSize: "0.82rem", textAlign: "center", marginBottom: "1.5rem" }}>You can change this anytime.</div>
+            <div style={{ color: "var(--fl-t2)", fontSize: "0.82rem", textAlign: "center", marginBottom: "1.5rem" }}>You can change this anytime.</div>
             <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button onClick={function() { saveChildData({ type: "public" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: T.bluePale, border: "2px solid " + T.blue, borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
+              <button onClick={function() { saveChildData({ type: "public" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: "rgba(100,148,130,0.1)", border: "2px solid " + "var(--fl-accent)", borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
                 <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🏫</div>
-                <div style={{ fontWeight: 700, color: T.blue, fontSize: "0.88rem" }}>Public / Private</div>
-                <div style={{ color: T.textMid, fontSize: "0.75rem", marginTop: "0.25rem" }}>Teachers, calendar, schedule</div>
+                <div style={{ fontWeight: 700, color: "var(--fl-accent)", fontSize: "0.88rem" }}>Public / Private</div>
+                <div style={{ color: "var(--fl-t2)", fontSize: "0.75rem", marginTop: "0.25rem" }}>Teachers, calendar, schedule</div>
               </button>
-              <button onClick={function() { saveChildData({ type: "homeschool" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: T.sagePale, border: "2px solid " + T.sage, borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
+              <button onClick={function() { saveChildData({ type: "homeschool" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: "rgba(100,148,130,0.14)", border: "2px solid " + "var(--fl-accent)", borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
                 <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🏡</div>
-                <div style={{ fontWeight: 700, color: T.sage, fontSize: "0.88rem" }}>Homeschool</div>
-                <div style={{ color: T.textMid, fontSize: "0.75rem", marginTop: "0.25rem" }}>Curricula, lessons, attendance</div>
+                <div style={{ fontWeight: 700, color: "var(--fl-accent)", fontSize: "0.88rem" }}>Homeschool</div>
+                <div style={{ color: "var(--fl-t2)", fontSize: "0.75rem", marginTop: "0.25rem" }}>Curricula, lessons, attendance</div>
               </button>
             </div>
             <button onClick={function() { setShowTypeModal(false); }} style={Object.assign({}, btnS(), { width: "100%", marginTop: "1rem" })}>Cancel</button>
@@ -8855,11 +8860,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div className="flow-skin" style={{minHeight:"100%"}}>
           <div style={card()}>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>📝 Important Notes</div>
+            <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.75rem" }}>📝 Important Notes</div>
             <textarea value={notes} onChange={function(e) { setNotes(e.target.value); }} onBlur={function() { savePub({ notes: notes }); }} placeholder="Allergies, accommodations, drop-off details, nurse info..." style={Object.assign({}, inp(), { minHeight: "90px", resize: "vertical" })} />
           </div>
-          <div style={card({ background: T.bluePale, border: "1.5px solid " + T.blue + "40" })}>
-            <div style={{ fontWeight: 700, color: T.blue, marginBottom: "0.5rem" }}>👩‍🏫 Teacher Appreciation Week</div>
+          <div style={card({ background: "rgba(100,148,130,0.1)", border: "1.5px solid " + "var(--fl-accent)" + "40" })}>
+            <div style={{ fontWeight: 700, color: "var(--fl-accent)", marginBottom: "0.5rem" }}>👩‍🏫 Teacher Appreciation Week</div>
             <div style={{ marginBottom: "0.5rem" }}>
               <label style={lbl}>Week of</label>
               <input type="date" value={childData.public.teacherAppWeek ? childData.public.teacherAppWeek.start || "" : ""} onChange={function(e) { var v = e.target.value; savePub({ teacherAppWeek: Object.assign({}, childData.public.teacherAppWeek, { start: v }) }); }} style={inp()} />
@@ -8875,32 +8880,32 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function PublicTeachers() {
       var teachers = childData.public.teachers || [];
       return (
-        <div>
-          <button onClick={function() { setTeacherForm({ name: "", subject: "", email: "", phone: "", notes: "" }); setEditingTeacher(null); setShowTeacherModal(true); }} style={Object.assign({}, btnP(T.blue), { width: "100%", marginBottom: "0.85rem" })}>+ Add Teacher</button>
-          {teachers.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No teachers added yet</div>}
+        <div className="pane active flow-skin" style={{flex:1,overflowY:"auto",padding:"20px 24px",minHeight:0}}>
+          <button onClick={function() { setTeacherForm({ name: "", subject: "", email: "", phone: "", notes: "" }); setEditingTeacher(null); setShowTeacherModal(true); }} style={Object.assign({}, btnP("var(--fl-accent)"), { width: "100%", marginBottom: "0.85rem" })}>+ Add Teacher</button>
+          {teachers.length === 0 && <div style={{ color: "rgba(26,46,58,0.3)", textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No teachers added yet</div>}
           {teachers.map(function(t) {
             return (
               <div key={t.id} style={card()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.95rem" }}>{t.name}</div>
-                    {t.subject && <div style={{ color: T.blue, fontSize: "0.78rem", fontWeight: 600, marginTop: "0.1rem" }}>{t.subject}</div>}
+                    <div style={{ fontWeight: 700, color: "var(--fl-t1)", fontSize: "0.95rem" }}>{t.name}</div>
+                    {t.subject && <div style={{ color: "var(--fl-accent)", fontSize: "0.78rem", fontWeight: 600, marginTop: "0.1rem" }}>{t.subject}</div>}
                   </div>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
                     <button onClick={function() { setTeacherForm({ name: t.name, subject: t.subject, email: t.email, phone: t.phone, notes: t.notes }); setEditingTeacher(t.id); setShowTeacherModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { savePub({ teachers: teachers.filter(function(x) { return x.id !== t.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                    <button onClick={function() { savePub({ teachers: teachers.filter(function(x) { return x.id !== t.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: "var(--fl-rose)" })}>✕</button>
                   </div>
                 </div>
-                {t.email && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.4rem" }}>✉️ {t.email}</div>}
-                {t.phone && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📞 {t.phone}</div>}
-                {t.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{t.notes}</div>}
+                {t.email && <div style={{ color: "var(--fl-t2)", fontSize: "0.78rem", marginTop: "0.4rem" }}>✉️ {t.email}</div>}
+                {t.phone && <div style={{ color: "var(--fl-t2)", fontSize: "0.78rem", marginTop: "0.2rem" }}>📞 {t.phone}</div>}
+                {t.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{t.notes}</div>}
               </div>
             );
           })}
           {showTeacherModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(85dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(85dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem" }}>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</div>
                 {[["name","Name","text"],["subject","Subject / Class","text"],["email","Email","email"],["phone","Phone","tel"]].map(function(f) {
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
@@ -8923,7 +8928,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       savePub({ teachers: current.concat([Object.assign({}, teacherForm, { id: suid() })]) });
                     }
                     setShowTeacherModal(false);
-                  }} style={btnP(T.blue, { flex: 1 })}>Save</button>
+                  }} style={btnP("var(--fl-accent)", { flex: 1 })}>Save</button>
                   <button onClick={function() { setShowTeacherModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -8937,10 +8942,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var [localSched, setLocalSched] = React.useState(childData.public.schedule || "");
       return (
         <div style={card()}>
-          <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>⏰ Weekly Schedule</div>
+          <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.75rem" }}>⏰ Weekly Schedule</div>
           <textarea value={localSched} onChange={function(e) { setLocalSched(e.target.value); }} onBlur={function() { savePub({ schedule: localSched }); }} placeholder={"7:45 — Drop-off\n8:00 — Math\n11:30 — Lunch\n2:45 — Pick-up"} style={Object.assign({}, inp(), { minHeight: "200px", resize: "vertical", fontFamily: "monospace", fontSize: "0.82rem", lineHeight: 1.7 })} />
           <div style={{ textAlign: "right", marginTop: "0.5rem" }}>
-            <button onClick={function() { savePub({ schedule: localSched }); }} style={btnP(T.blue, { fontSize: "0.78rem", padding: "0.4rem 0.9rem" })}>Save</button>
+            <button onClick={function() { savePub({ schedule: localSched }); }} style={btnP("var(--fl-accent)", { fontSize: "0.78rem", padding: "0.4rem 0.9rem" })}>Save</button>
           </div>
         </div>
       );
@@ -8949,39 +8954,39 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function PublicCalendar() {
       var events = (childData.public.calEvents || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
       var EVENT_TYPES = [
-        { id: "event",   label: "School Event",        color: T.blue },
-        { id: "holiday", label: "Holiday / No School",  color: T.sage },
-        { id: "early",   label: "Early Release",        color: T.sand },
-        { id: "field",   label: "Field Trip",           color: T.rose },
-        { id: "other",   label: "Other",                color: T.lavender },
+        { id: "event",   label: "School Event",        color: "var(--fl-accent)" },
+        { id: "holiday", label: "Holiday / No School",  color: "var(--fl-accent)" },
+        { id: "early",   label: "Early Release",        color: "var(--fl-gold)" },
+        { id: "field",   label: "Field Trip",           color: "var(--fl-rose)" },
+        { id: "other",   label: "Other",                color: "var(--fl-accent)" },
       ];
       return (
         <div>
-          <button onClick={function() { setEventForm({ title: "", date: "", type: "event", notes: "" }); setEditingEvent(null); setShowEventModal(true); }} style={Object.assign({}, btnP(T.blue), { width: "100%", marginBottom: "0.85rem" })}>+ Add Calendar Item</button>
-          {events.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No calendar items yet</div>}
+          <button onClick={function() { setEventForm({ title: "", date: "", type: "event", notes: "" }); setEditingEvent(null); setShowEventModal(true); }} style={Object.assign({}, btnP("var(--fl-accent)"), { width: "100%", marginBottom: "0.85rem" })}>+ Add Calendar Item</button>
+          {events.length === 0 && <div style={{ color: "rgba(26,46,58,0.3)", textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No calendar items yet</div>}
           {events.map(function(ev) {
             var typeInfo = EVENT_TYPES.find(function(t) { return t.id === ev.type; }) || EVENT_TYPES[0];
             return (
               <div key={ev.id} style={card({ borderLeft: "3px solid " + typeInfo.color })}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{ev.title}</div>
+                    <div style={{ fontWeight: 700, color: "var(--fl-t1)", fontSize: "0.92rem" }}>{ev.title}</div>
                     <div style={{ color: typeInfo.color, fontSize: "0.72rem", fontWeight: 600, marginTop: "0.15rem" }}>{typeInfo.label}</div>
-                    {ev.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(ev.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
+                    {ev.date && <div style={{ color: "var(--fl-t2)", fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(ev.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
                   </div>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
                     <button onClick={function() { setEventForm({ title: ev.title, date: ev.date, type: ev.type, notes: ev.notes }); setEditingEvent(ev.id); setShowEventModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { savePub({ calEvents: events.filter(function(x) { return x.id !== ev.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                    <button onClick={function() { savePub({ calEvents: events.filter(function(x) { return x.id !== ev.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: "var(--fl-rose)" })}>✕</button>
                   </div>
                 </div>
-                {ev.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{ev.notes}</div>}
+                {ev.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{ev.notes}</div>}
               </div>
             );
           })}
           {showEventModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingEvent ? "Edit Item" : "Add Calendar Item"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem" }}>{editingEvent ? "Edit Item" : "Add Calendar Item"}</div>
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Title</label>
                   <input defaultValue={eventForm.title} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Spring Concert, Picture Day..." />
@@ -9010,7 +9015,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       savePub({ calEvents: current.concat([Object.assign({}, eventForm, { id: suid() })]) });
                     }
                     setShowEventModal(false);
-                  }} style={btnP(T.blue, { flex: 1 })}>Save</button>
+                  }} style={btnP("var(--fl-accent)", { flex: 1 })}>Save</button>
                   <button onClick={function() { setShowEventModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -9024,29 +9029,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var spiritDays = (childData.public.spiritDays || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
       return (
         <div>
-          <button onClick={function() { setSpiritForm({ date: "", theme: "", notes: "" }); setEditingSpirit(null); setShowSpiritModal(true); }} style={Object.assign({}, btnP(T.rose), { width: "100%", marginBottom: "0.85rem" })}>+ Add Spirit Day</button>
-          {spiritDays.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No spirit days added yet</div>}
+          <button onClick={function() { setSpiritForm({ date: "", theme: "", notes: "" }); setEditingSpirit(null); setShowSpiritModal(true); }} style={Object.assign({}, btnP("var(--fl-rose)"), { width: "100%", marginBottom: "0.85rem" })}>+ Add Spirit Day</button>
+          {spiritDays.length === 0 && <div style={{ color: "rgba(26,46,58,0.3)", textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No spirit days added yet</div>}
           {spiritDays.map(function(s) {
             return (
-              <div key={s.id} style={card({ background: T.rosePale, borderColor: T.rose + "40" })}>
+              <div key={s.id} style={card({ background: "rgba(176,90,104,0.1)", borderColor: "var(--fl-rose)" + "40" })}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>🎉 {s.theme}</div>
-                    {s.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(s.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
+                    <div style={{ fontWeight: 700, color: "var(--fl-t1)", fontSize: "0.92rem" }}>🎉 {s.theme}</div>
+                    {s.date && <div style={{ color: "var(--fl-t2)", fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(s.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
                   </div>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
                     <button onClick={function() { setSpiritForm({ date: s.date, theme: s.theme, notes: s.notes }); setEditingSpirit(s.id); setShowSpiritModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { savePub({ spiritDays: spiritDays.filter(function(x) { return x.id !== s.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                    <button onClick={function() { savePub({ spiritDays: spiritDays.filter(function(x) { return x.id !== s.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: "var(--fl-rose)" })}>✕</button>
                   </div>
                 </div>
-                {s.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{s.notes}</div>}
+                {s.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{s.notes}</div>}
               </div>
             );
           })}
           {showSpiritModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingSpirit ? "Edit Spirit Day" : "Add Spirit Day"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem" }}>{editingSpirit ? "Edit Spirit Day" : "Add Spirit Day"}</div>
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Theme</label>
                   <input defaultValue={spiritForm.theme} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { theme: v }); }); }} style={inp()} placeholder="Pajama Day, Decade Day, Color Wars..." />
@@ -9069,7 +9074,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       savePub({ spiritDays: current.concat([Object.assign({}, spiritForm, { id: suid() })]) });
                     }
                     setShowSpiritModal(false);
-                  }} style={btnP(T.rose, { flex: 1 })}>Save</button>
+                  }} style={btnP("var(--fl-rose)", { flex: 1 })}>Save</button>
                   <button onClick={function() { setShowSpiritModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -9082,27 +9087,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function HSOverview() {
       return (
         <div>
-          <div style={card({ background: T.sagePale, borderColor: T.sage + "40" })}>
-            <div style={{ fontWeight: 700, color: T.sage, fontSize: "1rem", marginBottom: "0.75rem" }}>📊 Attendance This Year</div>
+          <div style={card({ background: "rgba(100,148,130,0.14)", borderColor: "var(--fl-accent)" + "40" })}>
+            <div style={{ fontWeight: 700, color: "var(--fl-accent)", fontSize: "1rem", marginBottom: "0.75rem" }}>📊 Attendance This Year</div>
             <div style={{ display: "flex", gap: "1.5rem" }}>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.sage }}>{totalPresent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Present</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.rose }}>{totalAbsent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Absent</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.blue }}>{totalPresent + totalAbsent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Total Logged</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--fl-accent)" }}>{totalPresent}</div><div style={{ fontSize: "0.72rem", color: "var(--fl-t2)", fontWeight: 600 }}>Present</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--fl-rose)" }}>{totalAbsent}</div><div style={{ fontSize: "0.72rem", color: "var(--fl-t2)", fontWeight: 600 }}>Absent</div></div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--fl-accent)" }}>{totalPresent + totalAbsent}</div><div style={{ fontSize: "0.72rem", color: "var(--fl-t2)", fontWeight: 600 }}>Total Logged</div></div>
             </div>
           </div>
           <div style={card()}>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>📚 Active Curricula</div>
+            <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.5rem" }}>📚 Active Curricula</div>
             {(childData.homeschool.curricula || []).length === 0
-              ? <div style={{ color: T.textFaint, fontSize: "0.82rem" }}>No curricula added yet</div>
-              : (childData.homeschool.curricula || []).map(function(c) { return <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "0.35rem 0", borderBottom: "1px solid " + T.borderSoft, fontSize: "0.84rem", color: T.textDark }}><span>{c.subject}</span><span style={{ color: T.textMid }}>{c.name}</span></div>; })
+              ? <div style={{ color: "rgba(26,46,58,0.3)", fontSize: "0.82rem" }}>No curricula added yet</div>
+              : (childData.homeschool.curricula || []).map(function(c) { return <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "0.35rem 0", borderBottom: "1px solid " + "rgba(100,148,130,0.15)", fontSize: "0.84rem", color: "var(--fl-t1)" }}><span>{c.subject}</span><span style={{ color: "var(--fl-t2)" }}>{c.name}</span></div>; })
             }
           </div>
           <div style={card()}>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>✏️ Recent Lessons</div>
+            <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.5rem" }}>✏️ Recent Lessons</div>
             {(childData.homeschool.lessons || []).length === 0
-              ? <div style={{ color: T.textFaint, fontSize: "0.82rem" }}>No lessons yet</div>
+              ? <div style={{ color: "rgba(26,46,58,0.3)", fontSize: "0.82rem" }}>No lessons yet</div>
               : (childData.homeschool.lessons || []).slice(-3).reverse().map(function(l) {
-                  return <div key={l.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid " + T.borderSoft }}><div style={{ fontSize: "0.84rem", color: T.textDark, fontWeight: 600 }}>{l.title}</div><div style={{ fontSize: "0.72rem", color: T.textMid }}>{l.subject} · {l.date}</div></div>;
+                  return <div key={l.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid " + "rgba(100,148,130,0.15)" }}><div style={{ fontSize: "0.84rem", color: "var(--fl-t1)", fontWeight: 600 }}>{l.title}</div><div style={{ fontSize: "0.72rem", color: "var(--fl-t2)" }}>{l.subject} · {l.date}</div></div>;
                 })
             }
           </div>
@@ -9116,7 +9121,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var [form, setForm] = React.useState({ name: umbrella.name || "", contact: umbrella.contact || "", email: umbrella.email || "", daysRequired: umbrella.daysRequired || "", notes: umbrella.notes || "" });
       return (
         <div style={card()}>
-          <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.85rem" }}>☂️ Umbrella School Info</div>
+          <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.85rem" }}>☂️ Umbrella School Info</div>
           {[["name","School Name"],["contact","Contact Person"],["email","Email"],["daysRequired","Required Days / Year"]].map(function(f) {
             return (
               <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
@@ -9129,7 +9134,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <label style={lbl}>Notes / Requirements</label>
             <textarea value={form.notes} onChange={function(e) { var v = e.target.value; setForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} />
           </div>
-          <button onClick={function() { saveHS({ umbrella: form }); }} style={btnP(T.sage, { width: "100%" })}>Save</button>
+          <button onClick={function() { saveHS({ umbrella: form }); }} style={btnP("var(--fl-accent)", { width: "100%" })}>Save</button>
         </div>
       );
     }
@@ -9138,30 +9143,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var curricula = childData.homeschool.curricula || [];
       return (
         <div>
-          <button onClick={function() { setCurriculumForm({ subject: "", name: "", website: "", notes: "" }); setEditingCurriculum(null); setShowCurriculumModal(true); }} style={Object.assign({}, btnP(T.sage), { width: "100%", marginBottom: "0.85rem" })}>+ Add Curriculum</button>
-          {curricula.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No curricula added yet</div>}
+          <button onClick={function() { setCurriculumForm({ subject: "", name: "", website: "", notes: "" }); setEditingCurriculum(null); setShowCurriculumModal(true); }} style={Object.assign({}, btnP("var(--fl-accent)"), { width: "100%", marginBottom: "0.85rem" })}>+ Add Curriculum</button>
+          {curricula.length === 0 && <div style={{ color: "rgba(26,46,58,0.3)", textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No curricula added yet</div>}
           {curricula.map(function(c) {
             return (
               <div key={c.id} style={card()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{c.subject}</div>
-                    <div style={{ color: T.sage, fontSize: "0.78rem", fontWeight: 600 }}>{c.name}</div>
-                    {c.website && <a href={c.website.startsWith("http") ? c.website : "https://" + c.website} target="_blank" rel="noreferrer" style={{ color: T.blue, fontSize: "0.75rem", display: "block", marginTop: "0.2rem" }}>🔗 {c.website}</a>}
+                    <div style={{ fontWeight: 700, color: "var(--fl-t1)", fontSize: "0.92rem" }}>{c.subject}</div>
+                    <div style={{ color: "var(--fl-accent)", fontSize: "0.78rem", fontWeight: 600 }}>{c.name}</div>
+                    {c.website && <a href={c.website.startsWith("http") ? c.website : "https://" + c.website} target="_blank" rel="noreferrer" style={{ color: "var(--fl-accent)", fontSize: "0.75rem", display: "block", marginTop: "0.2rem" }}>🔗 {c.website}</a>}
                   </div>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
                     <button onClick={function() { setCurriculumForm({ subject: c.subject, name: c.name, website: c.website, notes: c.notes }); setEditingCurriculum(c.id); setShowCurriculumModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { saveHS({ curricula: curricula.filter(function(x) { return x.id !== c.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                    <button onClick={function() { saveHS({ curricula: curricula.filter(function(x) { return x.id !== c.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: "var(--fl-rose)" })}>✕</button>
                   </div>
                 </div>
-                {c.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{c.notes}</div>}
+                {c.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{c.notes}</div>}
               </div>
             );
           })}
           {showCurriculumModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem" }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
                 {[["subject","Subject","text"],["name","Curriculum Name","text"],["website","Website","url"]].map(function(f) {
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
@@ -9184,7 +9189,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       saveHS({ curricula: current.concat([Object.assign({}, curriculumForm, { id: suid() })]) });
                     }
                     setShowCurriculumModal(false);
-                  }} style={btnP(T.sage, { flex: 1 })}>Save</button>
+                  }} style={btnP("var(--fl-accent)", { flex: 1 })}>Save</button>
                   <button onClick={function() { setShowCurriculumModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -9290,10 +9295,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div>
           {/* Sub-tab bar */}
-          <ScrollTabs style={{ marginBottom: "0.85rem", background: T.bgAlt, borderRadius: "0.8rem", padding: "0.28rem", border: "1px solid " + T.border }}>
+          <ScrollTabs style={{ marginBottom: "0.85rem", background: "rgba(220,232,226,0.7)", borderRadius: "0.8rem", padding: "0.28rem", border: "1px solid " + "var(--fl-border)" }}>
             {LESSON_TABS.map(function(st) {
               return (
-                <button key={st.id} onClick={function() { setLessonSubTab(st.id); }} style={{ flexShrink: 0, background: lessonSubTab === st.id ? T.sage : "transparent", color: lessonSubTab === st.id ? "#fff" : T.textMid, border: "none", borderRadius: "0.55rem", padding: "0.4rem 0.7rem", cursor: "pointer", fontSize: "0.73rem", fontWeight: 700, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}>
+                <button key={st.id} onClick={function() { setLessonSubTab(st.id); }} style={{ flexShrink: 0, background: lessonSubTab === st.id ? "var(--fl-accent)" : "transparent", color: lessonSubTab === st.id ? "#fff" : "var(--fl-t2)", border: "none", borderRadius: "0.55rem", padding: "0.4rem 0.7rem", cursor: "pointer", fontSize: "0.73rem", fontWeight: 700, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}>
                   {st.emoji} {st.label}
                 </button>
               );
@@ -9303,25 +9308,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {lessonSubTab === "week" && (
             <div>
               {/* Week summary bar */}
-              <div style={card({ background: T.sagePale, border: "1.5px solid " + T.sage + "40", padding: "0.85rem 1rem", marginBottom: "0.85rem" })}>
+              <div style={card({ background: "rgba(100,148,130,0.14)", border: "1.5px solid " + "var(--fl-accent)" + "40", padding: "0.85rem 1rem", marginBottom: "0.85rem" })}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
                   <div style={{ display: "flex", gap: "1.5rem" }}>
                     <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.sage }}>{totalSubjects}</div>
-                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Planned</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--fl-accent)" }}>{totalSubjects}</div>
+                      <div style={{ fontSize: "0.65rem", color: "var(--fl-t2)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Planned</div>
                     </div>
                     <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.sageDark }}>{totalDone}</div>
-                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Done</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#2a6058" }}>{totalDone}</div>
+                      <div style={{ fontSize: "0.65rem", color: "var(--fl-t2)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Done</div>
                     </div>
                     <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.blue }}>{totalSubjects - totalDone}</div>
-                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Left</div>
+                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--fl-accent)" }}>{totalSubjects - totalDone}</div>
+                      <div style={{ fontSize: "0.65rem", color: "var(--fl-t2)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Left</div>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "0.4rem" }}>
                     <button onClick={function() { setShowCopyModal(true); }} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem" })}>📋 Copy Day</button>
-                    <button onClick={clearWeek} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem", color: T.rose })}>🗑 Clear Week</button>
+                    <button onClick={clearWeek} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem", color: "var(--fl-rose)" })}>🗑 Clear Week</button>
                   </div>
                 </div>
               </div>
@@ -9334,14 +9339,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var expanded = expandedDays[day] !== false; // default expanded
                 var doneCount = subjects.filter(function(s) { return s.done; }).length;
                 return (
-                  <div key={day} style={card({ borderLeft: "4px solid " + (isToday ? T.sage : T.borderSoft), background: isToday ? "linear-gradient(to right," + T.sagePale + "," + T.surface + ")" : T.surface, marginBottom: "0.75rem" })}>
+                  <div key={day} style={card({ borderLeft: "4px solid " + (isToday ? "var(--fl-accent)" : "rgba(100,148,130,0.15)"), background: isToday ? "linear-gradient(to right," + "rgba(100,148,130,0.14)" + "," + "rgba(255,255,255,0.82)" + ")" : "rgba(255,255,255,0.82)", marginBottom: "0.75rem" })}>
                     {/* Day header */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: expanded ? "0.75rem" : 0 }}>
                       <button onClick={function() { setExpandedDays(function(p) { var n = Object.assign({}, p); n[day] = !expanded; return n; }); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", padding: 0, fontFamily: "inherit" }}>
-                        <span style={{ fontWeight: 700, color: isToday ? T.sageDark : T.textDark, fontSize: "0.95rem" }}>{day}</span>
-                        {isToday && <span style={{ background: T.sage, color: "#fff", fontSize: "0.58rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Today</span>}
-                        {subjects.length > 0 && <span style={{ color: T.textFaint, fontSize: "0.72rem" }}>{doneCount}/{subjects.length}</span>}
-                        <span style={{ color: T.textFaint, fontSize: "0.7rem" }}>{expanded ? "▾" : "▸"}</span>
+                        <span style={{ fontWeight: 700, color: isToday ? "#2a6058" : "var(--fl-t1)", fontSize: "0.95rem" }}>{day}</span>
+                        {isToday && <span style={{ background: "var(--fl-accent)", color: "#fff", fontSize: "0.58rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Today</span>}
+                        {subjects.length > 0 && <span style={{ color: "rgba(26,46,58,0.3)", fontSize: "0.72rem" }}>{doneCount}/{subjects.length}</span>}
+                        <span style={{ color: "rgba(26,46,58,0.3)", fontSize: "0.7rem" }}>{expanded ? "▾" : "▸"}</span>
                       </button>
                       <button onClick={function() { openAddSubject(day); }} style={btnS({ fontSize: "0.72rem", padding: "0.28rem 0.65rem", display: "flex", alignItems: "center", gap: "0.25rem" })}>
                         + Subject
@@ -9352,31 +9357,31 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <div>
                         {/* Subject rows */}
                         {subjects.length === 0 && (
-                          <div style={{ color: T.textFaint, fontSize: "0.8rem", textAlign: "center", padding: "0.75rem 0", fontStyle: "italic" }}>No subjects planned — tap + Subject to add</div>
+                          <div style={{ color: "rgba(26,46,58,0.3)", fontSize: "0.8rem", textAlign: "center", padding: "0.75rem 0", fontStyle: "italic" }}>No subjects planned — tap + Subject to add</div>
                         )}
                         {subjects.map(function(s, idx) {
                           return (
-                            <div key={s.id || idx} style={{ background: s.done ? T.bgAlt : T.white, border: "1.5px solid " + (s.done ? T.border : T.borderSoft), borderRadius: "0.65rem", padding: "0.6rem 0.75rem", marginBottom: "0.45rem", opacity: s.done ? 0.65 : 1, transition: "all 0.15s" }}>
+                            <div key={s.id || idx} style={{ background: s.done ? "rgba(220,232,226,0.7)" : "rgba(255,255,255,0.9)", border: "1.5px solid " + (s.done ? "var(--fl-border)" : "rgba(100,148,130,0.15)"), borderRadius: "0.65rem", padding: "0.6rem 0.75rem", marginBottom: "0.45rem", opacity: s.done ? 0.65 : 1, transition: "all 0.15s" }}>
                               <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
                                 {/* Done checkbox */}
-                                <button onClick={function() { toggleSubjectDone(day, idx); }} style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "0.35rem", border: "2px solid " + (s.done ? T.sage : T.border), background: s.done ? T.sage : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: "1px", transition: "all 0.15s" }}>
+                                <button onClick={function() { toggleSubjectDone(day, idx); }} style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "0.35rem", border: "2px solid " + (s.done ? "var(--fl-accent)" : "var(--fl-border)"), background: s.done ? "var(--fl-accent)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: "1px", transition: "all 0.15s" }}>
                                   {s.done && <span style={{ color: "#fff", fontSize: "0.65rem", fontWeight: 900 }}>✓</span>}
                                 </button>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   {/* Subject name badge + title */}
                                   <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", marginBottom: s.todo || s.notes ? "0.3rem" : 0 }}>
-                                    <span style={{ background: T.sagePale, color: T.sageDark, fontSize: "0.65rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 8px", border: "1px solid " + T.sage + "30", flexShrink: 0, textDecoration: s.done ? "line-through" : "none" }}>{s.name}</span>
-                                    {s.title && <span style={{ color: s.done ? T.textFaint : T.textDark, fontSize: "0.82rem", fontWeight: 600, textDecoration: s.done ? "line-through" : "none" }}>{s.title}</span>}
+                                    <span style={{ background: "rgba(100,148,130,0.14)", color: "#2a6058", fontSize: "0.65rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 8px", border: "1px solid " + "var(--fl-accent)" + "30", flexShrink: 0, textDecoration: s.done ? "line-through" : "none" }}>{s.name}</span>
+                                    {s.title && <span style={{ color: s.done ? "rgba(26,46,58,0.3)" : "var(--fl-t1)", fontSize: "0.82rem", fontWeight: 600, textDecoration: s.done ? "line-through" : "none" }}>{s.title}</span>}
                                   </div>
                                   {/* To-do */}
-                                  {s.todo && <div style={{ color: T.textMid, fontSize: "0.76rem", marginBottom: "0.15rem", lineHeight: 1.45 }}>📌 {s.todo}</div>}
+                                  {s.todo && <div style={{ color: "var(--fl-t2)", fontSize: "0.76rem", marginBottom: "0.15rem", lineHeight: 1.45 }}>📌 {s.todo}</div>}
                                   {/* Notes */}
-                                  {s.notes && <div style={{ color: T.textSoft, fontSize: "0.73rem", fontStyle: "italic" }}>💬 {s.notes}</div>}
+                                  {s.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.73rem", fontStyle: "italic" }}>💬 {s.notes}</div>}
                                 </div>
                                 {/* Edit / delete */}
                                 <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
-                                  <button onClick={function() { openEditSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textFaint, fontSize: "0.72rem" }}>✏️</button>
-                                  <button onClick={function() { deleteSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.rose, fontSize: "0.72rem" }}>✕</button>
+                                  <button onClick={function() { openEditSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "rgba(26,46,58,0.3)", fontSize: "0.72rem" }}>✏️</button>
+                                  <button onClick={function() { deleteSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "var(--fl-rose)", fontSize: "0.72rem" }}>✕</button>
                                 </div>
                               </div>
                             </div>
@@ -9390,7 +9395,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                             defaultValue={plan.dayNotes || ""}
                             onBlur={function(e) { var v = e.target.value; saveDayPlan(day, { dayNotes: v }); }}
                             placeholder="Day notes — field trips, appointments, special plans..."
-                            style={Object.assign({}, inp({ fontSize: "0.76rem", padding: "0.45rem 0.65rem" }), { minHeight: "44px", resize: "none", color: T.textMid })}
+                            style={Object.assign({}, inp({ fontSize: "0.76rem", padding: "0.45rem 0.65rem" }), { minHeight: "44px", resize: "none", color: "var(--fl-t2)" })}
                           />
                         </div>
                       </div>
@@ -9404,8 +9409,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {lessonSubTab === "history" && (
             <div>
               <div style={card()}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>🗂️ Past Lesson Plans</div>
-                <div style={{ color: T.textMid, fontSize: "0.82rem", lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.5rem" }}>🗂️ Past Lesson Plans</div>
+                <div style={{ color: "var(--fl-t2)", fontSize: "0.82rem", lineHeight: 1.6 }}>
                   Past plans are saved automatically each week when you clear or plan a new week. This feature is coming soon — for now your current week plan persists until you clear it.
                 </div>
               </div>
@@ -9414,9 +9419,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {/* Subject add/edit modal */}
           {subjectModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem", fontSize: "1rem" }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem", fontSize: "1rem" }}>
                   {editingSubjectIdx !== null ? "Edit Subject" : "Add Subject"} — {editingDay}
                 </div>
                 {/* Subject / curriculum picker */}
@@ -9447,7 +9452,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <input defaultValue={subjectForm.notes} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={inp()} placeholder="Manipulatives needed, print pages 8-9, video link..." />
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={saveSubject} style={btnP(T.sage, { flex: 1 })}>Save</button>
+                  <button onClick={saveSubject} style={btnP("var(--fl-accent)", { flex: 1 })}>Save</button>
                   <button onClick={function() { setSubjectModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -9456,10 +9461,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {/* Copy day modal */}
           {showCopyModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem", padding: "1.5rem", width: "min(340px,100%)", maxHeight: "calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)", overflowY: "auto" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.4rem" }}>📋 Copy Day to All Days</div>
-                <div style={{ color: T.textMid, fontSize: "0.82rem", marginBottom: "1rem" }}>Pick a day to copy its subjects to all other school days.</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem", padding: "1.5rem", width: "min(340px,100%)", maxHeight: "calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)", overflowY: "auto" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.4rem" }}>📋 Copy Day to All Days</div>
+                <div style={{ color: "var(--fl-t2)", fontSize: "0.82rem", marginBottom: "1rem" }}>Pick a day to copy its subjects to all other school days.</div>
                 <div style={{ marginBottom: "0.85rem" }}>
                   <label style={lbl}>Copy from</label>
                   <select value={copySourceDay} onChange={function(e) { setCopySourceDay(e.target.value); }} style={inp()}>
@@ -9468,7 +9473,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </select>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() { if (copySourceDay) copyDayToAll(copySourceDay); }} style={btnP(T.sage, { flex: 1 })} disabled={!copySourceDay}>Copy</button>
+                  <button onClick={function() { if (copySourceDay) copyDayToAll(copySourceDay); }} style={btnP("var(--fl-accent)", { flex: 1 })} disabled={!copySourceDay}>Copy</button>
                   <button onClick={function() { setShowCopyModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -9486,15 +9491,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div>
           <div style={card()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-              <div style={{ fontWeight: 700, color: T.textDark }}>{monthName}</div>
+              <div style={{ fontWeight: 700, color: "var(--fl-t1)" }}>{monthName}</div>
               <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.72rem" }}>
-                <span style={{ color: T.sage, fontWeight: 700 }}>✓ {Object.values(attendance).filter(function(v) { return v === "present"; }).length} present</span>
-                <span style={{ color: T.rose, fontWeight: 700 }}>✗ {Object.values(attendance).filter(function(v) { return v === "absent"; }).length} absent</span>
+                <span style={{ color: "var(--fl-accent)", fontWeight: 700 }}>✓ {Object.values(attendance).filter(function(v) { return v === "present"; }).length} present</span>
+                <span style={{ color: "var(--fl-rose)", fontWeight: 700 }}>✗ {Object.values(attendance).filter(function(v) { return v === "absent"; }).length} absent</span>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "0.5rem" }}>
               {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d) {
-                return <div key={d} style={{ textAlign: "center", fontSize: "0.62rem", color: T.textFaint, fontWeight: 700, padding: "0.2rem 0" }}>{d}</div>;
+                return <div key={d} style={{ textAlign: "center", fontSize: "0.62rem", color: "rgba(26,46,58,0.3)", fontWeight: 700, padding: "0.2rem 0" }}>{d}</div>;
               })}
               {calDays.map(function(dayObj, i) {
                 if (!dayObj) return <div key={"e" + i} />;
@@ -9503,21 +9508,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var dow = new Date(dayObj.iso + "T12:00:00").getDay();
                 var isWeekend = dow === 0 || dow === 6;
                 return (
-                  <button key={dayObj.iso} onClick={function() { if (!isWeekend) toggleAttendance(dayObj.iso); }} style={{ padding: "0.22rem 0", border: isToday ? "2px solid " + T.blue : "1.5px solid " + (status ? "transparent" : T.borderSoft), borderRadius: "0.4rem", cursor: isWeekend ? "default" : "pointer", background: status === "present" ? T.sage : status === "absent" ? T.rose : isWeekend ? T.bgAlt : T.surface, color: status ? "#fff" : isWeekend ? T.textFaint : T.textDark, fontSize: "0.7rem", fontWeight: isToday ? 800 : 500, fontFamily: "inherit", transition: "all 0.12s" }}>
+                  <button key={dayObj.iso} onClick={function() { if (!isWeekend) toggleAttendance(dayObj.iso); }} style={{ padding: "0.22rem 0", border: isToday ? "2px solid " + "var(--fl-accent)" : "1.5px solid " + (status ? "transparent" : "rgba(100,148,130,0.15)"), borderRadius: "0.4rem", cursor: isWeekend ? "default" : "pointer", background: status === "present" ? "var(--fl-accent)" : status === "absent" ? "var(--fl-rose)" : isWeekend ? "rgba(220,232,226,0.7)" : "rgba(255,255,255,0.82)", color: status ? "#fff" : isWeekend ? "rgba(26,46,58,0.3)" : "var(--fl-t1)", fontSize: "0.7rem", fontWeight: isToday ? 800 : 500, fontFamily: "inherit", transition: "all 0.12s" }}>
                     {status === "present" ? "✓" : status === "absent" ? "✗" : dayObj.day}
                   </button>
                 );
               })}
             </div>
-            <div style={{ fontSize: "0.72rem", color: T.textFaint, textAlign: "center" }}>Tap a weekday to cycle: unmarked → present → absent → clear</div>
+            <div style={{ fontSize: "0.72rem", color: "rgba(26,46,58,0.3)", textAlign: "center" }}>Tap a weekday to cycle: unmarked → present → absent → clear</div>
           </div>
-          <div style={card({ background: T.sagePale, borderColor: T.sage + "40" })}>
-            <div style={{ fontWeight: 700, color: T.sage, marginBottom: "0.5rem" }}>📊 Year-to-Date</div>
+          <div style={card({ background: "rgba(100,148,130,0.14)", borderColor: "var(--fl-accent)" + "40" })}>
+            <div style={{ fontWeight: 700, color: "var(--fl-accent)", marginBottom: "0.5rem" }}>📊 Year-to-Date</div>
             <div style={{ display: "flex", gap: "2rem" }}>
-              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.sage }}>{totalPresent}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Present</div></div>
-              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.rose }}>{totalAbsent}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Absent</div></div>
+              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--fl-accent)" }}>{totalPresent}</span><div style={{ fontSize: "0.7rem", color: "var(--fl-t2)" }}>Present</div></div>
+              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--fl-rose)" }}>{totalAbsent}</span><div style={{ fontSize: "0.7rem", color: "var(--fl-t2)" }}>Absent</div></div>
               {childData.homeschool.umbrella && childData.homeschool.umbrella.daysRequired && (
-                <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.blue }}>{Math.max(0, parseInt(childData.homeschool.umbrella.daysRequired) - totalPresent)}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Days left to goal</div></div>
+                <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--fl-accent)" }}>{Math.max(0, parseInt(childData.homeschool.umbrella.daysRequired) - totalPresent)}</span><div style={{ fontSize: "0.7rem", color: "var(--fl-t2)" }}>Days left to goal</div></div>
               )}
             </div>
           </div>
@@ -9531,25 +9536,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var past = activities.filter(function(a) { return a.date < todayISO; });
       return (
         <div>
-          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
+          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP("var(--fl-accent)"), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
           {upcoming.length > 0 && (
             <div style={{ marginBottom: "0.5rem" }}>
-              <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Upcoming</div>
+              <div style={{ fontSize: "0.72rem", color: "rgba(26,46,58,0.3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Upcoming</div>
               {upcoming.map(function(a) {
                 return (
-                  <div key={a.id} style={card({ borderLeft: "3px solid " + T.lavender })}>
+                  <div key={a.id} style={card({ borderLeft: "3px solid " + "var(--fl-accent)" })}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div>
-                        <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{a.title}</div>
-                        {a.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}{a.time ? " · " + a.time : ""}</div>}
-                        {a.location && <div style={{ color: T.textMid, fontSize: "0.75rem" }}>📍 {a.location}</div>}
+                        <div style={{ fontWeight: 700, color: "var(--fl-t1)", fontSize: "0.92rem" }}>{a.title}</div>
+                        {a.date && <div style={{ color: "var(--fl-t2)", fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}{a.time ? " · " + a.time : ""}</div>}
+                        {a.location && <div style={{ color: "var(--fl-t2)", fontSize: "0.75rem" }}>📍 {a.location}</div>}
                       </div>
                       <div style={{ display: "flex", gap: "0.4rem" }}>
                         <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                        <button onClick={function() { saveHS({ activities: activities.filter(function(x) { return x.id !== a.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
+                        <button onClick={function() { saveHS({ activities: activities.filter(function(x) { return x.id !== a.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: "var(--fl-rose)" })}>✕</button>
                       </div>
                     </div>
-                    {a.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{a.notes}</div>}
+                    {a.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{a.notes}</div>}
                   </div>
                 );
               })}
@@ -9557,22 +9562,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           )}
           {past.length > 0 && (
             <div>
-              <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Past</div>
+              <div style={{ fontSize: "0.72rem", color: "rgba(26,46,58,0.3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Past</div>
               {past.slice(-5).reverse().map(function(a) {
                 return (
                   <div key={a.id} style={card({ opacity: 0.65 })}>
-                    <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
-                    {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
+                    <div style={{ fontWeight: 600, color: "var(--fl-t2)", fontSize: "0.88rem" }}>{a.title}</div>
+                    {a.date && <div style={{ color: "rgba(26,46,58,0.3)", fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
                   </div>
                 );
               })}
             </div>
           )}
-          {activities.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No activities yet — add field trips, co-ops, classes</div>}
+          {activities.length === 0 && <div style={{ color: "rgba(26,46,58,0.3)", textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No activities yet — add field trips, co-ops, classes</div>}
           {showActivityModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingActivity ? "Edit Activity" : "Add Activity"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem" }}>{editingActivity ? "Edit Activity" : "Add Activity"}</div>
                 {[["title","Title","text"],["date","Date","date"],["time","Time","time"],["location","Location","text"]].map(function(f) {
                   return (
                     <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
@@ -9595,7 +9600,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       saveHS({ activities: current.concat([Object.assign({}, activityForm, { id: suid() })]) });
                     }
                     setShowActivityModal(false);
-                  }} style={btnP(T.lavender, { flex: 1 })}>Save</button>
+                  }} style={btnP("var(--fl-accent)", { flex: 1 })}>Save</button>
                   <button onClick={function() { setShowActivityModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
                 </div>
               </div>
@@ -9623,7 +9628,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     function BreakModePanel() {
       var currentBreakGoals = breakGoals.filter(function(g) { return g.break === breakMode; });
-      var breakColor = BREAK_COLORS[breakMode] || T.sand;
+      var breakColor = BREAK_COLORS[breakMode] || "var(--fl-gold)";
       var breakEmoji = BREAK_EMOJIS[breakMode] || "🌟";
       var breakLabel = BREAK_LABELS[breakMode] || "Break";
 
@@ -9635,10 +9640,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <span style={{ fontSize: "1.8rem" }}>{breakEmoji}</span>
               <div>
                 <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.2rem", fontWeight: 700, color: breakColor }}>{breakLabel}</div>
-                <div style={{ fontSize: "0.72rem", color: T.textMid }}>Goals, challenges & reading targets</div>
+                <div style={{ fontSize: "0.72rem", color: "var(--fl-t2)" }}>Goals, challenges & reading targets</div>
               </div>
             </div>
-            <button onClick={function() { setBreakMode(null); }} style={{ background: "none", border: "1px solid " + T.border, borderRadius: "2rem", padding: "0.3rem 0.75rem", fontSize: "0.72rem", color: T.textMid, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
+            <button onClick={function() { setBreakMode(null); }} style={{ background: "none", border: "1px solid " + "var(--fl-border)", borderRadius: "2rem", padding: "0.3rem 0.75rem", fontSize: "0.72rem", color: "var(--fl-t2)", cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
           </div>
 
           {/* Add goal button */}
@@ -9650,7 +9655,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {/* Goal list */}
           {currentBreakGoals.length === 0 && (
-            <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: T.textFaint, fontSize: "0.85rem" }}>
+            <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "rgba(26,46,58,0.3)", fontSize: "0.85rem" }}>
               <div style={{ fontSize: "2.5rem", marginBottom: "0.6rem" }}>{breakEmoji}</div>
               No goals yet — add reading targets, challenges, or activities!
             </div>
@@ -9666,9 +9671,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         {g.type === "reading" ? "📚 Reading" : g.type === "daily" ? "📆 Daily" : "🎯 Goal"}
                       </span>
                     </div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{g.title}</div>
-                    {g.target && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>Target: {g.progress != null ? g.progress : 0} / {g.target} {g.unit}</div>}
-                    {g.notes && <div style={{ color: T.textSoft, fontSize: "0.75rem", fontStyle: "italic", marginTop: "0.2rem" }}>{g.notes}</div>}
+                    <div style={{ fontWeight: 700, color: "var(--fl-t1)", fontSize: "0.92rem" }}>{g.title}</div>
+                    {g.target && <div style={{ color: "var(--fl-t2)", fontSize: "0.78rem", marginTop: "0.2rem" }}>Target: {g.progress != null ? g.progress : 0} / {g.target} {g.unit}</div>}
+                    {g.notes && <div style={{ color: "var(--fl-t3)", fontSize: "0.75rem", fontStyle: "italic", marginTop: "0.2rem" }}>{g.notes}</div>}
                   </div>
                   <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
                     <button onClick={function() {
@@ -9678,26 +9683,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem" })}>Edit</button>
                     <button onClick={function() {
                       saveBreakGoals(breakGoals.filter(function(x) { return x.id !== g.id; }));
-                    }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem", color: T.rose })}>✕</button>
+                    }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem", color: "var(--fl-rose)" })}>✕</button>
                   </div>
                 </div>
                 {/* Progress bar */}
                 {g.target && (
                   <div style={{ marginTop: "0.75rem" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
-                      <span style={{ fontSize: "0.7rem", color: T.textFaint }}>{pct}% complete</span>
+                      <span style={{ fontSize: "0.7rem", color: "rgba(26,46,58,0.3)" }}>{pct}% complete</span>
                       <div style={{ display: "flex", gap: "0.3rem" }}>
                         <button onClick={function() {
                           var curProg = g.progress || 0;
                           if (curProg > 0) saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: curProg - 1 }) : x; }));
-                        }} style={{ background: T.bgAlt, border: "1px solid " + T.border, borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                        }} style={{ background: "rgba(220,232,226,0.7)", border: "1px solid " + "var(--fl-border)", borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                         <button onClick={function() {
                           var curProg = g.progress || 0;
                           saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: curProg + 1 }) : x; }));
                         }} style={{ background: breakColor + "22", border: "1px solid " + breakColor + "55", borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", color: breakColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>+</button>
                       </div>
                     </div>
-                    <div style={{ background: T.bgAlt, borderRadius: "2rem", height: "6px", overflow: "hidden" }}>
+                    <div style={{ background: "rgba(220,232,226,0.7)", borderRadius: "2rem", height: "6px", overflow: "hidden" }}>
                       <div style={{ background: breakColor, width: pct + "%", height: "100%", borderRadius: "2rem", transition: "width 0.3s" }} />
                     </div>
                   </div>
@@ -9708,15 +9713,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {/* Add/Edit modal */}
           {showBreakGoalModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingBreakGoal ? "Edit Goal" : "Add Goal"}</div>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(26,46,58,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
+              <div style={{ background: "rgba(255,255,255,0.82)", borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "1rem" }}>{editingBreakGoal ? "Edit Goal" : "Add Goal"}</div>
 
                 <div style={{ marginBottom: "0.65rem" }}>
                   <label style={lbl}>Type</label>
                   <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.65rem" }}>
                     {[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily habit"]].map(function(t) {
-                      return <button key={t[0]} onClick={function() { setBreakGoalForm(function(p) { return Object.assign({}, p, { type: t[0] }); }); }} style={{ flex: 1, background: breakGoalForm.type === t[0] ? breakColor + "22" : T.bgAlt, border: "1.5px solid " + (breakGoalForm.type === t[0] ? breakColor + "88" : T.border), borderRadius: "0.65rem", padding: "0.55rem 0.3rem", fontSize: "0.72rem", color: breakGoalForm.type === t[0] ? breakColor : T.textMid, cursor: "pointer", fontFamily: "inherit", fontWeight: breakGoalForm.type === t[0] ? 700 : 400 }}>{t[1]}</button>;
+                      return <button key={t[0]} onClick={function() { setBreakGoalForm(function(p) { return Object.assign({}, p, { type: t[0] }); }); }} style={{ flex: 1, background: breakGoalForm.type === t[0] ? breakColor + "22" : "rgba(220,232,226,0.7)", border: "1.5px solid " + (breakGoalForm.type === t[0] ? breakColor + "88" : "var(--fl-border)"), borderRadius: "0.65rem", padding: "0.55rem 0.3rem", fontSize: "0.72rem", color: breakGoalForm.type === t[0] ? breakColor : "var(--fl-t2)", cursor: "pointer", fontFamily: "inherit", fontWeight: breakGoalForm.type === t[0] ? 700 : 400 }}>{t[1]}</button>;
                     })}
                   </div>
                 </div>
@@ -9767,9 +9772,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
             <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
-              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+              <Icon name="arrow-left" size={17} color={"var(--fl-t3)"}/>
             </button>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🏫 School</div>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: "var(--fl-t1)" }}>🏫 School</div>
           </div>
         </div>
         {schoolKids.length > 1 && (
@@ -9777,7 +9782,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {schoolKids.map(function(k) {
               var isActive = k.id === activeChild;
               return (
-                <button key={k.id} onClick={function() { setActiveChild(k.id); setSubTab("overview"); }} style={{ background: isActive ? (k.color || T.blue) : "transparent", color: isActive ? "#fff" : T.textMid, border: "1.5px solid " + (isActive ? (k.color || T.blue) : T.border), borderRadius: "2rem", padding: "0.3rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                <button key={k.id} onClick={function() { setActiveChild(k.id); setSubTab("overview"); }} style={{ background: isActive ? (k.color || "var(--fl-accent)") : "transparent", color: isActive ? "#fff" : "var(--fl-t2)", border: "1.5px solid " + (isActive ? (k.color || "var(--fl-accent)") : "var(--fl-border)"), borderRadius: "2rem", padding: "0.3rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
                   {k.name}
                 </button>
               );
@@ -9787,9 +9792,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {!childData.type && (
           <div style={card({ textAlign: "center", padding: "2.5rem 1rem" })}>
             <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>👋</div>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.4rem", fontSize: "1rem" }}>Set up school for {child ? child.name : ""}</div>
-            <div style={{ color: T.textMid, fontSize: "0.84rem", marginBottom: "1.25rem" }}>Choose the type of school to see the right tools.</div>
-            <button onClick={function() { setShowTypeModal(true); }} style={btnP(T.blue, { margin: "0 auto" })}>Get Started</button>
+            <div style={{ fontWeight: 700, color: "var(--fl-t1)", marginBottom: "0.4rem", fontSize: "1rem" }}>Set up school for {child ? child.name : ""}</div>
+            <div style={{ color: "var(--fl-t2)", fontSize: "0.84rem", marginBottom: "1.25rem" }}>Choose the type of school to see the right tools.</div>
+            <button onClick={function() { setShowTypeModal(true); }} style={btnP("var(--fl-accent)", { margin: "0 auto" })}>Get Started</button>
           </div>
         )}
         {childData.type && activeTabs.length > 0 && (
@@ -9797,7 +9802,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {activeTabs.map(function(t) {
               var isActive = subTab === t.id;
               return (
-                <button key={t.id} onClick={function() { setSubTab(t.id); setBreakMode(null); }} style={{ background: isActive && !breakMode ? T.blue : "transparent", color: isActive && !breakMode ? "#fff" : T.textMid, border: "1.5px solid " + (isActive && !breakMode ? T.blue : T.border), borderRadius: "2rem", padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive && !breakMode ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                <button key={t.id} onClick={function() { setSubTab(t.id); setBreakMode(null); }} style={{ background: isActive && !breakMode ? "var(--fl-accent)" : "transparent", color: isActive && !breakMode ? "#fff" : "var(--fl-t2)", border: "1.5px solid " + (isActive && !breakMode ? "var(--fl-accent)" : "var(--fl-border)"), borderRadius: "2rem", padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive && !breakMode ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
                   {t.emoji} {t.label}
                 </button>
               );
@@ -9807,11 +9812,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Break mode selector */}
         {childData.type && (
           <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", overflowX: "auto", paddingBottom: "2px" }}>
-            <span style={{ fontSize: "0.7rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", alignSelf: "center", flexShrink: 0, marginRight: "0.1rem" }}>Break:</span>
+            <span style={{ fontSize: "0.7rem", color: "rgba(26,46,58,0.3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", alignSelf: "center", flexShrink: 0, marginRight: "0.1rem" }}>Break:</span>
             {[["summer","☀️ Summer","#e8a84c"],["winter","❄️ Winter","#6ba3c4"],["spring","🌸 Spring","#7db87a"]].map(function(b) {
               var isActive = breakMode === b[0];
               return (
-                <button key={b[0]} onClick={function() { setBreakMode(isActive ? null : b[0]); }} style={{ background: isActive ? b[2] + "22" : "transparent", color: isActive ? b[2] : T.textMid, border: "1.5px solid " + (isActive ? b[2] + "88" : T.border), borderRadius: "2rem", padding: "0.28rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive ? 700 : 400, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
+                <button key={b[0]} onClick={function() { setBreakMode(isActive ? null : b[0]); }} style={{ background: isActive ? b[2] + "22" : "transparent", color: isActive ? b[2] : "var(--fl-t2)", border: "1.5px solid " + (isActive ? b[2] + "88" : "var(--fl-border)"), borderRadius: "2rem", padding: "0.28rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive ? 700 : 400, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
                   {b[1]}
                 </button>
               );
@@ -10442,7 +10447,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.5rem"}}>Password updated!</h3>
               <p style={{color:T.textSoft,fontSize:"0.84rem",marginBottom:"1.25rem"}}>Your new password is set. You can now sign in.</p>
               <button onClick={()=>{ setShowSetPassword(false); setShowAuthModal(true); }}
-                style={{...btnP(T.blue,{width:"100%",padding:"0.8rem",fontSize:"0.9rem"})}}>
+                style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",width:"100%",padding:"0.8rem",fontSize:"0.9rem"}}>
                 Sign In Now
               </button>
             </div>
@@ -10463,7 +10468,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
               {error&&<div style={{background:T.rosePale,border:`1.5px solid ${T.rose}50`,borderRadius:"0.65rem",padding:"0.7rem 0.85rem",marginBottom:"0.85rem",fontSize:"0.83rem",color:T.rose,fontWeight:600}}>{error}</div>}
               <button onClick={handleSetPassword} disabled={loading}
-                style={{...btnP(T.blue,{width:"100%",padding:"0.85rem",fontSize:"0.95rem",opacity:loading?0.7:1})}}>
+                style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",width:"100%",padding:"0.85rem",fontSize:"0.95rem",opacity:loading?0.7:1}}>
                 {loading ? "Saving…" : "Set Password"}
               </button>
             </div>
@@ -10754,7 +10759,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               💡 The more you set up and use it, the easier everything becomes — and the more Compass helps you.
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
-              <button onClick={function(){try{localStorage.setItem("af_welcomeSeen","1");}catch{}setShowWelcomeModal(false);goTab("settings");}} style={{...btnP(T.sage,{fontSize:"0.9rem",padding:"0.75rem",borderRadius:"0.9rem",width:"100%",justifyContent:"center"})}}>Set up now →</button>
+              <button onClick={function(){try{localStorage.setItem("af_welcomeSeen","1");}catch{}setShowWelcomeModal(false);goTab("settings");}} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.9rem",padding:"0.75rem",borderRadius:"0.9rem",width:"100%",justifyContent:"center"}}>Set up now →</button>
               <button onClick={function(){try{localStorage.setItem("af_welcomeSeen","1");}catch{}setShowWelcomeModal(false);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.8rem",fontFamily:"inherit",padding:"0.3rem"}}>I'll explore first</button>
             </div>
           </div>
