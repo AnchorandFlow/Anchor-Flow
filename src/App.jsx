@@ -459,9 +459,9 @@ const THEMES = {
 };
 
 const FLOW_MODES_FN = T => ({
-  Smooth:   {color:T.sage,  bg:T.sagePale, emoji:"🌊", desc:"Balanced, realistic day."},
-  Busy:     {color:T.sand,  bg:T.sandPale, emoji:"⚡", desc:"Fewer tasks, more focus."},
-  Survival: {color:T.rose,  bg:T.rosePale, emoji:"🛟", desc:"Only what truly matters."},
+  Calm:     {color:T.sage,  bg:T.sagePale, emoji:"⚓", label:"Calm Seas",     desc:"Feeling steady. Let the day flow."},
+  Waves:    {color:T.sand,  bg:T.sandPale, emoji:"🌊", label:"Some Waves",    desc:"A bit much. Focus on what matters."},
+  Survival: {color:T.rose,  bg:T.rosePale, emoji:"🛟", label:"Survival Mode", desc:"Just today. Only what truly matters."},
 });
 
 const DEFAULT_RHYTHM = {
@@ -2488,7 +2488,7 @@ function createLocalBackup() {
   homeFlowRef.tab = tab;
   homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
-  const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
+  const [flowMode,setFlowMode]                 = useSaved("flowMode","Calm");
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
   const [tasks,setTasks]                       = useSaved("tasks",[]);
   // meals — sanitized at read time; rolls over to next week's plan if the calendar week has changed
@@ -4580,12 +4580,12 @@ Respond ONLY in valid JSON:
           <div style={{display:"flex",gap:8}}>
             {[
               {id:"Calm",     emoji:"⚓", label:"Calm Seas",    border:"rgba(200,169,122,0.45)", bg:"rgba(200,169,122,0.1)"},
-              {id:"Busy",     emoji:"🌊", label:"Some Waves",   border:"rgba(122,168,200,0.45)", bg:"rgba(122,168,200,0.1)"},
+              {id:"Waves",     emoji:"🌊", label:"Some Waves",   border:"rgba(122,168,200,0.45)", bg:"rgba(122,168,200,0.1)"},
               {id:"Survival", emoji:"🛟", label:"Survival Mode",border:"rgba(200,122,138,0.45)", bg:"rgba(200,122,138,0.1)"},
             ].map(function(m){
               var isAct = flowMode===m.id;
               return (
-                <div key={m.id} onClick={function(){setModal("flowPicker");}}
+                <div key={m.id} onClick={function(){setFlowMode(m.id);}}
                   style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"13px 8px 11px",borderRadius:11,cursor:"pointer",transition:"all 0.18s",border:"1px solid "+(isAct?m.border:"rgba(245,240,232,0.08)"),background:isAct?m.bg:"transparent"}}>
                   <span style={{fontSize:"1.5rem"}}>{m.emoji}</span>
                   <div style={{fontSize:"0.66rem",color:isAct?"#f5f0e8":"rgba(245,240,232,0.45)",fontWeight:isAct?500:400,textAlign:"center",lineHeight:1.3}}>{m.label}</div>
@@ -10690,7 +10690,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"0.45rem",flexWrap:"wrap",justifyContent:"flex-end"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.35rem",background:fm.bg,border:`2px solid ${fm.color}60`,borderRadius:"2rem",padding:"0.27rem 0.78rem",cursor:"pointer"}} onClick={()=>setModal("flowPicker")}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.35rem",background:fm.bg,border:`2px solid ${fm.color}60`,borderRadius:"2rem",padding:"0.27rem 0.78rem",cursor:"pointer"}} onClick={()=>setFlowMode(m.id)}>
                 <span style={{fontSize:"0.82rem"}}>{fm.emoji}</span>
                 <span style={{color:fm.color,fontSize:"0.73rem",fontWeight:800}}>{flowMode}</span>
               </div>
@@ -10859,23 +10859,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       {showHouseholdModal&&<HouseholdModal onClose={()=>setShowHouseholdModal(false)}/>}
       <CalEventFormModal/>
 
-      {modal==="flowPicker"&&(
-        <ModalBox title="How's your day?" onClose={close}>
-          <p style={{color:T.textSoft,fontSize:"0.83rem",lineHeight:1.6,marginBottom:"1rem"}}>Set your mode — it adjusts what the app shows you today.</p>
-          <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
-            {Object.entries(FM).map(([mode,m])=>(
-              <button key={mode} onClick={()=>{setFlowMode(mode);close();}} style={{display:"flex",alignItems:"center",gap:"0.85rem",padding:"0.85rem 1rem",background:flowMode===mode?m.bg:T.bgAlt,border:`2px solid ${flowMode===mode?m.color:T.border}`,borderRadius:"1rem",cursor:"pointer",fontFamily:"inherit",textAlign:"left",transition:"all 0.15s"}}>
-                <span style={{fontSize:"1.5rem"}}>{m.emoji}</span>
-                <div>
-                  <div style={{fontWeight:800,color:flowMode===mode?m.color:T.textDark,fontSize:"0.92rem"}}>{mode}</div>
-                  <div style={{color:T.textSoft,fontSize:"0.79rem",marginTop:"0.1rem"}}>{m.desc}</div>
-                </div>
-                {flowMode===mode&&<div style={{marginLeft:"auto",flexShrink:0}}><Icon name="check" size={16} color={m.color}/></div>}
-              </button>
-            ))}
-          </div>
-        </ModalBox>
-      )}
+
       {modal==="share"&&(
         <ModalBox title="Share Today's Briefing" onClose={close} wide>
           <textarea readOnly value={shareText()} style={{...inp({height:240,fontFamily:"monospace",fontSize:"0.77rem",resize:"none",lineHeight:1.72})}}/>
