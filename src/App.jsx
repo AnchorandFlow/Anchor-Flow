@@ -346,6 +346,20 @@ class ErrorBoundary extends React.Component {
 const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNiZ2J5cHRrdW52eXhqZnB6Z2h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njk2MDYsImV4cCI6MjA5MDA0NTYwNn0.jbrKplCdnPeqS3QEKMDMClsIVBvQYgph_U5xK5iCxY0";
 
+// ── Claude proxy auth shim ────────────────────────────────────────────────────
+const _afFetch = window.fetch.bind(window);
+window.fetch = function(input, opts) {
+  if (typeof input === "string" && (input === "/api/claude" || input === "/api/anthropic")) {
+    input = "/api/claude";
+    opts = opts || {};
+    var tok = "";
+    try { tok = JSON.parse(localStorage.getItem("af_authToken") || "null") || ""; } catch (e) {}
+    opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + tok });
+  }
+  return _afFetch(input, opts);
+};
+
+
 async function sbFetch(path, opts={}) {
   const url = SUPABASE_URL + path;
   const r = await fetch(url, {
