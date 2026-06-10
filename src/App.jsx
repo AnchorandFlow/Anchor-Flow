@@ -2483,7 +2483,7 @@ function createLocalBackup() {
     } catch {}
     return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
   }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","tidepool","cove"]));
+  const visitedTabs = useRef(new Set(["anchor"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
   homeFlowRef.goTab = goTab;
@@ -4295,7 +4295,7 @@ Respond ONLY with valid JSON array, no markdown:
         <div className="af-sunset-panel-bottom" style={{padding:"1.25rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom,0px))",maxWidth:520,width:"100%",maxHeight:"calc(90dvh - env(safe-area-inset-top,0px))",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{width:40,height:4,borderRadius:2,background:"rgba(241,196,154,0.3)",margin:"0 auto 1rem"}}/>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:300,color:"#F1C49A",marginBottom:"0.2rem",textAlign:"center"}}>🌇 Sunset</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:"0.88rem",color:"rgba(241,196,154,0.55)",marginBottom:"1.25rem",textAlign:"center"}}>As the sun sets on today — let's gather what mattered.</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:"0.88rem",color:"rgba(241,196,154,0.55)",marginBottom:"1.25rem",textAlign:"center"}}>As the sun sets on today, let's gather what mattered and release the rest.</div>
 
           {/* Card 1: Tasks */}
           <div style={{background:"rgba(122,158,142,0.08)",border:"1.5px solid "+T.sage,borderRadius:"1rem",padding:"1rem",marginBottom:"0.75rem"}}>
@@ -4566,697 +4566,75 @@ Respond ONLY in valid JSON:
     }
 
     return (
-      <div className="flow-skin" style={{minHeight:"100%"}}>
-        {/* ── Hero greeting card ── */}
-        <div style={{background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
-                <div style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.85)",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
-                {weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];})?
-                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:"rgba(255,255,255,0.1)",borderRadius:"50px",padding:"2px 8px"}}>
-                    <span style={{fontSize:"0.85rem"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).emoji}</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(250,248,244,0.85)"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).high}°</span>
-                  </div>
-                :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
-              </div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:"#faf8f4",lineHeight:1.05}}>
-                {greeting}{(preferredName||authUser?.displayName)?", "+(preferredName||authUser.displayName.split(" ")[0]):""} {greetingEmoji}
-              </div>
-              {dayRhythm.theme&&<div style={{color:"rgba(250,248,244,0.65)",fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
-              {flowMode==="Survival"&&<div style={{color:"#f4a0a0",fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
-            </div>
-            <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color="#faf8f4"/></button>
+      <div className="pane active flow-skin" style={{flex:1,overflowY:"auto",padding:"20px 24px",gap:13,display:"flex",flexDirection:"column",minHeight:0}}>
+        <div className="ph">
+          <div>
+            <div className="ph-t">{isEvening?"Evening":"Today"}</div>
+            <div className="ph-s">{FORMAT_DATE(TODAY)} · {allToday.filter(function(t){return !t.done;}).length} things left</div>
           </div>
-
-          {/* Flow mode chips */}
-          <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-            {Object.entries(FM).map(([mode,m])=>(
-              <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
-            ))}
-          </div>
-          {flowMode!=="Survival"
-            ?<div style={{fontSize:"0.7rem",color:"rgba(250,248,244,0.45)",marginBottom:"0.75rem",paddingLeft:"0.2rem",fontStyle:"italic"}}>Hard day? Tap 🛟 Survival — it's okay.</div>
-            :<div style={{marginBottom:"0.75rem"}}/>
-          }
-          {flowMode==="Busy"&&(
-            <div style={{background:"rgba(200,169,122,0.12)",border:"1.5px solid rgba(200,169,122,0.3)",borderRadius:"0.9rem",padding:"0.7rem 0.9rem",marginBottom:"0.65rem",display:"flex",gap:"0.55rem",alignItems:"flex-start"}}>
-              <span style={{fontSize:"1.1rem",flexShrink:0}}>⚡</span>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:"0.82rem",color:"#c8a97a",marginBottom:"0.2rem"}}>Let's lighten the load</div>
-                <div style={{fontSize:"0.76rem",color:"rgba(250,248,244,0.65)",lineHeight:1.5}}>Pick just 1–2 things that actually matter today. Dinner can be simple. The rest can wait.</div>
-                <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginTop:"0.5rem"}}>
-                  {["Order takeout tonight","Dinner from the freezer","Ask for help with one task","Say no to one thing today"].map(function(s){return(
-                    <button key={s} onClick={function(){setTasks(function(p){return[...p,{id:uid(),text:s,day:TODAY_NAME,done:false,tier:"top3"}];});}} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(200,169,122,0.4)",borderRadius:"2rem",padding:"0.18rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit",color:"#c8a97a",transition:"all 0.12s"}}>{"+ "+s}</button>
-                  );})}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Primary CTA */}
-          {!isEvening&&!dayOpen&&(
-            <button onClick={()=>{ setDayOpen(true); loadAiSuggestions(); }} style={{width:"100%",background:flowMode==="Survival"?`linear-gradient(135deg,${T.rose},${T.roseDark})`:"linear-gradient(135deg,"+T.sage+","+T.sageDark+")",color:"#fff",border:"none",borderRadius:"1.1rem",padding:"1rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.55rem",boxShadow:"0 5px 22px "+(flowMode==="Survival"?T.rose:T.sage)+"40",letterSpacing:"0.01em"}}>
-              {flowMode==="Survival"?"🛟 See my 3 things for today":"⚓️ See what matters today"}
-            </button>
-          )}
-          {isEvening&&!dayOpen&&(
-            <div style={{background:"linear-gradient(135deg,#e8f0ec,#eef3f7)",border:"1.5px solid rgba(122,158,142,0.3)",borderRadius:"1.2rem",padding:"1rem 1.2rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
-                <span style={{fontSize:"1.2rem"}}>🌙</span>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{(preferredName||authUser?.displayName)?", "+(preferredName||authUser.displayName.split(" ")[0]):""}</div>
-              </div>
-              <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
-              <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"rgba(122,158,142,0.15)",border:"1.5px solid rgba(122,158,142,0.35)",borderRadius:"0.8rem",padding:"0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",color:"#4a7a68"}}>🌙 Wind down my day</button>
-            </div>
-          )}
-          {dayOpen&&(
-            <button onClick={()=>setDayOpen(false)} style={{width:"100%",background:T.bgAlt,color:T.textSoft,border:"1.5px solid "+T.border,borderRadius:"1.1rem",padding:"0.75rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"}}>
-              ↑ Collapse
-            </button>
-          )}
+          <div className="ph-tag" onClick={function(){setModal("flowPicker");}}>{fm.emoji} {flowMode}</div>
         </div>
-        {/* ── Ripple notification banner ── */}
-        <div ref={function(el){if(el)window._rippleBannerEl=el;}}>
-          <RippleNotificationBanner />
+        {visibleInsights.length>0&&visibleInsights[0]&&(
+          <div className="nudge"><span style={{fontSize:"0.84rem"}}>🧭</span>
+            <div className="nt">Compass: <strong>{visibleInsights[0].title}</strong></div>
+            <div className="lnk" style={{marginLeft:8}} onClick={function(){setShowRippleFeed(true);}}>More →</div>
+          </div>
+        )}
+        {(function(){
+          var n=allToday.find(function(t){return !t.done&&t.tier==="top3";})||allToday.find(function(t){return !t.done;});
+          var af=allToday.find(function(t){return !t.done&&t!==n;});
+          if(!n)return null;
+          return(<div className="focus">
+            <div className="fr" onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===n.id?{...x,done:true}:x;});});}}>○</div>
+            <div style={{flex:1}}><div className="fl">Up next</div><div className="ft">{n.text}</div>
+              <div className="fm">{n.person&&<span>{n.person} · </span>}{n.tier==="top3"&&<span className="ttag tl" style={{cursor:"default"}}>Priority</span>}</div>
+            </div>
+            {af&&<div className="fn"><div className="fnl">Then</div><div className="fnv">{af.text.slice(0,28)}{af.text.length>28?"…":""}</div></div>}
+          </div>);
+        })()}
+        <div className="g2">
+          <div>
+            <div className="card">
+              <div className="ch"><div><div className="ey">Flow</div><div className="ct">Today</div></div>
+                <span className="lnk" onClick={function(e){e.stopPropagation();setAddingTask("top3");}}>+ Add</span>
+              </div>
+              {allToday.length>0&&<div className="pr"><div className="pt"><div className="pf" style={{width:Math.round(allToday.filter(function(t){return t.done;}).length/allToday.length*100)+"%"}}/></div><div className="pc">{allToday.filter(function(t){return t.done;}).length} of {allToday.length}</div></div>}
+              <div className="cdiv"/>
+              <div className="cb">
+                {allToday.filter(function(t){return t.done;}).length>0&&<div className="tgl">Completed</div>}
+                {allToday.filter(function(t){return t.done;}).map(function(t){return(
+                  <div key={t.id} className="tr done" onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,done:false}:x;});});}}><div className="tck">✓</div><div className="tn">{t.text}</div></div>
+                );})}
+                {allToday.filter(function(t){return !t.done;}).length>0&&<div className="tgl">Today</div>}
+                {allToday.filter(function(t){return !t.done;}).map(function(t){return(
+                  <div key={t.id} className="tr" onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,done:true}:x;});});}}><div className="tck"/><div className="tn">{t.text}</div>{t.person&&<span className="tm">{t.person}</span>}{t.tier==="top3"&&<span className="ttag tl">Priority</span>}</div>
+                );})}
+                {allToday.length===0&&<div style={{fontSize:"0.78rem",color:"var(--fl-t3)",fontStyle:"italic",padding:"0.5rem 0",textAlign:"center"}}>Nothing yet — add your first thing</div>}
+                {addingTask&&<div style={{display:"flex",gap:6,marginTop:6}}>
+                  <input value={newTask} onChange={function(e){setNewTask(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newTask.trim()){addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setAddingTask(null);}}} placeholder="Add task…" autoFocus style={{flex:1,fontSize:"0.76rem",padding:"6px 8px",borderRadius:7,border:"1px solid var(--fl-border)",background:"rgba(255,255,255,0.7)",color:"var(--fl-t1)",fontFamily:"inherit",outline:"none"}}/>
+                  <button onClick={function(){if(newTask.trim()){addQuickTask(newTask,addingTask,newTaskPerson);}setNewTask("");setNewTaskPerson("");setAddingTask(null);}} style={{fontSize:"0.72rem",padding:"6px 10px",borderRadius:7,border:"none",background:"var(--fl-accent)",color:"#fff",cursor:"pointer"}}>Add</button>
+                </div>}
+                {!addingTask&&<div className="add-t" onClick={function(){setAddingTask("top3");}}>+ Add task</div>}
+              </div>
+            </div>
+            <div className="dc"><div className="dh"><div><div className="dlbl">Tonight</div><div className="dnm">{todayMeal.dinner||<span style={{color:"var(--fl-t3)",fontStyle:"italic"}}>No dinner planned</span>}</div></div><span className="lnk" onClick={function(){goTab("meals");}}>Plan →</span></div></div>
+          </div>
+          <div>
+            <div className="g3" style={{marginBottom:10}}>
+              <div className="stat"><div className="sn">{allToday.filter(function(t){return t.done;}).length}</div><div className="sl">Done</div></div>
+              <div className="stat"><div className="sn">{allToday.filter(function(t){return !t.done;}).length}</div><div className="sl">Left</div></div>
+              <div className="stat"><div className="sn">{todayEvents.length}</div><div className="sl">Events</div></div>
+            </div>
+            {todayEvents.length>0&&<div className="card" style={{marginBottom:10}}><div className="ch nc"><div><div className="ey">Calendar</div><div className="ct">Today</div></div><span className="lnk" onClick={function(){goTab("calendar");}}>All →</span></div><div className="cb" style={{paddingTop:6}}>{todayEvents.slice(0,4).map(function(e){return(<div key={e.id} className="cev"><div className="cevb" style={{background:e.color||"var(--blue)"}}/><div className="cevw">{e.time||"all day"}</div><div style={{flex:1}}><div className="cevt">{e.title}</div>{e.location&&<div className="cevm">{e.location}</div>}</div></div>);})}</div></div>}
+            {dayRhythm.theme&&<div className="nudge"><span style={{fontSize:"1.1rem"}}>{dayRhythm.emoji||"📅"}</span><div className="nt"><strong>{dayRhythm.theme}</strong>{dayRhythm.desc?" — "+dayRhythm.desc:""}</div></div>}
+            {isEvening&&<div style={{marginTop:10,padding:"11px 13px",background:"rgba(36,54,77,0.5)",border:"1px solid rgba(241,196,154,0.15)",borderRadius:10}}><div style={{fontSize:"0.72rem",color:"rgba(241,196,154,0.7)",marginBottom:6,fontStyle:"italic",fontFamily:"Cormorant Garamond,serif"}}>The day is winding down…</div><button onClick={function(){setShowEndOfDay(true);}} style={{fontSize:"0.72rem",color:"#F1C49A",background:"rgba(241,196,154,0.08)",border:"1px solid rgba(241,196,154,0.2)",borderRadius:8,padding:"7px 12px",cursor:"pointer",width:"100%"}}>🌇 Open Sunset</button></div>}
+          </div>
         </div>
-        {/* ── Ripple Insights ── */}
-        {(insightsLoading||visibleInsights.length>0)&&(
-          <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
-            <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                <span style={{fontSize:"0.85rem"}}>✦</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",fontWeight:700,color:T.textDark}}>Compass</span>
-                {!insightsLoading&&<span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.2rem"}}>({visibleInsights.length})</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                {!insightsLoading&&<button onClick={(e)=>{e.stopPropagation();setInsights(null);setInsightsBuilt(null);buildInsights();}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontFamily:"inherit"}}>refresh</button>}
-                <span style={{fontSize:"0.72rem",color:T.textFaint}}>{showRippleFeed?"▲":"▼"}</span>
-              </div>
-            </div>
-            {showRippleFeed&&(
-              <div style={{padding:"0 0.75rem 0.75rem"}}>
-                {insightsLoading&&<div style={{fontSize:"0.75rem",color:T.textSoft,fontStyle:"italic",padding:"0.5rem",textAlign:"center"}}>Compass is looking at your week…</div>}
-                {!insightsLoading&&visibleInsights.map((ins,idx)=>{
-                  const cat=CAT_CONFIG[ins.category]||CAT_CONFIG.pattern;
-                  return(
-                    <div key={idx} style={{background:cat.pale,border:"1.5px solid "+cat.color+"40",borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.5rem"}}>
-                      <div style={{display:"flex",alignItems:"flex-start",gap:"0.6rem",marginBottom:"0.5rem"}}>
-                        <div style={{width:28,height:28,borderRadius:"50%",background:cat.color+"20",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:"0.9rem"}}>{cat.icon}</span></div>
-                        <div style={{flex:1}}><div style={{fontSize:"0.85rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>{ins.title}</div><div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55}}>{ins.body}</div></div>
-                        <button onClick={()=>setInsights(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",padding:"0 0.25rem",flexShrink:0}}>x</button>
-                      </div>
-                      {ins.action&&(<div style={{display:"flex",gap:"0.4rem"}}><button onClick={()=>setInsights(p=>p.filter((_,i)=>i!==idx))} style={{flex:1,background:"none",border:"1px solid "+T.border,borderRadius:"0.55rem",padding:"0.35rem",fontSize:"0.72rem",cursor:"pointer",color:T.textMid,fontFamily:"inherit"}}>Not Now</button><button onClick={()=>{ins.action.fn&&ins.action.fn();setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{flex:2,...btnP(cat.color,{fontSize:"0.72rem",padding:"0.35rem 0.75rem",borderRadius:"0.55rem"})}}>{ins.action.label}</button></div>)}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Expanded day panel ── */}
-        {dayOpen&&!isEvening&&(
-          <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-          {incompletePrevTasks.length>0&&(
-            <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"50",borderRadius:"1rem",padding:"0.8rem 1rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
-                <Icon name="carry" size={14} color={T.sandDark}/>
-                <span style={{fontWeight:700,color:T.sandDark,fontSize:"0.83rem",flex:1}}>Unfinished from yesterday</span>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.65rem"}}>
-                {incompletePrevTasks.map(function(t){return(
-                  <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                    <div style={{width:6,height:6,borderRadius:"50%",background:T.sand,flexShrink:0}}/>
-                    <span style={{fontSize:"0.81rem",color:T.textDark,flex:1}}>{t.text}</span>
-                    <button onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,archived:true}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",lineHeight:1,padding:"0 2px",flexShrink:0}}>×</button>
-                  </div>
-                );})}
-              </div>
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                <button onClick={carryTasksOver} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem"})}><Icon name="carry" size={12} color="#fff"/> Bring all forward</button>
-                <button onClick={()=>setTasks(p=>p.map(t=>incompletePrevTasks.find(x=>x.id===t.id)?{...t,archived:true}:t))} style={btnS({fontSize:"0.73rem",padding:"0.3rem 0.6rem",color:T.textSoft})}>Let all go</button>
-              </div>
-            </div>
-          )}
-
-            {/* ── Today's Reminders ── */}
-            {(function(){
-              var todayStr = TODAY.toISOString().split("T")[0];
-              var todayReminders = notifications.filter(function(n){
-                return !n.fired && n.date === todayStr;
-              });
-              // Also include calendar events today that have a reminder set
-              var todayEvtReminders = calEvents.filter(function(e){
-                return e.date === todayStr && notifications.some(function(n){ return n.entityId === e.id && !n.fired; });
-              });
-              if (todayReminders.length === 0) return null;
-              return (
-                <div style={{background:"linear-gradient(135deg,rgba(200,169,122,0.10),rgba(200,169,122,0.04))",border:"1.5px solid "+T.sand+"60",borderRadius:"1.2rem",padding:"0.9rem 1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                    <span style={{fontSize:"1rem"}}>🔔</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.sandDark}}>Today's Reminders</span>
-                    <span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.sand,fontWeight:700,background:T.sand+"20",borderRadius:"999px",padding:"0.1rem 0.5rem"}}>{todayReminders.length}</span>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                    {todayReminders.map(function(n){
-                      var linkedTask = tasks.find(function(t){ return t.id === n.entityId; });
-                      var linkedEvt  = calEvents.find(function(e){ return e.id === n.entityId; });
-                      var isDone = linkedTask ? linkedTask.done || linkedTask.archived : false;
-                      return (
-                        <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:isDone?"rgba(122,158,142,0.08)":T.surface,borderRadius:"0.65rem",border:"1px solid "+(isDone?T.sage+"30":T.sand+"30"),opacity:isDone?0.6:1}}>
-                          <span style={{fontSize:"0.85rem",flexShrink:0}}>{linkedEvt?"📅":"📌"}</span>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:"0.82rem",fontWeight:600,color:isDone?T.textSoft:T.textDark,textDecoration:isDone?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
-                            {n.time&&<div style={{fontSize:"0.7rem",color:T.sand,fontWeight:700}}>{fmtTime(n.time)}</div>}
-                            {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
-                          </div>
-                          {isDone&&<span style={{fontSize:"0.75rem",color:T.sage,fontWeight:700,flexShrink:0}}>✓ done</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Calendar today */}
-            <div style={{background:T.surface,border:"1.5px solid "+T.blue+"40",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                  <Icon name="cal" size={15} color={T.blueDark}/>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today's schedule</span>
-                </div>
-                <button onClick={()=>{goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Open</button>
-              </div>
-              {todayEvents.length===0
-                ?<p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.3rem 0"}}>No events today — open space 🌿</p>
-                :todayEvents.map(e=>(
-                  <AnchorCheckItem
-                    key={e.id} id={e.id}
-                    text={e.title}
-                    checked={checkedCalEvents.includes(e.id)}
-                    onCheck={id=>setCheckedCalEvents(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
-                    color={e.color}
-                    badge={e.time||"all day"}
-                    entityTitle={e.title}
-                    onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}
-                  />
-                ))
-              }
-              {todayEvents.some(e=>checkedCalEvents.includes(e.id))&&(
-                <div style={{marginTop:"0.4rem",paddingTop:"0.4rem",borderTop:"1px dashed "+T.borderSoft}}>
-                  {todayEvents.filter(e=>checkedCalEvents.includes(e.id)).map(e=>(
-                    <div key={e.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.6rem",opacity:0.45}}>
-                      <div style={{width:18,height:18,borderRadius:"50%",background:e.color,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={9} color="#fff"/></div>
-                      <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through"}}>{e.title}</span>
-                    </div>
-                  ))}
-                  <button onClick={()=>setCheckedCalEvents(p=>p.filter(id=>!todayEvents.find(e=>e.id===id)))} style={{fontSize:"0.68rem",color:T.textFaint,background:"none",border:"none",cursor:"pointer",padding:"0.2rem 0.6rem",fontFamily:"inherit"}}>Clear done</button>
-                </div>
-              )}
-            </div>
-
-            {/* Survival mode inline */}
-            {flowMode==="Survival"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
-                <div style={{background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}55`,borderRadius:"1.2rem",padding:"1.4rem 1.3rem",textAlign:"center"}}>
-                  <div style={{fontSize:"2.2rem",marginBottom:"0.4rem"}}>🛟</div>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,marginBottom:"0.4rem"}}>Survival Mode</div>
-                  <p style={{color:T.textMid,fontSize:"0.85rem",lineHeight:1.65,margin:"0 0 0.2rem",fontWeight:600}}>You are not behind. You are not failing.</p>
-                  <p style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.65,margin:0,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>Some days, just getting through is the win.</p>
-                </div>
-                <div style={{background:T.surface,border:`1.5px solid ${T.borderSoft}`,borderRadius:"1rem",padding:"0.8rem 1rem",textAlign:"center"}}>
-                  <p style={{color:T.textSoft,fontSize:"0.82rem",margin:0,lineHeight:1.6,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>Only three things matter today. Check them off and you're done.</p>
-                </div>
-                {BURNOUT_TASKS.map(function(t){var checked=burnoutChecked.includes(t.id);return(
-                  <button key={t.id} onClick={function(){setBurnoutChecked(function(p){return p.includes(t.id)?p.filter(function(x){return x!==t.id;}):[...p,t.id];});}} style={{background:checked?`linear-gradient(135deg,${T.sagePale},${T.sage}18)`:T.surface,border:`2px solid ${checked?T.sage:T.borderSoft}`,borderRadius:"1rem",padding:"1rem 1.2rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"1rem",width:"100%",textAlign:"left",fontFamily:"inherit",transition:"all 0.18s"}}>
-                    <span style={{fontSize:"1.5rem"}}>{t.emoji}</span>
-                    <span style={{flex:1,fontWeight:700,color:checked?T.sageDark:T.textDark,fontSize:"0.95rem",textDecoration:checked?"line-through":"none"}}>{t.label}</span>
-                    <div style={{width:26,height:26,borderRadius:"50%",border:`2.5px solid ${checked?T.sage:T.border}`,background:checked?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{checked&&<Icon name="check" size={13} color="#fff"/>}</div>
-                  </button>
-                );})}
-                {burnoutChecked.length===3&&(
-                  <div style={{background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,borderRadius:"1.1rem",padding:"1.3rem",textAlign:"center"}}>
-                    <div style={{fontSize:"1.8rem",marginBottom:"0.35rem"}}>🌿</div>
-                    <p style={{color:T.sageDark,fontWeight:700,fontSize:"1rem",margin:"0 0 0.35rem"}}>You did it. That's everything.</p>
-                    <p style={{fontWeight:500,fontSize:"0.84rem",color:T.textMid,margin:0}}>Rest now. You showed up today — that matters.</p>
-                  </div>
-                )}
-                <div style={{background:"transparent",border:`1.5px dashed ${T.borderSoft}`,borderRadius:"1rem",padding:"0.9rem",textAlign:"center"}}>
-                  <p style={{color:T.textFaint,fontSize:"0.77rem",margin:"0 0 0.5rem",fontStyle:"italic"}}>You don't have to do everything. Just enough.</p>
-                  <button onClick={function(){setFlowMode("Smooth");}} style={{background:"none",border:`1.5px solid ${T.border}`,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.73rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600}}>✨ Back to a full day when ready</button>
-                </div>
-              </div>
-            )}
-
-            {/* Today's tasks */}
-            <div style={{background:T.surface,border:"3px solid "+T.blue,borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:"0 4px 20px "+T.blue+"14"}}>
-              {people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!["Kid","Teen","Baby"].includes(p.role);}).length>0&&(
-                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
-                  {[{id:"all",name:"Everyone"},...people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!["Kid","Teen","Baby"].includes(p.role);})].map(function(p){
-                    return <button key={p.id} onClick={function(){setPersonFilter(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(personFilter===p.id?(p.color||T.blue):T.border),background:personFilter===p.id?(p.color||T.blue)+"22":"transparent",color:personFilter===p.id?(p.color||T.blue):T.textMid,fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
-                  })}
-                </div>
-              )}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                  <span style={{fontSize:"1rem"}}>⚓️</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today's tasks</span>
-                  {allTaskTiers.length>0&&<span style={{background:T.blue,color:"#fff",fontSize:"0.6rem",fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>{allTaskTiers.filter(t=>t.done).length}/{allTaskTiers.length}</span>}
-                </div>
-                <div style={{display:"flex",gap:"0.3rem"}}>
-                  {allTaskTiers.length>0&&<button onClick={function(){if(window.confirm("Clear all tasks for today?"))setTasks(function(p){return p.map(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)?{...t,archived:true}:t;});});}} style={btnS({fontSize:"0.68rem",padding:"0.22rem 0.55rem",color:T.textFaint})}>Clear</button>}
-                  <button onClick={()=>buildDailyBriefing()} disabled={briefingLoading} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:briefingLoading?0.6:1})}>
-                    {briefingLoading?<>{[0,1,2].map(i=><span key={i} style={{width:5,height:5,borderRadius:"50%",background:T.textMid,display:"inline-block",margin:"0 1px"}}/>)}</>:<>✨ Plan my day</>}
-                  </button>
-                </div>
-              </div>
-              {allTaskTiers.filter(t=>!t.done).length===0&&allTaskTiers.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.2rem 0 0.5rem"}}>No tasks yet — tap ✨ Plan my day or add one below.</p>}
-              {/* Progress momentum line */}
-              {allTaskTiers.length>0&&allTaskTiers.some(t=>t.done)&&allTaskTiers.some(t=>!t.done)&&(
-                <div style={{fontSize:"0.72rem",color:T.sage,fontWeight:700,marginBottom:"0.5rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                  <span>✓</span>
-                  <span>{allTaskTiers.filter(t=>t.done).length} done — you're doing great.</span>
-                </div>
-              )}
-              {allTaskTiers.length>0&&allTaskTiers.every(t=>t.done)&&(
-                <div style={{fontSize:"0.78rem",color:T.sage,fontWeight:700,marginBottom:"0.5rem",fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",textAlign:"center"}}>🌿 All done. That's everything for today.</div>
-              )}
-              {top3Raw.map(t=>(
-                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done}
-                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
-                  color={T.blue} badge="TOP" entityTitle={t.text}/>
-              ))}
-              {next3Raw.map(t=>(
-                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done}
-                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
-                  color={T.sage} entityTitle={t.text}/>
-              ))}
-              {/* Completed tasks — collapsed */}
-              {allTaskTiers.some(t=>t.done)&&(
-                <div style={{marginTop:"0.5rem",paddingTop:"0.4rem",borderTop:"1px dashed "+T.borderSoft}}>
-                  {allTaskTiers.filter(t=>t.done).map(t=>(
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.6rem",opacity:0.45}}>
-                      <div style={{width:18,height:18,borderRadius:"50%",background:T.sage,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={9} color="#fff"/></div>
-                      <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through"}}>{t.text}</span>
-                      <button onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:false}:x))} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.65rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>undo</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {top3Raw.length > 0 && top3Raw.every(t=>t.done) && (
-                <div style={{textAlign:"center",padding:"0.75rem",background:"rgba(122,158,142,0.1)",borderRadius:"0.75rem",marginTop:"0.5rem",marginBottom:"0.25rem"}}>
-                  <div style={{fontSize:"1.2rem",marginBottom:"0.2rem"}}>🌿</div>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",color:"#4d7a6a",fontWeight:600}}>You did enough today.</div>
-                  <div style={{fontSize:"0.75rem",color:"#7a9e8e",marginTop:"0.15rem"}}>That is a win.</div>
-                </div>
-              )}
-              {addingTask&&(
-                <div style={{display:"flex",flexDirection:"column",gap:"0.35rem",marginTop:"0.4rem"}}>
-                  <div style={{display:"flex",gap:"0.4rem"}}>
-                    <input value={newTask} onChange={e=>setNewTask(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter"){addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setNewTaskPerson("");setAddingTask(null);}}}
-                      placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
-                      style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
-                    <button onClick={()=>{addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
-                  </div>
-                  <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",paddingLeft:"0.1rem"}}>
-                    <button onClick={()=>setNewTaskPerson("")} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(newTaskPerson===""?T.blue:T.border),background:newTaskPerson===""?T.bluePale:"transparent",color:newTaskPerson===""?T.blue:T.textFaint,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Household</button>
-                    {people.map(function(p){return(<button key={p.id} onClick={()=>setNewTaskPerson(p.name)} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(newTaskPerson===p.name?(p.color||T.blue):T.border),background:newTaskPerson===p.name?(p.color||T.blue)+"22":"transparent",color:newTaskPerson===p.name?(p.color||T.blue):T.textFaint,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>);})}
-                  </div>
-                </div>
-              )}
-              {!addingTask&&(
-                <div style={{display:"flex",gap:"0.4rem",marginTop:"0.55rem"}}>
-                  <button onClick={()=>setAddingTask("top3")} style={btnP(T.blue,{flex:1,fontSize:"0.75rem",padding:"0.45rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}><Icon name="plus" size={12} color="#fff"/> Top priority</button>
-                  <button onClick={()=>setAddingTask("next3")} style={{...btnS({flex:1,fontSize:"0.75rem",padding:"0.45rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem",color:T.sage,borderColor:T.sage+"60"})}}><Icon name="plus" size={12} color={T.sage}/> Flow task</button>
-                </div>
-              )}
-            </div>
-
-            {/* ── My Morning Anchors — personal per-user checklist ── */}
-            {(function(){
-              var myName = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null);
-              var unchecked = personalAnchors.filter(function(a){ return !checkedPersonalAnchors.includes(a.id); });
-              var checked = personalAnchors.filter(function(a){ return checkedPersonalAnchors.includes(a.id); });
-              return (
-                <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"60",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                      <span style={{fontSize:"0.95rem"}}>🌿</span>
-                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{myName ? myName+"'s anchors" : "My anchors"}</span>
-                      <span style={{fontSize:"0.6rem",background:T.sand+"25",color:T.sandDark,fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>just mine</span>
-                    </div>
-                    <button onClick={function(){ setAddingPersonalAnchor(function(v){ return !v; }); setNewPersonalAnchorText(""); }} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontSize:"1.1rem",color:T.sandDark,lineHeight:1}}>+</button>
-                  </div>
-                  {personalAnchors.length === 0 && !addingPersonalAnchor && (
-                    <p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",margin:"0 0 0.3rem",textAlign:"center",padding:"0.3rem 0"}}>Your personal daily anchors — things only you need to check off each morning.</p>
-                  )}
-                  {unchecked.map(function(a){
-                    return (
-                      <AnchorCheckItem key={a.id} id={a.id} text={a.text}
-                        checked={checkedPersonalAnchors.includes(a.id)}
-                        onCheck={function(id){ setCheckedPersonalAnchors(function(p){ return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id]; }); }}
-                        color={T.sand} bell={false} entityTitle={a.text}/>
-                    );
-                  })}
-                  {checked.length > 0 && (
-                    <div style={{marginTop:"0.35rem",paddingTop:"0.35rem",borderTop:"1px dashed "+T.borderSoft}}>
-                      {checked.map(function(a){
-                        return (
-                          <div key={a.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0.6rem",opacity:0.4}}>
-                            <div style={{width:16,height:16,borderRadius:"50%",background:T.sand,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={8} color="#fff"/></div>
-                            <span style={{fontSize:"0.78rem",color:T.textDark,textDecoration:"line-through",flex:1}}>{a.text}</span>
-                            <button onClick={function(){ setPersonalAnchors(function(p){ return p.filter(function(x){ return x.id!==a.id; }); }); }} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.62rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>remove</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {addingPersonalAnchor && (
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
-                      <input value={newPersonalAnchorText} onChange={function(e){ setNewPersonalAnchorText(e.target.value); }}
-                        onKeyDown={function(e){
-                          if(e.key==="Enter" && newPersonalAnchorText.trim()){
-                            var newA = {id:"pa_"+Date.now(), text:newPersonalAnchorText.trim()};
-                            setPersonalAnchors(function(p){ return [...p, newA]; });
-                            setNewPersonalAnchorText(""); setAddingPersonalAnchor(false);
-                          }
-                          if(e.key==="Escape"){ setAddingPersonalAnchor(false); setNewPersonalAnchorText(""); }
-                        }}
-                        placeholder="Add a personal anchor…"
-                        style={{...inp({flex:1,fontSize:"0.86rem",borderColor:T.sand+"70",padding:"0.55rem 0.85rem"})}} autoFocus/>
-                      <button onClick={function(){
-                        if(newPersonalAnchorText.trim()){
-                          var newA2 = {id:"pa_"+Date.now(), text:newPersonalAnchorText.trim()};
-                          setPersonalAnchors(function(p){ return [...p, newA2]; });
-                          setNewPersonalAnchorText(""); setAddingPersonalAnchor(false);
-                        }
-                      }} style={btnP(T.sand,{padding:"0.55rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
-                      <button onClick={function(){ setAddingPersonalAnchor(false); setNewPersonalAnchorText(""); }} style={btnS({padding:"0.55rem 0.7rem",fontSize:"0.8rem"})}>✕</button>
-                    </div>
-                  )}
-                  {!addingPersonalAnchor && personalAnchors.length > 0 && (
-                    <button onClick={function(){ setAddingPersonalAnchor(true); setNewPersonalAnchorText(""); }} style={{...btnS({fontSize:"0.73rem",padding:"0.28rem 0.7rem",marginTop:"0.4rem",color:T.sandDark,borderColor:T.sand+"50",display:"flex",alignItems:"center",gap:"0.3rem"})}}>
-                      <Icon name="plus" size={11} color={T.sandDark}/> Add anchor
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Tonight's dinner */}
-            <div style={{background:T.surface,border:"1.5px solid "+(noMealPlanned?T.rose+"50":T.sage+"45"),borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                  <span style={{fontSize:"0.95rem"}}>🍽️</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Tonight's dinner</span>
-                </div>
-                <button onClick={()=>goTab("meals")} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Plan meals</button>
-              </div>
-              {noMealPlanned
-                ?<div style={{background:T.rose+"10",border:"1.5px dashed "+T.rose+"50",borderRadius:"0.75rem",padding:"0.65rem 0.85rem",display:"flex",alignItems:"center",gap:"0.55rem"}}>
-                  <span style={{fontSize:"0.9rem"}}>⚠️</span>
-                  <div>
-                    <div style={{fontSize:"0.83rem",fontWeight:600,color:T.rose}}>No dinner planned</div>
-                    <div style={{fontSize:"0.73rem",color:T.textSoft,marginTop:"0.12rem"}}>Tap "Plan meals" to add something — or wing it 🌿</div>
-                  </div>
-                </div>
-                :<div>
-                  {MEALS_TO_SHOW.map(m=>todayMeal[m]&&(
-                    <AnchorCheckItem key={m} id={"meal_"+m+"_"+TODAY_NAME}
-                      text={todayMeal[m]} checked={checkedMealItems.includes("meal_"+m+"_"+TODAY_NAME)}
-                      onCheck={id=>setCheckedMealItems(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
-                      color={T.sage} badge={m} entityTitle={todayMeal[m]}/>
-                  ))}
-                  {todayMeal.dinner&&!checkedMealItems.includes("meal_dinner_"+TODAY_NAME)&&!todayMeal.dinner.toLowerCase().includes("snack")&&!todayMeal.dinner.toLowerCase().includes("burrito")&&(
-                    <div style={{marginTop:"0.3rem",fontSize:"0.76rem",color:T.textSoft,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",paddingLeft:"0.3rem"}}>💡 Check if anything needs defrosting.</div>
-                  )}
-                </div>
-              }
-            </div>
-
-
-            {/* Brain items scheduled for today via Task Board — always visible bridge */}
-            {flowMode!=="Survival"&&(function(){
-              var scheduledToday=brainItems.filter(function(b){return b.scheduledDay===TODAY_NAME&&!b.done;});
-              var notYetTasks=scheduledToday.filter(function(b){return !allTaskTiers.some(function(t){return t.brainId===b.id||t.linkedTaskId===b.id||t.text===b.text;});});
-              if(notYetTasks.length===0) return null;
-              return(
-                <div style={{background:"linear-gradient(135deg,"+T.lavender+"10,"+T.surface+")",border:"1.5px solid "+T.lavender+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                    <span style={{fontSize:"0.9rem"}}>🧠</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Queued for today</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>{notYetTasks.length} from Clear Your Mind</span>
-                  </div>
-                  {notYetTasks.map(function(b){return(
-                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.lavender+"25"}}>
-                      <div style={{width:8,height:8,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:500}}>{b.text}</span>
-                      <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.68rem",padding:"0.22rem 0.6rem"}}>+ Flow</button>
-                      <button onClick={function(){addQuickTask(b.text,"top3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{background:"var(--fl-accent)",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",fontSize:"0.68rem",padding:"0.22rem 0.6rem"}}>Top</button>
-                    </div>
-                  );})}
-                </div>
-              );
-            })()}
-
-            {/* ── Unified Today's prioritized list — hidden in Survival mode ── */}
-            {flowMode!=="Survival"&&(function(){
-              var brainSuggestions=(!aiLoading&&aiSuggestions?.brain_items?.length>0)
-                ?aiSuggestions.brain_items.map(function(item){
-                    var text=typeof item==="string"?item:item.text;
-                    var reason=typeof item==="object"?item.reason:null;
-                    return {text,reason,src:"brain",brainItem:brainItems.find(function(b){return b.text===text&&!b.done;})};
-                  })
-                :[];
-              var todoSuggestions=(!aiLoading&&aiSuggestions?.todos?.length>0)
-                ?aiSuggestions.todos.map(function(text){return {text,src:"todo"};})
-                :[];
-              var horizonSuggestions=(!aiLoading&&aiSuggestions?.upcoming?.length>0)
-                ?aiSuggestions.upcoming.map(function(text){return {text,src:"horizon"};})
-                :[];
-              var MINOR_ROLES_T=["Kid","Teen","Baby"];
-              var adultNames=people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES_T.includes(p.role);}).map(function(p){return p.name;});
-              var ideasPool=brainItems.filter(function(b){
-                if(b.done) return false;
-                if(b.scheduledDay&&b.scheduledDay!=="") return false;
-                if(allTaskTiers.some(function(t){return t.text===b.text||t.brainId===b.id;})) return false;
-                if(b.assignedTo&&!adultNames.includes(b.assignedTo)) return false;
-                if(brainSuggestions.some(function(s){return s.text===b.text;})) return false;
-                return true;
-              });
-              var THEME_TO_CATS_T={"reset":["household","errands"],"errands":["errands","orders"],"admin":["admin","calls","orders"],"clean":["household"],"prep":["household","errands"],"family":["errands","household"],"rest":["someday"],"finance":["admin"],"fitness":["errands"],"batch cook":["household"]};
-              var themeKeyT=(dayRhythm.theme||"").toLowerCase();
-              var themedCats=Object.entries(THEME_TO_CATS_T).find(function(kv){return themeKeyT.includes(kv[0]);})?.[1]||[];
-              var themedIdeas=ideasPool.filter(function(b){return themedCats.includes(b.cat);});
-              var otherIdeas=ideasPool.filter(function(b){return !themedCats.includes(b.cat)&&["errands","admin","household","calls","orders"].includes(b.cat);});
-              var weeklyIdeas=[...themedIdeas,...otherIdeas].slice(0,3).map(function(b){return {text:b.text,src:"weekly",brainItem:b};});
-              var allSuggestions=[...brainSuggestions,...todoSuggestions,...horizonSuggestions,...weeklyIdeas];
-              var seen=new Set();
-              allSuggestions=allSuggestions.filter(function(s){
-                if(seen.has(s.text)) return false;
-                if(allTaskTiers.some(function(t){return t.text===s.text;})) return false;
-                seen.add(s.text);
-                return true;
-              });
-              if(allSuggestions.length===0&&!aiLoading) return null;
-              var top3=allSuggestions.slice(0,3);
-              var alsoToday=allSuggestions.slice(3);
-              return(
-                <div style={{background:T.surface,border:"1.5px solid "+T.blue+"30",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  {aiLoading&&(
-                    <div style={{textAlign:"center",padding:"0.5rem 0 0.75rem"}}>
-                      <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:"0.4rem"}}>{[0,1,2].map(function(i){return <div key={i} style={{width:9,height:9,borderRadius:"50%",background:T.sage,animation:"bounce 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>;})}</div>
-                      <div style={{fontSize:"0.78rem",color:T.textSoft,fontStyle:"italic"}}>Looking at your list and calendar…</div>
-                    </div>
-                  )}
-                  {top3.length>0&&(
-                    <div>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.55rem"}}>
-                        <span style={{fontSize:"0.82rem"}}>⭐</span>
-                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>Top 3 — focus here first</span>
-                      </div>
-                      {top3.map(function(s,i){
-                        var sAdded=allTaskTiers.some(function(t){return t.text===s.text;});
-                        var sEmoji=s.src==="horizon"?"🌅":"💭";
-                        return(
-                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.5rem 0.65rem",background:(T.bluePale||"#ddeaf5"),borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.blue+"30"}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:"0.86rem",color:sAdded?T.sageDark:T.textDark,fontWeight:600,lineHeight:1.35}}>{sAdded&&"✓ "}{s.text}</div>
-                              {s.reason&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic"}}>{s.reason}</div>}
-                            </div>
-                            <span style={{fontSize:"0.85rem",alignSelf:"center",flexShrink:0,opacity:0.7}}>{sEmoji}</span>
-                            {!sAdded&&<button onClick={function(){addQuickTask(s.text,"top3");if(s.brainItem)setBrainItems(function(p){return p.map(function(x){return x.id===s.brainItem.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={btnP(T.blue,{fontSize:"0.7rem",padding:"0.25rem 0.65rem",flexShrink:0})}>+ Add</button>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {alsoToday.length>0&&(
-                    <div>
-                      <div style={{height:"0.5px",background:T.borderSoft,margin:"0.75rem 0 0.6rem"}}/>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.5rem",fontFamily:"'DM Sans',sans-serif"}}>Also today</div>
-                      {alsoToday.map(function(s,i){
-                        var sAdded=allTaskTiers.some(function(t){return t.text===s.text;});
-                        var sEmoji=s.src==="horizon"?"🌅":"💭";
-                        return(
-                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.borderSoft}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:"0.86rem",color:sAdded?T.sageDark:T.textDark,fontWeight:400,lineHeight:1.35}}>{sAdded&&"✓ "}{s.text}</div>
-                              {s.reason&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic"}}>{s.reason}</div>}
-                            </div>
-                            <span style={{fontSize:"0.85rem",alignSelf:"center",flexShrink:0,opacity:0.7}}>{sEmoji}</span>
-                            {!sAdded&&<button onClick={function(){addQuickTask(s.text,"next3");if(s.brainItem)setBrainItems(function(p){return p.map(function(x){return x.id===s.brainItem.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem",flexShrink:0})}>+ Add</button>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div style={{marginTop:"0.6rem",paddingTop:"0.5rem",borderTop:"1px dashed "+T.borderSoft,display:"flex",gap:"0.8rem",flexWrap:"wrap"}}>
-                    <span style={{fontSize:"0.65rem",color:T.textFaint}}>💭 Clear Your Mind</span>
-                    <span style={{fontSize:"0.65rem",color:T.textFaint}}>🌅 On the horizon</span>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* ── Evening wind-down panel ── */}
-        {dayOpen&&isEvening&&(
-          <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-            {dayClosed?(
-              <div style={{background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}40`,borderRadius:"1.2rem",padding:"1.5rem",textAlign:"center"}}>
-                <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🌙</div>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.5rem"}}>Day closed</div>
-                <div style={{color:T.textMid,fontSize:"0.84rem",lineHeight:1.65}}>{typeof dayClosed === "string" ? dayClosed+" closed out tonight." : "You showed up."} Rest well.</div>
-                <button onClick={function(){ setDayClosed(false); }} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontFamily:"inherit",marginTop:"0.75rem",padding:"0.25rem 0.5rem"}}>↩ Reopen</button>
-              </div>
-            ):(
-              <>
-                {/* Card 1: Tasks */}
-                <div style={{background:"rgba(122,158,142,0.08)",border:"1.5px solid "+T.sage,borderRadius:"1rem",padding:"1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    <span style={{fontSize:"1.1rem"}}>📋</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.sageDark}}>Tasks</span>
-                    {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).length>0&&<span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.sage,fontWeight:600}}>✓ {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).length} done</span>}
-                  </div>
-                  {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived).length===0?(
-                    <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600}}>✓ All clear — nothing to review!</div>
-                  ):(
-                    <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                      {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).map(t=>(
-                        <div key={t.id} style={{padding:"0.4rem 0.65rem",background:T.sagePale,borderRadius:"0.55rem",fontSize:"0.8rem",color:T.sageDark,fontWeight:600}}>✓ {t.text}</div>
-                      ))}
-                      {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&!t.done).map(t=>(
-                        <div key={t.id} style={{padding:"0.5rem 0.65rem",background:T.surface,borderRadius:"0.65rem",border:"1px solid "+T.borderSoft}}>
-                          <div style={{fontSize:"0.83rem",color:T.textDark,fontWeight:600,marginBottom:"0.3rem"}}>{t.text}</div>
-                          <div style={{display:"flex",gap:"0.3rem"}}>
-                            <button onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,carried:true,carriedTo:DAY_NAMES[(new Date(TODAY).getDay()+1)%7]}:x))} style={{flex:1,background:"transparent",color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.45rem",padding:"0.25rem",fontSize:"0.7rem",cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>↩ Tomorrow</button>
-                            <button onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,archived:true}:x))} style={{flex:1,background:"transparent",color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.45rem",padding:"0.25rem",fontSize:"0.7rem",cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>✕ Let go</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Card 2: Tonight's Rhythm */}
-                <div style={{background:"rgba(58,107,138,0.06)",border:"1.5px solid "+T.blue,borderRadius:"1rem",padding:"1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    <span style={{fontSize:"1.1rem"}}>🏠</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.blue}}>Tonight's Rhythm</span>
-                  </div>
-                  {((rhythm[TODAY_NAME]||{}).tasks||["Tidy kitchen","Set out tomorrow's things","Quick 10-min reset"]).map((task,i)=>(
-                    <div key={i} onClick={()=>setCheckedMealItems(p=>p.includes("rhythm_"+i)?p.filter(x=>x!=="rhythm_"+i):[...p,"rhythm_"+i])} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:checkedMealItems.includes("rhythm_"+i)?T.bluePale:T.surface,borderRadius:"0.65rem",marginBottom:"0.3rem",cursor:"pointer",border:"1.5px solid "+(checkedMealItems.includes("rhythm_"+i)?T.blue:T.borderSoft)}}>
-                      <div style={{width:18,height:18,borderRadius:4,border:"1.5px solid "+(checkedMealItems.includes("rhythm_"+i)?T.blue:"rgba(0,0,0,0.15)"),background:checkedMealItems.includes("rhythm_"+i)?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        {checkedMealItems.includes("rhythm_"+i)&&<span style={{color:"#fff",fontSize:10}}>✓</span>}
-                      </div>
-                      <span style={{fontSize:"0.83rem",color:T.textDark,fontWeight:500}}>{task}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Card 3: Compass Suggestions */}
-                <div style={{background:"rgba(123,94,167,0.06)",border:"1.5px solid "+T.lavender,borderRadius:"1rem",padding:"1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-                    <span style={{fontSize:"1.1rem"}}>✦</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.lavender}}>Compass Suggestions</span>
-                  </div>
-                  {eveningNudges.slice(0,4).map((n,i)=>(
-                    <AnchorCheckItem key={"evening_"+i} id={"evening_"+i} text={n} checked={checkedMealItems.includes("evening_"+i)} onCheck={id=>setCheckedMealItems(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])} color={T.lavender} bell={false} entityTitle={n}/>
-                  ))}
-                  {eveningNudges.length===0&&<div style={{fontSize:"0.82rem",color:T.textSoft}}>✨ Generating suggestions...</div>}
-                </div>
-
-                {/* ── Tonight & Tomorrow Reminders ── */}
-                {(function(){
-                  var todayStr = TODAY.toISOString().split("T")[0];
-                  var tmrDate  = new Date(TODAY); tmrDate.setDate(tmrDate.getDate()+1);
-                  var tmrStr   = tmrDate.toISOString().split("T")[0];
-                  var tonightReminders = notifications.filter(function(n){
-                    return !n.fired && n.date === todayStr && n.time && (function(){ var h=parseInt((n.time||"0:0").split(":")[0],10); return h>=17; })();
-                  });
-                  var tmrReminders = notifications.filter(function(n){
-                    return !n.fired && n.date === tmrStr;
-                  });
-                  var allEvening = tonightReminders.concat(tmrReminders);
-                  if (allEvening.length === 0) return null;
-                  return (
-                    <div style={{background:"linear-gradient(135deg,rgba(58,107,138,0.07),rgba(200,169,122,0.06))",border:"1.5px solid "+T.blue+"40",borderRadius:"1rem",padding:"0.9rem 1rem"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                        <span style={{fontSize:"1rem"}}>🔔</span>
-                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.blue}}>Tonight &amp; Tomorrow</span>
-                        <span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.blue,fontWeight:700,background:T.bluePale,borderRadius:"999px",padding:"0.1rem 0.5rem"}}>{allEvening.length}</span>
-                      </div>
-                      <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                        {tonightReminders.length>0&&<div style={{fontSize:"0.68rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.1rem"}}>Tonight</div>}
-                        {tonightReminders.map(function(n){
-                          return (
-                            <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:T.surface,borderRadius:"0.65rem",border:"1px solid "+T.sand+"30"}}>
-                              <span style={{fontSize:"0.85rem",flexShrink:0}}>🌙</span>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
-                                {n.time&&<div style={{fontSize:"0.7rem",color:T.sand,fontWeight:700}}>{fmtTime(n.time)}</div>}
-                                {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {tmrReminders.length>0&&<div style={{fontSize:"0.68rem",fontWeight:800,color:T.textFaint,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"0.25rem",marginBottom:"0.1rem"}}>Tomorrow</div>}
-                        {tmrReminders.map(function(n){
-                          return (
-                            <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:T.surface,borderRadius:"0.65rem",border:"1px solid "+T.blue+"25"}}>
-                              <span style={{fontSize:"0.85rem",flexShrink:0}}>☀️</span>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textDark,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
-                                {n.time&&<div style={{fontSize:"0.7rem",color:T.blue,fontWeight:700}}>{fmtTime(n.time)}</div>}
-                                {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Close My Day button */}
-                <button onClick={()=>setShowEndOfDay(true)} style={{...btnP("linear-gradient(135deg,"+T.blue+","+T.sage+")",{width:"100%",padding:"0.9rem",fontSize:"0.95rem",borderRadius:"1rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.45rem"})}}>
-                  Good night ✦
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
+        <div ref={function(el){if(el)window._rippleBannerEl=el;}}><RippleNotificationBanner/></div>
       </div>
     );
   }
 
-  // ── Calendar Tab ────────────────────────────────────────────────────────────
   function CalendarTab() {
     const year=calViewDate.getFullYear(), month=calViewDate.getMonth();
     const daysInMonth=getDaysInMonth(year,month);
@@ -5606,7 +4984,7 @@ Respond ONLY in valid JSON:
 
     return (
       <div className="pane active flow-skin" style={{flex:1,overflowY:"auto",padding:"20px 24px",minHeight:0}}>
-        <SecHead emoji="📅" title="Weekly Rhythm" sub="Your week at a glance" onBack={function(){goTab("anchor");}}/>
+        <div className="ph"><div><div className="ph-t">Rhythm</div><div className="ph-s">Your week at a glance</div></div></div>
         {/* Subtab nav */}
         <div style={{display:"flex",gap:"0.35rem",marginBottom:"1rem",background:"rgba(255,255,255,0.82)",borderRadius:"0.85rem",padding:"0.3rem"}}>
           {[{id:"glance",label:"Glance",emoji:"👁"},{id:"rhythm",label:"Day Themes",emoji:"🗓️"},{id:"tasks",label:"Task Board",emoji:"✅"}].map(function(st){
