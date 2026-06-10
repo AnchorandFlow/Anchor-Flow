@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
+import { askFamily } from "./compass/compassEngine";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
@@ -413,7 +414,20 @@ const SYNC_KEYS = [
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
-];
+,"compassCache"];
+
+function readHouseholdState() {
+  var st = {};
+  SYNC_KEYS.forEach(function (k) {
+    try { st[k] = JSON.parse(localStorage.getItem("af_" + k)); } catch (e) { st[k] = null; }
+  });
+  try { st.preferredName = JSON.parse(localStorage.getItem("af_preferredName")); } catch (e) {}
+  return st;
+}
+window.__compassTest = function (q) {
+  return askFamily(readHouseholdState(), q || "what is for dinner this week?")
+    .then(function (r) { console.log("COMPASS:", r); return r; });
+};
 
 const APP_VERSION = "2026-06-03-vault-refresh";
 const TODAY = new Date();

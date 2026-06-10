@@ -6,4 +6,12 @@ export default defineConfig({
   build: {
     target: 'es2019',
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://www.anchorandflowapp.com',
+        changeOrigin: true,
+      },
+    },
+  },
 })
