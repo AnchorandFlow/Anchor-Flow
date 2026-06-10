@@ -4595,6 +4595,31 @@ Respond ONLY in valid JSON:
           </div>
         </div>
 
+
+        {/* ── Compass briefing ── */}
+        <div style={{background:"rgba(22,36,64,0.6)",border:"1px solid rgba(200,169,122,0.13)",borderRadius:13,padding:"16px 18px",backdropFilter:"blur(12px)"}}>
+          <div style={{fontSize:"0.54rem",letterSpacing:"0.18em",textTransform:"uppercase",color:"#c8a97a",fontWeight:500,marginBottom:10}}>🧭 Compass</div>
+          {visibleInsights.length>0&&visibleInsights[0] ? (
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:"0.95rem",color:"rgba(245,240,232,0.82)",lineHeight:1.6}}>
+                {visibleInsights[0].title}
+              </div>
+              {visibleInsights[0].body&&(
+                <div style={{fontSize:"0.72rem",color:"rgba(245,240,232,0.45)",marginTop:7,lineHeight:1.55}}>
+                  {visibleInsights[0].body}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",fontSize:"0.95rem",color:"rgba(245,240,232,0.82)",lineHeight:1.6}}>
+              {flowMode==="Calm"
+                ? "Today has room to breathe. Keep your rhythm steady and enjoy the margin."
+                : flowMode==="Waves"
+                ? "There are a few waves today. Let's protect your energy and focus on what matters most."
+                : "Only the essentials today. Anchor will hold the rest."}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
