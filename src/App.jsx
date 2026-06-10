@@ -4566,12 +4566,35 @@ Respond ONLY in valid JSON:
     }
 
     return (
-      <div style={{flex:1,overflowY:"auto",background:"#0e1b2e",display:"flex",flexDirection:"column",minHeight:0,padding:"28px",gap:14,color:"#f5f0e8"}}>
-        <div style={{background:"#c8a97a",color:"#0e1b2e",padding:"12px 16px",borderRadius:8,fontWeight:700,fontSize:"1rem",fontFamily:"DM Sans,sans-serif"}}>
-          TODAY TEST BUILD 1
+      <div style={{flex:1,overflowY:"auto",background:"#0e1b2e",display:"flex",flexDirection:"column",minHeight:0,padding:"28px 28px 48px",gap:14,color:"#f5f0e8"}}>
+
+        {/* ── 1. Header ── */}
+        <div style={{marginBottom:4}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:400,color:"#f5f0e8",lineHeight:1,marginBottom:5}}>Today</div>
+          <div style={{fontSize:"0.54rem",letterSpacing:"0.22em",textTransform:"uppercase",color:"#c8a97a",fontWeight:500}}>What matters right now</div>
         </div>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",color:"#f5f0e8"}}>Today</div>
-        <div style={{fontSize:"0.6rem",letterSpacing:"0.2em",textTransform:"uppercase",color:"#c8a97a"}}>What matters right now</div>
+
+        {/* ── 2. Forecast card ── */}
+        <div style={{background:"rgba(22,36,64,0.6)",border:"1px solid rgba(200,169,122,0.13)",borderRadius:13,padding:"16px 18px",backdropFilter:"blur(12px)"}}>
+          <div style={{fontSize:"0.72rem",color:"rgba(245,240,232,0.55)",marginBottom:14}}>How does today feel?</div>
+          <div style={{display:"flex",gap:8}}>
+            {[
+              {id:"Calm",     emoji:"⚓", label:"Calm Seas",    border:"rgba(200,169,122,0.45)", bg:"rgba(200,169,122,0.1)"},
+              {id:"Busy",     emoji:"🌊", label:"Some Waves",   border:"rgba(122,168,200,0.45)", bg:"rgba(122,168,200,0.1)"},
+              {id:"Survival", emoji:"🛟", label:"Survival Mode",border:"rgba(200,122,138,0.45)", bg:"rgba(200,122,138,0.1)"},
+            ].map(function(m){
+              var isAct = flowMode===m.id;
+              return (
+                <div key={m.id} onClick={function(){setModal("flowPicker");}}
+                  style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"13px 8px 11px",borderRadius:11,cursor:"pointer",transition:"all 0.18s",border:"1px solid "+(isAct?m.border:"rgba(245,240,232,0.08)"),background:isAct?m.bg:"transparent"}}>
+                  <span style={{fontSize:"1.5rem"}}>{m.emoji}</span>
+                  <div style={{fontSize:"0.66rem",color:isAct?"#f5f0e8":"rgba(245,240,232,0.45)",fontWeight:isAct?500:400,textAlign:"center",lineHeight:1.3}}>{m.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     );
   }
