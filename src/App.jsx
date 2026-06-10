@@ -459,9 +459,9 @@ const THEMES = {
 };
 
 const FLOW_MODES_FN = T => ({
-  Calm:     {color:T.sage,  bg:T.sagePale, emoji:"⚓", label:"Calm Seas",     desc:"Feeling steady. Let the day flow."},
-  Waves:    {color:T.sand,  bg:T.sandPale, emoji:"🌊", label:"Some Waves",    desc:"A bit much. Focus on what matters."},
-  Survival: {color:T.rose,  bg:T.rosePale, emoji:"🛟", label:"Survival Mode", desc:"Just today. Only what truly matters."},
+  Calm:     {color:T.sage,  bg:T.sagePale, emoji:"⚓",    label:"Calm Seas",     desc:"Feeling steady."},
+  Waves:    {color:T.sand,  bg:T.sandPale, emoji:"🌊",label:"Some Waves",    desc:"A bit much."},
+  Survival: {color:T.rose,  bg:T.rosePale, emoji:"🛟",label:"Survival Mode", desc:"Only what truly matters."},
 });
 
 const DEFAULT_RHYTHM = {
@@ -1186,7 +1186,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
           </div>
           <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Flow mode default</div>
-            <Pills options={[{value:"Smooth",label:"Smooth",emoji:"🌊"},{value:"Busy",label:"Busy",emoji:"⚡"},{value:"Survival",label:"Survival",emoji:"🆘"}]} value={flowMode} onChange={setFlowMode} color={T.sage}/>
+            <Pills options={[{value:"Calm",label:"Calm Seas",emoji:"🌊"},{value:"Waves",label:"Some Waves",emoji:"⚡"},{value:"Survival",label:"Survival",emoji:"🆘"}]} value={flowMode} onChange={setFlowMode} color={T.sage}/>
           </div>
           <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem"}}>
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.2rem"}}>Turn on notifications</div>
@@ -6871,7 +6871,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>}
         <div style={{...card({background:"transparent",border:`1.5px dashed ${T.borderSoft}`,textAlign:"center",padding:"1rem"})}}>
           <p style={{color:T.textFaint,fontSize:"0.78rem",margin:"0 0 0.5rem",fontStyle:"italic"}}>You don't have to do everything. Just enough.</p>
-          <button onClick={()=>setFlowMode("Smooth")} style={{background:"none",border:`1.5px solid ${T.border}`,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.73rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600}}>✨ Back to a full day when ready</button>
+          <button onClick={()=>setFlowMode("Calm")} style={{background:"none",border:`1.5px solid ${T.border}`,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.73rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600}}>✨ Back to a full day when ready</button>
         </div>
       </div>
     );
