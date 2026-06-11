@@ -3077,7 +3077,8 @@ function createLocalBackup() {
         .slice(0,20)
         .map(e=>{
           const daysOut = Math.round((new Date(e.date+"T00:00:00")-TODAY)/(1000*60*60*24));
-          return `${daysOut===0?"TODAY":daysOut===1?"TOMORROW":"in "+daysOut+"d"}: ${e.title}${e.time?" at "+e.time:""}`;
+          const wd = new Date(e.date+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
+          return `${daysOut===0?"TODAY":daysOut===1?"TOMORROW":"in "+daysOut+"d"} (${wd}): ${e.title}${e.time?" at "+e.time:""}`;
         });
 
       // ── Meals: full week plan ──────────────────────────────────────────────
