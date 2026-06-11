@@ -2778,6 +2778,7 @@ function createLocalBackup() {
   });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
+  const [openGroup,setOpenGroup] = useState("Flow");
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
   const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
   // Personal anchor items — per user, stored separately so each person has their own morning checklist
@@ -10884,18 +10885,34 @@ function FlowWrapper({ onHome, onSignOut }) {
   }, [])
   const [showAnchor, setShowAnchor] = React.useState(false)
   const [vaultSection, setVaultSection] = React.useState("home")
-  const NAV = [
-    { id: "anchor",   label: "Flow",     emoji: "🌊" },
-    { id: "brain",    label: "Mind",     emoji: "💭" },
-    { id: "calendar", label: "Calendar", emoji: "📆" },
-    { id: "meals",    label: "Meals",    emoji: "🍽️" },
-    { id: "shop",     label: "Shopping", emoji: "🛒" },
-    { id: "tidepool", label: "Tide Pool", emoji: "🏝️" },
-    { id: "cove",     label: "Cove",     emoji: "🪸" },
-    { id: "home",     label: "Home",     emoji: "🏡" },
-    { id: "weekly",   label: "Weekly",   emoji: "📅" },
-    { id: "school",   label: "School",   emoji: "🏫" },
-    { id: "settings", label: "Settings", emoji: "⚙️" },
+  const PILLARS = [
+    { id: "anchor", label: "Today", emoji: "⚓", kind: "tab" },
+    { label: "Flow", emoji: "🌊", kind: "group", items: [
+      { id: "anchor",   label: "Today's Tasks", emoji: "✅" },
+      { id: "calendar", label: "Calendar",      emoji: "📆" },
+      { id: "brain",    label: "Exhale",        emoji: "💭" },
+      { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
+      { id: "tidepool", label: "Tide Pool",     emoji: "🏝️" },
+      { id: "school",   label: "Lighthouse",    emoji: "🏮" },
+    ]},
+    { label: "Anchor", emoji: "🏠", kind: "group", items: [
+      { vault: "home", label: "Anchor Home", emoji: "🏠" },
+      { id: "meals", label: "Meals", emoji: "🍽️" },
+      { id: "shop", label: "Shopping", emoji: "🛒" },
+      { id: "cove", label: "Cove", emoji: "🪸" },
+      { id: "home", label: "Home", emoji: "🏡" },
+      { vault: "recurring", label: "Reminders", emoji: "🔁" },
+      { vault: "inventory", label: "Inventory", emoji: "📦" },
+      { vault: "systems", label: "Systems", emoji: "🔧" },
+      { vault: "health", label: "Health", emoji: "🩺" },
+      { vault: "career", label: "Career", emoji: "📋" },
+      { vault: "subs", label: "Subscriptions", emoji: "🔄" },
+      { vault: "gifts", label: "Celebrate", emoji: "🎉" },
+      { vault: "pets", label: "Pets", emoji: "🐾" },
+      { vault: "moments", label: "Moments", emoji: "✨" },
+      { vault: "travel", label: "Travel", emoji: "✈️" },
+    ]},
+    { vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" },
   ]
   const VAULT_NAV = [
     { id: "recurring", label: "Reminders", emoji: "🔁" },
@@ -10936,20 +10953,16 @@ function FlowWrapper({ onHome, onSignOut }) {
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "12px", color: "#c8a97a", letterSpacing: "0.04em", lineHeight: 1.1, textAlign: "center" }}>A&F</div>
         </button>
 
-        {/* ── ⚓ Anchor vault button — always visible ── */}
-        <button onClick={() => { setShowAnchor(true); setVaultSection("home"); }} title="Anchor Vault" style={{ background: showAnchor ? "rgba(200,169,122,0.25)" : "rgba(200,169,122,0.08)", border: showAnchor ? "1px solid rgba(200,169,122,0.5)" : "1px solid rgba(200,169,122,0.2)", borderRadius: "8px", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", marginBottom: "2px", flexShrink: 0 }}>
-          <span style={{ fontSize: "15px" }}>⚓</span>
-          <span style={{ fontSize: "7px", color: showAnchor ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: 700, fontFamily: "DM Sans,sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Anchor</span>
-        </button>
+        
 
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px", flexShrink: 0 }} />
 
         {showAnchor ? (
           <>
             {/* ── 🌊 Flow — always shown even inside vault ── */}
-            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Flow" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>🌊</span>
-              <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Flow</span>
+            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Today" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
+              <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>⚓</span>
+              <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Today</span>
             </button>
             <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.06)", margin: "2px 0 4px", flexShrink: 0 }} />
             {/* ── Vault section nav ── */}
@@ -10965,20 +10978,28 @@ function FlowWrapper({ onHome, onSignOut }) {
             })}
           </>
         ) : (
-          /* ── Regular app nav ── */
-          NAV.map(item => {
-            var isActive = !showAnchor && activeTab === item.id;
-            var isHidden = item.id !== "settings" && item.id !== "anchor" && item.id !== "cove" && sections && sections[item.id] === false;
-            if (isHidden) return null;
-            return (
-              <button key={item.id} onClick={() => { setShowAnchor(false); _setActiveTab(item.id); }} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
-                <span style={{ fontSize: "14px", lineHeight: 1, opacity: isActive ? 1 : 0.5 }}>{item.emoji}</span>
-                <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(200,169,122,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
-              </button>
-            );
+          /* ── Four-pillar accordion ── */
+          PILLARS.map(function(pill){
+            function rowBtn(it, active, onClick){
+              return (<button key={(it.id||it.vault||it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? "rgba(200,169,122,0.16)" : "none", border: "none", borderLeft: active ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "13px", lineHeight: 1, opacity: active?1:0.55 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? "#c8a97a" : "rgba(200,169,122,0.55)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
+            }
+            if (pill.kind === "tab") { var a = !showAnchor && activeTab === pill.id; return rowBtn(pill, a, function(){ setShowAnchor(false); _setActiveTab(pill.id); }); }
+            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault; return rowBtn(pill, av, function(){ setShowAnchor(true); setVaultSection(pill.vault); }); }
+            var isOpen = openGroup === pill.label;
+            var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(isOpen?null:pill.label); }} title={pill.label} style={{ background: "none", border: "none", cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.7)", fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            if (!isOpen) return header;
+            var kids = pill.items.map(function(it){
+              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault; return rowBtn(it, av2, function(){ setShowAnchor(true); setVaultSection(it.vault); }); }
+              var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
+              if (hidden) return null;
+              var a2 = !showAnchor && activeTab === it.id; return rowBtn(it, a2, function(){ setShowAnchor(false); _setActiveTab(it.id); });
+            });
+            return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", background: "rgba(255,255,255,0.02)", borderRadius: "8px", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })
         )}
-        <div style={{ marginTop: "auto", flexShrink: 0 }}>
+        <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <button onClick={function(){setShowEndOfDay(true);}} title="Sunset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "13px", opacity: 0.7 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.55)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
+          <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "14px", opacity: 0.6 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
         </div>
       </div>
