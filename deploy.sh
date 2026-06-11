@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 MSG=${1:-"update"}
 
 echo "🔍 Building from src/App.jsx directly"
@@ -11,4 +12,5 @@ if [ $? -ne 0 ]; then echo "❌ Build failed — not deploying"; exit 1; fi
 
 git add -A
 git commit -m "$MSG"
+git push origin main
 vercel --prod

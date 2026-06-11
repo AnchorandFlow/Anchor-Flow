@@ -1,3 +1,4 @@
+const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
 import { askFamily } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
@@ -96,7 +97,7 @@ function usePushNotifications() {
         }),
       });
       setSubscribed(true);
-      console.log("[AF] Push subscription saved ✓ household:", householdId);
+      AF_DEBUG&&console.log("[AF] Push subscription saved ✓ household:", householdId);
     } catch(e) {
       console.error("[PWA] Push subscribe failed:", e);
       setSubError(e.message || "Something went wrong — try again.");
@@ -820,8 +821,8 @@ function BrainCatsEditor({brainCats, setBrainCats, T, inp, btnP}) {
 
 
 function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
-  React.useEffect(function(){console.log("[AF MOUNT] WeeklyRhythmSection");return function(){console.log("[AF UNMOUNT] WeeklyRhythmSection");};},[]);
-  var _wrRender=React.useRef(0);_wrRender.current++;console.count("[AF RENDER] WeeklyRhythm-section");
+  React.useEffect(function(){AF_DEBUG&&console.log("[AF MOUNT] WeeklyRhythmSection");return function(){AF_DEBUG&&console.log("[AF UNMOUNT] WeeklyRhythmSection");};},[]);
+  var _wrRender=React.useRef(0);_wrRender.current++;AF_DEBUG&&console.count("[AF RENDER] WeeklyRhythm-section");
   var [editingDay,setEditingDay]=useState(null);
   var [editForm,setEditForm]=useState({theme:"",emoji:"",desc:""});
   var [settingsOpen,setSettingsOpen]=useState({weekly:false});
@@ -881,8 +882,8 @@ function WeeklyRhythmSection({rhythm,setRhythm,T,inp,btnP,btnS,lbl,ModalBox}){
 }
 
 function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
-  React.useEffect(function(){console.log("[AF MOUNT] TidePoolSection");return function(){console.log("[AF UNMOUNT] TidePoolSection");};},[]);
-  var _tpRender=React.useRef(0);_tpRender.current++;console.count("[AF RENDER] TidePool-section");
+  React.useEffect(function(){AF_DEBUG&&console.log("[AF MOUNT] TidePoolSection");return function(){AF_DEBUG&&console.log("[AF UNMOUNT] TidePoolSection");};},[]);
+  var _tpRender=React.useRef(0);_tpRender.current++;AF_DEBUG&&console.count("[AF RENDER] TidePool-section");
   var [tpKidIdx,setTpKidIdx]=useState(0);
   var [tpTab,setTpTab]=useState("chores");
   var [newChoreName,setNewChoreName]=useState("");
@@ -959,9 +960,9 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                 })}
                 <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
                   <input value={newChoreName}
-                    onFocus={function(){console.log("[AF INPUT FOCUS] tidepool-chore");}}
-                    onBlur={function(){console.log("[AF INPUT BLUR] tidepool-chore");}}
-                    onChange={function(e){console.log("[AF INPUT CHANGE] tidepool-chore",e.target.value);setNewChoreName(e.target.value);}}
+                    onFocus={function(){AF_DEBUG&&console.log("[AF INPUT FOCUS] tidepool-chore");}}
+                    onBlur={function(){AF_DEBUG&&console.log("[AF INPUT BLUR] tidepool-chore");}}
+                    onChange={function(e){AF_DEBUG&&console.log("[AF INPUT CHANGE] tidepool-chore",e.target.value);setNewChoreName(e.target.value);}}
                     onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
                   <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                     <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
@@ -1008,8 +1009,8 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
 }
 
 function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,btnP,PC,ROLES}){
-  React.useEffect(function(){console.log("[AF MOUNT] FamilySection");return function(){console.log("[AF UNMOUNT] FamilySection");};},[]);
-  var _fsRender=React.useRef(0);_fsRender.current++;console.count("[AF RENDER] Family-section");
+  React.useEffect(function(){AF_DEBUG&&console.log("[AF MOUNT] FamilySection");return function(){AF_DEBUG&&console.log("[AF UNMOUNT] FamilySection");};},[]);
+  var _fsRender=React.useRef(0);_fsRender.current++;AF_DEBUG&&console.count("[AF RENDER] Family-section");
   var [newMemberName,setNewMemberName]=useState("");
   var [newMemberAge,setNewMemberAge]=useState("");
   var [newMemberRole,setNewMemberRole]=useState("");
@@ -1052,9 +1053,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
                 <input
                   key={p.id+"_name"}
                   defaultValue={p.name}
-                  onFocus={function(){console.log("[AF INPUT FOCUS] family-name-"+p.id);}}
-                  onBlur={function(e){console.log("[AF INPUT BLUR] family-name-"+p.id);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
-                  onChange={function(e){console.log("[AF INPUT CHANGE] family-name",e.target.value);}}
+                  onFocus={function(){AF_DEBUG&&console.log("[AF INPUT FOCUS] family-name-"+p.id);}}
+                  onBlur={function(e){AF_DEBUG&&console.log("[AF INPUT BLUR] family-name-"+p.id);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{name:e.target.value}):x;});});}}
+                  onChange={function(e){AF_DEBUG&&console.log("[AF INPUT CHANGE] family-name",e.target.value);}}
                   style={{flex:1,border:"none",background:"transparent",fontSize:"0.88rem",fontWeight:700,color:T.textDark,fontFamily:"inherit",padding:0,outline:"none",minWidth:0}}
                 />
                 <button onClick={function(){setPeople(function(p2){return p2.filter(function(x){return x.id!==p.id;});});}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}>
@@ -1084,9 +1085,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
           <div style={{fontSize:"0.65rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.45rem"}}>Add someone</div>
           <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
             <input value={newMemberName}
-              onFocus={function(){console.log("[AF INPUT FOCUS] family-addname");}}
-              onBlur={function(){console.log("[AF INPUT BLUR] family-addname");}}
-              onChange={function(e){console.log("[AF INPUT CHANGE] family-addname",e.target.value);setNewMemberName(e.target.value);}}
+              onFocus={function(){AF_DEBUG&&console.log("[AF INPUT FOCUS] family-addname");}}
+              onBlur={function(){AF_DEBUG&&console.log("[AF INPUT BLUR] family-addname");}}
+              onChange={function(e){AF_DEBUG&&console.log("[AF INPUT CHANGE] family-addname",e.target.value);setNewMemberName(e.target.value);}}
               onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
             <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
           </div>
@@ -1112,12 +1113,12 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
-    React.useEffect(() => { console.log("[AF MOUNT] SettingsTab"); return () => console.log("[AF UNMOUNT] SettingsTab"); }, []);
-  const _stRenderCount = React.useRef(0); _stRenderCount.current++; console.count("[AF RENDER] SettingsTab");
-  React.useEffect(() => { console.log("[AF STATE CHANGE] people changed, SettingsTab render #" + _stRenderCount.current); }, [people]);
-  React.useEffect(() => { console.log("[AF STATE CHANGE] familyProfile changed, SettingsTab render #" + _stRenderCount.current); }, [familyProfile]);
-  React.useEffect(() => { console.log("[AF STATE CHANGE] stores changed, SettingsTab render #" + _stRenderCount.current); }, [stores]);
-  React.useEffect(() => { console.log("[AF STATE CHANGE] T/theme changed, SettingsTab render #" + _stRenderCount.current); }, [T]);
+    React.useEffect(() => { AF_DEBUG&&console.log("[AF MOUNT] SettingsTab"); return () => AF_DEBUG&&console.log("[AF UNMOUNT] SettingsTab"); }, []);
+  const _stRenderCount = React.useRef(0); _stRenderCount.current++; AF_DEBUG&&console.count("[AF RENDER] SettingsTab");
+  React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] people changed, SettingsTab render #" + _stRenderCount.current); }, [people]);
+  React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] familyProfile changed, SettingsTab render #" + _stRenderCount.current); }, [familyProfile]);
+  React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] stores changed, SettingsTab render #" + _stRenderCount.current); }, [stores]);
+  React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] T/theme changed, SettingsTab render #" + _stRenderCount.current); }, [T]);
   const [settingsOpen, setSettingsOpen] = useState({family:true});
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){
@@ -1480,7 +1481,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                       if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
                       if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
                       keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
-                      console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
+                      AF_DEBUG&&console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
                       alert("Backup restored. Reloading...");
                       window.location.reload();
                     } catch(err) { alert("Could not read backup file: " + err.message); }
@@ -1558,7 +1559,7 @@ async function refreshAuthToken() {
     if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
     try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
     if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
-    console.log("[AF AUTH] token refreshed successfully");
+    AF_DEBUG&&console.log("[AF AUTH] token refreshed successfully");
     return data.access_token;
   } catch(e) {
     console.warn("[AF AUTH] token refresh error:", e.message);
@@ -1600,7 +1601,7 @@ function useSaved(key, fallback) {
           if (!dirty.includes(key)) {
             dirty.push(key);
             localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
-            console.log("[AF DIRTY] marked dirty:", key);
+            AF_DEBUG&&console.log("[AF DIRTY] marked dirty:", key);
           }
         } catch {}
       }
@@ -1636,14 +1637,14 @@ function HomeFlow() {
   useEffect(() => {
     const _au = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const _hid = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
-    console.log("[AF DEBUG] email", _au?.email);
-    console.log("[AF DEBUG] user id", _au?.id);
-    console.log("[AF DEBUG] household id", _hid);
-    console.log("[AF DEBUG] app version", APP_VERSION);
+    AF_DEBUG&&console.log("[AF DEBUG] email", _au?.email);
+    AF_DEBUG&&console.log("[AF DEBUG] user id", _au?.id);
+    AF_DEBUG&&console.log("[AF DEBUG] household id", _hid);
+    AF_DEBUG&&console.log("[AF DEBUG] app version", APP_VERSION);
     console.warn("[AF VERSION]", APP_VERSION);
-    console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
-    console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
-    console.log("[AF SYNC] deviceId", localStorage.getItem("af_deviceId") || "(not yet set)");
+    AF_DEBUG&&console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
+    AF_DEBUG&&console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
+    AF_DEBUG&&console.log("[AF SYNC] deviceId", localStorage.getItem("af_deviceId") || "(not yet set)");
   }, []);
   // Sync Supabase session into original app auth on mount
   useEffect(() => {
@@ -1680,7 +1681,7 @@ function HomeFlow() {
         console.warn("[AF AUTH] token validation failed — attempting refresh");
         const newToken = await refreshAuthToken();
         if (newToken) {
-          console.log("[AF AUTH] refresh succeeded — updating state");
+          AF_DEBUG&&console.log("[AF AUTH] refresh succeeded — updating state");
           setAuthToken(newToken);
         } else {
           console.warn("[AF AUTH] refresh failed — clearing session");
@@ -1705,18 +1706,18 @@ function createLocalBackup() {
       Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_") && !k.startsWith("af_backup_")) snapshot[k] = localStorage.getItem(k); });
       var key = "af_backup_" + Date.now();
       localStorage.setItem(key, JSON.stringify(snapshot));
-      console.log("[AF SAFETY] backup created", key);
+      AF_DEBUG&&console.log("[AF SAFETY] backup created", key);
     } catch(e) { console.warn("[AF SAFETY] backup failed —", e.message); }
   }
 
   function isRemotePayloadSafe(remoteData, remoteTs) {
     if (!remoteData || typeof remoteData !== "object") {
-      console.log("[AF SAFETY] refused empty remote apply — null or non-object");
+      AF_DEBUG&&console.log("[AF SAFETY] refused empty remote apply — null or non-object");
       return false;
     }
     var remoteKeyCount = Object.keys(remoteData).filter(function(k){ return remoteData[k] !== null; }).length;
     if (remoteKeyCount < 2) {
-      console.log("[AF SAFETY] refused empty remote apply — only", remoteKeyCount, "non-null keys");
+      AF_DEBUG&&console.log("[AF SAFETY] refused empty remote apply — only", remoteKeyCount, "non-null keys");
       return false;
     }
     var coreKeys = ["tasks","meals","brainItems","shoppingItems","people"];
@@ -1729,7 +1730,7 @@ function createLocalBackup() {
         try { var v = JSON.parse(localStorage.getItem("af_"+k)||"null"); return Array.isArray(v) && v.length > 0; } catch { return false; }
       }).length;
       if (remoteCoreCount === 0 && localCoreCount > 0) {
-        console.log("[AF SAFETY] refused empty remote apply — remote has 0 core arrays, local has", localCoreCount);
+        AF_DEBUG&&console.log("[AF SAFETY] refused empty remote apply — remote has 0 core arrays, local has", localCoreCount);
         return false;
       }
     }
@@ -1960,7 +1961,7 @@ function createLocalBackup() {
               joinedHhId = freshUser.user_metadata.joined_household_id;
             }
           } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
-          console.log("[AF] No owned household. joined_household_id:", joinedHhId);
+          AF_DEBUG&&console.log("[AF] No owned household. joined_household_id:", joinedHhId);
           if (joinedHhId) {
             try {
               const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
@@ -1980,7 +1981,7 @@ function createLocalBackup() {
                     }
                   });
                   try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
-                  console.log("[AF] Restored joined household on sign-in:", joinedHhId);
+                  AF_DEBUG&&console.log("[AF] Restored joined household on sign-in:", joinedHhId);
                 }
               }
             } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
@@ -2026,7 +2027,7 @@ function createLocalBackup() {
 
  async function pushHouseholdData(token, hid) {
     if (!token || !hid) return;
-    console.log("[AF SYNC] push start", hid);
+    AF_DEBUG&&console.log("[AF SYNC] push start", hid);
 
     // ── Stale-push guard ──────────────────────────────────────────────────
     // Fetch server updated_at before doing anything.
@@ -2037,7 +2038,7 @@ function createLocalBackup() {
       if (checkRows && checkRows.length > 0) {
         const serverUpdatedAt = checkRows[0].updated_at || "";
         const lastApplied = localStorage.getItem("af_lastHHSync") || "";
-        console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied || "(none)");
+        AF_DEBUG&&console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied || "(none)");
         if (serverUpdatedAt && !lastApplied) {
           console.warn("[AF SYNC] push blocked — no lastHHSync; pulling latest now", { serverUpdatedAt });
           await pullLatestHouseholdData("no-lastHHSync");
@@ -2048,13 +2049,13 @@ function createLocalBackup() {
           await pullLatestHouseholdData("stale-push-block");
           return;
         }
-        console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
+        AF_DEBUG&&console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
       }
     } catch(e) {
       if (isAuthExpiredError(e)) {
         console.warn("[AF SYNC] stale-check auth expired — attempting token refresh");
         const newToken = await refreshAuthToken();
-        if (newToken) { setAuthToken(newToken); console.log("[AF AUTH] refreshed mid-sync"); return; }
+        if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-sync"); return; }
         console.warn("[AF SYNC] stale-check auth expired — refresh failed, prompting sign-in");
         setSyncStatus("error");
         showInAppBanner("Session expired — please sign in again.", "error");
@@ -2074,15 +2075,15 @@ function createLocalBackup() {
     const dirtyKeys = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
     // Manual sync (syncNow) bypasses dirty check — always pushes
     // debouncedSync only calls this if dirty keys exist
-    console.log("[AF SYNC] dirty keys at push time:", dirtyKeys);
+    AF_DEBUG&&console.log("[AF SYNC] dirty keys at push time:", dirtyKeys);
     // ── end dirty flag check ───────────────────────────────────────────────
 
     const payload = {};
     SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
-    console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
+    AF_DEBUG&&console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
     const nonNullCount = Object.values(payload).filter(v => v !== null).length;
     if (nonNullCount < 2) {
-      console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
+      AF_DEBUG&&console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -2094,7 +2095,7 @@ function createLocalBackup() {
       try { deviceId = crypto.randomUUID(); } catch { deviceId = Date.now().toString(36) + Math.random().toString(36).slice(2); }
       try { localStorage.setItem("af_deviceId", deviceId); } catch {}
     }
-    console.log("[AF SYNC] deviceId", deviceId);
+    AF_DEBUG&&console.log("[AF SYNC] deviceId", deviceId);
     // ── end device ID ─────────────────────────────────────────────────────
     try {
       // Check if row exists first to decide POST vs PATCH
@@ -2110,7 +2111,7 @@ function createLocalBackup() {
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
-        console.log("[AF SYNC] push success updated_at", serverTs, "— dirty keys cleared");
+        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", serverTs, "— dirty keys cleared");
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -2128,7 +2129,7 @@ function createLocalBackup() {
       if (isAuthExpiredError(e)) {
         console.warn("[AF SYNC] push auth expired — attempting token refresh");
         const newToken = await refreshAuthToken();
-        if (newToken) { setAuthToken(newToken); console.log("[AF AUTH] refreshed mid-push"); return; }
+        if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-push"); return; }
         console.warn("[AF SYNC] push auth expired — refresh failed, prompting sign-in");
         setSyncStatus("error");
         showInAppBanner("Session expired — please sign in again.", "error");
@@ -2178,7 +2179,7 @@ function createLocalBackup() {
           body: JSON.stringify({ data: { joined_household_id: joinCode } })
         });
         const metaBody = await metaResp.json();
-        console.log("[AF] Metadata write status:", metaResp.status, "joined_household_id:", metaBody?.user_metadata?.joined_household_id);
+        AF_DEBUG&&console.log("[AF] Metadata write status:", metaResp.status, "joined_household_id:", metaBody?.user_metadata?.joined_household_id);
       } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
       // Pull the FRESHEST data from Supabase for this household (re-fetch after metadata save)
       const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
@@ -2207,12 +2208,12 @@ function createLocalBackup() {
     console.warn("[AF PULL] EXECUTING", reason, new Date().toISOString());
     try {
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-      if (!rows || !rows.length || !rows[0].data) { console.log("[AF SYNC] pullLatest — no rows returned"); return; }
+      if (!rows || !rows.length || !rows[0].data) { AF_DEBUG&&console.log("[AF SYNC] pullLatest — no rows returned"); return; }
       const row = rows[0];
       const serverTs = row.updated_at || "";
-      console.log("[AF SYNC] pullLatest remote updated_at", serverTs);
+      AF_DEBUG&&console.log("[AF SYNC] pullLatest remote updated_at", serverTs);
       const _safe = isRemotePayloadSafe(row.data, serverTs);
-      console.log("[AF SYNC] pullLatest remote safe", _safe);
+      AF_DEBUG&&console.log("[AF SYNC] pullLatest remote safe", _safe);
       if (!_safe) { console.warn("[AF SYNC] pullLatest blocked by safety check"); return; }
       createLocalBackup();
       const clean = sanitizeHouseholdData(row.data);
@@ -2296,17 +2297,17 @@ function createLocalBackup() {
         .then(rows => {
           if (rows && rows.length > 0) {
             // Household exists — keep it regardless of owner (could be a joined household)
-            console.log("[AF] Household ID valid:", currentId);
+            AF_DEBUG&&console.log("[AF] Household ID valid:", currentId);
           } else {
             // Household doesn't exist — find the one owned by this user
             sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
               .then(owned => {
                 if (owned && owned.length > 0) {
-                  console.log("[AF] Correcting to owned household:", owned[0].id);
+                  AF_DEBUG&&console.log("[AF] Correcting to owned household:", owned[0].id);
                   localStorage.setItem("af_householdId", JSON.stringify(owned[0].id));
                   window.location.reload();
                 } else {
-                  console.log("[AF] No household found for user:", userId);
+                  AF_DEBUG&&console.log("[AF] No household found for user:", userId);
                 }
               }).catch(() => {});
           }
@@ -2316,11 +2317,11 @@ function createLocalBackup() {
       sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
         .then(rows => {
           if (rows && rows.length > 0) {
-            console.log("[AF] Setting owned household:", rows[0].id);
+            AF_DEBUG&&console.log("[AF] Setting owned household:", rows[0].id);
             localStorage.setItem("af_householdId", JSON.stringify(rows[0].id));
             window.location.reload();
           } else {
-            console.log("[AF] No household found for user:", userId);
+            AF_DEBUG&&console.log("[AF] No household found for user:", userId);
           }
         }).catch(() => {});
     }
@@ -2336,24 +2337,24 @@ function createLocalBackup() {
   // af_lastPushedAt tracks our own pushes. checkForUpdates skips reloading if serverTs === lastPushedAt.
   useEffect(() => {
     if (!authToken || !householdId) {
-      console.log("[AF SYNC] poll waiting for auth/household", { hasToken: !!authToken, householdId });
+      AF_DEBUG&&console.log("[AF SYNC] poll waiting for auth/household", { hasToken: !!authToken, householdId });
       return;
     }
-    console.log("[AF SYNC] poll started", householdId);
+    AF_DEBUG&&console.log("[AF SYNC] poll started", householdId);
 
     async function checkForUpdates() {
 
       try {
-        console.log("[AF SYNC] check start", householdId);
+        AF_DEBUG&&console.log("[AF SYNC] check start", householdId);
         const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
-        if (!rows || !rows.length || !rows[0].data) { console.log("[AF SYNC] check — no rows returned"); return; }
+        if (!rows || !rows.length || !rows[0].data) { AF_DEBUG&&console.log("[AF SYNC] check — no rows returned"); return; }
         const row = rows[0];
         const serverTs = row.updated_at || "";
         const lastSync = localStorage.getItem("af_lastHHSync") || "";
         const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
         console.warn("[AF POLL] heartbeat", { serverTs, lastHHSync: lastSync, lastPushedAt });
-        console.log("[AF SYNC] remote updated_at", serverTs);
-        console.log("[AF SYNC] last seen updated_at", lastSync);
+        AF_DEBUG&&console.log("[AF SYNC] remote updated_at", serverTs);
+        AF_DEBUG&&console.log("[AF SYNC] last seen updated_at", lastSync);
         if (!serverTs || serverTs === lastSync) {
           console.warn("[AF POLL RETURN] serverTs === lastSync (no change)");
           return;
@@ -2376,11 +2377,11 @@ function createLocalBackup() {
           if (isDragging) { console.warn("[AF POLL RETURN] isDragging"); return; }
           if (hasOpenModal) { console.warn("[AF POLL RETURN] hasOpenModal"); return; }
           const _safe = isRemotePayloadSafe(row.data, serverTs);
-          console.log("[AF SYNC] remote safe", _safe);
+          AF_DEBUG&&console.log("[AF SYNC] remote safe", _safe);
           if (!_safe) { console.warn("[AF POLL RETURN] remote unsafe"); return; }
           createLocalBackup();
           const cleanBg = sanitizeHouseholdData(row.data);
-          console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
+          AF_DEBUG&&console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
           const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
           const _ARRAY_KEYS_BG = ["tasks","brainItems","shoppingItems","notifications","calEvents",
             "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
@@ -2395,8 +2396,8 @@ function createLocalBackup() {
             }
           });
           localStorage.setItem("af_lastHHSync", serverTs);
-          console.log("[AF SYNC] localStorage updated tasks", localStorage.getItem("af_tasks"));
-          console.log("[AF SYNC] reloading now");
+          AF_DEBUG&&console.log("[AF SYNC] localStorage updated tasks", localStorage.getItem("af_tasks"));
+          AF_DEBUG&&console.log("[AF SYNC] reloading now");
           window.location.reload();
           setSyncStatus("synced");
           setLastSyncTime(new Date().toLocaleTimeString());
@@ -2405,7 +2406,7 @@ function createLocalBackup() {
         if (isAuthExpiredError(e)) {
           console.warn("[AF SYNC] poll auth expired — attempting token refresh");
           const newToken = await refreshAuthToken();
-          if (newToken) { setAuthToken(newToken); console.log("[AF AUTH] refreshed mid-poll"); return; }
+          if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-poll"); return; }
           console.warn("[AF SYNC] poll auth expired — refresh failed, stopping poll");
           setSyncStatus("error");
           showInAppBanner("Session expired — please sign in again.", "error");
@@ -2436,7 +2437,7 @@ function createLocalBackup() {
       checkForUpdates();
     }, 15000);
     return () => {
-      console.log("[AF SYNC] poll stopped", householdId);
+      AF_DEBUG&&console.log("[AF SYNC] poll stopped", householdId);
       clearTimeout(initial);
       clearInterval(interval);
     };
@@ -2463,10 +2464,10 @@ function createLocalBackup() {
     if (!authToken || !householdId) return;
     const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
     if (dirty.length === 0) {
-      console.log("[AF SYNC] debouncedSync skipped — no dirty keys");
+      AF_DEBUG&&console.log("[AF SYNC] debouncedSync skipped — no dirty keys");
       return;
     }
-    console.log("[AF SYNC] debouncedSync triggered — dirty keys:", dirty);
+    AF_DEBUG&&console.log("[AF SYNC] debouncedSync triggered — dirty keys:", dirty);
     clearTimeout(syncTimeoutRef.current);
     syncTimeoutRef.current = setTimeout(syncNow, 3000);
   }
@@ -2717,7 +2718,7 @@ function createLocalBackup() {
     function onVaultChanged() {
       const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
       if (dirty.length > 0) {
-        console.log("[AF SYNC] vault change detected — dirty keys:", dirty);
+        AF_DEBUG&&console.log("[AF SYNC] vault change detected — dirty keys:", dirty);
         debouncedSync();
       }
     }
@@ -2928,7 +2929,7 @@ function createLocalBackup() {
         setWeatherLocation({lat:lat,lng:lng,city:city,timezone:timezone,utcOffset:utcOffset});
         setFamilyProfile(function(p){return{...(p||{}),city:city,timezone:timezone,utcOffsetHours:utcOffset};});
         fetchWeather(lat,lng);
-        console.log("[AF] ZIP",zip,"→",city,timezone,"UTC"+utcOffset);
+        AF_DEBUG&&console.log("[AF] ZIP",zip,"→",city,timezone,"UTC"+utcOffset);
       } catch(e){ console.warn("[AF] ZIP lookup failed:",e); }
     }, 800);
     return function(){ clearTimeout(timeout); };
@@ -3144,7 +3145,7 @@ const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","�
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
-          system:`You are Compass, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
+          system:`Today is ${new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}. You are Compass, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW.
 
 INSIGHT CATEGORIES (use exactly these ids):
 - "calendar" — scheduling conflicts, tight transitions, prep needed for upcoming events
@@ -3309,7 +3310,7 @@ Respond ONLY with valid JSON array, no markdown:
     // Prevents repeated /api/claude calls on re-renders or repeated useEffect triggers.
     const sessionKey = "af_notifScheduled_" + TODAY.toDateString();
     if (sessionStorage.getItem(sessionKey)) {
-      console.log("[AF CLAUDE] notifications already scheduled this session — skipping");
+      AF_DEBUG&&console.log("[AF CLAUDE] notifications already scheduled this session — skipping");
       return;
     }
     sessionStorage.setItem(sessionKey, "1");
@@ -3531,11 +3532,11 @@ Respond ONLY with valid JSON array, no markdown:
   useEffect(() => {
     if (!hasMountedSync.current) {
       hasMountedSync.current = true;
-      console.log("[AF SYNC] skipping initial hydration sync");
+      AF_DEBUG&&console.log("[AF SYNC] skipping initial hydration sync");
       return;
     }
     const dirty2 = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
-    console.log("[AF SYNC] user change detected — syncing, dirty keys:", dirty2);
+    AF_DEBUG&&console.log("[AF SYNC] user change detected — syncing, dirty keys:", dirty2);
     debouncedSync();
   }, [tasks, meals, calEvents, shoppingItems, brainItems, brainCats, people, familyProfile, rhythm, stores, shopCategories, homeSystems, notifications, birthdays, aiMemory, coveData, dietaryFilters, recipes, mealBankCustom, favMeals, notifSettings, flowMode, sections]); // eslint-disable-line
 
@@ -3918,7 +3919,7 @@ Respond ONLY with valid JSON array, no markdown:
       try {
         const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
-          system:`You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
+          system:`Today is ${new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}. You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
           messages:msgs.map(m=>({role:m.role,content:m.text}))
         })});
         const d = await r.json();
@@ -4520,7 +4521,7 @@ Respond ONLY with valid JSON array, no markdown:
       try {
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:700,
-          system:`You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
+          system:`Today is ${new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}. You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data.
 
 RULES:
 1. "brain_items": Pick 2-4 items from the Clear Your Mind list that make sense TODAY. Prioritize:
@@ -7294,14 +7295,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     React.useEffect(function(){
       const pending = brainItems.filter(b=>!b.done);
-      if(pending.length>=3&&!patternMsg&&!patternLoading){
+      var _pc=null; try{_pc=JSON.parse(localStorage.getItem("af_brainPattern"));}catch(e){}
+      if(_pc&&_pc.d===new Date().toDateString()){ if(!patternMsg&&_pc.m)setPatternMsg(_pc.m); }
+      else if(pending.length>=3&&!patternMsg&&!patternLoading){
         setPatternLoading(true);
         var grouped={};
         pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
         var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
         fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
           .then(function(r){return r.json();})
-          .then(function(d){var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg)setPatternMsg(msg);})
+          .then(function(d){var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg){setPatternMsg(msg);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:msg}));}catch(e){}}})
           .catch(function(){})
           .finally(function(){setPatternLoading(false);});
       }
@@ -7450,7 +7453,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontSize:"0.68rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Compass noticed</div>
               <div style={{fontSize:"0.83rem",color:T.textDark,lineHeight:1.55}}>{patternMsg}</div>
             </div>
-            <button onClick={function(){setPatternMsg(null);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
+            <button onClick={function(){setPatternMsg(null);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:""}));}catch(e){}}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
           </div>
         )}
 

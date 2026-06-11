@@ -28,7 +28,7 @@ const MODEL_MAP = {
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS_CAP = 1500;
 const MAX_BODY_BYTES = 6 * 1024 * 1024; // allows one grocery photo (base64), blocks bulk abuse
-const RATE_LIMIT = 30;                  // requests per user
+const RATE_LIMIT = 60;                  // requests per user
 const RATE_WINDOW_MS = 10 * 60 * 1000;  // per 10 minutes
 
 // In-memory rate limiter. Per-instance only (serverless), so it's
