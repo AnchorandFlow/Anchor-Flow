@@ -49,9 +49,9 @@ TASK: Write the Sunday-evening family review: celebrate the week behind, preview
 Schema:
 {
   "headline": "one warm sentence summarizing the week",
-  "wins": [2-4 short strings — completed counts, streaks, moments logged, meals at home],
+  "wins": [2-4 short strings, EACH beginning with one fitting emoji (e.g. 🏊 for swim, 📸 for moments, 🍝 for meals — pick what fits the content) — completed counts, streaks, moments logged, meals at home],
   "slipped": [0-2 short strings — gently noted, only if clearly visible in data],
-  "next_week": [2-4 short strings — notable upcoming events, heavier-than-usual days],
+  "next_week": [2-4 short strings, EACH beginning with one fitting emoji (✈️ trips, 📝 deadlines, 🩺 appointments, 🏊 activities) — notable upcoming events, heavier-than-usual days],
   "load_note": "one sentence comparing next week's load to typical, with one practical suggestion"
 }
 
