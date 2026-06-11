@@ -16,6 +16,7 @@ export default function CompassFab() {
   const [thread, setThread] = useState([]); // {q, a, details} | {q, error}
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
+  const [hhOff] = useState(function () { return readHouseholdState().compassEnabled === false; });
 
   useEffect(function () {
     if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth" });
@@ -41,7 +42,7 @@ export default function CompassFab() {
 
   function onKey(e) { if (e.key === "Enter") send(); }
 
-  if (readHouseholdState().compassEnabled === false) return null;
+  if (hhOff) return null;
 
   var suggestions = ["What needs attention this week?", "What's for dinner this week?", "What's coming up this weekend?"];
 

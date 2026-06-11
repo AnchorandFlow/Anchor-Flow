@@ -1,4 +1,5 @@
 // src/shell/DinnerCard.jsx — tonight's dinner, fused with shopping + calendar
+import { useState } from "react";
 import { readHouseholdState, TK } from "./shellKit";
 
 function parseTime(t) {
@@ -20,7 +21,7 @@ function fmtTime(mins) {
 }
 
 export default function DinnerCard() {
-  var s = readHouseholdState();
+  const [s] = useState(readHouseholdState);
   var now = new Date();
   var todayName = now.toLocaleDateString("en-US", { weekday: "long" });
   var todayISO = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");

@@ -6,6 +6,7 @@ import CompassFab from "./shell/CompassFab";
 import DinnerCard from "./shell/DinnerCard";
 import NudgeStrip from "./shell/NudgeStrip";
 import WeeklyReviewCard from "./shell/WeeklyReviewCard";
+import PrepCard from "./shell/PrepCard";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
@@ -4675,6 +4676,7 @@ Respond ONLY in valid JSON:
         <CompassFab/>
         <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
         <DinnerCard/>
+        <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
         <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>

@@ -115,6 +115,7 @@ export function buildCompassContext(state, scope, extra) {
   };
 
   if (scope === "today") {
+    ctx.flow_mode = state.flowMode || null;
     ctx.events_today_tomorrow = eventsInWindow(state, 0, 1);
     ctx.tasks_open = asArray(state.tasks).map(slimTask).filter(function (t) { return !t.done; }).slice(0, 25);
     ctx.meals_this_week = asArray(state.meals).map(slimMeal).slice(0, 14);
@@ -205,10 +206,12 @@ export async function runCompass(mode, state, opts) {
 export async function getDailyBriefing(state, saveCache, force) {
   var cache = (state && state.compassCache) || {};
   var today = dateKey();
-  if (!force && cache.briefing && cache.briefing.date === today) return cache.briefing.data;
+  var mode = (state && state.flowMode) || "Smooth";
+  var slot = "briefing_" + mode;
+  if (!force && cache[slot] && cache[slot].date === today) return cache[slot].data;
 
   var data = await runCompass("briefing", state);
-  var next = Object.assign({}, cache, { briefing: { date: today, data: data } });
+  var next = Object.assign({}, cache, (function(){ var o = {}; o[slot] = { date: today, data: data }; return o; })());
   if (saveCache) saveCache(next);
   return data;
 }
@@ -238,6 +241,16 @@ export async function getDailyNudge(state, saveCache, force) {
   if (!force && cache.nudge && cache.nudge.date === today) return cache.nudge.data;
   var data = await runCompass("nudge", state);
   var next = Object.assign({}, cache, { nudge: { date: today, data: data } });
+  if (saveCache) saveCache(next);
+  return data;
+}
+
+export async function getPrepPlanCached(state, saveCache, event) {
+  var cache = (state && state.compassCache) || {};
+  var key = (event && (event.title || event.name || "") + "|" + (event.date || event.event_date || "")) || "";
+  if (cache.prep && cache.prep.key === key) return cache.prep.data;
+  var data = await runCompass("prep", state, { event: event });
+  var next = Object.assign({}, cache, { prep: { key: key, data: data } });
   if (saveCache) saveCache(next);
   return data;
 }

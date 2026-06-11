@@ -35,7 +35,7 @@ Schema:
   "small_win": "one optional warm observation from the data (streak, progress, nice moment) or null"
 }
 
-Pinch points are observations, not criticism. "No dinner planned tomorrow" not "You forgot dinner."`
+If FLOW MODE in the context is "Survival": the family is having a hard day. Maximum 3 today items (only the truly unmissable), empty pinch_points unless something is genuinely urgent, suggested_focus is ONE gentle thing, and small_win should be extra kind. Pinch points are observations, not criticism. "No dinner planned tomorrow" not "You forgot dinner."`
   },
 
   // ── 2. Weekly Family Review ────────────────────────────────────────────────

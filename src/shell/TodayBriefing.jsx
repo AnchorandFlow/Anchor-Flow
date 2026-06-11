@@ -20,12 +20,14 @@ export default function TodayBriefing(props) {
   const [brief, setBrief] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hhOff] = useState(function () { return readHouseholdState().compassEnabled === false; });
 
   function load(force) {
     setLoading(true);
     setError(null);
     var state = readHouseholdState();
     if (state.compassEnabled === false) { setLoading(false); return; }
+    state.flowMode = props.flowMode || "Smooth";
     state.compassCache = props.compassCache || fallbackCacheRead();
     var save = props.setCompassCache || fallbackCacheWrite;
     getDailyBriefing(state, save, force)
@@ -48,7 +50,7 @@ export default function TodayBriefing(props) {
   var labelStyle = { fontFamily: TK.sans, fontSize: ".6rem", letterSpacing: ".2em", textTransform: "uppercase", color: TK.goldLight, fontWeight: 600, marginBottom: 8 };
   var itemText = { fontFamily: TK.sans, fontSize: ".85rem", fontWeight: 400, color: "rgba(245,240,232,.92)", lineHeight: 1.45 };
 
-  if (readHouseholdState().compassEnabled === false) {
+  if (hhOff) {
     return (
       <div style={{ background: "linear-gradient(150deg,#1a2744,#0e1b2e 80%)", borderRadius: "1.5rem", padding: "1.2rem 1.4rem", marginBottom: "0.85rem", fontFamily: TK.sans }}>
         <div style={{ fontFamily: TK.serif, fontStyle: "italic", color: "rgba(245,240,232,.7)", fontSize: ".92rem" }}>

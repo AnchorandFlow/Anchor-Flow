@@ -7,6 +7,7 @@ export default function WeeklyReviewCard(props) {
   const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [hhOff] = useState(function () { return readHouseholdState().compassEnabled === false; });
 
   function load() {
     setOpen(true);
@@ -22,7 +23,7 @@ export default function WeeklyReviewCard(props) {
   var label = { fontFamily: TK.sans, fontSize: ".6rem", letterSpacing: ".18em", textTransform: "uppercase", color: TK.goldLight, fontWeight: 600, marginBottom: 6 };
   var item = { fontFamily: TK.sans, fontSize: ".8rem", color: "rgba(245,240,232,.9)", lineHeight: 1.5, padding: "2px 0" };
 
-  if (readHouseholdState().compassEnabled === false) return null;
+  if (hhOff) return null;
 
   return (
     <div style={{ background: "linear-gradient(150deg,#1a2744,#0e1b2e 80%)", borderRadius: "1.2rem", padding: "1.1rem 1.3rem", marginBottom: ".85rem", fontFamily: TK.sans }}>
