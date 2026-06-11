@@ -170,7 +170,7 @@ export async function runCompass(mode, state, opts) {
   if (!prompt) throw new Error("Unknown Compass mode: " + mode);
   if (state && state.compassEnabled === false) throw new Error("Compass is turned off in Settings.");
 
-  var scope = mode === "briefing" ? "today" : mode === "weeklyReview" ? "week" : mode === "prep" ? "prep" : "ask";
+  var scope = mode === "briefing" ? "today" : mode === "weeklyReview" ? "week" : mode === "prep" ? "prep" : mode === "nudge" ? "today" : "ask";
   var context = buildCompassContext(state, scope, opts);
 
   var userContent = "FAMILY CONTEXT:\n" + context;
@@ -230,4 +230,14 @@ export async function getPrepPlan(state, event) {
 
 export async function askFamily(state, question) {
   return runCompass("ask", state, { question: question });
+}
+
+export async function getDailyNudge(state, saveCache, force) {
+  var cache = (state && state.compassCache) || {};
+  var today = dateKey();
+  if (!force && cache.nudge && cache.nudge.date === today) return cache.nudge.data;
+  var data = await runCompass("nudge", state);
+  var next = Object.assign({}, cache, { nudge: { date: today, data: data } });
+  if (saveCache) saveCache(next);
+  return data;
 }

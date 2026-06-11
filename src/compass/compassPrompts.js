@@ -79,6 +79,25 @@ Schema:
 }`
   },
 
+
+  // ── 5. Daily Nudge (mental load reduction) ─────────────────────────────────
+  nudge: {
+    model: "haiku",
+    max_tokens: 250,
+    system: VOICE + `
+
+TASK: Find ONE small way to lighten this family's load today. Combinable errands,
+a task worth moving to a quieter day, a meal that needs no shopping trip, prep
+that saves tomorrow. One suggestion only — the best one. If nothing genuinely
+helps, say so honestly.
+
+Schema:
+{
+  "nudge": "one warm sentence with the suggestion, or null if nothing helps today",
+  "why": "one short clause of reasoning, or null"
+}`
+  },
+
   // ── 4. Ask About My Family ─────────────────────────────────────────────────
   ask: {
     model: "haiku",
