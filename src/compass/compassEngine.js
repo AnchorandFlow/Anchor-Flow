@@ -55,7 +55,14 @@ function asArray(v) { return Array.isArray(v) ? v : []; }
 // Each returns small plain objects — titles, dates, names — never whole records.
 
 function slimEvent(e) {
+  var rawDate = pick(e, ["date", "event_date", "start", "when", "day"], null);
+  var weekday = null;
+  if (rawDate) {
+    var dd = new Date(String(rawDate).indexOf("T") === -1 ? rawDate + "T00:00:00" : rawDate);
+    if (!isNaN(dd)) weekday = dd.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  }
   return {
+    weekday: weekday,
     title: pick(e, ["title", "name", "summary", "text"], "Untitled"),
     date: pick(e, ["date", "event_date", "start", "when", "day"], null),
     time: pick(e, ["time", "startTime", "start_time"], null),
