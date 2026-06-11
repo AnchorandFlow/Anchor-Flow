@@ -2778,7 +2778,6 @@ function createLocalBackup() {
   });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
-  const [openGroup,setOpenGroup] = useState("Flow");
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
   const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
   // Personal anchor items — per user, stored separately so each person has their own morning checklist
@@ -10863,6 +10862,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 
 function FlowWrapper({ onHome, onSignOut }) {
+  const [openGroup, setOpenGroup] = React.useState("Flow");
   const [, forceUpdate] = React.useReducer(x => x+1, 0);
   const [activeTab, setActiveTabLocal] = React.useState(homeFlowRef.tab || "anchor");
   const _setActiveTab = React.useCallback((t) => {
