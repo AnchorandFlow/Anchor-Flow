@@ -10886,7 +10886,7 @@ function FlowWrapper({ onHome, onSignOut }) {
   const [showAnchor, setShowAnchor] = React.useState(false)
   const [vaultSection, setVaultSection] = React.useState("home")
   const PILLARS = [
-    { id: "anchor", label: "Today", emoji: "⚓", kind: "tab" },
+    { id: "anchor", label: "Today", emoji: "🧭", kind: "tab" },
     { label: "Flow", emoji: "🌊", kind: "group", items: [
       { id: "anchor",   label: "Today's Tasks", emoji: "✅" },
       { id: "calendar", label: "Calendar",      emoji: "📆" },
