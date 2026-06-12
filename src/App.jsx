@@ -735,7 +735,7 @@ function ScrollTabs({ children, style={} }) {
 }
 
 function Icon({name,size=16,color}){
-  const s={width:size,height:size,display:"block",flexShrink:0};
+  const s={width:size,height:size,style:{display:"block",flexShrink:0}};
   const p={fill:"none",stroke:color||"currentColor",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"};
   if(name==="anchor")   return <svg {...s} viewBox="0 0 24 24" {...p}><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="22"/><path d="M5 15H2a10 10 0 0 0 20 0h-3"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
   if(name==="close")    return <svg {...s} viewBox="0 0 24 24" {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
