@@ -10863,6 +10863,13 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 function FlowWrapper({ onHome, onSignOut }) {
   const [openGroup, setOpenGroup] = React.useState("Flow");
+  const PILLAR_COLORS = {
+    "Today":   { accent: "#C7A15A", glow: "rgba(199,161,90,0.35)" },
+    "Flow":    { accent: "#8FC4CC", glow: "rgba(110,157,166,0.38)" },
+    "Anchor":  { accent: "#D9C7A8", glow: "rgba(201,183,156,0.40)" },
+    "Ripples": { accent: "#6FB5BD", glow: "rgba(62,124,132,0.40)" },
+  };
+  function pillColor(label){ return PILLAR_COLORS[label] || { accent: "#C7A15A", glow: "rgba(199,161,90,0.16)" }; }
   const [, forceUpdate] = React.useReducer(x => x+1, 0);
   const [activeTab, setActiveTabLocal] = React.useState(homeFlowRef.tab || "anchor");
   const _setActiveTab = React.useCallback((t) => {
@@ -10980,21 +10987,22 @@ function FlowWrapper({ onHome, onSignOut }) {
         ) : (
           /* ── Four-pillar accordion ── */
           PILLARS.map(function(pill){
-            function rowBtn(it, active, onClick){
-              return (<button key={(it.id||it.vault||it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? "rgba(200,169,122,0.16)" : "none", border: "none", borderLeft: active ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "13px", lineHeight: 1, opacity: active?1:0.55 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? "#c8a97a" : "rgba(200,169,122,0.55)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
+            function rowBtn(it, active, onClick, col){
+              col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
+              return (<button key={(it.id||it.vault||it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "13px", lineHeight: 1, opacity: active?1:0.55 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.55)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
             }
-            if (pill.kind === "tab") { var a = !showAnchor && activeTab === pill.id; return rowBtn(pill, a, function(){ setShowAnchor(false); _setActiveTab(pill.id); }); }
-            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault; return rowBtn(pill, av, function(){ setShowAnchor(true); setVaultSection(pill.vault); }); }
+            if (pill.kind === "tab") { var a = !showAnchor && activeTab === pill.id; return rowBtn(pill, a, function(){ setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
+            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault; return rowBtn(pill, av, function(){ setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
-            var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(isOpen?null:pill.label); }} title={pill.label} style={{ background: "none", border: "none", cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.7)", fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(isOpen?null:pill.label); }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+pillColor(pill.label).accent, cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
             if (!isOpen) return header;
             var kids = pill.items.map(function(it){
-              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault; return rowBtn(it, av2, function(){ setShowAnchor(true); setVaultSection(it.vault); }); }
+              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault; return rowBtn(it, av2, function(){ setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }
               var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
               if (hidden) return null;
-              var a2 = !showAnchor && activeTab === it.id; return rowBtn(it, a2, function(){ setShowAnchor(false); _setActiveTab(it.id); });
+              var a2 = !showAnchor && activeTab === it.id; return rowBtn(it, a2, function(){ setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label));
             });
-            return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", background: "rgba(255,255,255,0.02)", borderRadius: "8px", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
+            return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", background: pillColor(pill.label).glow, borderRadius: "8px", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
