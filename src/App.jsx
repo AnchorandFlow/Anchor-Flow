@@ -2537,6 +2537,14 @@ function createLocalBackup() {
   const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","tidepool","cove"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
+  var __roomKey = (tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
+    : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
+    : (tab==="settings") ? null : "Today";
+  var __ROOM = __roomKey ? ({
+    Today:  { tint: "rgba(199,161,90,0.10)",  accent: "#C7A15A" },
+    Flow:   { tint: "rgba(110,157,166,0.13)", accent: "#6E9DA6" },
+    Anchor: { tint: "rgba(201,183,156,0.16)", accent: "#C9A97A" },
+  })[__roomKey] : null;
   homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
@@ -10561,8 +10569,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <span style={{fontSize:"0.75rem",opacity:0.6,flexShrink:0,marginTop:2}}>✕</span>
         </div>
       )}
-      <div style={{minHeight:"100dvh",background:T.bg,paddingBottom:"5.5rem",paddingTop:"env(safe-area-inset-top,0px)",transition:"background 0.3s"}}>
-        <div style={{background:T.topBg,borderBottom:`2px solid ${T.border}`,padding:"0.75rem 1.1rem",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:100,boxShadow:`0 2px 14px ${T.cardShadow}`}}>
+      <div style={{minHeight:"100dvh",background:(__ROOM ? "linear-gradient("+__ROOM.tint+","+__ROOM.tint+"), " : "")+T.bg,paddingBottom:"5.5rem",paddingTop:"env(safe-area-inset-top,0px)",transition:"background 0.3s"}}>
+        <div style={{background:T.topBg,borderBottom:"2px solid "+(__ROOM ? __ROOM.accent+"88" : T.border),padding:"0.75rem 1.1rem",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:100,boxShadow:`0 2px 14px ${T.cardShadow}`}}>
           <div style={{display:"flex",alignItems:"center",gap:"0.65rem"}}>
             <AnchorLogo size={36} color={T.blue}/>
             <div>

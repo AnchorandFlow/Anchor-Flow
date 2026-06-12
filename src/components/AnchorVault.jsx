@@ -2106,6 +2106,21 @@ var DEFAULT_PACKING_TEMPLATES = [
     })
   },
   {
+    id: "camping", name: "Camping Trip", emoji: "🏕️", type: "trip", locked: false,
+    bagList: ["My Bag","Cosmetics","Kid 1","Kid 2","Kid 3","Gear Bin","Cooler","Kitchen Box","Backpack","Extra Bag","Snacks","Extras"],
+    bags: makeTripBags({
+      "Gear Bin": { "Shelter & sleep": ["Tent + stakes","Tarp / footprint","Sleeping bags","Sleeping pads","Pillows","Extra blankets","Camp chairs","Headlamps / flashlights","Lantern","Extra batteries"],
+                    "Fire & tools": ["Matches / lighter","Firestarter","Hatchet","Pocket knife","Paracord","Duct tape","Work gloves"] },
+      "Cooler": { "Cold food": ["Ice / ice packs","Eggs","Milk","Butter","Meat for grilling","Cheese","Drinks","Condiments"] },
+      "Kitchen Box": { "Camp kitchen": ["Camp stove + fuel","Lighter / matches","Pots + pan","Plates / bowls","Cups / mugs","Utensils","Cooking spoon + spatula","Sharp knife","Cutting board","Dish soap + sponge","Dish towels","Trash bags","Paper towels","Foil","Coffee + maker","Water jugs"] },
+      "My Bag": { "Camp extras": ["Bug spray","Sunscreen","First-aid kit","Camp soap","Quick-dry towel","Hand sanitizer","Wet wipes"] },
+      "Kid 1": { "Camp": ["Warm layers","Rain jacket","Closed-toe shoes","Flashlight","Water bottle"] },
+      "Kid 2": { "Camp": ["Warm layers","Rain jacket","Closed-toe shoes","Flashlight","Water bottle"] },
+      "Kid 3": { "Camp": ["Warm layers","Rain jacket","Extra socks","Comfort item","Water bottle"] },
+      "Extra Bag": { "Outdoor": ["Camp games","Cards","Marshmallow sticks","Outdoor blanket","Frisbee / ball","Field guide / binoculars"] }
+    })
+  },
+  {
     id: "pretodo", name: "Pre-Trip To-Do", emoji: "✅", type: "custom", locked: false,
     items: {
       "Before leaving": ["Download music / games / videos","Label luggage","Charge everything — battery pack","Back up phones","Turn on tracking","Cash"].map(function(t){return{text:t}}),
@@ -2566,7 +2581,14 @@ function PackingTemplatesPanel(props) {
   var tPair = useState(function() {
     try {
       var saved = JSON.parse(localStorage.getItem("af_packing_templates") || "null")
-      if (saved && saved.length) return saved
+      if (saved && saved.length) {
+        // merge in any new default templates the user doesn't have yet
+        var ids = saved.map(function(t){ return t.id })
+        DEFAULT_PACKING_TEMPLATES.forEach(function(d){
+          if (ids.indexOf(d.id) === -1) saved.push(JSON.parse(JSON.stringify(d)))
+        })
+        return saved
+      }
       return JSON.parse(JSON.stringify(DEFAULT_PACKING_TEMPLATES))
     } catch { return JSON.parse(JSON.stringify(DEFAULT_PACKING_TEMPLATES)) }
   })
@@ -2577,6 +2599,7 @@ function PackingTemplatesPanel(props) {
   var newItemPair = useState(""); var newItem = newItemPair[0]; var setNewItem = newItemPair[1]
   var newCatPair = useState(""); var newCat = newCatPair[0]; var setNewCat = newCatPair[1]
   var addingCatPair = useState(false); var addingCat = addingCatPair[0]; var setAddingCat = addingCatPair[1]
+  var expandedCardPair = useState(null); var expandedCard = expandedCardPair[0]; var setExpandedCard = expandedCardPair[1]
   var namingPair = useState(false); var isNaming = namingPair[0]; var setIsNaming = namingPair[1]
   var newNamePair = useState(""); var newName = newNamePair[0]; var setNewName = newNamePair[1]
   var newEmojiPair = useState("🧳"); var newEmoji = newEmojiPair[0]; var setNewEmoji = newEmojiPair[1]
@@ -2801,7 +2824,8 @@ function PackingTemplatesPanel(props) {
             {templates.map(function(t) {
               var count = countTemplate(t)
               return (
-                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.12)", borderRadius:10, cursor:"pointer" }} onClick={function(){
+                <div key={t.id} data-card={expandedCard===t.id?"open":"closed"} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid "+(expandedCard===t.id?"rgba(200,169,122,0.35)":"rgba(200,169,122,0.12)"), borderRadius:10, cursor:"pointer" }} onClick={function(){
+                  if (expandedCard !== t.id) { setExpandedCard(t.id); return; }
                   setActiveId(t.id)
                   if (t.type === "trip") { var bl=t.bagList||TRIP_BAGS; var firstBag=bl[0]; setActiveBag(firstBag); setActiveCat(Object.keys(((t.bags||{})[firstBag])||{})[0]||null) }
                   else { setActiveBag(null); setActiveCat(Object.keys(t.items||{})[0]||null) }
