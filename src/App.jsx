@@ -7,6 +7,7 @@ import DinnerCard from "./shell/DinnerCard";
 import NudgeStrip from "./shell/NudgeStrip";
 import WeeklyReviewCard from "./shell/WeeklyReviewCard";
 import PrepCard from "./shell/PrepCard";
+import SunsetClose from "./shell/SunsetClose";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
@@ -10722,7 +10723,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       {/* AI accessible from header button */}
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)}/>}
-      {showEndOfDay&&<EndOfDayReset/>}
+      {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = preferredName || (authUser && authUser.displayName ? authUser.displayName.split(" ")[0] : null); setDayClosed(closerName || true); }}/>}
       {showBriefing&&<DailyBriefingModal onClose={()=>setShowBriefing(false)}/>}
       {showSetPassword&&resetToken&&<SetPasswordModal/>
       }
