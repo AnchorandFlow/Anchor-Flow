@@ -356,15 +356,27 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // ── Claude proxy auth shim ────────────────────────────────────────────────────
 const _afFetch = window.fetch.bind(window);
-window.fetch = function(input, opts) {
-  if (typeof input === "string" && (input === "/api/claude" || input === "/api/anthropic")) {
-    input = "/api/claude";
-    opts = opts || {};
-    var tok = "";
-    try { tok = JSON.parse(localStorage.getItem("af_authToken") || "null") || ""; } catch (e) {}
-    opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + tok });
+function _afReadToken() {
+  try { return JSON.parse(localStorage.getItem("af_authToken") || "null") || ""; } catch (e) { return ""; }
+}
+window.fetch = async function(input, opts) {
+  var isClaude = typeof input === "string" && (input === "/api/claude" || input === "/api/anthropic");
+  if (!isClaude) return _afFetch(input, opts);
+  input = "/api/claude";
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + _afReadToken() });
+  var res = await _afFetch(input, opts);
+  // On 401, refresh the session token once and retry
+  if (res.status === 401 && typeof refreshAuthToken === "function") {
+    try {
+      var fresh = await refreshAuthToken();
+      if (fresh) {
+        opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + fresh });
+        res = await _afFetch(input, opts);
+      }
+    } catch (e) { /* fall through with original 401 */ }
   }
-  return _afFetch(input, opts);
+  return res;
 };
 
 
