@@ -28,13 +28,13 @@ const VAULT_INPUT_STYLE = `
     color: rgba(250,248,244,0.35) !important;
   }
   .af-vault select option {
-    background: #1a2744;
+    background: #243A5A;
     color: #faf8f4;
   }
   .af-vault input:-webkit-autofill,
   .af-vault input:-webkit-autofill:focus {
     -webkit-text-fill-color: #faf8f4 !important;
-    -webkit-box-shadow: 0 0 0px 1000px #1e3360 inset !important;
+    -webkit-box-shadow: 0 0 0px 1000px #2E486B inset !important;
     transition: background-color 5000s ease-in-out 0s;
   }
 `
@@ -605,7 +605,7 @@ function InventorySection({ onAddToShopping }) {
     <div>
       <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Inventory</div>
 
-      <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.1)", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(250,242,229,0.1)", marginBottom: 16 }}>
         {[["inventory","📦 Inventory"],["favorites","⭐ Favorites"]].map(function(pair) {
           const v = pair[0]; const l = pair[1]
           return (
@@ -626,7 +626,7 @@ function InventorySection({ onAddToShopping }) {
               <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
                 <div
                   onClick={function() { favPhotoRef.current && favPhotoRef.current.click() }}
-                  style={{ width: 72, height: 72, borderRadius: 10, border: "1.5px dashed rgba(200,169,122,0.35)", background: favForm.photo ? "transparent" : "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, overflow: "hidden", position: "relative" }}
+                  style={{ width: 72, height: 72, borderRadius: 10, border: "1.5px dashed rgba(200,169,122,0.35)", background: favForm.photo ? "transparent" : "rgba(250,242,229,0.03)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, overflow: "hidden", position: "relative" }}
                 >
                   {favForm.photo
                     ? <img src={favForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -639,11 +639,11 @@ function InventorySection({ onAddToShopping }) {
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                     {FAV_SUBCATS.filter(function(s) { return s.id !== "all" }).map(function(s) {
                       return (
-                        <button key={s.id} onClick={function() { setFavForm(function(p) { return {...p, subcat: s.id} }) }} style={{ background: favForm.subcat===s.id ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (favForm.subcat===s.id ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.08)"), borderRadius: 20, padding: "3px 9px", fontSize: 10, color: favForm.subcat===s.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: favForm.subcat===s.id ? 700 : 400 }}>{s.icon} {s.label}</button>
+                        <button key={s.id} onClick={function() { setFavForm(function(p) { return {...p, subcat: s.id} }) }} style={{ background: favForm.subcat===s.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (favForm.subcat===s.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.08)"), borderRadius: 20, padding: "3px 9px", fontSize: 10, color: favForm.subcat===s.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: favForm.subcat===s.id ? 700 : 400 }}>{s.icon} {s.label}</button>
                       )
                     })}
                   </div>
-                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
+                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
                 </div>
               </div>
 
@@ -651,25 +651,25 @@ function InventorySection({ onAddToShopping }) {
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
                 {FAV_EMOJIS.map(function(e) {
                   return (
-                    <button key={e} onClick={function() { setFavForm(function(p) { return {...p, emoji: e} }) }} style={{ background: favForm.emoji===e ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (favForm.emoji===e ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.08)"), borderRadius: 8, padding: "4px 7px", fontSize: 14, cursor: "pointer" }}>{e}</button>
+                    <button key={e} onClick={function() { setFavForm(function(p) { return {...p, emoji: e} }) }} style={{ background: favForm.emoji===e ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (favForm.emoji===e ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.08)"), borderRadius: 8, padding: "4px 7px", fontSize: 14, cursor: "pointer" }}>{e}</button>
                   )
                 })}
               </div>
 
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
-                <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
               </div>
-              <input value={favForm.notes} onChange={function(e) { setFavForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (opt)" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
-              <input value={favForm.url||""} onChange={function(e) { setFavForm(function(p) { return {...p, url: e.target.value} }) }} placeholder="Link / URL (opt) — e.g. amazon.com/…" style={{ width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <input value={favForm.notes} onChange={function(e) { setFavForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (opt)" style={{ width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <input value={favForm.url||""} onChange={function(e) { setFavForm(function(p) { return {...p, url: e.target.value} }) }} placeholder="Link / URL (opt) — e.g. amazon.com/…" style={{ width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={function() {
                   if (!favForm.name.trim()) return
                   saveFavs([...favorites, { id: Date.now().toString(), ...favForm }])
                   setFavForm({ name: "", brand: "", store: "", notes: "", url: "", emoji: "⭐", subcat: "grocery", photo: null })
                   setAddingFav(false)
-                }} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save product</button>
-                <button onClick={function() { setAddingFav(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+                }} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save product</button>
+                <button onClick={function() { setAddingFav(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
               </div>
             </div>
           ) : (
@@ -677,7 +677,7 @@ function InventorySection({ onAddToShopping }) {
           )}
 
           {/* ── Subcat filter tabs ── */}
-          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 14, overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(250,242,229,0.08)", marginBottom: 14, overflowX: "auto" }}>
             {FAV_SUBCATS.map(function(s) {
               const count = s.id === "all" ? favorites.length : favorites.filter(function(f) { return (f.subcat || "other") === s.id }).length
               if (count === 0 && s.id !== "all") return null
@@ -698,7 +698,7 @@ function InventorySection({ onAddToShopping }) {
               {favorites.filter(function(f) { return favSubcat === "all" || (f.subcat || "other") === favSubcat }).map(function(fav) {
                 const subInfo = FAV_SUBCATS.find(function(s) { return s.id === (fav.subcat || "other") }) || FAV_SUBCATS[FAV_SUBCATS.length-1]
                 return (
-                  <div key={fav.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                  <div key={fav.id} style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
                       {/* Photo or emoji column */}
                       {fav.photo ? (
@@ -714,7 +714,7 @@ function InventorySection({ onAddToShopping }) {
                             <div style={{ fontWeight: 600, fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{fav.name}</div>
                             {fav.brand && <div style={{ fontSize: 11, color: "rgba(200,169,122,0.7)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{fav.brand}</div>}
                           </div>
-                          <span style={{ fontSize: 9, color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", background: "rgba(255,255,255,0.05)", borderRadius: 10, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{subInfo.icon} {subInfo.label}</span>
+                          <span style={{ fontSize: 9, color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", background: "rgba(250,242,229,0.05)", borderRadius: 10, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{subInfo.icon} {subInfo.label}</span>
                         </div>
                         {fav.store && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>📍 {fav.store}</div>}
                         {fav.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontStyle: "italic" }}>{fav.notes}</div>}
@@ -749,7 +749,7 @@ function InventorySection({ onAddToShopping }) {
           )}
 
           {/* ── Main category tabs ── */}
-          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 16, overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(250,242,229,0.08)", marginBottom: 16, overflowX: "auto" }}>
             {CATS.map(function(cat) {
               const low = (items[cat.id] || []).filter(function(x) { return !x.stocked }).length
               return (
@@ -778,7 +778,7 @@ function InventorySection({ onAddToShopping }) {
               return (
                 <div key={sub.id} style={{ marginBottom: 6 }}>
                   {/* Subcategory header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: isCollapsed ? 10 : "10px 10px 0 0", border: "1px solid rgba(255,255,255,0.06)", borderBottom: isCollapsed ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(255,255,255,0.04)", userSelect: "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(250,242,229,0.04)", borderRadius: isCollapsed ? 10 : "10px 10px 0 0", border: "1px solid rgba(250,242,229,0.06)", borderBottom: isCollapsed ? "1px solid rgba(250,242,229,0.06)" : "1px solid rgba(250,242,229,0.04)", userSelect: "none" }}>
                     <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 14, cursor: "pointer" }}>{sub.icon}</span>
                     <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "rgba(250,248,244,0.7)", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.02em", cursor: "pointer" }}>{sub.label}</span>
                     {lowCount > 0 && <span style={{ background: "#c8834a", color: "#fff", fontSize: 8, borderRadius: 8, padding: "1px 5px", fontWeight: 700 }}>{lowCount} low</span>}
@@ -790,7 +790,7 @@ function InventorySection({ onAddToShopping }) {
 
                   {/* Subcategory items + inline add */}
                   {!isCollapsed && (
-                    <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                    <div style={{ background: "rgba(250,242,229,0.025)", border: "1px solid rgba(250,242,229,0.06)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
                       {subItems.length === 0 && !isInlineAdding && (
                         <div onClick={function() { openInlineAdd(sub.id) }} style={{ padding: "10px 14px", fontSize: 12, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif", fontStyle: "italic", cursor: "text" }}>tap to add an item…</div>
                       )}
@@ -807,14 +807,14 @@ function InventorySection({ onAddToShopping }) {
                             onDrop={function(e) { onDrop(e, idx) }}
                             onDragEnd={onDragEnd}
                             onDragLeave={function() { if (dragOverIdx === idx) setDragOverIdx(null) }}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: dragFrom.current === idx ? 0.3 : 1, cursor: "grab" }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(250,242,229,0.04)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: dragFrom.current === idx ? 0.3 : 1, cursor: "grab" }}
                           >
                             {/* Stocked checkbox */}
-                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                               {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
                             </div>
                             {editing === idx ? (
-                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(250,242,229,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
                             ) : (
                               <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
                             )}
@@ -822,7 +822,7 @@ function InventorySection({ onAddToShopping }) {
                             {editing === idx ? (
                               <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={function() { renameItem(idx) }} style={{ background: "#7a9e8e", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer" }}>save</button>
-                                <button onClick={function() { setEditing(null) }} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
+                                <button onClick={function() { setEditing(null) }} style={{ background: "rgba(250,242,229,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
                               </div>
                             ) : (
                               <div style={{ display: "flex", gap: 6 }}>
@@ -836,7 +836,7 @@ function InventorySection({ onAddToShopping }) {
 
                       {/* Inline quick-add row */}
                       {isInlineAdding && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: subItems.length > 0 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: subItems.length > 0 ? "1px solid rgba(250,242,229,0.04)" : "none" }}>
                           <input
                             autoFocus
                             value={inlineVal[inlineKey] || ""}
@@ -846,9 +846,9 @@ function InventorySection({ onAddToShopping }) {
                               if (e.key === "Escape") { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }
                             }}
                             placeholder={"Add to " + sub.label + "…"}
-                            style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                            style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
                           />
-                          <button onClick={function() { addInlineItem(sub.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                          <button onClick={function() { addInlineItem(sub.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
                           <button onClick={function() { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }} style={{ background: "none", border: "none", fontSize: 13, color: "rgba(250,248,244,0.3)", cursor: "pointer", padding: "2px" }}>✕</button>
                         </div>
                       )}
@@ -970,7 +970,7 @@ function CelebrationsSection({ calEvents }) {
   const now = new Date(); now.setHours(0,0,0,0)
   const year = now.getFullYear()
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-  const INP = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const INP = { background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
 
 
   const celebEntries = celebrations.map(function(c) {
@@ -1001,7 +1001,7 @@ function CelebrationsSection({ calEvents }) {
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
             {CELEBRATION_TYPES.map(function(t) {
               return (
-                <button key={t.id} onClick={function() { setCelebType(t.id) }} style={{ background: celebType === t.id ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (celebType === t.id ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 20, padding: "5px 11px", fontSize: 11, color: celebType === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: celebType === t.id ? 700 : 400 }}>
+                <button key={t.id} onClick={function() { setCelebType(t.id) }} style={{ background: celebType === t.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (celebType === t.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "5px 11px", fontSize: 11, color: celebType === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: celebType === t.id ? 700 : 400 }}>
                   {t.emoji} {t.label}
                 </button>
               )
@@ -1010,8 +1010,8 @@ function CelebrationsSection({ calEvents }) {
           <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
             <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
-              <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
-              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
+              <option value="" style={{ background: "#243A5A", color: "rgba(250,248,244,0.5)" }}>Month</option>
+              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#243A5A", color: "#faf8f4" }}>{m}</option> })}
             </select>
             <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
             {(celebType === "birthday" || celebType === "anniversary") && (
@@ -1020,13 +1020,13 @@ function CelebrationsSection({ calEvents }) {
           </div>
           <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 12})} />
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
-            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+            <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
+            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)", marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(250,242,229,0.08)", marginBottom: 16 }}>
         {[["upcoming","Upcoming"],["all","All"]].map(function(pair) {
           const v = pair[0]; const l = pair[1]
           return (
@@ -1049,7 +1049,7 @@ function CelebrationsSection({ calEvents }) {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                 {CELEBRATION_TYPES.map(function(t) {
                   return (
-                    <button key={t.id} onClick={function() { setEditForm(function(p) { return {...p, type: t.id} }) }} style={{ background: editForm.type === t.id ? "rgba(200,169,122,0.2)" : "rgba(255,255,255,0.04)", border: "1px solid " + (editForm.type === t.id ? "rgba(200,169,122,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 20, padding: "4px 10px", fontSize: 11, color: editForm.type === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: editForm.type === t.id ? 700 : 400 }}>
+                    <button key={t.id} onClick={function() { setEditForm(function(p) { return {...p, type: t.id} }) }} style={{ background: editForm.type === t.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (editForm.type === t.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "4px 10px", fontSize: 11, color: editForm.type === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: editForm.type === t.id ? 700 : 400 }}>
                       {t.emoji} {t.label}
                     </button>
                   )
@@ -1058,8 +1058,8 @@ function CelebrationsSection({ calEvents }) {
               <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                 <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
-                  <option value="" style={{ background: "#1a2744", color: "rgba(250,248,244,0.5)" }}>Month</option>
-                  {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#1a2744", color: "#faf8f4" }}>{m}</option> })}
+                  <option value="" style={{ background: "#243A5A", color: "rgba(250,248,244,0.5)" }}>Month</option>
+                  {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#243A5A", color: "#faf8f4" }}>{m}</option> })}
                 </select>
                 <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
                 {(editForm.type === "birthday" || editForm.type === "anniversary") && (
@@ -1068,15 +1068,15 @@ function CelebrationsSection({ calEvents }) {
               </div>
               <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 10})} />
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
-                <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+                <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
+                <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
               </div>
             </div>
           )
         }
 
         return (
-          <div key={e.id || i} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(255,255,255,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(255,255,255,0.07)"), borderRadius: 10, marginBottom: 8, opacity: isPast ? 0.5 : 1, overflow: "hidden" }}>
+          <div key={e.id || i} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 10, marginBottom: 8, opacity: isPast ? 0.5 : 1, overflow: "hidden" }}>
             {/* Main row */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" }}>
               <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
@@ -1106,12 +1106,12 @@ function CelebrationsSection({ calEvents }) {
 
             {/* Gift panel — inline, no extra navigation */}
             {isGiftOpen && (
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "10px 14px 12px" }}>
+              <div style={{ borderTop: "1px solid rgba(250,242,229,0.07)", padding: "10px 14px 12px" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(250,248,244,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, fontFamily: "DM Sans,sans-serif" }}>Gift ideas for {e.name}</div>
                 {gifts.map(function(g) {
                   return (
-                    <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <div onClick={function() { toggleGift(e.id, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.bought ? "#7a9e8e" : "rgba(255,255,255,0.2)"), background: g.bought ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                    <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(250,242,229,0.04)" }}>
+                      <div onClick={function() { toggleGift(e.id, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.bought ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.bought ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                         {g.bought && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
                       </div>
                       <span style={{ flex: 1, fontSize: 12, color: g.bought ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.8)", fontFamily: "DM Sans,sans-serif", textDecoration: g.bought ? "line-through" : "none" }}>{g.text}</span>
@@ -1127,9 +1127,9 @@ function CelebrationsSection({ calEvents }) {
                     onKeyDown={function(ev) { if (ev.key === "Enter") addGift(e.id) }}
                     placeholder="Add a gift idea…"
                     autoFocus={isGiftOpen}
-                    style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 7, padding: "7px 10px", fontSize: 12, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                    style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 7, padding: "7px 10px", fontSize: 12, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
                   />
-                  <button onClick={function() { addGift(e.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "7px 13px", fontSize: 12, color: "#1a2744", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  <button onClick={function() { addGift(e.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "7px 13px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
                 </div>
               </div>
             )}
@@ -1278,10 +1278,10 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
   const currentOccasion = currentPerson && currentPerson.occasions && currentPerson.occasions.find(function(o){return o.id===activeOccasion})
 
   const gS = {
-    card:{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, padding:"12px 14px", marginBottom:10 },
-    inp:{ width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#faf8f4", WebkitTextFillColor:"#faf8f4", caretColor:"#c8a97a", fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" },
-    btn:{ background:"#c8a97a", border:"none", borderRadius:8, padding:"8px 14px", fontSize:12, color:"#1a2744", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 },
-    ghost:{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:12, color:"rgba(250,248,244,0.5)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" },
+    card:{ background:"rgba(250,242,229,0.04)", border:"1px solid rgba(250,242,229,0.08)", borderRadius:10, padding:"12px 14px", marginBottom:10 },
+    inp:{ width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#faf8f4", WebkitTextFillColor:"#faf8f4", caretColor:"#c8a97a", fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" },
+    btn:{ background:"#c8a97a", border:"none", borderRadius:8, padding:"8px 14px", fontSize:12, color:"#243A5A", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 },
+    ghost:{ background:"rgba(250,242,229,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:12, color:"rgba(250,248,244,0.5)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" },
   }
 
   if (activeOccasion && currentPerson && currentOccasion) {
@@ -1299,10 +1299,10 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
           {giftList.length===0&&<div style={{padding:14,fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}}>No gift ideas yet</div>}
           {giftList.map(function(g){
             return (
-              <div key={g.id} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+              <div key={g.id} style={{borderBottom:"1px solid rgba(250,242,229,0.05)"}}>
                 <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px"}}>
-                  {g.photo&&<img src={g.photo} alt="" style={{width:44,height:44,borderRadius:6,objectFit:"cover",flexShrink:0,border:"1px solid rgba(255,255,255,0.1)"}}/>}
-                  <div onClick={function(){toggleBought(currentPerson.id,currentOccasion.id,g.id)}} style={{width:20,height:20,borderRadius:5,border:"1.5px solid "+(g.bought?"#7a9e8e":"rgba(255,255,255,0.2)"),background:g.bought?"#7a9e8e":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer",marginTop:2}}>
+                  {g.photo&&<img src={g.photo} alt="" style={{width:44,height:44,borderRadius:6,objectFit:"cover",flexShrink:0,border:"1px solid rgba(250,242,229,0.1)"}}/>}
+                  <div onClick={function(){toggleBought(currentPerson.id,currentOccasion.id,g.id)}} style={{width:20,height:20,borderRadius:5,border:"1.5px solid "+(g.bought?"#7a9e8e":"rgba(250,242,229,0.2)"),background:g.bought?"#7a9e8e":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer",marginTop:2}}>
                     {g.bought&&<span style={{color:"#fff",fontSize:11}}>✓</span>}
                   </div>
                   {editingGift===g.id?(
@@ -1313,7 +1313,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
                       </div>
                       <input value={editGiftVal.url||""} onChange={function(e){setEditGiftVal(function(v){return{...v,url:e.target.value}})}} placeholder="Link (optional)" style={{...gS.inp,marginBottom:6,padding:"4px 8px"}}/>
                       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
-                        <label style={{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:6,padding:"4px 10px"}}>
+                        <label style={{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(250,242,229,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:6,padding:"4px 10px"}}>
                           📷 {editGiftVal.photo?"Change photo":"Add photo"}
                           <input type="file" accept="image/*" style={{display:"none"}} onChange={function(e){
                             var file=e.target.files[0]; if(!file)return
@@ -1335,7 +1335,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
                         <div style={{fontSize:13,color:g.bought?"rgba(250,248,244,0.4)":"rgba(250,248,244,0.85)",fontFamily:"DM Sans,sans-serif",textDecoration:g.bought?"line-through":"none",wordBreak:"break-word"}}>{g.item}</div>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginTop:3,flexWrap:"wrap"}}>
                           {g.cost&&<span style={{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}}>${g.cost.toFixed(2)}</span>}
-                          {g.url&&safeUrl(g.url)&&<a href={safeUrl(g.url)} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#6ba3c4",textDecoration:"none",display:"flex",alignItems:"center",gap:2}}>🔗 <span style={{textDecoration:"underline",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"inline-block",verticalAlign:"middle"}}>{g.url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</span></a>}
+                          {g.url&&safeUrl(g.url)&&<a href={safeUrl(g.url)} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"flex",alignItems:"center",gap:2}}>🔗 <span style={{textDecoration:"underline",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"inline-block",verticalAlign:"middle"}}>{g.url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</span></a>}
                         </div>
                       </div>
                       <div style={{display:"flex",gap:4,flexShrink:0}}>
@@ -1357,7 +1357,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
             </div>
             <input value={newGift.url} onChange={function(e){setNewGift(function(v){return{...v,url:e.target.value}})}} placeholder="Link / URL (optional)" style={{...gS.inp,marginBottom:8}}/>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <label style={{fontSize:12,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:7,padding:"7px 14px",display:"flex",alignItems:"center",gap:6}}>
+              <label style={{fontSize:12,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(250,242,229,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:7,padding:"7px 14px",display:"flex",alignItems:"center",gap:6}}>
                 📷 {newGift.photo?"Photo added ✓":"Add photo"}
                 <input type="file" accept="image/*" style={{display:"none"}} onChange={function(e){
                   var file=e.target.files[0]; if(!file)return
@@ -1454,7 +1454,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
           )
         })}
       </div>
-      <div style={{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",marginBottom:16}}>
+      <div style={{display:"flex",borderBottom:"0.5px solid rgba(250,242,229,0.08)",marginBottom:16}}>
         {["upcoming","people"].map(function(t){
           return (
             <div key={t} onClick={function(){setView(t)}} style={{padding:"7px 14px",fontSize:11,cursor:"pointer",borderBottom:view===t?"2px solid #c8a97a":"2px solid transparent",color:view===t?"#c8a97a":"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",textTransform:"capitalize"}}>
@@ -1514,7 +1514,7 @@ function GiftsSection({ people, celebrations, isPremium, calEvents }) {
               </div>
             </div>
           ):(
-            <button onClick={function(){if(!atLimit)setAddingPerson(true)}} style={{width:"100%",padding:10,background:atLimit?"rgba(255,255,255,0.03)":"rgba(200,169,122,0.08)",border:"1px solid "+(atLimit?"rgba(255,255,255,0.08)":"rgba(200,169,122,0.2)"),borderRadius:8,fontSize:12,color:atLimit?"rgba(250,248,244,0.25)":"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:atLimit?"default":"pointer"}}>
+            <button onClick={function(){if(!atLimit)setAddingPerson(true)}} style={{width:"100%",padding:10,background:atLimit?"rgba(250,242,229,0.03)":"rgba(200,169,122,0.08)",border:"1px solid "+(atLimit?"rgba(250,242,229,0.08)":"rgba(200,169,122,0.2)"),borderRadius:8,fontSize:12,color:atLimit?"rgba(250,248,244,0.25)":"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:atLimit?"default":"pointer"}}>
               {atLimit?"Free limit reached — upgrade for more":"+ Add person"}
             </button>
           )}
@@ -1584,7 +1584,7 @@ function PetsSection() {
     try {
       var events = JSON.parse(localStorage.getItem("af_calEvents") || "[]")
       if (!events.some(function(e) { return e.id === calId })) {
-        events.push({ id: calId, title: title, date: dateStr, color: color || "#6ba3c4", notes: "Added from Pets" })
+        events.push({ id: calId, title: title, date: dateStr, color: color || "#7EAEB4", notes: "Added from Pets" })
         localStorage.setItem("af_calEvents", JSON.stringify(events))
       }
     } catch {}
@@ -1595,7 +1595,7 @@ function PetsSection() {
     const v = { id: Date.now().toString(), ...vaccineForm }
     updatePet(petId, { vaccines: [...(activePet.vaccines||[]), v] })
     if (vaccineForm.addToCalendar && vaccineForm.due) {
-      petInjectCalendar("💉 " + activePet.name + " – " + vaccineForm.name + " due", vaccineForm.due, "petvax_" + v.id, "#6ba3c4")
+      petInjectCalendar("💉 " + activePet.name + " – " + vaccineForm.name + " due", vaccineForm.due, "petvax_" + v.id, "#7EAEB4")
     }
     setVaccineForm({ name: "Rabies", date: "", due: "", vet: "", notes: "", addToCalendar: false })
     setAddingVaccine(false)
@@ -1681,9 +1681,9 @@ function PetsSection() {
     return Math.round((d - now) / 86400000)
   }
 
-  const navy = "#1a2744"; const sand = "#c8a97a"; const warm = "#faf8f4"
-  const muted = "rgba(250,248,244,0.42)"; const border = "rgba(255,255,255,0.08)"; const cardBg = "rgba(255,255,255,0.04)"
-  const inputStyle = { width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: warm, fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const navy = "#243A5A"; const sand = "#c8a97a"; const warm = "#faf8f4"
+  const muted = "rgba(250,248,244,0.42)"; const border = "rgba(250,242,229,0.08)"; const cardBg = "rgba(250,242,229,0.04)"
+  const inputStyle = { width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: warm, fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
   const labelStyle = { fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginBottom: 4, display: "block" }
 
   if (!activePet) return (
@@ -1743,7 +1743,7 @@ function PetsSection() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addPet} style={{ flex: 1, background: sand, border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add pet</button>
-            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: muted, cursor: "pointer" }}>Cancel</button>
+            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: muted, cursor: "pointer" }}>Cancel</button>
           </div>
         </div>
       ) : (
@@ -1843,14 +1843,14 @@ function PetsSection() {
               </div>
             </div>
             {vaccineForm.due && (
-              <div onClick={function() { setVaccineForm(function(p){return{...p,addToCalendar:!p.addToCalendar}}) }} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "rgba(106,163,196,0.08)", borderRadius: 8, border: "0.5px solid rgba(106,163,196,0.2)", cursor: "pointer" }}>
-                <div style={{ width: 14, height: 14, borderRadius: 3, border: "1.5px solid rgba(106,163,196,0.5)", background: vaccineForm.addToCalendar ? "rgba(106,163,196,0.4)" : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#6ba3c4" }}>{vaccineForm.addToCalendar ? "✓" : ""}</div>
-                <span style={{ fontSize: 11, color: "rgba(106,163,196,0.9)", fontFamily: "DM Sans,sans-serif" }}>Add due date to calendar</span>
+              <div onClick={function() { setVaccineForm(function(p){return{...p,addToCalendar:!p.addToCalendar}}) }} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, padding: "6px 10px", background: "rgba(126,174,180,0.08)", borderRadius: 8, border: "0.5px solid rgba(126,174,180,0.2)", cursor: "pointer" }}>
+                <div style={{ width: 14, height: 14, borderRadius: 3, border: "1.5px solid rgba(126,174,180,0.5)", background: vaccineForm.addToCalendar ? "rgba(126,174,180,0.4)" : "transparent", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#7EAEB4" }}>{vaccineForm.addToCalendar ? "✓" : ""}</div>
+                <span style={{ fontSize: 11, color: "rgba(126,174,180,0.9)", fontFamily: "DM Sans,sans-serif" }}>Add due date to calendar</span>
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={function() { addVaccine(activePet.id) }} style={{ flex: 1, background: sand, border: "none", borderRadius: 7, padding: "7px", fontSize: 12, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save</button>
-              <button onClick={function() { setAddingVaccine(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
+              <button onClick={function() { setAddingVaccine(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         )}
@@ -1904,7 +1904,7 @@ function PetsSection() {
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={function() { addMed(activePet.id) }} style={{ flex: 1, background: sand, border: "none", borderRadius: 7, padding: "7px", fontSize: 12, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save</button>
-              <button onClick={function() { setAddingMed(false) }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
+              <button onClick={function() { setAddingMed(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         )}
@@ -1919,8 +1919,8 @@ function PetsSection() {
                 <div style={{ fontSize: 11, color: muted, fontFamily: "DM Sans,sans-serif" }}>{m.dose}{m.freq ? " · " + m.freq : ""}{m.notes ? " · " + m.notes : ""}</div>
                 {m.contact && (function(){
                   var c=m.contact; var isPhone=/^[\d\s\-\+\(\)]{7,}$/.test(c.trim()); var safe=safeUrl(c);
-                  if(safe) return <a href={safe} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#6ba3c4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:2}}>🔗 Order</a>;
-                  if(isPhone) return <a href={"tel:"+c.replace(/\s/g,"")} style={{fontSize:11,color:"#6ba3c4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:2}}>📞 {c}</a>;
+                  if(safe) return <a href={safe} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:2}}>🔗 Order</a>;
+                  if(isPhone) return <a href={"tel:"+c.replace(/\s/g,"")} style={{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:2}}>📞 {c}</a>;
                   return <span style={{fontSize:11,color:muted,display:"block",marginTop:2}}>{c}</span>;
                 })()}
               </div>
@@ -2157,7 +2157,7 @@ function ExpandedPackingModal(props) {
   // packed section collapse
   var packedCollapsedPair = useState(true); var packedCollapsed = packedCollapsedPair[0]; var setPackedCollapsed = packedCollapsedPair[1]
 
-  var inputSt = { background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 11px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", flex:1 }
+  var inputSt = { background:"rgba(250,242,229,0.08)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:7, padding:"7px 11px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", flex:1 }
 
   function getBagList() {
     if (t.type !== "trip") return []
@@ -2347,12 +2347,12 @@ function ExpandedPackingModal(props) {
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"#0d1624", zIndex:9999, overflowY:"auto" }}>
 
       {/* ── Sticky header ── */}
-      <div style={{ position:"sticky", top:0, background:"rgba(13,22,36,0.97)", backdropFilter:"blur(8px)", borderBottom:"1px solid rgba(255,255,255,0.08)", padding:"13px 18px", display:"flex", alignItems:"center", gap:10, zIndex:10 }}>
+      <div style={{ position:"sticky", top:0, background:"rgba(13,22,36,0.97)", backdropFilter:"blur(8px)", borderBottom:"1px solid rgba(250,242,229,0.08)", padding:"13px 18px", display:"flex", alignItems:"center", gap:10, zIndex:10 }}>
         <span style={{ fontSize:22 }}>{t.emoji||"🧳"}</span>
         <div style={{ flex:1, minWidth:0 }}>
           {editingName ? (
             <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <input value={editNameVal} onChange={function(e){setEditNameVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveTemplateName(); if(e.key==="Escape") setEditingName(false) }} style={{ background:"rgba(255,255,255,0.1)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:6, padding:"4px 9px", fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", minWidth:180 }} autoFocus/>
+              <input value={editNameVal} onChange={function(e){setEditNameVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveTemplateName(); if(e.key==="Escape") setEditingName(false) }} style={{ background:"rgba(250,242,229,0.1)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:6, padding:"4px 9px", fontSize:15, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", minWidth:180 }} autoFocus/>
               <button onClick={saveTemplateName} style={{ background:coastal, border:"none", borderRadius:6, padding:"4px 10px", fontSize:12, color:"#fff", cursor:"pointer", fontWeight:600 }}>Save</button>
               <button onClick={function(){ setEditingName(false) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:12 }}>✕</button>
             </div>
@@ -2365,14 +2365,14 @@ function ExpandedPackingModal(props) {
           <div style={{ fontSize:11, color:muted, fontFamily:"DM Sans,sans-serif" }}>{doneCount}/{totalCount} packed &nbsp;•&nbsp; {pct}%</div>
         </div>
         {t.type==="trip" && (
-          <button onClick={function(){ setShowBagMgr(function(v){ return !v }) }} style={{ background:showBagMgr?"rgba(200,169,122,0.2)":"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"7px 11px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0 }}>🎒 Bags</button>
+          <button onClick={function(){ setShowBagMgr(function(v){ return !v }) }} style={{ background:showBagMgr?"rgba(200,169,122,0.2)":"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"7px 11px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0 }}>🎒 Bags</button>
         )}
         <button onClick={function(){ printTemplate(t) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>🖨 Print</button>
-        <button onClick={onClose} style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"7px 12px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0 }}>✕ Close</button>
+        <button onClick={onClose} style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.1)", borderRadius:8, padding:"7px 12px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", cursor:"pointer", flexShrink:0 }}>✕ Close</button>
       </div>
 
       {/* ── Progress bar ── */}
-      <div style={{ height:4, background:"rgba(255,255,255,0.06)" }}>
+      <div style={{ height:4, background:"rgba(250,242,229,0.06)" }}>
         <div style={{ height:4, width:pct+"%", background:"linear-gradient(90deg,#5dcaa5,"+coastal+")", transition:"width 0.35s" }}/>
       </div>
 
@@ -2384,10 +2384,10 @@ function ExpandedPackingModal(props) {
             {getBagList().map(function(bag) {
               var inTemplate = (t.bags||{})[bag] !== undefined
               return (
-                <div key={bag} style={{ display:"flex", alignItems:"center", gap:4, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"4px 8px" }}>
+                <div key={bag} style={{ display:"flex", alignItems:"center", gap:4, background:"rgba(250,242,229,0.04)", border:"1px solid rgba(250,242,229,0.1)", borderRadius:8, padding:"4px 8px" }}>
                   {editingBag===bag ? (
                     <>
-                      <input value={editBagVal} onChange={function(e){setEditBagVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") renameBag(bag,editBagVal); if(e.key==="Escape"){setEditingBag(null);setEditBagVal("")} }} style={{ width:90, background:"rgba(255,255,255,0.1)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:5, padding:"3px 6px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
+                      <input value={editBagVal} onChange={function(e){setEditBagVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") renameBag(bag,editBagVal); if(e.key==="Escape"){setEditingBag(null);setEditBagVal("")} }} style={{ width:90, background:"rgba(250,242,229,0.1)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:5, padding:"3px 6px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
                       <button onClick={function(){ renameBag(bag,editBagVal) }} style={{ background:coastal, border:"none", borderRadius:4, padding:"2px 7px", fontSize:11, color:"#fff", cursor:"pointer" }}>Save</button>
                       <button onClick={function(){setEditingBag(null);setEditBagVal("")}} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:11 }}>✕</button>
                     </>
@@ -2405,7 +2405,7 @@ function ExpandedPackingModal(props) {
             })}
           </div>
           <div style={{ display:"flex", gap:6 }}>
-            <input value={newBagName} onChange={function(e){setNewBagName(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") addBag() }} placeholder="New bag name…" style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"6px 10px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
+            <input value={newBagName} onChange={function(e){setNewBagName(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") addBag() }} placeholder="New bag name…" style={{ flex:1, background:"rgba(250,242,229,0.07)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"6px 10px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }}/>
             <button onClick={addBag} style={{ background:sand, border:"none", borderRadius:7, padding:"6px 14px", fontSize:12, color:navy, cursor:"pointer", fontWeight:700 }}>+ Add Bag</button>
           </div>
         </div>
@@ -2428,7 +2428,7 @@ function ExpandedPackingModal(props) {
           var bagTotal = bagUnpacked.length + bagPacked.length
           var bagDone = bagPacked.length
           return (
-            <div key={bag} style={{ marginBottom:14, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+            <div key={bag} style={{ marginBottom:14, background:"rgba(250,242,229,0.025)", border:"1px solid rgba(250,242,229,0.07)", borderRadius:12, overflow:"hidden" }}>
 
               {/* Bag header */}
               <div onClick={function(){ toggleCollapse(bagKey) }} style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", cursor:"pointer", userSelect:"none" }}>
@@ -2453,13 +2453,13 @@ function ExpandedPackingModal(props) {
                     var packed = items.filter(function(i){ return i.done })
                     var catDone = packed.length
                     return (
-                      <div key={cat} style={{ marginBottom:10, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:9 }}>
+                      <div key={cat} style={{ marginBottom:10, background:"rgba(250,242,229,0.03)", border:"1px solid rgba(250,242,229,0.06)", borderRadius:9 }}>
 
                         {/* Category header */}
                         <div style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 12px", cursor:"pointer" }} onClick={function(){ if(!editingCat) toggleCollapse(catKey) }}>
                           <span style={{ fontSize:11, color:muted, display:"inline-block", transform:catCollapsed?"rotate(-90deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▾</span>
                           {editingCat && editingCat.bag===bag && editingCat.cat===cat ? (
-                            <input value={editCatVal} onChange={function(e){setEditCatVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") renameCategory(bag,cat,editCatVal); if(e.key==="Escape"){setEditingCat(null);setEditCatVal("")} }} onClick={function(e){e.stopPropagation()}} style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, color:sand, fontFamily:"DM Sans,sans-serif", outline:"none", letterSpacing:"0.07em", textTransform:"uppercase" }} autoFocus/>
+                            <input value={editCatVal} onChange={function(e){setEditCatVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") renameCategory(bag,cat,editCatVal); if(e.key==="Escape"){setEditingCat(null);setEditCatVal("")} }} onClick={function(e){e.stopPropagation()}} style={{ flex:1, background:"rgba(250,242,229,0.08)", border:"1px solid rgba(200,169,122,0.4)", borderRadius:6, padding:"4px 8px", fontSize:12, fontWeight:700, color:sand, fontFamily:"DM Sans,sans-serif", outline:"none", letterSpacing:"0.07em", textTransform:"uppercase" }} autoFocus/>
                           ) : (
                             <span onClick={function(e){ e.stopPropagation(); setEditingCat({bag:bag,cat:cat}); setEditCatVal(cat); setCollapsed(function(prev){ var n=Object.assign({},prev); n[catKey]=false; return n }) }} style={{ flex:1, fontSize:12, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", color:sand, fontFamily:"DM Sans,sans-serif", cursor:"text" }} title="Tap to rename">{cat}</span>
                           )}
@@ -2479,7 +2479,7 @@ function ExpandedPackingModal(props) {
                               var i = items.indexOf(item)
                               var isEditing = editing && editing.bag===bag && editing.cat===cat && editing.idx===i
                               return (
-                                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:7, background:"transparent", border:"1px solid rgba(255,255,255,0.05)", marginBottom:3 }}>
+                                <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:7, background:"transparent", border:"1px solid rgba(250,242,229,0.05)", marginBottom:3 }}>
                                   {/* Checkbox */}
                                   <div onClick={function(){ if(!isEditing) toggleItem(bag, cat, i) }} style={{ width:20, height:20, borderRadius:4, border:"1.5px solid rgba(250,248,244,0.22)", background:"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}/>
                                   {/* Text or edit input */}
@@ -2497,7 +2497,7 @@ function ExpandedPackingModal(props) {
                                       style={{ background:"rgba(107,163,196,0.1)", border:"1px solid rgba(107,163,196,0.25)", borderRadius:6, padding:"3px 6px", fontSize:11, color:coastal, fontFamily:"DM Sans,sans-serif", cursor:"pointer", outline:"none", maxWidth:90, overflow:"hidden", textOverflow:"ellipsis" }}
                                       title="Move to bag"
                                     >
-                                      {allBagsForMove.map(function(b){ return <option key={b} value={b} style={{ background:"#1a2744", color:warm }}>{b}</option> })}
+                                      {allBagsForMove.map(function(b){ return <option key={b} value={b} style={{ background:"#243A5A", color:warm }}>{b}</option> })}
                                     </select>
                                   )}
                                   {/* Edit save / delete */}
@@ -2537,7 +2537,7 @@ function ExpandedPackingModal(props) {
                               <div style={{ display:"flex", gap:6, marginTop:6 }}>
                                 <input value={addVal} onChange={function(e){setAddVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter"){saveAddItem(bag,cat);} if(e.key==="Escape"){setAdding(null);setAddVal("")} }} placeholder={"Add item to "+cat+"…"} style={inputSt} autoFocus/>
                                 <button onClick={function(){ saveAddItem(bag,cat) }} style={{ background:coastal, border:"none", borderRadius:7, padding:"7px 12px", fontSize:12, color:"#fff", cursor:"pointer", fontWeight:600 }}>Add</button>
-                                <button onClick={function(){ setAdding(null); setAddVal("") }} style={{ background:"rgba(255,255,255,0.05)", border:"none", borderRadius:7, padding:"7px 10px", fontSize:12, color:muted, cursor:"pointer" }}>✕</button>
+                                <button onClick={function(){ setAdding(null); setAddVal("") }} style={{ background:"rgba(250,242,229,0.05)", border:"none", borderRadius:7, padding:"7px 10px", fontSize:12, color:muted, cursor:"pointer" }}>✕</button>
                               </div>
                             ) : (
                               <button onClick={function(){ setAdding({bag:bag,cat:cat}); setAddVal("") }} style={{ marginTop:6, background:"none", border:"1px dashed rgba(200,169,122,0.15)", borderRadius:6, padding:"5px 10px", fontSize:11, color:"rgba(200,169,122,0.4)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", width:"100%" }}>+ add item</button>
@@ -2553,7 +2553,7 @@ function ExpandedPackingModal(props) {
                     <div style={{ display:"flex", gap:6, marginTop:6 }}>
                       <input value={addCatVal} onChange={function(e){setAddCatVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveAddCat(bag); if(e.key==="Escape"){setAddingCat(null);setAddCatVal("")} }} placeholder="New category name…" style={inputSt} autoFocus/>
                       <button onClick={function(){ saveAddCat(bag) }} style={{ background:sand, border:"none", borderRadius:7, padding:"7px 12px", fontSize:12, color:navy, cursor:"pointer", fontWeight:700 }}>Add</button>
-                      <button onClick={function(){setAddingCat(null);setAddCatVal("")}} style={{ background:"rgba(255,255,255,0.05)", border:"none", borderRadius:7, padding:"7px 10px", fontSize:12, color:muted, cursor:"pointer" }}>✕</button>
+                      <button onClick={function(){setAddingCat(null);setAddCatVal("")}} style={{ background:"rgba(250,242,229,0.05)", border:"none", borderRadius:7, padding:"7px 10px", fontSize:12, color:muted, cursor:"pointer" }}>✕</button>
                     </div>
                   ) : (
                     <button onClick={function(){ setAddingCat(bag) }} style={{ marginTop:4, width:"100%", background:"rgba(200,169,122,0.04)", border:"1px dashed rgba(200,169,122,0.15)", borderRadius:8, padding:"7px", fontSize:11, color:"rgba(200,169,122,0.4)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>+ add category</button>
@@ -2566,7 +2566,7 @@ function ExpandedPackingModal(props) {
 
         {doneCount > 0 && (
           <div style={{ textAlign:"center", marginTop:20 }}>
-            <button onClick={uncheckAll} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"10px 24px", fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>Uncheck all items</button>
+            <button onClick={uncheckAll} style={{ background:"rgba(250,242,229,0.05)", border:"1px solid rgba(250,242,229,0.1)", borderRadius:10, padding:"10px 24px", fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", cursor:"pointer" }}>Uncheck all items</button>
           </div>
         )}
       </div>
@@ -2576,7 +2576,7 @@ function ExpandedPackingModal(props) {
 
 function PackingTemplatesPanel(props) {
   var sand=props.sand; var navy=props.navy; var warm=props.warm; var muted=props.muted; var border=props.border; var cardBg=props.cardBg; var coastal=props.coastal
-  var inputStyle = { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
+  var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
 
   var tPair = useState(function() {
     try {
@@ -2721,8 +2721,8 @@ function PackingTemplatesPanel(props) {
     var lines = []
     lines.push("<html><head><title>" + t.name + " — Packing List</title>")
     lines.push("<style>")
-    lines.push("body{font-family:'DM Sans',Arial,sans-serif;margin:0;padding:32px;color:#1a2744;max-width:900px;margin:0 auto;}")
-    lines.push("h1{font-size:22px;margin:0 0 4px;color:#1a2744;}h2{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#3a6b8a;margin:18px 0 8px;border-bottom:1px solid #e0d8cc;padding-bottom:4px;}")
+    lines.push("body{font-family:'DM Sans',Arial,sans-serif;margin:0;padding:32px;color:#243A5A;max-width:900px;margin:0 auto;}")
+    lines.push("h1{font-size:22px;margin:0 0 4px;color:#243A5A;}h2{font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#3a6b8a;margin:18px 0 8px;border-bottom:1px solid #e0d8cc;padding-bottom:4px;}")
     lines.push("h3{font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#888;margin:14px 0 6px;}")
     lines.push(".meta{font-size:12px;color:#888;margin-bottom:24px;}")
     lines.push(".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:16px;}")
@@ -2824,7 +2824,7 @@ function PackingTemplatesPanel(props) {
             {templates.map(function(t) {
               var count = countTemplate(t)
               return (
-                <div key={t.id} data-card={expandedCard===t.id?"open":"closed"} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid "+(expandedCard===t.id?"rgba(200,169,122,0.35)":"rgba(200,169,122,0.12)"), borderRadius:10, cursor:"pointer" }} onClick={function(){
+                <div key={t.id} data-card={expandedCard===t.id?"open":"closed"} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:"rgba(250,242,229,0.03)", border:"1px solid "+(expandedCard===t.id?"rgba(200,169,122,0.35)":"rgba(200,169,122,0.12)"), borderRadius:10, cursor:"pointer" }} onClick={function(){
                   if (expandedCard !== t.id) { setExpandedCard(t.id); return; }
                   setActiveId(t.id)
                   if (t.type === "trip") { var bl=t.bagList||TRIP_BAGS; var firstBag=bl[0]; setActiveBag(firstBag); setActiveCat(Object.keys(((t.bags||{})[firstBag])||{})[0]||null) }
@@ -2854,12 +2854,12 @@ function PackingTemplatesPanel(props) {
                 <input value={newName} onChange={function(e){setNewName(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter") createNew()}} placeholder="Template name…" style={Object.assign({},inputStyle,{flex:1})}/>
               </div>
               <div style={{ display:"flex", gap:6, marginBottom:10 }}>
-                <button onClick={function(){setNewType("trip")}} style={Object.assign({},btnSm(newType==="trip"?coastal:"rgba(255,255,255,0.05)", newType==="trip"?"#fff":muted),{flex:1,padding:"7px"})}>✈️ Trip (per-bag lists)</button>
-                <button onClick={function(){setNewType("custom")}} style={Object.assign({},btnSm(newType==="custom"?coastal:"rgba(255,255,255,0.05)", newType==="custom"?"#fff":muted),{flex:1,padding:"7px"})}>📋 Custom (categories)</button>
+                <button onClick={function(){setNewType("trip")}} style={Object.assign({},btnSm(newType==="trip"?coastal:"rgba(250,242,229,0.05)", newType==="trip"?"#fff":muted),{flex:1,padding:"7px"})}>✈️ Trip (per-bag lists)</button>
+                <button onClick={function(){setNewType("custom")}} style={Object.assign({},btnSm(newType==="custom"?coastal:"rgba(250,242,229,0.05)", newType==="custom"?"#fff":muted),{flex:1,padding:"7px"})}>📋 Custom (categories)</button>
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={createNew} style={{ flex:1, background:sand, border:"none", borderRadius:8, padding:"8px", fontSize:13, color:navy, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:700 }}>Create</button>
-                <button onClick={function(){setIsNaming(false)}} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:13, color:muted, cursor:"pointer" }}>Cancel</button>
+                <button onClick={function(){setIsNaming(false)}} style={{ background:"rgba(250,242,229,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:13, color:muted, cursor:"pointer" }}>Cancel</button>
               </div>
             </div>
           ) : (
@@ -2877,7 +2877,7 @@ function PackingTemplatesPanel(props) {
               <span style={{ fontSize:18 }}>{activeTemplate.emoji||"🧳"}</span>
               {editingName ? (
                 <div style={{ display:"flex", alignItems:"center", gap:5, flex:1 }}>
-                  <input value={editNameVal} onChange={function(e){setEditNameVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveTemplateName(); if(e.key==="Escape") setEditingName(false) }} style={{ flex:1, background:"rgba(255,255,255,0.08)", border:"1px solid rgba(200,169,122,0.35)", borderRadius:6, padding:"4px 8px", fontSize:14, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
+                  <input value={editNameVal} onChange={function(e){setEditNameVal(e.target.value)}} onKeyDown={function(e){ if(e.key==="Enter") saveTemplateName(); if(e.key==="Escape") setEditingName(false) }} style={{ flex:1, background:"rgba(250,242,229,0.08)", border:"1px solid rgba(200,169,122,0.35)", borderRadius:6, padding:"4px 8px", fontSize:14, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
                   <button onClick={saveTemplateName} style={{ background:coastal, border:"none", borderRadius:5, padding:"4px 9px", fontSize:11, color:"#fff", cursor:"pointer", fontWeight:600 }}>Save</button>
                   <button onClick={function(){ setEditingName(false) }} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:12 }}>✕</button>
                 </div>
@@ -2904,7 +2904,7 @@ function PackingTemplatesPanel(props) {
                   <button key={bag} onClick={function(){
                     setActiveBag(bag)
                     setActiveCat(Object.keys(bagData)[0]||null)
-                  }} style={{ background:activeBag===bag?"rgba(107,163,196,0.15)":"rgba(255,255,255,0.03)", border:"1px solid "+(activeBag===bag?coastal:"rgba(255,255,255,0.08)"), borderRadius:8, padding:"5px 10px", fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight:activeBag===bag?700:400, color:activeBag===bag?coastal:muted, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
+                  }} style={{ background:activeBag===bag?"rgba(107,163,196,0.15)":"rgba(250,242,229,0.03)", border:"1px solid "+(activeBag===bag?coastal:"rgba(250,242,229,0.08)"), borderRadius:8, padding:"5px 10px", fontSize:11, fontFamily:"DM Sans,sans-serif", fontWeight:activeBag===bag?700:400, color:activeBag===bag?coastal:muted, cursor:"pointer", whiteSpace:"nowrap", flexShrink:0 }}>
                     {bag} {cnt>0?"("+cnt+")":""}
                   </button>
                 )
@@ -2931,7 +2931,7 @@ function PackingTemplatesPanel(props) {
             })}
             {addingCat ? (
               <div style={{ display:"flex", gap:4, padding:"4px 6px", flexShrink:0 }}>
-                <input value={newCat} onChange={function(e){setNewCat(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter")addCategory(); if(e.key==="Escape"){setAddingCat(false);setNewCat("")}}} placeholder="Category name…" style={{ width:120, background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:5, padding:"3px 7px", fontSize:11, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
+                <input value={newCat} onChange={function(e){setNewCat(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter")addCategory(); if(e.key==="Escape"){setAddingCat(false);setNewCat("")}}} placeholder="Category name…" style={{ width:120, background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:5, padding:"3px 7px", fontSize:11, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none" }} autoFocus/>
                 <button onClick={addCategory} style={{ background:coastal, border:"none", borderRadius:5, padding:"3px 7px", fontSize:11, color:"#fff", cursor:"pointer" }}>+</button>
                 <button onClick={function(){setAddingCat(false);setNewCat("")}} style={{ background:"none", border:"none", color:muted, cursor:"pointer", fontSize:11 }}>✕</button>
               </div>
@@ -2991,10 +2991,10 @@ function PackingTemplatesPanel(props) {
 
 // ── Travel Profile Section ────────────────────────────────────────────────────
 function TravelProfileSection() {
-  var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#1a2744"
-  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(255,255,255,0.08)"; var cardBg = "rgba(255,255,255,0.04)"
-  var coastal = "#6ba3c4"
-  var inputStyle = { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
+  var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
+  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
+  var coastal = "#7EAEB4"
+  var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
   var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
 
   var pair = useState(function() { try { var s=localStorage.getItem("af_travel_profile"); return s?JSON.parse(s):{}; } catch{return{};} })
@@ -3037,7 +3037,7 @@ function TravelProfileSection() {
     var expired = d<0; var soon = d>=0&&d<=90; var color = expired?"#e88":soon?sand:muted
     var label = expired?"Expired "+Math.abs(d)+"d ago":d===0?"Expires today":d<=30?d+"d left":d<=90?"~"+Math.round(d/30)+"mo left":null
     if (!label) return null
-    return React.createElement("span",{style:{fontSize:9,fontWeight:700,color:color,fontFamily:"DM Sans,sans-serif",marginLeft:6,background:"rgba(255,255,255,0.06)",borderRadius:20,padding:"1px 7px",border:"1px solid "+color+"44"}},label)
+    return React.createElement("span",{style:{fontSize:9,fontWeight:700,color:color,fontFamily:"DM Sans,sans-serif",marginLeft:6,background:"rgba(250,242,229,0.06)",borderRadius:20,padding:"1px 7px",border:"1px solid "+color+"44"}},label)
   }
 
   var AIRLINE_PROGRAMS = ["United MileagePlus","Delta SkyMiles","American AAdvantage","Southwest Rapid Rewards","Alaska Mileage Plan","JetBlue TrueBlue","Air Canada Aeroplan","British Airways Avios","Emirates Skywards","Other"]
@@ -3112,7 +3112,7 @@ function TravelProfileSection() {
             {key:"sentri",label:"SENTRI",numKey:"sentriNum",expKey:"sentriExp"},
           ].map(function(prog) {
             return (
-              <div key={prog.key} style={{ background:"rgba(255,255,255,0.03)", borderRadius:9, padding:"10px 12px" }}>
+              <div key={prog.key} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px" }}>
                 <div style={{ fontSize:12, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center" }}>
                   {prog.label}
                   {profile[prog.expKey] && React.createElement(ExpiryBadge,{date:profile[prog.expKey]})}
@@ -3144,7 +3144,7 @@ function TravelProfileSection() {
         )}
         {ffPrograms.map(function(p) {
           return (
-            <div key={p.id} style={{ background:"rgba(255,255,255,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+            <div key={p.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 <div style={{ display:"flex", gap:8 }}>
                   <div style={{ flex:2 }}>
@@ -3183,7 +3183,7 @@ function TravelProfileSection() {
         )}
         {hotelPrograms.map(function(p) {
           return (
-            <div key={p.id} style={{ background:"rgba(255,255,255,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+            <div key={p.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 <div style={{ display:"flex", gap:8 }}>
                   <div style={{ flex:2 }}>
@@ -3219,7 +3219,7 @@ function TravelProfileSection() {
           onChange={function(e){setProfile({notes:e.target.value})}}
           placeholder="Preferred seats, dietary notes, emergency contacts, travel insurance info…"
           rows={3}
-          style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:"1px solid "+border, borderRadius:10, padding:"10px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", resize:"vertical", boxSizing:"border-box" }}
+          style={{ width:"100%", background:"rgba(250,242,229,0.04)", border:"1px solid "+border, borderRadius:10, padding:"10px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", resize:"vertical", boxSizing:"border-box" }}
         />
       </div>
 
@@ -3232,11 +3232,11 @@ function TravelProfileSection() {
 
 // ── Career Section ────────────────────────────────────────────────────────────
 var CAREER_GOLD  = "#c8a97a"
-var CAREER_NAVY  = "#1a2744"
-var CAREER_SURF  = "rgba(255,255,255,0.05)"
-var CAREER_SURF2 = "rgba(255,255,255,0.04)"
-var CAREER_BORD  = "0.5px solid rgba(255,255,255,0.1)"
-var CAREER_BORD2 = "0.5px solid rgba(255,255,255,0.08)"
+var CAREER_NAVY  = "#243A5A"
+var CAREER_SURF  = "rgba(250,242,229,0.05)"
+var CAREER_SURF2 = "rgba(250,242,229,0.04)"
+var CAREER_BORD  = "0.5px solid rgba(250,242,229,0.1)"
+var CAREER_BORD2 = "0.5px solid rgba(250,242,229,0.08)"
 var CAREER_WHITE = "#faf8f4"
 
 var C_TABS = [
@@ -3269,13 +3269,13 @@ function CHead(props) {
 }
 function CModal(props) {
   return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+    React.createElement("div",{style:{background:"#2E486B",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},
         React.createElement("span",{style:{color:CAREER_WHITE,fontSize:15,fontWeight:600}},props.title),
         React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children))
 }
-var C_INP_STYLE = {width:"100%",background:"rgba(255,255,255,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,WebkitTextFillColor:CAREER_WHITE,caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
+var C_INP_STYLE = {width:"100%",background:"rgba(250,242,229,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,WebkitTextFillColor:CAREER_WHITE,caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
 function CInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
@@ -3368,7 +3368,7 @@ function CResumeTab({ pid, career, setCareer }) {
           (resume.history||[]).map(function(h){
             var isExpanded = expandedJob===h.id
             var isEditing = editingJob===h.id
-            return React.createElement("div",{key:h.id,style:{background:"rgba(255,255,255,0.04)",border:CAREER_BORD,borderRadius:10,overflow:"hidden"}},
+            return React.createElement("div",{key:h.id,style:{background:"rgba(250,242,229,0.04)",border:CAREER_BORD,borderRadius:10,overflow:"hidden"}},
               // Header row — always visible, tappable
               !isEditing&&React.createElement("div",{onClick:function(){setExpandedJob(isExpanded?null:h.id)},style:{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}},
                 React.createElement("div",{style:{flex:1,minWidth:0}},
@@ -3382,7 +3382,7 @@ function CResumeTab({ pid, career, setCareer }) {
                 h.desc&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.6)",lineHeight:1.6,margin:"10px 0 0"}}),h.desc,
                 React.createElement("div",{style:{display:"flex",gap:8,marginTop:10}},
                   React.createElement("button",{onClick:function(e){e.stopPropagation();startEditJob(h)},style:{fontSize:11,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"✏️ Edit"),
-                  React.createElement("button",{onClick:function(e){e.stopPropagation();removeJob(h.id)},style:{fontSize:11,color:"rgba(250,248,244,0.3)",background:"rgba(255,255,255,0.04)",border:CAREER_BORD2,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"Remove")
+                  React.createElement("button",{onClick:function(e){e.stopPropagation();removeJob(h.id)},style:{fontSize:11,color:"rgba(250,248,244,0.3)",background:"rgba(250,242,229,0.04)",border:CAREER_BORD2,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"Remove")
                 )
               ),
               // Inline edit form
@@ -3398,7 +3398,7 @@ function CResumeTab({ pid, career, setCareer }) {
                 React.createElement("textarea",{value:editForm.desc,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{desc:e.target.value})})},placeholder:"What you built, led, or accomplished…",rows:3,style:Object.assign({},C_INP_STYLE,{resize:"vertical",marginBottom:8})}),
                 React.createElement("div",{style:{display:"flex",gap:8}},
                   React.createElement("button",{onClick:saveEditJob,style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"7px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Save"),
-                  React.createElement("button",{onClick:function(){setEditingJob(null)},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                  React.createElement("button",{onClick:function(){setEditingJob(null)},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
                 )
               )
             )
@@ -3485,7 +3485,7 @@ function CJobsTab({ pid, career, setCareer }) {
                 job.date&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:2}},"Applied: "+job.date),
                 job.notes&&React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",marginTop:3,lineHeight:1.5}}),job.url&&safeUrl(job.url)&&React.createElement("a",{href:safeUrl(job.url),target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"View posting →")),
               React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}},
-                React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(255,255,255,0.1)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
+                React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
                 React.createElement("button",{onClick:function(){removeJob(job.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕")))
           })))
       }),
@@ -3650,7 +3650,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                       React.createElement("div",{style:{fontSize:11,color:CAREER_GOLD,marginTop:3}},g.area),
                       g.targetDate&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:4}},
                         React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.5)"}},"📅 "+fmtDate(g.targetDate)),
-                        days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"rgba(250,248,244,0.3)":days<=14?"#c8834a":CAREER_GOLD,background:days<0?"rgba(255,255,255,0.04)":days<=14?"rgba(200,131,74,0.1)":"rgba(200,169,122,0.1)",borderRadius:8,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
+                        days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"rgba(250,248,244,0.3)":days<=14?"#c8834a":CAREER_GOLD,background:days<0?"rgba(250,242,229,0.04)":days<=14?"rgba(200,131,74,0.1)":"rgba(200,169,122,0.1)",borderRadius:8,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
                       ),
                       steps.length>0&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:3}},doneSteps+"/"+steps.length+" steps done"),
                       g.notes&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",lineHeight:1.5,margin:"6px 0 0"}},g.notes)
@@ -3663,7 +3663,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                   // Steps list
                   React.createElement("div",{style:{marginTop:8,paddingLeft:26}},
                     steps.map(function(s){
-                      return React.createElement("div",{key:s.id,style:{display:"flex",alignItems:"center",gap:7,padding:"4px 0",borderBottom:"0.5px solid rgba(255,255,255,0.05)"}},
+                      return React.createElement("div",{key:s.id,style:{display:"flex",alignItems:"center",gap:7,padding:"4px 0",borderBottom:"0.5px solid rgba(250,242,229,0.05)"}},
                         React.createElement("button",{onClick:function(){toggleStep(g.id,s.id);},style:{width:15,height:15,borderRadius:3,border:"1.5px solid rgba(200,169,122,0.35)",background:s.done?"rgba(200,169,122,0.35)":"none",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:CAREER_GOLD}},s.done?"✓":""),
                         React.createElement("span",{style:{flex:1,fontSize:12,color:s.done?"rgba(250,248,244,0.3)":CAREER_WHITE,textDecoration:s.done?"line-through":"none",lineHeight:1.3}},s.text),
                         s.date&&React.createElement("span",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",flexShrink:0}},fmtDate(s.date)),
@@ -3671,7 +3671,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                       );
                     }),
                     addingStepFor===g.id
-                      ? React.createElement("div",{style:{marginTop:7,background:"rgba(255,255,255,0.04)",borderRadius:8,padding:"9px"}},
+                      ? React.createElement("div",{style:{marginTop:7,background:"rgba(250,242,229,0.04)",borderRadius:8,padding:"9px"}},
                           React.createElement("input",{value:stepForm.text,onChange:function(e){setStepForm(function(f){return Object.assign({},f,{text:e.target.value});});},placeholder:"Action step…",autoFocus:true,style:Object.assign({},C_INP_STYLE,{marginBottom:7,fontSize:12})}),
                           React.createElement("div",{style:{display:"flex",gap:7,marginBottom:7}},
                             React.createElement("div",{style:{flex:1}},
@@ -3687,7 +3687,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                           ),
                           React.createElement("div",{style:{display:"flex",gap:6}},
                             React.createElement("button",{onClick:function(){addStep(g.id);},style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"6px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Add step"),
-                            React.createElement("button",{onClick:function(){setAddingStepFor(null);},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"6px 10px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                            React.createElement("button",{onClick:function(){setAddingStepFor(null);},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"6px 10px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
                           )
                         )
                       : React.createElement("button",{onClick:function(){setAddingStepFor(g.id);setStepForm({text:"",date:"",sendTo:"none"});},style:{marginTop:7,background:"rgba(200,169,122,0.07)",border:"0.5px solid rgba(200,169,122,0.2)",borderRadius:7,padding:"4px 10px",fontSize:11,color:CAREER_GOLD,fontFamily:"inherit",cursor:"pointer",width:"100%"}},"+ Add step")
@@ -3705,7 +3705,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                   React.createElement("textarea",{value:editForm.notes,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{notes:e.target.value});});},placeholder:"Notes…",rows:2,style:Object.assign({},C_INP_STYLE,{resize:"vertical",marginBottom:8})}),
                   React.createElement("div",{style:{display:"flex",gap:8}},
                     React.createElement("button",{onClick:saveEdit,style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"7px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Save"),
-                    React.createElement("button",{onClick:function(){setEditingId(null);},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                    React.createElement("button",{onClick:function(){setEditingId(null);},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
                   )
                 )
               );
@@ -3836,7 +3836,7 @@ function CDocsTab({ pid, career, setCareer }) {
       // File upload zone
       React.createElement("div",{style:{marginBottom:"0.7rem"}},
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Upload a file"),
-        React.createElement("label",{style:{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.05)",border:form.file?"0.5px solid rgba(122,158,142,0.4)":"0.5px dashed rgba(255,255,255,0.2)",borderRadius:10,padding:"12px 14px",cursor:"pointer"}},
+        React.createElement("label",{style:{display:"flex",alignItems:"center",gap:10,background:"rgba(250,242,229,0.05)",border:form.file?"0.5px solid rgba(122,158,142,0.4)":"0.5px dashed rgba(250,242,229,0.2)",borderRadius:10,padding:"12px 14px",cursor:"pointer"}},
           React.createElement("span",{style:{fontSize:20}}),form.file?"✅":"📂",
           React.createElement("div",null,
             form.file
@@ -3855,9 +3855,9 @@ function CDocsTab({ pid, career, setCareer }) {
 
       // OR a URL
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:"0.7rem"}},
-        React.createElement("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.1)"}}),
+        React.createElement("div",{style:{flex:1,height:1,background:"rgba(250,242,229,0.1)"}}),
         React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},"or"),
-        React.createElement("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.1)"}})
+        React.createElement("div",{style:{flex:1,height:1,background:"rgba(250,242,229,0.1)"}})
       ),
       React.createElement(CInput,{label:"Link / URL",value:form.url,onChange:function(v){setForm(function(f){return Object.assign({},f,{url:v})});},placeholder:"https://…"}),
       React.createElement(CInput,{label:"Note (optional)",value:form.note,onChange:function(v){setForm(function(f){return Object.assign({},f,{note:v})});},placeholder:"e.g. Last updated May 2026"}),
@@ -3907,9 +3907,9 @@ function CareerSection() {
     return {activeJobs:activeJobs,goals:goals,skills:skills,wins:wins,interviews:interviews,goalsDone:goalsDone,lastWin:lastWin,jobs:jobs.slice(0,3),goalList:(d.goals||[]).filter(function(g){return !g.done;}).slice(0,2)};
   }
 
-  var CSURF="rgba(255,255,255,0.05)";
-  var CSURF2="rgba(255,255,255,0.04)";
-  var CBORD2="0.5px solid rgba(255,255,255,0.08)";
+  var CSURF="rgba(250,242,229,0.05)";
+  var CSURF2="rgba(250,242,229,0.04)";
+  var CBORD2="0.5px solid rgba(250,242,229,0.08)";
   var STATUS_COLOR={"Interview":"#85B7EB","Applied":"#EF9F27","Offer":"#97C459","Researching":"rgba(250,248,244,0.4)","Rejected":"rgba(250,248,244,0.25)"};
 
   // ── Dashboard overview ────────────────────────────────────────────────────
@@ -3957,14 +3957,14 @@ function CareerSection() {
               stats.jobs.map(function(j,ji){
                 return React.createElement("div",{key:ji,style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}},
                   React.createElement("span",{style:{color:"rgba(250,248,244,0.6)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"65%"}},(j.company||"Company")+(j.role?" — "+j.role:"")),
-                  React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(255,255,255,0.06)",color:STATUS_COLOR[j.status]||"rgba(250,248,244,0.4)",border:"0.5px solid rgba(255,255,255,0.1)",whiteSpace:"nowrap"}},j.status||"—")
+                  React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(250,242,229,0.06)",color:STATUS_COLOR[j.status]||"rgba(250,248,244,0.4)",border:"0.5px solid rgba(250,242,229,0.1)",whiteSpace:"nowrap"}},j.status||"—")
                 );
               })
             )
           );
         }),
         // add card
-        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(255,255,255,0.02)",border:"0.5px dashed rgba(255,255,255,0.15)",borderRadius:12,minHeight:60,display:"flex",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer"}},
+        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.15)",borderRadius:12,minHeight:60,display:"flex",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer"}},
           React.createElement("span",{style:{fontSize:18,color:"rgba(250,248,244,0.2)"}},"+"),
           React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}},"Add person")
         )
@@ -3985,13 +3985,13 @@ function CareerSection() {
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
     // back + person header + person switcher
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
-      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:CAREER_BORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
+      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
       React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||CAREER_GOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:CAREER_NAVY,flexShrink:0}},initials),
       React.createElement("span",{style:{fontSize:15,fontWeight:500,color:CAREER_WHITE,flex:1}},person.name),
       personIdx>0&&React.createElement("button",{onClick:function(){removePerson(personIdx);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
     ),
     // subtabs
-    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0}},
+    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(250,242,229,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0}},
       C_TABS.map(function(t){
         return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?CAREER_WHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label)
       })),
@@ -4012,11 +4012,11 @@ function CareerSection() {
 // ── Health Section ────────────────────────────────────────────────────────────
 var HGOLD  = "#c8a97a"
 var HWHITE = "#faf8f4"
-var HNAVY  = "#1a2744"
-var HSURF  = "rgba(255,255,255,0.05)"
-var HSURF2 = "rgba(255,255,255,0.04)"
-var HBORD  = "0.5px solid rgba(255,255,255,0.1)"
-var HBORD2 = "0.5px solid rgba(255,255,255,0.08)"
+var HNAVY  = "#243A5A"
+var HSURF  = "rgba(250,242,229,0.05)"
+var HSURF2 = "rgba(250,242,229,0.04)"
+var HBORD  = "0.5px solid rgba(250,242,229,0.1)"
+var HBORD2 = "0.5px solid rgba(250,242,229,0.08)"
 
 var HBADGE = {
   ok:      { bg:"rgba(99,153,34,0.15)",    color:"#97C459", border:"rgba(99,153,34,0.2)"    },
@@ -4025,7 +4025,7 @@ var HBADGE = {
   allergy: { bg:"rgba(216,90,48,0.12)",    color:"#F0997B", border:"rgba(216,90,48,0.2)"    },
   alive:   { bg:"rgba(99,153,34,0.12)",    color:"#97C459", border:"rgba(99,153,34,0.2)"    },
   deceased:{ bg:"rgba(136,135,128,0.12)",  color:"rgba(250,248,244,0.4)", border:"rgba(136,135,128,0.2)" },
-  gray:    { bg:"rgba(255,255,255,0.06)",  color:"rgba(250,248,244,0.45)", border:"rgba(255,255,255,0.1)" },
+  gray:    { bg:"rgba(250,242,229,0.06)",  color:"rgba(250,248,244,0.45)", border:"rgba(250,242,229,0.1)" },
 }
 var HPILL = {
   heart:    { bg:"rgba(216,90,48,0.1)",    color:"#F0997B", border:"rgba(216,90,48,0.2)"    },
@@ -4033,7 +4033,7 @@ var HPILL = {
   diabetes: { bg:"rgba(239,159,39,0.12)",  color:"#EF9F27", border:"rgba(239,159,39,0.2)"   },
   mental:   { bg:"rgba(127,119,221,0.12)", color:"#AFA9EC", border:"rgba(127,119,221,0.2)"  },
   neuro:    { bg:"rgba(29,158,117,0.12)",  color:"#5DCAA5", border:"rgba(29,158,117,0.2)"   },
-  other:    { bg:"rgba(255,255,255,0.06)", color:"rgba(250,248,244,0.5)", border:"rgba(255,255,255,0.1)" },
+  other:    { bg:"rgba(250,242,229,0.06)", color:"rgba(250,248,244,0.5)", border:"rgba(250,242,229,0.1)" },
 }
 var H_TABS = [
   { id:"history",   label:"Medical history" },
@@ -4075,7 +4075,7 @@ function HPrivateLock(props) {
   var s2=useState(""); var confirm=s2[0]; var setConfirm=s2[1];
   var s3=useState(false); var setting=s3[0]; var setSetting=s3[1];
   var s4=useState(null); var err=s4[0]; var setErr=s4[1];
-  var inputStyle={width:"100%",background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:18,letterSpacing:"0.4em",textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  var inputStyle={width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:18,letterSpacing:"0.4em",textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   if(unlocked) return React.createElement(React.Fragment,null,
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:"0.6rem"}},
       React.createElement("span",{style:{fontSize:11,color:HGOLD,opacity:0.7}},"🔒 Private"),
@@ -4147,7 +4147,7 @@ function HItemRow(props) {
 }
 function HModal(props) {
   return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#1e2e52",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+    React.createElement("div",{style:{background:"#2E486B",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HWHITE,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
     )
@@ -4156,13 +4156,13 @@ function HModal(props) {
 function HInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
+    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
   );
 }
 function HTextarea(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})
+    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})
   );
 }
 function HSelect(props) {
@@ -4346,8 +4346,8 @@ function HMedsTab(props) {
     if(!c) return null;
     var isPhone=/^[\d\s\-\+\(\)]{7,}$/.test(c.trim());
     var safe=safeUrl(c);
-    if(safe) return React.createElement("a",{href:safe,target:"_blank",rel:"noreferrer",style:{fontSize:11,color:"#6ba3c4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:3}},"🔗 Order");
-    if(isPhone) return React.createElement("a",{href:"tel:"+c.replace(/\s/g,""),style:{fontSize:11,color:"#6ba3c4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:3}},"📞 "+c);
+    if(safe) return React.createElement("a",{href:safe,target:"_blank",rel:"noreferrer",style:{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:3}},"🔗 Order");
+    if(isPhone) return React.createElement("a",{href:"tel:"+c.replace(/\s/g,""),style:{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:3}},"📞 "+c);
     return React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:3}},c);
   }
 
@@ -4355,7 +4355,7 @@ function HMedsTab(props) {
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💊",label:"Medications",onAdd:function(){setForm({name:"",dose:"",frequency:"",type:"Rx",contact:""});setEditId(null);setOpen(true);}}),
       items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No medications added yet"),
       items.map(function(it){
-        return React.createElement("div",{key:it.id,style:{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0",borderBottom:"0.5px solid rgba(255,255,255,0.07)"}},
+        return React.createElement("div",{key:it.id,style:{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0",borderBottom:"0.5px solid rgba(250,242,229,0.07)"}},
           React.createElement("div",{style:{flex:1}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               React.createElement("span",{style:{fontSize:13,fontWeight:600,color:HWHITE}}),it.name,
@@ -4455,7 +4455,7 @@ function HFamilyTab(props) {
   function SideCard(sp){return React.createElement(HCard,null,React.createElement(HCardHead,{icon:sp.icon,label:sp.title,onAdd:function(){setOpen(true);}}),sp.rels.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0"}},"None added yet"),sp.rels.map(function(r){return React.createElement(RelCard,{key:r.id+(r._inherited?"_i":""),rel:r});}));}
   return React.createElement(React.Fragment,null,
     maternalSource&&React.createElement("div",{style:{background:"rgba(200,169,122,0.06)",border:"0.5px solid rgba(200,169,122,0.2)",borderRadius:8,padding:"0.55rem 0.85rem",fontSize:12,color:"rgba(200,169,122,0.7)",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:6}},"🔗 Maternal side inherited from ",React.createElement("strong",null,maternalSource.name)," · updates automatically"),
-    (relatives.length>0||inheritedMaternalEntries.length>0)&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.65)",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(255,255,255,0.07)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.25)",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
+    (relatives.length>0||inheritedMaternalEntries.length>0)&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.65)",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(250,242,229,0.07)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.25)",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
     React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.9rem"}},React.createElement(SideCard,{title:"Maternal side",icon:"👩",rels:maternalAll}),React.createElement(SideCard,{title:"Paternal side",icon:"👨",rels:paternal})),
     other.length>0&&React.createElement(HCard,{style:{marginTop:"0.9rem"}},React.createElement(HCardHead,{icon:"👤",label:"Other relatives"}),other.map(function(r){return React.createElement(RelCard,{key:r.id,rel:r});})),
     open&&React.createElement(HModal,{title:"Add family member",onClose:function(){setOpen(false);}},
@@ -4468,7 +4468,7 @@ function HFamilyTab(props) {
         React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}},form.conditions.map(function(c,i){var p=HPILL[c.type]||HPILL.other;return React.createElement("span",{key:i,onClick:function(){removeCond(i);},style:{fontSize:11,padding:"2px 8px",borderRadius:12,cursor:"pointer",background:p.bg,color:p.color,border:"0.5px solid "+p.border}},c.label+" ✕");})),
         React.createElement("div",{style:{display:"flex",gap:6}},
           React.createElement("select",{value:condIn.type,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{type:e.target.value});});},style:{background:"rgba(30,46,82,0.95)",border:HBORD,borderRadius:8,padding:"0.4rem 0.5rem",color:HWHITE,fontSize:12,fontFamily:"inherit",outline:"none",flexShrink:0}},H_COND_TYPES.map(function(c){return React.createElement("option",{key:c.id,value:c.id},c.label);})),
-          React.createElement("input",{value:condIn.label,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{label:e.target.value});});},placeholder:"Condition name",style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.6rem",color:HWHITE,fontSize:12,fontFamily:"inherit",outline:"none"}}),
+          React.createElement("input",{value:condIn.label,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{label:e.target.value});});},placeholder:"Condition name",style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.6rem",color:HWHITE,fontSize:12,fontFamily:"inherit",outline:"none"}}),
           React.createElement("button",{onClick:addCond,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.7rem",color:HGOLD,cursor:"pointer",fontSize:12}},"+ Add")
         )
       ),
@@ -4583,7 +4583,7 @@ function HNotesTab(props) {
           ),
           (n.provider||n.location)&&React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 0.4rem"}},"🏥 "+[n.provider,n.location].filter(Boolean).join(" · ")),
           n.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.55)",lineHeight:1.65,margin:"0 0 0.45rem"}},n.body),
-          n.tags&&n.tags.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},n.tags.map(function(t,i){return React.createElement("span",{key:i,style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(255,255,255,0.05)",color:"rgba(250,248,244,0.4)",border:HBORD2}},t);}))
+          n.tags&&n.tags.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},n.tags.map(function(t,i){return React.createElement("span",{key:i,style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(250,242,229,0.05)",color:"rgba(250,248,244,0.4)",border:HBORD2}},t);}))
         );
       })
     ),
@@ -4619,9 +4619,9 @@ function HPersonCard(props) {
   var firstDue=immunizations.find(function(v){return v.status==="overdue";}) || immunizations.find(function(v){return v.status==="due";});
   // first allergy
   var firstAllergy=(d.allergies||[])[0];
-  var SURF="rgba(255,255,255,0.05)";
-  var SURF2="rgba(255,255,255,0.04)";
-  var BORD2="0.5px solid rgba(255,255,255,0.08)";
+  var SURF="rgba(250,242,229,0.05)";
+  var SURF2="rgba(250,242,229,0.04)";
+  var BORD2="0.5px solid rgba(250,242,229,0.08)";
   return React.createElement("div",{onClick:function(){onOpen(pid);},style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}},
     // header
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
@@ -4803,7 +4803,7 @@ function HealthSection() {
           return React.createElement(HPersonCard,{key:p.id,person:p,health:health,onOpen:function(pid){setDetail({pid:pid,tab:"history"});}});
         }),
         // add card
-        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(255,255,255,0.02)",border:"0.5px dashed rgba(255,255,255,0.15)",borderRadius:12,minHeight:140,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer"}},
+        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.15)",borderRadius:12,minHeight:140,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer"}},
           React.createElement("span",{style:{fontSize:22,color:"rgba(250,248,244,0.2)"}},"+"),
           React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}},"Add person")
         )
@@ -4824,13 +4824,13 @@ function HealthSection() {
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
     // back + person header
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
-      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
+      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
       React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
       React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},person.name),
       // maternal link pill — show on non-"You" people when the first person exists
       people.length>1&&people.indexOf(person)>0&&React.createElement("div",{style:{position:"relative"}},
-        React.createElement("button",{onClick:function(){setDetail(function(d){return Object.assign({},d,{showLink:!d.showLink});});},title:"Link family history",style:{fontSize:11,color:"rgba(250,248,244,0.4)",background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:7,padding:"4px 9px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Hx link"),
-        detail.showLink&&React.createElement("div",{style:{position:"absolute",right:0,top:"calc(100% + 4px)",background:"#1e2e52",border:HBORD,borderRadius:10,padding:"0.75rem",zIndex:99,minWidth:220,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
+        React.createElement("button",{onClick:function(){setDetail(function(d){return Object.assign({},d,{showLink:!d.showLink});});},title:"Link family history",style:{fontSize:11,color:"rgba(250,248,244,0.4)",background:"rgba(250,242,229,0.06)",border:HBORD,borderRadius:7,padding:"4px 9px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Hx link"),
+        detail.showLink&&React.createElement("div",{style:{position:"absolute",right:0,top:"calc(100% + 4px)",background:"#2E486B",border:HBORD,borderRadius:10,padding:"0.75rem",zIndex:99,minWidth:220,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
           React.createElement("p",{style:{fontSize:12,color:HWHITE,fontWeight:500,marginBottom:4}},"Inherit family history from:"),
           React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginBottom:10,lineHeight:1.5}},"Their history becomes this person's maternal side. Updates automatically."),
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
@@ -4845,7 +4845,7 @@ function HealthSection() {
       people.indexOf(person)>0&&React.createElement("button",{onClick:function(){removePerson(person.id);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
     ),
     // subtabs
-    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0,marginBottom:0}},
+    React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(250,242,229,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0,marginBottom:0}},
       H_TABS.map(function(t){return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?HWHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label);})
     ),
     React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 0",display:"flex",flexDirection:"column",gap:"0.9rem"}},
@@ -5099,9 +5099,9 @@ function HouseFileSection() {
     setCardItems(function(prev){return prev.filter(function(i){return i.id!==id;});});
   }
 
-  var SURF="rgba(255,255,255,0.05)";
-  var SURF2="rgba(255,255,255,0.04)";
-  var BORD2="0.5px solid rgba(255,255,255,0.08)";
+  var SURF="rgba(250,242,229,0.05)";
+  var SURF2="rgba(250,242,229,0.04)";
+  var BORD2="0.5px solid rgba(250,242,229,0.08)";
 
   // ── Detail card view ───────────────────────────────────────────────────────
   if(detail) {
@@ -5113,7 +5113,7 @@ function HouseFileSection() {
     return React.createElement("div",null,
       // back + actions
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16}},
-        React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(255,255,255,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 Back"),
+        React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 Back"),
         React.createElement("span",{style:{fontSize:15}},cardCat.emoji),
         React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},card.title),
         React.createElement("button",{onClick:function(){openEdit(card);},style:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Edit"),
@@ -5126,12 +5126,12 @@ function HouseFileSection() {
           doneCount===totalCount&&totalCount>0&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:10,background:"rgba(29,158,117,0.15)",color:"#5dcaa5",border:"0.5px solid rgba(29,158,117,0.25)"}},"Complete \u2713")
         ),
         // progress bar
-        totalCount>0&&React.createElement("div",{style:{height:3,background:"rgba(255,255,255,0.07)",borderRadius:2,marginBottom:12}},
+        totalCount>0&&React.createElement("div",{style:{height:3,background:"rgba(250,242,229,0.07)",borderRadius:2,marginBottom:12}},
           React.createElement("div",{style:{width:Math.round((doneCount/totalCount)*100)+"%",height:3,borderRadius:2,background:"#1d9e75",transition:"width 0.2s"}})
         ),
         (card.items||[]).map(function(item){
           return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:BORD2,cursor:"pointer"},onClick:function(){toggleItem(card.id,item.id);}},
-            React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"0.5px solid "+(item.done?"rgba(29,158,117,0.6)":"rgba(255,255,255,0.2)"),background:item.done?"rgba(29,158,117,0.2)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+            React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"0.5px solid "+(item.done?"rgba(29,158,117,0.6)":"rgba(250,242,229,0.2)"),background:item.done?"rgba(29,158,117,0.2)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
               item.done&&React.createElement("span",{style:{fontSize:10,color:"#5dcaa5"}},"\u2713")
             ),
             React.createElement("span",{style:{fontSize:13,color:item.done?"rgba(250,248,244,0.3)":"rgba(250,248,244,0.8)",textDecoration:item.done?"line-through":"none",flex:1}},item.text)
@@ -5167,7 +5167,7 @@ function HouseFileSection() {
     React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}},
       HF_CATS.map(function(c){
         var count=cards.filter(function(r){return r.catId===c.id;}).length;
-        return React.createElement("button",{key:c.id,onClick:function(){setActiveCat(c.id);},style:{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",fontSize:12,borderRadius:20,border:"0.5px solid "+(activeCat===c.id?"rgba(200,169,122,0.45)":"rgba(255,255,255,0.1)"),background:activeCat===c.id?"rgba(200,169,122,0.12)":"rgba(255,255,255,0.03)",color:activeCat===c.id?HGOLD:"rgba(250,248,244,0.45)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
+        return React.createElement("button",{key:c.id,onClick:function(){setActiveCat(c.id);},style:{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",fontSize:12,borderRadius:20,border:"0.5px solid "+(activeCat===c.id?"rgba(200,169,122,0.45)":"rgba(250,242,229,0.1)"),background:activeCat===c.id?"rgba(200,169,122,0.12)":"rgba(250,242,229,0.03)",color:activeCat===c.id?HGOLD:"rgba(250,248,244,0.45)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},
           React.createElement("span",null,c.emoji),
           React.createElement("span",null,c.label),
           count>0&&React.createElement("span",{style:{fontSize:10,background:"rgba(200,169,122,0.2)",color:HGOLD,borderRadius:10,padding:"0 5px",lineHeight:"16px"}},count)
@@ -5178,7 +5178,7 @@ function HouseFileSection() {
     React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif",marginBottom:14,marginTop:-6}},cat.desc),
     // cards in active category
     catCards.length===0
-      ? React.createElement("div",{style:{textAlign:"center",padding:"36px 20px",color:"rgba(250,248,244,0.28)",fontSize:13,fontFamily:"DM Sans,sans-serif",background:SURF2,border:"0.5px dashed rgba(255,255,255,0.1)",borderRadius:12}},
+      ? React.createElement("div",{style:{textAlign:"center",padding:"36px 20px",color:"rgba(250,248,244,0.28)",fontSize:13,fontFamily:"DM Sans,sans-serif",background:SURF2,border:"0.5px dashed rgba(250,242,229,0.1)",borderRadius:12}},
           React.createElement("div",{style:{fontSize:28,marginBottom:8}},cat.emoji),
           React.createElement("div",{style:{marginBottom:4}},"No "+cat.label+" records yet"),
           React.createElement("button",{onClick:openAdd,style:{marginTop:10,fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:7,padding:"6px 14px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add first record")
@@ -5194,7 +5194,7 @@ function HouseFileSection() {
                 React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},card.title),
                 card.type==="checklist"
                   ? React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-                      React.createElement("div",{style:{flex:1,height:3,background:"rgba(255,255,255,0.08)",borderRadius:2,maxWidth:100}},
+                      React.createElement("div",{style:{flex:1,height:3,background:"rgba(250,242,229,0.08)",borderRadius:2,maxWidth:100}},
                         React.createElement("div",{style:{width:totalC>0?Math.round((doneC/totalC)*100)+"%":"0%",height:3,borderRadius:2,background:"#1d9e75"}})
                       ),
                       React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}},(doneC+"/"+totalC))
@@ -5210,8 +5210,8 @@ function HouseFileSection() {
     adding&&React.createElement(HModal,{title:(editingId?"Edit":"New")+" "+cat.label+" record",onClose:function(){setAdding(false);setEditingId(null);}},
       // type toggle (skip for tax — always checklist)
       activeCat!=="tax"&&React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12}},
-        React.createElement("button",{onClick:function(){setCardType("note");},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="note"?"rgba(200,169,122,0.4)":"rgba(255,255,255,0.1)"),background:cardType==="note"?"rgba(200,169,122,0.12)":"rgba(255,255,255,0.03)",color:cardType==="note"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Fields"),
-        React.createElement("button",{onClick:function(){setCardType("checklist");if(cardItems.length===0)setCardItems([{id:huid(),text:"",done:false}]);},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="checklist"?"rgba(200,169,122,0.4)":"rgba(255,255,255,0.1)"),background:cardType==="checklist"?"rgba(200,169,122,0.12)":"rgba(255,255,255,0.03)",color:cardType==="checklist"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Checklist")
+        React.createElement("button",{onClick:function(){setCardType("note");},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="note"?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),background:cardType==="note"?"rgba(200,169,122,0.12)":"rgba(250,242,229,0.03)",color:cardType==="note"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Fields"),
+        React.createElement("button",{onClick:function(){setCardType("checklist");if(cardItems.length===0)setCardItems([{id:huid(),text:"",done:false}]);},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="checklist"?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),background:cardType==="checklist"?"rgba(200,169,122,0.12)":"rgba(250,242,229,0.03)",color:cardType==="checklist"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Checklist")
       ),
       React.createElement(HInput,{label:"Title",value:cardTitle,onChange:setCardTitle,placeholder:activeCat==="tax"?"e.g. 2024 Tax Docs":activeCat==="vehicle"?"e.g. 2018 Honda CR-V":activeCat==="home"?"e.g. Living room paint":"Title"}),
       // fields mode
@@ -5219,29 +5219,29 @@ function HouseFileSection() {
         cardFields.map(function(f,i){
           return React.createElement("div",{key:i,style:{marginBottom:8}},
             React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},f.label),
-            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.5rem 0.7rem",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
+            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.5rem 0.7rem",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
           );
         }),
         // add custom field
         fieldEdit!==null
           ? React.createElement("div",{style:{display:"flex",gap:6,marginTop:6}},
-              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.45rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.45rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
               React.createElement("button",{onClick:function(){if(fieldEdit.trim()){setCardFields(function(prev){return prev.concat([{label:fieldEdit.trim(),value:""}]);});setFieldEdit(null);}},style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.45rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"Add"),
               React.createElement("button",{onClick:function(){setFieldEdit(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.45rem 0.8rem",color:"rgba(250,248,244,0.35)",cursor:"pointer",fontSize:12}},"Cancel")
             )
-          : React.createElement("button",{onClick:function(){setFieldEdit("");},style:{fontSize:11,color:"rgba(250,248,244,0.35)",background:"none",border:"0.5px dashed rgba(255,255,255,0.12)",borderRadius:7,padding:"4px 10px",cursor:"pointer",marginTop:4,fontFamily:"DM Sans,sans-serif"}},"\u002B Add custom field")
+          : React.createElement("button",{onClick:function(){setFieldEdit("");},style:{fontSize:11,color:"rgba(250,248,244,0.35)",background:"none",border:"0.5px dashed rgba(250,242,229,0.12)",borderRadius:7,padding:"4px 10px",cursor:"pointer",marginTop:4,fontFamily:"DM Sans,sans-serif"}},"\u002B Add custom field")
       ),
       // checklist mode
       cardType==="checklist"&&React.createElement("div",null,
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Items"),
         cardItems.map(function(item,i){
           return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:6,marginBottom:4}},
-            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
             React.createElement("button",{onClick:function(){removeChecklistItem(item.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1,flexShrink:0}},"✕")
           );
         }),
         React.createElement("div",{style:{display:"flex",gap:6,marginTop:4}},
-          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"rgba(255,255,255,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
           React.createElement("button",{onClick:addChecklistItem,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"\u002B")
         )
       ),
@@ -5302,8 +5302,8 @@ function HomeSystemsSection() {
   // alerts
   var overdue=systems.filter(function(s){return sysStatus(s)==="overdue";});
   var soon=systems.filter(function(s){return sysStatus(s)==="soon";});
-  var SURF="rgba(255,255,255,0.05)";
-  var SURF2="rgba(255,255,255,0.04)";
+  var SURF="rgba(250,242,229,0.05)";
+  var SURF2="rgba(250,242,229,0.04)";
 
   return React.createElement("div",null,
     // header
@@ -5350,7 +5350,7 @@ function HomeSystemsSection() {
             );
           }),
           // add tile
-          React.createElement("div",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{background:"rgba(255,255,255,0.02)",border:"0.5px dashed rgba(255,255,255,0.13)",borderRadius:10,minHeight:90,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer"}},
+          React.createElement("div",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.13)",borderRadius:10,minHeight:90,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer"}},
             React.createElement("span",{style:{fontSize:20,color:"rgba(250,248,244,0.18)"}},"+"),
             React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.28)",fontFamily:"DM Sans,sans-serif"}},"Add")
           )
@@ -5370,19 +5370,19 @@ function HomeSystemsSection() {
           )
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
-          React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+          React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
             React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Frequency"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},freqLabel)
           ),
-          React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+          React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
             React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Status"),
             React.createElement("p",{style:{fontSize:13,color:sysStatusColor(status),margin:0}},sysStatusLabel(sys))
           ),
-          sys.lastDone&&React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+          sys.lastDone&&React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
             React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Last done"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.lastDone)
           ),
-          (sys.nextDue||sysNextDate(sys.lastDone,sys.freq))&&React.createElement("div",{style:{background:"rgba(255,255,255,0.03)",borderRadius:8,padding:"8px 10px"}},
+          (sys.nextDue||sysNextDate(sys.lastDone,sys.freq))&&React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
             React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Next due"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.nextDue||sysNextDate(sys.lastDone,sys.freq))
           )
@@ -5402,7 +5402,7 @@ function HomeSystemsSection() {
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Type"),
         React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},
           SYS_ICONS.map(function(s){
-            return React.createElement("button",{key:s.id,onClick:function(){setForm(function(f){return Object.assign({},f,{type:s.id});});},style:{background:form.type===s.id?"rgba(200,169,122,0.18)":"rgba(255,255,255,0.04)",border:"0.5px solid "+(form.type===s.id?"rgba(200,169,122,0.4)":"rgba(255,255,255,0.1)"),borderRadius:8,padding:"5px 8px",fontSize:11,color:form.type===s.id?HGOLD:"rgba(250,248,244,0.5)",cursor:"pointer"}},s.emoji+" "+s.label);
+            return React.createElement("button",{key:s.id,onClick:function(){setForm(function(f){return Object.assign({},f,{type:s.id});});},style:{background:form.type===s.id?"rgba(200,169,122,0.18)":"rgba(250,242,229,0.04)",border:"0.5px solid "+(form.type===s.id?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"5px 8px",fontSize:11,color:form.type===s.id?HGOLD:"rgba(250,248,244,0.5)",cursor:"pointer"}},s.emoji+" "+s.label);
           })
         )
       ),
@@ -5530,7 +5530,7 @@ function nextDateLabel(days) {
 
 // ── Recurring Reminders Section ───────────────────────────────────────────────
 function RecurringRemindersSection() {
-  var NAVY="#1a2744"; var GOLD="#c8a97a"; var FAINT="rgba(250,248,244,0.35)"; var SOFT="rgba(250,248,244,0.65)"
+  var NAVY="#243A5A"; var GOLD="#c8a97a"; var FAINT="rgba(250,248,244,0.35)"; var SOFT="rgba(250,248,244,0.65)"
 
   var [reminders, setReminders] = useState(function() {
     // Migrate old af_trash data if present
@@ -5608,13 +5608,13 @@ function RecurringRemindersSection() {
   var availableBuiltins = BUILTIN_REMINDERS.filter(function(b){return !existingBuiltinIds.includes(b.id)})
 
   var S = {
-    card: { background:"rgba(255,255,255,0.03)", border:"1px solid rgba(200,169,122,0.18)", borderRadius:12, padding:"14px 16px", marginBottom:8 },
+    card: { background:"rgba(250,242,229,0.03)", border:"1px solid rgba(200,169,122,0.18)", borderRadius:12, padding:"14px 16px", marginBottom:8 },
     lbl: { fontSize:11, fontWeight:700, color:"rgba(200,169,122,0.65)", textTransform:"uppercase", letterSpacing:"0.09em", marginBottom:6, display:"block", fontFamily:"DM Sans,sans-serif" },
-    inp: { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.9)", fontFamily:"DM Sans,sans-serif", marginBottom:12, boxSizing:"border-box" },
-    sel: { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.85)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:12, boxSizing:"border-box" },
-    toggle: function(on){ return { width:36, height:20, borderRadius:10, background:on?"#7a9e8e":"rgba(255,255,255,0.1)", border:"none", position:"relative", cursor:"pointer", flexShrink:0, transition:"background 0.2s" } },
+    inp: { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.9)", fontFamily:"DM Sans,sans-serif", marginBottom:12, boxSizing:"border-box" },
+    sel: { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.85)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:12, boxSizing:"border-box" },
+    toggle: function(on){ return { width:36, height:20, borderRadius:10, background:on?"#7a9e8e":"rgba(250,242,229,0.1)", border:"none", position:"relative", cursor:"pointer", flexShrink:0, transition:"background 0.2s" } },
     thumb: function(on){ return { position:"absolute", top:2, left:on?18:2, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.3)" } },
-    trow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 0", borderBottom:"0.5px solid rgba(255,255,255,0.06)" },
+    trow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 0", borderBottom:"0.5px solid rgba(250,242,229,0.06)" },
   }
 
   // ── Edit / New form ──────────────────────────────────────────────────────────
@@ -5645,7 +5645,7 @@ function RecurringRemindersSection() {
           <label style={S.lbl}>Reminder type</label>
           <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
             {[{id:"weekly_day",label:"📅 One day"},{id:"weekly_days",label:"📅 Multiple days"},{id:"interval",label:"⏱ After X days"}].map(function(t){
-              return <button key={t.id} onClick={function(){setDraft(function(p){return {...p,type:t.id,day:null,days:[]}})}} style={{flex:1,minWidth:"30%",background:draft.type===t.id?"rgba(200,169,122,0.2)":"rgba(255,255,255,0.04)",border:"1px solid "+(draft.type===t.id?"rgba(200,169,122,0.5)":"rgba(255,255,255,0.1)"),borderRadius:8,padding:"7px 4px",fontSize:11,color:draft.type===t.id?GOLD:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:draft.type===t.id?700:400}}>{t.label}</button>
+              return <button key={t.id} onClick={function(){setDraft(function(p){return {...p,type:t.id,day:null,days:[]}})}} style={{flex:1,minWidth:"30%",background:draft.type===t.id?"rgba(200,169,122,0.2)":"rgba(250,242,229,0.04)",border:"1px solid "+(draft.type===t.id?"rgba(200,169,122,0.5)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"7px 4px",fontSize:11,color:draft.type===t.id?GOLD:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:draft.type===t.id?700:400}}>{t.label}</button>
             })}
           </div>
 
@@ -5670,7 +5670,7 @@ function RecurringRemindersSection() {
                   return <button key={i} onClick={function(){
                     var cur=draft.days||[]
                     setDraft(function(p){return {...p,days:selected?cur.filter(function(x){return x!==i}):[...cur,i].sort()}})
-                  }} style={{background:selected?"rgba(107,163,196,0.25)":"rgba(255,255,255,0.04)",border:"1px solid "+(selected?"rgba(107,163,196,0.6)":"rgba(255,255,255,0.12)"),borderRadius:20,padding:"5px 11px",fontSize:12,color:selected?"#a8d4ea":SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:selected?700:400}}>{d.slice(0,3)}</button>
+                  }} style={{background:selected?"rgba(107,163,196,0.25)":"rgba(250,242,229,0.04)",border:"1px solid "+(selected?"rgba(107,163,196,0.6)":"rgba(250,242,229,0.12)"),borderRadius:20,padding:"5px 11px",fontSize:12,color:selected?"#a8d4ea":SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:selected?700:400}}>{d.slice(0,3)}</button>
                 })}
               </div>
             </>
@@ -5719,7 +5719,7 @@ function RecurringRemindersSection() {
 
         <div style={{display:"flex",gap:10,marginTop:4}}>
           {editing!=="new"&&<button onClick={deleteDraft} style={{background:"rgba(220,80,80,0.1)",border:"1px solid rgba(220,80,80,0.25)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#e07070",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Delete</button>}
-          <button onClick={function(){setEditing(null);setDraft(null)}} style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,padding:"10px",fontSize:13,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Cancel</button>
+          <button onClick={function(){setEditing(null);setDraft(null)}} style={{flex:1,background:"rgba(250,242,229,0.06)",border:"1px solid rgba(250,242,229,0.12)",borderRadius:10,padding:"10px",fontSize:13,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Cancel</button>
           <button onClick={saveDraft} disabled={!draft.label.trim()} style={{flex:2,background:GOLD,border:"none",borderRadius:10,padding:"10px",fontSize:13,color:NAVY,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:700,opacity:draft.label.trim()?1:0.5}}>Save</button>
         </div>
       </div>
@@ -5741,7 +5741,7 @@ function RecurringRemindersSection() {
       {/* Built-in quick-adds */}
       {availableBuiltins.length>0&&(
         <div style={{marginBottom:14}}>
-          <button onClick={function(){setShowBuiltins(function(p){return !p})}} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"7px 14px",fontSize:12,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={function(){setShowBuiltins(function(p){return !p})}} style={{background:"rgba(250,242,229,0.04)",border:"1px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"7px 14px",fontSize:12,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <span>➕ Add from common reminders</span>
             <span style={{opacity:0.5,fontSize:10}}>{showBuiltins?"▲":"▼"}</span>
           </button>
@@ -5749,7 +5749,7 @@ function RecurringRemindersSection() {
             <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
               {availableBuiltins.map(function(b){
                 return(
-                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10,padding:"10px 14px",cursor:"pointer",textAlign:"left"}}>
+                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(250,242,229,0.03)",border:"1px solid rgba(250,242,229,0.08)",borderRadius:10,padding:"10px 14px",cursor:"pointer",textAlign:"left"}}>
                     <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
                     <div style={{flex:1}}>
                       <div style={{fontSize:13,fontWeight:600,color:"rgba(250,248,244,0.9)",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
@@ -5766,7 +5766,7 @@ function RecurringRemindersSection() {
 
       {/* Empty state */}
       {sorted.length===0&&(
-        <div style={{textAlign:"center",padding:"32px 20px",background:"rgba(255,255,255,0.02)",border:"1px dashed rgba(200,169,122,0.2)",borderRadius:14}}>
+        <div style={{textAlign:"center",padding:"32px 20px",background:"rgba(250,242,229,0.02)",border:"1px dashed rgba(200,169,122,0.2)",borderRadius:14}}>
           <div style={{fontSize:32,marginBottom:10}}>🔁</div>
           <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:18,color:"#faf8f4",marginBottom:6}}>No reminders yet</div>
           <div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:18,lineHeight:1.6}}>Add trash day, HVAC filters, street sweeping — anything that repeats.</div>
@@ -5781,7 +5781,7 @@ function RecurringRemindersSection() {
         var alert = days!=null&&days<=1
         var overdue = days!=null&&days<0
         return(
-          <div key={r.id} style={{background:alert?"rgba(200,131,74,0.07)":"rgba(255,255,255,0.03)",border:"1px solid "+(overdue?"rgba(220,80,80,0.35)":alert?"rgba(200,131,74,0.35)":"rgba(200,169,122,0.15)"),borderRadius:12,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+          <div key={r.id} style={{background:alert?"rgba(200,131,74,0.07)":"rgba(250,242,229,0.03)",border:"1px solid "+(overdue?"rgba(220,80,80,0.35)":alert?"rgba(200,131,74,0.35)":"rgba(200,169,122,0.15)"),borderRadius:12,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
             <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:700,color:"rgba(250,248,244,0.92)",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
@@ -5793,7 +5793,7 @@ function RecurringRemindersSection() {
             <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
               {badge&&<span style={{fontSize:11,fontWeight:700,color:overdue?"#e07070":alert?"#c8834a":GOLD}}>{badge}</span>}
               <button onClick={function(){markDone(r.id)}} title="Mark done / reset timer" style={{background:"rgba(122,158,142,0.15)",border:"1px solid rgba(122,158,142,0.3)",borderRadius:6,padding:"4px 8px",fontSize:11,color:"#7a9e8e",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>✓ Done</button>
-              <button onClick={function(){openEdit(r)}} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:6,padding:"4px 8px",fontSize:11,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>Edit</button>
+              <button onClick={function(){openEdit(r)}} style={{background:"rgba(250,242,229,0.06)",border:"1px solid rgba(250,242,229,0.1)",borderRadius:6,padding:"4px 8px",fontSize:11,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>Edit</button>
             </div>
           </div>
         )
@@ -6090,7 +6090,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     var [open, setOpen] = useState(defaultOpen || false)
     var hasAlert = summary.alert
     var borderColor = hasAlert ? "rgba(200,131,74,0.4)" : "rgba(200,169,122,0.18)"
-    var bgColor = hasAlert ? "rgba(200,131,74,0.05)" : "rgba(255,255,255,0.035)"
+    var bgColor = hasAlert ? "rgba(200,131,74,0.05)" : "rgba(250,242,229,0.035)"
 
     return (
       <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 14, marginBottom: 10, overflow: "hidden", transition: "all 0.2s" }}>
@@ -6119,14 +6119,14 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
         {/* Expanded content */}
         {open && (
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", padding: "10px 16px 14px" }}>
+          <div style={{ borderTop: "1px solid rgba(250,242,229,0.07)", padding: "10px 16px 14px" }}>
             {summary.count === 0 ? (
               <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>Nothing here yet — tap Open to add.</div>
             ) : (
               <div style={{ marginBottom: 10 }}>
                 {(summary.entries || []).map(function(e, i) {
                   return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < (summary.entries.length - 1) ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < (summary.entries.length - 1) ? "1px solid rgba(250,242,229,0.05)" : "none" }}>
                       <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#c8a97a", flexShrink: 0, opacity: 0.6 }}/>
                       <span style={{ flex: 1, fontSize: 12, color: "rgba(250,248,244,0.75)", fontFamily: "DM Sans,sans-serif" }}>
                         {e.label || e.name || e.text || "—"}
@@ -6262,8 +6262,8 @@ function AnchorSettings() {
   const S = {
     label: { fontSize: 13, fontFamily: "DM Sans,sans-serif", fontWeight: 600, color: "rgba(250,248,244,0.85)" },
     sub:   { fontSize: 11, fontFamily: "DM Sans,sans-serif", color: "rgba(250,248,244,0.35)", marginTop: 1 },
-    row:   { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "0.5px solid rgba(255,255,255,0.06)" },
-    track: function(on) { return { width: 40, height: 22, borderRadius: 11, background: on ? "#7a9e8e" : "rgba(255,255,255,0.1)", position: "relative", cursor: "pointer", transition: "background 0.2s", border: "none", flexShrink: 0 } },
+    row:   { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "0.5px solid rgba(250,242,229,0.06)" },
+    track: function(on) { return { width: 40, height: 22, borderRadius: 11, background: on ? "#7a9e8e" : "rgba(250,242,229,0.1)", position: "relative", cursor: "pointer", transition: "background 0.2s", border: "none", flexShrink: 0 } },
     thumb: function(on) { return { position: "absolute", top: 3, left: on ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" } },
   }
 
@@ -6272,7 +6272,7 @@ function AnchorSettings() {
       <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Anchor Settings</div>
       <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginBottom: 20, lineHeight: 1.5 }}>Customise which sections appear in your Anchor Vault.</div>
 
-      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "4px 16px" }}>
+      <div style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 14, padding: "4px 16px" }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.6)", textTransform: "uppercase", letterSpacing: "0.09em", padding: "12px 0 4px", fontFamily: "DM Sans,sans-serif" }}>Visible sections</div>
         {ANCHOR_SECTIONS.map(function(sec) {
           const on = !hidden[sec.id]
@@ -6292,7 +6292,7 @@ function AnchorSettings() {
         })}
       </div>
 
-      <div style={{ marginTop: 20, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "16px" }}>
+      <div style={{ marginTop: 20, background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 14, padding: "16px" }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(250,248,244,0.55)", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>About Anchor Vault</div>
         <p style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", lineHeight: 1.65, margin: 0 }}>
           Anchor holds the steady, permanent parts of your home — inventory, health records, career docs, and milestones. Flow handles the daily rhythm. Together they give your home a complete system.
@@ -6304,9 +6304,9 @@ function AnchorSettings() {
 
 // ── Subscriptions Section ─────────────────────────────────────────────────────
 function SubscriptionsSection() {
-  var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
-  var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
-  var SAGE = "#7a9e8e"; var BLUE = "#6ba3c4"
+  var GOLD = "#c8a97a"; var NAVY = "#243A5A"; var WHITE = "#faf8f4"
+  var SURF = "rgba(250,242,229,0.04)"; var BORD = "0.5px solid rgba(250,242,229,0.08)"
+  var SAGE = "#7a9e8e"; var BLUE = "#7EAEB4"
   var CYCLES = ["monthly","yearly","weekly","quarterly"]
   var PERK_TYPES = ["Kids eat free","Military discount","Student discount","Senior discount","AAA discount","Other"]
   function load(key, def) { try { return JSON.parse(localStorage.getItem(key) || "null") || def } catch { return def } }
@@ -6348,13 +6348,13 @@ function SubscriptionsSection() {
     if (s.cycle==="quarterly") return acc+(s.amount||0)/3
     return acc
   }, 0)
-  var inp = { background: "rgba(255,255,255,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
+  var inp = { background: "rgba(250,242,229,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
   var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
   var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : BORD, borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
   var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 10, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
   var cardStyle = { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }
   var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
-  var modalBox = { background: "#1e2e50", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
+  var modalBox = { background: "#2E486B", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
   return React.createElement("div", { style: { paddingBottom: "2rem" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
       React.createElement("div", null,
@@ -6369,11 +6369,11 @@ function SubscriptionsSection() {
     ),
     tab === "subs" && React.createElement("div", null,
       subs.length > 0 && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
-        React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
+        React.createElement("div", { style: { background: "rgba(250,242,229,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
           React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),
           React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + monthly.toFixed(2))
         ),
-        React.createElement("div", { style: { background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
+        React.createElement("div", { style: { background: "rgba(250,242,229,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
           React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Yearly total"),
           React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (monthly*12).toFixed(2))
         )
@@ -6414,7 +6414,7 @@ function SubscriptionsSection() {
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
               c.amount && React.createElement("div", { style: { fontSize: 18, fontWeight: 600, color: SAGE, fontFamily: "DM Sans,sans-serif" } }, c.amount),
               React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
-                React.createElement("button", { onClick: function() { toggleCouponUsed(c.id) }, style: { background: "none", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "2px 8px", color: "rgba(250,248,244,0.45)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, c.used ? "unmark" : "used"),
+                React.createElement("button", { onClick: function() { toggleCouponUsed(c.id) }, style: { background: "none", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 6, padding: "2px 8px", color: "rgba(250,248,244,0.45)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, c.used ? "unmark" : "used"),
                 React.createElement("button", { onClick: function() { deleteCoupon(c.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "✕")
               )
             )
@@ -6481,7 +6481,7 @@ function SubscriptionsSection() {
           React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Notes (optional)"), React.createElement("input", { style: inp, placeholder: "e.g. ID required, app required", value: form.notes||"", onChange: function(e) { setForm(Object.assign({},form,{notes:e.target.value})) } }))
         ),
         React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
-          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
+          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
           React.createElement("button", { onClick: modal==="sub" ? addSub : modal==="coupon" ? addCoupon : addPerk, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Save")
         )
       )
@@ -6501,8 +6501,8 @@ var RIPPLE_CATS = [
   { id: "other", label: "Other" },
 ]
 function RippleSection() {
-  var GOLD = "#c8a97a"; var NAVY = "#1a2744"; var WHITE = "#faf8f4"
-  var SURF = "rgba(255,255,255,0.04)"; var BORD = "0.5px solid rgba(255,255,255,0.08)"
+  var GOLD = "#c8a97a"; var NAVY = "#243A5A"; var WHITE = "#faf8f4"
+  var SURF = "rgba(250,242,229,0.04)"; var BORD = "0.5px solid rgba(250,242,229,0.08)"
   var SAGE = "#7a9e8e"
   var allPeople = hLoadPeople()
   var tagPeople = allPeople.filter(function(p) { return p.role==="Kid"||p.role==="Teen"||p.role==="Baby" })
@@ -6551,10 +6551,10 @@ function RippleSection() {
     if (!seen[d]) { seen[d]=true; groups.push({ label: d, items: [] }) }
     groups[groups.length-1].items.push(r)
   })
-  var inp = { background: "rgba(255,255,255,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
+  var inp = { background: "rgba(250,242,229,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
   var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
   var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
-  var modalBox = { background: "#1e2e50", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
+  var modalBox = { background: "#2E486B", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
   return React.createElement("div", { style: { paddingBottom: "2rem" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
       React.createElement("div", null,
@@ -6605,7 +6605,7 @@ function RippleSection() {
                 r.note && React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.55)", marginTop: 4, fontFamily: "DM Sans,sans-serif", lineHeight: 1.5 } }, r.note),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" } },
                   r.date && React.createElement("span", { style: { fontSize: 10, color: "rgba(200,169,122,0.6)", fontFamily: "DM Sans,sans-serif" } }, new Date(r.date+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})),
-                  r.who && React.createElement("span", { style: { fontSize: 10, color: "rgba(250,248,244,0.35)", padding: "1px 7px", background: "rgba(255,255,255,0.05)", borderRadius: 20, fontFamily: "DM Sans,sans-serif" } }, r.who),
+                  r.who && React.createElement("span", { style: { fontSize: 10, color: "rgba(250,248,244,0.35)", padding: "1px 7px", background: "rgba(250,242,229,0.05)", borderRadius: 20, fontFamily: "DM Sans,sans-serif" } }, r.who),
                   r.category && r.category!=="other" && React.createElement("span", { style: { fontSize: 9, padding: "1px 7px", borderRadius: 20, background: "rgba(122,158,142,0.15)", color: SAGE, border: "0.5px solid rgba(122,158,142,0.3)", fontFamily: "DM Sans,sans-serif" } }, r.category)
                 )
               ),
@@ -6630,7 +6630,7 @@ function RippleSection() {
                 var selected = form.who === p.name
                 return React.createElement("button", { key: p.id, onClick: function() { setForm(Object.assign({},form,{who: selected ? "" : p.name})) },
                   style: { display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20,
-                    background: selected ? GOLD+"33" : "rgba(255,255,255,0.05)",
+                    background: selected ? GOLD+"33" : "rgba(250,242,229,0.05)",
                     border: selected ? "0.5px solid "+GOLD : BORD,
                     color: selected ? GOLD : "rgba(250,248,244,0.55)",
                     fontSize: 11, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: selected ? 700 : 400 } },
@@ -6652,7 +6652,7 @@ function RippleSection() {
           React.createElement("textarea", { style: Object.assign({}, inp, { minHeight: 72, resize: "vertical" }), placeholder: "Any details you want to remember...", value: form.note, onChange: function(e) { setForm(Object.assign({},form,{note:e.target.value})) } })
         ),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
-          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
+          React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
           React.createElement("button", { onClick: submit, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, editId ? "Save" : "Capture")
         )
       )
@@ -6720,7 +6720,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: "#1e2e50", overflowY: "auto", padding: "24px 20px" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#2A6C73 0%,#1E5B63 55%,#17474E 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           {activeSection !== "home" && (
             <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>

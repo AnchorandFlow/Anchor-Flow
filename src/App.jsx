@@ -2541,9 +2541,9 @@ function createLocalBackup() {
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
-    Today:  { tint: "rgba(199,161,90,0.10)",  accent: "#C7A15A" },
-    Flow:   { tint: "rgba(110,157,166,0.13)", accent: "#6E9DA6" },
-    Anchor: { tint: "rgba(201,183,156,0.16)", accent: "#C9A97A" },
+    Today:  { tint: "rgba(201,164,91,0.07)",  accent: "#C9A45B" },
+    Flow:   { tint: "rgba(94,143,160,0.15)",  accent: "#5E8FA0" },
+    Anchor: { tint: "rgba(203,183,157,0.20)", accent: "#8B7761" },
   })[__roomKey] : null;
   homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
@@ -2798,6 +2798,7 @@ function createLocalBackup() {
   });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
+  React.useEffect(function(){ var h = function(){ setShowEndOfDay(true); }; window.addEventListener("af-open-sunset", h); return function(){ window.removeEventListener("af-open-sunset", h); }; }, []);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
   const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
   // Personal anchor items — per user, stored separately so each person has their own morning checklist
@@ -11009,7 +11010,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           PILLARS.map(function(pill){
             function rowBtn(it, active, onClick, col){
               col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
-              return (<button key={(it.id||it.vault||it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "13px", lineHeight: 1, opacity: active?1:0.55 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.55)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
+              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "13px", lineHeight: 1, opacity: active?1:0.55 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.55)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
             }
             if (pill.kind === "tab") { var a = !showAnchor && activeTab === pill.id; return rowBtn(pill, a, function(){ setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault; return rowBtn(pill, av, function(){ setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
@@ -11026,7 +11027,7 @@ function FlowWrapper({ onHome, onSignOut }) {
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <button onClick={function(){setShowEndOfDay(true);}} title="Sunset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "13px", opacity: 0.7 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.55)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
+          <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "13px", opacity: 0.7 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.55)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
           <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "14px", opacity: 0.6 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
         </div>
