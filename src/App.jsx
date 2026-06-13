@@ -360,9 +360,27 @@ const _afFetch = window.fetch.bind(window);
 function _afReadToken() {
   try { return JSON.parse(localStorage.getItem("af_authToken") || "null") || ""; } catch (e) { return ""; }
 }
+var _afClaudeLast = 0;
+var _afClaudeHits = [];
+function _afCooldown() {
+  var now = Date.now();
+  _afClaudeHits = _afClaudeHits.filter(function (t) { return now - t < 60000; });
+  if (now - _afClaudeLast < 1200) return "Compass is still thinking — one moment.";
+  if (_afClaudeHits.length >= 12) return "Compass needs a short breather — try again in a minute.";
+  _afClaudeLast = now;
+  _afClaudeHits.push(now);
+  return null;
+}
+function _afCooldownResponse(msg) {
+  return new Response(JSON.stringify({ error: msg, cooled: true }), {
+    status: 429, headers: { "Content-Type": "application/json" }
+  });
+}
 window.fetch = async function(input, opts) {
   var isClaude = typeof input === "string" && (input === "/api/claude" || input === "/api/anthropic");
   if (!isClaude) return _afFetch(input, opts);
+  var _cool = _afCooldown();
+  if (_cool) return _afCooldownResponse(_cool);
   input = "/api/claude";
   opts = opts || {};
   opts.headers = Object.assign({}, opts.headers, { "Authorization": "Bearer " + _afReadToken() });
