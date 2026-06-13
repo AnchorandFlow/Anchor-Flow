@@ -4299,14 +4299,11 @@ Respond ONLY with valid JSON array, no markdown:
         tmrMeal.dinner ? "Dinner: "+tmrMeal.dinner : "",
         tmrRhythm.theme ? "Theme: "+tmrRhythm.theme : "",
       ].filter(Boolean).join(". ");
-      fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",max_tokens:300,
-        system:"Generate 3-4 specific tonight prep tasks based on tomorrow. Each under 8 words. Return ONLY JSON: {\"preps\":[\"task\"]}",
-        messages:[{role:"user",content:ctx||"Standard family evening."}]
-      })}).then(r=>r.json()).then(d=>{
-        const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
-        try { const p=JSON.parse(txt.replace(/```json|```/g,"").trim()); if(p.preps) setPrepItems(p.preps); } catch {}
-      }).catch(()=>setPrepItems(["Pack bags for tomorrow","Check tomorrow's meals","Set out clothes","Quick house reset"])).finally(()=>setPrepLoading(false));
+      // DEAD CODE (replaced by SunsetClose). API call disabled to prevent 429s
+      // if this component is ever accidentally rendered. Remove in refactor.
+      void ctx;
+      setPrepItems(["Pack bags for tomorrow","Check tomorrow's meals","Set out clothes","Quick house reset"]);
+      setPrepLoading(false);
     },[]);
 
     async function closeDay() {
