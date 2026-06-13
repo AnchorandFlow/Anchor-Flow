@@ -491,7 +491,7 @@ const THEMES = {
     bg:"#F5F0E8", bgAlt:"#EDE8DF", surface:"#FDFAF5", border:"#D4CCB8", borderSoft:"#E0D8C8",
     sage:"#7a9e8e", sageDark:"#4d7a6a", sageLight:"#a0c0b0", sagePale:"#deeee8",
     sand:"#c4a882", sandDark:"#9a7a52", sandLight:"#ddc8a0", sandPale:"#f0e4d0",
-    blue:"#6A9BB5", blueDark:"#4a7a94", blueLight:"#96bdd0", bluePale:"#deedf5",
+    blue:"#5E8FA0", blueDark:"#4a7a94", blueLight:"#96bdd0", bluePale:"#dceef0",
     rose:"#b87265", roseDark:"#8f4f44", rosePale:"#f0ddd8",
     lavender:"#8878b8", lavPale:"#e5e0f5",
     textDark:"#2a2a38", textMid:"#5a5a6a", textSoft:"#8a8a9a", textFaint:"#b0b0be",
@@ -515,7 +515,7 @@ const THEMES = {
     bg:"#151c24", bgAlt:"#1c2530", surface:"#1e2838", border:"#2c3d50", borderSoft:"#243244",
     sage:"#5aaa88", sageDark:"#3a8868", sageLight:"#88c8a8", sagePale:"#183828",
     sand:"#d4a870", sandDark:"#b08850", sandLight:"#e8c898", sandPale:"#2a1e0a",
-    blue:"#58a8d0", blueDark:"#3080a8", blueLight:"#88c8e8", bluePale:"#0c2838",
+    blue:"#6FA7AE", blueDark:"#3080a8", blueLight:"#88c8e8", bluePale:"#0c2838",
     rose:"#d88878", roseDark:"#b05848", rosePale:"#2e1010",
     lavender:"#a898d8", lavPale:"#1c1838",
     textDark:"#e8f0f8", textMid:"#a0b8cc", textSoft:"#607890", textFaint:"#384e64",
@@ -2561,7 +2561,7 @@ function createLocalBackup() {
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
     Today:  { tint: "rgba(201,164,91,0.07)",  accent: "#C9A45B" },
-    Flow:   { tint: "rgba(94,143,160,0.15)",  accent: "#5E8FA0" },
+    Flow:   { tint: "rgba(94,143,160,0.30)",  accent: "#5E8FA0" },
     Anchor: { tint: "rgba(203,183,157,0.20)", accent: "#8B7761" },
   })[__roomKey] : null;
   homeFlowRef.goTab = goTab;
