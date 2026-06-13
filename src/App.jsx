@@ -11001,9 +11001,9 @@ function FlowWrapper({ onHome, onSignOut }) {
 
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px", flexShrink: 0 }} />
 
-        {showAnchor ? (
+        {false ? (
           <>
-            {/* ── 🌊 Flow — always shown even inside vault ── */}
+            {/* ── flat vault nav retired: accordion renders in all states ── */}
             <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Today" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
               <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>⚓</span>
               <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Today</span>
