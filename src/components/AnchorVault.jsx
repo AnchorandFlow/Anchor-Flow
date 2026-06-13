@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
+import RipplesRoom from "../shell/RipplesRoom"
 // CareerSection is defined inline below
 
 // ── Safe URL helper — prevents invalid URLs from crashing the PWA ─────────────
@@ -6720,7 +6721,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#2A6C73 0%,#1E5B63 55%,#17474E 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto", padding: "24px 20px" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto", padding: "24px 20px" }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>
           {activeSection !== "home" && (
             <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
@@ -6737,7 +6738,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
           {activeSection === "career" && <CareerSection />}
           {activeSection === "settings" && <AnchorSettings />}
           {activeSection === "subs" && <SubscriptionsSection />}
-          {activeSection === "ripples" && <RippleSection />}
+          {activeSection === "ripples" && <RipplesRoom />}
         </div>
       </div>
     </div>
