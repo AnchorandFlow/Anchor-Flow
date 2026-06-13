@@ -10900,6 +10900,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 function FlowWrapper({ onHome, onSignOut }) {
   const [openGroup, setOpenGroup] = React.useState("Flow");
+  const [navSel, setNavSel] = React.useState("today-pillar");
   const PILLAR_COLORS = {
     "Today":   { accent: "#C7A15A", glow: "rgba(199,161,90,0.35)" },
     "Flow":    { accent: "#8FC4CC", glow: "rgba(110,157,166,0.38)" },
@@ -11028,18 +11029,18 @@ function FlowWrapper({ onHome, onSignOut }) {
               col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
               return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "13px", lineHeight: 1, opacity: active?1:0.55 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.55)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
             }
-            if (pill.kind === "tab") { var a = !showAnchor && activeTab === pill.id; return rowBtn(pill, a, function(){ setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
-            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault; return rowBtn(pill, av, function(){ setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
+            if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
+            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
-            var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(isOpen?null:pill.label); }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+pillColor(pill.label).accent, cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(isOpen?null:pill.label); }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid transparent", cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
             if (!isOpen) return header;
             var kids = pill.items.map(function(it){
-              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault; return rowBtn(it, av2, function(){ setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }
+              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }
               var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
               if (hidden) return null;
-              var a2 = !showAnchor && activeTab === it.id; return rowBtn(it, a2, function(){ setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label));
+              var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label));
             });
-            return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", background: pillColor(pill.label).glow, borderRadius: "8px", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
+            return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
