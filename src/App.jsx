@@ -10943,7 +10943,6 @@ function FlowWrapper({ onHome, onSignOut }) {
       { id: "school",   label: "Lighthouse",    emoji: "🏮" },
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
-      { vault: "home", label: "Anchor Home", emoji: "🏠" },
       { id: "meals", label: "Meals", emoji: "🍽️" },
       { id: "shop", label: "Shopping", emoji: "🛒" },
       { id: "cove", label: "Cove", emoji: "🪸" },
@@ -11034,7 +11033,7 @@ function FlowWrapper({ onHome, onSignOut }) {
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
             if (!isOpen) return header;
             var kids = pill.items.map(function(it){
               if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }

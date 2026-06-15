@@ -6091,13 +6091,13 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
   // ── Card component ─────────────────────────────────────────────────────────
   function DashCard({ id, icon, label, summary, onOpen, defaultOpen }) {
-    var [open, setOpen] = useState(defaultOpen || false)
+    var [open, setOpen] = useState(false)
     var hasAlert = summary.alert
-    var borderColor = hasAlert ? "rgba(200,131,74,0.4)" : "rgba(200,169,122,0.18)"
-    var bgColor = hasAlert ? "rgba(200,131,74,0.05)" : "rgba(250,242,229,0.035)"
+    var borderColor = hasAlert ? "rgba(200,131,74,0.35)" : "rgba(250,242,229,0.1)"
+    var bgColor = "rgba(250,242,229,0.04)"
 
     return (
-      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 14, marginBottom: 10, overflow: "hidden", transition: "all 0.2s" }}>
+      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 16, marginBottom: 0, overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         {/* Header — always visible */}
         <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", cursor: "pointer" }}>
           <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
@@ -6202,36 +6202,98 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     return { label: e.name, badge: "Low", badgeAlert: true }
   })
 
+  var glance = []
+  if (celeb.highlight && celeb.countdown) glance.push(celeb.highlight + " " + celeb.countdown)
+  if (inventory && inventory.alert && (inventoryEntries||[]).length) glance.push((inventoryEntries.length) + " item" + (inventoryEntries.length>1?"s":"") + " running low")
+  if (travelSum && travelSum.alert && travelSum.highlight) glance.push(travelSum.highlight)
+  if (momentEntries && momentEntries.length) { var mn = momentEntries[0]; if (mn && mn.badge) glance.push((mn.label||"").replace(/^[^ ]+ /,"") + " " + mn.badge) }
+  var glanceText = glance.length ? glance.slice(0,3).join("  ·  ") : "Everything's calm — nothing needs attention right now."
+
+  var MEAL_DAYS_DASH = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+  function readMealsDash(){ try { return JSON.parse(localStorage.getItem("af_meals")||"{}")||{} } catch(e){ return {} } }
+  var weekMeals = readMealsDash()
+  var dinnerRows = MEAL_DAYS_DASH.map(function(d){ var m=weekMeals[d]||{}; return { day:d, dinner:(m.Dinner||m.dinner||m.name||"") } })
+  var plannedCount = dinnerRows.filter(function(r){ return r.dinner }).length
+
+  var s_shop = useState(""); var shopVal = s_shop[0]; var setShopVal = s_shop[1]
+  var s_shopMsg = useState(""); var shopMsg = s_shopMsg[0]; var setShopMsg = s_shopMsg[1]
+  function quickAddShop(){
+    var t = (shopVal||"").trim(); if(!t) return
+    var list = []
+    try { list = JSON.parse(localStorage.getItem("af_shoppingItems")||"[]"); if(!Array.isArray(list)) list=[] } catch(e){ list=[] }
+    var item = { id: "s_"+Math.random().toString(36).slice(2,9), text: t, done: false, store: "Grocery Store" }
+    localStorage.setItem("af_shoppingItems", JSON.stringify(list.concat([item])))
+    try { var dk = JSON.parse(localStorage.getItem("af_dirtyKeys")||"[]"); if(!dk.includes("shoppingItems")){ dk.push("shoppingItems"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dk)); } } catch(e){}
+    window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"shoppingItems"}}))
+    setShopVal(""); setShopMsg("Added: "+t); setTimeout(function(){ setShopMsg(""); }, 2200)
+  }
+
+  var leftCards = [
+    { id:"gifts", icon:"🎉", label:"Celebrations & Gifts", summary:{ count: celeb.count, highlight: celeb.highlight, countdown: celeb.countdown, alert: celeb.soon || celeb.alert, entries: celebEntries } },
+    { id:"recurring", icon:"🔁", label:"Recurring Reminders", summary: trashSum },
+    { id:"inventory", icon:"📦", label:"Inventory", summary:{ ...inventory, entries: inventoryEntries } },
+    { id:"travel", icon:"✈️", label:"Travel Profile", summary: travelSum }
+  ]
+  var rightCards = [
+    { id:"health", icon:"🩺", label:"Health", summary:{ ...health, entries: healthEntries } },
+    { id:"pets", icon:"🐾", label:"Pets", summary:{ ...pets, entries: petEntries } },
+    { id:"career", icon:"📋", label:"Career", summary: careerSum },
+    { id:"moments", icon:"✨", label:"Moments", summary:{ ...moments, entries: momentEntries } }
+  ]
+  function renderCard(c){ return <DashCard key={c.id} id={c.id} icon={c.icon} label={c.label} onOpen={onNavigate} summary={c.summary} /> }
+
   return (
     <div style={{ paddingBottom: "2rem" }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 26, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em" }}>⚓ Anchor</div>
-        <div style={{ fontSize: 13, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif", marginTop: 4, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
+      <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid rgba(250,242,229,0.1)" }}>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 28, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em", lineHeight: 1 }}>Anchor</div>
+        <div style={{ fontSize: 13, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
       </div>
 
-      <DashCard id="recurring" icon="🔁" label="Recurring Reminders" onOpen={onNavigate}
-        summary={trashSum} defaultOpen={trashSum.alert} />
-      <DashCard id="gifts" icon="🎉" label="Celebrations & Gifts" onOpen={onNavigate}
-        summary={{
-          count: celeb.count,
-          highlight: celeb.highlight,
-          countdown: celeb.countdown,
-          alert: celeb.soon || celeb.alert,
-          entries: celebEntries
-        }}
-        defaultOpen={celeb.soon || celeb.alert} />
-      <DashCard id="inventory" icon="📦" label="Inventory" onOpen={onNavigate}
-        summary={{ ...inventory, entries: inventoryEntries }} defaultOpen={inventory.alert} />
-      <DashCard id="career" icon="📋" label="Career" onOpen={onNavigate}
-        summary={careerSum} />
-      <DashCard id="health" icon="🩺" label="Health" onOpen={onNavigate}
-        summary={{ ...health, entries: healthEntries }} />
-      <DashCard id="pets" icon="🐾" label="Pets" onOpen={onNavigate}
-        summary={{ ...pets, entries: petEntries }} />
-      <DashCard id="travel" icon="✈️" label="Travel Profile" onOpen={onNavigate}
-        summary={travelSum} defaultOpen={travelSum.alert} />
-      <DashCard id="moments" icon="✨" label="Moments" onOpen={onNavigate}
-        summary={{ ...moments, entries: momentEntries }} />
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", marginBottom: 18, background: "rgba(200,169,122,0.07)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 14 }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>👁️</span>
+        <div>
+          <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(200,169,122,0.8)", fontWeight: 700, marginBottom: 3 }}>At a glance</div>
+          <div style={{ fontSize: 14, color: "rgba(250,248,244,0.9)", fontFamily: "Cormorant Garamond,serif", fontStyle: "italic", lineHeight: 1.45 }}>{glanceText}</div>
+        </div>
+      </div>
+
+      <div style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.1)", borderRadius: 16, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{ fontSize: 18 }}>🍽️</span>
+            <div><div style={{ fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>This Week's Dinners</div><div style={{ fontSize: 11, color: "rgba(250,248,244,0.45)" }}>{plannedCount} of 7 planned</div></div>
+          </div>
+          <span onClick={function(){ onNavigate("meals"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>Plan →</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 14px" }}>
+          {dinnerRows.map(function(r){ return (
+            <div key={r.day} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0", borderBottom: "1px solid rgba(250,242,229,0.05)" }}>
+              <span style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", flexShrink: 0 }}>{r.day.slice(0,3)}</span>
+              <span style={{ fontSize: 12, color: r.dinner ? "rgba(250,248,244,0.85)" : "rgba(250,248,244,0.25)", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
+            </div>
+          ); })}
+        </div>
+      </div>
+
+      <div style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.1)", borderRadius: 16, padding: "14px 16px", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{ fontSize: 18 }}>🛒</span>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>Quick Add to Shopping</div>
+          </div>
+          <span onClick={function(){ onNavigate("shop"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>List →</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={shopVal} onChange={function(e){ setShopVal(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter") quickAddShop(); }} placeholder="Add an item..." style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 8, padding: "9px 12px", color: "#faf8f4", fontFamily: "DM Sans,sans-serif", fontSize: 13, outline: "none" }} />
+          <button onClick={quickAddShop} style={{ background: "#c8a97a", color: "#2E486B", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>Add</button>
+        </div>
+        {shopMsg && <div style={{ fontSize: 11, color: "#9ed4be", marginTop: 7, fontStyle: "italic" }}>{shopMsg}</div>}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{leftCards.map(renderCard)}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{rightCards.map(renderCard)}</div>
+      </div>
     </div>
   )
 }
