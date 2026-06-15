@@ -8,6 +8,7 @@ import NudgeStrip from "./shell/NudgeStrip";
 import WeeklyReviewCard from "./shell/WeeklyReviewCard";
 import PrepCard from "./shell/PrepCard";
 import SunsetClose from "./shell/SunsetClose";
+import FlowHome from "./shell/FlowHome";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
@@ -2556,7 +2557,7 @@ function createLocalBackup() {
   const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","tidepool","cove"]));
   function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
   homeFlowRef.tab = tab;
-  var __roomKey = (tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
+  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
@@ -10614,13 +10615,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
 
-        <div style={{maxWidth:700,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
+        <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
+          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
                 {t==="anchor"   && <AnchorTab/>}
+                {t==="flowhome" && <FlowHome/>}
                 {t==="calendar" && <CalendarTab/>}
                 {t==="weekly"   && <WeeklyTab/>}
                 {t==="meals"    && <MealsTab/>}
@@ -11032,7 +11034,7 @@ function FlowWrapper({ onHome, onSignOut }) {
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
-            var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(isOpen?null:pill.label); }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid transparent", cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
             if (!isOpen) return header;
             var kids = pill.items.map(function(it){
               if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }

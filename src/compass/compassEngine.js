@@ -171,7 +171,7 @@ export async function runCompass(mode, state, opts) {
   if (!prompt) throw new Error("Unknown Compass mode: " + mode);
   if (state && state.compassEnabled === false) throw new Error("Compass is turned off in Settings.");
 
-  var scope = mode === "briefing" ? "today" : mode === "weeklyReview" ? "week" : mode === "prep" ? "prep" : mode === "nudge" ? "today" : "ask";
+  var scope = mode === "briefing" ? "today" : mode === "forecast" ? "today" : mode === "weeklyReview" ? "week" : mode === "prep" ? "prep" : mode === "nudge" ? "today" : "ask";
   var context = buildCompassContext(state, scope, opts);
 
   var userContent = "FAMILY CONTEXT:\n" + context;
@@ -211,6 +211,18 @@ export async function getDailyBriefing(state, saveCache, force) {
   if (!force && cache[slot] && cache[slot].date === today) return cache[slot].data;
 
   var data = await runCompass("briefing", state);
+  var next = Object.assign({}, cache, (function(){ var o = {}; o[slot] = { date: today, data: data }; return o; })());
+  if (saveCache) saveCache(next);
+  return data;
+}
+
+export async function getDailyForecast(state, saveCache, force) {
+  var cache = (state && state.compassCache) || {};
+  var today = dateKey();
+  var mode = (state && state.flowMode) || "Smooth";
+  var slot = "forecast_" + mode;
+  if (!force && cache[slot] && cache[slot].date === today) return cache[slot].data;
+  var data = await runCompass("forecast", state);
   var next = Object.assign({}, cache, (function(){ var o = {}; o[slot] = { date: today, data: data }; return o; })());
   if (saveCache) saveCache(next);
   return data;
