@@ -10901,7 +10901,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 
 function FlowWrapper({ onHome, onSignOut }) {
-  const [openGroup, setOpenGroup] = React.useState("Flow");
+  const [openGroup, setOpenGroup] = React.useState(null);
   const [navSel, setNavSel] = React.useState("today-pillar");
   const PILLAR_COLORS = {
     "Today":   { accent: "#C7A15A", glow: "rgba(199,161,90,0.35)" },
@@ -10935,7 +10935,6 @@ function FlowWrapper({ onHome, onSignOut }) {
   const PILLARS = [
     { id: "anchor", label: "Today", emoji: "🧭", kind: "tab" },
     { label: "Flow", emoji: "🌊", kind: "group", items: [
-      { id: "anchor",   label: "Today's Tasks", emoji: "✅" },
       { id: "calendar", label: "Calendar",      emoji: "📆" },
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
