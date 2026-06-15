@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
+import DosingTracker from "./DosingTracker"
 import RipplesRoom from "../shell/RipplesRoom"
 // CareerSection is defined inline below
 
@@ -4040,6 +4041,7 @@ var H_TABS = [
   { id:"history",   label:"Medical history" },
   { id:"immunize",  label:"Immunizations"   },
   { id:"meds",      label:"Medications"     },
+  { id:"dosing",    label:"Dosing"          },
   { id:"allergies", label:"Allergies"       },
   { id:"family",    label:"Family history"  },
   { id:"notes",     label:"Appt notes"      },
@@ -4853,6 +4855,7 @@ function HealthSection() {
       detail.tab==="history"   &&React.createElement(HHistoryTab,  tp),
       detail.tab==="immunize"  &&React.createElement(HImmunizeTab, tp),
       detail.tab==="meds"      &&React.createElement(HMedsTab,     tp),
+      detail.tab==="dosing"    &&React.createElement(DosingTracker, tp),
       detail.tab==="allergies" &&React.createElement(HAllergiesTab,tp),
       detail.tab==="family"    &&React.createElement(HFamilyTab,   Object.assign({},tp,{maternalSourceId:health[person.id]&&health[person.id].maternalSourceId})),
       detail.tab==="notes"     &&React.createElement(HNotesTab,    tp),
