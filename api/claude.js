@@ -21,11 +21,11 @@
 
 const MODEL_MAP = {
   // client-requested model -> actual model we run
-  "claude-sonnet-4-20250514": "claude-sonnet-4-20250514",
-  "haiku": "claude-haiku-4-5-20251001",
-  "sonnet": "claude-sonnet-4-20250514",
+  "claude-sonnet-4-20250514": "claude-sonnet-4-6",
+  "haiku": "claude-haiku-4-5",
+  "sonnet": "claude-sonnet-4-6",
 };
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS_CAP = 1500;
 const MAX_BODY_BYTES = 6 * 1024 * 1024; // allows one grocery photo (base64), blocks bulk abuse
 const RATE_LIMIT = 60;                  // requests per user
