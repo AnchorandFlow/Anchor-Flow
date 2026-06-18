@@ -2081,21 +2081,9 @@ function createLocalBackup() {
           return;
         }
         if (serverUpdatedAt && lastApplied && new Date(serverUpdatedAt).getTime() > new Date(lastApplied).getTime()) {
-          // Own-push reconciliation. A successful push bumps the server updated_at but
-          // intentionally does NOT advance af_lastHHSync. Without this guard the NEXT push
-          // attempt reads our own write as a newer remote change, pulls, and reloads -
-          // an infinite stale-pull-reload loop (nav resets to Compass, the briefing
-          // re-fires /api/claude, the proxy returns 429). The poll path already guards
-          // this via af_lastPushedAt; mirror it here.
-          var lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
-          if (serverUpdatedAt === lastPushedAt) {
-            try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
-            console.warn("[AF SYNC] stale-check: server reflects our own push - reconciled, not stale");
-          } else {
-            console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
-            await pullLatestHouseholdData("stale-push-block");
-            return;
-          }
+          console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
+          await pullLatestHouseholdData("stale-push-block");
+          return;
         }
         AF_DEBUG&&console.log("[AF SYNC] push allowed", { serverUpdatedAt, lastApplied });
       }
