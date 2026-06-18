@@ -2642,6 +2642,13 @@ function createLocalBackup() {
     });
     setMealsRaw(safe);
     try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
+    try {
+      const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+      if (!dirty.includes("meals")) {
+        dirty.push("meals");
+        localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+      }
+    } catch {}
   }
   const [mealCount,setMealCount]               = useSaved("mealCount",3);
   const [mealThemeEnabled,setMealThemeEnabled] = useSaved("mealThemeEnabled",false);
