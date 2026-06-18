@@ -465,7 +465,7 @@ function readHouseholdState() {
 }
 window.__compassTest = function (q) {
   return askFamily(readHouseholdState(), q || "what is for dinner this week?")
-    .then(function (r) { console.log("COMPASS:", r); return r; });
+    .then(function (r) { AF_DEBUG && console.log("COMPASS:", r); return r; });
 };
 
 const APP_VERSION = "2026-06-03-vault-refresh";
@@ -1677,7 +1677,7 @@ function HomeFlow() {
     AF_DEBUG&&console.log("[AF DEBUG] user id", _au?.id);
     AF_DEBUG&&console.log("[AF DEBUG] household id", _hid);
     AF_DEBUG&&console.log("[AF DEBUG] app version", APP_VERSION);
-    console.warn("[AF VERSION]", APP_VERSION);
+    AF_DEBUG && console.warn("[AF VERSION]", APP_VERSION);
     AF_DEBUG&&console.log("[AF DEBUG] lastPushedAt", localStorage.getItem("af_lastPushedAt"));
     AF_DEBUG&&console.log("[AF DEBUG] lastHHSync", localStorage.getItem("af_lastHHSync"));
     AF_DEBUG&&console.log("[AF SYNC] deviceId", localStorage.getItem("af_deviceId") || "(not yet set)");
@@ -1876,7 +1876,7 @@ function createLocalBackup() {
       }
 
       // data is the parsed JSON response — show it for debugging
-      console.log("Supabase signup response:", JSON.stringify(data));
+      AF_DEBUG && console.log("Supabase signup response:", JSON.stringify(data));
 
       // Hard error in response body
       if (data.error || data.error_code) {
@@ -1938,7 +1938,7 @@ function createLocalBackup() {
         return { ok:false, error: cleanMsg, raw: raw.slice(0,300) };
       }
 
-      console.log("Supabase signin response keys:", Object.keys(data));
+      AF_DEBUG && console.log("Supabase signin response keys:", Object.keys(data));
 
       if (!data.access_token) {
         setSyncStatus("error");
@@ -2253,7 +2253,7 @@ function createLocalBackup() {
   // Called directly when push is blocked stale, so the phone pulls immediately.
   async function pullLatestHouseholdData(reason) {
     if (!authToken || !householdId) { console.warn("[AF SYNC] pullLatest skipped — no auth/household"); return; }
-    console.warn("[AF PULL] EXECUTING", reason, new Date().toISOString());
+    AF_DEBUG && console.warn("[AF PULL] EXECUTING", reason, new Date().toISOString());
     try {
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
       if (!rows || !rows.length || !rows[0].data) { AF_DEBUG&&console.log("[AF SYNC] pullLatest — no rows returned"); return; }
@@ -2265,7 +2265,7 @@ function createLocalBackup() {
       if (!_safe) { console.warn("[AF SYNC] pullLatest blocked by safety check"); return; }
       createLocalBackup();
       const clean = sanitizeHouseholdData(row.data);
-      console.warn("[AF PULL] APPLYING REMOTE", Object.keys(clean));
+      AF_DEBUG && console.warn("[AF PULL] APPLYING REMOTE", Object.keys(clean));
       const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
       const _ARRAY_KEYS = ["tasks","brainItems","shoppingItems","notifications","calEvents",
         "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
@@ -2279,7 +2279,7 @@ function createLocalBackup() {
         }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-      console.warn("[AF PULL] RELOADING");
+      AF_DEBUG && console.warn("[AF PULL] RELOADING");
       window.location.reload();
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
   }
@@ -2400,17 +2400,17 @@ function createLocalBackup() {
         const serverTs = row.updated_at || "";
         const lastSync = localStorage.getItem("af_lastHHSync") || "";
         const lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
-        console.warn("[AF POLL] heartbeat", { serverTs, lastHHSync: lastSync, lastPushedAt });
+        AF_DEBUG && console.warn("[AF POLL] heartbeat", { serverTs, lastHHSync: lastSync, lastPushedAt });
         AF_DEBUG&&console.log("[AF SYNC] remote updated_at", serverTs);
         AF_DEBUG&&console.log("[AF SYNC] last seen updated_at", lastSync);
         if (!serverTs || serverTs === lastSync) {
-          console.warn("[AF POLL RETURN] serverTs === lastSync (no change)");
+          AF_DEBUG && console.warn("[AF POLL RETURN] serverTs === lastSync (no change)");
           return;
         }
         if (serverTs && serverTs !== lastSync) {
           // If this new timestamp matches what WE just pushed, it's our own write — don't reload
           if (serverTs === lastPushedAt) {
-            console.warn("[AF POLL RETURN] own write — no apply, not stamping lastHHSync");
+            AF_DEBUG && console.warn("[AF POLL RETURN] own write — no apply, not stamping lastHHSync");
             setSyncStatus("synced");
             setLastSyncTime(new Date().toLocaleTimeString());
             return;
@@ -2420,13 +2420,13 @@ function createLocalBackup() {
           const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
           const isDragging = !!document.querySelector("[data-taskid][style*='opacity: 0.35'],[data-brainid][style*='opacity: 0.35'],[data-shopid][style*='opacity: 0.35'],[data-sysid][style*='opacity: 0.35']");
           const hasOpenModal = !!document.querySelector("[data-modal-open='true']");
-          if (isTyping) { console.warn("[AF POLL RETURN] isTyping", activeEl?.tagName); return; }
-          if (typedRecently) { console.warn("[AF POLL RETURN] typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
-          if (isDragging) { console.warn("[AF POLL RETURN] isDragging"); return; }
-          if (hasOpenModal) { console.warn("[AF POLL RETURN] hasOpenModal"); return; }
+          if (isTyping) { AF_DEBUG && console.warn("[AF POLL RETURN] isTyping", activeEl?.tagName); return; }
+          if (typedRecently) { AF_DEBUG && console.warn("[AF POLL RETURN] typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
+          if (isDragging) { AF_DEBUG && console.warn("[AF POLL RETURN] isDragging"); return; }
+          if (hasOpenModal) { AF_DEBUG && console.warn("[AF POLL RETURN] hasOpenModal"); return; }
           const _safe = isRemotePayloadSafe(row.data, serverTs);
           AF_DEBUG&&console.log("[AF SYNC] remote safe", _safe);
-          if (!_safe) { console.warn("[AF POLL RETURN] remote unsafe"); return; }
+          if (!_safe) { AF_DEBUG && console.warn("[AF POLL RETURN] remote unsafe"); return; }
           createLocalBackup();
           const cleanBg = sanitizeHouseholdData(row.data);
           AF_DEBUG&&console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
@@ -2477,11 +2477,11 @@ function createLocalBackup() {
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
       const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       const shopFocused = window._shopInputFocused;
-      console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
-      console.warn("[AF FOCUS]", { tag: active?.tagName, type: active?.type, className: active?.className, id: active?.id });
-      if (isTyping) { console.warn("[AF POLL RETURN] interval — isTyping"); return; }
-      if (typedRecently) { console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
-      if (shopFocused) { console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
+      AF_DEBUG && console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
+      AF_DEBUG && console.warn("[AF FOCUS]", { tag: active?.tagName, type: active?.type, className: active?.className, id: active?.id });
+      if (isTyping) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — isTyping"); return; }
+      if (typedRecently) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
+      if (shopFocused) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
       checkForUpdates();
     }, 15000);
     return () => {
@@ -7318,7 +7318,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(!newText.trim()) return;
       const detected = smartCat(newText.trim());
       const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
-      console.warn("[AF MIND ADD]", { text: newText.trim(), cat });
+      AF_DEBUG && console.warn("[AF MIND ADD]", { text: newText.trim(), cat });
       setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
       setNewText("");
       setTimeout(function(){if(brainInputRef.current)brainInputRef.current.blur();},0);
@@ -7433,7 +7433,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
               )}
             </div>
-            <button onClick={function(){ console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
+            <button onClick={function(){ AF_DEBUG && console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
           </div>
           {/* Controls row: File · Date · Initials */}
           <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
