@@ -2088,9 +2088,11 @@ function createLocalBackup() {
           // re-fires /api/claude, the proxy returns 429). The poll path already guards
           // this via af_lastPushedAt; mirror it here.
           var lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
-          if (serverUpdatedAt === lastPushedAt) {
+          var lastPushAt = Number(localStorage.getItem("af_lastPushAt") || 0);
+          var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 8000;
+          if (serverUpdatedAt === lastPushedAt || pushedRecently) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
-            console.warn("[AF SYNC] stale-check: server reflects our own push - reconciled, not stale");
+            console.warn("[AF SYNC] stale-check: own push (match or recent) - reconciled, not stale");
           } else {
             console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
             await pullLatestHouseholdData("stale-push-block");
@@ -2158,6 +2160,7 @@ function createLocalBackup() {
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
+        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // wall-clock recency marker: server may rewrite updated_at via trigger, so timestamp value alone never matches
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
         AF_DEBUG&&console.log("[AF SYNC] push success updated_at", serverTs, "— dirty keys cleared");
       } else {
@@ -2170,6 +2173,7 @@ function createLocalBackup() {
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
         try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // wall-clock recency marker (see PATCH path)
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
         // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
       }
@@ -2408,9 +2412,14 @@ function createLocalBackup() {
           return;
         }
         if (serverTs && serverTs !== lastSync) {
-          // If this new timestamp matches what WE just pushed, it's our own write — don't reload
-          if (serverTs === lastPushedAt) {
-            AF_DEBUG && console.warn("[AF POLL RETURN] own write — no apply, not stamping lastHHSync");
+          // If this new timestamp matches what WE just pushed (or we pushed seconds ago), it's our
+          // own write — don't reload. The server may rewrite updated_at via a trigger, so the
+          // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
+          var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
+          var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 8000;
+          if (serverTs === lastPushedAt || pushedRecentlyPoll) {
+            try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
+            AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
             setSyncStatus("synced");
             setLastSyncTime(new Date().toLocaleTimeString());
             return;
