@@ -2089,7 +2089,7 @@ function createLocalBackup() {
           // this via af_lastPushedAt; mirror it here.
           var lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
           var lastPushAt = Number(localStorage.getItem("af_lastPushAt") || 0);
-          var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 8000;
+          var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
           if (serverUpdatedAt === lastPushedAt || pushedRecently) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push (match or recent) - reconciled, not stale");
@@ -2416,7 +2416,7 @@ function createLocalBackup() {
           // own write — don't reload. The server may rewrite updated_at via a trigger, so the
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
-          var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 8000;
+          var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
           if (serverTs === lastPushedAt || pushedRecentlyPoll) {
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
