@@ -1,4 +1,4 @@
-const CACHE_VERSION = "anchor-flow-v20260618-1";
+const CACHE_VERSION = "anchor-flow-v20260531-1";
 const STATIC_CACHE = CACHE_VERSION;
 
 // On install: skip waiting immediately so new SW takes over right away
@@ -45,12 +45,10 @@ self.addEventListener("fetch", function(event) {
   if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname.endsWith(".html")) {
     event.respondWith(
       fetch(event.request).then(function(response) {
-        if (response && response.ok) {
-          var clone = response.clone();
-          caches.open(STATIC_CACHE).then(function(cache) {
-            cache.put(event.request, clone);
-          });
-        }
+        var clone = response.clone();
+        caches.open(STATIC_CACHE).then(function(cache) {
+          cache.put(event.request, clone);
+        });
         return response;
       }).catch(function() {
         return caches.match(event.request);
@@ -66,12 +64,10 @@ self.addEventListener("fetch", function(event) {
       caches.match(event.request).then(function(cached) {
         if (cached) return cached;
         return fetch(event.request).then(function(response) {
-          if (response && response.ok) {
-            var clone = response.clone();
-            caches.open(STATIC_CACHE).then(function(cache) {
-              cache.put(event.request, clone);
-            });
-          }
+          var clone = response.clone();
+          caches.open(STATIC_CACHE).then(function(cache) {
+            cache.put(event.request, clone);
+          });
           return response;
         });
       })
