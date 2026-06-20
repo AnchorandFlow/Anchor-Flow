@@ -1646,6 +1646,25 @@ function useSaved(key, fallback) {
   return [val, setSaved];
 }
 
+// ── Stable component wrappers ─────────────────────────────────────────────────
+// Created once at module level. React sees the same type across HomeFlow renders
+// so it UPDATES instead of unmounting+remounting the component. The actual render
+// logic lives in _hfRenders.X which is a fresh closure on each HomeFlow render.
+const _hfRenders = {};
+const _hfComps   = {};
+[
+  'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
+  'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
+  'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
+  'MealBankDrawer','WeekTypePicker','MealsTab','ShoppingTab','HomeTab','BrainTab',
+  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveTab',
+  'SchoolTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
+  'SetPasswordModal',
+].forEach(n => {
+  _hfComps[n] = function(p){ return _hfRenders[n](p); };
+  Object.defineProperty(_hfComps[n], 'name', { value: n });
+});
+
 function HomeFlow() {
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
@@ -3696,7 +3715,17 @@ Respond ONLY with valid JSON array, no markdown:
     </div>
   );
 
-  function ModalBox({title,onClose,children,wide}){
+  // ── Alias stable wrappers to local names ─────────────────────────────────────
+  // Must come BEFORE render delegates so component bodies can cross-reference.
+  const { ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
+          ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
+          DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
+          MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
+          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveTab,
+          SchoolTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
+          SetPasswordModal } = _hfComps;
+
+  _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
     return (
       <div data-modal-open="true" style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(8px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         <div style={{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"1.4rem",padding:"1.8rem",width:"100%",maxWidth:wide?600:460,boxShadow:`0 32px 100px ${T.cardShadow}`,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -3711,7 +3740,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Person Pill ─────────────────────────────────────────────────────────────
-  function PersonPill({name, people, T}) {
+  _hfRenders.PersonPill = function PersonPill({name, people, T}) {
     const pc = people.find(p=>p.name===name);
     const color = pc?.color || T.textFaint;
     return (
@@ -3722,7 +3751,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Anchor Check Item — checkable row with fade-out + inline bell ───────────
-  function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick }) {
+  _hfRenders.AnchorCheckItem = function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick }) {
     const [removing, setRemoving] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
     const [nd, setNd] = useState(""); const [nt, setNt] = useState(""); const [nn, setNn] = useState("");
@@ -3771,7 +3800,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Task Row ────────────────────────────────────────────────────────────────
-  function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
+  _hfRenders.TaskRow = function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(t.text);
     const [notifDate, setNotifDate] = useState("");
@@ -3845,7 +3874,7 @@ Respond ONLY with valid JSON array, no markdown:
     );
   }
 
-  function DraggableTaskList({tasks:localTasks, setTasks:setAllTasks, accent}) {
+  _hfRenders.DraggableTaskList = function DraggableTaskList({tasks:localTasks, setTasks:setAllTasks, accent}) {
     const [showNotifFor, setShowNotifFor] = useState(null);
     const groupIds = localTasks.map(t=>t.id);
     const {draggingId, dragOverId, pointerDown} = usePointerDrag(localTasks, updated => {
@@ -3872,7 +3901,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  function ShopItemRow({item, onToggle, onDelete, onSave, selected, onSelect}) {
+  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave, selected, onSelect}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
@@ -3917,7 +3946,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Brain Item Row ──────────────────────────────────────────────────────────
-  function BrainItemRow({item, color, onToggle, onDelete, onSave, onMove, bDragStart, bDragEnter, bDragEnd}) {
+  _hfRenders.BrainItemRow = function BrainItemRow({item, color, onToggle, onDelete, onSave, onMove, bDragStart, bDragEnter, bDragEnd}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [moveTo, setMoveTo] = useState(false);
@@ -3965,7 +3994,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── AI Chat Panel ───────────────────────────────────────────────────────────
-  function AIChatPanel({onClose}) {
+  _hfRenders.AIChatPanel = function AIChatPanel({onClose}) {
     const unanswered = GTK_QUESTIONS.filter(q => !aiMemory[q]);
     const todayQuestion = useRef(
       unanswered.length > 0 ? unanswered[Math.floor(Math.random() * unanswered.length)] : null
@@ -4055,7 +4084,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Today Snapshot ──────────────────────────────────────────────────────────
-  function TodaySnapshot() {
+  _hfRenders.TodaySnapshot = function TodaySnapshot() {
     const todayEvents = calEvents.filter(e=>{
       if(!e.date)return false;
       const [y,m,d]=e.date.split("-").map(Number);
@@ -4094,7 +4123,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Onboarding Wizard ───────────────────────────────────────────────────────
-  function OnboardingWizard({onComplete}) {
+  _hfRenders.OnboardingWizard = function OnboardingWizard({onComplete}) {
     const [step,setStep] = useState(0);
     const [d,setD] = useState({name:"",partner:"",numKids:"",kidAges:"",kidNames:"",dietary:"",challenge:"",cal:false,m1name:"",m1time:"20",m1tags:"",m2name:"",m2time:"20",g1:"",g2:"",brain:""});
     const set = (k,v) => setD(p=>({...p,[k]:v}));
@@ -4275,7 +4304,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Daily Briefing Modal ─────────────────────────────────────────────────────
-  function DailyBriefingModal({onClose}) {
+  _hfRenders.DailyBriefingModal = function DailyBriefingModal({onClose}) {
     const b = dayBriefing;
     const allT = tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived);
     const top3T = allT.filter(t=>t.tier==="top3");
@@ -4330,7 +4359,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── End of Day + Tomorrow Prep ───────────────────────────────────────────────
-  function EndOfDayReset() {
+  _hfRenders.EndOfDayReset = function EndOfDayReset() {
     const [carry, setCarry] = useState([]);
     const [letGo, setLetGo] = useState([]);
     const [checkedRhythm, setCheckedRhythm] = useState([]);
@@ -4476,7 +4505,7 @@ Respond ONLY with valid JSON array, no markdown:
 
 
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
-  function AnchorTab() {
+  _hfRenders.AnchorTab = function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
     const [newTaskPerson,setNewTaskPerson] = useState("");
     const [showFlowIn,setShowFlowIn] = useState(false);
@@ -5372,7 +5401,7 @@ Respond ONLY in valid JSON:
   }
 
   // ── Calendar Tab ────────────────────────────────────────────────────────────
-  function CalendarTab() {
+  _hfRenders.CalendarTab = function CalendarTab() {
     const year=calViewDate.getFullYear(), month=calViewDate.getMonth();
     const daysInMonth=getDaysInMonth(year,month);
     const firstDay=getFirstDayOfMonth(year,month);
@@ -5586,7 +5615,7 @@ Respond ONLY in valid JSON:
   }
 
   // ── Weekly Tab ──────────────────────────────────────────────────────────────
-  function WeeklyTab() {
+  _hfRenders.WeeklyTab = function WeeklyTab() {
     const [newTaskText,setNewTaskText]=useState("");
     const [taskDay,setTaskDay]=useState(TODAY_NAME);
     const [taskPerson,setTaskPerson]=useState("");
@@ -5914,7 +5943,7 @@ Respond ONLY in valid JSON:
   }
 
   // ── Meals Tab ───────────────────────────────────────────────────────────────
-  function MealBankDrawer({mealType, allBank, onApply, onAddToShopping}) {
+  _hfRenders.MealBankDrawer = function MealBankDrawer({mealType, allBank, onApply, onAddToShopping}) {
     const [open,setOpen] = useState(false);
     const [search,setSearch] = useState("");
     const [selected,setSelected] = useState(null);
@@ -5977,7 +6006,7 @@ Respond ONLY in valid JSON:
     );
   }
 
-  function WeekTypePicker({weekTypeKey,applyWeekType,setShowWeekTypePicker,flowMode,dietaryFilters,setNextWeekMeals,setMeals,setMealSubTab,mealBankCustom,targetWeek,wtAiMeals,setWtAiMeals,wtSelected,setWtSelected}){
+  _hfRenders.WeekTypePicker = function WeekTypePicker({weekTypeKey,applyWeekType,setShowWeekTypePicker,flowMode,dietaryFilters,setNextWeekMeals,setMeals,setMealSubTab,mealBankCustom,targetWeek,wtAiMeals,setWtAiMeals,wtSelected,setWtSelected}){
     var [wtAiLoading,setWtAiLoading]=useState(false);
     var [wtAiError,setWtAiError]=useState("");
     var isBusySurv=weekTypeKey==="busy"||weekTypeKey==="survival";
@@ -6091,7 +6120,7 @@ Respond ONLY in valid JSON:
     );
   }
 
-  function MealsTab() {
+  _hfRenders.MealsTab = function MealsTab() {
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
@@ -6882,7 +6911,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
-  function ShoppingTab(){
+  _hfRenders.ShoppingTab = function ShoppingTab(){
     // Fixed stores with subcategory support for Grocery and Costco
     const FIXED_STORES = [
       {id:"grocery", label:"Grocery", emoji:"🛒", hasCats:true},
@@ -7172,7 +7201,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-  function HomeTab(){
+  _hfRenders.HomeTab = function HomeTab(){
     const SYSTEM_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#7ab8a8","#e8a838","#c878a8"];
     const[editingSystem,setEditingSystem]=useState(null);
     const[editForm,setEditForm]=useState({label:"",emoji:"",items:[]});
@@ -7270,7 +7299,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function BrainTab(){
+  _hfRenders.BrainTab = function BrainTab(){
     const [newText,setNewText] = useState("");
     const [newCat,setNewCat] = useState(function(){try{var s=sessionStorage.getItem("af_brainNewCat");if(s)return s;}catch{}return "personal";});
     const [aiRecatLoading,setAiRecatLoading] = useState(false);
@@ -7621,7 +7650,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function BurnoutTab(){
+  _hfRenders.BurnoutTab = function BurnoutTab(){
     return(
       <div>
         <div style={{...card({background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}55`,textAlign:"center",padding:"2rem"})}}>
@@ -7679,7 +7708,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     });
   }
 
-  function TidePoolTab() {
+  _hfRenders.TidePoolTab = function TidePoolTab() {
     var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
     if(rawKids.length===0) rawKids = [{id:"k1",name:"Child 1",color:"#c8a97a"}];
 
@@ -7945,7 +7974,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function SettingSection({id, title, children, defaultOpen=true, settingsOpen, toggleSetting}){
+  _hfRenders.SettingSection = function SettingSection({id, title, children, defaultOpen=true, settingsOpen, toggleSetting}){
     const isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
     return (
       <div style={card()}>
@@ -7958,7 +7987,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function CareerTab(){
+  _hfRenders.CareerTab = function CareerTab(){
     var ADULT_ROLES=["Mom","Dad","Guardian","Roommate","Other"];
     var MINOR_ROLES=["Kid","Teen","Baby"];
     var adults = people.filter(function(p){
@@ -8011,7 +8040,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
 
   // ── ItemRow — lifted outside CoveTab to prevent React hooks error #300 ──────
-  function ItemRow(props) {
+  _hfRenders.ItemRow = function ItemRow(props) {
     var item = props.item;
     var dragFromId = props.dragFromId;
     var dragOverId = props.dragOverId;
@@ -8079,7 +8108,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Cove — organized lists, ideas, plans & keeps ────────────────────────────
-  function CoveTab() {
+  _hfRenders.CoveTab = function CoveTab() {
     const COVE_ACCENT_COLORS = [
       "#3a6b8a","#c8a97a","#5DCAA5","#AFA9EC","#D4537E","#EF9F27","#888780","#1a2744"
     ];
@@ -8838,7 +8867,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-  function SchoolTab() {
+  _hfRenders.SchoolTab = function SchoolTab() {
     var [schoolData, setSchoolData] = useSaved("schoolData", {});
     var [activeChild, setActiveChild] = React.useState(null);
     var [subTab, setSubTab] = React.useState("overview");
@@ -9966,7 +9995,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // Children stay mounted (display:none when closed) so inputs never lose focus.
     // ── Google Calendar Modal ────────────────────────────────────────────────────
-  function GoogleCalendarModal({onClose}) {
+  _hfRenders.GoogleCalendarModal = function GoogleCalendarModal({onClose}) {
     const isConnected = connectedCals.includes("google") && googleCalToken;
     const [syncing, setSyncing2] = useState(false);
     const [error, setError] = useState(googleCalError||"");
@@ -10172,7 +10201,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Auth Modal ──────────────────────────────────────────────────────────────
-  function AuthModal({onClose}) {
+  _hfRenders.AuthModal = function AuthModal({onClose}) {
     const [mode, setMode] = useState("signin"); // default to signin
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -10348,7 +10377,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Household Modal ─────────────────────────────────────────────────────────
-  function HouseholdModal({onClose}) {
+  _hfRenders.HouseholdModal = function HouseholdModal({onClose}) {
     const [joinCode, setJoinCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -10440,7 +10469,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Calendar Event Form Modal ────────────────────────────────────────────────
-  function CalEventFormModal(){
+  _hfRenders.CalEventFormModal = function CalEventFormModal(){
     const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:""});
     const prevMode=useRef(calFormMode);
     if(prevMode.current!==calFormMode){prevMode.current=calFormMode;if(calFormMode&&calFormInit)setF(calFormInit);}
@@ -10529,7 +10558,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // ── MAIN RENDER ────────────────────────────────────────────────────────────
 
   // ── Set New Password Modal (shown after clicking reset email link) ────────
-  function SetPasswordModal() {
+  _hfRenders.SetPasswordModal = function SetPasswordModal() {
     const [newPass, setNewPass] = useState("");
     const [confirm, setConfirm] = useState("");
     const [loading, setLoading] = useState(false);
