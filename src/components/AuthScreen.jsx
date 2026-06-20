@@ -45,13 +45,6 @@ export default function AuthScreen({ onAuth }) {
       } else {
         const { data, error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (err) throw err
-        console.warn("[AUTHSCREEN SESSION]", {
-          hasSession: !!data.session,
-          keys: Object.keys(data.session || {}),
-          hasUser: !!data.session?.user,
-          hasAccessToken: !!data.session?.access_token,
-          hasRefreshToken: !!data.session?.refresh_token
-        })
         onAuth(data.session, false)
       }
     } catch (err) {

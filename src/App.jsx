@@ -14,7 +14,6 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import HomeScreen from "./components/HomeScreen"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -2210,6 +2209,9 @@ function createLocalBackup() {
         try { localStorage.setItem("af_"+k, JSON.stringify(clean1[k])); } catch {}
       }
     });
+    // Stamp lastHHSync to the version we just applied — otherwise the next stale-check
+    // sees server > lastHHSync again and pulls+reloads forever (the blink loop).
+    try { if (row.updated_at) localStorage.setItem("af_lastHHSync", row.updated_at); } catch (e) {}
     window.location.reload();
   }
 
@@ -2575,8 +2577,16 @@ function createLocalBackup() {
     } catch {}
     return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
   }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","tidepool","cove"]));
-  function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
+  const visitedTabs = useRef(new Set([tab]));
+  // seenTabs tracks tabs that have already played their enter animation
+  const seenTabs = useRef(new Set([tab]));
+  function goTab(t) {
+    visitedTabs.current.add(t);
+    setTab(t);
+    try{sessionStorage.setItem("af_activeTab",t);}catch{}
+    // Mark as seen after a brief delay so the animation plays on first visit only
+    setTimeout(() => { seenTabs.current.add(t); }, 300);
+  }
   homeFlowRef.tab = tab;
   var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
@@ -10590,7 +10600,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   return(
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
         body{background:${T.bg};font-family:'DM Sans',sans-serif;color:${T.textDark};transition:background 0.3s,color 0.3s}
         input,select,textarea{font-family:'DM Sans',sans-serif!important;color:${T.textDark}!important}
@@ -10648,7 +10657,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
-              <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
+              <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
                 {t==="anchor"   && <AnchorTab/>}
                 {t==="flowhome" && <FlowHome/>}
                 {t==="calendar" && <CalendarTab/>}
@@ -11090,9 +11099,11 @@ function FlowWrapper({ onHome, onSignOut }) {
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
 
-        <ErrorBoundary>
-          <HomeFlow />
-        </ErrorBoundary>
+        <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
+          <ErrorBoundary>
+            <HomeFlow />
+          </ErrorBoundary>
+        </div>
       </div>
     </div>
   )
@@ -11103,12 +11114,14 @@ export default function App() {
   const [mode, setMode] = React.useState(null)
 
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
-    if (session?.user) {
-      const u = session.user
-      const dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0]
-      try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session?.user) {
+        const u = session.user
+        const dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0]
+        try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
+      }
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setSession(session))
     return () => subscription.unsubscribe()
   }, [])
