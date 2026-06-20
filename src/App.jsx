@@ -1,5 +1,5 @@
 const AF_DEBUG = false; // flip to true when debugging
-import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import { askFamily } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
@@ -1653,6 +1653,7 @@ function useSaved(key, fallback) {
 const _hfRenders = {};
 const _hfComps   = {};
 [
+  'Pill','SecHead',
   'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
@@ -2599,14 +2600,19 @@ function createLocalBackup() {
   const visitedTabs = useRef(new Set([tab]));
   // seenTabs tracks tabs that have already played their enter animation
   const seenTabs = useRef(new Set([tab]));
+  // scrollPositions saves each tab's window scroll so switching back restores position
+  const scrollPositions = useRef({});
   function goTab(t) {
+    scrollPositions.current[tab] = window.scrollY;
     visitedTabs.current.add(t);
     setTab(t);
     try{sessionStorage.setItem("af_activeTab",t);}catch{}
-    // Mark as seen after a brief delay so the animation plays on first visit only
     setTimeout(() => { seenTabs.current.add(t); }, 300);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo(0, scrollPositions.current[t] || 0);
+    }));
   }
-  homeFlowRef.tab = tab;
+  React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
   var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
@@ -2615,7 +2621,6 @@ function createLocalBackup() {
     Flow:   { tint: "rgba(94,143,160,0.30)",  accent: "#5E8FA0" },
     Anchor: { tint: "rgba(203,183,157,0.20)", accent: "#8B7761" },
   })[__roomKey] : null;
-  homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
@@ -2799,18 +2804,20 @@ function createLocalBackup() {
   }, []);
   React.useEffect(() => { const h = () => setChatOpen(true); window.addEventListener("af-open-chat", h); return () => window.removeEventListener("af-open-chat", h); }, []);
   // Listens for inventory → shopping additions fired by AnchorVault
+  const storesRef = useRef(stores);
+  useEffect(() => { storesRef.current = stores; }, [stores]);
   React.useEffect(() => {
     function onAddToShopping(e) {
       var text = e.detail && e.detail.text;
       var store = e.detail && e.detail.store;
       if(!text) return;
       setShoppingItems(function(prev) {
-        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||"Grocery", category:"grocery"}]);
+        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||storesRef.current[0]?.name||"Grocery", category:"grocery"}]);
       });
     }
     window.addEventListener("af-shopping-add", onAddToShopping);
     return () => window.removeEventListener("af-shopping-add", onAddToShopping);
-  }, [stores]); // eslint-disable-line
+  }, []); // stable — reads stores via ref
 
   // ── AnchorVault sync trigger ─────────────────────────────────────────────
   // AnchorVault dispatches "af-data-changed" after writing vault keys.
@@ -3632,6 +3639,25 @@ Respond ONLY with valid JSON array, no markdown:
     return () => window.removeEventListener("af-request-notif-permission", handleNotifRequest);
   }, []); // eslint-disable-line
 
+  // On mount: recover notifications that were scheduled but couldn't fire because
+  // the tab was closed or the device slept. Show missed ones as in-app banners,
+  // and re-arm any future ones (within 24h) so they fire this session.
+  useEffect(() => {
+    const now = Date.now();
+    notifications.forEach(n => {
+      if (!n.fireAt || n.fired) return;
+      const target = new Date(n.fireAt).getTime();
+      if (isNaN(target)) return;
+      if (target <= now) {
+        showInAppBanner(n.entityTitle, n.note || "Reminder from Anchor & Flow");
+        setNotifications(p => p.map(x => x.id === n.id ? {...x, fired: true} : x));
+      } else {
+        scheduleNotification(n.entityTitle, n.note || "Reminder from Anchor & Flow", new Date(n.fireAt));
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
+
   // Sync household data when key state changes — skip initial hydration
   const hasMountedSync = useRef(false);
   useEffect(() => {
@@ -3693,11 +3719,11 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shared UI helpers ───────────────────────────────────────────────────────
-  const Pill = ({label,color,tiny}) => (
+  _hfRenders.Pill = ({label,color,tiny}) => (
     <span style={{display:"inline-flex",padding:tiny?"2px 8px":"3px 10px",borderRadius:"2rem",fontSize:tiny?"0.62rem":"0.69rem",fontWeight:700,background:(color||T.sage)+"28",color:color||T.sage,letterSpacing:"0.03em",whiteSpace:"nowrap",border:`1px solid ${(color||T.sage)}45`}}>{label}</span>
   );
 
-  const SecHead = ({emoji,title,sub,action,color,onBack}) => (
+  _hfRenders.SecHead = ({emoji,title,sub,action,color,onBack}) => (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",gap:"0.5rem"}}>
       <div style={{minWidth:0,flex:1}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
@@ -3717,7 +3743,8 @@ Respond ONLY with valid JSON array, no markdown:
 
   // ── Alias stable wrappers to local names ─────────────────────────────────────
   // Must come BEFORE render delegates so component bodies can cross-reference.
-  const { ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
+  const { Pill, SecHead,
+          ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
           MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
@@ -3726,6 +3753,11 @@ Respond ONLY with valid JSON array, no markdown:
           SetPasswordModal } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
+    useEffect(() => {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }, []);
     return (
       <div data-modal-open="true" style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(8px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         <div style={{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"1.4rem",padding:"1.8rem",width:"100%",maxWidth:wide?600:460,boxShadow:`0 32px 100px ${T.cardShadow}`,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
