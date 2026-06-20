@@ -2835,6 +2835,7 @@ function createLocalBackup() {
     morning:true, midday:true, dinner:true, evening:true, events:true, recurring:true
   });
   const [inAppBanner,setInAppBanner] = useState(null); // {title, body} shown as in-app toast
+  const bannerTimerRef = useRef(null);
 
   // ── New feature state (all useSaved first, then useState) ───────────────────
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
@@ -3303,8 +3304,9 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   function showInAppBanner(title, body) {
+    clearTimeout(bannerTimerRef.current);
     setInAppBanner({title, body});
-    setTimeout(() => setInAppBanner(null), 8000);
+    bannerTimerRef.current = setTimeout(() => setInAppBanner(null), 8000);
   }
 
   function scheduleNotification(title, body, fireAt) {
@@ -11039,27 +11041,7 @@ function FlowWrapper({ onHome, onSignOut }) {
 
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px", flexShrink: 0 }} />
 
-        {false ? (
-          <>
-            {/* ── flat vault nav retired: accordion renders in all states ── */}
-            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Today" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>⚓</span>
-              <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Today</span>
-            </button>
-            <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.06)", margin: "2px 0 4px", flexShrink: 0 }} />
-            {/* ── Vault section nav ── */}
-            {VAULT_NAV.map(item => {
-              var isActive = vaultSection === item.id;
-              var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
-              return (
-                <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1, flexShrink: 0 }}>
-                  <span style={{ fontSize: "14px", lineHeight: 1 }}>{item.emoji}</span>
-                  <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
-                </button>
-              );
-            })}
-          </>
-        ) : (
+        {(
           /* ── Four-pillar accordion ── */
           PILLARS.map(function(pill){
             function rowBtn(it, active, onClick, col){
@@ -11088,12 +11070,9 @@ function FlowWrapper({ onHome, onSignOut }) {
       </div>
       <div style={{ marginLeft: "68px", flex: 1, minWidth: 0 }}>
         <style>{`
-          div[style*="bottom:0,left:0,right:0"],
-          div[style*="position:sticky"][style*="top:0"],
-          div[style*="borderBottom"][style*="sticky"],
-          div[style*="topBg"],
           div[style*="bottom: 0"][style*="left: 0"][style*="right: 0"],
-          div[style*="bottom:0"][style*="left:0"][style*="right:0"] {
+          div[style*="bottom:0"][style*="left:0"][style*="right:0"],
+          div[style*="position: sticky"][style*="z-index: 100"] {
             display: none !important;
           }
         `}</style>
