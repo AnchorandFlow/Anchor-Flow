@@ -9,11 +9,9 @@ var CARD_COLORS = [
   { id: "lav",     bg: "#D0C8E8", bd: "#A098C8", tx: "#2A2248" },
 ];
 
-var COLS   = ["inbox", "decide", "do", "waiting", "someday"];
-var NAVY   = "#1B2E4F";
-var _nid   = Date.now();
-var LS_G   = "af_exhale_groups";   // own localStorage — bypasses household sync
-var LS_L   = "af_exhale_labels";
+var EMOJIS = ["⭐","🌟","❤️","🔴","💙","🟡","🟢","📌","⚡","🎯","💡","🔔"];
+
+var COLS = ["inbox","decide","do","waiting","someday"];
 
 var DEFAULT_LABELS = {
   inbox:   "🌊 On My Mind",
@@ -23,12 +21,29 @@ var DEFAULT_LABELS = {
   someday: "🌱 Maybe Later",
 };
 
-// ─── helpers ──────────────────────────────────────────────────────────────
+var DEFAULT_PEOPLE = ["Lindsey","Rylan","Madi","Kinzlee","Briar"];
+
+var NAVY = "#1B2E4F";
+var _nid = Date.now();
+var LS_G  = "af_exhale_groups";
+var LS_L  = "af_exhale_labels";
+var LS_CL = "af_exhale_color_labels";
+var LS_P  = "af_exhale_people";
+
+// ─── helpers ───────────────────────────────────────────────────────────────
 function getColor(id) {
   for (var i = 0; i < CARD_COLORS.length; i++) {
     if (CARD_COLORS[i].id === id) return CARD_COLORS[i];
   }
   return CARD_COLORS[0];
+}
+
+function lsGet(key, fallback) {
+  try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
+}
+
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
 }
 
 function emptyGroups() {
@@ -43,14 +58,26 @@ function groupItems(raw) {
     var cat, entry;
     if (typeof item === "string") {
       cat   = "inbox";
-      entry = { id: "lg-" + i, text: item, notes: "", color: CARD_COLORS[i % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now() };
+      entry = { id: "lg-" + i, text: item, notes: "", color: CARD_COLORS[i % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
     } else {
       cat   = (item.category && g[item.category]) ? item.category : "inbox";
-      entry = { id: item.id || ("e-" + i), text: item.text || "", notes: item.notes || "", color: item.color || CARD_COLORS[i % CARD_COLORS.length].id, category: cat, createdAt: item.createdAt || Date.now() };
+      entry = { id: item.id || ("e-" + i), text: item.text || "", notes: item.notes || "", color: item.color || CARD_COLORS[i % CARD_COLORS.length].id, category: cat, createdAt: item.createdAt || Date.now(), emoji: item.emoji || null, dueDate: item.dueDate || null, assignedTo: item.assignedTo || null };
     }
     g[cat].push(entry);
   }
   return g;
+}
+
+function flattenGroups(g) {
+  var out = [];
+  for (var i = 0; i < COLS.length; i++) {
+    var col = COLS[i];
+    for (var j = 0; j < g[col].length; j++) {
+      var c = g[col][j];
+      out.push({ id: c.id, text: c.text, notes: c.notes, color: c.color, category: col, createdAt: c.createdAt, emoji: c.emoji || null, dueDate: c.dueDate || null, assignedTo: c.assignedTo || null });
+    }
+  }
+  return out;
 }
 
 function clone(g) {
@@ -68,38 +95,64 @@ function findIn(g, id) {
   return null;
 }
 
-function lsGet(key, fallback) {
-  try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
+function getToday() { return new Date().toISOString().split("T")[0]; }
+function getTomorrow() { return new Date(Date.now() + 86400000).toISOString().split("T")[0]; }
+
+function getDueMeta(dueDate) {
+  if (!dueDate) return null;
+  var today = getToday(), tomorrow = getTomorrow();
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var parts = dueDate.split("-");
+  var label = months[parseInt(parts[1]) - 1] + " " + parseInt(parts[2]);
+  if (dueDate === today)    return { label: "Today",    color: "#C4A860" };
+  if (dueDate === tomorrow) return { label: "Tomorrow", color: "#8AB878" };
+  if (dueDate < today)      return { label: label,      color: "#8B0000" };
+  return                           { label: label,      color: "#7898C8" };
 }
 
-function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+function cardMatchesFilters(card, filters) {
+  if (filters.color  && card.color      !== filters.color)   return false;
+  if (filters.emoji  && card.emoji      !== filters.emoji)   return false;
+  if (filters.person && card.assignedTo !== filters.person)  return false;
+  if (filters.date) {
+    var today = getToday(), tomorrow = getTomorrow();
+    if (filters.date === "today"    && card.dueDate !== today)                     return false;
+    if (filters.date === "tomorrow" && card.dueDate !== tomorrow)                  return false;
+    if (filters.date === "overdue"  && (!card.dueDate || card.dueDate >= today))   return false;
+    if (filters.date === "upcoming" && (!card.dueDate || card.dueDate <= today))   return false;
+  }
+  return true;
 }
 
-// ─── component ────────────────────────────────────────────────────────────
-// Props:
-//   initialItems — brainItems from household (used ONLY if af_exhale_groups is empty)
-//   initialLabels — exhaleLabels from household (used ONLY if af_exhale_labels is empty)
-//   NOTE: this component intentionally bypasses the household sync to prevent
-//         triggering the Supabase reload loop. Re-enable onSave once that is fixed.
+function countFilters(filters) {
+  return (filters.color ? 1 : 0) + (filters.emoji ? 1 : 0) + (filters.person ? 1 : 0) + (filters.date ? 1 : 0);
+}
+
+function initials(name) {
+  if (!name) return "";
+  var parts = name.trim().split(" ");
+  return parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0].slice(0, 2);
+}
+
+// ─── component ─────────────────────────────────────────────────────────────
 export default function ExhaleSection(props) {
   var initialItems  = props.initialItems  || [];
   var initialLabels = props.initialLabels || {};
 
-  var [groups,     setGroups]     = useState(function() {
-    var saved = lsGet(LS_G, null);
-    return saved || groupItems(initialItems);
-  });
-  var [colLabels,  setColLabels]  = useState(function() {
-    var saved = lsGet(LS_L, null);
-    return saved || Object.assign({}, DEFAULT_LABELS, initialLabels);
-  });
-  var [selectedId, setSelectedId] = useState(null);
-  var [noteText,   setNoteText]   = useState("");
-  var [inputText,  setInputText]  = useState("");
-  var [editingCol, setEditingCol] = useState(null);
-  var [drag,       setDrag]       = useState(null);
-  var [dropOver,   setDropOver]   = useState(null);
+  var [groups,      setGroups]      = useState(function() { return lsGet(LS_G, null) || groupItems(initialItems); });
+  var [colLabels,   setColLabels]   = useState(function() { return Object.assign({}, DEFAULT_LABELS, lsGet(LS_L, null) || initialLabels); });
+  var [colorLabels, setColorLabels] = useState(function() { return lsGet(LS_CL, {}); });
+  var [people,      setPeople]      = useState(function() { return lsGet(LS_P, null) || DEFAULT_PEOPLE; });
+  var [filters,     setFilters]     = useState({ color: null, emoji: null, person: null, date: null });
+  var [showFilters, setShowFilters] = useState(false);
+  var [selectedId,  setSelectedId]  = useState(null);
+  var [noteText,    setNoteText]    = useState("");
+  var [inputText,   setInputText]   = useState("");
+  var [editingCol,  setEditingCol]  = useState(null);
+  var [addingPerson,setAddingPerson]= useState(false);
+  var [newPerson,   setNewPerson]   = useState("");
+  var [drag,        setDrag]        = useState(null);
+  var [dropOver,    setDropOver]    = useState(null);
 
   useEffect(function() {
     if (!selectedId) { setNoteText(""); return; }
@@ -107,102 +160,112 @@ export default function ExhaleSection(props) {
     setNoteText(f ? f.card.notes : "");
   }, [selectedId]);
 
-  function persist(newGroups, newLabels) {
-    lsSet(LS_G, newGroups);
-    lsSet(LS_L, newLabels);
+  function persist(ng, nl, ncl, np) {
+    if (ng  !== undefined) lsSet(LS_G,  ng);
+    if (nl  !== undefined) lsSet(LS_L,  nl);
+    if (ncl !== undefined) lsSet(LS_CL, ncl);
+    if (np  !== undefined) lsSet(LS_P,  np);
   }
 
   var total = 0;
   for (var ci = 0; ci < COLS.length; ci++) total += groups[COLS[ci]].length;
   var sel = selectedId ? findIn(groups, selectedId) : null;
+  var nFilters = countFilters(filters);
 
-  // ── add ──────────────────────────────────────────────────────────────────
+  // ── mutations ──────────────────────────────────────────────────────────────
+  function patchCard(id, patch) {
+    var ng = clone(groups);
+    for (var i = 0; i < COLS.length; i++) {
+      for (var j = 0; j < ng[COLS[i]].length; j++) {
+        if (ng[COLS[i]][j].id === id) { ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], patch); break; }
+      }
+    }
+    setGroups(ng); persist(ng);
+    return ng;
+  }
+
   function handleAdd() {
     var txt = inputText.trim();
     if (!txt) return;
-    var item = { id: "e" + (_nid++), text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now() };
-    var ng = clone(groups);
-    ng.inbox = [item].concat(ng.inbox);
-    setGroups(ng);
-    setInputText("");
-    persist(ng, colLabels);
+    var item = { id: "e" + (_nid++), text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
+    var ng = clone(groups); ng.inbox = [item].concat(ng.inbox);
+    setGroups(ng); setInputText(""); persist(ng);
   }
 
   function handleInputKeyDown(e) { if (e.key === "Enter") handleAdd(); }
 
-  // ── detail actions ────────────────────────────────────────────────────────
   function handleDone() {
-    if (!selectedId) { setSelectedId(null); return; }
-    var ng = clone(groups);
-    for (var i = 0; i < COLS.length; i++) {
-      for (var j = 0; j < ng[COLS[i]].length; j++) {
-        if (ng[COLS[i]][j].id === selectedId) {
-          ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], { notes: noteText });
-          break;
+    if (selectedId) {
+      var ng = clone(groups);
+      for (var i = 0; i < COLS.length; i++) {
+        for (var j = 0; j < ng[COLS[i]].length; j++) {
+          if (ng[COLS[i]][j].id === selectedId) { ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], { notes: noteText }); break; }
         }
       }
+      setGroups(ng); persist(ng);
     }
-    setGroups(ng);
     setSelectedId(null);
-    persist(ng, colLabels);
   }
 
-  function handleColorChange(cardId, colorId) {
+  function handleDelete(id) {
     var ng = clone(groups);
-    for (var i = 0; i < COLS.length; i++) {
-      for (var j = 0; j < ng[COLS[i]].length; j++) {
-        if (ng[COLS[i]][j].id === cardId) { ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], { color: colorId }); break; }
-      }
-    }
-    setGroups(ng);
-    persist(ng, colLabels);
+    for (var i = 0; i < COLS.length; i++) ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== id; });
+    setGroups(ng); setSelectedId(null); persist(ng);
   }
 
-  function handleMoveToCol(cardId, toCol) {
-    var ng = clone(groups);
-    var moved = null;
+  function handleMoveToCol(id, toCol) {
+    var ng = clone(groups), moved = null;
     for (var i = 0; i < COLS.length; i++) {
       for (var j = 0; j < ng[COLS[i]].length; j++) {
-        if (ng[COLS[i]][j].id === cardId) { moved = ng[COLS[i]].splice(j, 1)[0]; break; }
+        if (ng[COLS[i]][j].id === id) { moved = ng[COLS[i]].splice(j, 1)[0]; break; }
       }
       if (moved) break;
     }
     if (moved) ng[toCol].unshift(Object.assign({}, moved, { category: toCol }));
-    setGroups(ng);
-    persist(ng, colLabels);
-  }
-
-  function handleDelete(cardId) {
-    var ng = clone(groups);
-    for (var i = 0; i < COLS.length; i++) {
-      ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== cardId; });
-    }
-    setGroups(ng);
-    setSelectedId(null);
-    persist(ng, colLabels);
+    setGroups(ng); persist(ng);
   }
 
   function handleLabelSave(col, val) {
     var nl = Object.assign({}, colLabels, { [col]: val });
-    setColLabels(nl);
-    setEditingCol(null);
-    persist(groups, nl);
+    setColLabels(nl); setEditingCol(null); persist(undefined, nl);
   }
 
-  // ── drag ─────────────────────────────────────────────────────────────────
-  function handleDragStart(e, cardId, col) {
-    setDrag({ id: cardId, fromCol: col });
+  function handleColorLabelSave(colorId, val) {
+    var ncl = Object.assign({}, colorLabels, { [colorId]: val });
+    setColorLabels(ncl); persist(undefined, undefined, ncl);
+  }
+
+  function handleAddPerson() {
+    var name = newPerson.trim();
+    if (!name) { setAddingPerson(false); return; }
+    var np = people.concat([name]);
+    setPeople(np); setNewPerson(""); setAddingPerson(false); persist(undefined, undefined, undefined, np);
+  }
+
+  function toggleFilter(key, val) {
+    setFilters(function(prev) {
+      var next = Object.assign({}, prev);
+      next[key] = prev[key] === val ? null : val;
+      return next;
+    });
+  }
+
+  function clearFilters() { setFilters({ color: null, emoji: null, person: null, date: null }); }
+
+  // ── drag ──────────────────────────────────────────────────────────────────
+  function handleDragStart(e, id, col) {
+    setDrag({ id: id, fromCol: col });
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text", cardId);
+    e.dataTransfer.setData("text", id);
   }
 
   function handleDragEnd() { setDrag(null); setDropOver(null); }
 
-  function handleCardDragOver(e, cardId) {
-    if (!drag || drag.id === cardId) return;
+  function handleCardDragOver(e, id) {
+    if (!drag || drag.id === id) return;
     e.preventDefault(); e.stopPropagation();
     var rect = e.currentTarget.getBoundingClientRect();
-    setDropOver({ type: "card", id: cardId, above: e.clientY < rect.top + rect.height / 2 });
+    setDropOver({ type: "card", id: id, above: e.clientY < rect.top + rect.height / 2 });
   }
 
   function handleColDragOver(e, col) {
@@ -211,86 +274,144 @@ export default function ExhaleSection(props) {
     setDropOver({ type: "col", col: col });
   }
 
-  function handleCardDrop(e, cardId, col) {
+  function handleCardDrop(e, targetId, col) {
     e.preventDefault(); e.stopPropagation();
-    if (!drag || drag.id === cardId) return;
-    var above = (dropOver && dropOver.id === cardId) ? dropOver.above : true;
-    var ng = clone(groups);
-    var fi = -1;
+    if (!drag || drag.id === targetId) return;
+    var above = (dropOver && dropOver.id === targetId) ? dropOver.above : true;
+    var ng = clone(groups), fi = -1;
     for (var i = 0; i < ng[drag.fromCol].length; i++) { if (ng[drag.fromCol][i].id === drag.id) { fi = i; break; } }
     if (fi === -1) { setDrag(null); setDropOver(null); return; }
     var moved = Object.assign({}, ng[drag.fromCol].splice(fi, 1)[0], { category: col });
     var ti = -1;
-    for (var j = 0; j < ng[col].length; j++) { if (ng[col][j].id === cardId) { ti = j; break; } }
+    for (var j = 0; j < ng[col].length; j++) { if (ng[col][j].id === targetId) { ti = j; break; } }
     if (ti === -1) ti = ng[col].length;
     ng[col].splice(above ? ti : ti + 1, 0, moved);
-    setGroups(ng); setDrag(null); setDropOver(null);
-    persist(ng, colLabels);
+    setGroups(ng); setDrag(null); setDropOver(null); persist(ng);
   }
 
   function handleColDrop(e, col) {
     e.preventDefault();
     if (!drag) return;
-    var ng = clone(groups);
-    var fi = -1;
+    var ng = clone(groups), fi = -1;
     for (var i = 0; i < ng[drag.fromCol].length; i++) { if (ng[drag.fromCol][i].id === drag.id) { fi = i; break; } }
     if (fi === -1) { setDrag(null); setDropOver(null); return; }
     var moved = Object.assign({}, ng[drag.fromCol].splice(fi, 1)[0], { category: col });
-    ng[col].push(moved);
-    setGroups(ng); setDrag(null); setDropOver(null);
-    persist(ng, colLabels);
+    ng[col].push(moved); setGroups(ng); setDrag(null); setDropOver(null); persist(ng);
   }
 
-  // ── styles ────────────────────────────────────────────────────────────────
+  // ── styles ─────────────────────────────────────────────────────────────────
   var br  = "0.5px solid var(--color-border-tertiary,#e0e0e0)";
   var bgS = "var(--color-background-secondary,#f8f8f8)";
   var bgP = "var(--color-background-primary,#fff)";
   var txP = "var(--color-text-primary,#111)";
   var txS = "var(--color-text-secondary,#666)";
 
-  // ── DETAIL VIEW ───────────────────────────────────────────────────────────
+  var chip = { fontSize: 10, padding: "2px 7px", borderRadius: 20, border: br, background: bgS, cursor: "pointer", color: txP, whiteSpace: "nowrap" };
+
+  // ── DETAIL VIEW ─────────────────────────────────────────────────────────────
   if (sel) {
     var card = sel.card;
     var cc = getColor(card.color);
+    var dueMeta = getDueMeta(card.dueDate);
+    var today = getToday(), tomorrow = getTomorrow();
+
     return (
       <div style={{ fontFamily: "var(--font-sans,sans-serif)" }}>
+        {/* Header */}
         <div style={{ background: cc.bg, borderBottom: "0.5px solid " + cc.bd, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={handleDone} style={{ background: "rgba(0,0,0,0.1)", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: "pointer", color: cc.tx }}>
-            ← Back
-          </button>
+          <button onClick={handleDone} style={{ background: "rgba(0,0,0,0.1)", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: "pointer", color: cc.tx }}>← Back</button>
           <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: cc.tx, lineHeight: 1.3 }}>{card.text}</span>
         </div>
 
-        <div style={{ padding: "14px 14px 10px" }}>
+        {/* Notes */}
+        <div style={{ padding: "12px 14px 10px" }}>
           <div style={{ fontSize: 11, color: txS, marginBottom: 5 }}>Notes</div>
-          <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Context, deadline, links..." rows={4}
-            style={{ width: "100%", border: br, borderRadius: 8, padding: "9px 11px", fontSize: 13, resize: "none", background: bgP, color: txP, lineHeight: 1.5, fontFamily: "inherit" }} />
+          <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Context, deadline, links..." rows={3}
+            style={{ width: "100%", border: br, borderRadius: 8, padding: "8px 10px", fontSize: 13, resize: "none", background: bgP, color: txP, lineHeight: 1.5, fontFamily: "inherit" }} />
         </div>
 
-        <div style={{ padding: "0 14px 14px" }}>
+        {/* Color + label */}
+        <div style={{ padding: "0 14px 12px" }}>
           <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Color</div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
             {CARD_COLORS.map(function(cl) {
-              return <div key={cl.id} onClick={() => handleColorChange(card.id, cl.id)}
-                style={{ width: 26, height: 26, borderRadius: "50%", background: cl.bg, border: "2px solid " + (cl.id === card.color ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"), cursor: "pointer" }} />;
+              return <div key={cl.id} onClick={() => patchCard(card.id, { color: cl.id })}
+                title={colorLabels[cl.id] || cl.id}
+                style={{ width: 24, height: 24, borderRadius: "50%", background: cl.bg, border: "2px solid " + (cl.id === card.color ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"), cursor: "pointer", flexShrink: 0 }} />;
             })}
+          </div>
+          <input value={colorLabels[card.color] || ""} onChange={(e) => handleColorLabelSave(card.color, e.target.value)}
+            placeholder={"Label this color (e.g. Urgent, Work, Kids)"}
+            style={{ marginTop: 7, width: "100%", border: br, borderRadius: 6, padding: "5px 9px", fontSize: 11, background: bgP, color: txP }} />
+        </div>
+
+        {/* Emoji */}
+        <div style={{ padding: "0 14px 12px" }}>
+          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Emoji marker</div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {EMOJIS.map(function(em) {
+              var isActive = card.emoji === em;
+              return <button key={em} onClick={() => patchCard(card.id, { emoji: isActive ? null : em })}
+                style={{ fontSize: 16, padding: "3px 5px", border: isActive ? ("2px solid " + NAVY) : br, borderRadius: 6, background: isActive ? "rgba(27,46,79,0.07)" : bgS, cursor: "pointer" }}>{em}</button>;
+            })}
+            {card.emoji && <button onClick={() => patchCard(card.id, { emoji: null })} style={{ ...chip, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>✕ Clear</button>}
           </div>
         </div>
 
-        <div style={{ padding: "0 14px 14px" }}>
+        {/* Due date */}
+        <div style={{ padding: "0 14px 12px" }}>
+          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Due date</div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={() => patchCard(card.id, { dueDate: card.dueDate === today ? null : today })}
+              style={{ ...chip, background: card.dueDate === today ? "#E8D8A8" : bgS, borderColor: card.dueDate === today ? "#C4A860" : undefined, fontWeight: card.dueDate === today ? 600 : 400 }}>Today</button>
+            <button onClick={() => patchCard(card.id, { dueDate: card.dueDate === tomorrow ? null : tomorrow })}
+              style={{ ...chip, background: card.dueDate === tomorrow ? "#C4D8B8" : bgS, borderColor: card.dueDate === tomorrow ? "#8AB878" : undefined, fontWeight: card.dueDate === tomorrow ? 600 : 400 }}>Tomorrow</button>
+            <input type="date" value={card.dueDate && card.dueDate !== today && card.dueDate !== tomorrow ? card.dueDate : ""}
+              onChange={(e) => patchCard(card.id, { dueDate: e.target.value || null })}
+              style={{ fontSize: 11, border: br, borderRadius: 6, padding: "3px 7px", background: bgP, color: txP }} />
+            {card.dueDate && <button onClick={() => patchCard(card.id, { dueDate: null })} style={{ ...chip, color: "#8B0000" }}>✕</button>}
+          </div>
+          {dueMeta && <div style={{ marginTop: 5, fontSize: 11, color: dueMeta.color, fontWeight: 500 }}>{dueMeta.label}</div>}
+        </div>
+
+        {/* Assign to */}
+        <div style={{ padding: "0 14px 12px" }}>
+          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Assign to</div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+            {people.map(function(p) {
+              var isActive = card.assignedTo === p;
+              return <button key={p} onClick={() => patchCard(card.id, { assignedTo: isActive ? null : p })}
+                style={{ ...chip, background: isActive ? NAVY : bgS, color: isActive ? "white" : txP, fontWeight: isActive ? 500 : 400 }}>{p}</button>;
+            })}
+            {!addingPerson ? (
+              <button onClick={() => setAddingPerson(true)} style={{ ...chip, color: txS }}>+ Add</button>
+            ) : (
+              <span style={{ display: "flex", gap: 4 }}>
+                <input autoFocus value={newPerson} onChange={(e) => setNewPerson(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddPerson(); if (e.key === "Escape") { setAddingPerson(false); setNewPerson(""); } }}
+                  placeholder="Name" style={{ fontSize: 11, border: br, borderRadius: 6, padding: "3px 7px", width: 80, background: bgP, color: txP }} />
+                <button onClick={handleAddPerson} style={{ ...chip, background: NAVY, color: "white", border: "none" }}>Add</button>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Move to */}
+        <div style={{ padding: "0 14px 12px" }}>
           <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Move to</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {COLS.map(function(col) {
               var isHere = col === sel.col;
               return <button key={col} onClick={() => handleMoveToCol(card.id, col)}
-                style={{ textAlign: "left", padding: "7px 11px", borderRadius: 7, border: br, background: isHere ? NAVY : bgS, color: isHere ? "white" : txP, fontSize: 12, cursor: isHere ? "default" : "pointer", fontWeight: isHere ? 500 : 400 }}>
+                style={{ textAlign: "left", padding: "6px 10px", borderRadius: 7, border: br, background: isHere ? NAVY : bgS, color: isHere ? "white" : txP, fontSize: 12, cursor: isHere ? "default" : "pointer", fontWeight: isHere ? 500 : 400 }}>
                 {colLabels[col]}
               </button>;
             })}
           </div>
         </div>
 
-        <div style={{ padding: "0 14px 16px", borderTop: br, paddingTop: 12 }}>
+        {/* Delete */}
+        <div style={{ padding: "0 14px 14px", borderTop: br, paddingTop: 10 }}>
           <button onClick={() => handleDelete(card.id)}
             style={{ width: "100%", padding: 8, borderRadius: 7, border: "0.5px solid rgba(180,0,0,0.3)", background: "rgba(180,0,0,0.06)", color: "#8B0000", fontSize: 12, cursor: "pointer" }}>
             ✕ Delete this card
@@ -300,25 +421,97 @@ export default function ExhaleSection(props) {
     );
   }
 
-  // ── KANBAN VIEW ───────────────────────────────────────────────────────────
+  // ── KANBAN VIEW ─────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 13 }}>
+
+      {/* App bar */}
       <div style={{ background: NAVY, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
         <span>💨</span>
         <span style={{ color: "#E8C76A" }}>Exhale</span>
         <span style={{ marginLeft: "auto", fontSize: 10 }}>{total} items</span>
       </div>
 
-      <div style={{ display: "flex", gap: 8, padding: "11px 12px", borderBottom: br, background: bgS }}>
+      {/* Filter toggle */}
+      <div style={{ padding: "6px 12px", borderBottom: br, background: bgS, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <button onClick={() => setShowFilters(function(p) { return !p; })}
+          style={{ ...chip, background: nFilters > 0 ? NAVY : bgS, color: nFilters > 0 ? "white" : txS, border: nFilters > 0 ? "none" : br }}>
+          🔍 {nFilters > 0 ? nFilters + " filter" + (nFilters > 1 ? "s" : "") + " active" : "Filter"} {showFilters ? "▲" : "▼"}
+        </button>
+        {nFilters > 0 && <button onClick={clearFilters} style={{ ...chip, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>✕ Clear all</button>}
+      </div>
+
+      {/* Filter panel */}
+      {showFilters && (
+        <div style={{ padding: "10px 12px", borderBottom: br, background: bgS }}>
+
+          {/* Color filter */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Color</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {CARD_COLORS.map(function(cl) {
+                var isActive = filters.color === cl.id;
+                var label = colorLabels[cl.id] || cl.id;
+                return <button key={cl.id} onClick={() => toggleFilter("color", cl.id)}
+                  style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: cl.bg, border: isActive ? ("2px solid " + NAVY) : ("0.5px solid " + cl.bd), cursor: "pointer", color: cl.tx, fontWeight: isActive ? 600 : 400 }}>
+                  {label}
+                </button>;
+              })}
+            </div>
+          </div>
+
+          {/* Emoji filter */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Emoji</div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {EMOJIS.map(function(em) {
+                var isActive = filters.emoji === em;
+                return <button key={em} onClick={() => toggleFilter("emoji", em)}
+                  style={{ fontSize: 14, padding: "2px 4px", border: isActive ? ("2px solid " + NAVY) : br, borderRadius: 5, background: isActive ? "rgba(27,46,79,0.08)" : bgP, cursor: "pointer" }}>{em}</button>;
+              })}
+            </div>
+          </div>
+
+          {/* Person filter */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Person</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {people.map(function(p) {
+                var isActive = filters.person === p;
+                return <button key={p} onClick={() => toggleFilter("person", p)}
+                  style={{ ...chip, background: isActive ? NAVY : bgS, color: isActive ? "white" : txP, fontWeight: isActive ? 500 : 400 }}>{p}</button>;
+              })}
+            </div>
+          </div>
+
+          {/* Date filter */}
+          <div>
+            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Date</div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {[["today","Today"],["tomorrow","Tomorrow"],["overdue","Overdue"],["upcoming","Upcoming"]].map(function(pair) {
+                var isActive = filters.date === pair[0];
+                return <button key={pair[0]} onClick={() => toggleFilter("date", pair[0])}
+                  style={{ ...chip, background: isActive ? NAVY : bgS, color: isActive ? "white" : txP, fontWeight: isActive ? 500 : 400 }}>{pair[1]}</button>;
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Capture */}
+      <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: br, background: bgP }}>
         <input value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleInputKeyDown}
           placeholder="What's on your mind? Drop it here."
           style={{ flex: 1, padding: "8px 11px", fontSize: 13, border: br, borderRadius: 8, background: bgP, color: txP }} />
         <button onClick={handleAdd} style={{ background: NAVY, color: "white", border: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12, cursor: "pointer" }}>+ Add</button>
       </div>
 
+      {/* Kanban */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", minHeight: 200 }}>
         {COLS.map(function(col, ci) {
           var isColTarget = dropOver && dropOver.type === "col" && dropOver.col === col;
+          var visibleCards = groups[col].filter(function(c) { return cardMatchesFilters(c, filters); });
+
           return (
             <div key={col}
               onDragOver={(e) => handleColDragOver(e, col)}
@@ -326,6 +519,7 @@ export default function ExhaleSection(props) {
               onDragLeave={() => setDropOver(null)}
               style={{ padding: "10px 6px", borderRight: ci < 4 ? br : "none", background: isColTarget ? "rgba(27,46,79,0.04)" : "transparent" }}>
 
+              {/* Column header */}
               <div style={{ marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 3 }}>
                 {editingCol === col ? (
                   <input autoFocus value={colLabels[col]}
@@ -335,23 +529,24 @@ export default function ExhaleSection(props) {
                     style={{ flex: 1, fontSize: 10, fontWeight: 500, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + NAVY, padding: "0 0 1px 0", fontFamily: "inherit" }} />
                 ) : (
                   <span onClick={() => setEditingCol(col)} title="Click to rename"
-                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: txS, cursor: "text", lineHeight: 1.3 }}>
-                    {colLabels[col]}
-                  </span>
+                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: txS, cursor: "text", lineHeight: 1.3 }}>{colLabels[col]}</span>
                 )}
                 <span style={{ background: bgS, borderRadius: 8, padding: "1px 4px", fontSize: 9, color: "var(--color-text-tertiary,#aaa)", flexShrink: 0 }}>
-                  {groups[col].length}
+                  {nFilters > 0 ? visibleCards.length + "/" + groups[col].length : groups[col].length}
                 </span>
               </div>
 
-              {groups[col].map(function(card) {
+              {/* Cards */}
+              {visibleCards.map(function(card) {
                 var c = getColor(card.color);
                 var isDrag  = drag && drag.id === card.id;
                 var isAbove = dropOver && dropOver.type === "card" && dropOver.id === card.id && dropOver.above;
                 var isBelow = dropOver && dropOver.type === "card" && dropOver.id === card.id && !dropOver.above;
+                var dm = getDueMeta(card.dueDate);
                 var cs = { borderRadius: 7, padding: "7px 8px", marginBottom: 5, fontSize: 11.5, lineHeight: 1.4, cursor: "pointer", borderWidth: "0.5px", borderStyle: "solid", background: c.bg, borderColor: c.bd, color: c.tx, opacity: isDrag ? 0.25 : 1 };
                 if (isAbove) cs.borderTop    = "2.5px solid " + NAVY;
                 if (isBelow) cs.borderBottom = "2.5px solid " + NAVY;
+
                 return (
                   <div key={card.id} draggable
                     onDragStart={(e) => handleDragStart(e, card.id, col)}
@@ -361,12 +556,31 @@ export default function ExhaleSection(props) {
                     onClick={() => setSelectedId(card.id)}
                     style={cs}>
                     <div style={{ fontSize: 11.5, lineHeight: 1.4 }}>{card.text}</div>
+                    {/* Badges row */}
+                    {(card.emoji || card.assignedTo || card.dueDate) && (
+                      <div style={{ display: "flex", gap: 3, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                        {card.emoji && <span style={{ fontSize: 10 }}>{card.emoji}</span>}
+                        {card.assignedTo && (
+                          <span style={{ fontSize: 9, background: "rgba(0,0,0,0.12)", borderRadius: 8, padding: "1px 4px" }}>{initials(card.assignedTo)}</span>
+                        )}
+                        {dm && (
+                          <span style={{ fontSize: 9, color: dm.color, fontWeight: 500 }}>{dm.label}</span>
+                        )}
+                      </div>
+                    )}
                     {card.notes && (
                       <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7, fontStyle: "italic", overflow: "hidden", maxHeight: "2.5em", lineHeight: 1.3 }}>{card.notes}</div>
                     )}
                   </div>
                 );
               })}
+
+              {/* Show hidden count when filtering */}
+              {nFilters > 0 && groups[col].length > visibleCards.length && (
+                <div style={{ fontSize: 9, color: txS, textAlign: "center", padding: "4px 0", opacity: 0.6 }}>
+                  {groups[col].length - visibleCards.length} hidden by filter
+                </div>
+              )}
             </div>
           );
         })}
