@@ -1574,33 +1574,54 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 // ── Supabase token refresh ──────────────────────────────────────────────────
 // Reads refresh_token from localStorage, calls Supabase, saves new tokens.
 // Returns new access_token string or null on failure.
+// _refreshInFlight mutex prevents concurrent polls from racing on the same
+// rotated token — root cause of the 'Already Used' loop after calendar OAuth.
+var _refreshInFlight = null;
 async function refreshAuthToken() {
-  try {
-    const refreshToken = localStorage.getItem("af_refreshToken");
-    if (!refreshToken) { console.warn("[AF AUTH] no refresh_token stored — cannot refresh"); return null; }
-    const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
-    const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-      },
-      body: JSON.stringify({ refresh_token: refreshToken })
-    });
-    if (!res.ok) {
-      console.warn("[AF AUTH] token refresh failed", res.status);
+  if (_refreshInFlight) return _refreshInFlight;
+  const p = (async function() {
+    try {
+      const refreshToken = localStorage.getItem("af_refreshToken");
+      if (!refreshToken) { console.warn("[AF AUTH] no refresh_token stored — cannot refresh"); return null; }
+      const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
+      const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_KEY,
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      if (!res.ok) {
+        console.warn("[AF AUTH] token refresh failed", res.status);
+        // Calendar OAuth causes Supabase SDK to rotate the token internally.
+        // af_refreshToken may be stale — fall back to SDK's own session.
+        try {
+          const { data: sd } = await supabase.auth.getSession();
+          if (sd && sd.session && sd.session.access_token) {
+            try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
+            if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
+            AF_DEBUG&&console.log("[AF AUTH] recovered token via getSession()");
+            return sd.session.access_token;
+          }
+        } catch(se) { console.warn("[AF AUTH] getSession fallback failed", se.message); }
+        return null;
+      }
+      const data = await res.json();
+      if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
+      try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
+      if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
+      AF_DEBUG&&console.log("[AF AUTH] token refreshed successfully");
+      return data.access_token;
+    } catch(e) {
+      console.warn("[AF AUTH] token refresh error:", e.message);
       return null;
+    } finally {
+      _refreshInFlight = null;
     }
-    const data = await res.json();
-    if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
-    try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
-    if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
-    AF_DEBUG&&console.log("[AF AUTH] token refreshed successfully");
-    return data.access_token;
-  } catch(e) {
-    console.warn("[AF AUTH] token refresh error:", e.message);
-    return null;
-  }
+  })();
+  _refreshInFlight = p;
+  return p;
 }
 
 function useSaved(key, fallback) {
@@ -2078,7 +2099,9 @@ function createLocalBackup() {
     return msg.includes("jwt expired") ||
            msg.includes("401") ||
            msg.includes("unauthorized") ||
-           msg.includes("invalid jwt");
+           msg.includes("invalid jwt") ||
+           msg.includes("already used") ||
+           msg.includes("invalid refresh");
   }
 
  async function pushHouseholdData(token, hid) {
@@ -2179,10 +2202,18 @@ function createLocalBackup() {
           body: JSON.stringify({ data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt, updated_by: ownerId })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
-        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // wall-clock recency marker: server may rewrite updated_at via trigger, so timestamp value alone never matches
+        // Confirm actual post-trigger timestamp — Supabase BEFORE triggers rewrite updated_at to NOW()
+        // which may differ from the client-set value. GET the row after PATCH to capture the final value.
+        let confirmedTs = serverTs;
+        try {
+          const confirmRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
+          if (confirmRows && confirmRows[0] && confirmRows[0].updated_at) confirmedTs = confirmRows[0].updated_at;
+        } catch {}
+        try { localStorage.setItem("af_lastPushedAt", confirmedTs); } catch {}
+        try { localStorage.setItem("af_lastHHSync", confirmedTs); } catch {} // safe to write now — confirmedTs is the actual committed server timestamp
+        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
-        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", serverTs, "— dirty keys cleared");
+        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", confirmedTs, "— dirty keys cleared");
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -2192,10 +2223,15 @@ function createLocalBackup() {
           body: JSON.stringify({ id: hid, owner_id: ownerId, data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
-        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // wall-clock recency marker (see PATCH path)
+        let confirmedTsI = serverTs;
+        try {
+          const confirmRowsI = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
+          if (confirmRowsI && confirmRowsI[0] && confirmRowsI[0].updated_at) confirmedTsI = confirmRowsI[0].updated_at;
+        } catch {}
+        try { localStorage.setItem("af_lastPushedAt", confirmedTsI); } catch {}
+        try { localStorage.setItem("af_lastHHSync", confirmedTsI); } catch {}
+        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
-        // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
       }
     } catch(e) {
       if (isAuthExpiredError(e)) {
@@ -2306,6 +2342,9 @@ function createLocalBackup() {
         }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+      try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+      try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // mark "synced now" so stale-check 30s window covers any trigger bump
+      try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
       AF_DEBUG && console.warn("[AF PULL] RELOADING");
       window.location.reload();
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
