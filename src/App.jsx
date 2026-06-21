@@ -1,5 +1,6 @@
 const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
+import ExhaleSection from './components/ExhaleSection.jsx';
 import { askFamily } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
@@ -433,7 +434,7 @@ async function sbSignOut(token) {
 // Household data keys that get synced to Supabase
 const SYNC_KEYS = [
   // Core data
-  "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
+  "tasks","brainItems","brainCats","exhaleItems","calEvents","connectedCals","calColorLabels",
   // Meals
   "meals","mealsWeekOf","nextWeekMeals","mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
   // Shopping
@@ -2716,6 +2717,8 @@ function createLocalBackup() {
   const [showWeekTypePicker,setShowWeekTypePicker] = useState(false);
   const [shoppingItems,setShoppingItems]       = useSaved("shoppingItems",[]);
   const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
+  const [exhaleItems,setExhaleItems]           = useSaved("exhaleItems",[]);
+  const [exhaleLabels,setExhaleLabels]         = useSaved("exhaleLabels",{});
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
   const [brainCats,setBrainCats]               = useSaved("brainCats", [
     {id:"personal",  label:"Personal",   emoji:"🙋", color:"#b47ab4"},
@@ -10730,7 +10733,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="tidepool" && <TidePoolTab/>}
                 {t==="cove"     && <CoveTab/>}
                 {t==="home"     && <HomeTab/>}
-                {t==="brain"    && <BrainTab/>}
+                {t==="brain"    && <ExhaleSection
+                initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
+                initialLabels={exhaleLabels}
+                onSave={function(items, labels) {
+                  setExhaleItems(items);
+                  setExhaleLabels(labels);
+                }}
+              />}
                 {t==="school"   && <SchoolTab/>}
                 {t==="career"   && <CareerTab/>}
                 {t==="settings" && <SettingsTab
