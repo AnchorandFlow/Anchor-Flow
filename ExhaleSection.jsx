@@ -59,23 +59,29 @@ function flattenGroups(groups) {
   for (var i = 0; i < COLS.length; i++) {
     var col = COLS[i];
     for (var j = 0; j < groups[col].length; j++) {
-      var item = groups[col][j];
-      out.push({ id: item.id, text: item.text, notes: item.notes, color: item.color, category: col, createdAt: item.createdAt });
+      var c = groups[col][j];
+      out.push({ id: c.id, text: c.text, notes: c.notes, color: c.color, category: col, createdAt: c.createdAt });
     }
   }
   return out;
 }
 
-function cloneGroups(groups) {
+function cloneGroups(g) {
   var next = {};
-  for (var i = 0; i < COLS.length; i++) next[COLS[i]] = groups[COLS[i]].slice();
+  for (var i = 0; i < COLS.length; i++) next[COLS[i]] = g[COLS[i]].slice();
   return next;
 }
 
-// Props:
-//   initialItems  — household.exhaleItems or household.brainItems (migrates automatically)
-//   initialLabels — household.exhaleLabels (optional)
-//   onSave(items, labels) — called 800ms after any change
+function findInGroups(groups, id) {
+  for (var i = 0; i < COLS.length; i++) {
+    var col = COLS[i];
+    for (var j = 0; j < groups[col].length; j++) {
+      if (groups[col][j].id === id) return { col: col, card: groups[col][j] };
+    }
+  }
+  return null;
+}
+
 export default function ExhaleSection(props) {
   var initialItems  = props.initialItems  || [];
   var initialLabels = props.initialLabels || {};
@@ -83,16 +89,17 @@ export default function ExhaleSection(props) {
 
   var [groups,     setGroups]     = useState(function() { return groupItems(initialItems); });
   var [colLabels,  setColLabels]  = useState(function() { return Object.assign({}, DEFAULT_LABELS, initialLabels); });
-  var [expanded,   setExpanded]   = useState(null);
+  var [selectedId, setSelectedId] = useState(null);
+  var [noteText,   setNoteText]   = useState("");
   var [inputText,  setInputText]  = useState("");
+  var [editingCol, setEditingCol] = useState(null);
   var [drag,       setDrag]       = useState(null);
   var [dropOver,   setDropOver]   = useState(null);
-  var [editingCol, setEditingCol] = useState(null);
-  var [hoverCol,   setHoverCol]   = useState(null);
 
   var saveTimer = useRef(null);
   var mounted   = useRef(false);
 
+  // Auto-save on data change
   useEffect(function() {
     if (!mounted.current) { mounted.current = true; return; }
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -102,8 +109,60 @@ export default function ExhaleSection(props) {
     return function() { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [groups, colLabels]);
 
+  // Sync noteText when selected card changes
+  useEffect(function() {
+    if (!selectedId) { setNoteText(""); return; }
+    var found = findInGroups(groups, selectedId);
+    if (found) setNoteText(found.card.notes);
+  }, [selectedId]);
+
   var total = 0;
   for (var ci = 0; ci < COLS.length; ci++) total += groups[COLS[ci]].length;
+
+  var selectedFound = selectedId ? findInGroups(groups, selectedId) : null;
+
+  // ── data mutations ────────────────────────────────────────────────────────
+  function updateCard(id, patch) {
+    setGroups(function(prev) {
+      var next = cloneGroups(prev);
+      for (var i = 0; i < COLS.length; i++) {
+        for (var j = 0; j < next[COLS[i]].length; j++) {
+          if (next[COLS[i]][j].id === id) {
+            next[COLS[i]][j] = Object.assign({}, next[COLS[i]][j], patch);
+            return next;
+          }
+        }
+      }
+      return next;
+    });
+  }
+
+  function moveCardToCol(id, toCol) {
+    setGroups(function(prev) {
+      var next = cloneGroups(prev);
+      var found = null;
+      var fromCol = null;
+      for (var i = 0; i < COLS.length; i++) {
+        for (var j = 0; j < next[COLS[i]].length; j++) {
+          if (next[COLS[i]][j].id === id) { found = next[COLS[i]].splice(j, 1)[0]; fromCol = COLS[i]; break; }
+        }
+        if (found) break;
+      }
+      if (found) next[toCol].unshift(Object.assign({}, found, { category: toCol }));
+      return next;
+    });
+  }
+
+  function deleteCard(id) {
+    setGroups(function(prev) {
+      var next = cloneGroups(prev);
+      for (var i = 0; i < COLS.length; i++) {
+        next[COLS[i]] = next[COLS[i]].filter(function(c) { return c.id !== id; });
+      }
+      return next;
+    });
+    setSelectedId(null);
+  }
 
   // ── handlers ─────────────────────────────────────────────────────────────
   function handleAdd() {
@@ -111,69 +170,26 @@ export default function ExhaleSection(props) {
     if (!txt) return;
     var colorId = CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id;
     var item = { id: "e" + (_nid++), text: txt, notes: "", color: colorId, category: "inbox", createdAt: Date.now() };
-    setGroups(function(prev) {
-      var next = cloneGroups(prev);
-      next.inbox = [item].concat(next.inbox);
-      return next;
-    });
+    setGroups(function(prev) { var next = cloneGroups(prev); next.inbox = [item].concat(next.inbox); return next; });
     setInputText("");
   }
 
   function handleInputKeyDown(e) { if (e.key === "Enter") handleAdd(); }
 
-  function handleExpandToggle(e, cardId) {
-    e.stopPropagation();
-    setExpanded(function(prev) { return prev === cardId ? null : cardId; });
+  function handleDone() {
+    // Save current note text before closing detail
+    if (selectedId && noteText !== undefined) {
+      updateCard(selectedId, { notes: noteText });
+    }
+    setSelectedId(null);
+  }
+
+  function handleSelectCard(cardId) {
+    setSelectedId(cardId);
   }
 
   function handleLabelKeyDown(e) {
     if (e.key === "Enter" || e.key === "Escape") setEditingCol(null);
-  }
-
-  function handleNoteChange(e, cardId) {
-    var val = e.target.value;
-    setGroups(function(prev) {
-      var next = cloneGroups(prev);
-      for (var i = 0; i < COLS.length; i++) {
-        for (var j = 0; j < next[COLS[i]].length; j++) {
-          if (next[COLS[i]][j].id === cardId) {
-            next[COLS[i]][j] = Object.assign({}, next[COLS[i]][j], { notes: val });
-            return next;
-          }
-        }
-      }
-      return next;
-    });
-  }
-
-  function handleColorChange(cardId, colorId) {
-    setGroups(function(prev) {
-      var next = cloneGroups(prev);
-      for (var i = 0; i < COLS.length; i++) {
-        for (var j = 0; j < next[COLS[i]].length; j++) {
-          if (next[COLS[i]][j].id === cardId) {
-            next[COLS[i]][j] = Object.assign({}, next[COLS[i]][j], { color: colorId });
-            return next;
-          }
-        }
-      }
-      return next;
-    });
-  }
-
-  function handleDelete(cardId) {
-    setGroups(function(prev) {
-      var next = cloneGroups(prev);
-      for (var i = 0; i < COLS.length; i++) {
-        next[COLS[i]] = next[COLS[i]].filter(function(c) { return c.id !== cardId; });
-      }
-      return next;
-    });
-    setExpanded(null);
-  }
-
-  function handleLabelChange(col, val) {
-    setColLabels(function(prev) { return Object.assign({}, prev, { [col]: val }); });
   }
 
   // ── drag ─────────────────────────────────────────────────────────────────
@@ -185,11 +201,11 @@ export default function ExhaleSection(props) {
 
   function handleDragEnd() { setDrag(null); setDropOver(null); }
 
-  function handleCardDragOver(e, cardId, col) {
+  function handleCardDragOver(e, cardId) {
     if (!drag || drag.id === cardId) return;
     e.preventDefault(); e.stopPropagation();
     var rect = e.currentTarget.getBoundingClientRect();
-    setDropOver({ type: "card", id: cardId, col: col, above: e.clientY < rect.top + rect.height / 2 });
+    setDropOver({ type: "card", id: cardId, above: e.clientY < rect.top + rect.height / 2 });
   }
 
   function handleColDragOver(e, col) {
@@ -238,10 +254,101 @@ export default function ExhaleSection(props) {
     setDrag(null); setDropOver(null);
   }
 
-  // ── styles ────────────────────────────────────────────────────────────────
-  var qbtn = { fontSize: 10, padding: "2px 7px", borderRadius: 20, border: "0.5px solid rgba(0,0,0,0.18)", background: "rgba(0,0,0,0.07)", cursor: "pointer", color: "inherit" };
-  var delbtn = { fontSize: 10, padding: "2px 7px", borderRadius: 20, border: "0.5px solid rgba(180,0,0,0.3)", background: "rgba(180,0,0,0.07)", cursor: "pointer", color: "#8B0000" };
+  // ── shared styles ─────────────────────────────────────────────────────────
+  var border = "0.5px solid var(--color-border-tertiary, #e0e0e0)";
+  var bgSec  = "var(--color-background-secondary, #f8f8f8)";
+  var bgPri  = "var(--color-background-primary, #fff)";
+  var txPri  = "var(--color-text-primary, #111)";
+  var txSec  = "var(--color-text-secondary, #666)";
 
+  // ── DETAIL VIEW ───────────────────────────────────────────────────────────
+  if (selectedFound) {
+    var card = selectedFound.card;
+    var cardCol = selectedFound.col;
+    var c = getColor(card.color);
+
+    return (
+      <div style={{ fontFamily: "var(--font-sans, sans-serif)" }}>
+
+        {/* Detail header */}
+        <div style={{ background: c.bg, borderBottom: "0.5px solid " + c.bd, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={handleDone}
+            style={{ background: "rgba(0,0,0,0.1)", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: "pointer", color: c.tx, flexShrink: 0 }}
+          >
+            ← Back
+          </button>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: c.tx, lineHeight: 1.3 }}>{card.text}</span>
+        </div>
+
+        {/* Notes */}
+        <div style={{ padding: "14px 14px 10px" }}>
+          <div style={{ fontSize: 11, color: txSec, marginBottom: 5 }}>Notes</div>
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Add context, deadline, links..."
+            rows={4}
+            style={{ width: "100%", border: border, borderRadius: 8, padding: "9px 11px", fontSize: 13, resize: "none", background: bgPri, color: txPri, lineHeight: 1.5, fontFamily: "inherit" }}
+          />
+        </div>
+
+        {/* Color picker */}
+        <div style={{ padding: "0 14px 12px" }}>
+          <div style={{ fontSize: 11, color: txSec, marginBottom: 7 }}>Color</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {CARD_COLORS.map(function(cl) {
+              return (
+                <div
+                  key={cl.id}
+                  onClick={() => updateCard(card.id, { color: cl.id })}
+                  style={{ width: 26, height: 26, borderRadius: "50%", background: cl.bg, border: "2px solid " + (cl.id === card.color ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"), cursor: "pointer", flexShrink: 0 }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Move to column */}
+        <div style={{ padding: "0 14px 14px" }}>
+          <div style={{ fontSize: 11, color: txSec, marginBottom: 7 }}>Move to</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {COLS.map(function(col) {
+              var isActive = col === cardCol;
+              return (
+                <button
+                  key={col}
+                  onClick={() => moveCardToCol(card.id, col)}
+                  style={{
+                    textAlign: "left", padding: "7px 11px", borderRadius: 7, border: border,
+                    background: isActive ? NAVY : bgSec,
+                    color: isActive ? "white" : txPri,
+                    fontSize: 12, cursor: isActive ? "default" : "pointer",
+                    fontWeight: isActive ? 500 : 400,
+                  }}
+                >
+                  {colLabels[col]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Delete */}
+        <div style={{ padding: "0 14px 16px", borderTop: border, paddingTop: 12, marginTop: 2 }}>
+          <button
+            onClick={() => deleteCard(card.id)}
+            style={{ width: "100%", padding: "8px", borderRadius: 7, border: "0.5px solid rgba(180,0,0,0.3)", background: "rgba(180,0,0,0.06)", color: "#8B0000", fontSize: 12, cursor: "pointer" }}
+          >
+            ✕ Delete this card
+          </button>
+        </div>
+
+      </div>
+    );
+  }
+
+  // ── KANBAN VIEW ───────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "var(--font-sans, sans-serif)", fontSize: 13 }}>
 
@@ -252,14 +359,14 @@ export default function ExhaleSection(props) {
         <span style={{ marginLeft: "auto", fontSize: 10 }}>{total} items</span>
       </div>
 
-      {/* Capture bar */}
-      <div style={{ display: "flex", gap: 8, padding: "11px 12px", borderBottom: "0.5px solid var(--color-border-tertiary,#e0e0e0)", background: "var(--color-background-secondary,#f8f8f8)" }}>
+      {/* Capture */}
+      <div style={{ display: "flex", gap: 8, padding: "11px 12px", borderBottom: border, background: bgSec }}>
         <input
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleInputKeyDown}
           placeholder="What's on your mind? Drop it here."
-          style={{ flex: 1, padding: "8px 11px", fontSize: 13, border: "0.5px solid var(--color-border-secondary,#ccc)", borderRadius: 8, background: "var(--color-background-primary,#fff)", color: "var(--color-text-primary,#111)" }}
+          style={{ flex: 1, padding: "8px 11px", fontSize: 13, border: border, borderRadius: 8, background: bgPri, color: txPri }}
         />
         <button onClick={handleAdd} style={{ background: NAVY, color: "white", border: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12, cursor: "pointer" }}>
           + Add
@@ -271,7 +378,6 @@ export default function ExhaleSection(props) {
         {COLS.map(function(col, ci) {
           var isColTarget = dropOver && dropOver.type === "col" && dropOver.col === col;
           var isEditing   = editingCol === col;
-          var isHovering  = hoverCol === col;
 
           return (
             <div
@@ -279,58 +385,50 @@ export default function ExhaleSection(props) {
               onDragOver={(e) => handleColDragOver(e, col)}
               onDrop={(e) => handleColDrop(e, col)}
               onDragLeave={() => setDropOver(null)}
-              onMouseEnter={() => setHoverCol(col)}
-              onMouseLeave={() => setHoverCol(null)}
               style={{
                 padding: "10px 6px",
-                borderRight: ci < 4 ? "0.5px solid var(--color-border-tertiary,#e0e0e0)" : "none",
+                borderRight: ci < 4 ? border : "none",
                 background: isColTarget ? "rgba(27,46,79,0.04)" : "transparent",
-                transition: "background 0.12s",
               }}
             >
-              {/* Editable column header */}
+              {/* Column header */}
               <div style={{ marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 3 }}>
                 {isEditing ? (
                   <input
                     autoFocus
                     value={colLabels[col]}
-                    onChange={(e) => handleLabelChange(col, e.target.value)}
+                    onChange={(e) => setColLabels(function(prev) { return Object.assign({}, prev, { [col]: e.target.value }); })}
                     onBlur={() => setEditingCol(null)}
                     onKeyDown={handleLabelKeyDown}
-                    style={{ flex: 1, fontSize: 10, fontWeight: 500, border: "none", background: "transparent", color: "var(--color-text-primary,#111)", outline: "none", borderBottom: "1.5px solid " + NAVY, padding: "0 0 1px 0", fontFamily: "inherit" }}
+                    style={{ flex: 1, fontSize: 10, fontWeight: 500, border: "none", background: "transparent", color: txPri, outline: "none", borderBottom: "1.5px solid " + NAVY, padding: "0 0 1px 0", fontFamily: "inherit" }}
                   />
                 ) : (
                   <span
                     onClick={() => setEditingCol(col)}
                     title="Click to rename"
-                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: "var(--color-text-secondary,#666)", cursor: "text", lineHeight: 1.3 }}
+                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: txSec, cursor: "text", lineHeight: 1.3 }}
                   >
                     {colLabels[col]}
                   </span>
                 )}
-                <span style={{ background: "var(--color-background-secondary,#f0f0f0)", borderRadius: 8, padding: "1px 4px", fontSize: 9, color: "var(--color-text-tertiary,#999)", flexShrink: 0 }}>
+                <span style={{ background: bgSec, borderRadius: 8, padding: "1px 4px", fontSize: 9, color: "var(--color-text-tertiary,#aaa)", flexShrink: 0 }}>
                   {groups[col].length}
                 </span>
-                {isHovering && !isEditing && (
-                  <span onClick={() => setEditingCol(col)} style={{ fontSize: 9, cursor: "pointer", color: "var(--color-text-tertiary,#aaa)", flexShrink: 0 }} title="Rename">✎</span>
-                )}
               </div>
 
-              {/* Cards */}
+              {/* Cards — tap to open detail */}
               {groups[col].map(function(card) {
                 var c       = getColor(card.color);
-                var isExp   = expanded === card.id;
                 var isDrag  = drag && drag.id === card.id;
                 var isAbove = dropOver && dropOver.type === "card" && dropOver.id === card.id && dropOver.above;
                 var isBelow = dropOver && dropOver.type === "card" && dropOver.id === card.id && !dropOver.above;
 
                 var cardStyle = {
                   borderRadius: 7, padding: "7px 8px", marginBottom: 5,
-                  fontSize: 11.5, lineHeight: 1.4, cursor: "grab",
+                  fontSize: 11.5, lineHeight: 1.4, cursor: "pointer",
                   borderWidth: "0.5px", borderStyle: "solid",
                   background: c.bg, borderColor: c.bd, color: c.tx,
                   opacity: isDrag ? 0.25 : 1,
-                  outline: isExp ? ("1.5px solid " + NAVY) : "none",
                 };
                 if (isAbove) cardStyle.borderTop    = "2.5px solid " + NAVY;
                 if (isBelow) cardStyle.borderBottom = "2.5px solid " + NAVY;
@@ -341,61 +439,14 @@ export default function ExhaleSection(props) {
                     draggable
                     onDragStart={(e) => handleDragStart(e, card.id, col)}
                     onDragEnd={handleDragEnd}
-                    onDragOver={(e) => handleCardDragOver(e, card.id, col)}
+                    onDragOver={(e) => handleCardDragOver(e, card.id)}
                     onDrop={(e) => handleCardDrop(e, card.id, col)}
+                    onClick={() => handleSelectCard(card.id)}
                     style={cardStyle}
                   >
-                    {/* Card header row */}
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 3 }}>
-                      <span style={{ flex: 1, fontSize: 11.5, lineHeight: 1.4 }}>{card.text}</span>
-                      <button
-                        onClick={(e) => handleExpandToggle(e, card.id)}
-                        style={{ background: "rgba(0,0,0,0.1)", border: "none", borderRadius: 3, width: 15, height: 15, fontSize: 8, cursor: "pointer", flexShrink: 0, color: "inherit", display: "flex", alignItems: "center", justifyContent: "center" }}
-                      >
-                        {isExp ? "▲" : "▼"}
-                      </button>
-                    </div>
-
-                    {/* Inline expand — no overflow issues */}
-                    {isExp && (
-                      <div style={{ marginTop: 8, borderTop: "0.5px solid rgba(0,0,0,0.15)", paddingTop: 8 }}>
-                        <textarea
-                          value={card.notes}
-                          onChange={(e) => handleNoteChange(e, card.id)}
-                          placeholder="Notes, context, deadline..."
-                          rows={3}
-                          style={{ width: "100%", border: "0.5px solid rgba(0,0,0,0.2)", borderRadius: 5, padding: "5px 7px", fontSize: 11, resize: "none", background: "rgba(255,255,255,0.5)", color: c.tx, lineHeight: 1.4, fontFamily: "inherit" }}
-                        />
-                        {/* Color picker */}
-                        <div style={{ display: "flex", gap: 3, marginTop: 6, flexWrap: "wrap" }}>
-                          {CARD_COLORS.map(function(cl) {
-                            return (
-                              <div
-                                key={cl.id}
-                                onClick={() => handleColorChange(card.id, cl.id)}
-                                style={{ width: 13, height: 13, borderRadius: "50%", background: cl.bg, border: "1.5px solid " + (cl.id === card.color ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.15)"), cursor: "pointer", flexShrink: 0 }}
-                              />
-                            );
-                          })}
-                        </div>
-                        {/* Action buttons */}
-                        <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                          <button style={qbtn}>✓ Task</button>
-                          <button style={qbtn}>📅 Cal</button>
-                          <button onClick={() => handleDelete(card.id)} style={delbtn}>✕ Delete</button>
-                        </div>
-                        <button
-                          onClick={() => setExpanded(null)}
-                          style={{ marginTop: 6, width: "100%", fontSize: 10, padding: "3px 0", border: "0.5px solid rgba(0,0,0,0.15)", borderRadius: 5, background: "rgba(0,0,0,0.05)", cursor: "pointer", color: "inherit" }}
-                        >
-                          Done ↑
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Notes preview when collapsed */}
-                    {card.notes && !isExp && (
-                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7, fontStyle: "italic", overflow: "hidden", maxHeight: "2.6em", lineHeight: 1.3 }}>
+                    <div style={{ fontSize: 11.5, lineHeight: 1.4 }}>{card.text}</div>
+                    {card.notes && (
+                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7, fontStyle: "italic", overflow: "hidden", maxHeight: "2.5em", lineHeight: 1.3 }}>
                         {card.notes}
                       </div>
                     )}
