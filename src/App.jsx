@@ -2145,7 +2145,13 @@ function createLocalBackup() {
           var lastPullAt = Number(localStorage.getItem("af_lastPullAt") || 0);
           var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
           var pulledRecently = lastPullAt && (Date.now() - lastPullAt) < 30000;
-          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently) {
+          // Supabase AFTER UPDATE trigger bumps updated_at by ~32ms after PATCH response.
+          // Confirmation GET can race and return the pre-trigger value, so after 30s the
+          // pushedRecently window expires and we see that bump as a "remote" change → loop.
+          // Real remote changes are always ≥ 1 second newer; trigger bumps are always < 100ms.
+          var tsDiff = new Date(serverUpdatedAt).getTime() - new Date(lastApplied).getTime();
+          var likelyTriggerBump = tsDiff >= 0 && tsDiff < 1000;
+          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently || likelyTriggerBump) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
           } else {
@@ -2490,7 +2496,11 @@ function createLocalBackup() {
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
           var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
-          if (serverTs === lastPushedAt || pushedRecentlyPoll) {
+          // Same trigger-bump guard as stale-push-guard: if server is < 1s newer than local,
+          // it's almost certainly the Supabase AFTER UPDATE trigger, not a real remote change.
+          var tsDiffPoll = lastSync ? (new Date(serverTs).getTime() - new Date(lastSync).getTime()) : Infinity;
+          var likelyTriggerBumpPoll = tsDiffPoll >= 0 && tsDiffPoll < 1000;
+          if (serverTs === lastPushedAt || pushedRecentlyPoll || likelyTriggerBumpPoll) {
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
             setSyncStatus("synced");
