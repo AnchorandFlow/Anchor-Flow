@@ -2829,6 +2829,9 @@ function createLocalBackup() {
   const [weekSubTab,setWeekSubTab]             = useState("glance");
 
   const [calViewDate,setCalViewDate]   = useState(new Date(TODAY));
+  const [calMarkers,setCalMarkers]     = useState(loadCalMarkers);
+  const [calMarkerTypes,setCalMarkerTypes] = useState(loadCalMarkerTypes);
+  const [markerPickerDate,setMarkerPickerDate] = useState(null);
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
   const goToToday = () => { setCalViewDate(new Date(TODAY)); };
@@ -3722,6 +3725,36 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Calendar helpers ────────────────────────────────────────────────────────
+  function toggleCalMarker(dateStr, emoji){
+    setCalMarkers(function(prev){
+      var next = Object.assign({}, prev);
+      var arr = (next[dateStr] || []).slice();
+      var idx = arr.indexOf(emoji);
+      if (idx === -1) arr.push(emoji); else arr.splice(idx,1);
+      if (arr.length) next[dateStr] = arr; else delete next[dateStr];
+      saveCalMarkers(next);
+      return next;
+    });
+  }
+  // ── Calendar emoji markers (standalone localStorage, no household sync) ──
+  function loadCalMarkers(){ try { var v = JSON.parse(localStorage.getItem("af_cal_markers")||"{}"); return (v && typeof v==="object") ? v : {}; } catch(e){ return {}; } }
+  function saveCalMarkers(m){ try { localStorage.setItem("af_cal_markers", JSON.stringify(m)); } catch(e){} }
+  function loadCalMarkerTypes(){
+    try { var v = JSON.parse(localStorage.getItem("af_cal_marker_types")||"null"); if (Array.isArray(v) && v.length) return v; } catch(e){}
+    return [
+      { emoji:"\u2B50", label:"Custody" },
+      { emoji:"\u260E\uFE0F", label:"On call" },
+      { emoji:"\u2708\uFE0F", label:"Travel" },
+      { emoji:"\uD83C\uDFEB", label:"School closed" },
+      { emoji:"\uD83D\uDC8A", label:"Medication" },
+      { emoji:"\uD83C\uDFC8", label:"Practice" },
+      { emoji:"\uD83C\uDF82", label:"Birthday" },
+      { emoji:"\u2764\uFE0F", label:"Date night" },
+      { emoji:"\uD83E\uDE7A", label:"Work" }
+    ];
+  }
+  function saveCalMarkerTypes(t){ try { localStorage.setItem("af_cal_marker_types", JSON.stringify(t)); } catch(e){} }
+
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
   function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"Blue",colorCustom:"",note:"",repeat:""}); setCalFormMode("add"); setCalFormId(null); }
@@ -5568,8 +5601,11 @@ Respond ONLY in valid JSON:
                 return (
                   <div key={day} onClick={function(){var d=isSelected?null:thisDate;setSelectedDay(d);if(d)setCalViewDate(new Date(d));}}
                     style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
-                    {/* Date number */}
-                    <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
+                    {/* Date number + marker button */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
+                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"0.6rem",color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.6}} title="Add marker">\u25CF</button>
+                    </div>
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(e=>(
                       <div key={e.id} style={{background:e.color+"28",borderLeft:`2.5px solid ${e.color}`,borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4}}>
@@ -5579,10 +5615,42 @@ Respond ONLY in valid JSON:
                     {dayEvts.length>2&&(
                       <div style={{fontSize:"0.56rem",color:T.textSoft,fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
                     )}
+                    {/* Emoji markers */}
+                    {calMarkers[localDateStr(thisDate)]&&calMarkers[localDateStr(thisDate)].length>0&&(
+                      <div style={{display:"flex",gap:"1px",flexWrap:"wrap",marginTop:"auto",lineHeight:1}}>
+                        {calMarkers[localDateStr(thisDate)].map(function(em,mi){
+                          return <span key={mi} style={{fontSize:"0.62rem"}}>{em}</span>;
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+            {/* Marker picker popover */}
+            {markerPickerDate&&(
+              <div onClick={function(){setMarkerPickerDate(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+                <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1rem",padding:"1.1rem 1.2rem",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(markerPickerDate+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+                    <button onClick={function(){setMarkerPickerDate(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>\u00d7</button>
+                  </div>
+                  <div style={{fontSize:"0.66rem",color:T.textSoft,marginBottom:"0.6rem",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>Tap to add or remove</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                    {calMarkerTypes.map(function(mt,ti){
+                      var active=(calMarkers[markerPickerDate]||[]).indexOf(mt.emoji)!==-1;
+                      return (
+                        <div key={ti} onClick={function(){toggleCalMarker(markerPickerDate,mt.emoji);}} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.7rem",borderRadius:"0.6rem",cursor:"pointer",background:active?T.bluePale:T.bgAlt,border:"1px solid "+(active?T.blue:T.borderSoft)}}>
+                          <span style={{fontSize:"1.1rem"}}>{mt.emoji}</span>
+                          <span style={{flex:1,fontSize:"0.82rem",color:T.textDark,fontWeight:active?700:500}}>{mt.label}</span>
+                          {active&&<span style={{fontSize:"0.72rem",color:T.blue,fontWeight:700}}>\u2713</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {calView==="week"&&(
