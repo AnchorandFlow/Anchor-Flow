@@ -434,7 +434,7 @@ async function sbSignOut(token) {
 // Household data keys that get synced to Supabase
 const SYNC_KEYS = [
   // Core data
-  "tasks","brainItems","brainCats","exhaleItems","calEvents","connectedCals","calColorLabels",
+  "tasks","brainItems","brainCats","exhaleItems","exhaleLabels","calEvents","connectedCals","calColorLabels",
   // Meals
   "meals","mealsWeekOf","nextWeekMeals","mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
   // Shopping
@@ -1605,6 +1605,16 @@ async function refreshAuthToken() {
             return sd.session.access_token;
           }
         } catch(se) { console.warn("[AF AUTH] getSession fallback failed", se.message); }
+        // Both manual refresh and SDK session are dead. For 4xx errors this is a hard
+        // auth failure (not a network blip) — sign out so the App shows AuthScreen
+        // instead of leaving the user stuck with a disappearing banner.
+        if (res.status >= 400 && res.status < 500) {
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          try { localStorage.removeItem("af_authUser"); } catch {}
+          try { localStorage.removeItem("af_refreshToken"); } catch {}
+          console.warn("[AF AUTH] hard auth failure — signing out to force re-login");
+          supabase.auth.signOut().catch(() => {});
+        }
         return null;
       }
       const data = await res.json();
@@ -1820,7 +1830,7 @@ function createLocalBackup() {
     // Arrays: only preserve if actually an array — never pass null/object through
     ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
-     "brainCats","homeSystems","dietaryFilters",
+     "brainCats","homeSystems","dietaryFilters","exhaleItems",
      // Vault arrays
      "recurring","celebrations","gifts","inventory","pets","houseFile",
      "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
@@ -1873,7 +1883,7 @@ function createLocalBackup() {
     // Objects: pass through if valid (non-null object)
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
      "coveData","schoolData","cove_items_v1","notifSettings","sections",
-     "calColorLabels","connectedCals",
+     "calColorLabels","connectedCals","exhaleLabels",
      "health","career","travel_profile"
     ].forEach(k => {
       if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
@@ -2132,10 +2142,12 @@ function createLocalBackup() {
           // this via af_lastPushedAt; mirror it here.
           var lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
           var lastPushAt = Number(localStorage.getItem("af_lastPushAt") || 0);
+          var lastPullAt = Number(localStorage.getItem("af_lastPullAt") || 0);
           var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
-          if (serverUpdatedAt === lastPushedAt || pushedRecently) {
+          var pulledRecently = lastPullAt && (Date.now() - lastPullAt) < 30000;
+          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
-            console.warn("[AF SYNC] stale-check: own push (match or recent) - reconciled, not stale");
+            console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
           } else {
             console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
             await pullLatestHouseholdData("stale-push-block");
@@ -2342,8 +2354,7 @@ function createLocalBackup() {
         }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
-      try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
-      try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // mark "synced now" so stale-check 30s window covers any trigger bump
+      try { localStorage.setItem("af_lastPullAt", String(Date.now())); } catch {} // separate from af_lastPushAt — poll uses af_lastPushAt to gate reloads; this only gates the stale-push-guard
       try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
       AF_DEBUG && console.warn("[AF PULL] RELOADING");
       window.location.reload();
@@ -2555,10 +2566,20 @@ function createLocalBackup() {
       if (shopFocused) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
       checkForUpdates();
     }, 15000);
+    // On mobile, setInterval is paused when the browser goes to background.
+    // Fire checkForUpdates immediately when the page becomes visible again.
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        AF_DEBUG && console.warn("[AF POLL] visibilitychange — running checkForUpdates");
+        checkForUpdates();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       AF_DEBUG&&console.log("[AF SYNC] poll stopped", householdId);
       clearTimeout(initial);
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
