@@ -3742,15 +3742,15 @@ Respond ONLY with valid JSON array, no markdown:
   function loadCalMarkerTypes(){
     try { var v = JSON.parse(localStorage.getItem("af_cal_marker_types")||"null"); if (Array.isArray(v) && v.length) return v; } catch(e){}
     return [
-      { emoji:"\u2B50", label:"Custody" },
-      { emoji:"\u260E\uFE0F", label:"On call" },
-      { emoji:"\u2708\uFE0F", label:"Travel" },
-      { emoji:"\uD83C\uDFEB", label:"School closed" },
-      { emoji:"\uD83D\uDC8A", label:"Medication" },
-      { emoji:"\uD83C\uDFC8", label:"Practice" },
-      { emoji:"\uD83C\uDF82", label:"Birthday" },
-      { emoji:"\u2764\uFE0F", label:"Date night" },
-      { emoji:"\uD83E\uDE7A", label:"Work" }
+      { emoji:"⭐", label:"Custody" },
+      { emoji:"☎️", label:"On call" },
+      { emoji:"✈️", label:"Travel" },
+      { emoji:"🏫", label:"School closed" },
+      { emoji:"💊", label:"Medication" },
+      { emoji:"🏈", label:"Practice" },
+      { emoji:"🎂", label:"Birthday" },
+      { emoji:"❤️", label:"Date night" },
+      { emoji:"🩺", label:"Work" }
     ];
   }
   function saveCalMarkerTypes(t){ try { localStorage.setItem("af_cal_marker_types", JSON.stringify(t)); } catch(e){} }
@@ -5604,7 +5604,7 @@ Respond ONLY in valid JSON:
                     {/* Date number + marker button */}
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                       <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
-                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"0.6rem",color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.6}} title="Add marker">\u25CF</button>
+                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"0.6rem",color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.6}} title="Add marker">•</button>
                     </div>
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(e=>(
@@ -5633,7 +5633,7 @@ Respond ONLY in valid JSON:
                 <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1rem",padding:"1.1rem 1.2rem",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
                     <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(markerPickerDate+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
-                    <button onClick={function(){setMarkerPickerDate(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>\u00d7</button>
+                    <button onClick={function(){setMarkerPickerDate(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
                   </div>
                   <div style={{fontSize:"0.66rem",color:T.textSoft,marginBottom:"0.6rem",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>Tap to add or remove</div>
                   <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
@@ -5643,7 +5643,7 @@ Respond ONLY in valid JSON:
                         <div key={ti} onClick={function(){toggleCalMarker(markerPickerDate,mt.emoji);}} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.7rem",borderRadius:"0.6rem",cursor:"pointer",background:active?T.bluePale:T.bgAlt,border:"1px solid "+(active?T.blue:T.borderSoft)}}>
                           <span style={{fontSize:"1.1rem"}}>{mt.emoji}</span>
                           <span style={{flex:1,fontSize:"0.82rem",color:T.textDark,fontWeight:active?700:500}}>{mt.label}</span>
-                          {active&&<span style={{fontSize:"0.72rem",color:T.blue,fontWeight:700}}>\u2713</span>}
+                          {active&&<span style={{fontSize:"0.72rem",color:T.blue,fontWeight:700}}>✓</span>}
                         </div>
                       );
                     })}
@@ -7121,7 +7121,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
       const recognition=new SR();recognitionRef.current=recognition;recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
       recognition.onstart=()=>{setIsListening(true);setVoiceStatus("Listening… say your item");};
-      recognition.onresult=function(e){var transcript=Array.from(e.results).map(function(r){return r[0].transcript;}).join("");setVoiceStatus("Heard: \""+transcript+"\"");if(e.results[0].isFinal){var voiceItems=transcript.split(/\band\b/i).map(function(s){return s.trim();}).filter(Boolean);voiceItems.forEach(function(item){addItem(item,newStore);});setIsListening(false);setVoiceStatus("\u2713 Added "+voiceItems.length+" item"+(voiceItems.length>1?"s":""));setTimeout(function(){setVoiceStatus("");},2500);}};
+      recognition.onresult=function(e){var transcript=Array.from(e.results).map(function(r){return r[0].transcript;}).join("");setVoiceStatus("Heard: \""+transcript+"\"");if(e.results[0].isFinal){var voiceItems=transcript.split(/\band\b/i).map(function(s){return s.trim();}).filter(Boolean);voiceItems.forEach(function(item){addItem(item,newStore);});setIsListening(false);setVoiceStatus("✓ Added "+voiceItems.length+" item"+(voiceItems.length>1?"s":""));setTimeout(function(){setVoiceStatus("");},2500);}};
       recognition.onerror=e=>{setIsListening(false);setVoiceStatus(e.error==="not-allowed"?"Microphone access denied.":`Error: ${e.error}`);setTimeout(()=>setVoiceStatus(""),3000);};
       recognition.onend=()=>setIsListening(false);recognition.start();
     }
