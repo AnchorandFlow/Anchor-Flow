@@ -1643,6 +1643,10 @@ async function refreshAuthToken() {
   return p;
 }
 
+// Hydration guard flag — see setSaved. True until ~1.5s after first mount.
+let _afHydrating = true;
+function _afEndHydration(){ _afHydrating = false; }
+
 function useSaved(key, fallback) {
   const [val, setVal] = useState(() => {
     try {
@@ -1658,6 +1662,14 @@ function useSaved(key, fallback) {
     }
     catch { return fallback; }
   });
+  // ── Hydration guard ──────────────────────────────────────────────────
+  // During initial mount, many setters fire with normalized/default values as
+  // the app hydrates from localStorage (e.g. weatherLocation, familyProfile).
+  // Those are NOT user edits and must not mark keys dirty — otherwise a push
+  // fires on every load, advancing the server timestamp, which makes the poll
+  // reload, which re-fires the setters: an infinite reload loop. While
+  // _afHydrating is true, dirty-marking is suppressed. A mount effect flips it
+  // false a moment after first render so real edits sync normally.
   function setSaved(next) {
     // Use React's functional updater so we always operate on the latest state,
     // avoiding stale-closure bugs when setSaved is called inside timeouts or
@@ -1671,7 +1683,7 @@ function useSaved(key, fallback) {
         "dailySummaryScheduled","lastSeenDate","checkedCalEvents","checkedMealItems",
         "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
         "deviceId","dirtyKeys","theme","activeTab"];
-      if (!_DIRTY_EXCLUDE.includes(key)) {
+      if (!_afHydrating && !_DIRTY_EXCLUDE.includes(key)) {
         try {
           const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
           if (!dirty.includes(key)) {
@@ -2621,6 +2633,8 @@ function createLocalBackup() {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
+  // End hydration guard ~1.5s after first mount so real user edits sync.
+  useEffect(function(){ var t=setTimeout(function(){ _afEndHydration(); },1500); return function(){ clearTimeout(t); }; }, []);
   function debouncedSync() {
     if (!authToken || !householdId) return;
     const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
@@ -2780,10 +2794,12 @@ function createLocalBackup() {
     setMealsRaw(safe);
     try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
     try {
-      const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
-      if (!dirty.includes("meals")) {
-        dirty.push("meals");
-        localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+      if (!_afHydrating) {
+        const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+        if (!dirty.includes("meals")) {
+          dirty.push("meals");
+          localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+        }
       }
     } catch {}
   }
