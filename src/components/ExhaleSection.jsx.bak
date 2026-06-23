@@ -44,18 +44,6 @@ function lsGet(key, fallback) {
 
 function lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
-  // Mark this key dirty and trigger a sync so the edit pushes to other devices.
-  // ExhaleSection writes af_* keys directly (not via the app's setSaved), so
-  // without this the change stays local and never reaches Supabase.
-  try {
-    var syncName = key.indexOf("af_") === 0 ? key.slice(3) : key;
-    var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
-    if (dirty.indexOf(syncName) === -1) {
-      dirty.push(syncName);
-      localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
-    }
-  } catch(e2) {}
-  try { window.dispatchEvent(new Event("af-data-changed")); } catch(e3) {}
 }
 
 function emptyGroups() {
