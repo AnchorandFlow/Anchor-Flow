@@ -1,4 +1,4 @@
-const CACHE_VERSION = "anchor-flow-v20260618-1";
+const CACHE_VERSION = "anchor-flow-v20260622-1";
 const STATIC_CACHE = CACHE_VERSION;
 
 // On install: skip waiting immediately so new SW takes over right away
