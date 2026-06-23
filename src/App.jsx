@@ -11320,7 +11320,19 @@ export default function App() {
         try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
       }
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setSession(session);
+      // Keep af_authToken/af_refreshToken in sync with SDK proactive refreshes.
+      // Without this, the SDK silently rotates tokens but localStorage stays stale —
+      // next REST call uses an expired af_authToken, reactive refresh tries the
+      // already-consumed af_refreshToken, and gets a 400.
+      if (session?.access_token) {
+        try { localStorage.setItem("af_authToken", JSON.stringify(session.access_token)); } catch {}
+      }
+      if (session?.refresh_token) {
+        try { localStorage.setItem("af_refreshToken", session.refresh_token); } catch {}
+      }
+    })
     return () => subscription.unsubscribe()
   }, [])
 
