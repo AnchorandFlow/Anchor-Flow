@@ -2367,7 +2367,15 @@ function createLocalBackup() {
           try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
         }
       });
-      try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+      // Re-read updated_at after applying data: the Supabase AFTER UPDATE trigger may have
+      // bumped the server timestamp between our initial fetch and now. Storing the stale
+      // serverTs causes the next poll to see server > lastHHSync and reload again → loop.
+      let confirmedPullTs = serverTs;
+      try {
+        const confirmPullRows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=updated_at&limit=1`, { _token: authToken });
+        if (confirmPullRows && confirmPullRows[0] && confirmPullRows[0].updated_at) confirmedPullTs = confirmPullRows[0].updated_at;
+      } catch {}
+      try { localStorage.setItem("af_lastHHSync", confirmedPullTs); } catch {}
       try { localStorage.setItem("af_lastPullAt", String(Date.now())); } catch {} // separate from af_lastPushAt — poll uses af_lastPushAt to gate reloads; this only gates the stale-push-guard
       try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
       AF_DEBUG && console.warn("[AF PULL] RELOADING");
