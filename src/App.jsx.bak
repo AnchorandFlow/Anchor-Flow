@@ -2159,7 +2159,7 @@ function createLocalBackup() {
           // pushedRecently window expires and we see that bump as a "remote" change → loop.
           // Real remote changes are always ≥ 1 second newer; trigger bumps are always < 100ms.
           var tsDiff = new Date(serverUpdatedAt).getTime() - new Date(lastApplied).getTime();
-          var likelyTriggerBump = tsDiff >= 0 && tsDiff < 1000;
+          var likelyTriggerBump = tsDiff >= 0 && tsDiff < 5000;
           if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently || likelyTriggerBump) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
@@ -2233,7 +2233,7 @@ function createLocalBackup() {
         // which may differ from the client-set value. GET the row after PATCH to capture the final value.
         let confirmedTs = serverTs;
         try {
-          await new Promise(r => setTimeout(r, 200)); // wait for async AFTER UPDATE trigger (~32ms) to settle
+          await new Promise(r => setTimeout(r, 600)); // wait for async AFTER UPDATE trigger to settle (widened from 200ms to beat the confirm-GET race)
           const confirmRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
           if (confirmRows && confirmRows[0] && confirmRows[0].updated_at) confirmedTs = confirmRows[0].updated_at;
         } catch {}
@@ -2253,7 +2253,7 @@ function createLocalBackup() {
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
         let confirmedTsI = serverTs;
         try {
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise(r => setTimeout(r, 600));
           const confirmRowsI = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
           if (confirmRowsI && confirmRowsI[0] && confirmRowsI[0].updated_at) confirmedTsI = confirmRowsI[0].updated_at;
         } catch {}

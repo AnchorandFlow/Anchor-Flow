@@ -2228,20 +2228,16 @@ function createLocalBackup() {
           headers: { "Prefer": "return=representation" },
           body: JSON.stringify({ data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt, updated_by: ownerId })
         });
-        const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
-        // Confirm actual post-trigger timestamp — Supabase BEFORE triggers rewrite updated_at to NOW()
-        // which may differ from the client-set value. GET the row after PATCH to capture the final value.
-        let confirmedTs = serverTs;
-        try {
-          await new Promise(r => setTimeout(r, 600)); // wait for async AFTER UPDATE trigger to settle (widened from 200ms to beat the confirm-GET race)
-          const confirmRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
-          if (confirmRows && confirmRows[0] && confirmRows[0].updated_at) confirmedTs = confirmRows[0].updated_at;
-        } catch {}
-        try { localStorage.setItem("af_lastPushedAt", confirmedTs); } catch {}
-        try { localStorage.setItem("af_lastHHSync", confirmedTs); } catch {} // safe to write now — confirmedTs is the actual committed server timestamp
+        // The DB stores exactly the updated_at we send (verified: no trigger, no
+        // rewrite). So we already know the committed server value — it is updatedAt.
+        // No confirm-GET: re-reading could return a stale pooled/replica value,
+        // creating a phantom diff that the stale-push guard reads as a remote
+        // change -> pull -> reload loop. Store the value we sent, directly.
+        try { localStorage.setItem("af_lastPushedAt", updatedAt); } catch {}
+        try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
         try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
-        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", confirmedTs, "— dirty keys cleared");
+        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", updatedAt, "— dirty keys cleared");
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -2251,14 +2247,9 @@ function createLocalBackup() {
           body: JSON.stringify({ id: hid, owner_id: ownerId, data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-        let confirmedTsI = serverTs;
-        try {
-          await new Promise(r => setTimeout(r, 600));
-          const confirmRowsI = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
-          if (confirmRowsI && confirmRowsI[0] && confirmRowsI[0].updated_at) confirmedTsI = confirmRowsI[0].updated_at;
-        } catch {}
-        try { localStorage.setItem("af_lastPushedAt", confirmedTsI); } catch {}
-        try { localStorage.setItem("af_lastHHSync", confirmedTsI); } catch {}
+        // Same as PATCH branch: store the value we sent; the DB holds exactly it.
+        try { localStorage.setItem("af_lastPushedAt", updatedAt); } catch {}
+        try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
         try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
       }
