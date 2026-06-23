@@ -403,6 +403,7 @@ window.fetch = async function(input, opts) {
 async function sbFetch(path, opts={}) {
   const url = SUPABASE_URL + path;
   const r = await fetch(url, {
+    cache: "no-store", // iOS Safari caches GET responses; no-store bypasses cache entirely
     ...opts,
     headers: {
       "apikey": SUPABASE_KEY,
@@ -2232,6 +2233,7 @@ function createLocalBackup() {
         // which may differ from the client-set value. GET the row after PATCH to capture the final value.
         let confirmedTs = serverTs;
         try {
+          await new Promise(r => setTimeout(r, 200)); // wait for async AFTER UPDATE trigger (~32ms) to settle
           const confirmRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
           if (confirmRows && confirmRows[0] && confirmRows[0].updated_at) confirmedTs = confirmRows[0].updated_at;
         } catch {}
@@ -2251,6 +2253,7 @@ function createLocalBackup() {
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
         let confirmedTsI = serverTs;
         try {
+          await new Promise(r => setTimeout(r, 200));
           const confirmRowsI = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
           if (confirmRowsI && confirmRowsI[0] && confirmRowsI[0].updated_at) confirmedTsI = confirmRowsI[0].updated_at;
         } catch {}
@@ -2372,6 +2375,7 @@ function createLocalBackup() {
       // serverTs causes the next poll to see server > lastHHSync and reload again → loop.
       let confirmedPullTs = serverTs;
       try {
+        await new Promise(r => setTimeout(r, 200));
         const confirmPullRows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=updated_at&limit=1`, { _token: authToken });
         if (confirmPullRows && confirmPullRows[0] && confirmPullRows[0].updated_at) confirmedPullTs = confirmPullRows[0].updated_at;
       } catch {}
