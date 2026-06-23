@@ -1,5 +1,6 @@
 const AF_DEBUG = false; // flip to true when debugging
-import React, { useState, useRef, useEffect, useCallback, memo, useMemo, lazy, Suspense } from "react";
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
+import ExhaleSection from './components/ExhaleSection.jsx';
 import { askFamily } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
@@ -14,7 +15,6 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import HomeScreen from "./components/HomeScreen"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -434,7 +434,7 @@ async function sbSignOut(token) {
 // Household data keys that get synced to Supabase
 const SYNC_KEYS = [
   // Core data
-  "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
+  "tasks","brainItems","brainCats","exhaleItems","exhaleLabels","calEvents","connectedCals","calColorLabels",
   // Meals
   "meals","mealsWeekOf","nextWeekMeals","mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
   // Shopping
@@ -1574,33 +1574,64 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 // ── Supabase token refresh ──────────────────────────────────────────────────
 // Reads refresh_token from localStorage, calls Supabase, saves new tokens.
 // Returns new access_token string or null on failure.
+// _refreshInFlight mutex prevents concurrent polls from racing on the same
+// rotated token — root cause of the 'Already Used' loop after calendar OAuth.
+var _refreshInFlight = null;
 async function refreshAuthToken() {
-  try {
-    const refreshToken = localStorage.getItem("af_refreshToken");
-    if (!refreshToken) { console.warn("[AF AUTH] no refresh_token stored — cannot refresh"); return null; }
-    const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
-    const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-      },
-      body: JSON.stringify({ refresh_token: refreshToken })
-    });
-    if (!res.ok) {
-      console.warn("[AF AUTH] token refresh failed", res.status);
+  if (_refreshInFlight) return _refreshInFlight;
+  const p = (async function() {
+    try {
+      const refreshToken = localStorage.getItem("af_refreshToken");
+      if (!refreshToken) { console.warn("[AF AUTH] no refresh_token stored — cannot refresh"); return null; }
+      const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
+      const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_KEY,
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      if (!res.ok) {
+        console.warn("[AF AUTH] token refresh failed", res.status);
+        // Calendar OAuth causes Supabase SDK to rotate the token internally.
+        // af_refreshToken may be stale — fall back to SDK's own session.
+        try {
+          const { data: sd } = await supabase.auth.getSession();
+          if (sd && sd.session && sd.session.access_token) {
+            try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
+            if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
+            AF_DEBUG&&console.log("[AF AUTH] recovered token via getSession()");
+            return sd.session.access_token;
+          }
+        } catch(se) { console.warn("[AF AUTH] getSession fallback failed", se.message); }
+        // Both manual refresh and SDK session are dead. For 4xx errors this is a hard
+        // auth failure (not a network blip) — sign out so the App shows AuthScreen
+        // instead of leaving the user stuck with a disappearing banner.
+        if (res.status >= 400 && res.status < 500) {
+          try { localStorage.removeItem("af_authToken"); } catch {}
+          try { localStorage.removeItem("af_authUser"); } catch {}
+          try { localStorage.removeItem("af_refreshToken"); } catch {}
+          console.warn("[AF AUTH] hard auth failure — signing out to force re-login");
+          supabase.auth.signOut().catch(() => {});
+        }
+        return null;
+      }
+      const data = await res.json();
+      if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
+      try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
+      if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
+      AF_DEBUG&&console.log("[AF AUTH] token refreshed successfully");
+      return data.access_token;
+    } catch(e) {
+      console.warn("[AF AUTH] token refresh error:", e.message);
       return null;
+    } finally {
+      _refreshInFlight = null;
     }
-    const data = await res.json();
-    if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
-    try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
-    if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
-    AF_DEBUG&&console.log("[AF AUTH] token refreshed successfully");
-    return data.access_token;
-  } catch(e) {
-    console.warn("[AF AUTH] token refresh error:", e.message);
-    return null;
-  }
+  })();
+  _refreshInFlight = p;
+  return p;
 }
 
 function useSaved(key, fallback) {
@@ -1646,6 +1677,26 @@ function useSaved(key, fallback) {
   }
   return [val, setSaved];
 }
+
+// ── Stable component wrappers ─────────────────────────────────────────────────
+// Created once at module level. React sees the same type across HomeFlow renders
+// so it UPDATES instead of unmounting+remounting the component. The actual render
+// logic lives in _hfRenders.X which is a fresh closure on each HomeFlow render.
+const _hfRenders = {};
+const _hfComps   = {};
+[
+  'Pill','SecHead',
+  'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
+  'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
+  'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
+  'MealBankDrawer','WeekTypePicker','MealsTab','ShoppingTab','HomeTab','BrainTab',
+  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveTab',
+  'SchoolTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
+  'SetPasswordModal',
+].forEach(n => {
+  _hfComps[n] = function(p){ return _hfRenders[n](p); };
+  Object.defineProperty(_hfComps[n], 'name', { value: n });
+});
 
 function HomeFlow() {
 
@@ -1779,7 +1830,7 @@ function createLocalBackup() {
     // Arrays: only preserve if actually an array — never pass null/object through
     ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
-     "brainCats","homeSystems","dietaryFilters",
+     "brainCats","homeSystems","dietaryFilters","exhaleItems",
      // Vault arrays
      "recurring","celebrations","gifts","inventory","pets","houseFile",
      "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
@@ -1832,7 +1883,7 @@ function createLocalBackup() {
     // Objects: pass through if valid (non-null object)
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
      "coveData","schoolData","cove_items_v1","notifSettings","sections",
-     "calColorLabels","connectedCals",
+     "calColorLabels","connectedCals","exhaleLabels",
      "health","career","travel_profile"
     ].forEach(k => {
       if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
@@ -2058,7 +2109,9 @@ function createLocalBackup() {
     return msg.includes("jwt expired") ||
            msg.includes("401") ||
            msg.includes("unauthorized") ||
-           msg.includes("invalid jwt");
+           msg.includes("invalid jwt") ||
+           msg.includes("already used") ||
+           msg.includes("invalid refresh");
   }
 
  async function pushHouseholdData(token, hid) {
@@ -2089,10 +2142,18 @@ function createLocalBackup() {
           // this via af_lastPushedAt; mirror it here.
           var lastPushedAt = localStorage.getItem("af_lastPushedAt") || "";
           var lastPushAt = Number(localStorage.getItem("af_lastPushAt") || 0);
-          var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 8000;
-          if (serverUpdatedAt === lastPushedAt || pushedRecently) {
+          var lastPullAt = Number(localStorage.getItem("af_lastPullAt") || 0);
+          var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
+          var pulledRecently = lastPullAt && (Date.now() - lastPullAt) < 30000;
+          // Supabase AFTER UPDATE trigger bumps updated_at by ~32ms after PATCH response.
+          // Confirmation GET can race and return the pre-trigger value, so after 30s the
+          // pushedRecently window expires and we see that bump as a "remote" change → loop.
+          // Real remote changes are always ≥ 1 second newer; trigger bumps are always < 100ms.
+          var tsDiff = new Date(serverUpdatedAt).getTime() - new Date(lastApplied).getTime();
+          var likelyTriggerBump = tsDiff >= 0 && tsDiff < 1000;
+          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently || likelyTriggerBump) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
-            console.warn("[AF SYNC] stale-check: own push (match or recent) - reconciled, not stale");
+            console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
           } else {
             console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
             await pullLatestHouseholdData("stale-push-block");
@@ -2159,10 +2220,18 @@ function createLocalBackup() {
           body: JSON.stringify({ data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt, updated_by: ownerId })
         });
         const serverTs = (patchRows && patchRows[0] && patchRows[0].updated_at) ? patchRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {} // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
-        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // wall-clock recency marker: server may rewrite updated_at via trigger, so timestamp value alone never matches
+        // Confirm actual post-trigger timestamp — Supabase BEFORE triggers rewrite updated_at to NOW()
+        // which may differ from the client-set value. GET the row after PATCH to capture the final value.
+        let confirmedTs = serverTs;
+        try {
+          const confirmRows = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
+          if (confirmRows && confirmRows[0] && confirmRows[0].updated_at) confirmedTs = confirmRows[0].updated_at;
+        } catch {}
+        try { localStorage.setItem("af_lastPushedAt", confirmedTs); } catch {}
+        try { localStorage.setItem("af_lastHHSync", confirmedTs); } catch {} // safe to write now — confirmedTs is the actual committed server timestamp
+        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
-        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", serverTs, "— dirty keys cleared");
+        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", confirmedTs, "— dirty keys cleared");
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
@@ -2172,10 +2241,15 @@ function createLocalBackup() {
           body: JSON.stringify({ id: hid, owner_id: ownerId, data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt })
         });
         const serverTs = (insertRows && insertRows[0] && insertRows[0].updated_at) ? insertRows[0].updated_at : updatedAt;
-        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
-        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {} // wall-clock recency marker (see PATCH path)
+        let confirmedTsI = serverTs;
+        try {
+          const confirmRowsI = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=updated_at&limit=1`, { _token: token });
+          if (confirmRowsI && confirmRowsI[0] && confirmRowsI[0].updated_at) confirmedTsI = confirmRowsI[0].updated_at;
+        } catch {}
+        try { localStorage.setItem("af_lastPushedAt", confirmedTsI); } catch {}
+        try { localStorage.setItem("af_lastHHSync", confirmedTsI); } catch {}
+        try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
-        // af_lastHHSync intentionally NOT written here — only checkForUpdates/pull may write it
       }
     } catch(e) {
       if (isAuthExpiredError(e)) {
@@ -2210,6 +2284,9 @@ function createLocalBackup() {
         try { localStorage.setItem("af_"+k, JSON.stringify(clean1[k])); } catch {}
       }
     });
+    // Stamp lastHHSync to the version we just applied — otherwise the next stale-check
+    // sees server > lastHHSync again and pulls+reloads forever (the blink loop).
+    try { if (row.updated_at) localStorage.setItem("af_lastHHSync", row.updated_at); } catch (e) {}
     window.location.reload();
   }
 
@@ -2283,6 +2360,8 @@ function createLocalBackup() {
         }
       });
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
+      try { localStorage.setItem("af_lastPullAt", String(Date.now())); } catch {} // separate from af_lastPushAt — poll uses af_lastPushAt to gate reloads; this only gates the stale-push-guard
+      try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
       AF_DEBUG && console.warn("[AF PULL] RELOADING");
       window.location.reload();
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
@@ -2416,8 +2495,12 @@ function createLocalBackup() {
           // own write — don't reload. The server may rewrite updated_at via a trigger, so the
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
-          var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 8000;
-          if (serverTs === lastPushedAt || pushedRecentlyPoll) {
+          var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
+          // Same trigger-bump guard as stale-push-guard: if server is < 1s newer than local,
+          // it's almost certainly the Supabase AFTER UPDATE trigger, not a real remote change.
+          var tsDiffPoll = lastSync ? (new Date(serverTs).getTime() - new Date(lastSync).getTime()) : Infinity;
+          var likelyTriggerBumpPoll = tsDiffPoll >= 0 && tsDiffPoll < 1000;
+          if (serverTs === lastPushedAt || pushedRecentlyPoll || likelyTriggerBumpPoll) {
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
             setSyncStatus("synced");
@@ -2493,10 +2576,20 @@ function createLocalBackup() {
       if (shopFocused) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
       checkForUpdates();
     }, 15000);
+    // On mobile, setInterval is paused when the browser goes to background.
+    // Fire checkForUpdates immediately when the page becomes visible again.
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        AF_DEBUG && console.warn("[AF POLL] visibilitychange — running checkForUpdates");
+        checkForUpdates();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       AF_DEBUG&&console.log("[AF SYNC] poll stopped", householdId);
       clearTimeout(initial);
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken, householdId]);
@@ -2575,9 +2668,22 @@ function createLocalBackup() {
     } catch {}
     return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
   }, []);
-  const visitedTabs = useRef(new Set(["anchor","calendar","weekly","meals","shop","home","brain","settings","ai","school","tidepool","cove"]));
-  function goTab(t) { visitedTabs.current.add(t); setTab(t); try{sessionStorage.setItem("af_activeTab",t);}catch{} }
-  homeFlowRef.tab = tab;
+  const visitedTabs = useRef(new Set([tab]));
+  // seenTabs tracks tabs that have already played their enter animation
+  const seenTabs = useRef(new Set([tab]));
+  // scrollPositions saves each tab's window scroll so switching back restores position
+  const scrollPositions = useRef({});
+  function goTab(t) {
+    scrollPositions.current[tab] = window.scrollY;
+    visitedTabs.current.add(t);
+    setTab(t);
+    try{sessionStorage.setItem("af_activeTab",t);}catch{}
+    setTimeout(() => { seenTabs.current.add(t); }, 300);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo(0, scrollPositions.current[t] || 0);
+    }));
+  }
+  React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
   var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
@@ -2586,7 +2692,6 @@ function createLocalBackup() {
     Flow:   { tint: "rgba(94,143,160,0.30)",  accent: "#5E8FA0" },
     Anchor: { tint: "rgba(203,183,157,0.20)", accent: "#8B7761" },
   })[__roomKey] : null;
-  homeFlowRef.goTab = goTab;
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
@@ -2682,6 +2787,8 @@ function createLocalBackup() {
   const [showWeekTypePicker,setShowWeekTypePicker] = useState(false);
   const [shoppingItems,setShoppingItems]       = useSaved("shoppingItems",[]);
   const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
+  const [exhaleItems,setExhaleItems]           = useSaved("exhaleItems",[]);
+  const [exhaleLabels,setExhaleLabels]         = useSaved("exhaleLabels",{});
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
   const [brainCats,setBrainCats]               = useSaved("brainCats", [
     {id:"personal",  label:"Personal",   emoji:"🙋", color:"#b47ab4"},
@@ -2753,6 +2860,9 @@ function createLocalBackup() {
   const [weekSubTab,setWeekSubTab]             = useState("glance");
 
   const [calViewDate,setCalViewDate]   = useState(new Date(TODAY));
+  const [calMarkers,setCalMarkers]     = useState(loadCalMarkers);
+  const [calMarkerTypes,setCalMarkerTypes] = useState(loadCalMarkerTypes);
+  const [markerPickerDate,setMarkerPickerDate] = useState(null);
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
   const goToToday = () => { setCalViewDate(new Date(TODAY)); };
@@ -2770,18 +2880,20 @@ function createLocalBackup() {
   }, []);
   React.useEffect(() => { const h = () => setChatOpen(true); window.addEventListener("af-open-chat", h); return () => window.removeEventListener("af-open-chat", h); }, []);
   // Listens for inventory → shopping additions fired by AnchorVault
+  const storesRef = useRef(stores);
+  useEffect(() => { storesRef.current = stores; }, [stores]);
   React.useEffect(() => {
     function onAddToShopping(e) {
       var text = e.detail && e.detail.text;
       var store = e.detail && e.detail.store;
       if(!text) return;
       setShoppingItems(function(prev) {
-        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||"Grocery", category:"grocery"}]);
+        return prev.concat([{id:Date.now().toString()+Math.random().toString(36).slice(2,5), text:text, done:false, store:store||storesRef.current[0]?.name||"Grocery", category:"grocery"}]);
       });
     }
     window.addEventListener("af-shopping-add", onAddToShopping);
     return () => window.removeEventListener("af-shopping-add", onAddToShopping);
-  }, [stores]); // eslint-disable-line
+  }, []); // stable — reads stores via ref
 
   // ── AnchorVault sync trigger ─────────────────────────────────────────────
   // AnchorVault dispatches "af-data-changed" after writing vault keys.
@@ -2825,6 +2937,7 @@ function createLocalBackup() {
     morning:true, midday:true, dinner:true, evening:true, events:true, recurring:true
   });
   const [inAppBanner,setInAppBanner] = useState(null); // {title, body} shown as in-app toast
+  const bannerTimerRef = useRef(null);
 
   // ── New feature state (all useSaved first, then useState) ───────────────────
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
@@ -3293,8 +3406,9 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   function showInAppBanner(title, body) {
+    clearTimeout(bannerTimerRef.current);
     setInAppBanner({title, body});
-    setTimeout(() => setInAppBanner(null), 8000);
+    bannerTimerRef.current = setTimeout(() => setInAppBanner(null), 8000);
   }
 
   function scheduleNotification(title, body, fireAt) {
@@ -3601,6 +3715,25 @@ Respond ONLY with valid JSON array, no markdown:
     return () => window.removeEventListener("af-request-notif-permission", handleNotifRequest);
   }, []); // eslint-disable-line
 
+  // On mount: recover notifications that were scheduled but couldn't fire because
+  // the tab was closed or the device slept. Show missed ones as in-app banners,
+  // and re-arm any future ones (within 24h) so they fire this session.
+  useEffect(() => {
+    const now = Date.now();
+    notifications.forEach(n => {
+      if (!n.fireAt || n.fired) return;
+      const target = new Date(n.fireAt).getTime();
+      if (isNaN(target)) return;
+      if (target <= now) {
+        showInAppBanner(n.entityTitle, n.note || "Reminder from Anchor & Flow");
+        setNotifications(p => p.map(x => x.id === n.id ? {...x, fired: true} : x));
+      } else {
+        scheduleNotification(n.entityTitle, n.note || "Reminder from Anchor & Flow", new Date(n.fireAt));
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount only
+
   // Sync household data when key state changes — skip initial hydration
   const hasMountedSync = useRef(false);
   useEffect(() => {
@@ -3623,6 +3756,36 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Calendar helpers ────────────────────────────────────────────────────────
+  function toggleCalMarker(dateStr, emoji){
+    setCalMarkers(function(prev){
+      var next = Object.assign({}, prev);
+      var arr = (next[dateStr] || []).slice();
+      var idx = arr.indexOf(emoji);
+      if (idx === -1) arr.push(emoji); else arr.splice(idx,1);
+      if (arr.length) next[dateStr] = arr; else delete next[dateStr];
+      saveCalMarkers(next);
+      return next;
+    });
+  }
+  // ── Calendar emoji markers (standalone localStorage, no household sync) ──
+  function loadCalMarkers(){ try { var v = JSON.parse(localStorage.getItem("af_cal_markers")||"{}"); return (v && typeof v==="object") ? v : {}; } catch(e){ return {}; } }
+  function saveCalMarkers(m){ try { localStorage.setItem("af_cal_markers", JSON.stringify(m)); } catch(e){} }
+  function loadCalMarkerTypes(){
+    try { var v = JSON.parse(localStorage.getItem("af_cal_marker_types")||"null"); if (Array.isArray(v) && v.length) return v; } catch(e){}
+    return [
+      { emoji:"⭐", label:"Custody" },
+      { emoji:"☎️", label:"On call" },
+      { emoji:"✈️", label:"Travel" },
+      { emoji:"🏫", label:"School closed" },
+      { emoji:"💊", label:"Medication" },
+      { emoji:"🏈", label:"Practice" },
+      { emoji:"🎂", label:"Birthday" },
+      { emoji:"❤️", label:"Date night" },
+      { emoji:"🩺", label:"Work" }
+    ];
+  }
+  function saveCalMarkerTypes(t){ try { localStorage.setItem("af_cal_marker_types", JSON.stringify(t)); } catch(e){} }
+
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
   function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"Blue",colorCustom:"",note:"",repeat:""}); setCalFormMode("add"); setCalFormId(null); }
@@ -3662,11 +3825,11 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shared UI helpers ───────────────────────────────────────────────────────
-  const Pill = ({label,color,tiny}) => (
+  _hfRenders.Pill = ({label,color,tiny}) => (
     <span style={{display:"inline-flex",padding:tiny?"2px 8px":"3px 10px",borderRadius:"2rem",fontSize:tiny?"0.62rem":"0.69rem",fontWeight:700,background:(color||T.sage)+"28",color:color||T.sage,letterSpacing:"0.03em",whiteSpace:"nowrap",border:`1px solid ${(color||T.sage)}45`}}>{label}</span>
   );
 
-  const SecHead = ({emoji,title,sub,action,color,onBack}) => (
+  _hfRenders.SecHead = ({emoji,title,sub,action,color,onBack}) => (
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",gap:"0.5rem"}}>
       <div style={{minWidth:0,flex:1}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
@@ -3684,7 +3847,23 @@ Respond ONLY with valid JSON array, no markdown:
     </div>
   );
 
-  function ModalBox({title,onClose,children,wide}){
+  // ── Alias stable wrappers to local names ─────────────────────────────────────
+  // Must come BEFORE render delegates so component bodies can cross-reference.
+  const { Pill, SecHead,
+          ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
+          ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
+          DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
+          MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
+          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveTab,
+          SchoolTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
+          SetPasswordModal } = _hfComps;
+
+  _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
+    useEffect(() => {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }, []);
     return (
       <div data-modal-open="true" style={{position:"fixed",inset:0,background:T.modalOverlay,backdropFilter:"blur(8px)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         <div style={{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"1.4rem",padding:"1.8rem",width:"100%",maxWidth:wide?600:460,boxShadow:`0 32px 100px ${T.cardShadow}`,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -3699,7 +3878,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Person Pill ─────────────────────────────────────────────────────────────
-  function PersonPill({name, people, T}) {
+  _hfRenders.PersonPill = function PersonPill({name, people, T}) {
     const pc = people.find(p=>p.name===name);
     const color = pc?.color || T.textFaint;
     return (
@@ -3710,7 +3889,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Anchor Check Item — checkable row with fade-out + inline bell ───────────
-  function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick }) {
+  _hfRenders.AnchorCheckItem = function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick }) {
     const [removing, setRemoving] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
     const [nd, setNd] = useState(""); const [nt, setNt] = useState(""); const [nn, setNn] = useState("");
@@ -3759,7 +3938,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Task Row ────────────────────────────────────────────────────────────────
-  function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
+  _hfRenders.TaskRow = function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(t.text);
     const [notifDate, setNotifDate] = useState("");
@@ -3833,7 +4012,7 @@ Respond ONLY with valid JSON array, no markdown:
     );
   }
 
-  function DraggableTaskList({tasks:localTasks, setTasks:setAllTasks, accent}) {
+  _hfRenders.DraggableTaskList = function DraggableTaskList({tasks:localTasks, setTasks:setAllTasks, accent}) {
     const [showNotifFor, setShowNotifFor] = useState(null);
     const groupIds = localTasks.map(t=>t.id);
     const {draggingId, dragOverId, pointerDown} = usePointerDrag(localTasks, updated => {
@@ -3860,7 +4039,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  function ShopItemRow({item, onToggle, onDelete, onSave, selected, onSelect}) {
+  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave, selected, onSelect}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
@@ -3905,7 +4084,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Brain Item Row ──────────────────────────────────────────────────────────
-  function BrainItemRow({item, color, onToggle, onDelete, onSave, onMove, bDragStart, bDragEnter, bDragEnd}) {
+  _hfRenders.BrainItemRow = function BrainItemRow({item, color, onToggle, onDelete, onSave, onMove, bDragStart, bDragEnter, bDragEnd}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [moveTo, setMoveTo] = useState(false);
@@ -3953,7 +4132,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── AI Chat Panel ───────────────────────────────────────────────────────────
-  function AIChatPanel({onClose}) {
+  _hfRenders.AIChatPanel = function AIChatPanel({onClose}) {
     const unanswered = GTK_QUESTIONS.filter(q => !aiMemory[q]);
     const todayQuestion = useRef(
       unanswered.length > 0 ? unanswered[Math.floor(Math.random() * unanswered.length)] : null
@@ -4043,7 +4222,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Today Snapshot ──────────────────────────────────────────────────────────
-  function TodaySnapshot() {
+  _hfRenders.TodaySnapshot = function TodaySnapshot() {
     const todayEvents = calEvents.filter(e=>{
       if(!e.date)return false;
       const [y,m,d]=e.date.split("-").map(Number);
@@ -4082,7 +4261,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Onboarding Wizard ───────────────────────────────────────────────────────
-  function OnboardingWizard({onComplete}) {
+  _hfRenders.OnboardingWizard = function OnboardingWizard({onComplete}) {
     const [step,setStep] = useState(0);
     const [d,setD] = useState({name:"",partner:"",numKids:"",kidAges:"",kidNames:"",dietary:"",challenge:"",cal:false,m1name:"",m1time:"20",m1tags:"",m2name:"",m2time:"20",g1:"",g2:"",brain:""});
     const set = (k,v) => setD(p=>({...p,[k]:v}));
@@ -4263,7 +4442,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Daily Briefing Modal ─────────────────────────────────────────────────────
-  function DailyBriefingModal({onClose}) {
+  _hfRenders.DailyBriefingModal = function DailyBriefingModal({onClose}) {
     const b = dayBriefing;
     const allT = tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived);
     const top3T = allT.filter(t=>t.tier==="top3");
@@ -4318,7 +4497,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── End of Day + Tomorrow Prep ───────────────────────────────────────────────
-  function EndOfDayReset() {
+  _hfRenders.EndOfDayReset = function EndOfDayReset() {
     const [carry, setCarry] = useState([]);
     const [letGo, setLetGo] = useState([]);
     const [checkedRhythm, setCheckedRhythm] = useState([]);
@@ -4464,7 +4643,7 @@ Respond ONLY with valid JSON array, no markdown:
 
 
   // ── Anchor Tab ──────────────────────────────────────────────────────────────
-  function AnchorTab() {
+  _hfRenders.AnchorTab = function AnchorTab() {
     const [newTask,setNewTask]   = useState("");
     const [newTaskPerson,setNewTaskPerson] = useState("");
     const [showFlowIn,setShowFlowIn] = useState(false);
@@ -5360,7 +5539,7 @@ Respond ONLY in valid JSON:
   }
 
   // ── Calendar Tab ────────────────────────────────────────────────────────────
-  function CalendarTab() {
+  _hfRenders.CalendarTab = function CalendarTab() {
     const year=calViewDate.getFullYear(), month=calViewDate.getMonth();
     const daysInMonth=getDaysInMonth(year,month);
     const firstDay=getFirstDayOfMonth(year,month);
@@ -5453,8 +5632,11 @@ Respond ONLY in valid JSON:
                 return (
                   <div key={day} onClick={function(){var d=isSelected?null:thisDate;setSelectedDay(d);if(d)setCalViewDate(new Date(d));}}
                     style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
-                    {/* Date number */}
-                    <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
+                    {/* Date number + marker button */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
+                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"0.6rem",color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.6}} title="Add marker">•</button>
+                    </div>
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(e=>(
                       <div key={e.id} style={{background:e.color+"28",borderLeft:`2.5px solid ${e.color}`,borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4}}>
@@ -5464,10 +5646,42 @@ Respond ONLY in valid JSON:
                     {dayEvts.length>2&&(
                       <div style={{fontSize:"0.56rem",color:T.textSoft,fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
                     )}
+                    {/* Emoji markers */}
+                    {calMarkers[localDateStr(thisDate)]&&calMarkers[localDateStr(thisDate)].length>0&&(
+                      <div style={{display:"flex",gap:"1px",flexWrap:"wrap",marginTop:"auto",lineHeight:1}}>
+                        {calMarkers[localDateStr(thisDate)].map(function(em,mi){
+                          return <span key={mi} style={{fontSize:"0.62rem"}}>{em}</span>;
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+            {/* Marker picker popover */}
+            {markerPickerDate&&(
+              <div onClick={function(){setMarkerPickerDate(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
+                <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1rem",padding:"1.1rem 1.2rem",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(markerPickerDate+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+                    <button onClick={function(){setMarkerPickerDate(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
+                  </div>
+                  <div style={{fontSize:"0.66rem",color:T.textSoft,marginBottom:"0.6rem",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>Tap to add or remove</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+                    {calMarkerTypes.map(function(mt,ti){
+                      var active=(calMarkers[markerPickerDate]||[]).indexOf(mt.emoji)!==-1;
+                      return (
+                        <div key={ti} onClick={function(){toggleCalMarker(markerPickerDate,mt.emoji);}} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.7rem",borderRadius:"0.6rem",cursor:"pointer",background:active?T.bluePale:T.bgAlt,border:"1px solid "+(active?T.blue:T.borderSoft)}}>
+                          <span style={{fontSize:"1.1rem"}}>{mt.emoji}</span>
+                          <span style={{flex:1,fontSize:"0.82rem",color:T.textDark,fontWeight:active?700:500}}>{mt.label}</span>
+                          {active&&<span style={{fontSize:"0.72rem",color:T.blue,fontWeight:700}}>✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         {calView==="week"&&(
@@ -5574,7 +5788,7 @@ Respond ONLY in valid JSON:
   }
 
   // ── Weekly Tab ──────────────────────────────────────────────────────────────
-  function WeeklyTab() {
+  _hfRenders.WeeklyTab = function WeeklyTab() {
     const [newTaskText,setNewTaskText]=useState("");
     const [taskDay,setTaskDay]=useState(TODAY_NAME);
     const [taskPerson,setTaskPerson]=useState("");
@@ -5902,7 +6116,7 @@ Respond ONLY in valid JSON:
   }
 
   // ── Meals Tab ───────────────────────────────────────────────────────────────
-  function MealBankDrawer({mealType, allBank, onApply, onAddToShopping}) {
+  _hfRenders.MealBankDrawer = function MealBankDrawer({mealType, allBank, onApply, onAddToShopping}) {
     const [open,setOpen] = useState(false);
     const [search,setSearch] = useState("");
     const [selected,setSelected] = useState(null);
@@ -5965,7 +6179,7 @@ Respond ONLY in valid JSON:
     );
   }
 
-  function WeekTypePicker({weekTypeKey,applyWeekType,setShowWeekTypePicker,flowMode,dietaryFilters,setNextWeekMeals,setMeals,setMealSubTab,mealBankCustom,targetWeek,wtAiMeals,setWtAiMeals,wtSelected,setWtSelected}){
+  _hfRenders.WeekTypePicker = function WeekTypePicker({weekTypeKey,applyWeekType,setShowWeekTypePicker,flowMode,dietaryFilters,setNextWeekMeals,setMeals,setMealSubTab,mealBankCustom,targetWeek,wtAiMeals,setWtAiMeals,wtSelected,setWtSelected}){
     var [wtAiLoading,setWtAiLoading]=useState(false);
     var [wtAiError,setWtAiError]=useState("");
     var isBusySurv=weekTypeKey==="busy"||weekTypeKey==="survival";
@@ -6079,7 +6293,7 @@ Respond ONLY in valid JSON:
     );
   }
 
-  function MealsTab() {
+  _hfRenders.MealsTab = function MealsTab() {
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
@@ -6870,7 +7084,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
-  function ShoppingTab(){
+  _hfRenders.ShoppingTab = function ShoppingTab(){
     // Fixed stores with subcategory support for Grocery and Costco
     const FIXED_STORES = [
       {id:"grocery", label:"Grocery", emoji:"🛒", hasCats:true},
@@ -6938,7 +7152,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setVoiceStatus("Voice input not supported. Try Chrome.");return;}
       const recognition=new SR();recognitionRef.current=recognition;recognition.continuous=false;recognition.interimResults=true;recognition.lang="en-US";
       recognition.onstart=()=>{setIsListening(true);setVoiceStatus("Listening… say your item");};
-      recognition.onresult=function(e){var transcript=Array.from(e.results).map(function(r){return r[0].transcript;}).join("");setVoiceStatus("Heard: \""+transcript+"\"");if(e.results[0].isFinal){var voiceItems=transcript.split(/\band\b/i).map(function(s){return s.trim();}).filter(Boolean);voiceItems.forEach(function(item){addItem(item,newStore);});setIsListening(false);setVoiceStatus("\u2713 Added "+voiceItems.length+" item"+(voiceItems.length>1?"s":""));setTimeout(function(){setVoiceStatus("");},2500);}};
+      recognition.onresult=function(e){var transcript=Array.from(e.results).map(function(r){return r[0].transcript;}).join("");setVoiceStatus("Heard: \""+transcript+"\"");if(e.results[0].isFinal){var voiceItems=transcript.split(/\band\b/i).map(function(s){return s.trim();}).filter(Boolean);voiceItems.forEach(function(item){addItem(item,newStore);});setIsListening(false);setVoiceStatus("✓ Added "+voiceItems.length+" item"+(voiceItems.length>1?"s":""));setTimeout(function(){setVoiceStatus("");},2500);}};
       recognition.onerror=e=>{setIsListening(false);setVoiceStatus(e.error==="not-allowed"?"Microphone access denied.":`Error: ${e.error}`);setTimeout(()=>setVoiceStatus(""),3000);};
       recognition.onend=()=>setIsListening(false);recognition.start();
     }
@@ -7160,7 +7374,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-  function HomeTab(){
+  _hfRenders.HomeTab = function HomeTab(){
     const SYSTEM_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#7ab8a8","#e8a838","#c878a8"];
     const[editingSystem,setEditingSystem]=useState(null);
     const[editForm,setEditForm]=useState({label:"",emoji:"",items:[]});
@@ -7258,7 +7472,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function BrainTab(){
+  _hfRenders.BrainTab = function BrainTab(){
     const [newText,setNewText] = useState("");
     const [newCat,setNewCat] = useState(function(){try{var s=sessionStorage.getItem("af_brainNewCat");if(s)return s;}catch{}return "personal";});
     const [aiRecatLoading,setAiRecatLoading] = useState(false);
@@ -7609,7 +7823,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function BurnoutTab(){
+  _hfRenders.BurnoutTab = function BurnoutTab(){
     return(
       <div>
         <div style={{...card({background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}55`,textAlign:"center",padding:"2rem"})}}>
@@ -7667,7 +7881,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     });
   }
 
-  function TidePoolTab() {
+  _hfRenders.TidePoolTab = function TidePoolTab() {
     var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
     if(rawKids.length===0) rawKids = [{id:"k1",name:"Child 1",color:"#c8a97a"}];
 
@@ -7933,7 +8147,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function SettingSection({id, title, children, defaultOpen=true, settingsOpen, toggleSetting}){
+  _hfRenders.SettingSection = function SettingSection({id, title, children, defaultOpen=true, settingsOpen, toggleSetting}){
     const isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
     return (
       <div style={card()}>
@@ -7946,7 +8160,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
-  function CareerTab(){
+  _hfRenders.CareerTab = function CareerTab(){
     var ADULT_ROLES=["Mom","Dad","Guardian","Roommate","Other"];
     var MINOR_ROLES=["Kid","Teen","Baby"];
     var adults = people.filter(function(p){
@@ -7999,7 +8213,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
 
   // ── ItemRow — lifted outside CoveTab to prevent React hooks error #300 ──────
-  function ItemRow(props) {
+  _hfRenders.ItemRow = function ItemRow(props) {
     var item = props.item;
     var dragFromId = props.dragFromId;
     var dragOverId = props.dragOverId;
@@ -8067,7 +8281,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Cove — organized lists, ideas, plans & keeps ────────────────────────────
-  function CoveTab() {
+  _hfRenders.CoveTab = function CoveTab() {
     const COVE_ACCENT_COLORS = [
       "#3a6b8a","#c8a97a","#5DCAA5","#AFA9EC","#D4537E","#EF9F27","#888780","#1a2744"
     ];
@@ -8826,7 +9040,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-  function SchoolTab() {
+  _hfRenders.SchoolTab = function SchoolTab() {
     var [schoolData, setSchoolData] = useSaved("schoolData", {});
     var [activeChild, setActiveChild] = React.useState(null);
     var [subTab, setSubTab] = React.useState("overview");
@@ -9954,7 +10168,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // Children stay mounted (display:none when closed) so inputs never lose focus.
     // ── Google Calendar Modal ────────────────────────────────────────────────────
-  function GoogleCalendarModal({onClose}) {
+  _hfRenders.GoogleCalendarModal = function GoogleCalendarModal({onClose}) {
     const isConnected = connectedCals.includes("google") && googleCalToken;
     const [syncing, setSyncing2] = useState(false);
     const [error, setError] = useState(googleCalError||"");
@@ -10160,7 +10374,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Auth Modal ──────────────────────────────────────────────────────────────
-  function AuthModal({onClose}) {
+  _hfRenders.AuthModal = function AuthModal({onClose}) {
     const [mode, setMode] = useState("signin"); // default to signin
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -10336,7 +10550,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Household Modal ─────────────────────────────────────────────────────────
-  function HouseholdModal({onClose}) {
+  _hfRenders.HouseholdModal = function HouseholdModal({onClose}) {
     const [joinCode, setJoinCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -10428,7 +10642,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   // ── Calendar Event Form Modal ────────────────────────────────────────────────
-  function CalEventFormModal(){
+  _hfRenders.CalEventFormModal = function CalEventFormModal(){
     const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:""});
     const prevMode=useRef(calFormMode);
     if(prevMode.current!==calFormMode){prevMode.current=calFormMode;if(calFormMode&&calFormInit)setF(calFormInit);}
@@ -10517,7 +10731,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // ── MAIN RENDER ────────────────────────────────────────────────────────────
 
   // ── Set New Password Modal (shown after clicking reset email link) ────────
-  function SetPasswordModal() {
+  _hfRenders.SetPasswordModal = function SetPasswordModal() {
     const [newPass, setNewPass] = useState("");
     const [confirm, setConfirm] = useState("");
     const [loading, setLoading] = useState(false);
@@ -10590,7 +10804,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   return(
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0}
         body{background:${T.bg};font-family:'DM Sans',sans-serif;color:${T.textDark};transition:background 0.3s,color 0.3s}
         input,select,textarea{font-family:'DM Sans',sans-serif!important;color:${T.textDark}!important}
@@ -10648,7 +10861,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
-              <div key={t} onClick={e=>e.stopPropagation()} className={tab===t?"fu":""} style={{display:tab===t?"block":"none"}}>
+              <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
                 {t==="anchor"   && <AnchorTab/>}
                 {t==="flowhome" && <FlowHome/>}
                 {t==="calendar" && <CalendarTab/>}
@@ -10658,7 +10871,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="tidepool" && <TidePoolTab/>}
                 {t==="cove"     && <CoveTab/>}
                 {t==="home"     && <HomeTab/>}
-                {t==="brain"    && <BrainTab/>}
+                {t==="brain"    && <ExhaleSection
+                initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
+                initialLabels={exhaleLabels}
+                onSave={function(items, labels) {
+                  setExhaleItems(items);
+                  setExhaleLabels(labels);
+                }}
+              />}
                 {t==="school"   && <SchoolTab/>}
                 {t==="career"   && <CareerTab/>}
                 {t==="settings" && <SettingsTab
@@ -11030,27 +11250,7 @@ function FlowWrapper({ onHome, onSignOut }) {
 
         <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.08)", marginBottom: "4px", flexShrink: 0 }} />
 
-        {false ? (
-          <>
-            {/* ── flat vault nav retired: accordion renders in all states ── */}
-            <button onClick={() => { setShowAnchor(false); _setActiveTab("anchor"); }} title="Today" style={{ background: "none", border: "none", borderLeft: "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", flexShrink: 0 }}>
-              <span style={{ fontSize: "14px", lineHeight: 1, opacity: 0.6 }}>⚓</span>
-              <span style={{ fontSize: "7px", color: "rgba(200,169,122,0.5)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>Today</span>
-            </button>
-            <div style={{ width: "32px", height: "0.5px", background: "rgba(255,255,255,0.06)", margin: "2px 0 4px", flexShrink: 0 }} />
-            {/* ── Vault section nav ── */}
-            {VAULT_NAV.map(item => {
-              var isActive = vaultSection === item.id;
-              var isDimmed = item.id !== "settings" && item.id !== "home" && anchorHidden[item.id];
-              return (
-                <button key={item.id} onClick={() => setVaultSection(item.id)} title={item.label} style={{ background: isActive ? "rgba(200,169,122,0.14)" : "none", border: "none", borderLeft: isActive ? "2px solid #c8a97a" : "2px solid transparent", borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "9px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", transition: "all 0.15s", opacity: isDimmed ? 0.35 : 1, flexShrink: 0 }}>
-                  <span style={{ fontSize: "14px", lineHeight: 1 }}>{item.emoji}</span>
-                  <span style={{ fontSize: "7px", color: isActive ? "#c8a97a" : "rgba(250,248,244,0.5)", fontWeight: isActive ? 700 : 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>{item.label}</span>
-                </button>
-              );
-            })}
-          </>
-        ) : (
+        {(
           /* ── Four-pillar accordion ── */
           PILLARS.map(function(pill){
             function rowBtn(it, active, onClick, col){
@@ -11079,20 +11279,19 @@ function FlowWrapper({ onHome, onSignOut }) {
       </div>
       <div style={{ marginLeft: "68px", flex: 1, minWidth: 0 }}>
         <style>{`
-          div[style*="bottom:0,left:0,right:0"],
-          div[style*="position:sticky"][style*="top:0"],
-          div[style*="borderBottom"][style*="sticky"],
-          div[style*="topBg"],
           div[style*="bottom: 0"][style*="left: 0"][style*="right: 0"],
-          div[style*="bottom:0"][style*="left:0"][style*="right:0"] {
+          div[style*="bottom:0"][style*="left:0"][style*="right:0"],
+          div[style*="position: sticky"][style*="z-index: 100"] {
             display: none !important;
           }
         `}</style>
         {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
 
-        <ErrorBoundary>
-          <HomeFlow />
-        </ErrorBoundary>
+        <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
+          <ErrorBoundary>
+            <HomeFlow />
+          </ErrorBoundary>
+        </div>
       </div>
     </div>
   )
@@ -11103,12 +11302,14 @@ export default function App() {
   const [mode, setMode] = React.useState(null)
 
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
-    if (session?.user) {
-      const u = session.user
-      const dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0]
-      try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session?.user) {
+        const u = session.user
+        const dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0]
+        try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
+      }
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setSession(session))
     return () => subscription.unsubscribe()
   }, [])

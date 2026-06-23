@@ -453,7 +453,15 @@ const SYNC_KEYS = [
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
   "schoolData","coveData","dietaryFilters","mealThemeEnabled"
-,"compassCache","compassEnabled"];
+,"compassCache","compassEnabled",
+  // Exhale standalone keys (ExhaleSection.jsx uses af_exhale_* keys)
+  "exhale_groups","exhale_color_labels","exhale_people",
+  // Calendar emoji markers
+  "cal_markers","cal_marker_types",
+  // Traditions (RipplesRoom)
+  "traditions",
+  // Tide Pool kid/chore data
+  "tidepool"];
 
 function readHouseholdState() {
   var st = {};
