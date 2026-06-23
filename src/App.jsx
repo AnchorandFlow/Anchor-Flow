@@ -2166,13 +2166,7 @@ function createLocalBackup() {
           var lastPullAt = Number(localStorage.getItem("af_lastPullAt") || 0);
           var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
           var pulledRecently = lastPullAt && (Date.now() - lastPullAt) < 30000;
-          // Supabase AFTER UPDATE trigger bumps updated_at by ~32ms after PATCH response.
-          // Confirmation GET can race and return the pre-trigger value, so after 30s the
-          // pushedRecently window expires and we see that bump as a "remote" change → loop.
-          // Real remote changes are always ≥ 1 second newer; trigger bumps are always < 100ms.
-          var tsDiff = new Date(serverUpdatedAt).getTime() - new Date(lastApplied).getTime();
-          var likelyTriggerBump = tsDiff >= 0 && tsDiff < 5000;
-          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently || likelyTriggerBump) {
+          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently) {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
           } else {
@@ -2373,16 +2367,9 @@ function createLocalBackup() {
           try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
         }
       });
-      // Re-read updated_at after applying data: the Supabase AFTER UPDATE trigger may have
-      // bumped the server timestamp between our initial fetch and now. Storing the stale
-      // serverTs causes the next poll to see server > lastHHSync and reload again → loop.
-      let confirmedPullTs = serverTs;
-      try {
-        await new Promise(r => setTimeout(r, 200));
-        const confirmPullRows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=updated_at&limit=1`, { _token: authToken });
-        if (confirmPullRows && confirmPullRows[0] && confirmPullRows[0].updated_at) confirmedPullTs = confirmPullRows[0].updated_at;
-      } catch {}
-      try { localStorage.setItem("af_lastHHSync", confirmedPullTs); } catch {}
+      // serverTs is the value the DB returned — store it directly. A confirm-GET re-read
+      // can return a stale pooled/replica value, creating a phantom diff on the next poll.
+      try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
       try { localStorage.setItem("af_lastPullAt", String(Date.now())); } catch {} // separate from af_lastPushAt — poll uses af_lastPushAt to gate reloads; this only gates the stale-push-guard
       try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
       AF_DEBUG && console.warn("[AF PULL] RELOADING");
@@ -2519,11 +2506,7 @@ function createLocalBackup() {
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
           var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
-          // Same trigger-bump guard as stale-push-guard: if server is < 1s newer than local,
-          // it's almost certainly the Supabase AFTER UPDATE trigger, not a real remote change.
-          var tsDiffPoll = lastSync ? (new Date(serverTs).getTime() - new Date(lastSync).getTime()) : Infinity;
-          var likelyTriggerBumpPoll = tsDiffPoll >= 0 && tsDiffPoll < 1000;
-          if (serverTs === lastPushedAt || pushedRecentlyPoll || likelyTriggerBumpPoll) {
+          if (serverTs === lastPushedAt || pushedRecentlyPoll) {
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
             setSyncStatus("synced");
