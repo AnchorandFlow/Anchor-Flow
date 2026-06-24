@@ -2151,7 +2151,7 @@ function createLocalBackup() {
           var lastPullAt = Number(localStorage.getItem("af_lastPullAt") || 0);
           var pushedRecently = lastPushAt && (Date.now() - lastPushAt) < 30000;
           var pulledRecently = lastPullAt && (Date.now() - lastPullAt) < 30000;
-          if (serverUpdatedAt === lastPushedAt || pushedRecently || pulledRecently) {
+          if (serverUpdatedAt === lastPushedAt || pushedRecently) {  // pulledRecently removed: a recent PULL must not license overwriting newer server data
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
           } else {
@@ -2491,7 +2491,7 @@ function createLocalBackup() {
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
           var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
-          if (serverTs === lastPushedAt || pushedRecentlyPoll) {
+          if (serverTs === lastPushedAt) {  // pushedRecentlyPoll removed: recent own-push must not cause us to ignore the OTHER device's remote change
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
             setSyncStatus("synced");
