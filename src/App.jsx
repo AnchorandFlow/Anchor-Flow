@@ -1581,57 +1581,42 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 
 
 // ── Supabase token refresh ──────────────────────────────────────────────────
-// Reads refresh_token from localStorage, calls Supabase, saves new tokens.
-// Returns new access_token string or null on failure.
-// _refreshInFlight mutex prevents concurrent polls from racing on the same
-// rotated token — root cause of the 'Already Used' loop after calendar OAuth.
+// Let the SDK own token refresh entirely — never manually call the token endpoint.
+// Supabase refresh tokens are single-use. If both this function and the SDK's
+// background auto-refresh both try to redeem the same token, the second caller
+// gets "Already Used." The SDK already rotates tokens and (via onAuthStateChange)
+// writes the result to af_authToken/af_refreshToken — so getSession() always
+// returns a valid token without consuming a refresh token itself.
+// _refreshInFlight mutex prevents concurrent callers from racing.
 var _refreshInFlight = null;
 async function refreshAuthToken() {
   if (_refreshInFlight) return _refreshInFlight;
   const p = (async function() {
     try {
-      const refreshToken = localStorage.getItem("af_refreshToken");
-      if (!refreshToken) { console.warn("[AF AUTH] no refresh_token stored — cannot refresh"); return null; }
-      const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
-      const res = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=refresh_token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_KEY,
-        },
-        body: JSON.stringify({ refresh_token: refreshToken })
-      });
-      if (!res.ok) {
-        console.warn("[AF AUTH] token refresh failed", res.status);
-        // Calendar OAuth causes Supabase SDK to rotate the token internally.
-        // af_refreshToken may be stale — fall back to SDK's own session.
-        try {
-          const { data: sd } = await supabase.auth.getSession();
-          if (sd && sd.session && sd.session.access_token) {
-            try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
-            if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
-            AF_DEBUG&&console.log("[AF AUTH] recovered token via getSession()");
-            return sd.session.access_token;
-          }
-        } catch(se) { console.warn("[AF AUTH] getSession fallback failed", se.message); }
-        // Both manual refresh and SDK session are dead. For 4xx errors this is a hard
-        // auth failure (not a network blip) — sign out so the App shows AuthScreen
-        // instead of leaving the user stuck with a disappearing banner.
-        if (res.status >= 400 && res.status < 500) {
-          try { localStorage.removeItem("af_authToken"); } catch {}
-          try { localStorage.removeItem("af_authUser"); } catch {}
-          try { localStorage.removeItem("af_refreshToken"); } catch {}
-          console.warn("[AF AUTH] hard auth failure — signing out to force re-login");
-          supabase.auth.signOut().catch(() => {});
-        }
-        return null;
+      // getSession() returns the SDK's current session. If the access token is
+      // expired the SDK refreshes it internally (single caller, no race).
+      const { data: sd } = await supabase.auth.getSession();
+      if (sd?.session?.access_token) {
+        try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
+        if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
+        AF_DEBUG && console.log("[AF AUTH] token from SDK getSession()");
+        return sd.session.access_token;
       }
-      const data = await res.json();
-      if (!data.access_token) { console.warn("[AF AUTH] token refresh — no access_token in response"); return null; }
-      try { localStorage.setItem("af_authToken", JSON.stringify(data.access_token)); } catch {}
-      if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
-      AF_DEBUG&&console.log("[AF AUTH] token refreshed successfully");
-      return data.access_token;
+      // getSession returned no session — try an explicit SDK refresh as last resort
+      const { data: rd, error: re } = await supabase.auth.refreshSession();
+      if (rd?.session?.access_token) {
+        try { localStorage.setItem("af_authToken", JSON.stringify(rd.session.access_token)); } catch {}
+        if (rd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", rd.session.refresh_token); } catch {} }
+        AF_DEBUG && console.log("[AF AUTH] token from SDK refreshSession()");
+        return rd.session.access_token;
+      }
+      // Both paths failed — hard auth failure, force re-login
+      console.warn("[AF AUTH] hard auth failure — signing out to force re-login", re?.message);
+      try { localStorage.removeItem("af_authToken"); } catch {}
+      try { localStorage.removeItem("af_authUser"); } catch {}
+      try { localStorage.removeItem("af_refreshToken"); } catch {}
+      supabase.auth.signOut().catch(() => {});
+      return null;
     } catch(e) {
       console.warn("[AF AUTH] token refresh error:", e.message);
       return null;
