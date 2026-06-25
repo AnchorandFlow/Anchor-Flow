@@ -37,14 +37,32 @@ handleAdd → persist → lsSet → CustomEvent("af-data-changed", { detail: { o
 
 ---
 
-## Next Step: Run the Clean Incognito Trace
+## Phase 1 Result — COMPLETE
+
+**Push chain works end-to-end.** Incognito clean-session trace confirmed all stages fired with no gaps:
+
+```
+EXHALE_ADD_CLICK → LOCALSTORAGE_WRITTEN → DIRTY_KEY_ADDED → SYNC_EVENT_DISPATCHED
+→ DEBOUNCE_SCHEDULED → PUSH_STARTED → SUPABASE_REQUEST_SENT
+→ SUPABASE_RESPONSE_RECEIVED → SERVER_DATA_CONFIRMED
+```
+
+cardId `e1782364848789` confirmed in server response body. Push is **not** broken.
+
+**Root cause identified:** Two-device whole-blob clobbering. Device A pushes all of `households.data` as one JSON blob. Device B pushes its whole blob seconds later, overwriting A's changes. Last write wins at the blob level — any card added on A while B was offline is permanently lost when B syncs.
+
+**Next phase:** Design item-level Exhale writes (Option B: per-card rows). Do not build until DB schema, RLS, and rollback are agreed.
+
+---
+
+## Incognito Trace Instructions (reference)
 
 1. Open app in Incognito (fresh session, no stale localStorage)
 2. Sign in, navigate to Exhale
 3. In console: `window.AF_TRACE = true`
 4. Add a single card with a unique name
 5. Paste full `[AF_TRACE <uuid>]` output
-6. Interpret against the decision tree above — the first missing stage is the break point
+6. Interpret against decision tree — the first missing stage is the break point
 
 ---
 

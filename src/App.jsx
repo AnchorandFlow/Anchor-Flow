@@ -2258,6 +2258,18 @@ function createLocalBackup() {
         try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
         try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
+        // Write owner membership row so new accounts are self-sufficient under RLS.
+        // Best-effort: household row already exists at this point, so log and continue on failure.
+        if (ownerId) {
+          try {
+            await sbFetch("/rest/v1/household_members", {
+              method: "POST",
+              _token: token,
+              headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" },
+              body: JSON.stringify({ household_id: hid, user_id: ownerId, role: "owner" })
+            });
+          } catch(e) { console.warn("[AF] Could not write household_members owner row:", e.message); }
+        }
       }
     } catch(e) {
       if (isAuthExpiredError(e)) {
@@ -2306,10 +2318,22 @@ function createLocalBackup() {
       // Fetch the target household to verify it exists
       const rows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
       if (!rows || !rows.length) return { ok:false, error:"Household not found. Check the code and try again." };
-      // Save householdId to localStorage BEFORE reload so it persists
+      // Guard: membership INSERT requires a valid user ID
+      const _joinAuthUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
+      if (!_joinAuthUser?.id || _joinAuthUser.id === "unknown") {
+        return { ok:false, error:"Session error — please sign out and sign in again before joining." };
+      }
+      // BLOCKING: write household_members row — must succeed before reporting join complete.
+      // No inner try/catch — failure propagates to outer catch, user sees error, no false success.
+      await sbFetch("/rest/v1/household_members", {
+        method: "POST",
+        _token: token,
+        headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify({ household_id: joinCode, user_id: _joinAuthUser.id, role: "member" })
+      });
+      // householdId saved AFTER membership row confirmed
       try { localStorage.setItem("af_householdId", JSON.stringify(joinCode)); } catch {}
-      // Write joined household ID into Supabase user_metadata
-      // Must use raw fetch — sbFetch includes apikey header which causes 403 on auth endpoints
+      // user_metadata write: best-effort fallback only, non-blocking
       try {
         const metaResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
           method: "PUT",
