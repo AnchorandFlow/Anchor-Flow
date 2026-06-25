@@ -42,8 +42,9 @@ function lsGet(key, fallback) {
   try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
 }
 
-function lsSet(key, val) {
+function lsSet(key, val, opId) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+  if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] LOCALSTORAGE_WRITTEN key="+key);
   // Mark this key dirty and trigger a sync so the edit pushes to other devices.
   // ExhaleSection writes af_* keys directly (not via the app's setSaved), so
   // without this the change stays local and never reaches Supabase.
@@ -53,9 +54,15 @@ function lsSet(key, val) {
     if (dirty.indexOf(syncName) === -1) {
       dirty.push(syncName);
       localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] DIRTY_KEY_ADDED key="+syncName);
+    } else {
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] DIRTY_KEY_ALREADY_PRESENT key="+syncName);
     }
   } catch(e2) {}
-  try { window.dispatchEvent(new Event("af-data-changed")); } catch(e3) {}
+  try {
+    window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { opId: opId } }));
+    if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] SYNC_EVENT_DISPATCHED");
+  } catch(e3) {}
 }
 
 function emptyGroups() {
@@ -172,11 +179,11 @@ export default function ExhaleSection(props) {
     setNoteText(f ? f.card.notes : "");
   }, [selectedId]);
 
-  function persist(ng, nl, ncl, np) {
-    if (ng  !== undefined) lsSet(LS_G,  ng);
-    if (nl  !== undefined) lsSet(LS_L,  nl);
-    if (ncl !== undefined) lsSet(LS_CL, ncl);
-    if (np  !== undefined) lsSet(LS_P,  np);
+  function persist(ng, nl, ncl, np, opId) {
+    if (ng  !== undefined) lsSet(LS_G,  ng,  opId);
+    if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
+    if (ncl !== undefined) lsSet(LS_CL, ncl, opId);
+    if (np  !== undefined) lsSet(LS_P,  np,  opId);
   }
 
   var total = 0;
@@ -199,9 +206,11 @@ export default function ExhaleSection(props) {
   function handleAdd() {
     var txt = inputText.trim();
     if (!txt) return;
+    var opId; try { opId = crypto.randomUUID(); } catch(e) { opId = "op-" + Date.now(); }
     var item = { id: "e" + (_nid++), text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
+    if (window.AF_TRACE) console.log("[AF_TRACE "+opId+"] EXHALE_ADD_CLICK cardId="+item.id+' text="'+txt+'"');
     var ng = clone(groups); ng.inbox = [item].concat(ng.inbox);
-    setGroups(ng); setInputText(""); persist(ng);
+    setGroups(ng); setInputText(""); persist(ng, undefined, undefined, undefined, opId);
   }
 
   function handleInputKeyDown(e) { if (e.key === "Enter") handleAdd(); }

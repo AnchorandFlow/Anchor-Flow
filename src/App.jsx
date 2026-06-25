@@ -2120,8 +2120,12 @@ function createLocalBackup() {
            msg.includes("invalid refresh");
   }
 
- async function pushHouseholdData(token, hid) {
-    if (!token || !hid) return;
+ async function pushHouseholdData(token, hid, opId) {
+    if (!token || !hid) {
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: missing token/hid", { token: !!token, hid: hid });
+      return;
+    }
+    if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_STARTED hid="+hid);
     AF_DEBUG&&console.log("[AF SYNC] push start", hid);
 
     // ── Stale-push guard ──────────────────────────────────────────────────
@@ -2135,6 +2139,7 @@ function createLocalBackup() {
         const lastApplied = localStorage.getItem("af_lastHHSync") || "";
         AF_DEBUG&&console.log("[AF SYNC] server updated_at", serverUpdatedAt, "| local lastHHSync", lastApplied || "(none)");
         if (serverUpdatedAt && !lastApplied) {
+          if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: no-lastHHSync serverUpdatedAt="+serverUpdatedAt);
           console.warn("[AF SYNC] push blocked — no lastHHSync; pulling latest now", { serverUpdatedAt });
           await pullLatestHouseholdData("no-lastHHSync");
           return;
@@ -2155,6 +2160,7 @@ function createLocalBackup() {
             try { localStorage.setItem("af_lastHHSync", serverUpdatedAt); } catch (e3) {}
             console.warn("[AF SYNC] stale-check: own push/pull (match or recent) - reconciled, not stale");
           } else {
+            if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: stale-push-block serverUpdatedAt="+serverUpdatedAt+" lastApplied="+lastApplied);
             console.warn("[AF SYNC] push blocked stale — pulling latest now", { serverUpdatedAt, lastApplied });
             await pullLatestHouseholdData("stale-push-block");
             return;
@@ -2194,6 +2200,7 @@ function createLocalBackup() {
     AF_DEBUG&&console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
     const nonNullCount = Object.values(payload).filter(v => v !== null).length;
     if (nonNullCount < 2) {
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: nonNull<2 count="+nonNullCount);
       AF_DEBUG&&console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
       return;
     }
@@ -2213,12 +2220,20 @@ function createLocalBackup() {
       const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id&limit=1`, { _token: token });
       if (existing && existing.length > 0) {
         // Row exists — always PATCH (avoids 409 conflict)
+        if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] SUPABASE_REQUEST_SENT keys="+Object.keys(payload).filter(function(k){return payload[k]!==null;}).join(","));
         const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
           method: "PATCH",
           _token: token,
           headers: { "Prefer": "return=representation" },
           body: JSON.stringify({ data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt, updated_by: ownerId })
         });
+        if (window.AF_TRACE && opId) {
+          console.log("[AF_TRACE "+opId+"] SUPABASE_RESPONSE_RECEIVED rows="+(patchRows&&patchRows.length));
+          var _eg = patchRows&&patchRows[0]&&patchRows[0].data&&patchRows[0].data.exhale_groups;
+          var _allCards = _eg ? [].concat.apply([], Object.values(_eg)) : [];
+          var _recentCard = _allCards.find(function(c){ return c && c.createdAt && (Date.now()-c.createdAt)<10000; });
+          console.log("[AF_TRACE "+opId+"] SERVER_DATA_CONFIRMED exhale_groups_in_response="+!!_eg+" recent_card_confirmed="+!!_recentCard+(_recentCard?" cardId="+_recentCard.id:""));
+        }
         // The DB stores exactly the updated_at we send (verified: no trigger, no
         // rewrite). So we already know the committed server value — it is updatedAt.
         // No confirm-GET: re-reading could return a stale pooled/replica value,
@@ -2254,6 +2269,7 @@ function createLocalBackup() {
         showInAppBanner("Session expired — please sign in again.", "error");
         return;
       }
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: exception "+e.message);
       console.warn("[AF] pushHouseholdData failed:", e.message);
     }
   }
@@ -2362,12 +2378,15 @@ function createLocalBackup() {
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
   }
 
-  async function syncNow() {
-    if (!authToken || !householdId) return;
+  async function syncNow(opId) {
+    if (!authToken || !householdId) {
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: syncNow auth/household null", { authToken: !!authToken, householdId: householdId });
+      return;
+    }
     try {
       setSyncStatus("syncing");
       // Push our current local state up first
-      await pushHouseholdData(authToken, householdId);
+      await pushHouseholdData(authToken, householdId, opId);
       // Then pull back from server to confirm and get any changes from the other user
       const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
    if (rows && rows.length > 0 && rows[0].data) {
@@ -2603,16 +2622,21 @@ function createLocalBackup() {
   }, []);
   // End hydration guard ~1.5s after first mount so real user edits sync.
   useEffect(function(){ var t=setTimeout(function(){ _afEndHydration(); },1500); return function(){ clearTimeout(t); }; }, []);
-  function debouncedSync() {
-    if (!authToken || !householdId) return;
+  function debouncedSync(opId) {
+    if (!authToken || !householdId) {
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: debouncedSync auth/household null", { authToken: !!authToken, householdId: householdId });
+      return;
+    }
     const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
     if (dirty.length === 0) {
       AF_DEBUG&&console.log("[AF SYNC] debouncedSync skipped — no dirty keys");
+      if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: debouncedSync no dirty keys");
       return;
     }
     AF_DEBUG&&console.log("[AF SYNC] debouncedSync triggered — dirty keys:", dirty);
+    if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] DEBOUNCE_SCHEDULED dirty="+JSON.stringify(dirty));
     clearTimeout(syncTimeoutRef.current);
-    syncTimeoutRef.current = setTimeout(syncNow, 3000);
+    syncTimeoutRef.current = setTimeout(function() { syncNow(opId); }, 3000);
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
@@ -2894,11 +2918,11 @@ function createLocalBackup() {
   // AnchorVault dispatches "af-data-changed" after writing vault keys.
   // We listen here and call debouncedSync if dirty keys exist.
   React.useEffect(() => {
-    function onVaultChanged() {
+    function onVaultChanged(e) {
       const dirty = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
       if (dirty.length > 0) {
         AF_DEBUG&&console.log("[AF SYNC] vault change detected — dirty keys:", dirty);
-        debouncedSync();
+        debouncedSync(e && e.detail && e.detail.opId);
       }
     }
     window.addEventListener("af-data-changed", onVaultChanged);
