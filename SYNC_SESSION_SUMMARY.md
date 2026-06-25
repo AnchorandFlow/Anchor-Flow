@@ -1,0 +1,79 @@
+# Sync Diagnosis Session Summary
+
+## Phase 1 Tracer — DEPLOYED (commit 2570d8b)
+
+The `window.AF_TRACE` operation tracer is live. To activate:
+```javascript
+window.AF_TRACE = true  // run in browser console
+```
+
+### What's instrumented
+opId (`crypto.randomUUID()`) is generated in `handleAdd` and threaded **explicitly as a parameter** (never global) through the full chain:
+
+```
+handleAdd → persist → lsSet → CustomEvent("af-data-changed", { detail: { opId } })
+  → onVaultChanged(e) → debouncedSync(opId) → syncNow(opId) → pushHouseholdData(token, hid, opId)
+```
+
+### Log stages emitted
+| Stage | What it proves |
+|---|---|
+| `EXHALE_ADD_CLICK` | Handler fired, cardId stamped |
+| `LOCALSTORAGE_WRITTEN` | lsSet reached localStorage |
+| `DIRTY_KEY_ADDED` / `DIRTY_KEY_ALREADY_PRESENT` | Dirty marking worked or key already queued |
+| `SYNC_EVENT_DISPATCHED` | CustomEvent fired |
+| `PUSH_SKIPPED: debouncedSync auth/household null { authToken: bool, householdId }` | **Stale closure test** — if authToken: false here, stale closure is confirmed |
+| `PUSH_SKIPPED: debouncedSync no dirty keys` | Dirty keys were cleared before debounce fired |
+| `DEBOUNCE_SCHEDULED` | 3s timer started |
+| `PUSH_SKIPPED: syncNow auth/household null` | Stale closure in syncNow |
+| `PUSH_STARTED` | Push entered pushHouseholdData |
+| `PUSH_SKIPPED: no-lastHHSync` | Pull-first triggered (no baseline) |
+| `PUSH_SKIPPED: stale-push-block` | Server newer than lastHHSync, pulling first |
+| `PUSH_SKIPPED: nonNull<2` | Payload almost empty, safety guard |
+| `PUSH_SKIPPED: exception <msg>` | Network or auth error |
+| `SUPABASE_REQUEST_SENT` | PATCH dispatched, payload keys listed |
+| `SUPABASE_RESPONSE_RECEIVED` | Supabase responded |
+| `SERVER_DATA_CONFIRMED` | Card found in server response |
+
+---
+
+## Next Step: Run the Clean Incognito Trace
+
+1. Open app in Incognito (fresh session, no stale localStorage)
+2. Sign in, navigate to Exhale
+3. In console: `window.AF_TRACE = true`
+4. Add a single card with a unique name
+5. Paste full `[AF_TRACE <uuid>]` output
+6. Interpret against the decision tree above — the first missing stage is the break point
+
+---
+
+## Open Items
+
+### 1. SERVER_DATA_CONFIRMED uses a time-window, not cardId
+Currently finds the confirmed card by `createdAt > Date.now() - 10000` (10s window). This is fine for single-device diagnosis but will give false positives in concurrent tests where two cards are added within 10s.
+
+**Must fix before concurrent tests:** thread `cardId` (item.id from handleAdd) explicitly through to `pushHouseholdData` as a trace-only parameter alongside `opId`, then do an exact ID match in the `_allCards.find()` check.
+
+### 2. `exhale_labels` missing from SYNC_KEYS
+`ExhaleSection.jsx` writes column labels to `af_exhale_labels` (key `exhale_labels`).  
+SYNC_KEYS contains `exhaleLabels` (camelCase, old key) but NOT `exhale_labels` (snake_case, current key).  
+**Result:** column label changes are never pushed to Supabase and never pulled on other devices.  
+**Fix:** add `"exhale_labels"` to SYNC_KEYS and to `sanitizeHouseholdData`'s objects list.
+
+### 3. `pulledRecently` guard removed from stale-push-guard (prior session)
+`pulledRecently` was removed from the `if (serverUpdatedAt === lastPushedAt || pushedRecently)` check in `pushHouseholdData`. This was intentional: `pulledRecently` was creating a 30s blind window where a device would overwrite server data that was newer than its last pull. The current guard is: own-push match or pushed within 30s.
+
+### 4. Timestamp format mismatch (unresolved)
+`new Date().toISOString()` → `Z` suffix. PostgREST returns `+00:00` suffix. The exact-match check `serverTs === lastPushedAt` may fail as a string comparison even when the timestamps represent the same moment. Currently mitigated by `pushedRecently` (30s wall-clock window). Not yet fully resolved — requires either normalizing both to the same format, or storing `lastPushedAt` from the PATCH response body (which returns server format).
+
+---
+
+## Architecture Notes (from session)
+
+- **No Supabase trigger** on the households table — confirmed by user. DB stores exactly the `updated_at` the client sends.
+- **Dual auth system**: Supabase SDK session (`supabase.auth`) + custom `af_authToken` in localStorage. SDK auto-rotates tokens via `onAuthStateChange`; `af_authToken` is now kept in sync via the `onAuthStateChange` handler (commit 6c736ca).
+- **`refreshAuthToken` now delegates to SDK** (`supabase.auth.getSession()` then `refreshSession()`) — no more manual `/auth/v1/token` calls racing the SDK's own refresh (commit 6321c5e).
+- **`cache: "no-store"` on all sbFetch calls** — prevents iOS Safari HTTP caching of Supabase GET responses (commit fb5c9a7).
+- **Confirm-GETs removed** from push and pull paths — stale PostgREST read replica values were creating phantom timestamp diffs → reload loops.
+- **`window.location.reload()` is the long-term problem** — every sync detection triggers a full page reload. The correct fix is applying pulled data into React state in-place. Deferred as Phase 2+ work.
