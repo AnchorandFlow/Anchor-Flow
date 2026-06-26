@@ -2041,32 +2041,25 @@ function createLocalBackup() {
             }
           }
         } else {
-          // No household owned by this user — re-fetch their user record fresh from Supabase
-          // so we get the latest metadata (local data.user may be stale from the login response).
-          let joinedHhId = data.user?.user_metadata?.joined_household_id || null;
-          // Re-fetch user fresh using raw fetch (no apikey header) to get latest metadata
+          // Not an owner — query household_members directly (authoritative, no user_metadata dependency).
           try {
-            const freshResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
-              headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" }
-            });
-            const freshUser = await freshResp.json();
-            if (freshUser?.user_metadata?.joined_household_id) {
-              joinedHhId = freshUser.user_metadata.joined_household_id;
-            }
-          } catch(e) { console.warn("[AF] Could not re-fetch user metadata:", e.message); }
-          AF_DEBUG&&console.log("[AF] No owned household. joined_household_id:", joinedHhId);
-          if (joinedHhId) {
-            try {
+            const memberRows = await sbFetch(
+              `/rest/v1/household_members?user_id=eq.${userId}&select=household_id&limit=1`,
+              { _token: token }
+            );
+            const joinedHhId = memberRows && memberRows.length > 0 ? memberRows[0].household_id : null;
+            AF_DEBUG&&console.log("[AF] No owned household. member of:", joinedHhId);
+            if (joinedHhId) {
               const joinedRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*&limit=1`, { _token: token });
-             if (joinedRows && joinedRows.length > 0 && joinedRows[0].data) {
+              if (joinedRows && joinedRows.length > 0) {
                 try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
-                if (isRemotePayloadSafe(joinedRows[0].data, joinedRows[0].updated_at)) {
+                if (joinedRows[0].data && isRemotePayloadSafe(joinedRows[0].data, joinedRows[0].updated_at)) {
                   createLocalBackup();
                   const clean = sanitizeHouseholdData(joinedRows[0].data);
                   const _AK2 = ["tasks","brainItems","shoppingItems","notifications","calEvents",
-                "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
-                "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
-                "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
+                    "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
+                    "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
+                    "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
                   SYNC_KEYS.forEach(k => {
                     if (clean[k] !== undefined) {
                       if (_AK2.includes(k) && !Array.isArray(clean[k])) return;
@@ -2077,8 +2070,8 @@ function createLocalBackup() {
                   AF_DEBUG&&console.log("[AF] Restored joined household on sign-in:", joinedHhId);
                 }
               }
-            } catch(e) { console.warn("[AF] Failed to fetch joined household:", e.message); }
-          }
+            }
+          } catch(e) { console.warn("[AF] Member household lookup failed:", e.message); }
         }
       } catch(hhErr) {
         console.warn("Household lookup failed:", hhErr.message);
@@ -2472,13 +2465,25 @@ function createLocalBackup() {
                   localStorage.setItem("af_householdId", JSON.stringify(owned[0].id));
                   window.location.reload();
                 } else {
-                  AF_DEBUG&&console.log("[AF] No household found for user:", userId);
+                  // Not an owner — check membership
+                  sbFetch(
+                    `/rest/v1/household_members?user_id=eq.${userId}&select=household_id&limit=1`,
+                    { _token: authToken }
+                  ).then(memberRows => {
+                    if (memberRows && memberRows.length > 0) {
+                      AF_DEBUG&&console.log("[AF] Correcting to member household:", memberRows[0].household_id);
+                      localStorage.setItem("af_householdId", JSON.stringify(memberRows[0].household_id));
+                      window.location.reload();
+                    } else {
+                      AF_DEBUG&&console.log("[AF] No household found for user:", userId);
+                    }
+                  }).catch(() => {});
                 }
               }).catch(() => {});
           }
         }).catch(() => {});
     } else {
-      // No household stored — find the one owned by this user
+      // No household stored — owner query first, member fallback second
       sbFetch(`/rest/v1/households?owner_id=eq.${userId}&select=id&order=updated_at.desc&limit=1`, { _token: authToken })
         .then(rows => {
           if (rows && rows.length > 0) {
@@ -2486,7 +2491,19 @@ function createLocalBackup() {
             localStorage.setItem("af_householdId", JSON.stringify(rows[0].id));
             window.location.reload();
           } else {
-            AF_DEBUG&&console.log("[AF] No household found for user:", userId);
+            // Not an owner — check membership
+            return sbFetch(
+              `/rest/v1/household_members?user_id=eq.${userId}&select=household_id&limit=1`,
+              { _token: authToken }
+            ).then(memberRows => {
+              if (memberRows && memberRows.length > 0) {
+                AF_DEBUG&&console.log("[AF] Setting member household:", memberRows[0].household_id);
+                localStorage.setItem("af_householdId", JSON.stringify(memberRows[0].household_id));
+                window.location.reload();
+              } else {
+                AF_DEBUG&&console.log("[AF] No household found for user:", userId);
+              }
+            });
           }
         }).catch(() => {});
     }
