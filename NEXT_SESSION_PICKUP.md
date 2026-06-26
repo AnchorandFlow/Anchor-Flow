@@ -1,220 +1,142 @@
 # Anchor & Flow — Next Session Pickup
 
-## Where we left off (CONFIRMED DONE)
-- ✅ `household_members` table created + RLS enabled (hm_select, hm_insert policies)
-- ✅ Backfilled 3 rows: Lindsey (owner hh_o7yzu28), Twyla (member hh_o7yzu28),
-  border.steve (owner hh_7zth4h9)
-- ✅ Tightened `households` RLS: dropped `allow_all_authenticated`, added
-  `households_member_access` (member-based)
-- ✅ VERIFIED LIVE: both Lindsey (owner) and Twyla (member, separate account)
-  can load data and save edits. Data-exposure hole closed.
+## Current state (as of 2026-06-26)
 
-## Still TRUE until Phase 2a ships
-- Two-device whole-blob clobbering is NOT fixed yet. ONE DEVICE AT A TIME.
-- Push and pull mechanics are proven working (AF_TRACE diagnosis, commit 2570d8b).
-- AF_TRACE tracer is still in the code, flag-gated (window.AF_TRACE), harmless.
+### ✅ CONFIRMED DONE — infrastructure
+- `household_members` table + RLS (hm_select, hm_insert). 3 rows backfilled.
+- `households_member_access` RLS — members only, `allow_all_authenticated` dropped.
+- `join_household(p_code)` SECURITY DEFINER RPC — joiner can find+join without
+  being a member first. joinHousehold calls this RPC. Blocking INSERT; af_householdId
+  written only after success.
+- `exhale_cards` table + `exhale_cards_member` RLS (all ops, household_id in
+  household_members for auth.uid()). 15 columns: id(text PK), household_id, text,
+  notes, color, category, emoji, due_date(date), assigned_to, position(double),
+  created_at, updated_at, deleted_at, created_by, updated_by. Index on
+  (household_id, category, position) WHERE deleted_at IS NULL.
 
----
+### ✅ CONFIRMED DONE — Phase 2a Deploy 1 (commit 45a7baa, bundle index-BJtPCN4b.js)
+All four changes are in `src/components/ExhaleSection.jsx`, behind `af_exhale_v2` flag:
 
-## NEXT STEPS (in order) — none are as risky as the RLS tighten was
-
-### Step 1: Deploy the join-flow code change (so FUTURE joiners get a member row)
-The DB is secured, but the app code doesn't yet write a `household_members`
-row when someone joins via code. Until it does, any NEW person who joins will
-be locked out by the new RLS. The fix was already designed:
-
-In `joinHousehold` (App.jsx ~line 2302):
-- Add guard: if `!authUser?.id || authUser.id === "unknown"` → return visible
-  error, do not join.
-- Make the `household_members` INSERT BLOCKING (no inner try/catch — let it
-  propagate to the outer catch so failure shows the user an error and does NOT
-  report a false "joined").
-- Move `localStorage.setItem("af_householdId", ...)` to AFTER the INSERT
-  succeeds (currently it writes before network calls, leaving stale joined-state
-  on failure).
-- Keep the user_metadata write as best-effort (non-blocking, inner try/catch ok).
-
-Also in `pushHouseholdData` POST/INSERT branch (App.jsx ~line 2248), after a
-household is first created, INSERT an `household_members` owner row for the
-creator (so new single-user accounts are self-sufficient — no backfill needed).
-
-Then: `./deploy.sh "join flow writes household_members row (blocking + guard)"`
-and confirm the live hash changed via curl.
-
-### Step 2: Create the exhale_cards table
-Per-card rows, member-based RLS (same shape as households_member_access).
-Schema + RLS already drafted in SYNC_SESSION_SUMMARY.md / earlier design.
-REMEMBER THE CORRECTIONS:
-- cardId must be globally unique (crypto.randomUUID or device-prefixed) — the
-  old "e"+counter collides across devices and would let ON CONFLICT DO NOTHING
-  silently drop a real card.
-- exhale_groups must be EXCLUDED from the legacy blob push when the V2 flag is
-  on (single write authority — no parallel blob writes).
-
-### Step 3: Build Phase 2a — Exhale per-card sync (THE clobbering fix)
-- Card ADD only to start.
-- INSERT exhale_cards row (globally-unique id, ON CONFLICT DO NOTHING).
-- Subscribe to Supabase Realtime INSERT events, apply in-place to React state
-  (NO window.location.reload()).
-- Strict save states: saving → saved (only after confirmed Supabase response)
-  → pending/failed with retry. A localStorage write is NOT "saved."
-- Keep everything else on the blob path; legacy Exhale data read-only for
-  rollback.
-
-### Step 4 (later, Phase 2b): edits, deletes, reorder as row-level ops
-- Use FRACTIONAL positions (1.5 between 1 and 2), not integer — integer
-  reorder clobbers neighbors under concurrency.
+1. **UUID card IDs** — V2 ON: `crypto.randomUUID()`. V2 OFF: `"e"+counter` unchanged.
+2. **First-run migration** — reads local blob, upserts to exhale_cards with
+   `ON CONFLICT id DO NOTHING`. Flag: `af_exhale_migrated_<householdId>` per device.
+3. **ADD sync + Realtime** — V2 handleAdd: raw localStorage write + exhale_cards
+   INSERT. Realtime subscription on INSERT WHERE household_id=eq.<hhId> applies to
+   state in-place with dedup. Save states: saving → saved | failed.
+4. **persist() dual-write fix** — V2 branch does raw localStorage.setItem only;
+   no lsSet, no dirty key, no blob push for any of the 9 non-add operations.
 
 ---
 
+## NEXT TASK: Test matrix for Deploy 1
+
+**How to enable the flag:**
+In browser console on anchorandflowapp.com (signed in):
+```javascript
+localStorage.setItem("af_exhale_v2", "true"); location.reload();
+```
+
+**To disable:**
+```javascript
+localStorage.removeItem("af_exhale_v2"); location.reload();
+```
+
+### Test matrix (walk through in order)
+
+#### T1 — Migration (single device)
+1. Enable flag on Device A (Lindsey's account, household hh_o7yzu28).
+2. Check console for `[AF] Exhale migration done: N card(s) contributed.`
+3. Verify in Supabase: `SELECT id, text, category FROM exhale_cards WHERE household_id = 'hh_o7yzu28';`
+   — rows should appear matching localStorage cards.
+4. Reload: console should NOT show migration again (flag `af_exhale_migrated_hh_o7yzu28`
+   is set in localStorage).
+
+#### T2 — ADD syncs to DB (single device)
+1. With flag ON, add a card with a unique name e.g. "T2-test-card-XYZ".
+2. Card appears optimistically in UI with "saving…" indicator.
+3. "saving…" disappears (no "⚠ not saved" shown) → row confirmed.
+4. Verify in Supabase: `SELECT id, text FROM exhale_cards WHERE text = 'T2-test-card-XYZ';`
+   — exactly 1 row.
+5. Check that NO blob push fired: in console, no AF_TRACE `PUSH_STARTED` after the add
+   (or enable `window.AF_TRACE = true` first to confirm push is silent).
+
+#### T3 — Realtime: A adds, B sees without reload
+1. Open two browser windows (can be same account, different tabs, or two accounts
+   in the same household).
+2. Both have flag ON.
+3. Window A adds a card.
+4. Window B should see the card appear within ~1–2 seconds WITHOUT any page reload.
+5. No duplicate card in Window B.
+
+#### T4 — Deduplication (own echo)
+1. On a single device with flag ON, add a card.
+2. Card should appear exactly once in the UI.
+3. The Realtime echo of your own INSERT must not create a second copy.
+   (Watch: if count jumps by 2, dedup failed.)
+
+#### T5 — V2=OFF regression (blob path unchanged)
+1. Disable flag: `localStorage.removeItem("af_exhale_v2"); location.reload();`
+2. Add a card. Verify it saves normally (blob push fires, card persists on reload).
+3. No console errors. All existing Exhale functionality intact.
+
+#### T6 — Failure state (network drop)
+1. Flag ON. Open DevTools → Network tab → set to Offline.
+2. Add a card.
+3. Card appears optimistically; "⚠ not saved" indicator shows.
+4. Re-enable network — the "⚠ not saved" stays (no auto-retry in Deploy 1; that's
+   expected). User knows the card is local-only.
+
+#### T7 — V2 card survives a legacy blob save
+1. Flag ON on Device A. Add a card (V2 row written).
+2. On Device B with flag OFF (or before flag was set), make any other change that
+   triggers a blob push (e.g. add a non-Exhale item).
+3. Reload Device A. The V2 card must still be present (it comes from exhale_cards
+   query or local cache, not from the blob).
+   NOTE: In Deploy 1, V2 still has exhale_groups in the blob (Deploy 2 removes it),
+   so Device A's blob may overwrite Device B's blob — this is the known clobbering
+   issue, not a V2 regression. What must NOT happen: the V2 row disappearing.
+
+#### T8 — Migration idempotency (second device)
+1. Enable flag on Device B (same household).
+2. Console: migration runs, upserts Device B's local cards.
+3. Verify Supabase: no duplicate rows (ON CONFLICT DO NOTHING prevents them).
+4. Device A's rows still intact.
+
 ---
 
-## Where we left off (CONFIRMED DONE)
-- ✅ `household_members` table created + RLS enabled (hm_select, hm_insert policies)
-- ✅ Backfilled 3 rows: Lindsey (owner hh_o7yzu28), Twyla (member hh_o7yzu28),
-  border.steve (owner hh_7zth4h9)
-- ✅ Tightened `households` RLS: dropped `allow_all_authenticated`, added
-  `households_member_access` (member-based)
-- ✅ VERIFIED LIVE: both Lindsey (owner) and Twyla (member, separate account)
-  can load data and save edits. Data-exposure hole closed.
-- ✅ BUG 0 FIXED + VERIFIED: join_household(p_code) SECURITY DEFINER RPC created.
-  joinHousehold now calls the RPC instead of the RLS-blocked GET. Test account
-  "Sally" (6ff39c4b-cd7f-44f0-a498-8e41be3c1d84) joined hh_o7yzu28 successfully
-  — 4th household_members row written, Sally can read shared data. Join flow
-  works on the locked-down DB. (Live build index-gIUUw-Cu.js or later.)
-- ✅ exhale_cards TABLE CREATED + member RLS (exhale_cards_member, FOR ALL).
-  15 columns: id(text PK), household_id, text, notes, color, category, emoji,
-  due_date, assigned_to, position(double precision — for fractional reorder),
-  created_at, updated_at, deleted_at(soft delete), created_by, updated_by.
-  Index on (household_id, category, position) WHERE deleted_at IS NULL.
-  NO client code written yet. Table is empty (server blob exhale_groups was
-  null — cards live only in localStorage and will populate from there when the
-  client code lands).
+## What's deferred (intentionally, do not implement yet)
+
+| Item | Reason | Phase |
+|---|---|---|
+| Edits/deletes/moves → row writes | Phase 2b scope | 2b |
+| position: fractional (1.5, etc.) | Phase 2b; 0 accepted for now | 2b |
+| Deploy 2 (remove exhale_groups from blob PATCH) | BLOCKED on test matrix above | 2 |
+| exhale_labels missing from SYNC_KEYS | Legacy; non-urgent | later |
+| Timestamp Z vs +00:00 mismatch | Legacy; mitigated | later |
+| af-data-changed stale closure on [] deps | Legacy | later |
+| Clear af_* on sign-out/sign-up | Cosmetic; server blocks real access | later |
+
+---
+
+## Deploy 2 gate
+
+Deploy 2 removes `exhale_groups` from the PATCH payload when V2 is ON, making exhale_cards
+the single write authority. **Must NOT ship until T1–T8 all pass.** Premature blob exclusion
+before Realtime is verified would make cards invisible to V2=OFF devices permanently.
+
+---
+
+## ROLLBACK (if V2 causes problems)
+```javascript
+// Disable flag on any device:
+localStorage.removeItem("af_exhale_v2"); location.reload();
+```
+No server-side rollback needed for Deploy 1 — exhale_cards rows are additive,
+blob path is untouched.
+
+---
 
 ## Known minor cleanup (non-urgent)
-- joinHousehold's PUT /auth/v1/user (user_metadata write) 401s but is wrapped
-  best-effort and does not block the join (RPC does the real work). Either fix
-  or remove it — it's now redundant.
-- Clear af_* on sign-out/sign-up (stale-state cosmetic leak; server already
-  blocks real access).
-
-## NEXT SESSION TASK: client-side Exhale per-card sync (Phase 2a)
-The table + RLS foundation is DONE. Next is the client rewrite — do this FRESH,
-not tired. Steps:
-1. Card IDs: switch from "e"+counter to crypto.randomUUID() (globally unique —
-   the old scheme collides across devices and breaks ON CONFLICT idempotency).
-2. On Exhale ADD: INSERT a row into exhale_cards (id, household_id, text, color,
-   category, etc., created_by = auth.uid()) with a confirmed Supabase response
-   before showing "saved." Strict states: saving → saved(confirmed) →
-   pending/failed(retry). A localStorage write is NOT "saved."
-3. First-run migration: when V2 flag on and exhale_cards empty for this
-   household, read the LOCAL blob cards (from localStorage af_exhale_groups) and
-   INSERT them as rows (ON CONFLICT DO NOTHING). This is how existing cards move
-   from device to server.
-4. Subscribe to Supabase Realtime on exhale_cards filtered by household_id;
-   apply INSERT/UPDATE/DELETE to React state IN PLACE — NO window.location.reload.
-   Dedupe on card id (processing the same Realtime event twice must not dup).
-5. SINGLE WRITE AUTHORITY: when V2 flag on, EXCLUDE exhale_groups from the legacy
-   blob push so the two paths never fight. Legacy blob stays read-only fallback.
-6. Build behind a feature flag; keep blob path authoritative until the test
-   matrix passes.
-Test matrix: A adds→B sees; B adds within seconds→neither lost; both edit
-different cards; network drop→explicit failed/pending; reload preserves both;
-expired auth doesn't silently discard; Realtime reconnects after token refresh;
-NO whole-page reload on Exhale update; + V2 card survives a legacy-section blob
-save; + duplicate Realtime event doesn't duplicate a card.
-
----
-
-## (historical) NEW BUGS FOUND (2026-06-25 night) — client-side, NOT security holes
-
-### ⚠️ BUG 0 (TOP PRIORITY): New RLS broke the join-by-code flow
-VERIFIED: a fresh account (Sally, clean Incognito, own email) signed up, started
-correctly with NO household, then entered the real code hh_o7yzu28 and clicked
-Join → got "Household not found. Check the code and try again."
-
-Root cause: joinHousehold's FIRST step is GET /households?id=eq.<code> to verify
-the household exists. But today's tightened RLS (households_member_access) only
-lets MEMBERS read a household. A joiner is not a member yet, so the read returns
-empty → code interprets empty as "not found." Chicken-and-egg: you must read the
-household to join, but you can't read it until you're a member.
-
-This means NO new member can currently join any household. Must fix before any
-real second user onboards.
-
-FIX (next session, fresh — do not code tired):
-- Preferred: a SECURITY DEFINER Postgres RPC (e.g. join_household(p_code)) that
-  (a) checks the household exists, (b) inserts the caller's household_members
-  row, (c) returns success — all with elevated rights, so households stays
-  locked to members only. joinHousehold calls this RPC instead of GET+POST.
-- Alternative (looser): a narrow RLS policy letting any authenticated user read
-  minimal household existence by id — riskier, can re-expose data, less clean.
-- After fix: re-run the Sally join test → should join, get a household_members
-  row, and then load/save as a member.
-
-Note: the blocking-INSERT join code shipped today (commit on Cr1hbm2p) never gets
-to run because the GET fails first. The fix moves household verification + member
-insert into the RPC.
-
-
-
-RLS verified working: a non-member account (laborder16@mac.com, user
-f26a6862-cb54-45d9-915c-d2c6f50ee185) got POST /households 403 "new row
-violates row-level security policy." It is NOT in household_members (table has
-only the 3 backfilled rows). Data is secure. But two client bugs surfaced:
-
-### Bug 1: af_* state not cleared between auth sessions
-A new account created in a window that previously had a Lindsey session
-INHERITED the old localStorage: af_householdId = hh_o7yzu28 AND
-af_authUser.displayName = "Lindsey". So the new account's UI showed it was in
-hh_o7yzu28 (false — server 403s every write).
-FIX: on sign-out AND on fresh sign-up, clear all af_* keys (af_householdId,
-af_authUser, and all SYNC_KEYS data) so a new account starts blank.
-
-### Bug 2: sync UI trusts localStorage over server truth
-The sync modal showed "✓ Synced 9:50:30 PM" and "YOUR HOUSEHOLD CODE
-hh_o7yzu28" while every actual push was returning 403. The UI reflects local
-state, not server responses.
-FIX: sync status must reflect real server responses. "Synced/saved" should only
-show after a confirmed successful response — never from a localStorage write
-alone. (Same principle as the strict save-states work already planned.)
-
-Root cause (recurring theme): the app treats localStorage as truth when the
-server is truth. Clearing state on auth changes + honest server-driven status
-closes this class of bug.
-
-### Clean join-test procedure (do this to actually verify the join flow)
-The tests so far were muddied by stale state and a localhost dev server. To
-verify properly:
-1. Truly fresh browser state — new Incognito window with NOTHING previously
-   signed in, OR clear all site data first. (Inheriting old af_* state is what
-   broke the last test.)
-2. Go to the LIVE site (anchorandflowapp.com), not localhost:5173.
-3. Sign up a genuinely new throwaway account (e.g. an email alias you control).
-4. Use the JOIN-BY-CODE flow: paste hh_o7yzu28 into "Join a household."
-5. Watch for a clean join (no error). The new blocking INSERT should either
-   succeed or show a visible error — never a false "joined."
-6. Verify in Supabase: SELECT * FROM household_members — a 4th row should appear
-   for the new user, role=member, household hh_o7yzu28.
-7. Confirm the new account can load + save (passes RLS as a real member).
-8. Cleanup: DELETE FROM household_members WHERE user_id = '<new-user-id>';
-
----
-
-## ROLLBACK (if the RLS ever causes a lockout)
-```sql
-CREATE POLICY allow_all_authenticated ON households
-  FOR ALL TO anon, authenticated
-  USING (true) WITH CHECK (true);
-```
-Restores full access instantly. Table + backfill stay intact.
-
----
-
-## Opening line for next Claude Code session
-"Continuing Anchor & Flow multi-user work. RLS is secured and verified (Lindsey
-+ Twyla both confirmed working on separate accounts). Read SYNC_SESSION_SUMMARY.md
-and NEXT_SESSION_PICKUP.md. Start with Step 1: deploy the join-flow code change
-that writes a household_members row (blocking INSERT + auth guard + move
-af_householdId after success). Show me the diff before applying."
-```
+- joinHousehold's PUT /auth/v1/user (user_metadata write) 401s — best-effort,
+  non-blocking, now redundant since RPC does the real work.
+- af_* not cleared on sign-out (cosmetic; server already blocks real access).

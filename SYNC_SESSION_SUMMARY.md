@@ -1,5 +1,30 @@
 # Sync Diagnosis Session Summary
 
+---
+
+## Phase 2a Deploy 1 — LIVE (commit 45a7baa, bundle index-BJtPCN4b.js)
+
+### What shipped
+All changes are behind `localStorage.getItem("af_exhale_v2") === "true"` (`EXHALE_V2` const, read once at mount). With flag OFF, app is completely unchanged.
+
+**1a — UUID card IDs:** When V2 is ON, new cards get `crypto.randomUUID()` IDs instead of `"e"+counter`. Required for global uniqueness across devices (counter collides → ON CONFLICT silently drops a real card).
+
+**1b — First-run migration:** On mount with V2 ON, reads `localStorage af_exhale_groups` blob and upserts all local cards to `exhale_cards` with `ON CONFLICT DO NOTHING`. Per-device flag `af_exhale_migrated_<householdId>` ensures each device contributes its own local-only cards exactly once.
+
+**1c — ADD sync + Realtime:** `handleAdd` V2 branch writes a raw `localStorage.setItem` (no dirty key, no blob push) and then INSERTs a row to `exhale_cards`. Realtime subscription on `exhale_cards INSERT WHERE household_id=eq.<hhId>` applies changes to React state in-place — no reload. Deduplication: if the incoming Realtime row's `id` already exists anywhere in state (own echo from optimistic add), returns `prev` unchanged.
+
+**persist() dual-write fix:** All 9 non-add operations (patchCard, handleDone, handleDelete, handleMoveToCol, etc.) call `persist()`. With V2 ON, `persist()` now does raw `localStorage.setItem` only — no `lsSet`, no dirty key, no blob push. V2=OFF branch is byte-for-byte unchanged.
+
+### What is intentionally deferred
+- **Edits, deletes, moves are local-only** under V2 — no row writes yet. Phase 2b work.
+- **position: 0** for new adds — display driven by React state, not DB query order. Fix in Phase 2b with fractional positions.
+- **Deploy 2 (blob exclusion):** `exhale_groups` is still included in the legacy PATCH payload even with V2 ON. Will be removed ONLY after the test matrix passes.
+
+### Test matrix gate for Deploy 2
+See test plan in NEXT_SESSION_PICKUP.md. Deploy 2 must not proceed until all items pass.
+
+---
+
 ## Phase 1 Tracer — DEPLOYED (commit 2570d8b)
 
 The `window.AF_TRACE` operation tracer is live. To activate:
