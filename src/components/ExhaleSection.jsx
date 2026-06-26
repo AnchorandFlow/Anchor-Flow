@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 var CARD_COLORS = [
   { id: "seafoam", bg: "#C2E8DA", bd: "#85BFAB", tx: "#1C3A2E" },
@@ -29,6 +30,7 @@ var LS_G  = "af_exhale_groups";
 var LS_L  = "af_exhale_labels";
 var LS_CL = "af_exhale_color_labels";
 var LS_P  = "af_exhale_people";
+var EXHALE_V2 = localStorage.getItem("af_exhale_v2") === "true";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 function getColor(id) {
@@ -172,6 +174,8 @@ export default function ExhaleSection(props) {
   var [newPerson,   setNewPerson]   = useState("");
   var [drag,        setDrag]        = useState(null);
   var [dropOver,    setDropOver]    = useState(null);
+  // V2: track per-card server confirmation state. "saving"|"saved"|"failed"
+  var [cardSaveState, setCardSaveState] = useState({});
 
   useEffect(function() {
     if (!selectedId) { setNoteText(""); return; }
@@ -179,11 +183,127 @@ export default function ExhaleSection(props) {
     setNoteText(f ? f.card.notes : "");
   }, [selectedId]);
 
+  // V2 first-run migration: contribute this device's local cards to exhale_cards.
+  // Per-device flag (af_exhale_migrated_<householdId>) so every device runs once,
+  // regardless of whether another device already populated the table.
+  // ON CONFLICT (id) DO NOTHING means duplicate card ids are silently skipped.
+  // Flag is only set on success — failed migration retries on next mount.
+  useEffect(function() {
+    if (!EXHALE_V2) return;
+    var hhId;
+    try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
+    if (!hhId) return;
+    var flagKey = "af_exhale_migrated_" + hhId;
+    if (localStorage.getItem(flagKey)) return;
+
+    var localGroups = lsGet(LS_G, null);
+    var cards = [];
+    if (localGroups) {
+      Object.keys(localGroups).forEach(function(col) {
+        var colCards = Array.isArray(localGroups[col]) ? localGroups[col] : [];
+        colCards.forEach(function(card, idx) {
+          if (!card || !card.id) return;
+          cards.push({
+            id:           card.id,
+            household_id: hhId,
+            text:         card.text    || "",
+            notes:        card.notes   || "",
+            color:        card.color   || "",
+            category:     col,
+            emoji:        card.emoji   || null,
+            due_date:     card.dueDate ? new Date(card.dueDate).toISOString().slice(0,10) : null,
+            assigned_to:  card.assignedTo || null,
+            position:     idx,
+            created_at:   card.createdAt ? new Date(card.createdAt).toISOString() : new Date().toISOString(),
+          });
+        });
+      });
+    }
+
+    if (cards.length === 0) {
+      localStorage.setItem(flagKey, "1");
+      return;
+    }
+
+    supabase
+      .from("exhale_cards")
+      .upsert(cards, { onConflict: "id", ignoreDuplicates: true })
+      .then(function(result) {
+        if (result.error) {
+          console.warn("[AF] Exhale migration error:", result.error.message);
+          return; // flag NOT set — retries on next mount
+        }
+        localStorage.setItem(flagKey, "1");
+        console.log("[AF] Exhale migration done:", cards.length, "card(s) contributed.");
+      });
+  }, []); // runs once at mount
+
+  // V2 Realtime: apply remote INSERTs in-place — no window.location.reload().
+  // Dedupes on card id (own echo after optimistic add returns prev unchanged).
+  useEffect(function() {
+    if (!EXHALE_V2) return;
+    var hhId;
+    try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
+    if (!hhId) return;
+
+    var channel = supabase
+      .channel("exhale-" + hhId)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "exhale_cards",
+        filter: "household_id=eq." + hhId
+      }, function(payload) {
+        var row = payload.new;
+        if (!row || !row.id) return;
+        var col = row.category || "inbox";
+        setGroups(function(prev) {
+          // Dedupe: search all columns for this id (own echo or race)
+          var allCols = Object.keys(prev);
+          for (var i = 0; i < allCols.length; i++) {
+            var arr = prev[allCols[i]];
+            for (var j = 0; j < arr.length; j++) {
+              if (arr[j].id === row.id) return prev; // already present, skip
+            }
+          }
+          // Map DB row → local card shape
+          var card = {
+            id:         row.id,
+            text:       row.text        || "",
+            notes:      row.notes       || "",
+            color:      row.color       || "",
+            category:   col,
+            emoji:      row.emoji       || null,
+            dueDate:    row.due_date    || null,
+            assignedTo: row.assigned_to || null,
+            createdAt:  row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+          };
+          var ng = clone(prev);
+          if (!ng[col]) ng[col] = [];
+          ng[col] = [card].concat(ng[col]);
+          // Raw cache write — NOT lsSet, no dirty key, no blob push
+          try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
+          return ng;
+        });
+      })
+      .subscribe();
+
+    return function() { supabase.removeChannel(channel); };
+  }, []); // runs once at mount
+
   function persist(ng, nl, ncl, np, opId) {
-    if (ng  !== undefined) lsSet(LS_G,  ng,  opId);
-    if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
-    if (ncl !== undefined) lsSet(LS_CL, ncl, opId);
-    if (np  !== undefined) lsSet(LS_P,  np,  opId);
+    if (EXHALE_V2) {
+      // V2: raw cache writes only — no dirty keys, no af-data-changed, no blob push
+      if (ng  !== undefined) try { localStorage.setItem(LS_G,  JSON.stringify(ng));  } catch(e) {}
+      if (nl  !== undefined) try { localStorage.setItem(LS_L,  JSON.stringify(nl));  } catch(e) {}
+      if (ncl !== undefined) try { localStorage.setItem(LS_CL, JSON.stringify(ncl)); } catch(e) {}
+      if (np  !== undefined) try { localStorage.setItem(LS_P,  JSON.stringify(np));  } catch(e) {}
+    } else {
+      if (ng  !== undefined) lsSet(LS_G,  ng,  opId);
+      if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
+      if (ncl !== undefined) lsSet(LS_CL, ncl, opId);
+      if (np  !== undefined) lsSet(LS_P,  np,  opId);
+    }
   }
 
   var total = 0;
@@ -207,10 +327,48 @@ export default function ExhaleSection(props) {
     var txt = inputText.trim();
     if (!txt) return;
     var opId; try { opId = crypto.randomUUID(); } catch(e) { opId = "op-" + Date.now(); }
-    var item = { id: "e" + (_nid++), text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
+    var cardId = EXHALE_V2
+      ? (function(){ try { return crypto.randomUUID(); } catch(e) { return "e" + (_nid++); } })()
+      : "e" + (_nid++);
+    var item = { id: cardId, text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
     if (window.AF_TRACE) console.log("[AF_TRACE "+opId+"] EXHALE_ADD_CLICK cardId="+item.id+' text="'+txt+'"');
     var ng = clone(groups); ng.inbox = [item].concat(ng.inbox);
-    setGroups(ng); setInputText(""); persist(ng, undefined, undefined, undefined, opId);
+    setGroups(ng);
+    setInputText("");
+
+    if (EXHALE_V2) {
+      // Raw cache write — NOT lsSet, no dirty key, no blob push triggered
+      try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
+      var hhId; try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
+      var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
+      var createdBy = (_au && _au.id) ? _au.id : null;
+      setCardSaveState(function(p) { return Object.assign({}, p, { [cardId]: "saving" }); });
+      supabase.from("exhale_cards").insert({
+        id:           cardId,
+        household_id: hhId,
+        text:         txt,
+        notes:        "",
+        color:        item.color,
+        category:     "inbox",
+        emoji:        null,
+        due_date:     null,
+        assigned_to:  null,
+        position:     0,
+        created_at:   new Date(item.createdAt).toISOString(),
+        created_by:   createdBy,
+        updated_by:   createdBy,
+      }).then(function(result) {
+        if (result.error) {
+          console.warn("[AF] Exhale card insert failed:", result.error.message);
+          setCardSaveState(function(p) { return Object.assign({}, p, { [cardId]: "failed" }); });
+          return;
+        }
+        setCardSaveState(function(p) { return Object.assign({}, p, { [cardId]: "saved" }); });
+      });
+    } else {
+      // V2=OFF: blob path entirely unchanged
+      persist(ng, undefined, undefined, undefined, opId);
+    }
   }
 
   function handleInputKeyDown(e) { if (e.key === "Enter") handleAdd(); }
