@@ -2312,41 +2312,37 @@ function createLocalBackup() {
   }
 
   async function joinHousehold(token, joinCode) {
-    // joinCode is the householdId shared by the other person
+    // joinCode is the household share code (householdId)
     try {
       setSyncStatus("syncing");
-      // Fetch the target household to verify it exists
-      const rows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
-      if (!rows || !rows.length) return { ok:false, error:"Household not found. Check the code and try again." };
-      // Guard: membership INSERT requires a valid user ID
-      const _joinAuthUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
-      if (!_joinAuthUser?.id || _joinAuthUser.id === "unknown") {
-        return { ok:false, error:"Session error — please sign out and sign in again before joining." };
-      }
-      // BLOCKING: write household_members row — must succeed before reporting join complete.
-      // No inner try/catch — failure propagates to outer catch, user sees error, no false success.
-      await sbFetch("/rest/v1/household_members", {
+      // RPC: verifies household exists, writes household_members row, returns household_id.
+      // Failure propagates to outer catch — user sees error, no false success.
+      const rpcResult = await sbFetch("/rest/v1/rpc/join_household", {
         method: "POST",
         _token: token,
-        headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" },
-        body: JSON.stringify({ household_id: joinCode, user_id: _joinAuthUser.id, role: "member" })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ p_code: joinCode })
       });
-      // householdId saved AFTER membership row confirmed
-      try { localStorage.setItem("af_householdId", JSON.stringify(joinCode)); } catch {}
+      if (!rpcResult || !rpcResult.ok) {
+        return { ok:false, error:(rpcResult && rpcResult.error) || "Could not join household." };
+      }
+      const joinedHhId = rpcResult.household_id;
+      // householdId saved AFTER RPC confirms membership row written
+      try { localStorage.setItem("af_householdId", JSON.stringify(joinedHhId)); } catch {}
       // user_metadata write: best-effort fallback only, non-blocking
       try {
         const metaResp = await fetch(SUPABASE_URL + "/auth/v1/user", {
           method: "PUT",
           headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ data: { joined_household_id: joinCode } })
+          body: JSON.stringify({ data: { joined_household_id: joinedHhId } })
         });
         const metaBody = await metaResp.json();
         AF_DEBUG&&console.log("[AF] Metadata write status:", metaResp.status, "joined_household_id:", metaBody?.user_metadata?.joined_household_id);
       } catch(e) { console.warn("[AF] Could not save joined_household_id to metadata:", e.message); }
-      // Pull the FRESHEST data from Supabase for this household (re-fetch after metadata save)
-      const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinCode}&select=*`, { _token: token });
-      const sourceRow = (freshRows && freshRows.length > 0) ? freshRows[0] : rows[0];
-      if (sourceRow.data) {
+      // Pull the FRESHEST data — RLS now permits read since member row exists
+      const freshRows = await sbFetch(`/rest/v1/households?id=eq.${joinedHhId}&select=*`, { _token: token });
+      const sourceRow = freshRows && freshRows.length > 0 ? freshRows[0] : null;
+      if (sourceRow && sourceRow.data) {
         const clean2 = sanitizeHouseholdData(sourceRow.data);
         SYNC_KEYS.forEach(k => {
           if (clean2[k] !== undefined) {
