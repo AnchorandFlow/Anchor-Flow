@@ -11366,17 +11366,20 @@ export default function App() {
         try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
       }
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      // Keep af_authToken/af_refreshToken in sync with SDK proactive refreshes.
-      // Without this, the SDK silently rotates tokens but localStorage stays stale —
-      // next REST call uses an expired af_authToken, reactive refresh tries the
-      // already-consumed af_refreshToken, and gets a 400.
       if (session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(session.access_token)); } catch {}
       }
       if (session?.refresh_token) {
         try { localStorage.setItem("af_refreshToken", session.refresh_token); } catch {}
+      }
+      if (event === "SIGNED_OUT" || !session) {
+        try { localStorage.removeItem("af_authToken"); } catch {}
+        try { localStorage.removeItem("af_authUser"); } catch {}
+        try { localStorage.removeItem("af_refreshToken"); } catch {}
+        try { localStorage.removeItem("af_householdId"); } catch {}
+        SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
       }
     })
     return () => subscription.unsubscribe()
