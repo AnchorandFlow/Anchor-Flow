@@ -374,9 +374,11 @@ export default function ExhaleSection(props) {
           });
         }
       })
-      .subscribe();
+      .subscribe(function(status) {
+        console.log("[AF EXHALE] sub status", status);
+      });
 
-    return function() { supabase.removeChannel(channel); };
+    return function() { console.log("[AF EXHALE] cleanup ran, householdId was", householdId); supabase.removeChannel(channel); };
   }, [householdId]);
 
   function persist(ng, nl, ncl, np, opId) {
