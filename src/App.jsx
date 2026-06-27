@@ -1582,27 +1582,33 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
 
 // ── Supabase token refresh ──────────────────────────────────────────────────
 // Let the SDK own token refresh entirely — never manually call the token endpoint.
-// Supabase refresh tokens are single-use. If both this function and the SDK's
-// background auto-refresh both try to redeem the same token, the second caller
-// gets "Already Used." The SDK already rotates tokens and (via onAuthStateChange)
-// writes the result to af_authToken/af_refreshToken — so getSession() always
-// returns a valid token without consuming a refresh token itself.
-// _refreshInFlight mutex prevents concurrent callers from racing.
+// getSession() returns the cached session WITHOUT validating expiry — the access
+// token it returns may be expired. Always check the JWT exp claim before trusting it.
+// refreshSession() is the only call that actually refreshes; it consumes the
+// refresh token (single-use), so _refreshInFlight prevents concurrent callers from
+// racing and double-consuming it.
 var _refreshInFlight = null;
 async function refreshAuthToken() {
   if (_refreshInFlight) return _refreshInFlight;
   const p = (async function() {
     try {
-      // getSession() returns the SDK's current session. If the access token is
-      // expired the SDK refreshes it internally (single caller, no race).
       const { data: sd } = await supabase.auth.getSession();
       if (sd?.session?.access_token) {
-        try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
-        if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
-        AF_DEBUG && console.log("[AF AUTH] token from SDK getSession()");
-        return sd.session.access_token;
+        // getSession() does not refresh expired tokens — check exp before trusting it.
+        let stillValid = false;
+        try {
+          const exp = JSON.parse(atob(sd.session.access_token.split('.')[1])).exp;
+          stillValid = exp * 1000 > Date.now() + 10000; // valid for at least 10 more seconds
+        } catch(e) { /* malformed JWT — treat as expired, fall through to refreshSession() */ }
+        if (stillValid) {
+          try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
+          if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
+          AF_DEBUG && console.log("[AF AUTH] token from SDK getSession() — still valid");
+          return sd.session.access_token;
+        }
+        AF_DEBUG && console.log("[AF AUTH] getSession() token expired — falling through to refreshSession()");
       }
-      // getSession returned no session — try an explicit SDK refresh as last resort
+      // No session, or cached token expired — attempt a real refresh
       const { data: rd, error: re } = await supabase.auth.refreshSession();
       if (rd?.session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(rd.session.access_token)); } catch {}
@@ -1615,10 +1621,14 @@ async function refreshAuthToken() {
       try { localStorage.removeItem("af_authToken"); } catch {}
       try { localStorage.removeItem("af_authUser"); } catch {}
       try { localStorage.removeItem("af_refreshToken"); } catch {}
-      supabase.auth.signOut().catch(() => {});
+      supabase.auth.signOut().catch(() => {}); // fires SIGNED_OUT → Fix 3 clears the rest
       return null;
     } catch(e) {
       console.warn("[AF AUTH] token refresh error:", e.message);
+      // Unexpected error (e.g. network failure). Clear manual token copy so callers
+      // don't retry with a stale value, but don't force signOut — SDK session may
+      // still be valid if the error was transient.
+      try { localStorage.removeItem("af_authToken"); } catch {}
       return null;
     } finally {
       _refreshInFlight = null;
