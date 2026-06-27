@@ -402,12 +402,27 @@ window.fetch = async function(input, opts) {
 
 async function sbFetch(path, opts={}) {
   const url = SUPABASE_URL + path;
+  // Token precedence:
+  //   1. opts._token (explicit caller override — signIn flow, validation probes, etc.)
+  //   2. supabase.auth.getSession() — SDK's live, auto-refreshed token (no network call)
+  //   3. SUPABASE_KEY — anon fallback for public endpoints with no session
+  let _bearer;
+  if (opts._token !== undefined) {
+    _bearer = opts._token;
+  } else {
+    try {
+      const { data: sd } = await supabase.auth.getSession();
+      _bearer = sd?.session?.access_token || SUPABASE_KEY;
+    } catch(e) {
+      _bearer = SUPABASE_KEY;
+    }
+  }
   const r = await fetch(url, {
     cache: "no-store", // iOS Safari caches GET responses; no-store bypasses cache entirely
     ...opts,
     headers: {
       "apikey": SUPABASE_KEY,
-      "Authorization": "Bearer " + (opts._token || SUPABASE_KEY),
+      "Authorization": "Bearer " + _bearer,
       "Content-Type": "application/json",
       ...(opts.headers || {}),
     }
