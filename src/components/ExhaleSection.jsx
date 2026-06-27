@@ -286,8 +286,9 @@ export default function ExhaleSection(props) {
   // Deps: [householdId] — re-runs when householdId resolves null → real id.
   // Cleanup removes the channel before re-running so we never double-subscribe.
   useEffect(function() {
+    console.log("[AF EXHALE] effect fired, householdId=", householdId);
     if (!EXHALE_V2) return;
-    if (!householdId) return;
+    if (!householdId) { console.log("[AF EXHALE] bailed — householdId null"); return; }
 
     var channel = supabase
       .channel("exhale-" + householdId)
