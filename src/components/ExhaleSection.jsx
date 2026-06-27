@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 var CARD_COLORS = [
@@ -69,6 +69,25 @@ function lsSet(key, val, opId) {
 
 function emptyGroups() {
   return { inbox: [], decide: [], do: [], waiting: [], someday: [] };
+}
+
+// effPos: treats stored 0 as "unset" (all inserts default to 0) — uses idx*1000 as virtual.
+function effPos(card, idx) {
+  if (typeof card.position === "number" && card.position !== 0) return card.position;
+  return idx * 1000;
+}
+
+// Given a column array AFTER the splice and the moved card's index,
+// returns a fractional position between its new neighbors.
+function computeNewPosition(colCards, movedIdx) {
+  var prevCard = movedIdx > 0 ? colCards[movedIdx - 1] : null;
+  var nextCard = movedIdx < colCards.length - 1 ? colCards[movedIdx + 1] : null;
+  var prevPos = prevCard ? effPos(prevCard, movedIdx - 1) : null;
+  var nextPos = nextCard ? effPos(nextCard, movedIdx + 1) : null;
+  if (prevPos === null && nextPos === null) return 1000;
+  if (prevPos === null) return nextPos - 1000;
+  if (nextPos === null) return prevPos + 1000;
+  return (prevPos + nextPos) / 2;
 }
 
 function groupItems(raw) {
@@ -177,6 +196,9 @@ export default function ExhaleSection(props) {
   var [dropOver,    setDropOver]    = useState(null);
   // V2: track per-card server confirmation state. "saving"|"saved"|"failed"
   var [cardSaveState, setCardSaveState] = useState({});
+  // Tracks in-flight RPC ops so own Realtime echoes are ignored.
+  // Keys: "<cardId>:UPDATE" or "<cardId>:DELETE"
+  var pendingOps = useRef(new Set());
 
   useEffect(function() {
     if (!selectedId) { setNoteText(""); return; }
@@ -248,42 +270,103 @@ export default function ExhaleSection(props) {
     var channel = supabase
       .channel("exhale-" + householdId)
       .on("postgres_changes", {
-        event: "INSERT",
+        event: "*",
         schema: "public",
         table: "exhale_cards",
         filter: "household_id=eq." + householdId
       }, function(payload) {
-        var row = payload.new;
-        if (!row || !row.id) return;
-        var col = row.category || "inbox";
-        setGroups(function(prev) {
-          // Dedupe: search all columns for this id (own echo or race)
-          var allCols = Object.keys(prev);
-          for (var i = 0; i < allCols.length; i++) {
-            var arr = prev[allCols[i]];
-            for (var j = 0; j < arr.length; j++) {
-              if (arr[j].id === row.id) return prev; // already present, skip
+        if (payload.eventType === "INSERT") {
+          var row = payload.new;
+          if (!row || !row.id) return;
+          var col = row.category || "inbox";
+          setGroups(function(prev) {
+            var allCols = Object.keys(prev);
+            for (var i = 0; i < allCols.length; i++) {
+              var arr = prev[allCols[i]];
+              for (var j = 0; j < arr.length; j++) {
+                if (arr[j].id === row.id) return prev; // own echo, skip
+              }
             }
-          }
-          // Map DB row → local card shape
-          var card = {
-            id:         row.id,
-            text:       row.text        || "",
-            notes:      row.notes       || "",
-            color:      row.color       || "",
-            category:   col,
-            emoji:      row.emoji       || null,
-            dueDate:    row.due_date    || null,
-            assignedTo: row.assigned_to || null,
-            createdAt:  row.created_at ? new Date(row.created_at).getTime() : Date.now(),
-          };
-          var ng = clone(prev);
-          if (!ng[col]) ng[col] = [];
-          ng[col] = [card].concat(ng[col]);
-          // Raw cache write — NOT lsSet, no dirty key, no blob push
-          try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
-          return ng;
-        });
+            var card = {
+              id:         row.id,
+              text:       row.text        || "",
+              notes:      row.notes       || "",
+              color:      row.color       || "",
+              category:   col,
+              emoji:      row.emoji       || null,
+              dueDate:    row.due_date    || null,
+              assignedTo: row.assigned_to || null,
+              createdAt:  row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+              position:   typeof row.position === "number" ? row.position : 0,
+            };
+            var ng = clone(prev);
+            if (!ng[col]) ng[col] = [];
+            ng[col] = [card].concat(ng[col]);
+            try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
+            return ng;
+          });
+
+        } else if (payload.eventType === "UPDATE") {
+          var opKey = payload.new.id + ":UPDATE";
+          if (pendingOps.current.has(opKey)) { pendingOps.current.delete(opKey); return; }
+          var row = payload.new;
+          setGroups(function(prev) {
+            var currentCol = null;
+            for (var i = 0; i < COLS.length; i++) {
+              for (var j = 0; j < prev[COLS[i]].length; j++) {
+                if (prev[COLS[i]][j].id === row.id) { currentCol = COLS[i]; break; }
+              }
+              if (currentCol) break;
+            }
+            var ng = clone(prev);
+            for (var i = 0; i < COLS.length; i++) {
+              ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== row.id; });
+            }
+            var card = {
+              id:         row.id,
+              text:       row.text        || "",
+              notes:      row.notes       || "",
+              color:      row.color       || "",
+              category:   row.category    || "inbox",
+              emoji:      row.emoji       || null,
+              dueDate:    row.due_date    || null,
+              assignedTo: row.assigned_to || null,
+              createdAt:  row.created_at  ? new Date(row.created_at).getTime() : Date.now(),
+              position:   typeof row.position === "number" ? row.position : 0,
+            };
+            var col = card.category;
+            if (!ng[col]) ng[col] = [];
+            if (currentCol !== col) {
+              // Cross-column move from another device: unshift to top
+              ng[col].unshift(card);
+            } else {
+              // Same-column reorder or field edit: insert sorted by position
+              var inserted = false;
+              for (var j = 0; j < ng[col].length; j++) {
+                if ((ng[col][j].position || 0) > (card.position || 0)) {
+                  ng[col].splice(j, 0, card); inserted = true; break;
+                }
+              }
+              if (!inserted) ng[col].push(card);
+            }
+            try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
+            return ng;
+          });
+
+        } else if (payload.eventType === "DELETE") {
+          var opKey = (payload.old && payload.old.id) ? payload.old.id + ":DELETE" : null;
+          if (opKey && pendingOps.current.has(opKey)) { pendingOps.current.delete(opKey); return; }
+          var deletedId = payload.old && payload.old.id;
+          if (!deletedId) return;
+          setGroups(function(prev) {
+            var ng = clone(prev);
+            for (var i = 0; i < COLS.length; i++) {
+              ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== deletedId; });
+            }
+            try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
+            return ng;
+          });
+        }
       })
       .subscribe();
 
@@ -312,13 +395,45 @@ export default function ExhaleSection(props) {
 
   // ── mutations ──────────────────────────────────────────────────────────────
   function patchCard(id, patch) {
+    var prevGroups = groups;
     var ng = clone(groups);
+    var updatedCard = null;
     for (var i = 0; i < COLS.length; i++) {
       for (var j = 0; j < ng[COLS[i]].length; j++) {
-        if (ng[COLS[i]][j].id === id) { ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], patch); break; }
+        if (ng[COLS[i]][j].id === id) {
+          ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], patch);
+          updatedCard = ng[COLS[i]][j];
+          break;
+        }
       }
+      if (updatedCard) break;
     }
     setGroups(ng); persist(ng);
+
+    if (EXHALE_V2 && updatedCard) {
+      var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
+      var updatedBy = (_au && _au.id) ? _au.id : null;
+      pendingOps.current.add(id + ":UPDATE");
+      supabase.rpc("exhale_update_card", {
+        p_id:           id,
+        p_household_id: householdId,
+        p_text:         updatedCard.text,
+        p_notes:        updatedCard.notes,
+        p_color:        updatedCard.color,
+        p_emoji:        updatedCard.emoji        || null,
+        p_due_date:     updatedCard.dueDate       || null,
+        p_assigned_to:  updatedCard.assignedTo    || null,
+        p_updated_by:   updatedBy,
+      }).then(function(result) {
+        if (result.error) {
+          console.warn("[AF] exhale_update_card failed:", result.error.message);
+          pendingOps.current.delete(id + ":UPDATE");
+          setGroups(prevGroups);
+          setCardSaveState(function(p) { return Object.assign({}, p, { [id]: "failed" }); });
+        }
+      });
+    }
+
     return ng;
   }
 
@@ -374,24 +489,71 @@ export default function ExhaleSection(props) {
 
   function handleDone() {
     if (selectedId) {
+      var prevGroups = groups;
       var ng = clone(groups);
+      var updatedCard = null;
       for (var i = 0; i < COLS.length; i++) {
         for (var j = 0; j < ng[COLS[i]].length; j++) {
-          if (ng[COLS[i]][j].id === selectedId) { ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], { notes: noteText }); break; }
+          if (ng[COLS[i]][j].id === selectedId) {
+            ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], { notes: noteText });
+            updatedCard = ng[COLS[i]][j];
+            break;
+          }
         }
+        if (updatedCard) break;
       }
       setGroups(ng); persist(ng);
+
+      if (EXHALE_V2 && updatedCard) {
+        var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
+        var updatedBy = (_au && _au.id) ? _au.id : null;
+        var cid = updatedCard.id;
+        pendingOps.current.add(cid + ":UPDATE");
+        supabase.rpc("exhale_update_card", {
+          p_id:           cid,
+          p_household_id: householdId,
+          p_text:         updatedCard.text,
+          p_notes:        updatedCard.notes,
+          p_color:        updatedCard.color,
+          p_emoji:        updatedCard.emoji        || null,
+          p_due_date:     updatedCard.dueDate       || null,
+          p_assigned_to:  updatedCard.assignedTo    || null,
+          p_updated_by:   updatedBy,
+        }).then(function(result) {
+          if (result.error) {
+            console.warn("[AF] exhale_update_card (notes) failed:", result.error.message);
+            pendingOps.current.delete(cid + ":UPDATE");
+            setGroups(prevGroups);
+          }
+        });
+      }
     }
     setSelectedId(null);
   }
 
   function handleDelete(id) {
+    var prevGroups = groups;
     var ng = clone(groups);
     for (var i = 0; i < COLS.length; i++) ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== id; });
     setGroups(ng); setSelectedId(null); persist(ng);
+
+    if (EXHALE_V2) {
+      pendingOps.current.add(id + ":DELETE");
+      supabase.rpc("exhale_delete_card", {
+        p_id:           id,
+        p_household_id: householdId,
+      }).then(function(result) {
+        if (result.error) {
+          console.warn("[AF] exhale_delete_card failed:", result.error.message);
+          pendingOps.current.delete(id + ":DELETE");
+          setGroups(prevGroups);
+        }
+      });
+    }
   }
 
   function handleMoveToCol(id, toCol) {
+    var prevGroups = groups;
     var ng = clone(groups), moved = null;
     for (var i = 0; i < COLS.length; i++) {
       for (var j = 0; j < ng[COLS[i]].length; j++) {
@@ -401,6 +563,27 @@ export default function ExhaleSection(props) {
     }
     if (moved) ng[toCol].unshift(Object.assign({}, moved, { category: toCol }));
     setGroups(ng); persist(ng);
+
+    if (EXHALE_V2 && moved) {
+      // ng[toCol][0] is the moved card; compute position before any existing cards
+      var newPos = computeNewPosition(ng[toCol], 0);
+      var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
+      var updatedBy = (_au && _au.id) ? _au.id : null;
+      pendingOps.current.add(id + ":UPDATE");
+      supabase.rpc("exhale_move_card", {
+        p_id:           id,
+        p_household_id: householdId,
+        p_category:     toCol,
+        p_position:     newPos,
+        p_updated_by:   updatedBy,
+      }).then(function(result) {
+        if (result.error) {
+          console.warn("[AF] exhale_move_card failed:", result.error.message);
+          pendingOps.current.delete(id + ":UPDATE");
+          setGroups(prevGroups);
+        }
+      });
+    }
   }
 
   function handleLabelSave(col, val) {
@@ -455,6 +638,8 @@ export default function ExhaleSection(props) {
   function handleCardDrop(e, targetId, col) {
     e.preventDefault(); e.stopPropagation();
     if (!drag || drag.id === targetId) return;
+    var prevGroups = groups;
+    var dragId = drag.id;
     var above = (dropOver && dropOver.id === targetId) ? dropOver.above : true;
     var ng = clone(groups), fi = -1;
     for (var i = 0; i < ng[drag.fromCol].length; i++) { if (ng[drag.fromCol][i].id === drag.id) { fi = i; break; } }
@@ -465,16 +650,61 @@ export default function ExhaleSection(props) {
     if (ti === -1) ti = ng[col].length;
     ng[col].splice(above ? ti : ti + 1, 0, moved);
     setGroups(ng); setDrag(null); setDropOver(null); persist(ng);
+
+    if (EXHALE_V2) {
+      var movedIdx = ng[col].findIndex(function(c) { return c.id === dragId; });
+      var newPos = computeNewPosition(ng[col], movedIdx);
+      var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
+      var updatedBy = (_au && _au.id) ? _au.id : null;
+      pendingOps.current.add(dragId + ":UPDATE");
+      supabase.rpc("exhale_move_card", {
+        p_id:           dragId,
+        p_household_id: householdId,
+        p_category:     col,
+        p_position:     newPos,
+        p_updated_by:   updatedBy,
+      }).then(function(result) {
+        if (result.error) {
+          console.warn("[AF] exhale_move_card (card drop) failed:", result.error.message);
+          pendingOps.current.delete(dragId + ":UPDATE");
+          setGroups(prevGroups);
+        }
+      });
+    }
   }
 
   function handleColDrop(e, col) {
     e.preventDefault();
     if (!drag) return;
+    var prevGroups = groups;
+    var dragId = drag.id;
     var ng = clone(groups), fi = -1;
     for (var i = 0; i < ng[drag.fromCol].length; i++) { if (ng[drag.fromCol][i].id === drag.id) { fi = i; break; } }
     if (fi === -1) { setDrag(null); setDropOver(null); return; }
     var moved = Object.assign({}, ng[drag.fromCol].splice(fi, 1)[0], { category: col });
     ng[col].push(moved); setGroups(ng); setDrag(null); setDropOver(null); persist(ng);
+
+    if (EXHALE_V2) {
+      // Card appended to end of column
+      var movedIdx = ng[col].length - 1;
+      var newPos = computeNewPosition(ng[col], movedIdx);
+      var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
+      var updatedBy = (_au && _au.id) ? _au.id : null;
+      pendingOps.current.add(dragId + ":UPDATE");
+      supabase.rpc("exhale_move_card", {
+        p_id:           dragId,
+        p_household_id: householdId,
+        p_category:     col,
+        p_position:     newPos,
+        p_updated_by:   updatedBy,
+      }).then(function(result) {
+        if (result.error) {
+          console.warn("[AF] exhale_move_card (col drop) failed:", result.error.message);
+          pendingOps.current.delete(dragId + ":UPDATE");
+          setGroups(prevGroups);
+        }
+      });
+    }
   }
 
   // ── styles ─────────────────────────────────────────────────────────────────
