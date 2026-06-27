@@ -10955,6 +10955,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="brain"    && <ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}
+                householdId={householdId}
                 onSave={function(items, labels) {
                   setExhaleItems(items);
                   setExhaleLabels(labels);

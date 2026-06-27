@@ -159,6 +159,7 @@ function initials(name) {
 export default function ExhaleSection(props) {
   var initialItems  = props.initialItems  || [];
   var initialLabels = props.initialLabels || {};
+  var householdId   = props.householdId   || null;
 
   var [groups,      setGroups]      = useState(function() { return lsGet(LS_G, null) || groupItems(initialItems); });
   var [colLabels,   setColLabels]   = useState(function() { return Object.assign({}, DEFAULT_LABELS, lsGet(LS_L, null) || initialLabels); });
@@ -190,10 +191,8 @@ export default function ExhaleSection(props) {
   // Flag is only set on success — failed migration retries on next mount.
   useEffect(function() {
     if (!EXHALE_V2) return;
-    var hhId;
-    try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
-    if (!hhId) return;
-    var flagKey = "af_exhale_migrated_" + hhId;
+    if (!householdId) return;
+    var flagKey = "af_exhale_migrated_" + householdId;
     if (localStorage.getItem(flagKey)) return;
 
     var localGroups = lsGet(LS_G, null);
@@ -205,7 +204,7 @@ export default function ExhaleSection(props) {
           if (!card || !card.id) return;
           cards.push({
             id:           card.id,
-            household_id: hhId,
+            household_id: householdId,
             text:         card.text    || "",
             notes:        card.notes   || "",
             color:        card.color   || "",
@@ -231,28 +230,28 @@ export default function ExhaleSection(props) {
       .then(function(result) {
         if (result.error) {
           console.warn("[AF] Exhale migration error:", result.error.message);
-          return; // flag NOT set — retries on next mount
+          return; // flag NOT set — retries on next re-run
         }
         localStorage.setItem(flagKey, "1");
         console.log("[AF] Exhale migration done:", cards.length, "card(s) contributed.");
       });
-  }, []); // runs once at mount
+  }, [householdId]); // re-runs when householdId resolves null → real id; flag guards re-migration
 
   // V2 Realtime: apply remote INSERTs in-place — no window.location.reload().
   // Dedupes on card id (own echo after optimistic add returns prev unchanged).
+  // Deps: [householdId] — re-runs when householdId resolves null → real id.
+  // Cleanup removes the channel before re-running so we never double-subscribe.
   useEffect(function() {
     if (!EXHALE_V2) return;
-    var hhId;
-    try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
-    if (!hhId) return;
+    if (!householdId) return;
 
     var channel = supabase
-      .channel("exhale-" + hhId)
+      .channel("exhale-" + householdId)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
         table: "exhale_cards",
-        filter: "household_id=eq." + hhId
+        filter: "household_id=eq." + householdId
       }, function(payload) {
         var row = payload.new;
         if (!row || !row.id) return;
@@ -286,10 +285,12 @@ export default function ExhaleSection(props) {
           return ng;
         });
       })
-      .subscribe();
+      .subscribe(function(status) {
+        console.log("[AF EXHALE] sub status", status);
+      });
 
     return function() { supabase.removeChannel(channel); };
-  }, []); // runs once at mount
+  }, [householdId]);
 
   function persist(ng, nl, ncl, np, opId) {
     if (EXHALE_V2) {
