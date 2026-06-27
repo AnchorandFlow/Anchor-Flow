@@ -285,9 +285,7 @@ export default function ExhaleSection(props) {
           return ng;
         });
       })
-      .subscribe(function(status) {
-        console.log("[AF EXHALE] sub status", status);
-      });
+      .subscribe();
 
     return function() { supabase.removeChannel(channel); };
   }, [householdId]);
