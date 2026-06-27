@@ -90,6 +90,21 @@ function computeNewPosition(colCards, movedIdx) {
   return (prevPos + nextPos) / 2;
 }
 
+// On load, assign real positions (1000, 2000, ...) to any card still at position=0.
+// Mutates g in place. Called once at mount so all dragged positions compute correctly.
+function bootstrapPositions(g) {
+  for (var i = 0; i < COLS.length; i++) {
+    var col = g[COLS[i]];
+    if (!col) continue;
+    for (var j = 0; j < col.length; j++) {
+      if (!col[j].position || col[j].position === 0) {
+        col[j] = Object.assign({}, col[j], { position: (j + 1) * 1000 });
+      }
+    }
+  }
+  return g;
+}
+
 function groupItems(raw) {
   var g = emptyGroups();
   if (!raw || !Array.isArray(raw)) return g;
@@ -180,7 +195,14 @@ export default function ExhaleSection(props) {
   var initialLabels = props.initialLabels || {};
   var householdId   = props.householdId   || null;
 
-  var [groups,      setGroups]      = useState(function() { return lsGet(LS_G, null) || groupItems(initialItems); });
+  var [groups,      setGroups]      = useState(function() {
+    var g = lsGet(LS_G, null) || groupItems(initialItems);
+    if (EXHALE_V2) {
+      bootstrapPositions(g);
+      try { localStorage.setItem(LS_G, JSON.stringify(g)); } catch(e) {}
+    }
+    return g;
+  });
   var [colLabels,   setColLabels]   = useState(function() { return Object.assign({}, DEFAULT_LABELS, lsGet(LS_L, null) || initialLabels); });
   var [colorLabels, setColorLabels] = useState(function() { return lsGet(LS_CL, {}); });
   var [people,      setPeople]      = useState(function() { return lsGet(LS_P, null) || DEFAULT_PEOPLE; });
@@ -307,17 +329,11 @@ export default function ExhaleSection(props) {
           });
 
         } else if (payload.eventType === "UPDATE") {
+          console.log("[AF EXHALE] remote UPDATE", payload.new.id, payload.new.category, payload.new.position);
           var opKey = payload.new.id + ":UPDATE";
           if (pendingOps.current.has(opKey)) { pendingOps.current.delete(opKey); return; }
           var row = payload.new;
           setGroups(function(prev) {
-            var currentCol = null;
-            for (var i = 0; i < COLS.length; i++) {
-              for (var j = 0; j < prev[COLS[i]].length; j++) {
-                if (prev[COLS[i]][j].id === row.id) { currentCol = COLS[i]; break; }
-              }
-              if (currentCol) break;
-            }
             var ng = clone(prev);
             for (var i = 0; i < COLS.length; i++) {
               ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== row.id; });
@@ -336,19 +352,8 @@ export default function ExhaleSection(props) {
             };
             var col = card.category;
             if (!ng[col]) ng[col] = [];
-            if (currentCol !== col) {
-              // Cross-column move from another device: unshift to top
-              ng[col].unshift(card);
-            } else {
-              // Same-column reorder or field edit: insert sorted by position
-              var inserted = false;
-              for (var j = 0; j < ng[col].length; j++) {
-                if ((ng[col][j].position || 0) > (card.position || 0)) {
-                  ng[col].splice(j, 0, card); inserted = true; break;
-                }
-              }
-              if (!inserted) ng[col].push(card);
-            }
+            ng[col].push(card);
+            ng[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0); });
             try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
             return ng;
           });
