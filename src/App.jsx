@@ -509,6 +509,18 @@ const getThisMonday = () => {
 const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
 const WEEKDAYS_SUN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+var PERSON_COLORS = {
+  Madi:    { bg: "#e0f5f1", border: "#3aaa91", text: "#1a6657" },
+  Rylan:   { bg: "#faeae3", border: "#d4704a", text: "#8a3820" },
+  Kinzlee: { bg: "#eeebf8", border: "#8b7dbf", text: "#4a3d85" },
+  Briar:   { bg: "#fdf3dc", border: "#d4a240", text: "#7a5a10" },
+  family:  { bg: "#e3eef7", border: "#4a7fa8", text: "#1c4a6e" },
+};
+var PERSON_COLOR_DEFAULT = { bg: "#f0ede8", border: "#a09080", text: "#4a3e36" };
+function getPersonColor(forPerson) {
+  if (!forPerson) return PERSON_COLOR_DEFAULT;
+  return PERSON_COLORS[forPerson] || PERSON_COLOR_DEFAULT;
+}
 
 const THEMES = {
   calm: {
@@ -2946,6 +2958,7 @@ function createLocalBackup() {
   const [markerPickerDate,setMarkerPickerDate] = useState(null);
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
+  const [calFilter,setCalFilter]       = useState("all");
   const goToToday = () => { setCalViewDate(new Date(TODAY)); };
   const [chatOpen,setChatOpen]         = useState(false);
   // Clean up any orphaned drag clones periodically
@@ -3869,7 +3882,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
-  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"Blue",colorCustom:"",note:"",repeat:""}); setCalFormMode("add"); setCalFormId(null); }
+  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"Blue",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null}); setCalFormMode("add"); setCalFormId(null); }
   function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
   function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
 
@@ -5677,6 +5690,16 @@ Respond ONLY in valid JSON:
             }} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
           ))}
         </div>
+        <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",justifyContent:"center"}}>
+          {[["all","All"],["mine","Mine"],["twy","Twy’s"]].map(function(item){
+            var _fv=item[0],_fl=item[1];
+            return (
+              <button key={_fv} onClick={function(){setCalFilter(_fv);}} style={{padding:"0.22rem 0.8rem",borderRadius:"50px",border:"1.5px solid "+(calFilter===_fv?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calFilter===_fv?"rgba(30,58,95,0.08)":"transparent",color:calFilter===_fv?"#1e3a5f":"#7a8a9a",fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}}>
+                {_fl}
+              </button>
+            );
+          })}
+        </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
           <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.25rem"}}>
@@ -5719,11 +5742,16 @@ Respond ONLY in valid JSON:
                       <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"0.6rem",color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.6}} title="Add marker">•</button>
                     </div>
                     {/* Events — show up to 2, then +N more */}
-                    {dayEvts.slice(0,2).map(e=>(
-                      <div key={e.id} style={{background:e.color+"28",borderLeft:`2.5px solid ${e.color}`,borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4}}>
-                        {e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{e.title}
-                      </div>
-                    ))}
+                    {dayEvts.slice(0,2).map(function(e){
+                      var _pc=getPersonColor(e.forPerson);
+                      var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+                      return (
+                        <div key={e.id} style={{background:e.forPerson?_pc.bg:(e.color+"28"),borderLeft:"2.5px solid "+(e.forPerson?_pc.border:e.color),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.forPerson?_pc.text:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{e.title}</span>
+                          {e.responsibleParent&&<span style={{marginLeft:2,fontSize:"6px",fontWeight:800,flexShrink:0,opacity:0.85}}>{e.responsibleParent}</span>}
+                        </div>
+                      );
+                    })}
                     {dayEvts.length>2&&(
                       <div style={{fontSize:"0.56rem",color:T.textSoft,fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
                     )}
@@ -5778,9 +5806,13 @@ Respond ONLY in valid JSON:
                   <div style={{flex:1,minWidth:0,paddingTop:"0.2rem"}}>
                     {dayEvts.length===0
                       ?<div style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
-                      :dayEvts.map(e=>(
-                        <div key={e.id} style={{background:e.color||T.blue,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:"#fff",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.time?e.time+" ":""}{e.title}</div>
-                      ))
+                      :dayEvts.map(function(e){
+                          var _pc=getPersonColor(e.forPerson);
+                          var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+                          var _bg=e.forPerson?_pc.bg:(e.color||T.blue);
+                          var _col=e.forPerson?_pc.text:"#fff";
+                          return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{e.title}</div>);
+                        })
                     }
                   </div>
                 </div>
@@ -5794,18 +5826,35 @@ Respond ONLY in valid JSON:
               <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
               <button onClick={()=>openAddEvent(localDateStr(calViewDate))} style={{...btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.75rem",display:"flex",alignItems:"center",gap:"0.35rem"})}}><Icon name="plus" size={13} color="#fff"/> Add</button>
             </div>
+            {(function(){
+              var _ws=(function(){try{return JSON.parse(localStorage.getItem("af_workSchedule")||"null")||[{id:"ws1",day:"weekdays",startHour:9,endHour:17}];}catch(_e){return [{id:"ws1",day:"weekdays",startHour:9,endHour:17}];}})();
+              var _jsDay=calViewDate.getDay();
+              var _wentry=null;
+              for(var _wi=0;_wi<_ws.length;_wi++){var _en=_ws[_wi];var _m=_en.day==="weekdays"?(_jsDay>=1&&_jsDay<=5):_en.day==="weekend"?(_jsDay===0||_jsDay===6):_en.day===_jsDay;if(_m){_wentry=_en;break;}}
+              if(!_wentry)return null;
+              function _fmtH(h){var a=h<12?"am":"pm";var hh=h%12||12;return hh+a;}
+              return (<div style={{background:"rgba(30,58,95,0.06)",borderLeft:"3px solid rgba(30,58,95,0.18)",borderRadius:"0 0.35rem 0.35rem 0",padding:"0.32rem 0.7rem",marginBottom:"0.75rem"}}><span style={{fontSize:"0.68rem",fontWeight:700,color:"rgba(30,58,95,0.55)",letterSpacing:"0.04em"}}>Work · {_fmtH(_wentry.startHour)}–{_fmtH(_wentry.endHour)}</span></div>);
+            })()}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
-            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(e=>(
-              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
+              var _pc=getPersonColor(e.forPerson);
+              var _dotColor=e.forPerson?_pc.border:e.color;
+              var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+              return (
+              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:44}}>
-                  <div style={{width:11,height:11,borderRadius:"50%",background:e.color,marginTop:3}}/>
-                  {e.time?<span style={{fontSize:"0.74rem",fontWeight:800,color:e.color}}>{e.time}</span>:<span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:600}}>all day</span>}
+                  <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
+                  {e.time?<span style={{fontSize:"0.74rem",fontWeight:800,color:_dotColor}}>{e.time}</span>:<span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:600}}>all day</span>}
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem"}}>{e.title}</div>
-                  {e.colorLabel&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||e.colorCustom?.trim()||e.colorLabel}</div>}
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
+                    <span>{e.title}</span>
+                    {e.responsibleParent&&<div style={{width:16,height:16,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"9px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{e.responsibleParent}</div>}
+                  </div>
+                  {e.forPerson&&<div style={{fontSize:"0.66rem",color:_pc.text,fontWeight:700,marginTop:"0.1rem"}}>for {e.forPerson}</div>}
+                  {e.colorLabel&&!e.forPerson&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel}</div>}
                   {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
-                  {notifications.some(n=>n.entityId===e.id)&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
+                  {notifications.some(function(n){return n.entityId===e.id;})&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
                 </div>
                 <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
                   <button onClick={()=>setShowCalNotif(showCalNotif===e.id?null:e.id)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="bell" size={13} color={T.sand}/></button>
@@ -5813,7 +5862,8 @@ Respond ONLY in valid JSON:
                   <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
                 </div>
               </div>
-            ))}
+              );
+            })}
             {showCalNotif&&(
               <div style={{background:T.bgAlt,border:`1px solid ${T.sand}50`,borderRadius:"0.8rem",padding:"0.85rem",marginTop:"0.5rem"}}>
                 <p style={{fontSize:"0.75rem",fontWeight:700,color:T.sandDark,marginBottom:"0.6rem"}}>🔔 Set reminder</p>
@@ -5837,14 +5887,21 @@ Respond ONLY in valid JSON:
               </div>
             </div>
             {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
-            :eventsForDay(selectedDay.getDate()).map(e=>(
-              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
+            :eventsForDay(selectedDay.getDate()).map(function(e){
+              var _pc=getPersonColor(e.forPerson);
+              var _dotColor=e.forPerson?_pc.border:e.color;
+              var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+              return (
+              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
-                  <div style={{width:11,height:11,borderRadius:"50%",background:e.color,marginTop:3}}/>
-                  <span style={{fontSize:"0.54rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",textAlign:"center"}}>{calColorLabels[e.color]||e.colorCustom?.trim()||e.colorLabel||""}</span>
+                  <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
+                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center"}}>{e.forPerson?e.forPerson:(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||"")}</span>
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{e.title}</div>
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
+                    <span>{e.title}</span>
+                    {e.responsibleParent&&<div style={{width:14,height:14,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"8px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{e.responsibleParent}</div>}
+                  </div>
                   {e.time&&<div style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginTop:"0.1rem"}}>⏰ {e.time}</div>}
                   {e.note&&<div style={{color:T.textMid,fontSize:"0.79rem",marginTop:"0.35rem",lineHeight:1.5,fontStyle:"italic"}}>📝 {e.note}</div>}
                 </div>
@@ -5853,7 +5910,8 @@ Respond ONLY in valid JSON:
                   <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
         {connectedCals.length===0&&(
@@ -10748,6 +10806,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div><label style={lbl}>Time (optional)</label><input type="time" value={f.time} onChange={e=>setF(p=>({...p,time:e.target.value}))} style={inp()}/></div>
         </div>
         <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Note (optional)</label><textarea value={f.note||""} onChange={e=>setF(p=>({...p,note:e.target.value}))} placeholder="Any details, reminders…" style={{...inp({height:68,resize:"none"})}}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.75rem",marginBottom:"0.9rem"}}>
+          <div>
+            <label style={lbl}>For</label>
+            <select value={f.forPerson||""} onChange={function(ev){setF(function(p){return Object.assign({},p,{forPerson:ev.target.value||null});});}} style={inp({padding:"0.4rem 0.5rem"})}>
+              <option value="">Anyone</option>
+              {["Madi","Rylan","Kinzlee","Briar","family"].map(function(nm){return <option key={nm} value={nm}>{nm==="family"?"Family":nm}</option>;})}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Responsible</label>
+            <div style={{display:"flex",gap:"0.35rem",marginTop:"0.25rem"}}>
+              {[["","—"],["L","Lindsey"],["T","Twy"]].map(function(item){
+                var _rv=item[0],_rl=item[1];
+                var _ra=_rv===""?!f.responsibleParent:f.responsibleParent===_rv;
+                return (
+                  <button key={_rv} onClick={function(){setF(function(p){return Object.assign({},p,{responsibleParent:_rv||null});});}} style={{flex:1,padding:"0.35rem 0.3rem",borderRadius:"0.45rem",border:"1.5px solid "+(_ra?T.blue:T.border),background:_ra?T.bluePale:"transparent",color:_ra?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    {_rl}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
         {/* Inline reminder */}
         <div style={{marginBottom:"0.9rem",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.8rem",padding:"0.75rem 0.9rem"}}>
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.55rem"}}>

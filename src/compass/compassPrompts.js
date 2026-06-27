@@ -92,7 +92,9 @@ Schema:
   "small_win": "one optional warm observation from the data (streak, progress, nice moment) or null"
 }
 
-If FLOW MODE in the context is "Survival": the family is having a hard day. Maximum 3 today items (only the truly unmissable), empty pinch_points unless something is genuinely urgent, suggested_focus is ONE gentle thing, and small_win should be extra kind. Pinch points are observations, not criticism. "No dinner planned tomorrow" not "You forgot dinner."`
+If FLOW MODE in the context is "Survival": the family is having a hard day. Maximum 3 today items (only the truly unmissable), empty pinch_points unless something is genuinely urgent, suggested_focus is ONE gentle thing, and small_win should be extra kind. Pinch points are observations, not criticism. "No dinner planned tomorrow" not "You forgot dinner."
+
+RESPONSIBLE PARENT: The context may include events_today_mine (Lindsey handles) and events_today_partner (Twy handles). For partner events use phrasing like "Madi — orthodontist, 2pm. Twy is on it — you’re just in the loop." For your own events: "Rylan — soccer pickup, 9am. You’re on it." Never present a partner event as Lindsey’s responsibility.`
   },
 
   // ── 2. Weekly Family Review ────────────────────────────────────────────────

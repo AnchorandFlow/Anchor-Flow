@@ -67,7 +67,9 @@ function slimEvent(e) {
     date: pick(e, ["date", "event_date", "start", "when", "day"], null),
     time: pick(e, ["time", "startTime", "start_time"], null),
     who: pick(e, ["who", "person", "people", "assignee", "kid"], null),
-    type: pick(e, ["type", "event_type", "category"], null)
+    type: pick(e, ["type", "event_type", "category"], null),
+    forPerson: (e && e.forPerson) || null,
+    responsibleParent: (e && e.responsibleParent) || null
   };
 }
 
@@ -117,6 +119,12 @@ export function buildCompassContext(state, scope, extra) {
   if (scope === "today") {
     ctx.flow_mode = state.flowMode || null;
     ctx.events_today_tomorrow = eventsInWindow(state, 0, 1);
+    var _todaySlim = eventsInWindow(state, 0, 0);
+    ctx.events_today_mine = _todaySlim.filter(function(e) { return e.responsibleParent === "L" || !e.responsibleParent; });
+    ctx.events_today_partner = _todaySlim.filter(function(e) { return e.responsibleParent && e.responsibleParent !== "L"; });
+    var _todaySlim = eventsInWindow(state, 0, 0);
+    ctx.events_today_mine = _todaySlim.filter(function(e) { return e.responsibleParent === "L" || !e.responsibleParent; });
+    ctx.events_today_partner = _todaySlim.filter(function(e) { return e.responsibleParent && e.responsibleParent !== "L"; });
     ctx.tasks_open = asArray(state.tasks).map(slimTask).filter(function (t) { return !t.done; }).slice(0, 25);
     ctx.meals_this_week = asArray(state.meals).map(slimMeal).slice(0, 14);
     ctx.shopping_open_count = asArray(state.shoppingItems).filter(function (i) { return !pick(i, ["checked", "done"], false); }).length;
