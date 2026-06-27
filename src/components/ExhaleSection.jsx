@@ -286,9 +286,8 @@ export default function ExhaleSection(props) {
   // Deps: [householdId] — re-runs when householdId resolves null → real id.
   // Cleanup removes the channel before re-running so we never double-subscribe.
   useEffect(function() {
-    console.log("[AF EXHALE] effect fired, householdId=", householdId);
     if (!EXHALE_V2) return;
-    if (!householdId) { console.log("[AF EXHALE] bailed — householdId null"); return; }
+    if (!householdId) return;
 
     var channel = supabase
       .channel("exhale-" + householdId)
@@ -330,7 +329,6 @@ export default function ExhaleSection(props) {
           });
 
         } else if (payload.eventType === "UPDATE") {
-          console.log("[AF EXHALE] remote UPDATE", payload.new.id, payload.new.category, payload.new.position);
           var opKey = payload.new.id + ":UPDATE";
           if (pendingOps.current.has(opKey)) { pendingOps.current.delete(opKey); return; }
           var row = payload.new;
@@ -374,11 +372,9 @@ export default function ExhaleSection(props) {
           });
         }
       })
-      .subscribe(function(status) {
-        console.log("[AF EXHALE] sub status", status);
-      });
+      .subscribe();
 
-    return function() { console.log("[AF EXHALE] cleanup ran, householdId was", householdId); supabase.removeChannel(channel); };
+    return function() { supabase.removeChannel(channel); };
   }, [householdId]);
 
   function persist(ng, nl, ncl, np, opId) {
