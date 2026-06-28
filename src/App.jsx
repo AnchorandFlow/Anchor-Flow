@@ -7338,7 +7338,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var channel=supabase.channel("shopping-"+householdId)
         .on("postgres_changes",{event:"*",schema:"public",table:"shopping_items",filter:"household_id=eq."+householdId},function(payload){
           var et=payload.eventType;
-          console.log("[AF SHOP] remote",et,(payload.new||payload.old||{}).id);
           if(et==="INSERT"){
             var ins=payload.new;
             if(!ins||!ins.id)return;
@@ -7354,7 +7353,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if(pendingOps.current.has(toggleKey)){pendingOps.current.delete(toggleKey);return;}
             if(pendingOps.current.has(editKey)){pendingOps.current.delete(editKey);return;}
             setShoppingItems(function(prev){
-              console.log("[AF SHOP] apply UPDATE",upd.id,"done:",upd.done);
               return prev.map(function(x){return x.id===upd.id?{id:x.id,text:upd.text||"",store:upd.store||"Grocery",done:!!upd.done,category:upd.category||"",photo:upd.photo||null}:x;});
             });
           } else if(et==="DELETE"){
@@ -7383,9 +7381,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return supabase.rpc("shopping_add_item",{p_id:i.id,p_household_id:householdId,p_text:i.text||"",p_store:i.store||"Grocery",p_category:i.category||"",p_photo:i.photo||"",p_created_by:shopUserId()});
       })).then(function(){
         localStorage.setItem(flagKey,"1");
-        console.log("[AF SHOP] backfill complete:",toSync.length,"items");
       }).catch(function(e){
-        console.warn("[AF SHOP] backfill failed, will retry next mount:",e);
       });
     },[householdId]);
 
@@ -7405,16 +7401,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:newDone}:x;});});
       if(SHOPPING_V2&&householdId){
         pendingOps.current.add(id+":"+String(newDone));
-        console.log("[AF SHOP] firing toggle",id);
-        supabase.rpc("shopping_toggle_item",{p_id:id,p_household_id:householdId,p_done:newDone,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){console.warn("[AF SHOP] toggle error",r.error.message);pendingOps.current.delete(id+":"+String(newDone));setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!newDone}:x;});});}else{console.log("[AF SHOP] toggle ok",id);}});
+        supabase.rpc("shopping_toggle_item",{p_id:id,p_household_id:householdId,p_done:newDone,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":"+String(newDone));setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!newDone}:x;});});}else{}});
       }
     }
     function handleDelete(id){
       setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});
       if(SHOPPING_V2&&householdId){
         pendingOps.current.add(id+":DELETE");
-        console.log("[AF SHOP] firing delete",id);
-        supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){console.warn("[AF SHOP] delete error",r.error.message);pendingOps.current.delete(id+":DELETE");}else{console.log("[AF SHOP] delete ok",id);}});
+        supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":DELETE");}else{}});
       }
     }
     function handleSave(id,val){
@@ -7422,8 +7416,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});
       if(SHOPPING_V2&&householdId){
         pendingOps.current.add(id+":UPDATE");
-        console.log("[AF SHOP] firing update",id);
-        supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:val,p_store:cur.store||"Grocery",p_category:cur.category||"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){console.warn("[AF SHOP] update error",r.error.message);pendingOps.current.delete(id+":UPDATE");}else{console.log("[AF SHOP] update ok",id);}});
+        supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:val,p_store:cur.store||"Grocery",p_category:cur.category||"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":UPDATE");}else{}});
       }
     }
     function addItem(text,store,photoUrl){
