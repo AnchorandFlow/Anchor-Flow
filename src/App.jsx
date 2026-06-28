@@ -4140,7 +4140,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave, selected, onSelect}) {
+  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
@@ -4157,7 +4157,6 @@ Respond ONLY with valid JSON array, no markdown:
         ) : (
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.44rem 0"}}>
-              <button onClick={()=>onSelect&&onSelect(item.id)} style={{width:16,height:16,borderRadius:"0.25rem",border:`2px solid ${selected?T.blue:T.borderSoft}`,background:selected?T.blue:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>{selected&&<Icon name="check" size={9} color="#fff"/>}</button>
               <button onClick={()=>onToggle(item.id,item.done)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
@@ -7336,7 +7335,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[editingCategories,setEditingCategories]=useState(false);
     const[collapsedCats,setCollapsedCats]=useState({});
     const[collapsedStores,setCollapsedStores2]=useState({});
-    const[selectedItems,setSelectedItems]=useState({});
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     var pendingOps=useRef(new Set());
@@ -7491,36 +7489,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
     }
 
-    // Selection helpers
-    function toggleSelect(id){setSelectedItems(p=>({...p,[id]:!p[id]}));}
-    function selectAllInStore(storeLabel){
-      var ids=shoppingItems.filter(i=>normalizeStore(i.store)===storeLabel&&!i.done).map(i=>i.id);
-      var allSel=ids.every(id=>selectedItems[id]);
-      setSelectedItems(p=>{var n={...p};ids.forEach(id=>{n[id]=!allSel;});return n;});
-    }
-    function deleteSelected(){
-      if(SHOPPING_V2&&householdId){
-        var toDelete=Object.keys(selectedItems).filter(function(id){return selectedItems[id];});
-        toDelete.forEach(function(id){
-          pendingOps.current.add(id+":DELETE");
-          supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":DELETE");});
-        });
-      }
-      setShoppingItems(function(p){return p.filter(function(i){return !selectedItems[i.id];});});
-      setSelectedItems({});
-    }
-    function checkSelected(){
-      if(SHOPPING_V2&&householdId){
-        var toCheck=Object.keys(selectedItems).filter(function(id){return selectedItems[id];});
-        toCheck.forEach(function(id){
-          pendingOps.current.add(id+":true");
-          supabase.rpc("shopping_toggle_item",{p_id:id,p_household_id:householdId,p_done:true,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":true");});
-        });
-      }
-      setShoppingItems(function(p){return p.map(function(i){return selectedItems[i.id]?{...i,done:true}:i;});});
-      setSelectedItems({});
-    }
-    var anySelected=Object.values(selectedItems).some(Boolean);
 
     return(
       <div>
@@ -7562,16 +7530,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           )}
         </div>
-
-        {/* Bulk action bar */}
-        {anySelected&&(
-          <div style={{display:"flex",gap:"0.5rem",alignItems:"center",background:T.bluePale,border:"1.5px solid "+T.blue+"44",borderRadius:"0.85rem",padding:"0.55rem 0.9rem",marginBottom:"0.65rem"}}>
-            <span style={{fontSize:"0.78rem",fontWeight:700,color:T.blue,flex:1}}>{Object.values(selectedItems).filter(Boolean).length} selected</span>
-            <button onClick={checkSelected} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.3rem 0.75rem"})}>✓ Mark done</button>
-            <button onClick={deleteSelected} style={{...btnS({fontSize:"0.74rem",padding:"0.3rem 0.75rem",color:T.rose,borderColor:T.rose+"55"})}}>Delete</button>
-            <button onClick={()=>setSelectedItems({})} style={btnS({fontSize:"0.74rem",padding:"0.3rem 0.6rem"})}>✕</button>
-          </div>
-        )}
 
         {/* Edit categories toggle (for Grocery/Costco subcategories) */}
         <div style={{marginBottom:"0.75rem"}}>
@@ -7621,8 +7579,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if(storeItems.length===0) return null;
             var isCollapsed=!!collapsedStores[st.id];
             var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
-            var pendingIds=storeItems.filter(function(i){return !i.done;}).map(function(i){return i.id;});
-            var allPendingSel=pendingIds.length>0&&pendingIds.every(function(id){return selectedItems[id];});
             var storeColor=st.id==="grocery"?T.sage:st.id==="costco"?T.blue:st.id==="target"?"#cc3333":st.id==="amazon"?"#e8a838":T.sand;
             return(
               <div key={st.id} style={{...card({padding:"0",marginBottom:"0.65rem",border:"1.5px solid "+T.borderSoft})}}>
@@ -7634,11 +7590,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {pendingCount>0&&<span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700,background:T.surface,borderRadius:"2rem",padding:"1px 7px",border:"1px solid "+T.borderSoft}}>{pendingCount}</span>}
                     <div style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={15} color={T.textSoft}/></div>
                   </button>
-                  {!isCollapsed&&pendingIds.length>0&&(
-                    <button onClick={function(){selectAllInStore(st.label);}} style={{background:allPendingSel?T.blue+"22":"none",border:"1px solid "+(allPendingSel?T.blue:T.borderSoft),borderRadius:"0.5rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,color:allPendingSel?T.blue:T.textSoft,fontFamily:"inherit",padding:"2px 8px",whiteSpace:"nowrap",transition:"all 0.15s"}}>
-                      {allPendingSel?"Deselect all":"Select all"}
-                    </button>
-                  )}
                 </div>
                 {!isCollapsed&&(
                   <div style={{padding:"0 0 0.5rem"}}>
@@ -7674,7 +7625,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                               <div style={{padding:"0 1rem"}}>
                                 {catItems.map(function(item){
                                   return(
-                                    <ShopItemRow key={item.id} item={item} selected={!!selectedItems[item.id]} onSelect={toggleSelect}
+                                    <ShopItemRow key={item.id} item={item}
                                       onToggle={handleToggle}
                                       onDelete={handleDelete}
                                       onSave={handleSave}
@@ -7690,7 +7641,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <div style={{padding:"0 1rem"}}>
                         {storeItems.map(function(item){
                           return(
-                            <ShopItemRow key={item.id} item={item} selected={!!selectedItems[item.id]} onSelect={toggleSelect}
+                            <ShopItemRow key={item.id} item={item}
                               onToggle={handleToggle}
                               onDelete={handleDelete}
                               onSave={handleSave}
