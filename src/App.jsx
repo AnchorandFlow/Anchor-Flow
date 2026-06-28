@@ -7376,6 +7376,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return function(){supabase.removeChannel(channel);};
     },[householdId]);
 
+    useEffect(function(){
+      if(!SHOPPING_V2||!householdId)return;
+      var flagKey="af_shopping_v2_backfilled_"+householdId;
+      if(localStorage.getItem(flagKey))return;
+      var items;
+      try{items=JSON.parse(localStorage.getItem("af_shoppingItems")||"[]");}catch(e){items=[];}
+      var toSync=items.filter(function(i){return !!i.id;});
+      if(!toSync.length){localStorage.setItem(flagKey,"1");return;}
+      // One-time transition: backfill inserts done:false for all items.
+      // Any currently-checked items lose their checked state here. Acceptable for
+      // a one-time migration; preserving done would require the add RPC to accept p_done.
+      Promise.all(toSync.map(function(i){
+        return supabase.rpc("shopping_add_item",{p_id:i.id,p_household_id:householdId,p_text:i.text||"",p_store:i.store||"Grocery",p_category:i.category||"",p_photo:i.photo||"",p_created_by:shopUserId()});
+      })).then(function(){
+        localStorage.setItem(flagKey,"1");
+        console.log("[AF SHOP] backfill complete:",toSync.length,"items");
+      }).catch(function(e){
+        console.warn("[AF SHOP] backfill failed, will retry next mount:",e);
+      });
+    },[householdId]);
+
     // Normalize store name from old free-text to fixed store id
     function normalizeStore(s){
       if(!s) return "Grocery";
