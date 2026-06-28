@@ -4158,7 +4158,7 @@ Respond ONLY with valid JSON array, no markdown:
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.44rem 0"}}>
               <button onClick={()=>onSelect&&onSelect(item.id)} style={{width:16,height:16,borderRadius:"0.25rem",border:`2px solid ${selected?T.blue:T.borderSoft}`,background:selected?T.blue:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>{selected&&<Icon name="check" size={9} color="#fff"/>}</button>
-              <button onClick={()=>onToggle(item.id)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+              <button onClick={()=>onToggle(item.id,item.done)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
               {item.photo&&(
@@ -7409,10 +7409,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return "Grocery";
     }
 
-    function handleToggle(id){
-      var cur=shoppingItems.find(function(x){return x.id===id;});
-      if(!cur)return;
-      var newDone=!cur.done;
+    function handleToggle(id,currentDone){
+      var newDone=!currentDone;
       setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:newDone}:x;});});
       if(SHOPPING_V2&&householdId){
         pendingOps.current.add(id+":"+String(newDone));
