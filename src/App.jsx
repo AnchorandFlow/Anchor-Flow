@@ -1634,7 +1634,6 @@ async function refreshAuthToken() {
         } catch(e) { /* malformed JWT — treat as expired, fall through to refreshSession() */ }
         if (stillValid) {
           try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
-          if (sd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", sd.session.refresh_token); } catch {} }
           AF_DEBUG && console.log("[AF AUTH] token from SDK getSession() — still valid");
           return sd.session.access_token;
         }
@@ -1644,7 +1643,6 @@ async function refreshAuthToken() {
       const { data: rd, error: re } = await supabase.auth.refreshSession();
       if (rd?.session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(rd.session.access_token)); } catch {}
-        if (rd.session.refresh_token) { try { localStorage.setItem("af_refreshToken", rd.session.refresh_token); } catch {} }
         AF_DEBUG && console.log("[AF AUTH] token from SDK refreshSession()");
         return rd.session.access_token;
       }
@@ -1652,7 +1650,6 @@ async function refreshAuthToken() {
       console.warn("[AF AUTH] hard auth failure — signing out to force re-login", re?.message);
       try { localStorage.removeItem("af_authToken"); } catch {}
       try { localStorage.removeItem("af_authUser"); } catch {}
-      try { localStorage.removeItem("af_refreshToken"); } catch {}
       supabase.auth.signOut().catch(() => {}); // fires SIGNED_OUT → Fix 3 clears the rest
       return null;
     } catch(e) {
@@ -1822,7 +1819,6 @@ function HomeFlow() {
           console.warn("[AF AUTH] refresh failed — clearing session");
           try { localStorage.removeItem("af_authToken"); } catch {}
           try { localStorage.removeItem("af_authUser"); } catch {}
-          try { localStorage.removeItem("af_refreshToken"); } catch {}
           setAuthToken(null);
           setAuthUser(null);
           showInAppBanner("Session expired — please sign in again.", "error");
@@ -1989,7 +1985,6 @@ function createLocalBackup() {
         const token = data.access_token;
         const userObj = { id: data.user?.id || "unknown", email, displayName: displayName || email.split("@")[0] };
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
-        if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
         try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
         // Don't auto-create household on signup — user will join or create via UI
@@ -2050,7 +2045,6 @@ function createLocalBackup() {
       const displayName = data.user?.user_metadata?.full_name || data.user?.user_metadata?.name || data.user?.user_metadata?.displayName || email.split("@")[0];
 
       try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
-      if (data.refresh_token) { try { localStorage.setItem("af_refreshToken", data.refresh_token); } catch {} }
       try { localStorage.setItem("af_authUser", JSON.stringify({ id: data.user.id, email: data.user.email, displayName })); } catch {}
       try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
@@ -2139,7 +2133,6 @@ function createLocalBackup() {
     // Clear localStorage directly then reload — avoids null authUser render crash
     try { localStorage.removeItem("af_authToken"); } catch {}
     try { localStorage.removeItem("af_authUser"); } catch {}
-    try { localStorage.removeItem("af_refreshToken"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
     window.location.reload();
@@ -11630,12 +11623,10 @@ export default function App() {
         try { localStorage.setItem("af_authToken", JSON.stringify(session.access_token)); } catch {}
       }
       if (session?.refresh_token) {
-        try { localStorage.setItem("af_refreshToken", session.refresh_token); } catch {}
       }
       if (event === "SIGNED_OUT" || !session) {
         try { localStorage.removeItem("af_authToken"); } catch {}
         try { localStorage.removeItem("af_authUser"); } catch {}
-        try { localStorage.removeItem("af_refreshToken"); } catch {}
         try { localStorage.removeItem("af_householdId"); } catch {}
         SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
       }
@@ -11661,7 +11652,6 @@ export default function App() {
           localStorage.setItem("af_authToken", JSON.stringify(s.access_token))
         }
         if (s.refresh_token) {
-          localStorage.setItem("af_refreshToken", s.refresh_token)
         }
       } catch(e) {}
     }
