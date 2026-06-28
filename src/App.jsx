@@ -7363,6 +7363,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if(pendingOps.current.has(toggleKey)){pendingOps.current.delete(toggleKey);return;}
             if(pendingOps.current.has(editKey)){pendingOps.current.delete(editKey);return;}
             setShoppingItems(function(prev){
+              console.log("[AF SHOP] apply UPDATE",upd.id,"done:",upd.done);
               return prev.map(function(x){return x.id===upd.id?{id:x.id,text:upd.text||"",store:upd.store||"Grocery",done:!!upd.done,category:upd.category||"",photo:upd.photo||null}:x;});
             });
           } else if(et==="DELETE"){
