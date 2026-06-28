@@ -44,6 +44,7 @@ function loadTraditions() {
 }
 function saveTraditions(list) {
   try { localStorage.setItem("af_traditions", JSON.stringify(list)); } catch (e) {}
+  try { window.dispatchEvent(new CustomEvent("af-data-changed")); } catch(e) {}
 }
 function fmtDate(d, opts) {
   if (!d) return "";

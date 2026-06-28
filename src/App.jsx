@@ -450,7 +450,7 @@ async function sbSignOut(token) {
 // Household data keys that get synced to Supabase
 const SYNC_KEYS = [
   // Core data
-  "tasks","brainItems","brainCats","exhaleItems","exhaleLabels","calEvents","connectedCals","calColorLabels",
+  "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
   // Meals
   "meals","mealsWeekOf","nextWeekMeals","mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
   // Shopping
@@ -468,16 +468,14 @@ const SYNC_KEYS = [
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
   // Other shared
-  "schoolData","coveData","dietaryFilters","mealThemeEnabled"
+  "schoolData","coveData","dietaryFilters"
 ,"compassCache","compassEnabled",
   // Exhale standalone keys (ExhaleSection.jsx uses af_exhale_* keys)
-  "exhale_groups","exhale_color_labels","exhale_people",
+  "exhale_groups","exhale_color_labels","exhale_people","exhale_labels",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
-  "traditions",
-  // Tide Pool kid/chore data
-  "tidepool"];
+  "traditions"];
 
 function readHouseholdState() {
   var st = {};
@@ -1879,7 +1877,7 @@ function createLocalBackup() {
     // Arrays: only preserve if actually an array — never pass null/object through
     ["tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
-     "brainCats","homeSystems","dietaryFilters","exhaleItems",
+     "brainCats","homeSystems","dietaryFilters",
      // Vault arrays
      "recurring","celebrations","gifts","inventory","pets","houseFile",
      "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
@@ -1932,7 +1930,7 @@ function createLocalBackup() {
     // Objects: pass through if valid (non-null object)
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
      "coveData","schoolData","cove_items_v1","notifSettings","sections",
-     "calColorLabels","connectedCals","exhaleLabels",
+     "calColorLabels","connectedCals","exhale_labels",
      "health","career","travel_profile"
     ].forEach(k => {
       if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
