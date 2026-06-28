@@ -491,6 +491,7 @@ window.__compassTest = function (q) {
 };
 
 const APP_VERSION = "2026-06-03-vault-refresh";
+var SHOPPING_V2 = localStorage.getItem("af_shopping_v2") === "true";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -7338,6 +7339,41 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[selectedItems,setSelectedItems]=useState({});
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
+    var pendingOps=useRef(new Set());
+    function shopUserId(){try{var _u=JSON.parse(localStorage.getItem("af_authUser")||"null");return(_u&&_u.id)?_u.id:"";}catch(e){return "";}}
+
+    useEffect(function(){
+      if(!SHOPPING_V2||!householdId)return;
+      var channel=supabase.channel("shopping-"+householdId)
+        .on("postgres_changes",{event:"*",schema:"public",table:"shopping_items",filter:"household_id=eq."+householdId},function(payload){
+          var et=payload.eventType;
+          if(et==="INSERT"){
+            var ins=payload.new;
+            if(!ins||!ins.id)return;
+            setShoppingItems(function(prev){
+              if(prev.some(function(x){return x.id===ins.id;}))return prev;
+              return prev.concat([{id:ins.id,text:ins.text||"",store:ins.store||"Grocery",done:!!ins.done,category:ins.category||"",photo:ins.photo||null}]);
+            });
+          } else if(et==="UPDATE"){
+            var upd=payload.new;
+            if(!upd||!upd.id)return;
+            var toggleKey=upd.id+":"+String(upd.done);
+            var editKey=upd.id+":UPDATE";
+            if(pendingOps.current.has(toggleKey)){pendingOps.current.delete(toggleKey);return;}
+            if(pendingOps.current.has(editKey)){pendingOps.current.delete(editKey);return;}
+            setShoppingItems(function(prev){
+              return prev.map(function(x){return x.id===upd.id?{id:x.id,text:upd.text||"",store:upd.store||"Grocery",done:!!upd.done,category:upd.category||"",photo:upd.photo||null}:x;});
+            });
+          } else if(et==="DELETE"){
+            var delId=payload.old&&payload.old.id;
+            if(!delId)return;
+            var delKey=delId+":DELETE";
+            if(pendingOps.current.has(delKey)){pendingOps.current.delete(delKey);return;}
+            setShoppingItems(function(prev){return prev.filter(function(x){return x.id!==delId;});});
+          }
+        }).subscribe();
+      return function(){supabase.removeChannel(channel);};
+    },[householdId]);
 
     // Normalize store name from old free-text to fixed store id
     function normalizeStore(s){
@@ -7350,11 +7386,40 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return "Grocery";
     }
 
+    function handleToggle(id){
+      var cur=shoppingItems.find(function(x){return x.id===id;});
+      if(!cur)return;
+      var newDone=!cur.done;
+      setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:newDone}:x;});});
+      if(SHOPPING_V2&&householdId){
+        pendingOps.current.add(id+":"+String(newDone));
+        supabase.rpc("shopping_toggle_item",{p_id:id,p_household_id:householdId,p_done:newDone,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":"+String(newDone));setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!newDone}:x;});});}});
+      }
+    }
+    function handleDelete(id){
+      setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});
+      if(SHOPPING_V2&&householdId){
+        pendingOps.current.add(id+":DELETE");
+        supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":DELETE");});
+      }
+    }
+    function handleSave(id,val){
+      var cur=shoppingItems.find(function(x){return x.id===id;})||{store:"Grocery",category:"",photo:null};
+      setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});
+      if(SHOPPING_V2&&householdId){
+        pendingOps.current.add(id+":UPDATE");
+        supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:val,p_store:cur.store||"Grocery",p_category:cur.category||"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":UPDATE");});
+      }
+    }
     function addItem(text,store,photoUrl){
       if(!text.trim())return;
       var s=store||newStore;
-      setShoppingItems(p=>[...p,{id:uid(),text:text.trim(),store:s,done:false,photo:photoUrl||null,category:""}]);
+      var _id=uid();
+      setShoppingItems(p=>[...p,{id:_id,text:text.trim(),store:s,done:false,photo:photoUrl||null,category:""}]);
       lastStore[1](s);setNewStore(s);
+      if(SHOPPING_V2&&householdId){
+        supabase.rpc("shopping_add_item",{p_id:_id,p_household_id:householdId,p_text:text.trim(),p_store:s,p_category:"",p_photo:photoUrl||"",p_created_by:shopUserId()}).then(function(r){if(r&&r.error)console.warn("[AF] shopping_add_item failed:",r.error.message);});
+      }
     }
 
     function addInlineItem(store){
@@ -7409,8 +7474,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var allSel=ids.every(id=>selectedItems[id]);
       setSelectedItems(p=>{var n={...p};ids.forEach(id=>{n[id]=!allSel;});return n;});
     }
-    function deleteSelected(){setShoppingItems(p=>p.filter(i=>!selectedItems[i.id]));setSelectedItems({});}
-    function checkSelected(){setShoppingItems(p=>p.map(i=>selectedItems[i.id]?{...i,done:true}:i));setSelectedItems({});}
+    function deleteSelected(){
+      if(SHOPPING_V2&&householdId){
+        var toDelete=Object.keys(selectedItems).filter(function(id){return selectedItems[id];});
+        toDelete.forEach(function(id){
+          pendingOps.current.add(id+":DELETE");
+          supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":DELETE");});
+        });
+      }
+      setShoppingItems(function(p){return p.filter(function(i){return !selectedItems[i.id];});});
+      setSelectedItems({});
+    }
+    function checkSelected(){
+      if(SHOPPING_V2&&householdId){
+        var toCheck=Object.keys(selectedItems).filter(function(id){return selectedItems[id];});
+        toCheck.forEach(function(id){
+          pendingOps.current.add(id+":true");
+          supabase.rpc("shopping_toggle_item",{p_id:id,p_household_id:householdId,p_done:true,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":true");});
+        });
+      }
+      setShoppingItems(function(p){return p.map(function(i){return selectedItems[i.id]?{...i,done:true}:i;});});
+      setSelectedItems({});
+    }
     var anySelected=Object.values(selectedItems).some(Boolean);
 
     return(
@@ -7566,9 +7651,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                                 {catItems.map(function(item){
                                   return(
                                     <ShopItemRow key={item.id} item={item} selected={!!selectedItems[item.id]} onSelect={toggleSelect}
-                                      onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
-                                      onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                                      onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                                      onToggle={handleToggle}
+                                      onDelete={handleDelete}
+                                      onSave={handleSave}
                                     />
                                   );
                                 })}
@@ -7582,9 +7667,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         {storeItems.map(function(item){
                           return(
                             <ShopItemRow key={item.id} item={item} selected={!!selectedItems[item.id]} onSelect={toggleSelect}
-                              onToggle={function(id){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
-                              onDelete={function(id){setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                              onSave={function(id,val){setShoppingItems(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                              onToggle={handleToggle}
+                              onDelete={handleDelete}
+                              onSave={handleSave}
                             />
                           );
                         })}
