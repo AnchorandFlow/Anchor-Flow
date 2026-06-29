@@ -4133,12 +4133,12 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave}) {
+  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave, onDragStart}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
     return (
-      <div style={{borderBottom:`1px solid ${T.borderSoft}`}}>
+      <div data-shopid={item.id} style={{borderBottom:`1px solid ${T.borderSoft}`}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",padding:"0.4rem 0",alignItems:"center"}}>
             <input value={editVal} onChange={e=>setEditVal(e.target.value)}
@@ -4150,6 +4150,7 @@ Respond ONLY with valid JSON array, no markdown:
         ) : (
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.44rem 0"}}>
+              {onDragStart&&<span onPointerDown={function(e){onDragStart(e,item.id);}} style={{cursor:"grab",color:T.textFaint,fontSize:"0.9rem",userSelect:"none",touchAction:"none",padding:"0 2px",flexShrink:0,lineHeight:1}}>⠿</span>}
               <button onClick={()=>onToggle(item.id,item.done)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
@@ -7331,6 +7332,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     var pendingOps=useRef(new Set());
+    var shopDrag=useRef({id:null,clone:null,fromStore:null,overStore:null});
+    var [shopDraggingId,setShopDraggingId]=useState(null);
+    var [shopDragOverStore,setShopDragOverStore]=useState(null);
     function shopUserId(){try{var _u=JSON.parse(localStorage.getItem("af_authUser")||"null");return(_u&&_u.id)?_u.id:"";}catch(e){return "";}}
 
     useEffect(function(){
@@ -7419,6 +7423,57 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:val,p_store:cur.store||"Grocery",p_category:cur.category||"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":UPDATE");}else{}});
       }
     }
+    function handleMoveStore(id,targetStoreLabel){
+      var cur=shoppingItems.find(function(x){return x.id===id;});
+      if(!cur)return;
+      setShoppingItems(function(p){return p.map(function(x){return x.id===id?Object.assign({},x,{store:targetStoreLabel,category:""}):x;});});
+      if(SHOPPING_V2&&householdId){
+        pendingOps.current.add(id+":UPDATE");
+        supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:cur.text,p_store:targetStoreLabel,p_category:"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":UPDATE");});
+      }
+    }
+    function shopPointerDown(e,id){
+      if(e.button!==undefined&&e.button!==0)return;
+      e.stopPropagation();
+      var cur=shoppingItems.find(function(x){return x.id===id;});
+      shopDrag.current.id=id;
+      shopDrag.current.fromStore=cur?normalizeStore(cur.store):null;
+      shopDrag.current.overStore=null;
+      var srcEl=document.querySelector("[data-shopid='"+id+"']");
+      if(srcEl){
+        var clone=srcEl.cloneNode(true);
+        clone.style.cssText="position:fixed;top:"+(e.clientY-20)+"px;left:"+(e.clientX-40)+"px;width:"+srcEl.offsetWidth+"px;opacity:0.85;background:white;boxShadow:0 4px 16px rgba(0,0,0,0.22);borderRadius:8px;zIndex:9999;pointerEvents:none;transition:none;";
+        document.body.appendChild(clone);
+        shopDrag.current.clone=clone;
+      }
+      setShopDraggingId(id);
+    }
+    useEffect(function(){
+      if(!shopDraggingId)return;
+      function onMove(e){
+        if(shopDrag.current.clone){shopDrag.current.clone.style.top=(e.clientY-20)+"px";shopDrag.current.clone.style.left=(e.clientX-40)+"px";}
+        var el=document.elementFromPoint(e.clientX,e.clientY);
+        var storeEl=el&&el.closest("[data-shopstore]");
+        var overStore=storeEl?storeEl.getAttribute("data-shopstore"):null;
+        if(overStore!==shopDrag.current.overStore){shopDrag.current.overStore=overStore;setShopDragOverStore(overStore);}
+      }
+      function onUp(){
+        if(shopDrag.current.clone){try{shopDrag.current.clone.remove();}catch(ex){}shopDrag.current.clone=null;}
+        var overStore=shopDrag.current.overStore;
+        var fromStore=shopDrag.current.fromStore;
+        var dragId=shopDrag.current.id;
+        shopDrag.current={id:null,clone:null,fromStore:null,overStore:null};
+        setShopDraggingId(null);
+        setShopDragOverStore(null);
+        if(dragId&&overStore){
+          var targetSt=FIXED_STORES.find(function(s){return s.id===overStore;});
+          if(targetSt&&targetSt.label!==fromStore)handleMoveStore(dragId,targetSt.label);
+        }
+      }
+      window.addEventListener("pointermove",onMove);
+      window.addEventListener("pointerup",onUp);
+      return function(){window.removeEventListener("pointermove",onMove);window.removeEventListener("pointerup",onUp);};
+    },[shopDraggingId]);
     function addItem(text,store,photoUrl){
       if(!text.trim())return;
       var s=store||newStore;
@@ -7567,7 +7622,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
             var storeColor=st.id==="grocery"?T.sage:st.id==="costco"?T.blue:st.id==="target"?"#cc3333":st.id==="amazon"?"#e8a838":T.sand;
             return(
-              <div key={st.id} style={{...card({padding:"0",marginBottom:"0.65rem",border:"1.5px solid "+T.borderSoft})}}>
+              <div key={st.id} data-shopstore={st.id} style={{...card({padding:"0",marginBottom:"0.65rem",border:"1.5px solid "+(shopDragOverStore===st.id?"#4a7fa8":T.borderSoft),outline:shopDragOverStore===st.id?"2px solid #4a7fa8aa":"none",transition:"outline 0.1s,border 0.1s"})}}>
                 {/* Store header */}
                 <div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.75rem 1rem",borderBottom:isCollapsed?"none":"1px solid "+T.borderSoft}}>
                   <button onClick={function(){setCollapsedStores2(function(p){return{...p,[st.id]:!p[st.id]};});}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.5rem",flex:1,padding:0,textAlign:"left",fontFamily:"inherit"}}>
@@ -7615,6 +7670,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                                       onToggle={handleToggle}
                                       onDelete={handleDelete}
                                       onSave={handleSave}
+                                      onDragStart={shopPointerDown}
                                     />
                                   );
                                 })}
@@ -7631,6 +7687,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                               onToggle={handleToggle}
                               onDelete={handleDelete}
                               onSave={handleSave}
+                              onDragStart={shopPointerDown}
                             />
                           );
                         })}
