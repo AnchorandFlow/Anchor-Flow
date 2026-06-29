@@ -8830,9 +8830,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div style={{paddingBottom:"2rem"}}>
           <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-            <div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
-              <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
+              <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
+                <Icon name="arrow-left" size={17} color={T.textSoft}/>
+              </button>
+              <div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
+                <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+              </div>
             </div>
             <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
               <Icon name="plus" size={12} color="#fff"/> New note
@@ -9179,7 +9184,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {activeSections.map(function(sec) {
               var secItems = activeItems.filter(function(i){ return i.section_id === sec.id; });
               var isCollapsed = collapsedSections[sec.id];
-              var addKey = "sec_"+sec.id;
+              var addKey = sec.id;
               return (
                 <div key={sec.id} style={{marginBottom:14}}>
                   {/* Section header */}
