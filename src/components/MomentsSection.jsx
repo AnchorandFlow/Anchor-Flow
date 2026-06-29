@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 const B = {
   navy: "#faf8f4", coastal: "#6ba3c4", sage: "#7a9e8e", sand: "#c8a97a",
@@ -793,6 +793,7 @@ export default function MomentsSection() {
   const [newType, setNewType] = useState("party")
   const [newName, setNewName] = useState("")
   const [selected, setSelected] = useState(null)
+  const [viewDetail, setViewDetail] = useState(false)
 
   const save = (updated) => { setMoments(updated); try { localStorage.setItem("af_moments", JSON.stringify(updated)) } catch {} }
   const addMoment = () => {
@@ -803,8 +804,38 @@ export default function MomentsSection() {
   const updateMoment = (updated) => save(moments.map(m=>m.id===updated.id?updated:m))
   const deleteMoment = (id) => { save(moments.filter(m=>m.id!==id)); setSelected(null) }
   const selectedMoment = moments.find(m=>m.id===selected)
+  useEffect(function() { setViewDetail(false); }, [selected])
 
-  if (selectedMoment) return <MomentDetail moment={selectedMoment} onUpdate={updateMoment} onBack={()=>setSelected(null)} onDelete={deleteMoment}/>
+  const isPastMoment = selectedMoment && selectedMoment.date && new Date(selectedMoment.date + "T00:00:00") < new Date()
+
+  function createTemplate() {
+    try {
+      var tmpls = JSON.parse(localStorage.getItem("af_moment_templates") || "[]")
+      tmpls.push({ id: uid(), name: selectedMoment.name, type: selectedMoment.type, notes: selectedMoment.notes || [], shopping: selectedMoment.shopping || [], packing: selectedMoment.packing || {}, itinerary: selectedMoment.itinerary || {}, food: selectedMoment.food || [], createdFrom: selectedMoment.id })
+      localStorage.setItem("af_moment_templates", JSON.stringify(tmpls))
+    } catch(ex) {}
+    setSelected(null)
+  }
+
+  if (selectedMoment && isPastMoment && !viewDetail) return (
+    <div style={{ padding: "0 0 2rem" }}>
+      <button onClick={function() { setSelected(null); }} style={{ background: "none", border: "none", color: "rgba(250,248,244,0.6)", cursor: "pointer", fontFamily: "DM Sans,sans-serif", fontSize: 13, padding: "0 0 16px", display: "flex", alignItems: "center", gap: 4 }}>← Back</button>
+      <div style={{ textAlign: "center", padding: "32px 20px" }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>{selectedMoment.type === "party" ? "🎉" : "✈️"}</div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: "#faf8f4", marginBottom: 8 }}>{selectedMoment.name}</div>
+        {selectedMoment.date && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", marginBottom: 20 }}>{new Date(selectedMoment.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>}
+        <div style={{ fontSize: 15, color: "rgba(250,248,244,0.65)", fontFamily: "DM Sans,sans-serif", marginBottom: 28, lineHeight: 1.5 }}>This moment has passed — what would you like to do?</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 280, margin: "0 auto" }}>
+          <button onClick={createTemplate} style={{ background: "rgba(200,169,122,0.15)", border: "1.5px solid rgba(200,169,122,0.4)", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>📋 Create a template</button>
+          <button onClick={function() { setSelected(null); }} style={{ background: "rgba(106,163,196,0.12)", border: "1.5px solid rgba(106,163,196,0.3)", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#6ba3c4", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>💾 Save & keep</button>
+          <button onClick={function() { if (window.confirm("Delete this moment?")) deleteMoment(selectedMoment.id); }} style={{ background: "rgba(201,122,122,0.1)", border: "1.5px solid rgba(201,122,122,0.25)", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#c97a7a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>🗑 Delete</button>
+        </div>
+        <button onClick={function() { setViewDetail(true); }} style={{ marginTop: 20, background: "none", border: "none", color: "rgba(250,248,244,0.3)", fontSize: 11, fontFamily: "DM Sans,sans-serif", cursor: "pointer" }}>View / edit details →</button>
+      </div>
+    </div>
+  )
+
+  if (selectedMoment) return <MomentDetail moment={selectedMoment} onUpdate={updateMoment} onBack={function(){ setSelected(null); setViewDetail(false); }} onDelete={deleteMoment}/>
 
   const upcoming = moments.filter(m=>!m.date||new Date(m.date+"T00:00:00")>=new Date())
   const past = moments.filter(m=>m.date&&new Date(m.date+"T00:00:00")<new Date())

@@ -975,6 +975,11 @@ function CelebrationsSection({ calEvents }) {
   const INP = { background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
 
 
+  const passedThisYear = celebrations.filter(function(c) {
+    const thisYear = new Date(year, c.month-1, c.day)
+    return thisYear < now
+  }).length
+
   const celebEntries = celebrations.map(function(c) {
     const typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPES[6]
     const next = new Date(year, c.month-1, c.day)
@@ -986,7 +991,7 @@ function CelebrationsSection({ calEvents }) {
   })
 
   const all = celebEntries.sort(function(a, b) { return a.diff - b.diff })
-  const upcoming = all.filter(function(e) { return e.diff >= 0 })
+  const upcoming = all.filter(function(e) { return e.diff >= 0 && e.diff <= 30 })
   const past = all.filter(function(e) { return e.diff < 0 })
   const shown = filter === "upcoming" ? upcoming : all
 
@@ -996,7 +1001,7 @@ function CelebrationsSection({ calEvents }) {
         <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>
         <button onClick={function() { setAdding(function(p) { return !p }); setForm({ name: "", month: "", day: "", year: "", notes: "" }) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
       </div>
-      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {past.length} passed this year</div>
+      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
 
       {adding && (
         <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "16px", marginBottom: 16 }}>
