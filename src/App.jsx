@@ -1286,7 +1286,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         <div style={{paddingTop:"0.75rem"}}>
           <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
             <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-              <input defaultValue={preferredName} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+              <input value={preferredName||""} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
             </div>
           </Row>
           <Row label="Compass AI" sub="Daily briefing, suggestions, and Ask Compass">

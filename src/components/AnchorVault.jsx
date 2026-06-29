@@ -6219,13 +6219,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var s_shopMsg = useState(""); var shopMsg = s_shopMsg[0]; var setShopMsg = s_shopMsg[1]
   function quickAddShop(){
     var t = (shopVal||"").trim(); if(!t) return
-    var list = []
-    try { list = JSON.parse(localStorage.getItem("af_shoppingItems")||"[]"); if(!Array.isArray(list)) list=[] } catch(e){ list=[] }
-    var item = { id: "s_"+Math.random().toString(36).slice(2,9), text: t, done: false, store: "Grocery Store" }
-    localStorage.setItem("af_shoppingItems", JSON.stringify(list.concat([item])))
-    try { var dk = JSON.parse(localStorage.getItem("af_dirtyKeys")||"[]"); if(!dk.includes("shoppingItems")){ dk.push("shoppingItems"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dk)); } } catch(e){}
-    window.dispatchEvent(new CustomEvent("af-data-changed",{detail:{key:"shoppingItems"}}))
-    setShopVal(""); setShopMsg("Added: "+t); setTimeout(function(){ setShopMsg(""); }, 2200)
+    window.dispatchEvent(new CustomEvent("af-shopping-add",{detail:{text:t,store:"Grocery"}}))
+    setShopVal(""); setShopMsg("Added to list: "+t); setTimeout(function(){ setShopMsg(""); }, 2200)
   }
 
   var leftCards = [

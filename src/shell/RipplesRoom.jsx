@@ -128,7 +128,22 @@ export default function RipplesRoom(props) {
   var milestoneCount = sorted.filter(function (r) { return r.category === "milestone"; }).length;
   var quoteRipples = sorted.filter(function (r) { return r.category === "funny" || (r.name && r.name.indexOf('"') !== -1); });
 
-  function quickAdd(category) { if (props.onCapture) props.onCapture(category); }
+  var [addOpen, setAddOpen] = useState(false);
+  var [addForm, setAddForm] = useState({ name: "", who: "", category: "milestone", date: "", note: "" });
+
+  function quickAdd(category) {
+    var today = new Date().toISOString().slice(0, 10);
+    setAddForm({ name: "", who: "", category: category || "milestone", date: today, note: "" });
+    setAddOpen(true);
+  }
+  function saveRipple(form) {
+    var item = { id: "r-" + Date.now(), name: form.name.trim(), who: form.who, category: form.category, date: form.date, note: form.note };
+    var next = [item].concat(ripples);
+    setRipples(next);
+    try { localStorage.setItem("af_ripples", JSON.stringify(next)); } catch(e) {}
+    window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "ripples" } }));
+    setAddOpen(false);
+  }
 
   // ── tradition helpers ──
   function resetForm() {
@@ -473,6 +488,43 @@ export default function RipplesRoom(props) {
           <div style={{ fontSize: ".76rem", color: C.t3, lineHeight: 1.6 }}>One day soon, Compass will weave a year of ripples into a keepsake book — photos, milestones, and quotes together.</div>
         </div>
       )}
+
+    {/* ── Add-ripple modal ── */}
+    {addOpen && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
+        <div style={{ background: "#1E5B63", border: "1px solid " + C.border, borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }}>
+          <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12 }}>Capture a ripple</div>
+          <input value={addForm.name} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{name:e.target.value}); }); }} placeholder="What happened? (e.g. First steps!)"
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
+          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Category</div>
+              <select value={addForm.category} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{category:e.target.value}); }); }}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.border, background: "rgba(23,71,78,.9)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
+                <option value="milestone">Milestone</option>
+                <option value="firsts">First</option>
+                <option value="school">Learning win</option>
+                <option value="sports">Sports</option>
+                <option value="funny">Funny</option>
+                <option value="faith">Faith</option>
+                <option value="other">Memory</option>
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Date</div>
+              <input type="date" value={addForm.date} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{date:e.target.value}); }); }}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.border, background: "rgba(23,71,78,.9)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
+            </div>
+          </div>
+          <textarea value={addForm.note} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{note:e.target.value}); }); }} placeholder="Notes (optional)" rows={2}
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <div onClick={function(){ if(addForm.name.trim()) saveRipple(addForm); }} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Save ripple</div>
+            <div onClick={function(){ setAddOpen(false); }} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
