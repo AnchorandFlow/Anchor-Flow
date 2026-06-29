@@ -129,15 +129,15 @@ export default function RipplesRoom(props) {
   var quoteRipples = sorted.filter(function (r) { return r.category === "funny" || (r.name && r.name.indexOf('"') !== -1); });
 
   var [addOpen, setAddOpen] = useState(false);
-  var [addForm, setAddForm] = useState({ name: "", who: "", category: "milestone", date: "", note: "" });
+  var [addForm, setAddForm] = useState({ name: "", who: "", category: "milestone", date: "", note: "", photo: null });
 
   function quickAdd(category) {
     var today = new Date().toISOString().slice(0, 10);
-    setAddForm({ name: "", who: "", category: category || "milestone", date: today, note: "" });
+    setAddForm({ name: "", who: "", category: category || "milestone", date: today, note: "", photo: null });
     setAddOpen(true);
   }
   function saveRipple(form) {
-    var item = { id: "r-" + Date.now(), name: form.name.trim(), who: form.who, category: form.category, date: form.date, note: form.note };
+    var item = { id: "r-" + Date.now(), name: form.name.trim(), who: form.who, category: form.category, date: form.date, note: form.note, photo: form.photo || null };
     var next = [item].concat(ripples);
     setRipples(next);
     try { localStorage.setItem("af_ripples", JSON.stringify(next)); } catch(e) {}
@@ -266,6 +266,11 @@ export default function RipplesRoom(props) {
                     <div style={{ flex: 1, paddingBottom: 2 }}>
                       <div style={{ fontSize: ".82rem", color: C.t1, lineHeight: 1.37 }}>{r.name}</div>
                       {r.note && <div style={{ fontSize: ".72rem", color: C.t2, marginTop: 2, lineHeight: 1.4 }}>{r.note}</div>}
+                      {r.photo && (
+                        <div style={{ marginTop: 7, borderRadius: 8, overflow: "hidden" }}>
+                          <img src={r.photo} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", display: "block", borderRadius: 8 }} />
+                        </div>
+                      )}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4, flexWrap: "wrap" }}>
                         {r.who && <span style={{ fontSize: ".64rem", color: C.t3 }}>{r.who}</span>}
                         <span style={{ fontSize: ".6rem", padding: "1px 8px", borderRadius: 20, background: cs.color + "26", color: cs.color }}>{cs.label}</span>
@@ -517,7 +522,27 @@ export default function RipplesRoom(props) {
             </div>
           </div>
           <textarea value={addForm.note} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{note:e.target.value}); }); }} placeholder="Notes (optional)" rows={2}
-            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 10, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
+          <label style={{ display: "block", marginBottom: 12, cursor: "pointer" }}>
+            {addForm.photo ? (
+              <div style={{ position: "relative" }}>
+                <img src={addForm.photo} alt="" style={{ width: "100%", maxHeight: 140, objectFit: "cover", borderRadius: 9, display: "block" }} />
+                <div onClick={function(e){ e.preventDefault(); setAddForm(function(p){ return Object.assign({},p,{photo:null}); }); }} style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.55)", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: ".7rem", color: "#fff" }}>✕</div>
+              </div>
+            ) : (
+              <div style={{ padding: "11px 12px", background: "rgba(183,212,207,.06)", border: "1.5px dashed rgba(183,212,207,.25)", borderRadius: 9, textAlign: "center" }}>
+                <div style={{ fontSize: ".66rem", color: C.t3, fontFamily: SANS }}>📷 Add a photo (optional)</div>
+              </div>
+            )}
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={function(e){
+              var file = e.target.files && e.target.files[0];
+              if (!file) return;
+              var reader = new FileReader();
+              reader.onload = function(ev){ setAddForm(function(p){ return Object.assign({},p,{photo:ev.target.result}); }); };
+              reader.readAsDataURL(file);
+              e.target.value = "";
+            }} />
+          </label>
           <div style={{ display: "flex", gap: 8 }}>
             <div onClick={function(){ if(addForm.name.trim()) saveRipple(addForm); }} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Save ripple</div>
             <div onClick={function(){ setAddOpen(false); }} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
