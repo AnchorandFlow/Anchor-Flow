@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import MomentsSection from "./MomentsSection"
 import DosingTracker from "./DosingTracker"
 import RipplesRoom from "../shell/RipplesRoom"
+import SafeHarbor from "../shell/SafeHarbor"
 // CareerSection is defined inline below
 
 // ── Safe URL helper — prevents invalid URLs from crashing the PWA ─────────────
@@ -6072,6 +6073,29 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     }
   }
 
+  function safeHarborSummary() {
+    try {
+      var sh = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
+      if (!sh) return { highlight: "Emergency plan — not set up yet", countdown: null, count: 0 }
+      var itemCount = (sh.grabItems || []).length
+      var hazardCount = (sh.hazards || []).length
+      var lastReviewed = sh.lastReviewed || null
+      var alert = false
+      if (lastReviewed) {
+        var lastMs = new Date(lastReviewed).getTime()
+        if (!isNaN(lastMs) && (Date.now() - lastMs) > 365 * 86400000) alert = true
+      } else {
+        alert = true
+      }
+      return {
+        highlight: itemCount + " grab items · " + hazardCount + " local plan" + (hazardCount !== 1 ? "s" : ""),
+        countdown: lastReviewed ? "Reviewed " + lastReviewed.slice(5).replace("-","/") : "Never reviewed",
+        count: itemCount,
+        alert: alert,
+      }
+    } catch(e) { return { highlight: null, countdown: null, count: 0 } }
+  }
+
   function careerSummary() {
     try {
       var c = JSON.parse(localStorage.getItem("af_career") || "{}")
@@ -6165,6 +6189,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var inventory = inventorySummary()
   var careerSum = careerSummary()
   var trashSum = recurringDashSummary()
+  var safeHarborSum = safeHarborSummary()
 
   // Format celebration entries for display — include 🎁 if gifts recorded
   var celebEntries = (celeb.entries || []).map(function(e) {
@@ -6232,7 +6257,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     { id:"gifts", icon:"🎉", label:"Celebrations & Gifts", summary:{ count: celeb.count, highlight: celeb.highlight, countdown: celeb.countdown, alert: celeb.soon || celeb.alert, entries: celebEntries } },
     { id:"recurring", icon:"🔁", label:"Recurring Reminders", summary: trashSum },
     { id:"inventory", icon:"📦", label:"Inventory", summary:{ ...inventory, entries: inventoryEntries } },
-    { id:"travel", icon:"✈️", label:"Travel Profile", summary: travelSum }
+    { id:"travel", icon:"✈️", label:"Travel Profile", summary: travelSum },
+    { id:"safeharbor", icon:"⚓", label:"Safe Harbor", summary: safeHarborSum }
   ]
   var rightCards = [
     { id:"health", icon:"🩺", label:"Health", summary:{ ...health, entries: healthEntries } },
@@ -6302,15 +6328,16 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
 // ── Anchor Settings ───────────────────────────────────────────────────────────
 const ANCHOR_SECTIONS = [
-  { id: "inventory", label: "Inventory",     emoji: "📦" },
-  { id: "systems",   label: "Home Systems",  emoji: "🏠" },
-  { id: "health",    label: "Health",        emoji: "🩺" },
-  { id: "career",    label: "Career",        emoji: "📋" },
-  { id: "subs",      label: "Subscriptions", emoji: "🔄" },
-  { id: "gifts",     label: "Celebrate",     emoji: "🎉" },
-  { id: "pets",      label: "Pets",          emoji: "🐾" },
-  { id: "moments",   label: "Moments",       emoji: "✨" },
-  { id: "travel",    label: "Travel",        emoji: "✈️" },
+  { id: "inventory",  label: "Inventory",     emoji: "📦" },
+  { id: "systems",    label: "Home Systems",  emoji: "🏠" },
+  { id: "health",     label: "Health",        emoji: "🩺" },
+  { id: "career",     label: "Career",        emoji: "📋" },
+  { id: "subs",       label: "Subscriptions", emoji: "🔄" },
+  { id: "gifts",      label: "Celebrate",     emoji: "🎉" },
+  { id: "pets",       label: "Pets",          emoji: "🐾" },
+  { id: "moments",    label: "Moments",       emoji: "✨" },
+  { id: "travel",     label: "Travel",        emoji: "✈️" },
+  { id: "safeharbor", label: "Safe Harbor",   emoji: "⚓" },
 ]
 
 function AnchorSettings() {
@@ -6804,6 +6831,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
           {activeSection === "settings" && <AnchorSettings />}
           {activeSection === "subs" && <SubscriptionsSection />}
           {activeSection === "ripples" && <RipplesRoom />}
+          {activeSection === "safeharbor" && <SafeHarbor />}
         </div>
       </div>
     </div>
