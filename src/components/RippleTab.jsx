@@ -31,7 +31,7 @@ export default function CompassTab() {
       <div style={{background:B.navy,padding:"20px 20px 24px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
           <div>
-            <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#fff",minHeight:28}}>{typed}<span style={{animation:"pulse 1s infinite",opacity:typed.length<greeting.length?1:0}}>|</span></div>
+            <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4",minHeight:28}}>{typed}<span style={{animation:"pulse 1s infinite",opacity:typed.length<greeting.length?1:0}}>|</span></div>
             <div style={{fontFamily:"DM Sans,sans-serif",fontSize:13,color:`${B.sand}cc`,marginTop:4}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
           </div>
           <div style={{background:`${B.coastal}33`,border:`1px solid ${B.coastal}55`,borderRadius:12,padding:"6px 12px",display:"flex",alignItems:"center",gap:6}}>
