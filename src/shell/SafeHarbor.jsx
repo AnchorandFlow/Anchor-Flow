@@ -287,6 +287,7 @@ export default function SafeHarbor() {
   var [addName,    setAddName]    = useState("")
   var [addLoc,     setAddLoc]     = useState("")
   var [dismissedAt,setDismissedAt]= useState(function() { try { return parseInt(localStorage.getItem("af_sh_remind") || "0") || 0 } catch(e) { return 0 } })
+  var [pendingUndo,setPendingUndo]= useState({})     // { itemId: { item, timeoutId } }
 
   var contactsRef = useRef(null)
 
@@ -360,7 +361,38 @@ export default function SafeHarbor() {
     if (!session) return
     update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked}) : i }) })
   }
-  function deleteItem(id) { update({ grabItems: (data.grabItems || []).filter(function(i) { return i.id !== id }) }) }
+
+  function removeItem(item) {
+    // Remove from persisted data immediately
+    update({ grabItems: (data.grabItems || []).filter(function(i) { return i.id !== item.id }) })
+    // Clear any existing undo timer for this id
+    setPendingUndo(function(prev) {
+      if (prev[item.id]) clearTimeout(prev[item.id].timeoutId)
+      var tid = setTimeout(function() {
+        setPendingUndo(function(p) { var n = Object.assign({}, p); delete n[item.id]; return n })
+      }, 5000)
+      var next = Object.assign({}, prev)
+      next[item.id] = { item: item, timeoutId: tid }
+      return next
+    })
+  }
+
+  function undoRemove(itemId) {
+    setPendingUndo(function(prev) {
+      var entry = prev[itemId]
+      if (!entry) return prev
+      clearTimeout(entry.timeoutId)
+      // Re-insert the item — use functional update so we have fresh data
+      setData(function(d) {
+        var next = Object.assign({}, d, { grabItems: (d.grabItems || []).concat([entry.item]) })
+        saveData(next)
+        return next
+      })
+      var n = Object.assign({}, prev)
+      delete n[itemId]
+      return n
+    })
+  }
 
   function openAddItem(cat) { setAddingCat(cat); setAddName(""); setAddLoc("") }
   function submitCustom() {
@@ -368,6 +400,15 @@ export default function SafeHarbor() {
     var item = { id:uid(), name:addName.trim(), location:addLoc.trim(), assignedTo:"", tier:activeTier, category:addingCat, checked:false, custom:true, source:"" }
     update({ grabItems: (data.grabItems || []).concat([item]) })
     setAddingCat(null); setAddName(""); setAddLoc("")
+  }
+
+  function restoreDefaults() {
+    if (!window.confirm("Restore items from ready.gov you've removed?")) return
+    var currentNames = (data.grabItems || []).map(function(i) { return i.name })
+    var toAdd = DEFAULT_GRAB_ITEMS.filter(function(d) {
+      return currentNames.indexOf(d.name) === -1
+    }).map(function(d) { return Object.assign({}, d) })
+    if (toAdd.length) update({ grabItems: (data.grabItems || []).concat(toAdd) })
   }
 
   function startSession() { setSession(true) }
@@ -630,7 +671,11 @@ export default function SafeHarbor() {
           {/* Items by category */}
           {CAT_ORDER.map(function(cat) {
             var catItems = (data.grabItems||[]).filter(function(i) { return i.category===cat && i.tier<=activeTier })
-            if (catItems.length === 0 && addingCat !== cat) return null
+            var undoInCat = Object.keys(pendingUndo).filter(function(id) {
+              var e = pendingUndo[id]
+              return e && e.item.category === cat && e.item.tier <= activeTier
+            })
+            if (catItems.length === 0 && addingCat !== cat && undoInCat.length === 0) return null
             return (
               <div key={cat} style={card({ marginBottom:12 })}>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
@@ -666,10 +711,29 @@ export default function SafeHarbor() {
                       <div style={{ fontSize:9, color:TIER_META[item.tier-1].color, background:TIER_META[item.tier-1].pale, border:"0.5px solid "+TIER_META[item.tier-1].border, borderRadius:20, padding:"2px 7px", flexShrink:0, marginTop:2, whiteSpace:"nowrap" }}>
                         {TIER_META[item.tier-1].sub}
                       </div>
-                      {item.custom && (
-                        <button onClick={function(e) { e.stopPropagation(); deleteItem(item.id) }}
-                          style={{ background:"none", border:"none", color:"rgba(208,128,96,0.45)", cursor:"pointer", fontSize:16, flexShrink:0, padding:"0 2px" }}>×</button>
-                      )}
+                      {/* Remove button — all items */}
+                      <button onClick={function(e) { e.stopPropagation(); removeItem(item) }}
+                        style={{ background:"none", border:"none", color:"rgba(250,248,244,0.18)", cursor:"pointer", fontSize:15, flexShrink:0, padding:"0 2px", lineHeight:1, marginTop:2, transition:"color .15s" }}
+                        onMouseEnter={function(e) { e.currentTarget.style.color="rgba(208,128,96,0.7)" }}
+                        onMouseLeave={function(e) { e.currentTarget.style.color="rgba(250,248,244,0.18)" }}>
+                        ✕
+                      </button>
+                    </div>
+                  )
+                })}
+
+                {/* Undo rows for recently removed items in this category */}
+                {undoInCat.map(function(id) {
+                  var entry = pendingUndo[id]
+                  if (!entry) return null
+                  return (
+                    <div key={"undo-"+id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"0.5px solid rgba(250,242,229,0.04)", opacity:0.7 }}>
+                      <div style={{ width:18, height:18, borderRadius:5, flexShrink:0, border:"1.5px dashed rgba(250,248,244,0.15)", background:"transparent" }} />
+                      <div style={{ flex:1, fontSize:12, color:G.muted, textDecoration:"line-through", fontStyle:"italic" }}>{entry.item.name}</div>
+                      <div style={{ fontSize:12, color:G.sea, whiteSpace:"nowrap" }}>
+                        Removed ·{" "}
+                        <span onClick={function() { undoRemove(id) }} style={{ fontWeight:700, cursor:"pointer", textDecoration:"underline" }}>Undo</span>
+                      </div>
                     </div>
                   )
                 })}
@@ -694,10 +758,17 @@ export default function SafeHarbor() {
             )
           })}
 
-          {/* ready.gov footer */}
-          <div style={{ textAlign:"center", padding:"10px 0 2px", borderTop:"0.5px solid rgba(250,242,229,0.06)", marginTop:6 }}>
-            <div style={{ fontSize:10, color:G.muted }}>
-              All default items sourced from ready.gov ·{" "}
+          {/* Restore defaults + ready.gov footer */}
+          <div style={{ textAlign:"center", padding:"14px 0 2px", borderTop:"0.5px solid rgba(250,242,229,0.06)", marginTop:6 }}>
+            <div
+              onClick={restoreDefaults}
+              style={{ fontSize:12, color:G.muted, cursor:"pointer", marginBottom:10, display:"inline-block" }}
+              onMouseEnter={function(e) { e.currentTarget.style.color = G.sea }}
+              onMouseLeave={function(e) { e.currentTarget.style.color = G.muted }}>
+              ↩ Restore default items
+            </div>
+            <div style={{ fontSize:10, color:"rgba(250,248,244,0.2)" }}>
+              Default items sourced from ready.gov ·{" "}
               <a href="https://www.ready.gov/kit" target="_blank" rel="noopener noreferrer" style={{ color:G.sea }}>ready.gov/kit</a>
             </div>
           </div>
