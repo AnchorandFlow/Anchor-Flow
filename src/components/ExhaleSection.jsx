@@ -30,7 +30,7 @@ var LS_G  = "af_exhale_groups";
 var LS_L  = "af_exhale_labels";
 var LS_CL = "af_exhale_color_labels";
 var LS_P  = "af_exhale_people";
-var EXHALE_V2 = localStorage.getItem("af_exhale_v2") === "true";
+var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false";
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 function getColor(id) {
