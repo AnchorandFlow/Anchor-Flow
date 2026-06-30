@@ -11566,6 +11566,7 @@ function FlowWrapper({ onHome, onSignOut }) {
       { vault: "pets", label: "Pets", emoji: "🐾" },
       { vault: "moments", label: "Moments", emoji: "✨" },
       { vault: "travel", label: "Travel", emoji: "✈️" },
+      { vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" },
     ]},
     { vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" },
   ]
@@ -11580,8 +11581,9 @@ function FlowWrapper({ onHome, onSignOut }) {
     { id: "pets",      label: "Pets",      emoji: "🐾" },
     { id: "moments",   label: "Moments",   emoji: "✨" },
     { id: "travel",    label: "Travel",    emoji: "✈️" },
-    { id: "ripples",   label: "Ripples",   emoji: "🌊" },
-    { id: "settings",  label: "Settings",  emoji: "⚙️" },
+    { id: "ripples",     label: "Ripples",    emoji: "🌊" },
+    { id: "safeharbor", label: "Safe Harbor",emoji: "⚓" },
+    { id: "settings",   label: "Settings",   emoji: "⚙️" },
   ]
   const [anchorHidden, setAnchorHidden] = React.useState(function() {
     try { return JSON.parse(localStorage.getItem("af_anchor_hidden") || "{}") } catch { return {} }
