@@ -281,6 +281,50 @@ export default function ExhaleSection(props) {
       });
   }, [householdId]); // re-runs when householdId resolves null → real id; flag guards re-migration
 
+  // V2 initial load: fetch all household cards from exhale_cards on mount.
+  // Runs independently of migration so devices where migration already ran
+  // (including those that had 0 local cards to migrate) still load the
+  // household's current cards from the DB on every mount.
+  useEffect(function() {
+    if (!EXHALE_V2) return;
+    if (!householdId) return;
+    supabase
+      .from("exhale_cards")
+      .select("*")
+      .eq("household_id", householdId)
+      .is("deleted_at", null)
+      .order("position", { ascending: true })
+      .then(function(result) {
+        if (result.error) {
+          console.warn("[AF] Exhale load error:", result.error.message);
+          return;
+        }
+        if (!result.data || !result.data.length) return;
+        var newGroups = {};
+        result.data.forEach(function(row) {
+          var col = row.category || "brain";
+          if (!newGroups[col]) newGroups[col] = [];
+          newGroups[col].push({
+            id:         row.id,
+            text:       row.text        || "",
+            notes:      row.notes       || "",
+            color:      row.color       || "",
+            emoji:      row.emoji       || null,
+            dueDate:    row.due_date    || null,
+            assignedTo: row.assigned_to || null,
+            position:   row.position    || 0,
+            createdAt:  row.created_at  || null,
+          });
+        });
+        Object.keys(newGroups).forEach(function(col) {
+          newGroups[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0); });
+        });
+        setGroups(function(prev) {
+          return Object.assign({}, prev, newGroups);
+        });
+      });
+  }, [householdId]);
+
   // V2 Realtime: apply remote INSERTs in-place — no window.location.reload().
   // Dedupes on card id (own echo after optimistic add returns prev unchanged).
   // Deps: [householdId] — re-runs when householdId resolves null → real id.
