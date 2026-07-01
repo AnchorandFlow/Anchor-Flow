@@ -1671,6 +1671,29 @@ async function refreshAuthToken() {
 let _afHydrating = true;
 function _afEndHydration(){ _afHydrating = false; }
 
+// Keys that must never be marked dirty — system/session state, not user data.
+// Defined at module scope so markKeyDirty and setSaved share a single list.
+var _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId",
+  "dailySummaryScheduled","lastSeenDate","checkedCalEvents","checkedMealItems",
+  "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
+  "deviceId","dirtyKeys","theme","activeTab"];
+
+// Shared dirty-marker for bespoke writers that bypass useSaved (e.g. saveWorkDays,
+// saveCalMarkers). Respects the hydration guard and the exclude list exactly the
+// way setSaved does, so all dirty-marking logic lives in one place.
+function markKeyDirty(key) {
+  if (_afHydrating) return;
+  if (_DIRTY_EXCLUDE.indexOf(key) !== -1) return;
+  try {
+    var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+    if (dirty.indexOf(key) === -1) {
+      dirty.push(key);
+      localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+      AF_DEBUG&&console.log("[AF DIRTY] marked dirty:", key);
+    }
+  } catch(e) {}
+}
+
 function useSaved(key, fallback) {
   const [val, setVal] = useState(() => {
     try {
@@ -1702,11 +1725,7 @@ function useSaved(key, fallback) {
       const resolved = typeof next === "function" ? next(prev) : next;
       try { localStorage.setItem("af_" + key, JSON.stringify(resolved)); } catch {}
       // Mark this key dirty so only this device pushes its own changes
-      // Exclude system/session keys that are not user data
-      const _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId",
-        "dailySummaryScheduled","lastSeenDate","checkedCalEvents","checkedMealItems",
-        "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
-        "deviceId","dirtyKeys","theme","activeTab"];
+      // Exclude system/session keys that are not user data (_DIRTY_EXCLUDE is module-scope)
       if (!_afHydrating && !_DIRTY_EXCLUDE.includes(key)) {
         try {
           const dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
@@ -3863,7 +3882,11 @@ Respond ONLY with valid JSON array, no markdown:
   }
   // ── Calendar emoji markers (standalone localStorage, no household sync) ──
   function loadCalMarkers(){ try { var v = JSON.parse(localStorage.getItem("af_cal_markers")||"{}"); return (v && typeof v==="object") ? v : {}; } catch(e){ return {}; } }
-  function saveCalMarkers(m){ try { localStorage.setItem("af_cal_markers", JSON.stringify(m)); } catch(e){} }
+  function saveCalMarkers(m){
+    try { localStorage.setItem("af_cal_markers", JSON.stringify(m)); } catch(e){}
+    markKeyDirty("cal_markers");
+    try { window.dispatchEvent(new CustomEvent("af-data-changed")); } catch(e) {}
+  }
   function loadCalMarkerTypes(){
     try { var v = JSON.parse(localStorage.getItem("af_cal_marker_types")||"null"); if (Array.isArray(v) && v.length) return v; } catch(e){}
     return [
@@ -5851,6 +5874,8 @@ Respond ONLY in valid JSON:
                 _upd[_isoDate]={type:workDayForm.type,startHour:workDayForm.startHour,endHour:workDayForm.endHour,location:workDayForm.location,note:workDayForm.note};
                 saveWorkDays(_upd);
                 setWorkDays(_upd);
+                markKeyDirty("workDays");
+                try { window.dispatchEvent(new CustomEvent("af-data-changed")); } catch(e) {}
                 setWorkDayForm(function(p){return Object.assign({},p,{open:false});});
               }
               function _removeEntry(){
@@ -5858,6 +5883,8 @@ Respond ONLY in valid JSON:
                 delete _upd[_isoDate];
                 saveWorkDays(_upd);
                 setWorkDays(_upd);
+                markKeyDirty("workDays");
+                try { window.dispatchEvent(new CustomEvent("af-data-changed")); } catch(e) {}
                 setWorkDayForm(function(p){return Object.assign({},p,{open:false});});
               }
               var _stripBg=_wde?(_WD_BG[_wde.type]||"rgba(30,58,95,0.06)"):"rgba(30,58,95,0.03)";

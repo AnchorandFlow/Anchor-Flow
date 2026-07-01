@@ -44,6 +44,13 @@ function loadTraditions() {
 }
 function saveTraditions(list) {
   try { localStorage.setItem("af_traditions", JSON.stringify(list)); } catch (e) {}
+  try {
+    var _dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+    if (_dirty.indexOf("traditions") === -1) {
+      _dirty.push("traditions");
+      localStorage.setItem("af_dirtyKeys", JSON.stringify(_dirty));
+    }
+  } catch(e) {}
   try { window.dispatchEvent(new CustomEvent("af-data-changed")); } catch(e) {}
 }
 function fmtDate(d, opts) {
