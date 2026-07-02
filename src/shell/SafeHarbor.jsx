@@ -201,38 +201,38 @@ var HAZARD_CONTENT = {
 // ── Default grab items (sourced from ready.gov/kit) ───────────────────────
 var DEFAULT_GRAB_ITEMS = [
   // Tier 1 — People & Pets
-  { id:"g01", name:"All household members accounted for",    location:"", assignedTo:"", tier:1, category:"people",        checked:false, custom:false, source:"people and their needs are the first priority" },
-  { id:"g02", name:"Pets + leash or carrier",                location:"", assignedTo:"", tier:1, category:"people",        checked:false, custom:false, source:"animals, food, water and supplies for your pet" },
+  { id:"g01", defaultId:"g01", name:"All household members accounted for",    location:"", assignedTo:"", tier:1, category:"people",        checked:false, custom:false, source:"people and their needs are the first priority" },
+  { id:"g02", defaultId:"g02", name:"Pets + leash or carrier",                location:"", assignedTo:"", tier:1, category:"people",        checked:false, custom:false, source:"animals, food, water and supplies for your pet" },
   // Tier 1 — Prescriptions
-  { id:"g03", name:"Prescription medications",               location:"Medicine cabinet", assignedTo:"", tier:1, category:"prescriptions", checked:false, custom:false, source:"prescription medications are a basic kit essential" },
-  { id:"g04", name:"First aid kit",                          location:"", assignedTo:"", tier:1, category:"prescriptions", checked:false, custom:false, source:"first aid kit is a basic kit essential" },
+  { id:"g03", defaultId:"g03", name:"Prescription medications",               location:"Medicine cabinet", assignedTo:"", tier:1, category:"prescriptions", checked:false, custom:false, source:"prescription medications are a basic kit essential" },
+  { id:"g04", defaultId:"g04", name:"First aid kit",                          location:"", assignedTo:"", tier:1, category:"prescriptions", checked:false, custom:false, source:"first aid kit is a basic kit essential" },
   // Tier 1 — Papers
-  { id:"g05", name:"Passports + birth certificates",         location:"", assignedTo:"", tier:1, category:"papers",        checked:false, custom:false, source:"identification in a waterproof portable container" },
-  { id:"g06", name:"Insurance policies",                     location:"", assignedTo:"", tier:1, category:"papers",        checked:false, custom:false, source:"copies of insurance policies in waterproof container" },
+  { id:"g05", defaultId:"g05", name:"Passports + birth certificates",         location:"", assignedTo:"", tier:1, category:"papers",        checked:false, custom:false, source:"identification in a waterproof portable container" },
+  { id:"g06", defaultId:"g06", name:"Insurance policies",                     location:"", assignedTo:"", tier:1, category:"papers",        checked:false, custom:false, source:"copies of insurance policies in waterproof container" },
   // Tier 1 — Phones & Tech
-  { id:"g07", name:"Phones + chargers + power bank",         location:"", assignedTo:"", tier:1, category:"phones",        checked:false, custom:false, source:"cell phones with chargers and a backup battery" },
-  { id:"g08", name:"Keys + wallets",                         location:"", assignedTo:"", tier:1, category:"phones",        checked:false, custom:false, source:"keys and cash for your emergency kit" },
+  { id:"g07", defaultId:"g07", name:"Phones + chargers + power bank",         location:"", assignedTo:"", tier:1, category:"phones",        checked:false, custom:false, source:"cell phones with chargers and a backup battery" },
+  { id:"g08", defaultId:"g08", name:"Keys + wallets",                         location:"", assignedTo:"", tier:1, category:"phones",        checked:false, custom:false, source:"keys and cash for your emergency kit" },
   // Tier 1 — Personal Needs
-  { id:"g09", name:"Water — 1 gallon per person per day",    location:"", assignedTo:"", tier:1, category:"personal",      checked:false, custom:false, source:"water is the first basic kit essential" },
+  { id:"g09", defaultId:"g09", name:"Water — 1 gallon per person per day",    location:"", assignedTo:"", tier:1, category:"personal",      checked:false, custom:false, source:"water is the first basic kit essential" },
   // Tier 2 — People & Pets
-  { id:"g10", name:"Pet food + water supply",                location:"", assignedTo:"", tier:2, category:"people",        checked:false, custom:false, source:"pet food, water and supplies for your pet" },
+  { id:"g10", defaultId:"g10", name:"Pet food + water supply",                location:"", assignedTo:"", tier:2, category:"people",        checked:false, custom:false, source:"pet food, water and supplies for your pet" },
   // Tier 2 — Prescriptions
-  { id:"g11", name:"Non-prescription medications",           location:"", assignedTo:"", tier:2, category:"prescriptions", checked:false, custom:false, source:"pain relievers, anti-diarrhea medication, antacids" },
+  { id:"g11", defaultId:"g11", name:"Non-prescription medications",           location:"", assignedTo:"", tier:2, category:"prescriptions", checked:false, custom:false, source:"pain relievers, anti-diarrhea medication, antacids" },
   // Tier 2 — Papers
-  { id:"g12", name:"Bank account records + cash in small bills", location:"", assignedTo:"", tier:2, category:"papers",   checked:false, custom:false, source:"bank account records and cash" },
+  { id:"g12", defaultId:"g12", name:"Bank account records + cash in small bills", location:"", assignedTo:"", tier:2, category:"papers",   checked:false, custom:false, source:"bank account records and cash" },
   // Tier 2 — Phones & Tech
-  { id:"g13", name:"Battery-powered or hand-crank radio",    location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"NOAA Weather Radio with tone alert is a basic kit essential" },
-  { id:"g14", name:"Flashlights + extra batteries",          location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"flashlight is a basic kit essential" },
-  { id:"g15", name:"Laptop or external hard drive",          location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"additional items — computers" },
+  { id:"g13", defaultId:"g13", name:"Battery-powered or hand-crank radio",    location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"NOAA Weather Radio with tone alert is a basic kit essential" },
+  { id:"g14", defaultId:"g14", name:"Flashlights + extra batteries",          location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"flashlight is a basic kit essential" },
+  { id:"g15", defaultId:"g15", name:"Laptop or external hard drive",          location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"additional items — computers" },
   // Tier 2 — Personal Needs
-  { id:"g16", name:"Non-perishable food — 3-day supply",     location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"food is the second basic kit essential" },
-  { id:"g17", name:"Feminine supplies + hand sanitizer",     location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"feminine supplies and personal hygiene items" },
-  { id:"g18", name:"Infant supplies if applicable",          location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"infant formula and diapers" },
+  { id:"g16", defaultId:"g16", name:"Non-perishable food — 3-day supply",     location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"food is the second basic kit essential" },
+  { id:"g17", defaultId:"g17", name:"Feminine supplies + hand sanitizer",     location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"feminine supplies and personal hygiene items" },
+  { id:"g18", defaultId:"g18", name:"Infant supplies if applicable",          location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"infant formula and diapers" },
   // Tier 3 — Personal Needs
-  { id:"g19", name:"Sleeping bags or warm blankets",         location:"", assignedTo:"", tier:3, category:"personal",      checked:false, custom:false, source:"sleeping bag or warm blanket for each person" },
-  { id:"g20", name:"Change of clothing + sturdy shoes",      location:"", assignedTo:"", tier:3, category:"personal",      checked:false, custom:false, source:"complete change of clothing including sturdy shoes" },
+  { id:"g19", defaultId:"g19", name:"Sleeping bags or warm blankets",         location:"", assignedTo:"", tier:3, category:"personal",      checked:false, custom:false, source:"sleeping bag or warm blanket for each person" },
+  { id:"g20", defaultId:"g20", name:"Change of clothing + sturdy shoes",      location:"", assignedTo:"", tier:3, category:"personal",      checked:false, custom:false, source:"complete change of clothing including sturdy shoes" },
   // Tier 3 — Priceless Items
-  { id:"g21", name:"Irreplaceable photos or keepsakes",      location:"", assignedTo:"", tier:3, category:"priceless",     checked:false, custom:false, source:"additional items — irreplaceable items" },
+  { id:"g21", defaultId:"g21", name:"Irreplaceable photos or keepsakes",      location:"", assignedTo:"", tier:3, category:"priceless",     checked:false, custom:false, source:"additional items — irreplaceable items" },
 ]
 
 var DEFAULT_DATA = {
@@ -242,6 +242,7 @@ var DEFAULT_DATA = {
   grabItems: DEFAULT_GRAB_ITEMS,
   hazards: [],
   reviewDue: false,
+  removedDefaultIds: [],
 }
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -254,10 +255,17 @@ function loadData() {
     }
     if (!Array.isArray(saved.grabItems) || saved.grabItems.length === 0) {
       saved.grabItems = DEFAULT_GRAB_ITEMS.map(function(i) { return Object.assign({},i) })
+    } else {
+      // Hard-delete all tombstones on load — silently finalizes any unexpired undo windows.
+      // removedDefaultIds already contains the stable identity, so defaults stay removed.
+      saved.grabItems = saved.grabItems.filter(function(i) { return !i.removed })
     }
     if (!saved.contacts || typeof saved.contacts !== "object") saved.contacts = Object.assign({}, DEFAULT_DATA.contacts)
     if (!Array.isArray(saved.members)) saved.members = []
     if (!Array.isArray(saved.hazards)) saved.hazards  = []
+    if (!Array.isArray(saved.removedDefaultIds)) saved.removedDefaultIds = []
+    // Persist cleaned state so localStorage never retains stale tombstones.
+    try { localStorage.setItem("af_safe_harbor", JSON.stringify(saved)) } catch(_e) {}
     return saved
   } catch(e) {
     return Object.assign({}, DEFAULT_DATA, { grabItems: DEFAULT_GRAB_ITEMS.map(function(i) { return Object.assign({},i) }) })
@@ -353,7 +361,7 @@ export default function SafeHarbor() {
   function removeMember(id) { update({ members: (data.members || []).filter(function(m) { return m.id !== id }) }) }
 
   // ── Grab & Go ─────────────────────────────────────────────────────────────
-  var visibleItems  = (data.grabItems || []).filter(function(i) { return i.tier <= activeTier })
+  var visibleItems  = (data.grabItems || []).filter(function(i) { return !i.removed && i.tier <= activeTier })
   var checkedCount  = visibleItems.filter(function(i) { return i.checked }).length
   var pct           = visibleItems.length ? Math.round((checkedCount / visibleItems.length) * 100) : 0
 
@@ -363,12 +371,30 @@ export default function SafeHarbor() {
   }
 
   function removeItem(item) {
-    // Remove from persisted data immediately
-    update({ grabItems: (data.grabItems || []).filter(function(i) { return i.id !== item.id }) })
-    // Clear any existing undo timer for this id
+    // Tombstone the item so undo can clear it while still restoring position.
+    // removedDefaultIds is the durable record that keeps defaults out until an
+    // explicit restoreDefaults() — the tombstone itself is ephemeral.
+    var now = Date.now()
+    var nextItems = (data.grabItems || []).map(function(i) {
+      return i.id === item.id ? Object.assign({}, i, { removed: true, removedAt: now }) : i
+    })
+    var nextRemovedIds = (data.removedDefaultIds || []).slice()
+    if (item.defaultId && nextRemovedIds.indexOf(item.defaultId) === -1) {
+      nextRemovedIds.push(item.defaultId)
+    }
+    update({ grabItems: nextItems, removedDefaultIds: nextRemovedIds })
+    // Replace any existing undo entry for this id.
     setPendingUndo(function(prev) {
       if (prev[item.id]) clearTimeout(prev[item.id].timeoutId)
       var tid = setTimeout(function() {
+        // Undo window expired — hard-delete the tombstone from storage.
+        setData(function(d) {
+          var next = Object.assign({}, d, {
+            grabItems: (d.grabItems || []).filter(function(i) { return i.id !== item.id })
+          })
+          saveData(next)
+          return next
+        })
         setPendingUndo(function(p) { var n = Object.assign({}, p); delete n[item.id]; return n })
       }, 5000)
       var next = Object.assign({}, prev)
@@ -382,9 +408,20 @@ export default function SafeHarbor() {
       var entry = prev[itemId]
       if (!entry) return prev
       clearTimeout(entry.timeoutId)
-      // Re-insert the item — use functional update so we have fresh data
+      // The item is still in grabItems as a tombstone — just clear the flag.
+      // This preserves its original tier and array index automatically.
       setData(function(d) {
-        var next = Object.assign({}, d, { grabItems: (d.grabItems || []).concat([entry.item]) })
+        var nextItems = (d.grabItems || []).map(function(i) {
+          if (i.id !== itemId) return i
+          var cleaned = Object.assign({}, i)
+          delete cleaned.removed
+          delete cleaned.removedAt
+          return cleaned
+        })
+        var nextRemovedIds = (d.removedDefaultIds || []).filter(function(rid) {
+          return rid !== entry.item.defaultId
+        })
+        var next = Object.assign({}, d, { grabItems: nextItems, removedDefaultIds: nextRemovedIds })
         saveData(next)
         return next
       })
@@ -403,12 +440,20 @@ export default function SafeHarbor() {
   }
 
   function restoreDefaults() {
-    if (!window.confirm("Restore items from ready.gov you've removed?")) return
-    var currentNames = (data.grabItems || []).map(function(i) { return i.name })
+    if (!window.confirm("Restore removed ready.gov items? Your custom items won't be affected.")) return
+    // Dedup by defaultId so a custom item that shares a name doesn't block restore.
+    var currentDefaultIds = (data.grabItems || [])
+      .filter(function(i) { return !i.removed && i.defaultId })
+      .map(function(i) { return i.defaultId })
     var toAdd = DEFAULT_GRAB_ITEMS.filter(function(d) {
-      return currentNames.indexOf(d.name) === -1
+      return currentDefaultIds.indexOf(d.defaultId) === -1
     }).map(function(d) { return Object.assign({}, d) })
-    if (toAdd.length) update({ grabItems: (data.grabItems || []).concat(toAdd) })
+    var restoredIds = toAdd.map(function(d) { return d.defaultId })
+    var remainingRemovedIds = (data.removedDefaultIds || []).filter(function(id) {
+      return restoredIds.indexOf(id) === -1
+    })
+    // Always update removedDefaultIds even if no items were added (cleans up stale ids).
+    update({ grabItems: (data.grabItems || []).concat(toAdd), removedDefaultIds: remainingRemovedIds })
   }
 
   function startSession() { setSession(true) }
@@ -426,9 +471,9 @@ export default function SafeHarbor() {
   }
 
   // ── Grab item count by tier for summary ──────────────────────────────────
-  var t1Count = (data.grabItems || []).filter(function(i) { return i.tier === 1 }).length
-  var t2Count = (data.grabItems || []).filter(function(i) { return i.tier <= 2 }).length
-  var t3Count = (data.grabItems || []).length
+  var t1Count = (data.grabItems || []).filter(function(i) { return !i.removed && i.tier === 1 }).length
+  var t2Count = (data.grabItems || []).filter(function(i) { return !i.removed && i.tier <= 2 }).length
+  var t3Count = (data.grabItems || []).filter(function(i) { return !i.removed }).length
 
   return (
     <div style={{ paddingBottom:"3rem", fontFamily:SANS }}>
@@ -670,7 +715,7 @@ export default function SafeHarbor() {
 
           {/* Items by category */}
           {CAT_ORDER.map(function(cat) {
-            var catItems = (data.grabItems||[]).filter(function(i) { return i.category===cat && i.tier<=activeTier })
+            var catItems = (data.grabItems||[]).filter(function(i) { return !i.removed && i.category===cat && i.tier<=activeTier })
             var undoInCat = Object.keys(pendingUndo).filter(function(id) {
               var e = pendingUndo[id]
               return e && e.item.category === cat && e.item.tier <= activeTier
@@ -713,7 +758,8 @@ export default function SafeHarbor() {
                       </div>
                       {/* Remove button — all items */}
                       <button onClick={function(e) { e.stopPropagation(); removeItem(item) }}
-                        style={{ background:"none", border:"none", color:"rgba(250,248,244,0.18)", cursor:"pointer", fontSize:15, flexShrink:0, padding:"0 2px", lineHeight:1, marginTop:2, transition:"color .15s" }}
+                        aria-label={"Remove " + item.name + " from " + TIER_META[item.tier-1].sub + " list"}
+                        style={{ background:"none", border:"none", color:"rgba(250,248,244,0.18)", cursor:"pointer", fontSize:15, flexShrink:0, padding:"0 6px", lineHeight:1, marginTop:0, transition:"color .15s", minWidth:44, minHeight:44, display:"flex", alignItems:"center", justifyContent:"center" }}
                         onMouseEnter={function(e) { e.currentTarget.style.color="rgba(208,128,96,0.7)" }}
                         onMouseLeave={function(e) { e.currentTarget.style.color="rgba(250,248,244,0.18)" }}>
                         ✕
@@ -732,7 +778,7 @@ export default function SafeHarbor() {
                       <div style={{ flex:1, fontSize:12, color:G.muted, textDecoration:"line-through", fontStyle:"italic" }}>{entry.item.name}</div>
                       <div style={{ fontSize:12, color:G.sea, whiteSpace:"nowrap" }}>
                         Removed ·{" "}
-                        <span onClick={function() { undoRemove(id) }} style={{ fontWeight:700, cursor:"pointer", textDecoration:"underline" }}>Undo</span>
+                        <button onClick={function() { undoRemove(id) }} aria-label={"Undo removal of " + entry.item.name} style={{ background:"none", border:"none", color:G.sea, fontFamily:SANS, fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"underline", padding:"0 0 0 2px", minHeight:44, verticalAlign:"middle" }}>Undo</button>
                       </div>
                     </div>
                   )
