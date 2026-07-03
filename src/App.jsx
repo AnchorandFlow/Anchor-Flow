@@ -1959,6 +1959,16 @@ function createLocalBackup() {
     if (data["cove_items_v1"] && typeof data["cove_items_v1"] === "object") {
       out["cove_items_v1"] = data["cove_items_v1"];
     }
+    // Defensive pass-through: any SYNC_KEYS key not explicitly handled above
+    // syncs as-is (null-guarded) instead of being silently dropped. Fixes
+    // receive-side loss of workDays, traditions, cal_markers, cal_marker_types,
+    // compassCache, compassEnabled, exhale_groups, exhale_color_labels,
+    // exhale_people — and future-proofs new SYNC_KEYS additions.
+    SYNC_KEYS.forEach(k => {
+      if (out[k] === undefined && data[k] !== undefined && data[k] !== null) {
+        out[k] = data[k];
+      }
+    });
     return out;
   }
 
