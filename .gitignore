@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local recon / planning docs — not for version control
+safe-harbor-code-map.md
+SYNC_RELOAD_INVENTORY.md
+SYNC_APPLY_DESIGN.md
