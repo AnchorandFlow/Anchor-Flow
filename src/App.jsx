@@ -10840,6 +10840,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             ? "Enter your email and we'll send a password reset link."
             : "Create your personal login. Your partner needs their own account."}
         </div>
+        <form onSubmit={e=>{e.preventDefault();handleSubmit();}}>
         {/* Hidden fake fields to defeat browser autofill */}
         <input type="text" style={{display:"none"}} autoComplete="username"/>
         <input type="password" style={{display:"none"}} autoComplete="current-password"/>
@@ -10889,15 +10890,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {error}
             {rawDebug&&<div style={{marginTop:"0.35rem",fontSize:"0.7rem",color:T.textSoft,fontWeight:400,wordBreak:"break-all",fontFamily:"monospace"}}>{rawDebug}</div>}
             {(error.includes("already has an account")||error.includes("Sign In"))&&(
-              <button onClick={()=>switchMode("signin")} style={{display:"block",marginTop:"0.4rem",background:"none",border:"none",color:T.blue,cursor:"pointer",fontSize:"0.8rem",fontFamily:"inherit",fontWeight:700,padding:0,textDecoration:"underline"}}>
+              <button type="button" onClick={()=>switchMode("signin")} style={{display:"block",marginTop:"0.4rem",background:"none",border:"none",color:T.blue,cursor:"pointer",fontSize:"0.8rem",fontFamily:"inherit",fontWeight:700,padding:0,textDecoration:"underline"}}>
                 Switch to Sign In →
               </button>
             )}
           </div>
         )}
-        <button onClick={handleSubmit} disabled={loading} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.85rem",fontSize:"0.95rem",marginBottom:"0.75rem",opacity:loading?0.7:1,cursor:loading?"wait":"pointer"})}>
+        <button type="submit" disabled={loading} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.85rem",fontSize:"0.95rem",marginBottom:"0.75rem",opacity:loading?0.7:1,cursor:loading?"wait":"pointer"})}>
           {loading ? (mode==="reset"?"Sending…":mode==="signin"?"Signing in…":"Creating account…") : mode==="reset" ? "Send Reset Email" : mode==="signin" ? "Sign In" : "Create Account"}
         </button>
+        </form>
         <div style={{textAlign:"center",display:"flex",flexDirection:"column",gap:"0.5rem"}}>
           <button onClick={()=>switchMode(mode==="signin"?"signup":"signin")}
             style={{background:"none",border:"none",color:T.blue,cursor:"pointer",fontSize:"0.82rem",fontFamily:"inherit",fontWeight:600}}>
