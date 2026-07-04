@@ -2408,6 +2408,15 @@ function createLocalBackup() {
   useEffect(function() {
     if (!("serviceWorker" in navigator)) return;
 
+    // Capture controller state BEFORE registration so the controllerchange listener
+    // can distinguish a first-install claim from a genuine SW update adoption:
+    //   hadController=false → brand-new device, no prior SW. install → activate →
+    //     clients.claim() fires controllerchange normally, but the page is already
+    //     running the only bundle that exists — reloading would be wrong.
+    //   hadController=true  → a SW was already controlling this client. A new SW
+    //     replaced it (via SKIP_WAITING) → reload to load the new bundle.
+    var hadController = !!navigator.serviceWorker.controller;
+
     navigator.serviceWorker.register("/sw.js").then(function(reg) {
       swRegRef.current = reg;
 
@@ -2429,9 +2438,12 @@ function createLocalBackup() {
     }).catch(function() {});
 
     // controllerchange: fires when a new SW has claimed this client after skipWaiting.
-    // _swReloadFired ensures this fires AT MOST ONCE per page lifetime (no loop risk).
+    // Two guards:
+    //   _swReloadFired — fires AT MOST ONCE per page lifetime (no loop risk).
+    //   hadController  — skips first-install claim; reload only when replacing a prior SW.
     navigator.serviceWorker.addEventListener("controllerchange", function() {
       if (_swReloadFired) return;
+      if (!hadController) return; // first-install clients.claim() — no prior SW, no reload needed
       _swReloadFired = true;
       window.location.reload();
     });
