@@ -475,7 +475,13 @@ const SYNC_KEYS = [
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
-  "traditions"];
+  "traditions",
+  // Meals month grid + next-week meal count (July 3 sync-gap audit).
+  // NOTE: "af_nwMealCount" is intentionally listed WITH the af_ prefix:
+  // useSaved("af_nwMealCount") adds its own prefix, so the stored key is
+  // af_af_nwMealCount, and sync loops prefix SYNC_KEYS entries with af_.
+  // Do NOT normalize this without a data migration for existing devices.
+  "monthMeals","af_nwMealCount"];
 
 function readHouseholdState() {
   var st = {};
@@ -6828,7 +6834,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var WEEK_LABELS=["Week 1","Week 2","Week 3","Week 4"];
           var monthKey="af_monthMeals";
           function getMonthMeals(){try{return JSON.parse(localStorage.getItem(monthKey)||"{}");}catch{return{};}}
-          function saveMonthMeals(d){try{localStorage.setItem(monthKey,JSON.stringify(d));}catch{}}
+          function saveMonthMeals(d){try{localStorage.setItem(monthKey,JSON.stringify(d));}catch{} markKeyDirty("monthMeals");}
           var monthMeals=getMonthMeals();
           return(
             <div>
