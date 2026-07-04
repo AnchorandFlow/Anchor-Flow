@@ -1,9 +1,20 @@
 const CACHE_VERSION = "anchor-flow-v20260622-1";
 const STATIC_CACHE = CACHE_VERSION;
 
-// On install: skip waiting immediately so new SW takes over right away
+// On install: do NOT skip waiting immediately.
+// The page detects the waiting worker and shows an update banner.
+// When the user clicks "Refresh Now", the page posts {type:"SKIP_WAITING"}
+// and the SW calls skipWaiting() then, giving clients.claim() below a chance
+// to take over all tabs before the page reloads.
 self.addEventListener("install", function(event) {
-  self.skipWaiting();
+  // Intentionally no skipWaiting() — app controls adoption timing.
+});
+
+// Page sends SKIP_WAITING when the user taps "Refresh Now" in the update banner.
+self.addEventListener("message", function(event) {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 // On activate: delete ALL old caches, then claim all clients immediately

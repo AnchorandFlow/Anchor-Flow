@@ -464,6 +464,10 @@ window.__compassTest = function (q) {
 };
 
 const APP_VERSION = "2026-06-03-vault-refresh";
+// Module-level flag: controllerchange reload fires AT MOST ONCE per page lifetime.
+// Prevents a second controllerchange (e.g. from a rapid double-update) from
+// triggering a second reload while the first is already in progress.
+var _swReloadFired = false;
 var SHOPPING_V2 = localStorage.getItem("af_shopping_v2") === "true";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -2388,11 +2392,63 @@ function createLocalBackup() {
     } catch { setSyncStatus("error"); }
   }
 
-  // Register Service Worker on first load (enables caching + persistent notifications)
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // SW registration + update adoption
+  //
+  // Install lifecycle (sw.js no longer calls skipWaiting on install):
+  //   1. New SW installs → state "installed" → reg.waiting is set.
+  //   2. This effect detects the waiting worker → shows staleBanner.
+  //   3. User clicks "Refresh Now" → button posts SKIP_WAITING to reg.waiting.
+  //   4. SW calls skipWaiting() → becomes active → clients.claim() runs.
+  //   5. controllerchange fires here → _swReloadFired guard → window.location.reload().
+  //
+  // Belt-and-suspenders update triggering (MOD 2):
+  //   - visibilitychange → registration.update(): catches backgrounded-tab case (July 3 trap)
+  //   - Poll-tick counter every 40 ticks (~10 min): catches foreground-left-open tabs
+  //   Both are wired up below; swRegRef.current is available to the poll useEffect.
+  useEffect(function() {
+    if (!("serviceWorker" in navigator)) return;
+
+    navigator.serviceWorker.register("/sw.js").then(function(reg) {
+      swRegRef.current = reg;
+
+      // A waiting worker may already exist if the page was hard-reloaded after a
+      // prior SW installed. Show the banner immediately in that case.
+      if (reg.waiting) { setStaleBanner(true); }
+
+      // Watch for a new SW installing during this page session.
+      reg.addEventListener("updatefound", function() {
+        var newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", function() {
+          // "installed" with reg.waiting set = new SW ready, waiting for SKIP_WAITING.
+          if (newWorker.state === "installed" && reg.waiting) {
+            setStaleBanner(true);
+          }
+        });
+      });
+    }).catch(function() {});
+
+    // controllerchange: fires when a new SW has claimed this client after skipWaiting.
+    // _swReloadFired ensures this fires AT MOST ONCE per page lifetime (no loop risk).
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (_swReloadFired) return;
+      _swReloadFired = true;
+      window.location.reload();
+    });
+
+    // visibilitychange → registration.update(): the primary fix for the July 3 trap.
+    // When a tab returns from background the browser may not re-check the SW script;
+    // calling update() forces a byte-for-byte comparison against the network copy.
+    function onVisibleSW() {
+      if (document.visibilityState === "visible" && swRegRef.current) {
+        swRegRef.current.update().catch(function() {});
+      }
     }
+    document.addEventListener("visibilitychange", onVisibleSW);
+
+    return function() {
+      document.removeEventListener("visibilitychange", onVisibleSW);
+    };
   }, []);
 
   // ── Startup: correct household ID by owner_id ────────────────────────────
@@ -2565,6 +2621,9 @@ function createLocalBackup() {
       const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       if (!isTyping && !typedRecently) checkForUpdates();
     }, 5000);
+    // SW update: belt-and-suspenders check every 40 poll ticks (~10 min at 15s/tick).
+    // Catches a tab left foregrounded for hours without a visibilitychange event.
+    var _swPollTick = 0;
     const interval = setInterval(function(){
       const active = document.activeElement;
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
@@ -2572,6 +2631,11 @@ function createLocalBackup() {
       const shopFocused = window._shopInputFocused;
       AF_DEBUG && console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
       AF_DEBUG && console.warn("[AF FOCUS]", { tag: active?.tagName, type: active?.type, className: active?.className, id: active?.id });
+      // Periodic SW update check — every 40 ticks regardless of typing state.
+      _swPollTick++;
+      if (_swPollTick % 40 === 0 && swRegRef.current) {
+        swRegRef.current.update().catch(function() {});
+      }
       if (isTyping) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — isTyping"); return; }
       if (typedRecently) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
       if (shopFocused) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
@@ -2606,6 +2670,9 @@ function createLocalBackup() {
   const syncTimeoutRef = useRef(null);
   // Track last keystroke time — never reload within 15s of any typing
   const lastTypedRef = useRef(0);
+  // Holds the active ServiceWorkerRegistration so update checks and SKIP_WAITING
+  // posts can reach it from multiple places (poll loop, banner button, visibilitychange).
+  const swRegRef = useRef(null);
   useEffect(() => {
     function onKey() { lastTypedRef.current = Date.now(); }
     window.addEventListener("keydown", onKey, true);
@@ -2951,6 +3018,9 @@ function createLocalBackup() {
   });
   const [inAppBanner,setInAppBanner] = useState(null); // {title, body} shown as in-app toast
   const bannerTimerRef = useRef(null);
+  // SW update banner — shown when a new service worker is waiting for SKIP_WAITING.
+  // No auto-dismiss; user-controlled. Cleared on reload (page is gone by then).
+  const [staleBanner,setStaleBanner] = useState(false);
 
   // ── New feature state (all useSaved first, then useState) ───────────────────
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
@@ -3714,10 +3784,8 @@ Respond ONLY with valid JSON array, no markdown:
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     // Run on iOS always (uses in-app banners), elsewhere only if permission granted
     if (notifPermission === "granted" || isIOS) scheduleAllDailyNotifications();
-    // Register Service Worker for persistent notifications
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    // SW is registered once in the dedicated mount useEffect above.
+    // No re-registration here — calling register() again is harmless but redundant.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifPermission]);
 
@@ -11106,6 +11174,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
         [draggable]:active{cursor:grabbing!important}
       `}</style>
+
+      {/* ── SW update banner — shown when a new version is waiting for SKIP_WAITING ── */}
+      {staleBanner&&(
+        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:10000,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#faf8f4",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",display:"flex",gap:"0.75rem",alignItems:"center",animation:"slideDown 0.3s ease"}}>
+          <span style={{fontSize:"1.2rem",flexShrink:0}}>🔄</span>
+          <div style={{flex:1,fontSize:"0.82rem",fontWeight:500,fontFamily:"'DM Sans',sans-serif"}}>App update ready</div>
+          <button onClick={function(){
+            if (swRegRef.current && swRegRef.current.waiting) {
+              swRegRef.current.waiting.postMessage({type:"SKIP_WAITING"});
+            }
+          }} style={{background:"rgba(200,169,122,0.25)",border:"1px solid rgba(200,169,122,0.5)",borderRadius:"0.5rem",color:"#c8a97a",fontSize:"0.75rem",fontWeight:700,padding:"0.3rem 0.7rem",cursor:"pointer",fontFamily:"inherit",flexShrink:0,minHeight:36,minWidth:36}}>Refresh Now</button>
+          <span onClick={function(){setStaleBanner(false);}} style={{fontSize:"0.75rem",opacity:0.5,cursor:"pointer",flexShrink:0,padding:"0.25rem"}}>✕</span>
+        </div>
+      )}
 
       {/* ── In-app notification banner (iOS + fallback) ── */}
       {inAppBanner&&(
