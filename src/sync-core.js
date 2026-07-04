@@ -8,9 +8,8 @@
 // import them without triggering the App.jsx module-level IIFE
 // (sanitizeLocalStorageOnLoad, ~line 257) that reads/writes localStorage on import.
 //
-// DRIFT: App.jsx now imports from here. Any change to these definitions must be made
-// in this file only — App.jsx's inline copies are deleted. Old Phase A file
-// src/sync/syncCore.js is a separate copy that still drifts; Phase C should unify.
+// AUTHORITATIVE: App.jsx imports from here. The Phase A draft (src/sync/syncCore.js)
+// has been deleted — this file is the single source of truth.
 
 // ── Meal day order ─────────────────────────────────────────────────────────────
 // App.jsx line 514 (module scope). Three definitions exist in App.jsx; this is the
@@ -59,6 +58,31 @@ export const SYNC_KEYS = [
 // ── sanitizeHouseholdData ──────────────────────────────────────────────────────
 // App.jsx lines 1896-1979 (verbatim, previously a nested function inside HomeFlow).
 // No closure variables — only references MEAL_DAYS and SYNC_KEYS from this module.
+
+// Keys with explicit typed rules in sanitizeHouseholdData. The defensive pass-through
+// must not apply to these — if a key's value fails its explicit rule (e.g. tasks={}),
+// the rule's decision (drop it) must win. Only truly rule-less SYNC_KEYS keys reach
+// the pass-through. Fixed: F1 (pass-through was overwriting array-guard rejections).
+const _SANITIZE_HANDLED = new Set([
+  // Array-guard list
+  "tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
+  "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
+  "brainCats","homeSystems","dietaryFilters",
+  "recurring","celebrations","gifts","inventory","pets","houseFile",
+  "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
+  "moments","subs","vaultSystems","packing_templates",
+  // Specially structured
+  "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
+  // Scalars
+  "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
+  // Objects
+  "familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
+  "coveData","schoolData","cove_items_v1","notifSettings","sections",
+  "connectedCals","exhale_labels","health","career","travel_profile",
+  // Explicitly normalized
+  "ripples",
+]);
+
 export function sanitizeHouseholdData(data) {
     if (!data || typeof data !== "object") return {};
     const out = {};
@@ -136,8 +160,10 @@ export function sanitizeHouseholdData(data) {
     // receive-side loss of workDays, traditions, cal_markers, cal_marker_types,
     // compassCache, compassEnabled, exhale_groups, exhale_color_labels,
     // exhale_people — and future-proofs new SYNC_KEYS additions.
+    // _SANITIZE_HANDLED guard: keys with explicit rules are excluded so their
+    // validation decisions (e.g. array guard dropping tasks={}) cannot be overridden.
     SYNC_KEYS.forEach(k => {
-      if (out[k] === undefined && data[k] !== undefined && data[k] !== null) {
+      if (out[k] === undefined && data[k] !== undefined && data[k] !== null && !_SANITIZE_HANDLED.has(k)) {
         out[k] = data[k];
       }
     });

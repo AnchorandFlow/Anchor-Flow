@@ -148,25 +148,20 @@ describe("A3 — null values are dropped", () => {
 });
 
 // ── A4: non-array in an array slot is dropped ─────────────────────────────────
-// BUG (FINDING F1): The defensive pass-through block runs AFTER the array guard.
-// When tasks={}/string/42: the array guard correctly skips writing out.tasks, so
-// out.tasks===undefined. But then the pass-through sees out[k]===undefined &&
-// data[k]!==null → writes the junk value anyway.
-// These three tests are marked it.fails to document the regression target.
-// The null case (birthdays=null) still passes because null is excluded by the
-// pass-through guard (data[k] !== null).
+// Fixed F1: _SANITIZE_HANDLED gates the pass-through so explicitly-typed keys
+// whose values fail validation (tasks={}, tasks="string", tasks=42) stay dropped.
 describe("A4 — non-array in array slot is dropped", () => {
-  it.fails("tasks={} is dropped [BUG: pass-through writes junk — see FINDINGS F1]", () => {
+  it("tasks={} is dropped", () => {
     const out = sanitizeHouseholdData({ tasks: {} });
     expect(out.tasks).toBeUndefined();
   });
 
-  it.fails("tasks='string' is dropped [BUG: pass-through writes junk — see FINDINGS F1]", () => {
+  it("tasks='string' is dropped", () => {
     const out = sanitizeHouseholdData({ tasks: "bad" });
     expect(out.tasks).toBeUndefined();
   });
 
-  it.fails("tasks=42 is dropped [BUG: pass-through writes junk — see FINDINGS F1]", () => {
+  it("tasks=42 is dropped", () => {
     const out = sanitizeHouseholdData({ tasks: 42 });
     expect(out.tasks).toBeUndefined();
   });
@@ -174,6 +169,22 @@ describe("A4 — non-array in array slot is dropped", () => {
   it("birthdays=null is dropped", () => {
     const out = sanitizeHouseholdData({ birthdays: null });
     expect(out.birthdays).toBeUndefined();
+  });
+
+  it("people='junk' is dropped (string, not array)", () => {
+    const out = sanitizeHouseholdData({ people: "junk" });
+    expect(out.people).toBeUndefined();
+  });
+
+  it("meals=42 is dropped (number, not object)", () => {
+    const out = sanitizeHouseholdData({ meals: 42 });
+    expect(out.meals).toBeUndefined();
+  });
+
+  it("pass-through rule-less keys are unaffected (workDays array still passes through)", () => {
+    // Confirm the fix doesn't break rule-less key pass-through
+    const out = sanitizeHouseholdData({ workDays: ["Monday","Friday"] });
+    expect(out.workDays).toEqual(["Monday","Friday"]);
   });
 });
 
