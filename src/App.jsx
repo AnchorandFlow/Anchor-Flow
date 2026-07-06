@@ -15,7 +15,7 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey } from "./sync-core.js"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -2088,7 +2088,7 @@ function createLocalBackup() {
               SYNC_KEYS.forEach(k => {
                 if (clean[k] !== undefined) {
                   if (_AK1.includes(k) && !Array.isArray(clean[k])) return;
-                  try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                  applyHouseholdKey(k, clean[k]);
                 }
               });
               try { localStorage.setItem("af_lastHHSync", existingHH.updated_at || Date.now().toString()); } catch {}
@@ -2117,7 +2117,7 @@ function createLocalBackup() {
                   SYNC_KEYS.forEach(k => {
                     if (clean[k] !== undefined) {
                       if (_AK2.includes(k) && !Array.isArray(clean[k])) return;
-                      try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+                      applyHouseholdKey(k, clean[k]);
                     }
                   });
                   try { localStorage.setItem("af_lastHHSync", joinedRows[0].updated_at || Date.now().toString()); } catch {}
@@ -2357,7 +2357,7 @@ function createLocalBackup() {
     const clean1 = sanitizeHouseholdData(row.data);
     SYNC_KEYS.forEach(k => {
       if (clean1[k] !== undefined) {
-        try { localStorage.setItem("af_"+k, JSON.stringify(clean1[k])); } catch {}
+        applyHouseholdKey(k, clean1[k]);
       }
     });
     // Stamp lastHHSync to the version we just applied — otherwise the next stale-check
@@ -2401,7 +2401,7 @@ function createLocalBackup() {
         const clean2 = sanitizeHouseholdData(sourceRow.data);
         SYNC_KEYS.forEach(k => {
           if (clean2[k] !== undefined) {
-            try { localStorage.setItem("af_"+k, JSON.stringify(clean2[k])); } catch {}
+            applyHouseholdKey(k, clean2[k]);
           }
         });
         try { localStorage.setItem("af_lastHHSync", sourceRow.updated_at || Date.now().toString()); } catch {}
@@ -2440,7 +2440,7 @@ function createLocalBackup() {
         if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
         if (clean[k] !== undefined) {
           if (_ARRAY_KEYS.includes(k) && !Array.isArray(clean[k])) return;
-          try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+          applyHouseholdKey(k, clean[k]);
         }
       });
       // serverTs is the value the DB returned — store it directly. A confirm-GET re-read
@@ -2480,7 +2480,7 @@ function createLocalBackup() {
           SYNC_KEYS.forEach(k => {
             if (clean[k] !== undefined) {
               if (_AK3.includes(k) && !Array.isArray(clean[k])) return;
-              try { localStorage.setItem("af_" + k, JSON.stringify(clean[k])); } catch {}
+              applyHouseholdKey(k, clean[k]);
             }
           });
           try { localStorage.setItem("af_lastHHSync", rows[0].updated_at || Date.now().toString()); } catch {}
@@ -2708,7 +2708,7 @@ function createLocalBackup() {
             if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
             if (cleanBg[k] !== undefined) {
               if (_ARRAY_KEYS_BG.includes(k) && !Array.isArray(cleanBg[k])) return;
-              try { localStorage.setItem("af_" + k, JSON.stringify(cleanBg[k])); } catch {}
+              applyHouseholdKey(k, cleanBg[k]);
             }
           });
           localStorage.setItem("af_lastHHSync", serverTs);

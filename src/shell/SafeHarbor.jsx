@@ -244,7 +244,20 @@ function loadData() {
   }
 }
 
-function saveData(d) { try { localStorage.setItem("af_safe_harbor", JSON.stringify(d)) } catch(e) {} }
+function saveData(d) {
+  try { localStorage.setItem("af_safe_harbor", JSON.stringify(d)) } catch(e) {}
+  // Mark safe_harbor dirty so the sync push pipeline picks up the change.
+  // Safe to do unconditionally here — saveData is only called from update(), which is
+  // only triggered by user interaction, never during hydration.
+  try {
+    var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+    if (dirty.indexOf("safe_harbor") === -1) {
+      dirty.push("safe_harbor");
+      localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty));
+    }
+  } catch(_e) {}
+  try { window.dispatchEvent(new Event("af-data-changed")); } catch(_e) {}
+}
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
 function card(extra) { return Object.assign({ background:G.card, border:"1px solid "+G.cardBorder, borderRadius:14, padding:"16px 18px", marginBottom:14 }, extra || {}) }

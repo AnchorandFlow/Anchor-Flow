@@ -2,6 +2,7 @@
 // Extracted from SafeHarbor.jsx so migrateToV2 and the default constants can be
 // imported by unit tests without pulling in React or JSX.
 // No side effects at module scope — localStorage is only touched inside migrateToV2().
+// mergeSafeHarbor is also exported here for use by applyHouseholdKey in sync-core.js.
 
 export var DEFAULT_GRAB_ITEMS = [
   // Tier 1 — People & Pets
@@ -111,4 +112,128 @@ export function migrateToV2(saved) {
         : absorbedRemindAt,
     },
   })
+}
+
+// ── mergeSafeHarbor ────────────────────────────────────────────────────────────
+// Merge-on-receive for the af_safe_harbor blob.
+// Called by applyHouseholdKey (sync-core.js) at every apply site instead of
+// overwriting af_safe_harbor wholesale.
+//
+// Rules:
+//   grabItems  — union by id; remote-wins on field conflicts; local-wins on checked
+//   members    — union by id; remote-wins on conflicts
+//   contacts   — field-by-field: prefer non-empty; if both non-empty, remote-wins
+//   hazards    — union (set semantics)
+//   removedDefaultIds — union (set semantics) — tombstones for default items
+//   review.lastReviewedAt  — later ISO string wins
+//   review.remindDismissedAt — later epoch-ms wins (null < any number)
+//   review.cadence — remote-wins
+//   lastReviewed — later ISO string wins (V1 compat field)
+//   sixPs, familyPlan — remote-wins (future structured fields)
+//
+// Deletion of custom items does NOT propagate in v1 (union only). Documented.
+// Default item removals DO propagate via removedDefaultIds union.
+
+function laterIso(a, b) {
+  // Returns the lexicographically greater ISO date string, or the non-null one.
+  if (!a) return b || null;
+  if (!b) return a;
+  return a >= b ? a : b;
+}
+
+function laterMs(a, b) {
+  // Returns the larger epoch-ms number, or the non-null one.
+  if (a === null || a === undefined) return (b !== null && b !== undefined) ? b : null;
+  if (b === null || b === undefined) return a;
+  return a >= b ? a : b;
+}
+
+function normalizeForMerge(blob) {
+  // Returns a V2-compatible object suitable for merging. No localStorage side effects.
+  if (!blob || typeof blob !== "object" || Array.isArray(blob)) {
+    return {
+      version: 1, lastReviewed: null,
+      contacts: { meetNearby:"", meetAway:"", evacuatePrimary:"", evacuateBackup:"", outOfStateContact:"" },
+      members: [], grabItems: [], hazards: [], reviewDue: false, removedDefaultIds: [],
+      sixPs: null, familyPlan: null,
+      review: { lastReviewedAt: null, cadence: "yearly", remindDismissedAt: null },
+    };
+  }
+  var rev = (blob.review && typeof blob.review === "object") ? blob.review : {};
+  return Object.assign({
+    version: blob.version || 1, lastReviewed: blob.lastReviewed || null, reviewDue: blob.reviewDue || false,
+    sixPs: blob.sixPs !== undefined ? blob.sixPs : null,
+    familyPlan: blob.familyPlan !== undefined ? blob.familyPlan : null,
+    contacts: (blob.contacts && typeof blob.contacts === "object") ? blob.contacts : {},
+  }, {
+    members: Array.isArray(blob.members) ? blob.members : [],
+    grabItems: Array.isArray(blob.grabItems) ? blob.grabItems : [],
+    hazards: Array.isArray(blob.hazards) ? blob.hazards : [],
+    removedDefaultIds: Array.isArray(blob.removedDefaultIds) ? blob.removedDefaultIds : [],
+    review: {
+      lastReviewedAt:    rev.lastReviewedAt    !== undefined ? rev.lastReviewedAt    : null,
+      cadence:           rev.cadence                        || "yearly",
+      remindDismissedAt: rev.remindDismissedAt !== undefined ? rev.remindDismissedAt : null,
+    },
+  });
+}
+
+export function mergeSafeHarbor(local, remote) {
+  var L = normalizeForMerge(local);
+  var R = normalizeForMerge(remote);
+
+  // grabItems: union by id; local-wins on checked; remote-wins on everything else
+  var itemMap = {};
+  R.grabItems.forEach(function(item) { if (item && item.id) itemMap[item.id] = item; });
+  L.grabItems.forEach(function(item) {
+    if (!item || !item.id) return;
+    if (itemMap[item.id]) {
+      // Preserve local checked state — never clobber a live emergency checklist
+      itemMap[item.id] = Object.assign({}, itemMap[item.id], { checked: item.checked });
+    } else {
+      itemMap[item.id] = item; // item only on local side
+    }
+  });
+
+  // members: union by id; remote-wins on conflicts
+  var memberMap = {};
+  R.members.forEach(function(m) { if (m && m.id) memberMap[m.id] = m; });
+  L.members.forEach(function(m) { if (m && m.id && !memberMap[m.id]) memberMap[m.id] = m; });
+
+  // hazards: union
+  var hazardSet = {};
+  R.hazards.forEach(function(h) { hazardSet[h] = true; });
+  L.hazards.forEach(function(h) { hazardSet[h] = true; });
+
+  // removedDefaultIds: union
+  var ridSet = {};
+  R.removedDefaultIds.forEach(function(id) { ridSet[id] = true; });
+  L.removedDefaultIds.forEach(function(id) { ridSet[id] = true; });
+
+  // contacts: field-by-field; prefer non-empty; if both non-empty, remote wins
+  var CONTACT_KEYS = ["meetNearby", "meetAway", "evacuatePrimary", "evacuateBackup", "outOfStateContact"];
+  var mergedContacts = {};
+  CONTACT_KEYS.forEach(function(k) {
+    var r = (R.contacts[k] || "").trim();
+    var l = (L.contacts[k] || "").trim();
+    mergedContacts[k] = r || l; // remote wins if both non-empty; falls back to local
+  });
+
+  return {
+    version: 2,
+    lastReviewed: laterIso(L.lastReviewed, R.lastReviewed),
+    contacts: mergedContacts,
+    members: Object.values(memberMap),
+    grabItems: Object.values(itemMap),
+    hazards: Object.keys(hazardSet),
+    reviewDue: R.reviewDue || L.reviewDue || false,
+    removedDefaultIds: Object.keys(ridSet),
+    sixPs:      R.sixPs      !== null ? R.sixPs      : L.sixPs,
+    familyPlan: R.familyPlan !== null ? R.familyPlan : L.familyPlan,
+    review: {
+      lastReviewedAt:    laterIso(L.review.lastReviewedAt,    R.review.lastReviewedAt),
+      cadence:           R.review.cadence || L.review.cadence || "yearly",
+      remindDismissedAt: laterMs(L.review.remindDismissedAt,  R.review.remindDismissedAt),
+    },
+  };
 }
