@@ -529,6 +529,17 @@ function defaultLighthouse() {
     household: { readAlouds: [], calendar: [], settings: {} }
   };
 }
+var LH_LABELS = {
+  beyond:    { homeschool: "Beyond the Transcript", school: "Beyond the Classroom" },
+  summaries: { homeschool: "Summaries",             school: "Keepsakes" }
+};
+function lhChildTabs(modes, childId) {
+  var SHARED = ["overview","books","beyond","trips","goals","summaries"];
+  var mode = (modes && childId) ? (modes[childId] || null) : null;
+  if (mode === "homeschool") return SHARED.concat(["plan","loops"]);
+  if (mode === "school")     return SHARED.concat(["week","homework","comms","grades"]);
+  return SHARED;
+}
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -708,11 +719,12 @@ const TABS = [
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Mind",     emoji:"💭"},
-  {id:"school",   label:"School",   emoji:"🏫"},
-  {id:"settings", label:"Settings", emoji:"⚙️"},
+  {id:"school",      label:"School",      emoji:"🏫"},
+  {id:"lighthouse",  label:"Lighthouse",  emoji:"🔭"},
+  {id:"settings",    label:"Settings",    emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop","ai"];
-const MORE_TABS    = ["weekly","home","brain","school","tidepool","cove","settings"];
+const MORE_TABS    = ["weekly","home","brain","school","lighthouse","tidepool","cove","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -1841,7 +1853,7 @@ const _hfComps   = {};
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
   'MealBankDrawer','WeekTypePicker','MealsTab','ShoppingTab','HomeTab','BrainTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveTab',
-  'SchoolTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
+  'SchoolTab','LighthouseTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal',
 ].forEach(n => {
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
@@ -10639,6 +10651,152 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── Lighthouse Tab ────────────────────────────────────────────────────────────
+  _hfRenders.LighthouseTab = function LighthouseTab() {
+    var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
+    var [activeChild, setActiveChild] = React.useState(null);
+    var [lhSubTab, setLhSubTab] = React.useState("overview");
+    var [showAllPeople, setShowAllPeople] = React.useState(false);
+
+    var allPeople = people.filter(function(p) { return p && p.name; });
+    var defaultPeople = allPeople.filter(function(p) {
+      return p.role === "Kid" || p.role === "Teen" || personIsMinor(p);
+    });
+    var displayPeople = (showAllPeople || defaultPeople.length === 0) ? allPeople : defaultPeople;
+    var hasOthers = !showAllPeople && allPeople.length > defaultPeople.length;
+
+    React.useEffect(function() {
+      if (!activeChild && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
+    }, [displayPeople.length]);
+
+    var modes = lhGet(lighthouse, "modes", {});
+    var childMode = activeChild ? (modes[activeChild] || null) : null;
+    var childPerson = allPeople.find(function(p) { return p.id === activeChild; }) || null;
+
+    function setMode(childId, mode) {
+      var nextModes = Object.assign({}, modes);
+      nextModes[childId] = mode;
+      setLighthouse(Object.assign({}, lighthouse, { modes: nextModes }));
+      setLhSubTab("overview");
+    }
+
+    var childTabIds = lhChildTabs(modes, activeChild);
+    var LH_TAB_META = {
+      overview:  { label: "Overview",                                           emoji: "✨" },
+      books:     { label: "Books",                                              emoji: "📚" },
+      beyond:    { label: lhGet(LH_LABELS.beyond, childMode, "Beyond"),        emoji: "🌎" },
+      trips:     { label: "Trips",                                              emoji: "✈️" },
+      goals:     { label: "Goals",                                              emoji: "🎯" },
+      summaries: { label: lhGet(LH_LABELS.summaries, childMode, "Summaries"),  emoji: "📄" },
+      plan:      { label: "Plan",                                               emoji: "🗓️" },
+      loops:     { label: "Loops",                                              emoji: "🔁" },
+      week:      { label: "This Week",                                          emoji: "📅" },
+      homework:  { label: "Homework",                                           emoji: "✏️" },
+      comms:     { label: "School Comms",                                       emoji: "📬" },
+      grades:    { label: "Grades",                                             emoji: "📊" },
+    };
+
+    if (allPeople.length === 0) {
+      return (
+        <div style={{padding:"2rem 1rem",textAlign:"center"}}>
+          <div style={{fontSize:"2.5rem",marginBottom:"0.75rem"}}>🔭</div>
+          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.4rem",color:T.textDark,marginBottom:"0.5rem"}}>Lighthouse</div>
+          <div style={{color:T.textMid,fontSize:"0.88rem",lineHeight:1.6,marginBottom:"1.25rem"}}>
+            Add people in Settings to start tracking learning records.
+          </div>
+          <button onClick={function(){goTab("settings");}} style={btnP(T.sand)}>Go to Settings</button>
+        </div>
+      );
+    }
+
+    function ModePicker() {
+      if (!childPerson) return null;
+      return (
+        <div style={{padding:"1.5rem 1rem"}}>
+          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.3rem",color:T.textDark,marginBottom:"0.4rem",textAlign:"center"}}>
+            How does {childPerson.name} learn?
+          </div>
+          <div style={{color:T.textMid,fontSize:"0.82rem",textAlign:"center",marginBottom:"1.5rem"}}>
+            You can change this anytime from their Overview.
+          </div>
+          <div style={{display:"flex",gap:"0.75rem"}}>
+            <button onClick={function(){setMode(childPerson.id,"homeschool");}}
+              style={{flex:1,background:T.sagePale,border:"2px solid "+T.sage,borderRadius:"1rem",padding:"1.25rem 0.75rem",cursor:"pointer",textAlign:"center",fontFamily:"inherit"}}>
+              <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🏡</div>
+              <div style={{fontWeight:700,color:T.sage,fontSize:"0.88rem"}}>Homeschool</div>
+              <div style={{color:T.textMid,fontSize:"0.75rem",marginTop:"0.25rem"}}>Plan, loops, summaries</div>
+            </button>
+            <button onClick={function(){setMode(childPerson.id,"school");}}
+              style={{flex:1,background:T.bluePale,border:"2px solid "+T.blue,borderRadius:"1rem",padding:"1.25rem 0.75rem",cursor:"pointer",textAlign:"center",fontFamily:"inherit"}}>
+              <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🏫</div>
+              <div style={{fontWeight:700,color:T.blue,fontSize:"0.88rem"}}>School</div>
+              <div style={{color:T.textMid,fontSize:"0.75rem",marginTop:"0.25rem"}}>Homework, comms, keepsakes</div>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div style={{padding:"0.75rem 1rem 0",display:"flex",gap:"0.5rem",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+          {displayPeople.map(function(p) {
+            var isAct = p.id === activeChild;
+            var pMode = modes[p.id] || null;
+            var dot   = {width:8,height:8,borderRadius:"50%",background:p.color||T.blue,display:"inline-block",flexShrink:0};
+            var pill  = {flexShrink:0,display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px solid "+(isAct?p.color||T.blue:T.borderSoft),background:isAct?(p.color||T.blue)+"22":"transparent",cursor:"pointer",fontSize:"0.82rem",fontWeight:isAct?700:400,color:isAct?T.textDark:T.textMid,fontFamily:"inherit"};
+            return (
+              <button key={p.id} onClick={function(){setActiveChild(p.id);setLhSubTab("overview");}} style={pill}>
+                <span style={dot}/>
+                {p.name}
+                {pMode === "homeschool" && <span style={{fontSize:"0.65rem"}}> 🏡</span>}
+                {pMode === "school"     && <span style={{fontSize:"0.65rem"}}> 🏫</span>}
+              </button>
+            );
+          })}
+          {hasOthers && (
+            <button onClick={function(){setShowAllPeople(true);}}
+              style={{flexShrink:0,padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px dashed "+T.borderSoft,background:"transparent",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit"}}>
+              + others
+            </button>
+          )}
+          {showAllPeople && defaultPeople.length > 0 && (
+            <button onClick={function(){setShowAllPeople(false);}}
+              style={{flexShrink:0,padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px dashed "+T.borderSoft,background:"transparent",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit"}}>
+              fewer
+            </button>
+          )}
+        </div>
+
+        {activeChild && !childMode && <ModePicker/>}
+        {activeChild && childMode && (
+          <div>
+            <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0.75rem 1rem 0",display:"flex",gap:"0.25rem"}}>
+              {childTabIds.map(function(tabId) {
+                var meta  = LH_TAB_META[tabId] || {label:tabId,emoji:"•"};
+                var isAct = tabId === lhSubTab;
+                var tbSt  = {flexShrink:0,padding:"0.3rem 0.7rem",borderRadius:"99px",border:"none",background:isAct?T.sand:"transparent",color:isAct?T.textDark:T.textMid,fontWeight:isAct?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};
+                return (
+                  <button key={tabId} onClick={function(){setLhSubTab(tabId);}} style={tbSt}>
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
+              <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
+                {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
+              </div>
+              <div style={{fontSize:"0.88rem"}}>
+                {(LH_TAB_META[lhSubTab]||{label:lhSubTab}).label} — coming soon
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // Children stay mounted (display:none when closed) so inputs never lose focus.
     // ── Google Calendar Modal ────────────────────────────────────────────────────
   _hfRenders.GoogleCalendarModal = function GoogleCalendarModal({onClose}) {
@@ -11393,6 +11551,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 }}
               /></SectionErrorBoundary>}
                 {t==="school"   && <SchoolTab/>}
+                {t==="lighthouse" && LIGHTHOUSE_V2 && <LighthouseTab/>}
                 {t==="career"   && <CareerTab/>}
                 {t==="settings" && <SettingsTab
                   people={people} setPeople={setPeople}
