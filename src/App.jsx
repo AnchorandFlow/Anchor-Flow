@@ -1081,6 +1081,26 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                   </select>
                   <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
                 </div>
+                {(function(){
+                  var siblings=(saved||[]).filter(function(d){return d.kidId!==sKid.id&&d.chores&&d.chores.length>0;});
+                  if(siblings.length===0) return null;
+                  return(
+                    <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginTop:"0.35rem"}}>
+                      <span style={{color:T.textFaint,fontSize:"0.76rem",whiteSpace:"nowrap"}}>Copy from:</span>
+                      {siblings.map(function(sib){
+                        return(
+                          <button key={sib.kidId} onClick={function(){
+                            var existingNames=(sKidData.chores||[]).map(function(c){return c.name;});
+                            var toAdd=sib.chores.filter(function(c){return !existingNames.includes(c.name);}).map(function(c){return {id:uid(),name:c.name,pts:c.pts,done:false};});
+                            if(toAdd.length>0) updateSaved({chores:[...(sKidData.chores||[]),...toAdd]});
+                          }} style={{background:"none",border:"1px solid "+T.borderSoft,borderRadius:"0.5rem",cursor:"pointer",color:T.textMid,fontSize:"0.74rem",padding:"0.22rem 0.55rem",fontFamily:"inherit"}}>
+                            {sib.kidName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {tpTab==="treasures"&&(
