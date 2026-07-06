@@ -55,6 +55,16 @@ export const SYNC_KEYS = [
   // Do NOT normalize this without a data migration for existing devices.
   "monthMeals","af_nwMealCount"];
 
+// ── clearZombieAuthKeys ────────────────────────────────────────────────────────
+// Called at each 401-recovery-failed call site (zombie-session detection).
+// Clears only auth credentials from localStorage. SYNC_KEYS household data is
+// intentionally NOT cleared — family data stays on-device through re-auth so
+// unpushed edits can push once the session is restored.
+export function clearZombieAuthKeys() {
+  try { localStorage.removeItem("af_authToken"); } catch (_) {}
+  try { localStorage.removeItem("af_authUser"); } catch (_) {}
+}
+
 // ── sanitizeHouseholdData ──────────────────────────────────────────────────────
 // App.jsx lines 1896-1979 (verbatim, previously a nested function inside HomeFlow).
 // No closure variables — only references MEAL_DAYS and SYNC_KEYS from this module.

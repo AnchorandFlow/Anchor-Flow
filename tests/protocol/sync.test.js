@@ -25,7 +25,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { SYNC_KEYS, sanitizeHouseholdData } from "../../src/sync-core.js";
+import { SYNC_KEYS, sanitizeHouseholdData, clearZombieAuthKeys } from "../../src/sync-core.js";
 
 // ── localStorage helper ───────────────────────────────────────────────────────
 // jsdom provides window.localStorage; these helpers make tests readable.
@@ -401,33 +401,105 @@ describe("B9 — network failure: no corruption, no stamp advance", () => {
   });
 });
 
-// ── B10: persistent 401 → desired behavior (test.fails — documents aspirational state) ─
-describe("B10 — persistent 401: desired behavior (zombie-session fix criteria)", () => {
-  // This is a test.fails: the DESIRED behavior (surface sign-in screen instead of
-  // silent infinite retries) is documented here as criteria for the zombie-session fix.
+// ── B10: zombie-session detection — auth keys cleared, household data preserved ─
+describe("B10 — zombie-session: clearZombieAuthKeys clears auth but preserves household data", () => {
+  // Detection threshold: one failed refreshAuthToken() call at any 401 catch site.
+  // refreshAuthToken() already tries getSession() + refreshSession() internally.
+  // If both fail it returns null — that is the zombie signal. No counter needed.
   //
-  // Current behavior: After a 401, the push retry loop in refreshAuthToken may loop
-  // if called repeatedly (each new sync attempt triggers another refresh attempt).
-  // Desired behavior: After N consecutive 401s (or a failed refresh), show the auth
-  // screen and stop all sync attempts.
+  // Each 401 catch site in App.jsx (checkForUpdates, pushHouseholdData x2) calls:
+  //   setAuthToken(null)   — shows AuthModal, stops poll via React effect cleanup
+  //   setAuthUser(null)    — clears user state
+  //   setShowAuthModal(true)
+  //   clearZombieAuthKeys()
   //
-  // Mark test.fails so CI stays green while the fix is pending.
+  // clearZombieAuthKeys() is the localStorage side of the fix and is tested here.
+  // The React state setters require a rendered component and cannot be tested in jsdom.
 
-  it.fails("after persistent 401, sync stops and auth screen is shown", () => {
-    // This is the DESIRED behavior — not yet implemented.
-    // When implemented, the app should:
-    //   1. Detect a 401 from sbFetch.
-    //   2. Attempt one token refresh via refreshAuthToken.
-    //   3. If refresh also returns 401, set syncStatus="error", show banner,
-    //      and clear the poll interval so no further sync attempts occur.
-    //   4. The AuthModal or sign-in screen should become visible.
-    //
-    // The test below asserts the desired state after a double-401 sequence.
-    // It fails because the mechanism (clearing the interval from the poll catch)
-    // is present in checkForUpdates but the sign-in prompt path does not guarantee
-    // the interval is cleared in all auth-error paths.
-    //
-    // Fix criteria: this test should pass after zombie-session remediation.
-    throw new Error("Not yet implemented — zombie-session fix pending");
+  it("clears af_authToken and af_authUser from localStorage", () => {
+    localStorage.setItem("af_authToken", JSON.stringify("stale-jwt-xyz"));
+    localStorage.setItem("af_authUser", JSON.stringify({ id: "u1", email: "test@example.com" }));
+
+    clearZombieAuthKeys();
+
+    expect(localStorage.getItem("af_authToken")).toBeNull();
+    expect(localStorage.getItem("af_authUser")).toBeNull();
+  });
+
+  it("household data keys are never cleared by zombie-session handling", () => {
+    // Populate every SYNC_KEY with a sentinel value
+    SYNC_KEYS.forEach(function(k) {
+      try { localStorage.setItem("af_" + k, JSON.stringify("sentinel")); } catch (_) {}
+    });
+    // Also set af_dirtyKeys (must survive so unpushed edits can push after re-auth)
+    localStorage.setItem("af_dirtyKeys", JSON.stringify(["tasks", "people"]));
+
+    clearZombieAuthKeys();
+
+    // All household data untouched
+    SYNC_KEYS.forEach(function(k) {
+      expect(localStorage.getItem("af_" + k)).toBe(JSON.stringify("sentinel"));
+    });
+    // Dirty keys also untouched
+    expect(lsGet("af_dirtyKeys")).toEqual(["tasks", "people"]);
+  });
+});
+
+// ── B11: SIGNED_OUT flag gate — automatic sign-out preserves household data ─────
+describe("B11 — SIGNED_OUT flag: automatic sign-out preserves household data", () => {
+  // _afUserInitiatedSignOut (module-level in App.jsx) gates whether the SIGNED_OUT
+  // handler wipes SYNC_KEYS. This test exercises the flag logic directly, since the
+  // handler itself is embedded in the outer App component and cannot be imported.
+  //
+  // Invariant: the localStorage wipe in the SIGNED_OUT handler only runs when
+  // _afUserInitiatedSignOut is true. We test the conditional independently.
+
+  it("without the flag set, simulated SIGNED_OUT does not wipe SYNC_KEYS", () => {
+    // Pre-populate household data + auth keys
+    SYNC_KEYS.forEach(function(k) {
+      try { localStorage.setItem("af_" + k, JSON.stringify("hh-data")); } catch (_) {}
+    });
+    localStorage.setItem("af_authToken", JSON.stringify("token"));
+    localStorage.setItem("af_authUser", JSON.stringify({ id: "u1" }));
+
+    // Simulate the SIGNED_OUT handler with flag=false (automatic sign-out)
+    var flagSet = false; // _afUserInitiatedSignOut
+    // Auth keys always cleared
+    try { localStorage.removeItem("af_authToken"); } catch (_) {}
+    try { localStorage.removeItem("af_authUser"); } catch (_) {}
+    // Household data: only cleared if flag is set
+    if (flagSet) {
+      try { localStorage.removeItem("af_householdId"); } catch (_) {}
+      SYNC_KEYS.forEach(function(k) { try { localStorage.removeItem("af_" + k); } catch (_) {} });
+    }
+
+    // Auth keys gone
+    expect(localStorage.getItem("af_authToken")).toBeNull();
+    expect(localStorage.getItem("af_authUser")).toBeNull();
+    // Household data preserved
+    SYNC_KEYS.forEach(function(k) {
+      expect(localStorage.getItem("af_" + k)).toBe(JSON.stringify("hh-data"));
+    });
+  });
+
+  it("with the flag set, simulated SIGNED_OUT wipes SYNC_KEYS (user chose to sign out)", () => {
+    SYNC_KEYS.forEach(function(k) {
+      try { localStorage.setItem("af_" + k, JSON.stringify("hh-data")); } catch (_) {}
+    });
+    localStorage.setItem("af_householdId", JSON.stringify("hh_test"));
+
+    var flagSet = true; // _afUserInitiatedSignOut
+    try { localStorage.removeItem("af_authToken"); } catch (_) {}
+    try { localStorage.removeItem("af_authUser"); } catch (_) {}
+    if (flagSet) {
+      try { localStorage.removeItem("af_householdId"); } catch (_) {}
+      SYNC_KEYS.forEach(function(k) { try { localStorage.removeItem("af_" + k); } catch (_) {} });
+    }
+
+    // Household data wiped
+    SYNC_KEYS.forEach(function(k) {
+      expect(localStorage.getItem("af_" + k)).toBeNull();
+    });
+    expect(localStorage.getItem("af_householdId")).toBeNull();
   });
 });

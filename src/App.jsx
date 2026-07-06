@@ -15,7 +15,7 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys } from "./sync-core.js"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -471,6 +471,12 @@ const APP_VERSION = "2026-06-03-vault-refresh";
 // Prevents a second controllerchange (e.g. from a rapid double-update) from
 // triggering a second reload while the first is already in progress.
 var _swReloadFired = false;
+// Set to true ONLY by explicit user-initiated sign-out before calling supabase.auth.signOut().
+// The SIGNED_OUT listener uses this flag to decide whether to wipe household data:
+//   true  → user chose to sign out → clear everything (expected behavior)
+//   false → automatic sign-out (zombie/refresh-failure) → preserve household data so
+//           unpushed edits can push once auth is restored after re-login
+var _afUserInitiatedSignOut = false;
 var SHOPPING_V2 = localStorage.getItem("af_shopping_v2") === "true";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -2065,6 +2071,7 @@ function createLocalBackup() {
   }
 
   async function signOut() {
+    _afUserInitiatedSignOut = true;
     try { await supabase.auth.signOut(); } catch {}
     if (authToken) { try { await sbSignOut(authToken); } catch {} }
     // Clear localStorage directly then reload — avoids null authUser render crash
@@ -2138,8 +2145,12 @@ function createLocalBackup() {
         console.warn("[AF SYNC] stale-check auth expired — attempting token refresh");
         const newToken = await refreshAuthToken();
         if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-sync"); return; }
-        console.warn("[AF SYNC] stale-check auth expired — refresh failed, prompting sign-in");
+        console.warn("[AF SYNC] stale-check auth expired — refresh failed, zombie session detected");
         setSyncStatus("error");
+        setAuthToken(null);
+        setAuthUser(null);
+        setShowAuthModal(true);
+        clearZombieAuthKeys();
         showInAppBanner("Session expired — please sign in again.", "error");
       } else if (e?.message?.toLowerCase().includes("failed to fetch") || e?.message?.toLowerCase().includes("networkerror") || e?.message?.toLowerCase().includes("network request failed")) {
         console.warn("[AF SYNC] stale-check network error — push paused", e.message);
@@ -2241,8 +2252,12 @@ function createLocalBackup() {
         console.warn("[AF SYNC] push auth expired — attempting token refresh");
         const newToken = await refreshAuthToken();
         if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-push"); return; }
-        console.warn("[AF SYNC] push auth expired — refresh failed, prompting sign-in");
+        console.warn("[AF SYNC] push auth expired — refresh failed, zombie session detected");
         setSyncStatus("error");
+        setAuthToken(null);
+        setAuthUser(null);
+        setShowAuthModal(true);
+        clearZombieAuthKeys();
         showInAppBanner("Session expired — please sign in again.", "error");
         return;
       }
@@ -2630,8 +2645,12 @@ function createLocalBackup() {
           console.warn("[AF SYNC] poll auth expired — attempting token refresh");
           const newToken = await refreshAuthToken();
           if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-poll"); return; }
-          console.warn("[AF SYNC] poll auth expired — refresh failed, stopping poll");
+          console.warn("[AF SYNC] poll auth expired — refresh failed, zombie session detected");
           setSyncStatus("error");
+          setAuthToken(null);
+          setAuthUser(null);
+          setShowAuthModal(true);
+          clearZombieAuthKeys();
           showInAppBanner("Session expired — please sign in again.", "error");
           clearInterval(interval);
           clearTimeout(initial);
@@ -11721,14 +11740,20 @@ export default function App() {
       if (event === "SIGNED_OUT" || !session) {
         try { localStorage.removeItem("af_authToken"); } catch {}
         try { localStorage.removeItem("af_authUser"); } catch {}
-        try { localStorage.removeItem("af_householdId"); } catch {}
-        SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
+        // Only wipe household data on an EXPLICIT user sign-out. Automatic sign-outs
+        // (zombie-session detection, refreshAuthToken hard failure) preserve household
+        // data so unpushed edits can push once the session is restored after re-login.
+        if (_afUserInitiatedSignOut) {
+          try { localStorage.removeItem("af_householdId"); } catch {}
+          SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
+        }
+        _afUserInitiatedSignOut = false;
       }
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  const signOut = () => { supabase.auth.signOut(); setSession(null); setMode(null) }
+  const signOut = () => { _afUserInitiatedSignOut = true; supabase.auth.signOut(); setSession(null); setMode(null) }
 
   if (session === undefined) {
     return <div style={{ minHeight: "100dvh", background: "#1a2744", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "serif", fontSize: "20px", color: "rgba(250,248,244,0.4)" }}>anchor & flow</div>
