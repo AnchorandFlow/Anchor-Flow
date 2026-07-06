@@ -260,7 +260,10 @@ function RippleNotificationBanner() {
 (function sanitizeLocalStorageOnLoad() {
   try {
     // Remove keys that were written as the string "null" — causes crashes in components
-    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates"];
+    // af_safe_harbor is included for belt-and-suspenders consistency. loadData() in
+    // SafeHarbor.jsx already handles the "null" string case defensively (JSON.parse("null")
+    // → null → fresh defaults), so this guard is redundant but not harmful.
+    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor"];
     NULL_SAFE_KEYS.forEach(function(k) {
       try { if (localStorage.getItem(k) === "null") localStorage.removeItem(k); } catch {}
     });
@@ -1535,6 +1538,17 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                       if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
                       if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
                       keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
+                      // af_safe_harbor: apply the same defensive guards as loadData().
+                      // If the value is bad JSON, null, a non-object, or an array, remove it
+                      // so loadData() reconstructs clean defaults on the next mount (never crashes).
+                      // The export enumerates all af_* keys via Object.keys(localStorage), so
+                      // af_safe_harbor, af_sh_remind, and af_safe_harbor_v2 are all included
+                      // automatically — no explicit listing needed on the export side.
+                      if (data["af_safe_harbor"] !== undefined) {
+                        var _shOk = false;
+                        try { var _shP = JSON.parse(data["af_safe_harbor"]); _shOk = _shP !== null && typeof _shP === "object" && !Array.isArray(_shP); } catch(_e2) {}
+                        if (!_shOk) { try { localStorage.removeItem("af_safe_harbor"); } catch {} }
+                      }
                       AF_DEBUG&&console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
                       alert("Backup restored. Reloading...");
                       window.location.reload();

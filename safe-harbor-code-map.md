@@ -435,3 +435,179 @@ if (SAFE_HARBOR_V2) {
 | Exhale V2 flag definition | `src/components/ExhaleSection.jsx` | 33 |
 | Shopping V2 flag (opt-in contrast) | App.jsx | 494 |
 | Compass engine (AI, not used for nudges) | `src/compass/compassEngine.js` | all |
+
+---
+
+## 8. Post-SH-1 persisted shape (remove/undo hardening)
+
+Appended after fix/safe-harbor-remove-undo. SH-2 migration reads this section.
+
+### DEFAULT_GRAB_ITEMS changes
+- Every default entry now carries a stable defaultId: g01 through g21.
+- Custom items have NO defaultId field (its absence identifies them).
+
+### af_safe_harbor persisted blob additions
+- removedDefaultIds: [] at the top level of the data object.
+  - removeItem() pushes the defaultId when a default is removed.
+  - undoRemove() filters the defaultId back out.
+  - restoreDefaults() clears entries for whatever it restores.
+
+### Tombstone fields (transient, per item)
+- removed: true and removedAt: epoch-ms are set by removeItem().
+- Tombstoned items stay at their original array index (undo restores
+  position by deleting the two flags in place -- no concat).
+- loadData() hard-deletes ALL tombstones on mount: a refresh during
+  the 5s undo window silently finalizes the removal. Undo is
+  session-only by design.
+- The 5s timer also hard-deletes in a live session after expiry.
+- IMPLICATION FOR SH-2/SH-3: tombstones never persist across loads,
+  so migration and sync may treat any removed:true item found in
+  storage as safe to hard-delete.
+
+### restoreDefaults() semantics
+- Dedup is by defaultId, never by name. A custom item sharing a
+  default name is never matched, blocked, or overwritten.
+- Confirm dialog exists for bulk reset only; single-item removal has
+  no confirmation (undo covers it).
+
+---
+
+## 9. SH-2 final V2 persisted shape
+
+Appended after branch sh-v2-model (commit 207d1de + follow-up). Describes
+the data model introduced by SAFE_HARBOR_V2.
+
+### Feature flag
+
+Key: `af_safe_harbor_v2`
+Default: **opt-in** (default OFF) — matches the Shopping V2 pattern.
+Read: module scope in `src/shell/SafeHarbor.jsx`:
+
+```javascript
+var SAFE_HARBOR_V2 = localStorage.getItem("af_safe_harbor_v2") === "true"
+```
+
+**Reload-to-toggle:** the flag is read once at module scope. Changing it
+in the browser console requires a full page reload to take effect.
+Do NOT add a `location.reload()` call to the module. Console instructions:
+
+```javascript
+// Enable:  localStorage.setItem("af_safe_harbor_v2","true");  location.reload();
+// Disable: localStorage.removeItem("af_safe_harbor_v2");      location.reload();
+```
+
+### V2 blob shape (af_safe_harbor)
+
+All V1 fields are preserved verbatim. New fields are added as a superset.
+No fields are renamed. All ids remain strings per repo convention.
+
+```json
+{
+  "version": 2,
+  "lastReviewed": "YYYY-MM-DD" | null,
+  "contacts": { "meetNearby":"", "meetAway":"", "evacuatePrimary":"", "evacuateBackup":"", "outOfStateContact":"" },
+  "members": [{ "id":"uid", "name":"", "role":"Adult|Child|Pet", "note":"" }],
+  "grabItems": [
+    {
+      "id": "g01",
+      "defaultId": "g01",
+      "name": "...",
+      "location": "",
+      "assignedTo": "",
+      "tier": 1,
+      "category": "people|prescriptions|papers|phones|personal|priceless",
+      "checked": false,
+      "custom": false,
+      "source": "ready.gov attribution or empty",
+      "needsTags": []
+    }
+  ],
+  "hazards": ["wildfire"],
+  "reviewDue": false,
+  "removedDefaultIds": [],
+  "sixPs": null,
+  "familyPlan": null,
+  "review": {
+    "lastReviewedAt": null,
+    "cadence": "yearly",
+    "remindDismissedAt": 1751234567890 | null
+  }
+}
+```
+
+Field notes:
+- `version`: migration sentinel. Set to 2 by migrateToV2(); absent or < 2 triggers migration.
+- `grabItems[].needsTags`: optional per-item array (pet/infant/medication/mobility/accessibility).
+  Not backfilled on existing items — added on-demand by SH-4 UI. Custom and default items alike.
+- `grabItems[].assignedTo`: remains free-text string. No conversion to person-record reference.
+- `sixPs`: null shell for SH-4 (Six P's category notes layer). Populated in that phase.
+- `familyPlan`: null shell for SH-5 (full family preparedness plan). Populated in that phase.
+- `review.lastReviewedAt`: mirrors `lastReviewed` for V2 consumers. Both are written by markReviewed().
+- `review.cadence`: string, defaults to "yearly". Configurable in a future pass.
+- `review.remindDismissedAt`: absorbed from `af_sh_remind` during migration (see below).
+
+### af_sh_remind → absorbed
+
+`af_sh_remind` (raw epoch-ms string, NOT JSON) is a V1 separate key that is consumed
+by `migrateToV2()` on first load with V2 active:
+- Read with `localStorage.getItem("af_sh_remind")`.
+- Parsed with `parseInt(raw) || null`. Note: `"0"` → `null` (0 = epoch = never-dismissed;
+  null is the cleaner sentinel — see C5 in tests/unit/safe-harbor-migrate.test.js).
+- Written into `review.remindDismissedAt`.
+- Removed from localStorage (`localStorage.removeItem("af_sh_remind")`).
+
+After migration, `af_safe_harbor` is the single source of truth for the dismiss timestamp.
+V2 code paths (dismissNudge, markReviewed) write to `review.remindDismissedAt` via `update()`.
+V1 code paths (flag OFF) continue to write to `af_sh_remind` as before.
+
+### Checked-state semantics (V2 only)
+
+Flag OFF: `item.checked` is a session-only flag, wiped by `endSession()`. No change.
+Flag ON:
+- `item.checked` is a persistent flag, toggleable any time (no session gate).
+- Sessions are a practice-run overlay (`sessionChecked: {}` React state).
+  - `startSession()` → `setSessionChecked({})`.
+  - `toggleItem(id)` with session active → updates `sessionChecked` only.
+  - `endSession()` → `setSessionChecked(null)`, never touches `item.checked`.
+  - Display logic: `getChecked(item)` returns `sessionChecked[item.id]` during session,
+    `item.checked` otherwise.
+
+### Migration function
+
+File: `src/shell/safe-harbor-migrate.js` (extracted from SafeHarbor.jsx for testability).
+Exports: `DEFAULT_GRAB_ITEMS`, `DEFAULT_DATA`, `migrateToV2`.
+
+`migrateToV2(saved)` tolerates:
+- `null`/non-object/array input → builds clean V2 defaults (same as fresh install).
+- Pre-SH-1 blobs (items lack `defaultId`) → synthesizes by name-match against DEFAULT_GRAB_ITEMS.
+- `removedDefaultIds` absent → inits to `[]`.
+- Already-V2 blobs → fully idempotent (running twice is deep-equal).
+
+Called from `loadData()` when `SAFE_HARBOR_V2 && (!saved.version || saved.version < 2)`.
+
+### Export / Import coverage
+
+**Export Backup**: enumerates `Object.keys(localStorage).filter(k => k.startsWith("af_"))`.
+`af_safe_harbor`, `af_sh_remind`, and `af_safe_harbor_v2` are all captured automatically.
+No explicit listing needed.
+
+**Import Backup**: restores all `af_*` keys via `localStorage.setItem`. After restore,
+validates `af_safe_harbor` with the same guards as `loadData()` — if the value is bad JSON,
+null, non-object, or an array, it is removed so `loadData()` reconstructs defaults on next
+mount instead of crashing. See App.jsx ~line 1537.
+
+### NULL_SAFE_KEYS
+
+`af_safe_harbor` added to the startup `NULL_SAFE_KEYS` guard (App.jsx ~line 263).
+This is belt-and-suspenders: `loadData()` already handles the `"null"` string case
+defensively (JSON.parse("null") → null → fresh defaults). The guard fires before React
+mounts and is consistent with the other local-only keys in that list.
+
+### Unit tests
+
+`tests/unit/safe-harbor-migrate.test.js` — Suite C (20 tests):
+- C1: af_sh_remind absorption (5 assertions)
+- C2: idempotency (2 assertions)
+- C3: null/bad input → clean defaults (4 assertions)
+- C4: pre-SH-1 defaultId synthesis (5 assertions)
+- C5: parseInt edge cases including "0" → null (4 assertions)

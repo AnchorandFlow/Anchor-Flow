@@ -1,5 +1,6 @@
 // src/shell/SafeHarbor.jsx — Family emergency plan. "Prepared, not worried."
 import { useState, useEffect, useRef } from "react"
+import { DEFAULT_GRAB_ITEMS, DEFAULT_DATA, migrateToV2 } from "./safe-harbor-migrate.js"
 
 // SAFE_HARBOR_V2 — opt-in (default OFF). Matches the Shopping V2 opt-in pattern.
 // Read once at module scope; toggling requires a full page reload to take effect.
@@ -206,51 +207,8 @@ var HAZARD_CONTENT = {
 }
 
 // ── Default grab items (sourced from ready.gov/kit) ───────────────────────
-var DEFAULT_GRAB_ITEMS = [
-  // Tier 1 — People & Pets
-  { id:"g01", defaultId:"g01", name:"All household members accounted for",    location:"", assignedTo:"", tier:1, category:"people",        checked:false, custom:false, source:"people and their needs are the first priority" },
-  { id:"g02", defaultId:"g02", name:"Pets + leash or carrier",                location:"", assignedTo:"", tier:1, category:"people",        checked:false, custom:false, source:"animals, food, water and supplies for your pet" },
-  // Tier 1 — Prescriptions
-  { id:"g03", defaultId:"g03", name:"Prescription medications",               location:"Medicine cabinet", assignedTo:"", tier:1, category:"prescriptions", checked:false, custom:false, source:"prescription medications are a basic kit essential" },
-  { id:"g04", defaultId:"g04", name:"First aid kit",                          location:"", assignedTo:"", tier:1, category:"prescriptions", checked:false, custom:false, source:"first aid kit is a basic kit essential" },
-  // Tier 1 — Papers
-  { id:"g05", defaultId:"g05", name:"Passports + birth certificates",         location:"", assignedTo:"", tier:1, category:"papers",        checked:false, custom:false, source:"identification in a waterproof portable container" },
-  { id:"g06", defaultId:"g06", name:"Insurance policies",                     location:"", assignedTo:"", tier:1, category:"papers",        checked:false, custom:false, source:"copies of insurance policies in waterproof container" },
-  // Tier 1 — Phones & Tech
-  { id:"g07", defaultId:"g07", name:"Phones + chargers + power bank",         location:"", assignedTo:"", tier:1, category:"phones",        checked:false, custom:false, source:"cell phones with chargers and a backup battery" },
-  { id:"g08", defaultId:"g08", name:"Keys + wallets",                         location:"", assignedTo:"", tier:1, category:"phones",        checked:false, custom:false, source:"keys and cash for your emergency kit" },
-  // Tier 1 — Personal Needs
-  { id:"g09", defaultId:"g09", name:"Water — 1 gallon per person per day",    location:"", assignedTo:"", tier:1, category:"personal",      checked:false, custom:false, source:"water is the first basic kit essential" },
-  // Tier 2 — People & Pets
-  { id:"g10", defaultId:"g10", name:"Pet food + water supply",                location:"", assignedTo:"", tier:2, category:"people",        checked:false, custom:false, source:"pet food, water and supplies for your pet" },
-  // Tier 2 — Prescriptions
-  { id:"g11", defaultId:"g11", name:"Non-prescription medications",           location:"", assignedTo:"", tier:2, category:"prescriptions", checked:false, custom:false, source:"pain relievers, anti-diarrhea medication, antacids" },
-  // Tier 2 — Papers
-  { id:"g12", defaultId:"g12", name:"Bank account records + cash in small bills", location:"", assignedTo:"", tier:2, category:"papers",   checked:false, custom:false, source:"bank account records and cash" },
-  // Tier 2 — Phones & Tech
-  { id:"g13", defaultId:"g13", name:"Battery-powered or hand-crank radio",    location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"NOAA Weather Radio with tone alert is a basic kit essential" },
-  { id:"g14", defaultId:"g14", name:"Flashlights + extra batteries",          location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"flashlight is a basic kit essential" },
-  { id:"g15", defaultId:"g15", name:"Laptop or external hard drive",          location:"", assignedTo:"", tier:2, category:"phones",        checked:false, custom:false, source:"additional items — computers" },
-  // Tier 2 — Personal Needs
-  { id:"g16", defaultId:"g16", name:"Non-perishable food — 3-day supply",     location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"food is the second basic kit essential" },
-  { id:"g17", defaultId:"g17", name:"Feminine supplies + hand sanitizer",     location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"feminine supplies and personal hygiene items" },
-  { id:"g18", defaultId:"g18", name:"Infant supplies if applicable",          location:"", assignedTo:"", tier:2, category:"personal",      checked:false, custom:false, source:"infant formula and diapers" },
-  // Tier 3 — Personal Needs
-  { id:"g19", defaultId:"g19", name:"Sleeping bags or warm blankets",         location:"", assignedTo:"", tier:3, category:"personal",      checked:false, custom:false, source:"sleeping bag or warm blanket for each person" },
-  { id:"g20", defaultId:"g20", name:"Change of clothing + sturdy shoes",      location:"", assignedTo:"", tier:3, category:"personal",      checked:false, custom:false, source:"complete change of clothing including sturdy shoes" },
-  // Tier 3 — Priceless Items
-  { id:"g21", defaultId:"g21", name:"Irreplaceable photos or keepsakes",      location:"", assignedTo:"", tier:3, category:"priceless",     checked:false, custom:false, source:"additional items — irreplaceable items" },
-]
-
-var DEFAULT_DATA = {
-  lastReviewed: null,
-  contacts: { meetNearby:"", meetAway:"", evacuatePrimary:"", evacuateBackup:"", outOfStateContact:"" },
-  members: [],
-  grabItems: DEFAULT_GRAB_ITEMS,
-  hazards: [],
-  reviewDue: false,
-  removedDefaultIds: [],
-}
+// DEFAULT_GRAB_ITEMS, DEFAULT_DATA, migrateToV2 are imported from safe-harbor-migrate.js
+// so unit tests can import them without pulling in React or JSX.
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
@@ -287,51 +245,6 @@ function loadData() {
 }
 
 function saveData(d) { try { localStorage.setItem("af_safe_harbor", JSON.stringify(d)) } catch(e) {} }
-
-// ── V2 migration ──────────────────────────────────────────────────────────────
-// Runs once (inside loadData) when SAFE_HARBOR_V2 is true and the stored blob
-// has no version field (or version < 2). Produces a superset of the V1 shape:
-//
-//   version: 2
-//   grabItems: unchanged (field name preserved; items gain optional needsTags:[])
-//   sixPs: null          — shell for SH-4 (category notes per the 6 P's)
-//   familyPlan: null     — shell for SH-5 (full family preparedness plan)
-//   review: {
-//     lastReviewedAt: null   — mirrors lastReviewed for V2 consumers
-//     cadence: "yearly"      — configurable in future
-//     remindDismissedAt: ... — absorbed from af_sh_remind (raw epoch-ms string)
-//   }
-//
-// V1 fields (lastReviewed, contacts, members, grabItems, hazards, reviewDue,
-// removedDefaultIds) are all preserved verbatim. No fields are renamed.
-// All ids remain strings per repo convention.
-// needsTags: [] is optional per-item; existing items are not backfilled here.
-// assignedTo stays free-text (no conversion to person-record references).
-function migrateToV2(saved) {
-  // Absorb af_sh_remind (raw epoch-ms string, NOT JSON) into review.remindDismissedAt.
-  // Treat null/absent as never-dismissed (stored value 0 would also mean never-dismissed
-  // but we keep null distinct so UI can tell "never set" from "set to epoch 0").
-  var rawRemind = localStorage.getItem("af_sh_remind")
-  var absorbedRemindAt = rawRemind !== null ? (parseInt(rawRemind) || null) : null
-  if (rawRemind !== null) {
-    // Remove the now-absorbed standalone key — af_safe_harbor is the single source of truth.
-    try { localStorage.removeItem("af_sh_remind") } catch(_e) {}
-  }
-  var existingReview = (saved.review && typeof saved.review === "object") ? saved.review : {}
-  return Object.assign({}, saved, {
-    version: 2,
-    sixPs:      saved.sixPs      !== undefined ? saved.sixPs      : null,
-    familyPlan: saved.familyPlan !== undefined ? saved.familyPlan : null,
-    review: {
-      lastReviewedAt:    existingReview.lastReviewedAt    || null,
-      cadence:           existingReview.cadence           || "yearly",
-      // Prefer existing V2 value if blob was already partly migrated; fall back to absorbed.
-      remindDismissedAt: existingReview.remindDismissedAt !== undefined
-        ? existingReview.remindDismissedAt
-        : absorbedRemindAt,
-    },
-  })
-}
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
 function card(extra) { return Object.assign({ background:G.card, border:"1px solid "+G.cardBorder, borderRadius:14, padding:"16px 18px", marginBottom:14 }, extra || {}) }
