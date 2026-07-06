@@ -205,7 +205,20 @@ All content verified against source code (line numbers cited throughout). No inv
 ## Phase 5 — Feature flag & key audit
 
 **Branch:** `cleanup-p5`
-**Status:** Pending
+**Status:** Complete (content written in Phase 4 as FEATURE_FLAGS.md)
+
+Full audit in FEATURE_FLAGS.md. Summary:
+
+| Flag | Type | Default | Defined in |
+|------|------|---------|-----------|
+| af_exhale_v2 | localStorage | ON (opt-out) | ExhaleSection.jsx:33 |
+| af_shopping_v2 | localStorage | OFF (opt-in) | App.jsx:514 |
+| af_safe_harbor_v2 | localStorage | OFF (opt-in) | SafeHarbor.jsx:10 |
+| AF_DEBUG | JS const | false | App.jsx:1 |
+| AF_TRACE | window.* | undefined | runtime-settable |
+
+Stale/risky items flagged: V1 code paths (`!EXHALE_V2` branches — dead for all current
+devices), dead key `af_exhaleLabels` + `initialLabels` prop (removal steps in FEATURE_FLAGS.md).
 
 ---
 
