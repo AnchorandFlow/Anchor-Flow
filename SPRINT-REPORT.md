@@ -112,7 +112,68 @@ esbuild: 0 warnings (was 2)
 ## Phase 3 — Production log hygiene
 
 **Branch:** `cleanup-p3`
-**Status:** Pending
+**Status:** Complete
+
+### Summary
+
+Inventoried all `console.*` calls in `src/App.jsx`, `src/components/ExhaleSection.jsx`,
+and `public/sw.js`. Total App.jsx unguarded: ~35. Classified into keep-always (25) and
+dev-only (10, gated with `AF_DEBUG &&`).
+
+### AF_DEBUG guard (App.jsx line 1): `const AF_DEBUG = false`
+OFF by default in all deployed builds. Set to `true` in dev session only (not persisted to
+localStorage, not exposed to users). The same pattern already used throughout the file.
+
+### Gated (dev-only) — App.jsx
+
+| Line | Was | Why gated |
+|------|-----|-----------|
+| 1681 | `[AF AUTH] hard auth failure …, re?.message` | re.message may contain JWT fragments |
+| 1687 | `[AF AUTH] token refresh error: e.message` | e.message may contain auth details |
+| 1800 | `[AF THEME] Invalid theme, themeName` | themeName is user-entered data |
+| 2093 | `Household lookup failed: hhErr.message` | lacked prefix; hhErr.message may include IDs |
+| 3287 | `[AF] ZIP lookup failed: e` | full error object logged |
+| 3553 | `Insights error: err` | err may contain household AI response data |
+| 3861 | `Recurring reminder error: e` | full error object |
+| 6698 | `Rescue API error: r.status, errText` | errText is raw API response body (sensitive) |
+| 6707 | `No JSON array found in: txt` | txt is the full AI response body |
+| 6712 | `Rescue meal error: e` | full error object |
+| 7994 | bare `console.error(e)` | full error object, no prefix |
+
+### Gated — ExhaleSection.jsx
+
+| Line | Was | Why gated |
+|------|-----|-----------|
+| 280 | `[AF] Exhale migration done: cards.length` | one-time migration log, dev-only useful |
+
+(Uses `window.AF_DEBUG` since ExhaleSection is a separate module without direct AF_DEBUG import)
+
+### Approved keep-always list (unguarded, no sensitive data)
+
+All `[AF SYNC]` / `[AF AUTH]` / `[AF]` / `[PWA]` operational warnings that contain only:
+- Error messages (e.message, r.error.message) — never error objects or response bodies
+- ISO timestamps (serverUpdatedAt, lastApplied) — internal sync metadata, not user content
+- HTTP status codes (numbers)
+- Boolean/count values
+
+Specific approved lines: 109, 1866, 1872, 1894, 2090, 2152, 2170, 2173, 2182, 2185,
+2193, 2197, 2284, 2289, 2292, 2302, 2358, 2382, 2392, 2418, 2685, 2688, 3651, 7564,
+11770, 11785.
+
+### public/sw.js
+
+One `console.log("[SW] Deleting old cache:", key)` — cache key is the internal version
+string (e.g. "anchor-flow-v20260622-1"), not user data. KEPT as-is (no behavior change
+required; task allowed log redaction only).
+
+### Files changed
+
+- `src/App.jsx` — 11 dev-only console calls gated with `AF_DEBUG &&`
+- `src/components/ExhaleSection.jsx` — 1 migration log gated with `window.AF_DEBUG`
+
+### Test results
+
+202 passed (unchanged), esbuild 0 warnings
 
 ---
 

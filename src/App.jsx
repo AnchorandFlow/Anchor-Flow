@@ -1678,13 +1678,13 @@ async function refreshAuthToken() {
         return rd.session.access_token;
       }
       // Both paths failed — hard auth failure, force re-login
-      console.warn("[AF AUTH] hard auth failure — signing out to force re-login", re?.message);
+      AF_DEBUG && console.warn("[AF AUTH] hard auth failure — signing out to force re-login", re && re.message);
       try { localStorage.removeItem("af_authToken"); } catch {}
       try { localStorage.removeItem("af_authUser"); } catch {}
       supabase.auth.signOut().catch(() => {}); // fires SIGNED_OUT → Fix 3 clears the rest
       return null;
     } catch(e) {
-      console.warn("[AF AUTH] token refresh error:", e.message);
+      AF_DEBUG && console.warn("[AF AUTH] token refresh error (network/unexpected)"); // message omitted: may contain auth details
       // Unexpected error (e.g. network failure). Clear manual token copy so callers
       // don't retry with a stale value, but don't force signOut — SDK session may
       // still be valid if the error was transient.
@@ -1797,7 +1797,7 @@ function HomeFlow() {
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
   if (!THEMES[themeName]) {
-    console.warn("[AF THEME] Invalid theme", themeName, "falling back to coastal");
+    AF_DEBUG && console.warn("[AF THEME] Invalid theme — falling back to coastal");
   }
   const safeThemeName = THEMES[themeName] ? themeName : "coastal";
   const T = THEMES[safeThemeName];
@@ -2090,7 +2090,7 @@ function createLocalBackup() {
           } catch(e) { console.warn("[AF] Member household lookup failed:", e.message); }
         }
       } catch(hhErr) {
-        console.warn("Household lookup failed:", hhErr.message);
+        AF_DEBUG && console.warn("[AF] Household lookup failed"); // message omitted: may contain IDs
         // Fallback — ensure we at least have a household ID
         const storedHHId = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
         if (!storedHHId) {
@@ -3284,7 +3284,7 @@ function createLocalBackup() {
         setFamilyProfile(function(p){return{...(p||{}),city:city,timezone:timezone,utcOffsetHours:utcOffset};});
         fetchWeather(lat,lng);
         AF_DEBUG&&console.log("[AF] ZIP",zip,"→",city,timezone,"UTC"+utcOffset);
-      } catch(e){ console.warn("[AF] ZIP lookup failed:",e); }
+      } catch(e){ AF_DEBUG && console.warn("[AF] ZIP lookup failed (dev only)"); }
     }, 800);
     return function(){ clearTimeout(timeout); };
   },[familyProfile&&familyProfile.zipcode]); // eslint-disable-line
@@ -3550,7 +3550,7 @@ Respond ONLY with valid JSON array, no markdown:
         setDismissedInsights([]);
       }
     } catch(err) {
-      console.error("Insights error:",err);
+      AF_DEBUG && console.error("[AF] Insights error (dev only)");
     }
     setInsightsLoading(false);
   }
@@ -3858,7 +3858,7 @@ Respond ONLY with valid JSON array, no markdown:
           var firedIds = toFire.map(function(i){return i.r.id;}).join(",");
           localStorage.setItem(remindedKey, firedIds);
         }
-      } catch(e) { console.error("Recurring reminder error:", e); }
+      } catch(e) { AF_DEBUG && console.error("[AF] Recurring reminder error (dev only)"); }
     })();
   }
 
@@ -6695,7 +6695,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         })});
         if(!r.ok){
           const errText=await r.text();
-          console.error("Rescue API error:",r.status,errText);
+          AF_DEBUG && console.error("[AF] Rescue API error:", r.status); // errText omitted: may contain API response data
           setRescueError("API error "+r.status+". Please try again.");
           setRescueLoading(false);return;
         }
@@ -6704,12 +6704,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         if(!txt){setRescueError("No response from AI. Please try again.");setRescueLoading(false);return;}
         // Extract JSON array robustly — find the first [ ... ] block
         const match=txt.match(/\[[\s\S]*\]/);
-        if(!match){console.error("No JSON array found in:",txt);setRescueError("Unexpected response. Please try again.");setRescueLoading(false);return;}
+        if(!match){AF_DEBUG&&console.error("[AF] Rescue: no JSON array in response (dev only)");setRescueError("Unexpected response. Please try again.");setRescueLoading(false);return;}
         const parsed=JSON.parse(match[0]);
         if(!Array.isArray(parsed)||parsed.length===0){setRescueError("No meals found. Try listing a few more ingredients.");setRescueLoading(false);return;}
         setRescueResults(parsed);
       }catch(e){
-        console.error("Rescue meal error:",e);
+        AF_DEBUG && console.error("[AF] Rescue meal error (dev only)");
         setRescueError("Something went wrong. Check your connection and try again.");
         setRescueResults(null);
       }
@@ -7991,7 +7991,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
         const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
         if(parsed.results){ const map={}; parsed.results.forEach(r=>{map[r.id]=r.cat;}); setBrainItems(p=>p.map(b=>map[b.id]?{...b,cat:map[b.id]}:b)); }
-      } catch(e){ console.error(e); }
+      } catch(e){ AF_DEBUG && console.error("[AF] AI recategorize error (dev only)"); }
       setAiRecatLoading(false);
     }
 

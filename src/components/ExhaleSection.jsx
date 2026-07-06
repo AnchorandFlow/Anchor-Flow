@@ -277,7 +277,7 @@ export default function ExhaleSection(props) {
           return; // flag NOT set — retries on next re-run
         }
         localStorage.setItem(flagKey, "1");
-        console.log("[AF] Exhale migration done:", cards.length, "card(s) contributed.");
+        window.AF_DEBUG && console.log("[AF] Exhale migration done:", cards.length, "card(s) contributed.");
       });
   }, [householdId]); // re-runs when householdId resolves null → real id; flag guards re-migration
 
