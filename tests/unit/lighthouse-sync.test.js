@@ -451,9 +451,15 @@ describe("LH-3-D — mode-agnostic: shared data identical for both modes (accept
 });
 
 // ─── LH-4 — homeschool layer helpers + loop logic ───────────────────────────
-// Mirrors of module-scope helpers in App.jsx.
+// Mirrors of module-scope helpers in App.jsx (updated for LH-4 revisions).
+function defaultLhHsDay() {
+  return { attendance: null, core: "", notes: "" };
+}
 function defaultLhHsChild() {
-  return { daily: { Mon:"", Tue:"", Wed:"", Thu:"", Fri:"" }, weekly: [], monthly: "", loops: [] };
+  return {
+    daily: { Mon:defaultLhHsDay(), Tue:defaultLhHsDay(), Wed:defaultLhHsDay(), Thu:defaultLhHsDay(), Fri:defaultLhHsDay() },
+    weekly: [], monthly: "", loops: []
+  };
 }
 function lhGet4(o, k, d) { return o && o[k] != null ? o[k] : d; }
 
@@ -490,6 +496,9 @@ function lhCycleStatus(status) {
   if (status === "skip")  return "later";
   return "todo";
 }
+function lhSetStatus(current, target) {
+  return current === target ? "todo" : target;
+}
 function lhUpNext(items) {
   if (!Array.isArray(items)) return null;
   for (var i = 0; i < items.length; i++) {
@@ -510,11 +519,13 @@ var LOOP_1 = {
 };
 
 describe("LH-4-A — lhHsPatch (daily/weekly/monthly)", function() {
-  it("LH-4-A1: patches daily for target child", function() {
+  it("LH-4-A1: patches daily for target child (object shape)", function() {
     var lh = defaultLighthouse();
-    var lh2 = lhHsPatch(lh, "c1", { daily: { Mon:"Math, Reading", Tue:"Science", Wed:"", Thu:"", Fri:"" } });
-    expect(lh2.homeschool["c1"].daily.Mon).toBe("Math, Reading");
-    expect(lh2.homeschool["c1"].daily.Tue).toBe("Science");
+    var monDay = { attendance:"present", core:"Math", notes:"Finished chapter 4" };
+    var lh2 = lhHsPatch(lh, "c1", { daily: { Mon:monDay, Tue:defaultLhHsDay(), Wed:defaultLhHsDay(), Thu:defaultLhHsDay(), Fri:defaultLhHsDay() } });
+    expect(lh2.homeschool["c1"].daily.Mon.attendance).toBe("present");
+    expect(lh2.homeschool["c1"].daily.Mon.core).toBe("Math");
+    expect(lh2.homeschool["c1"].daily.Mon.notes).toBe("Finished chapter 4");
   });
 
   it("LH-4-A2: patch does NOT affect sibling child", function() {
@@ -661,5 +672,134 @@ describe("LH-4-E — lhUpNext (first todo or later item)", function() {
     var items = LOOP_1.items.map(function(it){ return it.id==="i1" ? Object.assign({},it,{status:"done"}) : it; });
     // i1=done, i2=done, i3=skip, i4=later, i5=todo → first todo/later is i4
     expect(lhUpNext(items).id).toBe("i4");
+  });
+});
+
+// ─── LH-4 revisions ─────────────────────────────────────────────────────────
+
+describe("LH-4-rev-A — defaultLhHsDay shape (daily plan revision)", function() {
+  it("LH-4-rev-A1: defaultLhHsDay returns correct keys", function() {
+    var d = defaultLhHsDay();
+    expect(d).toHaveProperty("attendance", null);
+    expect(d).toHaveProperty("core", "");
+    expect(d).toHaveProperty("notes", "");
+  });
+
+  it("LH-4-rev-A2: defaultLhHsChild daily values are objects, not strings", function() {
+    var child = defaultLhHsChild();
+    ["Mon","Tue","Wed","Thu","Fri"].forEach(function(day) {
+      expect(typeof child.daily[day]).toBe("object");
+      expect(child.daily[day]).not.toBeNull();
+      expect(child.daily[day].attendance).toBeNull();
+    });
+  });
+
+  it("LH-4-rev-A3: each call returns fresh day objects (no shared reference)", function() {
+    var a = defaultLhHsChild();
+    var b = defaultLhHsChild();
+    a.daily.Mon.attendance = "present";
+    expect(b.daily.Mon.attendance).toBeNull();
+  });
+
+  it("LH-4-rev-A4: attendance field persists through lhHsPatch round-trip", function() {
+    var lh = defaultLighthouse();
+    var monDay = { attendance:"present", core:"Morning loop", notes:"Great day" };
+    var lh2 = lhHsPatch(lh, "c1", {
+      daily: { Mon:monDay, Tue:defaultLhHsDay(), Wed:defaultLhHsDay(), Thu:defaultLhHsDay(), Fri:defaultLhHsDay() }
+    });
+    expect(lh2.homeschool["c1"].daily.Mon.attendance).toBe("present");
+    expect(lh2.homeschool["c1"].daily.Mon.core).toBe("Morning loop");
+    expect(lh2.homeschool["c1"].daily.Mon.notes).toBe("Great day");
+  });
+
+  it("LH-4-rev-A5: attendance toggle: 'present' tapped again → null", function() {
+    // Simulates applyHsDayField(day, 'attendance', att==='present' ? null : 'present')
+    var att = "present";
+    var next = att === "present" ? null : "present";
+    expect(next).toBeNull();
+  });
+
+  it("LH-4-rev-A6: attendance toggle: null tapped Present → 'present'", function() {
+    var att = null;
+    var next = att === "present" ? null : "present";
+    expect(next).toBe("present");
+  });
+
+  it("LH-4-rev-A7: attendance toggle: Away tapped again → null", function() {
+    var att = "away";
+    var next = att === "away" ? null : "away";
+    expect(next).toBeNull();
+  });
+
+  it("LH-4-rev-A8: away-day notes still persist", function() {
+    var awayDay = { attendance:"away", core:"", notes:"Sick day — rest" };
+    var lh2 = lhHsPatch(defaultLighthouse(), "c1", {
+      daily: { Mon:awayDay, Tue:defaultLhHsDay(), Wed:defaultLhHsDay(), Thu:defaultLhHsDay(), Fri:defaultLhHsDay() }
+    });
+    expect(lh2.homeschool["c1"].daily.Mon.attendance).toBe("away");
+    expect(lh2.homeschool["c1"].daily.Mon.notes).toBe("Sick day — rest");
+  });
+
+  it("LH-4-rev-A9: backward compat — string daily[day] reads without crash (migration path)", function() {
+    // Old format: daily[day] is a string. UI does inline migration in applyHsDayField.
+    var oldChild = { daily: { Mon:"Math, Reading", Tue:"", Wed:"", Thu:"", Fri:"" }, weekly:[], monthly:"", loops:[] };
+    var lh = lhHsPatch(defaultLighthouse(), "c1", oldChild);
+    var raw = lh.homeschool["c1"].daily.Mon;
+    // In the UI, applyHsDayField migrates string to { attendance:null, core:"", notes: raw }
+    var dayObj = (raw && typeof raw === "object") ? raw : { attendance: null, core: "", notes: typeof raw === "string" ? raw : "" };
+    expect(dayObj.notes).toBe("Math, Reading");
+    expect(dayObj.attendance).toBeNull();
+  });
+});
+
+describe("LH-4-rev-B — lhSetStatus direct-action (loop revision)", function() {
+  it("LH-4-rev-B1: todo → done (one tap, direct)", function() {
+    expect(lhSetStatus("todo", "done")).toBe("done");
+  });
+
+  it("LH-4-rev-B2: todo → skip (one tap, direct)", function() {
+    expect(lhSetStatus("todo", "skip")).toBe("skip");
+  });
+
+  it("LH-4-rev-B3: todo → later (one tap, direct)", function() {
+    expect(lhSetStatus("todo", "later")).toBe("later");
+  });
+
+  it("LH-4-rev-B4: done → todo (tap active Done button again)", function() {
+    expect(lhSetStatus("done", "done")).toBe("todo");
+  });
+
+  it("LH-4-rev-B5: skip → todo (tap active Skip button again)", function() {
+    expect(lhSetStatus("skip", "skip")).toBe("todo");
+  });
+
+  it("LH-4-rev-B6: later → todo (tap active Later button again)", function() {
+    expect(lhSetStatus("later", "later")).toBe("todo");
+  });
+
+  it("LH-4-rev-B7: done → skip directly (no cycling required)", function() {
+    expect(lhSetStatus("done", "skip")).toBe("skip");
+  });
+
+  it("LH-4-rev-B8: skip → later directly", function() {
+    expect(lhSetStatus("skip", "later")).toBe("later");
+  });
+
+  it("LH-4-rev-B9: later → done directly", function() {
+    expect(lhSetStatus("later", "done")).toBe("done");
+  });
+
+  it("LH-4-rev-B10: unknown current, target done → done", function() {
+    expect(lhSetStatus("bad", "done")).toBe("done");
+  });
+
+  it("LH-4-rev-B11: lhSetStatus applied via lhHsLoopItemUpdate persists", function() {
+    var lh = lhHsPatch(defaultLighthouse(), "c1", { loops: [Object.assign({}, LOOP_1, { items: LOOP_1.items.slice() })] });
+    // i1 is "todo"; tap Done → "done"
+    var lh2 = lhHsLoopItemUpdate(lh, "c1", "loop1", "i1", { status: lhSetStatus("todo","done") });
+    expect(lh2.homeschool["c1"].loops[0].items.find(function(it){return it.id==="i1";}).status).toBe("done");
+    // tap Done again → "todo"
+    var lh3 = lhHsLoopItemUpdate(lh2, "c1", "loop1", "i1", { status: lhSetStatus("done","done") });
+    expect(lh3.homeschool["c1"].loops[0].items.find(function(it){return it.id==="i1";}).status).toBe("todo");
   });
 });

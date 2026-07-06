@@ -560,8 +560,14 @@ function lhDeleteItem(lh, childId, field, id) {
   return Object.assign({}, lh, { shared: shared });
 }
 // Default per-child homeschool data shape (LH-4).
+function defaultLhHsDay() {
+  return { attendance: null, core: "", notes: "" };
+}
 function defaultLhHsChild() {
-  return { daily: { Mon:"", Tue:"", Wed:"", Thu:"", Fri:"" }, weekly: [], monthly: "", loops: [] };
+  return {
+    daily: { Mon:defaultLhHsDay(), Tue:defaultLhHsDay(), Wed:defaultLhHsDay(), Thu:defaultLhHsDay(), Fri:defaultLhHsDay() },
+    weekly: [], monthly: "", loops: []
+  };
 }
 // Pure helpers for the homeschool layer. All return a new lighthouse blob.
 function lhHsPatch(lh, childId, patch) {
@@ -597,6 +603,10 @@ function lhCycleStatus(status) {
   if (status === "done")  return "skip";
   if (status === "skip")  return "later";
   return "todo";
+}
+// Direct-set status: if already at target, return to todo (toggle-off). One tap to any state.
+function lhSetStatus(current, target) {
+  return current === target ? "todo" : target;
 }
 // First eligible "up next" item (todo or later, in order).
 function lhUpNext(items) {
@@ -10793,8 +10803,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var lhLoops  = Array.isArray(hsChild.loops) ? hsChild.loops : [];
 
     function applyHs(patch) { applyLh(lhHsPatch(lighthouse, activeChild, patch)); }
-    function applyHsDay(day, val) {
-      var nextDaily = Object.assign({}, hsDaily); nextDaily[day] = val;
+    function applyHsDayField(day, field, val) {
+      var nextDaily = Object.assign({}, hsDaily);
+      var raw = nextDaily[day];
+      var dayObj = (raw && typeof raw === "object") ? Object.assign({}, raw) : { attendance: null, core: "", notes: typeof raw === "string" ? raw : "" };
+      dayObj[field] = val;
+      nextDaily[day] = dayObj;
       applyHs({ daily: nextDaily });
     }
     function applyHsLoopUpdate(loopId, loopPatch) {
@@ -11302,17 +11316,31 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {/* Daily plan */}
           {lhPlanSubTab === "daily" && (
             <div>
-              <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>What subjects or activities each day this week?</div>
               {LH_PLAN_DAYS.map(function(day) {
-                var dayCard = card({marginBottom:"0.65rem",padding:"0.85rem"});
+                var raw = hsDaily[day];
+                var dayData = (raw && typeof raw === "object") ? raw : { attendance: null, core: "", notes: typeof raw === "string" ? raw : "" };
+                var att = dayData.attendance || null;
+                var dayCard = card({marginBottom:"0.75rem"});
+                var presentSt = {padding:"0.18rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(att==="present"?T.sage:T.borderSoft),background:att==="present"?T.sage+"22":"transparent",color:att==="present"?T.sage:T.textFaint,fontSize:"0.72rem",fontWeight:att==="present"?700:400,cursor:"pointer",fontFamily:"inherit"};
+                var awaySt    = {padding:"0.18rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(att==="away"?T.rose:T.borderSoft),background:att==="away"?T.rose+"22":"transparent",color:att==="away"?T.rose:T.textFaint,fontSize:"0.72rem",fontWeight:att==="away"?700:400,cursor:"pointer",fontFamily:"inherit"};
                 return (
                   <div key={day} style={dayCard}>
-                    <div style={{fontSize:"0.73rem",fontWeight:700,color:T.textMid,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>{day}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
+                      <span style={{fontSize:"0.73rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",flex:1}}>{day}</span>
+                      <button type="button" onClick={function(){ applyHsDayField(day,"attendance",att==="present"?null:"present"); }} style={presentSt}>Present</button>
+                      <button type="button" onClick={function(){ applyHsDayField(day,"attendance",att==="away"?null:"away"); }} style={awaySt}>Away</button>
+                    </div>
+                    <input
+                      value={dayData.core || ""}
+                      onChange={function(e){ applyHsDayField(day,"core",e.target.value); }}
+                      placeholder="Core work, loop, or reading…"
+                      style={inp({fontSize:"0.8rem",padding:"0.35rem 0.65rem",marginBottom:"0.45rem"})}
+                    />
                     <textarea
-                      value={hsDaily[day] || ""}
-                      onChange={function(e){ applyHsDay(day, e.target.value); }}
-                      placeholder={"e.g. Math, Reading, Nature Journal"}
-                      style={inp({height:52,resize:"vertical",fontSize:"0.83rem"})}
+                      value={dayData.notes || ""}
+                      onChange={function(e){ applyHsDayField(day,"notes",e.target.value); }}
+                      placeholder="What we actually did…"
+                      style={inp({height:80,resize:"vertical",fontSize:"0.83rem",lineHeight:1.5})}
                     />
                   </div>
                 );
@@ -11544,15 +11572,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
                   return (
                     <div key={item.id} style={itemRow}>
-                      <button type="button"
-                        onClick={function(){ applyHsLoopItemUpdate(loop.id, item.id, {status:lhCycleStatus(item.status)}); }}
-                        style={{background:"none",border:"none",cursor:"pointer",color:statusColor,fontSize:"1rem",padding:0,flexShrink:0,lineHeight:1,marginTop:"0.1rem"}}>
-                        {statusIcon}
-                      </button>
+                      <span style={{color:statusColor,fontSize:"0.95rem",flexShrink:0,lineHeight:1,marginTop:"0.18rem",userSelect:"none"}}>{statusIcon}</span>
                       <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:"0.35rem",flexWrap:"wrap"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.25rem"}}>
                           <span style={{fontSize:"0.85rem",textDecoration:textDec,color:textColor}}>{item.text}</span>
                           {isUpNext && <span style={{fontSize:"0.63rem",fontWeight:700,color:tint,background:tint+"22",padding:"0.1rem 0.4rem",borderRadius:"99px"}}>Up Next</span>}
+                        </div>
+                        <div style={{display:"flex",gap:"0.3rem"}}>
+                          {["done","skip","later"].map(function(act) {
+                            var isAct = item.status === act;
+                            var actColor = act==="done"?tint:act==="skip"?T.textFaint:"#f59e0b";
+                            var actSt = {fontSize:"0.68rem",padding:"0.12rem 0.48rem",borderRadius:"99px",fontFamily:"inherit",border:"1.5px solid "+(isAct?actColor:T.borderSoft),background:isAct?actColor+"22":"transparent",color:isAct?actColor:T.textFaint,fontWeight:isAct?700:400,cursor:"pointer"};
+                            var actLabel = act==="done"?"Done":act==="skip"?"Skip":"Later";
+                            return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id, item.id, {status:lhSetStatus(item.status,act)}); }} style={actSt}>{actLabel}</button>;
+                          })}
                         </div>
                         {isExpandedNote && (
                           <textarea
