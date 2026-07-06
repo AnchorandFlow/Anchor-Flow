@@ -263,7 +263,7 @@ function RippleNotificationBanner() {
     // af_safe_harbor is included for belt-and-suspenders consistency. loadData() in
     // SafeHarbor.jsx already handles the "null" string case defensively (JSON.parse("null")
     // → null → fresh defaults), so this guard is redundant but not harmful.
-    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor"];
+    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor","af_lighthouse"];
     NULL_SAFE_KEYS.forEach(function(k) {
       try { if (localStorage.getItem(k) === "null") localStorage.removeItem(k); } catch {}
     });
@@ -512,6 +512,23 @@ var _swReloadFired = false;
 //           unpushed edits can push once auth is restored after re-login
 var _afUserInitiatedSignOut = false;
 var SHOPPING_V2 = localStorage.getItem("af_shopping_v2") === "true";
+// Lighthouse opt-in flag (default OFF). useSaved("lighthouse") → af_lighthouse.
+// To enable:  localStorage.setItem("af_lighthouse_v2","true");  location.reload();
+var LIGHTHOUSE_V2 = localStorage.getItem("af_lighthouse_v2") === "true";
+// Safe guard helper for nested lighthouse reads — avoids optional chaining (ES2019).
+function lhGet(o, k, d) { return o && o[k] != null ? o[k] : d; }
+// Default shape for the af_lighthouse blob. All child-keyed layers start empty;
+// components fill them on first save. Keep field names stable — they drive summaries.
+function defaultLighthouse() {
+  return {
+    version: 2,
+    modes: {},
+    shared: {},
+    homeschool: {},
+    school: {},
+    household: { readAlouds: [], calendar: [], settings: {} }
+  };
+}
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];

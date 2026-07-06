@@ -86,6 +86,7 @@ const PLAUSIBLE = {
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
   "af_nwMealCount":   2,
   safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },
+  lighthouse:         { version:2, modes:{}, shared:{}, homeschool:{}, school:{}, household:{ readAlouds:[], calendar:[], settings:{} } },
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────

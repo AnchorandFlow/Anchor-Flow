@@ -58,7 +58,10 @@ export const SYNC_KEYS = [
   "monthMeals","af_nwMealCount",
   // Safe Harbor — household emergency plan (SH-2b). Merge-on-receive via
   // applyHouseholdKey; never naive last-write-wins. See mergeSafeHarbor.
-  "safe_harbor"];
+  "safe_harbor",
+  // Lighthouse — per-child learning records (LH-1). Object pass-through;
+  // no merge hook yet (flag-gated OFF). useSaved("lighthouse") → af_lighthouse.
+  "lighthouse"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -111,6 +114,8 @@ const _SANITIZE_HANDLED = new Set([
   "ripples",
   // Merge-on-receive (applyHouseholdKey handles the merge)
   "safe_harbor",
+  // Object pass-through (LH-1; flag-gated, no merge hook yet)
+  "lighthouse",
 ]);
 
 export function sanitizeHouseholdData(data) {
@@ -189,6 +194,11 @@ export function sanitizeHouseholdData(data) {
     if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&
         typeof data["safe_harbor"] === "object" && !Array.isArray(data["safe_harbor"])) {
       out["safe_harbor"] = data["safe_harbor"];
+    }
+    // lighthouse: pass through as object (LH-1; flag-gated, no merge hook yet)
+    if (data["lighthouse"] !== undefined && data["lighthouse"] !== null &&
+        typeof data["lighthouse"] === "object" && !Array.isArray(data["lighthouse"])) {
+      out["lighthouse"] = data["lighthouse"];
     }
     // Defensive pass-through: any SYNC_KEYS key not explicitly handled above
     // syncs as-is (null-guarded) instead of being silently dropped. Fixes
