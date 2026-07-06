@@ -518,6 +518,21 @@ const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
 const FORMAT_DATE = d => d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 const FORMAT_SHORT = d => d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
 const uid = () => Math.random().toString(36).slice(2,9);
+// Derive current age from an ISO birthday string (YYYY-MM-DD). Returns null if missing/invalid.
+function ageFromBirthday(birthday) {
+  if (!birthday) return null;
+  var parts = String(birthday).split("-");
+  if (parts.length !== 3) return null;
+  var by = parseInt(parts[0], 10); var bm = parseInt(parts[1], 10) - 1; var bd = parseInt(parts[2], 10);
+  if (isNaN(by) || isNaN(bm) || isNaN(bd)) return null;
+  var t = new Date(); var age = t.getFullYear() - by;
+  var md = t.getMonth() - bm;
+  if (md < 0 || (md === 0 && t.getDate() < bd)) age--;
+  return age >= 0 ? age : null;
+}
+// Effective age for a person: birthday-derived if available, else legacy numeric age.
+function personAge(p) { return p && p.birthday ? ageFromBirthday(p.birthday) : (p && p.age != null ? p.age : null); }
+function personIsMinor(p) { var a = personAge(p); return a !== null && a < 18; }
 // Returns the ISO date string (YYYY-MM-DD) of the Monday starting the current week
 const getThisMonday = () => {
   const d = new Date();
@@ -991,7 +1006,7 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){var current=key in p?p[key]:(defaultOpen||false);return Object.assign({},p,{[key]:!current});});
   }
-  var rawKids=people.filter(function(p){return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0);});
+  var rawKids=people.filter(function(p){return p.role==="Kid"||p.role==="Teen"||personIsMinor(p);});
   var saved=coveData||[];
   var sKidIdx=Math.min(tpKidIdx,Math.max(rawKids.length-1,0));
   var sKid=rawKids[sKidIdx];
@@ -1109,7 +1124,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
   React.useEffect(function(){AF_DEBUG&&console.log("[AF MOUNT] FamilySection");return function(){AF_DEBUG&&console.log("[AF UNMOUNT] FamilySection");};},[]);
   var _fsRender=React.useRef(0);_fsRender.current++;AF_DEBUG&&console.count("[AF RENDER] Family-section");
   var [newMemberName,setNewMemberName]=useState("");
-  var [newMemberAge,setNewMemberAge]=useState("");
+  var [newMemberBirthday,setNewMemberBirthday]=useState("");
   var [newMemberRole,setNewMemberRole]=useState("");
   var [settingsOpen,setSettingsOpen]=useState({family:true});
   function toggleSetting(key,defaultOpen){
@@ -1133,9 +1148,10 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
   }
   function addMember(){
     if(!newMemberName.trim())return;
-    var ageStr=newMemberAge.trim();var ageNum=ageStr?parseInt(ageStr,10):null;var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;
-    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],age:age,role:newMemberRole||null,isMinor:age!=null&&age<18}];});
-    setNewMemberName("");setNewMemberAge("");setNewMemberRole("");
+    var bday=newMemberBirthday.trim()||null;
+    var derivedAge=ageFromBirthday(bday);
+    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],birthday:bday,age:derivedAge,role:newMemberRole||null,isMinor:derivedAge!=null&&derivedAge<18}];});
+    setNewMemberName("");setNewMemberBirthday("");setNewMemberRole("");
   }
   return(
     <Section id="family" emoji="🏡" title="Family" sub="Who lives in your home" defaultOpen={true} settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T}>
@@ -1160,7 +1176,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
                 </button>
               </div>
               <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",alignItems:"center"}}>
-                <input type="number" min={0} max={120} key={p.id+"_age"} defaultValue={p.age!=null&&!isNaN(p.age)?p.age:""} onBlur={function(e){var v=e.target.value;var ageNum=v===""?null:parseInt(v,10);var age=(ageNum!==null&&!isNaN(ageNum))?ageNum:null;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{age:age,isMinor:age!=null&&age<18}):x;});});}} placeholder="Age" style={{...inp({width:54,fontSize:"0.76rem",padding:"0.2rem 0.4rem",textAlign:"center"})}}/>
+                <input type="date" key={p.id+"_bday"} defaultValue={p.birthday||""} onBlur={function(e){var bday=e.target.value||null;var da=ageFromBirthday(bday);setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{birthday:bday,age:da,isMinor:da!=null&&da<18}):x;});});}} placeholder="Birthday" style={{...inp({width:130,fontSize:"0.76rem",padding:"0.2rem 0.4rem"})}}/>
+                {p.birthday&&ageFromBirthday(p.birthday)!=null&&<span style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600}}>Age {ageFromBirthday(p.birthday)}</span>}
+                {!p.birthday&&p.age!=null&&<span style={{fontSize:"0.72rem",color:T.textFaint,fontStyle:"italic"}} title="Age on file — add birthday for auto-updates">Age {p.age}</span>}
                 <select value={p.role||""} onChange={function(e){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{role:e.target.value||null}):x;});});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
                   <option value="">Role…</option>
                   {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
@@ -1186,7 +1204,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
               onBlur={function(){AF_DEBUG&&console.log("[AF INPUT BLUR] family-addname");}}
               onChange={function(e){AF_DEBUG&&console.log("[AF INPUT CHANGE] family-addname",e.target.value);setNewMemberName(e.target.value);}}
               onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Name" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.38rem 0.6rem"})}}/>
-            <input type="number" min={0} max={120} value={newMemberAge} onChange={function(e){setNewMemberAge(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Age" style={{...inp({width:58,fontSize:"0.82rem",padding:"0.38rem 0.5rem",textAlign:"center"})}}/>
+            <input type="date" value={newMemberBirthday} onChange={function(e){setNewMemberBirthday(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addMember();}} placeholder="Birthday" style={{...inp({width:130,fontSize:"0.82rem",padding:"0.38rem 0.5rem"})}}/>
           </div>
           <div style={{display:"flex",gap:"0.4rem"}}>
             <select value={newMemberRole} onChange={function(e){setNewMemberRole(e.target.value);}} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.5rem"})}}>
@@ -1284,7 +1302,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
     try{localStorage.setItem("af_schoolData",JSON.stringify(next));}catch{}
   }
 
-  var minorKids = people.filter(function(p){return p&&p.name&&(p.isMinor||(p.age!=null&&p.age<18));});
+  var minorKids = people.filter(function(p){return p&&p.name&&personIsMinor(p);});
 
   return(
     <div>
@@ -1435,7 +1453,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                 <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
                   <div style={{width:12,height:12,borderRadius:"50%",background:kid.color||T.blue,flexShrink:0}}/>
                   <span style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>{kid.name}</span>
-                  {kid.age!=null&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft}}>Age {kid.age}</span>}
+                  {personAge(kid)!=null&&<span style={{fontSize:"0.68rem",fontWeight:700,color:T.textSoft}}>Age {personAge(kid)}</span>}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
                   {SCHOOL_TYPES.map(function(type){
@@ -3354,7 +3372,7 @@ function createLocalBackup() {
     const ctx = [
       "Family: "+(familyProfile?JSON.stringify(familyProfile):"not set"),
       "Work situation: "+(familyProfile?.workSituation||"not set"),
-      "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){return p.name+(p.role?" ("+p.role+")":"")+(p.age!=null?" age "+p.age:"")+(p.isMinor||(p.age!=null&&p.age<18)?" [minor]":"");}).join(", "),
+      "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){var a=personAge(p);return p.name+(p.role?" ("+p.role+")":"")+(a!=null?" age "+a:"")+(p.birthday?" born "+p.birthday:"")+(personIsMinor(p)?" [minor]":"");}).join(", "),
       "Today: "+TODAY_NAME+", theme: "+(dayRhythm.theme||"none"),
       "Events today: "+(todayEvts.map(e=>(e.time||"all day")+" "+e.title).join(", ")||"none"),
       "Upcoming events next 7 days: "+(upcomingEvts7.map(function(e){var d=new Date(e.date+"T12:00:00");var dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dn+" "+e.date+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"),
@@ -5264,9 +5282,9 @@ Respond ONLY in valid JSON:
 
             {/* Today's tasks */}
             <div style={{background:T.surface,border:"3px solid "+T.blue,borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:"0 4px 20px "+T.blue+"14"}}>
-              {people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!["Kid","Teen","Baby"].includes(p.role);}).length>0&&(
+              {people.filter(function(p){return !personIsMinor(p)&&!["Kid","Teen","Baby"].includes(p.role);}).length>0&&(
                 <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
-                  {[{id:"all",name:"Everyone"},...people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!["Kid","Teen","Baby"].includes(p.role);})].map(function(p){
+                  {[{id:"all",name:"Everyone"},...people.filter(function(p){return !personIsMinor(p)&&!["Kid","Teen","Baby"].includes(p.role);})].map(function(p){
                     return <button key={p.id} onClick={function(){setPersonFilter(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(personFilter===p.id?(p.color||T.blue):T.border),background:personFilter===p.id?(p.color||T.blue)+"22":"transparent",color:personFilter===p.id?(p.color||T.blue):T.textMid,fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
                   })}
                 </div>
@@ -5490,7 +5508,7 @@ Respond ONLY in valid JSON:
                 ?aiSuggestions.upcoming.map(function(text){return {text,src:"horizon"};})
                 :[];
               var MINOR_ROLES_T=["Kid","Teen","Baby"];
-              var adultNames=people.filter(function(p){return !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES_T.includes(p.role);}).map(function(p){return p.name;});
+              var adultNames=people.filter(function(p){return !personIsMinor(p)&&!MINOR_ROLES_T.includes(p.role);}).map(function(p){return p.name;});
               var ideasPool=brainItems.filter(function(b){
                 if(b.done) return false;
                 if(b.scheduledDay&&b.scheduledDay!=="") return false;
@@ -8123,7 +8141,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })()}
             <div style={{flex:1}}/>
-            {people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor&&!(p.age!=null&&p.age<18)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
+            {people.filter(function(p){ return p&&p.name&&p.name.length>0 && !personIsMinor(p)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
               var isAssigned=item.assignedTo===p.name;
               return(
                 <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
@@ -8271,7 +8289,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   const COVE_MIN_OPEN  = 10;
 
   function getDefaultTidePoolData() {
-    var kids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
+    var kids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||personIsMinor(p); });
     if(kids.length===0) kids = [{id:"k1",name:"Child 1"}];
     return kids.map(function(k){
       return {
@@ -8295,7 +8313,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   _hfRenders.TidePoolTab = function TidePoolTab() {
-    var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||(p.isMinor)||((p.age||0)<18&&(p.age||0)>0); });
+    var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||personIsMinor(p); });
     if(rawKids.length===0) rawKids = [{id:"k1",name:"Child 1",color:"#c8a97a"}];
 
     // Merge persisted coveData with current people list
@@ -8579,12 +8597,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var adults = people.filter(function(p){
       if(!p||!p.name) return false;
       if(MINOR_ROLES.includes(p.role)) return false;
-      if(p.isMinor) return false;
-      if(p.age!=null && p.age<18) return false;
-      // Only include if they have an explicit adult role OR age>=18
+      if(personIsMinor(p)) return false;
+      // Only include if they have an explicit adult role OR confirmed adult age
       if(ADULT_ROLES.includes(p.role)) return true;
-      if(p.age!=null && p.age>=18) return true;
-      // No role, no age — exclude to be safe
+      var a = personAge(p);
+      if(a!=null && a>=18) return true;
+      // No role, no age/birthday — exclude to be safe
       return false;
     });
     var [activeCareerPerson, setActiveCareerPerson] = useState(function(){ return adults[0]?.id||null; });
@@ -9486,7 +9504,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [activityForm, setActivityForm] = React.useState({ title: "", date: "", time: "", location: "", notes: "" });
     var [spiritForm, setSpiritForm] = React.useState({ date: "", theme: "", notes: "" });
 
-    var schoolKids = people.filter(function(p) { return p && p.name && (p.isMinor || (p.age != null && p.age < 18)); });
+    var schoolKids = people.filter(function(p) { return p && p.name && personIsMinor(p); });
 
     React.useEffect(function() {
       if (!activeChild && schoolKids.length > 0) { setActiveChild(schoolKids[0].id); }
