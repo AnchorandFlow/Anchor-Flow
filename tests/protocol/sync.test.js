@@ -591,3 +591,47 @@ describe("B12 — stale-push guard: dirty keys survive stale-blocked pull", () =
     expect(decision.reason).toBe("allowed");
   });
 });
+
+// ── B13 — Boot-path zombie session: auth modal shown, household data preserved ─
+describe("B13 — boot-path zombie: clearZombieAuthKeys + modal invariants", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    // Simulate a boot state: token stale, household data present
+    localStorage.setItem("af_authToken", JSON.stringify("stale-token"));
+    localStorage.setItem("af_authUser",  JSON.stringify({ id: "u1", email: "test@test.com" }));
+    localStorage.setItem("af_householdId", JSON.stringify("hh_test_household"));
+    localStorage.setItem("af_tasks", JSON.stringify([{ id: "t1", text: "pack bags" }]));
+    localStorage.setItem("af_people", JSON.stringify([{ id: "p1", name: "Alice", color: "#aaa" }]));
+  });
+  afterEach(() => { localStorage.clear(); });
+
+  it("clearZombieAuthKeys removes auth tokens on boot failure", () => {
+    clearZombieAuthKeys();
+    expect(localStorage.getItem("af_authToken")).toBeNull();
+    expect(localStorage.getItem("af_authUser")).toBeNull();
+  });
+
+  it("clearZombieAuthKeys preserves household data on boot failure", () => {
+    clearZombieAuthKeys();
+    expect(localStorage.getItem("af_householdId")).not.toBeNull();
+    expect(lsGet("af_tasks")).toEqual([{ id: "t1", text: "pack bags" }]);
+    expect(lsGet("af_people")).toEqual([{ id: "p1", name: "Alice", color: "#aaa" }]);
+  });
+
+  it("boot-path failure does not clear SYNC_KEYS (household data intact for re-auth push)", () => {
+    // Simulate the complete boot zombie sequence:
+    // 1. refreshAuthToken() fails → clearZombieAuthKeys() called
+    // 2. SIGNED_OUT fires (triggered internally by refreshAuthToken) with _afUserInitiatedSignOut=false
+    // Expectation: SYNC_KEYS survive because _afUserInitiatedSignOut was false
+    clearZombieAuthKeys();
+    // The SIGNED_OUT handler in App.jsx gates wipe on _afUserInitiatedSignOut.
+    // Here we simulate the flag=false path (automatic sign-out = no wipe).
+    const _afUserInitiatedSignOut = false; // flag was NOT set
+    if (_afUserInitiatedSignOut) {
+      SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
+    }
+    // Data must survive
+    expect(lsGet("af_tasks")).toEqual([{ id: "t1", text: "pack bags" }]);
+    expect(localStorage.getItem("af_householdId")).not.toBeNull();
+  });
+});

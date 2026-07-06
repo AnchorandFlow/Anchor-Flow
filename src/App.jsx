@@ -1822,21 +1822,24 @@ function HomeFlow() {
 
 
   // ── Validate auth token on load — refresh if expired ────────────────────
+  // Extends zombie-session detection to the boot path. When the stored token
+  // is stale and refreshAuthToken() fails, surface the auth modal immediately
+  // rather than leaving the app in a silent no-sync state.
   useEffect(() => {
     if (!authToken) return;
     sbFetch("/auth/v1/user", { _token: authToken })
       .catch(async () => {
-        console.warn("[AF AUTH] token validation failed — attempting refresh");
+        console.warn("[AF AUTH] boot token validation failed — attempting refresh");
         const newToken = await refreshAuthToken();
         if (newToken) {
-          AF_DEBUG&&console.log("[AF AUTH] refresh succeeded — updating state");
+          AF_DEBUG&&console.log("[AF AUTH] boot refresh succeeded — updating state");
           setAuthToken(newToken);
         } else {
-          console.warn("[AF AUTH] refresh failed — clearing session");
-          try { localStorage.removeItem("af_authToken"); } catch {}
-          try { localStorage.removeItem("af_authUser"); } catch {}
+          console.warn("[AF AUTH] boot refresh failed — zombie session detected");
+          clearZombieAuthKeys();
           setAuthToken(null);
           setAuthUser(null);
+          setShowAuthModal(true);
           showInAppBanner("Session expired — please sign in again.", "error");
         }
       });
@@ -4105,7 +4108,7 @@ Respond ONLY with valid JSON array, no markdown:
               {hasNotif&&<span style={{fontSize:"0.7rem"}}>🔔</span>}
               {onMoveDay&&allDays&&(
                 <div style={{position:"relative"}}>
-                  <button onClick={function(){setShowDayPicker(function(v){return !v;});}} title="Move to another day" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5,fontSize:"0.7rem"}} title="Move day">📅</button>
+                  <button onClick={function(){setShowDayPicker(function(v){return !v;});}} title="Move to another day" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5,fontSize:"0.7rem"}}>📅</button>
                   {showDayPicker&&(
                     <div style={{position:"absolute",right:0,top:"calc(100% + 2px)",zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.75rem",boxShadow:"0 4px 16px rgba(0,0,0,0.12)",padding:"0.35rem",minWidth:120}}>
                       {allDays.filter(function(d){return d!==currentDay;}).map(function(d){return(
@@ -11268,7 +11271,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             </div>
             {false&&(
-              <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:syncStatus==="synced"?T.sagePale:syncStatus==="syncing"?T.sandPale:T.bgAlt,border:`1.5px solid ${syncStatus==="synced"?T.sage+"50":syncStatus==="syncing"?T.sand+"50":T.borderSoft}`,borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",display:"none"}} onClick={()=>setShowHouseholdModal(true)}>
+              <div style={{alignItems:"center",gap:"0.3rem",background:syncStatus==="synced"?T.sagePale:syncStatus==="syncing"?T.sandPale:T.bgAlt,border:`1.5px solid ${syncStatus==="synced"?T.sage+"50":syncStatus==="syncing"?T.sand+"50":T.borderSoft}`,borderRadius:"2rem",padding:"0.22rem 0.65rem",cursor:"pointer",display:"none"}} onClick={()=>setShowHouseholdModal(true)}>
                 <span style={{fontSize:"0.65rem"}}>{syncStatus==="synced"?"✓":syncStatus==="syncing"?"⟳":"⚠"}</span>
                 <span style={{fontSize:"0.65rem",fontWeight:700,color:syncStatus==="synced"?T.sage:syncStatus==="syncing"?T.sand:T.textSoft}}>Sync</span>
               </div>
@@ -11725,14 +11728,29 @@ export default function App() {
   const [mode, setMode] = React.useState(null)
 
   React.useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) {
-        const u = session.user
-        const dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0]
-        try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })) } catch(e) {}
+    // Blank-screen guard: if getSession() never resolves (network failure, corrupted
+    // session storage), the app sticks on the loading screen indefinitely. A 5-second
+    // timeout forces session=null → AuthScreen so the user can sign in.
+    var _sessionResolved = false;
+    var _sessionTimeout = setTimeout(function() {
+      if (!_sessionResolved) { console.warn("[AF AUTH] getSession() timed out — showing sign-in"); setSession(null); }
+    }, 5000);
+    supabase.auth.getSession().then(function(result) {
+      _sessionResolved = true;
+      clearTimeout(_sessionTimeout);
+      var session = result && result.data && result.data.session;
+      setSession(session || null);
+      if (session && session.user) {
+        var u = session.user;
+        var dn = (u.user_metadata && u.user_metadata.full_name) || u.email.split("@")[0];
+        try { localStorage.setItem("af_authUser", JSON.stringify({ id: u.id, email: u.email, displayName: dn })); } catch(e) {}
       }
-    })
+    }).catch(function() {
+      _sessionResolved = true;
+      clearTimeout(_sessionTimeout);
+      console.warn("[AF AUTH] getSession() failed — showing sign-in");
+      setSession(null);
+    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.access_token) {
