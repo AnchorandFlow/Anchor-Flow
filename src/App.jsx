@@ -15,7 +15,7 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode } from "./sync-core.js"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -334,27 +334,61 @@ function RippleNotificationBanner() {
   } catch {}
 })();
 
-// ── Error Boundary — catches any render crash and shows a recovery screen ────
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { crashed: false, error: null }; }
-  static getDerivedStateFromError(error) { return { crashed: true, error }; }
-  componentDidCatch(error, info) { console.error("Anchor & Flow crashed:", error, info); }
+// ── RootErrorBoundary — app-level catch, branded recovery ────────────────────
+// Wraps FlowWrapper in App and HomeFlow in FlowWrapper. Shows a calm, branded
+// screen that never suggests clearing storage and never exposes raw error text.
+// Support code is stable (same error message → same 8-char hex code).
+class RootErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { crashed: false, code: "" }; }
+  static getDerivedStateFromError(error) {
+    return { crashed: true, code: errorCode(error && error.message ? error.message : String(error)) };
+  }
+  componentDidCatch(error, info) {
+    if (typeof AF_DEBUG !== "undefined" && AF_DEBUG) { console.error("[AF] RootErrorBoundary:", error, info); }
+  }
   render() {
     if (!this.state.crashed) return this.props.children;
+    var code = this.state.code;
     return (
-      <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",fontFamily:"sans-serif",background:"#f5f0e8",textAlign:"center"}}>
-        <div style={{fontSize:"3rem",marginBottom:"1rem"}}>⚓️</div>
-        <h2 style={{marginBottom:"0.5rem",color:"#2a2a38"}}>Something went wrong</h2>
-        <p style={{color:"#5a5a6a",marginBottom:"1.5rem",maxWidth:320}}>Anchor & Flow hit an unexpected error. Your data in the cloud is safe — tap restart to reload it.</p>
-        <button onClick={function(){ window.location.reload(); }} style={{background:"#6A9BB5",color:"#fff",border:"none",borderRadius:"0.75rem",padding:"0.75rem 1.5rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",marginBottom:"0.75rem"}}>Reload App</button>
-        <details style={{marginTop:"1.5rem",color:"#8a8a9a",fontSize:"0.72rem",maxWidth:400,textAlign:"left"}}>
-          <summary style={{cursor:"pointer"}}>Error details</summary>
-          <pre style={{marginTop:"0.5rem",whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{String(this.state.error)}</pre>
-        </details>
+      <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",fontFamily:"DM Sans, sans-serif",background:"#1a2744",textAlign:"center"}}>
+        <div style={{fontSize:"2.5rem",marginBottom:"1.25rem"}}>⚓</div>
+        <h2 style={{marginBottom:"0.75rem",color:"#faf8f4",fontFamily:"Cormorant Garamond, serif",fontSize:"1.5rem",fontWeight:600}}>Something went sideways</h2>
+        <p style={{color:"rgba(250,248,244,0.72)",marginBottom:"0.5rem",maxWidth:320,lineHeight:1.55,fontSize:"0.95rem"}}>Your data is safe.</p>
+        <p style={{color:"rgba(250,248,244,0.55)",marginBottom:"2rem",maxWidth:320,lineHeight:1.55,fontSize:"0.88rem"}}>Close and reopen the app, or tap Reload below.</p>
+        <button onClick={function(){ window.location.reload(); }} style={{background:"#c8a97a",color:"#1a2744",border:"none",borderRadius:"0.75rem",padding:"0.75rem 2rem",cursor:"pointer",fontWeight:700,fontSize:"1rem"}}>Reload</button>
+        <p style={{marginTop:"2rem",color:"rgba(250,248,244,0.28)",fontSize:"0.7rem",letterSpacing:"0.04em"}}>{"Support code: " + code}</p>
       </div>
     );
   }
 }
+
+// ── SectionErrorBoundary — inline section-level catch ────────────────────────
+// Wraps high-risk render surfaces (Exhale, Calendar, Safe Harbor) so a crash
+// in one section does not blank the whole app. Shows an inline recovery card.
+class SectionErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { crashed: false }; }
+  static getDerivedStateFromError() { return { crashed: true }; }
+  componentDidCatch(error, info) {
+    if (typeof AF_DEBUG !== "undefined" && AF_DEBUG) { console.error("[AF] SectionErrorBoundary:", error, info); }
+  }
+  render() {
+    if (!this.state.crashed) return this.props.children;
+    var self = this;
+    var label = this.props.label || "This section";
+    return (
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",textAlign:"center",minHeight:"8rem",background:"#f7f3ec",borderRadius:"1rem",margin:"1rem"}}>
+        <p style={{color:"#5a5a6a",marginBottom:"1rem",fontSize:"0.9rem"}}>{label + " hit a snag."}</p>
+        <button
+          onClick={function(){ self.setState({ crashed: false }); }}
+          style={{background:"#1a2744",color:"#faf8f4",border:"none",borderRadius:"0.6rem",padding:"0.5rem 1.25rem",cursor:"pointer",fontWeight:600,fontSize:"0.85rem"}}
+        >Reload section</button>
+      </div>
+    );
+  }
+}
+
+// Keep alias so any legacy reference to ErrorBoundary still works.
+var ErrorBoundary = RootErrorBoundary;
 
 // ── Supabase client (household sync) ─────────────────────────────────────────
 const SUPABASE_URL = "https://sbgbyptkunvyxjfpzght.supabase.co";
@@ -11287,14 +11321,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
                 {t==="anchor"   && <AnchorTab/>}
                 {t==="flowhome" && <FlowHome/>}
-                {t==="calendar" && <CalendarTab/>}
+                {t==="calendar" && <SectionErrorBoundary label="Calendar"><CalendarTab/></SectionErrorBoundary>}
                 {t==="weekly"   && <WeeklyTab/>}
                 {t==="meals"    && <MealsTab/>}
                 {t==="shop"     && <ShoppingTab/>}
                 {t==="tidepool" && <TidePoolTab/>}
                 {t==="cove"     && <CoveTab/>}
                 {t==="home"     && <HomeTab/>}
-                {t==="brain"    && <ExhaleSection
+                {t==="brain"    && <SectionErrorBoundary label="Exhale"><ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}
                 householdId={householdId}
@@ -11302,7 +11336,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setExhaleItems(items);
                   setExhaleLabels(labels);
                 }}
-              />}
+              /></SectionErrorBoundary>}
                 {t==="school"   && <SchoolTab/>}
                 {t==="career"   && <CareerTab/>}
                 {t==="settings" && <SettingsTab
@@ -11711,7 +11745,7 @@ function FlowWrapper({ onHome, onSignOut }) {
             display: none !important;
           }
         `}</style>
-        {showAnchor && <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} />}
+        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} /></SectionErrorBoundary>}
 
         <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
           <ErrorBoundary>
@@ -11797,5 +11831,5 @@ export default function App() {
     }
   }} />
 
-  return <FlowWrapper onHome={() => setMode(null)} onSignOut={signOut} />
+  return <RootErrorBoundary><FlowWrapper onHome={() => setMode(null)} onSignOut={signOut} /></RootErrorBoundary>
 }

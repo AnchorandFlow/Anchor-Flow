@@ -55,6 +55,19 @@ export const SYNC_KEYS = [
   // Do NOT normalize this without a data migration for existing devices.
   "monthMeals","af_nwMealCount"];
 
+// ── errorCode ─────────────────────────────────────────────────────────────────
+// Stable 8-char hex support code derived from an error message string.
+// Same message always produces the same code — suitable for bug reports.
+// Uses djb2 hash (no external deps, ES2019 safe).
+export function errorCode(message) {
+  var s = String(message);
+  var h = 5381;
+  for (var i = 0; i < s.length; i++) {
+    h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(16).toUpperCase().padStart(8, "0").slice(0, 8);
+}
+
 // ── clearZombieAuthKeys ────────────────────────────────────────────────────────
 // Called at each 401-recovery-failed call site (zombie-session detection).
 // Clears only auth credentials from localStorage. SYNC_KEYS household data is
