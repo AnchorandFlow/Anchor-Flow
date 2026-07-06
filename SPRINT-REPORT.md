@@ -180,7 +180,25 @@ required; task allowed log redaction only).
 ## Phase 4 — Developer handoff docs
 
 **Branch:** `cleanup-p4`
-**Status:** Pending
+**Status:** Complete
+
+### Files created
+
+- **ANCHOR_AND_FLOW_SYSTEM_MANUAL.md** — Architecture, sync lifecycle (with F7/F8 story),
+  localStorage key inventory (SYNC_KEYS vs DEVICE_LOCAL), Supabase tables/RLS/RPCs/realtime,
+  Compass proxy flow, Stripe assumptions, PWA/SW update behavior (hadController/swReloadFired
+  guards), quirks (nwMealCount double-prefix, lastPushedAt twins, raw-string F5, stale
+  duplicates, workDays gap, compassEngine mismatch)
+- **KNOWN_ISSUES.md** — All open FINDINGS (F1-F6) + P0/P1 launch blockers from audit
+- **FEATURE_FLAGS.md** — All flags (af_exhale_v2, af_shopping_v2, af_safe_harbor_v2,
+  AF_DEBUG, AF_TRACE) with defaults, flip instructions, migration/rollback behavior, risks.
+  Includes dead key (af_exhaleLabels) with removal steps. (This is Phase 5's output —
+  written here since Phase 4 references FEATURE_FLAGS.md.)
+- **DEPLOYMENT_RUNBOOK.md** — deploy.sh flow incl. new guards, bundle-hash verification,
+  landing project separation, rollback procedure, SW cache-version note
+- **RELEASE_CHECKLIST.md** — Pre-release, deploy, post-deploy, and landing page steps
+
+All content verified against source code (line numbers cited throughout). No invented details.
 
 ---
 
