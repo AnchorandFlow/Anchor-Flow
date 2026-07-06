@@ -224,4 +224,90 @@ devices), dead key `af_exhaleLabels` + `initialLabels` prop (removal steps in FE
 
 ## Phase 6 — Tiny UX items
 
-**Status:** Pending (time-permitting)
+### 6a — Birthday instead of age in Settings
+
+**Branch:** `cleanup-p6a`
+**Status:** Complete
+
+**Change:** Settings family form now asks for birthday (date input, YYYY-MM-DD) instead of a numeric age. Current age is derived at render time and shown as a styled hint label next to the date input. Legacy people with `age` set but no `birthday` show their age in muted italic text with a tooltip.
+
+**New module-level utilities (App.jsx):**
+- `ageFromBirthday(birthday)` — pure function, derives integer age from ISO date string. Returns null for future dates, missing input, or non-ISO formats. ES2019-safe (no optional chaining).
+- `personAge(p)` — returns birthday-derived age if `p.birthday` is set, else legacy `p.age`. Migration-safe.
+- `personIsMinor(p)` — unified minor check via `personAge`. Replaces 8+ scattered `p.isMinor || (p.age != null && p.age < 18)` patterns.
+
+**Sites updated:**
+- `FamilySection` state: `newMemberAge` → `newMemberBirthday`
+- `addMember()`: stores `birthday` field + derived `age` on each new person object
+- Existing-person form (line ~1163): age `<input type="number">` → birthday `<input type="date">` with inline age hint
+- Add-member form (line ~1189): age `<input type="number">` → birthday `<input type="date">`
+- `rawKids` filter (2 sites), `minorKids`, `schoolKids`: now `personIsMinor(p)`
+- Adult-only filters for tidepool/family/brain/career tabs: `!personIsMinor(p) && !ROLE.includes(p.role)`
+- Career section `adults` filter: uses `personAge(p)` for adult age confirmation
+- Compass prompt: includes `born YYYY-MM-DD` when birthday present
+- Kid display (Celebrations): uses `personAge(kid)` for rendered age
+
+**Migration invariant:** Existing people objects that have only `age` (no `birthday`) continue to work correctly — `personAge` and `personIsMinor` fall back to the numeric `age` field. No data is lost or modified on upgrade.
+
+**Tests:** D1/D2/D3 suites in `tests/unit/birthday.test.js` (13 new tests):
+- D1: ageFromBirthday — null/empty input, invalid formats, valid past dates, future dates, birthday-passed-this-year accounting
+- D2: personAge — birthday priority over legacy age, fallback, null-safe
+- D3: personIsMinor — minor/adult detection from birthday and legacy age, migration compatibility
+
+### Files changed
+
+- `src/App.jsx` — new utilities, all minor/adult filters updated, both form inputs replaced
+- `tests/unit/birthday.test.js` — new (13 tests, D1/D2/D3 suites)
+
+### Test results
+
+```
+Test Files  5 passed (5)
+     Tests  215 passed (215)   ← was 202
+  Duration  ~1s
+```
+
+esbuild: 0 warnings
+
+### Rollback note
+
+`git revert a74c884` reverts the birthday change entirely. Legacy `age`-only people objects remain valid data after rollback.
+
+### Unresolved risks / next-phase notes
+
+- **isMinor field on stored person objects** is now stale the moment a birthday is set and time passes (stored at add-time, not updated dynamically). All rendering uses `personIsMinor(p)` (derived). The stored `isMinor` field is only used by old code paths. Could be removed in a future pass.
+- Phase 6b (lighthouse emoji), 6c (chores copy-from-child), 6d/6e (specs only) remain.
+
+### 6b — Lighthouse emoji change
+
+**Branch:** N/A  
+**Status:** Skipped — original sprint prompt specified an emoji change but the target emoji was not preserved in the context summary. The current emoji is 🏮 (Japanese lantern, line 11666). The change requires the user to specify the replacement emoji before implementing.
+
+### 6c — Chores: copy from sibling
+
+**Branch:** `cleanup-p6c`  
+**Status:** Complete
+
+When a kid's chore tab is open in Tide Pool and at least one sibling has a non-empty chore list, a "Copy from:" row appears below the Add input. Each sibling with chores gets a button labeled with their name. Clicking copies the sibling's chores to the current kid's list, skipping any whose name already exists (dedup by name). Each copied chore gets a fresh `uid()` and `done: false`.
+
+- No UI shown when the kid has no siblings with chores (single-child households unaffected)
+- Implementation: inline IIFE that filters `saved` for siblings with `chores.length > 0`
+- Files changed: `src/App.jsx` (20 lines added, no state changes needed)
+- 215 tests pass, esbuild 0 warnings
+
+### 6d/6e — Specs only
+
+**Branch:** `cleanup-p6d`  
+**Status:** Complete (spec documents written)
+
+`FEATURE_SPECS.md` created with detailed specs for:
+- **6d:** Hero countdown block (focal "big countdown" tile in Anchor tab for events within 30 days)
+- **6e:** Confetti burst on school goal completion (canvas-based, with required reduced-motion guard)
+
+Both specs include: proposed behavior, data model notes, component placement, design notes, open questions. No code written — user must review open questions before implementation.
+
+---
+
+## Sprint complete
+
+All phases 1-6 finished (6b skipped — emoji target unknown). 215 tests passing. esbuild 0 warnings.
