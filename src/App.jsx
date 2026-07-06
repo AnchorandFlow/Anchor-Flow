@@ -559,6 +559,53 @@ function lhDeleteItem(lh, childId, field, id) {
   shared[childId] = child;
   return Object.assign({}, lh, { shared: shared });
 }
+// Default per-child homeschool data shape (LH-4).
+function defaultLhHsChild() {
+  return { daily: { Mon:"", Tue:"", Wed:"", Thu:"", Fri:"" }, weekly: [], monthly: "", loops: [] };
+}
+// Pure helpers for the homeschool layer. All return a new lighthouse blob.
+function lhHsPatch(lh, childId, patch) {
+  var hs = Object.assign({}, lhGet(lh, "homeschool", {}));
+  hs[childId] = Object.assign({}, hs[childId] || defaultLhHsChild(), patch);
+  return Object.assign({}, lh, { homeschool: hs });
+}
+function lhHsLoopUpdate(lh, childId, loopId, loopPatch) {
+  var hs    = Object.assign({}, lhGet(lh, "homeschool", {}));
+  var child = Object.assign({}, hs[childId] || defaultLhHsChild());
+  var loops = Array.isArray(child.loops) ? child.loops : [];
+  child.loops = loops.map(function(l) { return l.id === loopId ? Object.assign({}, l, loopPatch) : l; });
+  hs[childId] = child;
+  return Object.assign({}, lh, { homeschool: hs });
+}
+function lhHsLoopItemUpdate(lh, childId, loopId, itemId, itemPatch) {
+  var hs    = Object.assign({}, lhGet(lh, "homeschool", {}));
+  var child = Object.assign({}, hs[childId] || defaultLhHsChild());
+  var loops = Array.isArray(child.loops) ? child.loops : [];
+  child.loops = loops.map(function(l) {
+    if (l.id !== loopId) return l;
+    var items = Array.isArray(l.items) ? l.items : [];
+    return Object.assign({}, l, { items: items.map(function(it) {
+      return it.id === itemId ? Object.assign({}, it, itemPatch) : it;
+    })});
+  });
+  hs[childId] = child;
+  return Object.assign({}, lh, { homeschool: hs });
+}
+// Status cycle for loop items: todo→done→skip→later→todo.
+function lhCycleStatus(status) {
+  if (status === "todo")  return "done";
+  if (status === "done")  return "skip";
+  if (status === "skip")  return "later";
+  return "todo";
+}
+// First eligible "up next" item (todo or later, in order).
+function lhUpNext(items) {
+  if (!Array.isArray(items)) return null;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].status === "todo" || items[i].status === "later") return items[i];
+  }
+  return null;
+}
 function lhChildTabs(modes, childId) {
   var SHARED = ["overview","books","beyond","trips","goals","summaries"];
   var mode = (modes && childId) ? (modes[childId] || null) : null;
@@ -10683,9 +10730,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [activeChild, setActiveChild] = React.useState(null);
     var [lhSubTab, setLhSubTab]       = React.useState("overview");
     var [showAllPeople, setShowAllPeople] = React.useState(false);
-    var [lhAddMode, setLhAddMode]     = React.useState(null);
-    var [lhEditId, setLhEditId]       = React.useState(null);
-    var [lhForm, setLhForm]           = React.useState({});
+    var [lhAddMode, setLhAddMode]       = React.useState(null);
+    var [lhEditId, setLhEditId]         = React.useState(null);
+    var [lhForm, setLhForm]             = React.useState({});
+    var [lhPlanSubTab, setLhPlanSubTab] = React.useState("daily");
+    var [lhAddItemLoopId, setLhAddItemLoopId] = React.useState(null);
+    var [lhNewItemText, setLhNewItemText]     = React.useState("");
 
     var allPeople = people.filter(function(p) { return p && p.name; });
     var defaultPeople = allPeople.filter(function(p) {
@@ -10733,6 +10783,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
     function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
     function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+
+    // Homeschool layer for active child
+    var hsAll   = lhGet(lighthouse, "homeschool", {});
+    var hsChild = hsAll[activeChild] || defaultLhHsChild();
+    var hsDaily  = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily : { Mon:"", Tue:"", Wed:"", Thu:"", Fri:"" };
+    var hsWeekly = Array.isArray(hsChild.weekly) ? hsChild.weekly : [];
+    var hsMonthly = typeof hsChild.monthly === "string" ? hsChild.monthly : "";
+    var lhLoops  = Array.isArray(hsChild.loops) ? hsChild.loops : [];
+
+    function applyHs(patch) { applyLh(lhHsPatch(lighthouse, activeChild, patch)); }
+    function applyHsDay(day, val) {
+      var nextDaily = Object.assign({}, hsDaily); nextDaily[day] = val;
+      applyHs({ daily: nextDaily });
+    }
+    function applyHsLoopUpdate(loopId, loopPatch) {
+      applyLh(lhHsLoopUpdate(lighthouse, activeChild, loopId, loopPatch));
+    }
+    function applyHsLoopItemUpdate(loopId, itemId, itemPatch) {
+      applyLh(lhHsLoopItemUpdate(lighthouse, activeChild, loopId, itemId, itemPatch));
+    }
 
     function setMode(childId, mode) {
       var nm = Object.assign({}, modes); nm[childId] = mode;
@@ -11210,6 +11280,340 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
+    var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
+    var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
+    var LH_PLAN_TABS  = [{id:"daily",label:"Daily"},{id:"weekly",label:"Weekly"},{id:"monthly",label:"Monthly"}];
+
+    function PlanArea() {
+      var ptSt = function(active) {
+        return {padding:"0.28rem 0.75rem",borderRadius:"99px",border:"none",background:active?T.sand:"transparent",color:active?T.textDark:T.textMid,fontWeight:active?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};
+      };
+      return areaWrap(
+        <div>
+          {/* Plan sub-tabs */}
+          <div style={{display:"flex",gap:"0.25rem",marginBottom:"1rem"}}>
+            {LH_PLAN_TABS.map(function(pt) {
+              var isAct = pt.id === lhPlanSubTab;
+              return <button type="button" key={pt.id} onClick={function(){setLhPlanSubTab(pt.id);}} style={ptSt(isAct)}>{pt.label}</button>;
+            })}
+          </div>
+
+          {/* Daily plan */}
+          {lhPlanSubTab === "daily" && (
+            <div>
+              <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>What subjects or activities each day this week?</div>
+              {LH_PLAN_DAYS.map(function(day) {
+                var dayCard = card({marginBottom:"0.65rem",padding:"0.85rem"});
+                return (
+                  <div key={day} style={dayCard}>
+                    <div style={{fontSize:"0.73rem",fontWeight:700,color:T.textMid,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>{day}</div>
+                    <textarea
+                      value={hsDaily[day] || ""}
+                      onChange={function(e){ applyHsDay(day, e.target.value); }}
+                      placeholder={"e.g. Math, Reading, Nature Journal"}
+                      style={inp({height:52,resize:"vertical",fontSize:"0.83rem"})}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Weekly rhythm */}
+          {lhPlanSubTab === "weekly" && (
+            <div>
+              <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>Which subjects happen on which days each week?</div>
+              {hsWeekly.map(function(subj) {
+                var isEdit = lhEditId === subj.id && lhAddMode === "weekly-subj";
+                var subjCard = card({marginBottom:"0.65rem"});
+                if (isEdit) {
+                  return (
+                    <div key={subj.id} style={subjCard}>
+                      {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="e.g. Math, Latin" style={inp()} autoFocus/>)}
+                      {fieldRow("Days",
+                        <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                          {LH_PLAN_DAYS.map(function(d){
+                            var cur = Array.isArray(fv("days",[])) ? fv("days",[]) : [];
+                            return pillToggle(d, cur.indexOf(d)>=0, function(){
+                              var next = cur.indexOf(d)>=0 ? cur.filter(function(x){return x!==d;}) : cur.concat([d]);
+                              setLhForm(function(f){return Object.assign({},f,{days:next});});
+                            });
+                          })}
+                        </div>
+                      )}
+                      {fieldRow("Note", <input value={fv("note","")} onChange={fSet("note")} placeholder="e.g. 30 min, use textbook" style={inp()}/>)}
+                      <div style={{display:"flex",gap:"0.5rem",marginTop:"0.5rem"}}>
+                        <button type="button" onClick={function(){
+                          var updated = hsWeekly.map(function(s){ return s.id===subj.id ? Object.assign({},s,{subject:fv("subject",s.subject),days:fv("days",s.days),note:fv("note",s.note)}) : s; });
+                          applyHs({weekly:updated}); closeForm();
+                        }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Save</button>
+                        <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
+                      </div>
+                    </div>
+                  );
+                }
+                var days = Array.isArray(subj.days) ? subj.days : [];
+                return (
+                  <div key={subj.id} style={subjCard}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark}}>{subj.subject}</div>
+                        {days.length > 0 && <div style={{fontSize:"0.76rem",color:T.textMid,marginTop:"0.15rem"}}>{days.join(", ")}{subj.note ? " · "+subj.note : ""}</div>}
+                      </div>
+                      <button type="button" onClick={function(){ setLhEditId(subj.id); setLhAddMode("weekly-subj"); setLhForm({subject:subj.subject,days:subj.days||[],note:subj.note||""}); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                      <button type="button" onClick={function(){ applyHs({weekly:hsWeekly.filter(function(s){return s.id!==subj.id;})}); }} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {lhAddMode === "weekly-subj" && !lhEditId && (
+                <div style={card({marginBottom:"0.65rem",background:T.inputBg,border:"1.5px solid "+T.border})}>
+                  {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="e.g. Math, Latin" style={inp()} autoFocus/>)}
+                  {fieldRow("Days",
+                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                      {LH_PLAN_DAYS.map(function(d){
+                        var cur = Array.isArray(fv("days",[])) ? fv("days",[]) : [];
+                        return pillToggle(d, cur.indexOf(d)>=0, function(){
+                          var next = cur.indexOf(d)>=0 ? cur.filter(function(x){return x!==d;}) : cur.concat([d]);
+                          setLhForm(function(f){return Object.assign({},f,{days:next});});
+                        });
+                      })}
+                    </div>
+                  )}
+                  {fieldRow("Note", <input value={fv("note","")} onChange={fSet("note")} placeholder="optional note" style={inp()}/>)}
+                  <div style={{display:"flex",gap:"0.5rem",marginTop:"0.5rem"}}>
+                    <button type="button" onClick={function(){
+                      var s = (fv("subject","")).trim(); if (!s) return;
+                      var newSubj = { id:uid(), subject:s, days:fv("days",[]), note:(fv("note","")).trim() };
+                      applyHs({weekly: hsWeekly.concat([newSubj])}); closeForm();
+                    }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Add</button>
+                    <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              {!(lhAddMode === "weekly-subj" && !lhEditId) && (
+                <button type="button" onClick={function(){ openAdd("weekly-subj",{days:[]}); }} style={btnP(T.sand,{fontSize:"0.82rem"})}>+ Add Subject</button>
+              )}
+            </div>
+          )}
+
+          {/* Monthly focus */}
+          {lhPlanSubTab === "monthly" && (
+            <div>
+              <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>What are the big goals or focus areas this month?</div>
+              <textarea
+                value={hsMonthly}
+                onChange={function(e){ applyHs({monthly:e.target.value}); }}
+                placeholder={"e.g.\n• Finish Singapore Math 3A\n• Read three nature books\n• Begin cursive practice"}
+                style={inp({height:160,resize:"vertical",fontSize:"0.85rem",lineHeight:1.6})}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ── Loops Area ────────────────────────────────────────────────────────────
+    function LoopsArea() {
+      var loopTints = [T.sage, T.blue, T.sand, T.rose, T.lavender];
+
+      function AddLoopForm() {
+        var nameTrim = (fv("name","")).trim();
+        var selIcon  = fv("icon", LH_LOOP_ICONS[0]);
+        var selTint  = fv("tint", loopTints[0]);
+        return (
+          <div style={card({marginBottom:"1rem",background:T.inputBg,border:"1.5px solid "+T.border})}>
+            {fieldRow("Loop name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="e.g. Morning Loop, Reading Time" style={inp()} autoFocus/>)}
+            {fieldRow("Icon",
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {LH_LOOP_ICONS.map(function(ic) {
+                  var icSt = {background:selIcon===ic?T.sand:"transparent",border:"1.5px solid "+(selIcon===ic?T.sand:T.borderSoft),borderRadius:"0.5rem",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1rem"};
+                  return <button type="button" key={ic} onClick={function(){setLhForm(function(f){return Object.assign({},f,{icon:ic});});}} style={icSt}>{ic}</button>;
+                })}
+              </div>
+            )}
+            {fieldRow("Colour",
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                {loopTints.map(function(tint) {
+                  var tSt = {width:24,height:24,borderRadius:"50%",background:tint,border:selTint===tint?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer"};
+                  return <button type="button" key={tint} onClick={function(){setLhForm(function(f){return Object.assign({},f,{tint:tint});});}} style={tSt}/>;
+                })}
+              </div>
+            )}
+            <div style={{display:"flex",gap:"0.5rem",marginTop:"0.75rem"}}>
+              <button type="button" onClick={function(){
+                if (!nameTrim) return;
+                var newLoop = { id:uid(), name:nameTrim, icon:selIcon, tint:selTint, items:[] };
+                applyHs({loops: lhLoops.concat([newLoop])}); closeForm();
+              }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Add Loop</button>
+              <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
+            </div>
+          </div>
+        );
+      }
+
+      function EditLoopForm(loop) {
+        var nameTrim = (fv("name","")).trim();
+        var selIcon  = fv("icon", loop.icon || LH_LOOP_ICONS[0]);
+        var selTint  = fv("tint", loop.tint || loopTints[0]);
+        return (
+          <div style={card({marginBottom:"0.5rem",background:T.inputBg,border:"1.5px solid "+T.border})}>
+            {fieldRow("Name", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
+            {fieldRow("Icon",
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {LH_LOOP_ICONS.map(function(ic) {
+                  var icSt = {background:selIcon===ic?T.sand:"transparent",border:"1.5px solid "+(selIcon===ic?T.sand:T.borderSoft),borderRadius:"0.5rem",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1rem"};
+                  return <button type="button" key={ic} onClick={function(){setLhForm(function(f){return Object.assign({},f,{icon:ic});});}} style={icSt}>{ic}</button>;
+                })}
+              </div>
+            )}
+            {fieldRow("Colour",
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                {loopTints.map(function(tint) {
+                  var tSt = {width:24,height:24,borderRadius:"50%",background:tint,border:selTint===tint?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer"};
+                  return <button type="button" key={tint} onClick={function(){setLhForm(function(f){return Object.assign({},f,{tint:tint});});}} style={tSt}/>;
+                })}
+              </div>
+            )}
+            <div style={{display:"flex",gap:"0.5rem",marginTop:"0.75rem"}}>
+              <button type="button" onClick={function(){
+                if (!nameTrim) return;
+                applyHsLoopUpdate(loop.id, {name:nameTrim, icon:selIcon, tint:selTint}); closeForm();
+              }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Save</button>
+              <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
+            </div>
+          </div>
+        );
+      }
+
+      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      return areaWrap(
+        <div>
+          {lhAddMode !== "loop" && (
+            <button type="button" onClick={function(){ openAdd("loop",{icon:LH_LOOP_ICONS[0],tint:loopTints[0]}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Loop</button>
+          )}
+          {lhAddMode === "loop" && AddLoopForm()}
+          {lhLoops.length === 0 && lhAddMode !== "loop" && (
+            <div style={emptyCard}>🔁 No loops yet — create your first rotation!</div>
+          )}
+          {lhLoops.map(function(loop) {
+            var items    = Array.isArray(loop.items) ? loop.items : [];
+            var upNext   = lhUpNext(items);
+            var tint     = loop.tint || T.sage;
+            var isEditing = lhEditId === loop.id && lhAddMode === "edit-loop";
+            var loopCard = card({marginBottom:"1rem"});
+
+            return (
+              <div key={loop.id} style={loopCard}>
+                {/* Loop header */}
+                {isEditing ? EditLoopForm(loop) : (
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
+                    <span style={{fontSize:"1.25rem"}}>{loop.icon || "🔁"}</span>
+                    <span style={{flex:1,fontWeight:700,fontSize:"0.92rem",color:T.textDark}}>{loop.name}</span>
+                    <button type="button" onClick={function(){ openEdit(loop.id, {name:loop.name,icon:loop.icon,tint:loop.tint}); setLhAddMode("edit-loop"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                    <button type="button"
+                      onClick={function(){ if(window.confirm("Remove loop "+loop.name+" and all its items?")) applyHs({loops:lhLoops.filter(function(l){return l.id!==loop.id;})}); }}
+                      style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
+                    <button type="button"
+                      onClick={function(){ if(window.confirm("Reset all items in "+loop.name+" to todo?")) applyHsLoopUpdate(loop.id, {items:items.map(function(it){return Object.assign({},it,{status:"todo"});})}); }}
+                      style={{fontSize:"0.72rem",padding:"0.2rem 0.55rem",borderRadius:"99px",border:"1.5px solid "+T.borderSoft,background:"transparent",cursor:"pointer",color:T.textFaint,fontFamily:"inherit"}}>Reset</button>
+                  </div>
+                )}
+
+                {/* Progress bar */}
+                {!isEditing && items.length > 0 && (
+                  <div style={{display:"flex",gap:3,marginBottom:"0.65rem"}}>
+                    {items.map(function(it) {
+                      var segColor = it.status==="done"?tint:it.status==="skip"?"#d1d5db":it.status==="later"?"#fbbf24":"#e5e7eb";
+                      var segSt = {flex:1,height:4,borderRadius:2,background:segColor};
+                      return <div key={it.id} style={segSt}/>;
+                    })}
+                  </div>
+                )}
+
+                {/* Items */}
+                {!isEditing && items.map(function(item) {
+                  var isUpNext = upNext && upNext.id === item.id;
+                  var isExpandedNote = lhAddItemLoopId === ("note:"+loop.id+":"+item.id);
+                  var statusIcon = item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○";
+                  var statusColor = item.status==="done"?tint:item.status==="skip"?T.textFaint:item.status==="later"?"#f59e0b":T.borderSoft;
+                  var textDec = item.status==="done"||item.status==="skip" ? "line-through" : "none";
+                  var textColor = item.status==="done"||item.status==="skip" ? T.textFaint : T.textDark;
+                  var itemRow = {display:"flex",alignItems:"flex-start",gap:"0.5rem",padding:"0.3rem 0",borderBottom:"1px solid "+T.borderSoft};
+
+                  return (
+                    <div key={item.id} style={itemRow}>
+                      <button type="button"
+                        onClick={function(){ applyHsLoopItemUpdate(loop.id, item.id, {status:lhCycleStatus(item.status)}); }}
+                        style={{background:"none",border:"none",cursor:"pointer",color:statusColor,fontSize:"1rem",padding:0,flexShrink:0,lineHeight:1,marginTop:"0.1rem"}}>
+                        {statusIcon}
+                      </button>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:"0.35rem",flexWrap:"wrap"}}>
+                          <span style={{fontSize:"0.85rem",textDecoration:textDec,color:textColor}}>{item.text}</span>
+                          {isUpNext && <span style={{fontSize:"0.63rem",fontWeight:700,color:tint,background:tint+"22",padding:"0.1rem 0.4rem",borderRadius:"99px"}}>Up Next</span>}
+                        </div>
+                        {isExpandedNote && (
+                          <textarea
+                            value={item.note || ""}
+                            onChange={function(e){ applyHsLoopItemUpdate(loop.id, item.id, {note:e.target.value}); }}
+                            placeholder="Add a note…"
+                            style={inp({height:50,fontSize:"0.78rem",marginTop:"0.3rem",resize:"vertical"})}
+                            autoFocus
+                          />
+                        )}
+                      </div>
+                      <button type="button"
+                        onClick={function(){ var key="note:"+loop.id+":"+item.id; setLhAddItemLoopId(lhAddItemLoopId===key?null:key); }}
+                        style={{background:"none",border:"none",cursor:"pointer",color:item.note?T.blue:T.textFaint,fontSize:"0.7rem",padding:"2px 3px",lineHeight:1,flexShrink:0,marginTop:"0.15rem"}}
+                        title={item.note?"Has note — tap to edit":"Add note"}>
+                        {item.note ? "📝" : "✎"}
+                      </button>
+                      <button type="button"
+                        onClick={function(){ applyHsLoopUpdate(loop.id, {items:items.filter(function(it){return it.id!==item.id;})}); }}
+                        style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.72rem",padding:"2px 3px",lineHeight:1,flexShrink:0,marginTop:"0.15rem"}}>✕</button>
+                    </div>
+                  );
+                })}
+
+                {/* Add item */}
+                {!isEditing && lhAddItemLoopId === loop.id && (
+                  <div style={{display:"flex",gap:"0.5rem",marginTop:"0.6rem",alignItems:"center"}}>
+                    <input
+                      value={lhNewItemText}
+                      onChange={function(e){setLhNewItemText(e.target.value);}}
+                      onKeyDown={function(e){
+                        if (e.key==="Enter" && lhNewItemText.trim()) {
+                          var newItem = {id:uid(),text:lhNewItemText.trim(),status:"todo",note:""};
+                          applyHsLoopUpdate(loop.id, {items:items.concat([newItem])});
+                          setLhNewItemText("");
+                        }
+                        if (e.key==="Escape") { setLhAddItemLoopId(null); setLhNewItemText(""); }
+                      }}
+                      placeholder="New item… (Enter to add)"
+                      style={inp({flex:1,fontSize:"0.83rem",padding:"0.38rem 0.7rem"})}
+                      autoFocus
+                    />
+                    <button type="button" onClick={function(){
+                      if (!lhNewItemText.trim()) { setLhAddItemLoopId(null); return; }
+                      var newItem = {id:uid(),text:lhNewItemText.trim(),status:"todo",note:""};
+                      applyHsLoopUpdate(loop.id, {items:items.concat([newItem])});
+                      setLhNewItemText("");
+                    }} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.7rem"})}>Add</button>
+                    <button type="button" onClick={function(){setLhAddItemLoopId(null);setLhNewItemText("");}} style={btnS({fontSize:"0.78rem",padding:"0.38rem 0.7rem"})}>Done</button>
+                  </div>
+                )}
+                {!isEditing && lhAddItemLoopId !== loop.id && (
+                  <button type="button" onClick={function(){setLhAddItemLoopId(loop.id);setLhNewItemText("");}} style={{marginTop:"0.55rem",background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.78rem",padding:0,fontFamily:"inherit"}}>+ Add item</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     // ── Overview Area (counts roll-up) ────────────────────────────────────────
     function OverviewArea() {
       var modeLabel = childMode === "homeschool" ? "Homeschool" : childMode === "school" ? "School" : null;
@@ -11347,7 +11751,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "beyond"    && BeyondArea()}
             {lhSubTab === "trips"     && TripsArea()}
             {lhSubTab === "goals"     && GoalsArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && (
+            {lhSubTab === "plan"      && PlanArea()}
+            {lhSubTab === "loops"     && LoopsArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
