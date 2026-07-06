@@ -533,6 +533,32 @@ var LH_LABELS = {
   beyond:    { homeschool: "Beyond the Transcript", school: "Beyond the Classroom" },
   summaries: { homeschool: "Summaries",             school: "Keepsakes" }
 };
+// Pure shared-data patch helpers (LH-3). All return a new lighthouse blob.
+function lhAddItem(lh, childId, field, item) {
+  var shared = Object.assign({}, lhGet(lh, "shared", {}));
+  var child  = Object.assign({}, shared[childId] || { books:[], beyond:[], trips:[], goals:[] });
+  var list   = Array.isArray(child[field]) ? child[field].slice() : [];
+  list.push(item);
+  child[field] = list;
+  shared[childId] = child;
+  return Object.assign({}, lh, { shared: shared });
+}
+function lhUpdateItem(lh, childId, field, id, patch) {
+  var shared = Object.assign({}, lhGet(lh, "shared", {}));
+  var child  = Object.assign({}, shared[childId] || {});
+  var list   = Array.isArray(child[field]) ? child[field] : [];
+  child[field] = list.map(function(it) { return it.id === id ? Object.assign({}, it, patch) : it; });
+  shared[childId] = child;
+  return Object.assign({}, lh, { shared: shared });
+}
+function lhDeleteItem(lh, childId, field, id) {
+  var shared = Object.assign({}, lhGet(lh, "shared", {}));
+  var child  = Object.assign({}, shared[childId] || {});
+  var list   = Array.isArray(child[field]) ? child[field] : [];
+  child[field] = list.filter(function(it) { return it.id !== id; });
+  shared[childId] = child;
+  return Object.assign({}, lh, { shared: shared });
+}
 function lhChildTabs(modes, childId) {
   var SHARED = ["overview","books","beyond","trips","goals","summaries"];
   var mode = (modes && childId) ? (modes[childId] || null) : null;
@@ -10655,8 +10681,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   _hfRenders.LighthouseTab = function LighthouseTab() {
     var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
     var [activeChild, setActiveChild] = React.useState(null);
-    var [lhSubTab, setLhSubTab] = React.useState("overview");
+    var [lhSubTab, setLhSubTab]       = React.useState("overview");
     var [showAllPeople, setShowAllPeople] = React.useState(false);
+    var [lhAddMode, setLhAddMode]     = React.useState(null);
+    var [lhEditId, setLhEditId]       = React.useState(null);
+    var [lhForm, setLhForm]           = React.useState({});
 
     var allPeople = people.filter(function(p) { return p && p.name; });
     var defaultPeople = allPeople.filter(function(p) {
@@ -10669,47 +10698,560 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if (!activeChild && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
     }, [displayPeople.length]);
 
-    var modes = lhGet(lighthouse, "modes", {});
-    var childMode = activeChild ? (modes[activeChild] || null) : null;
+    React.useEffect(function() {
+      setLhAddMode(null); setLhEditId(null); setLhForm({});
+    }, [lhSubTab, activeChild]);
+
+    var modes       = lhGet(lighthouse, "modes", {});
+    var childMode   = activeChild ? (modes[activeChild] || null) : null;
     var childPerson = allPeople.find(function(p) { return p.id === activeChild; }) || null;
 
+    // Shared data for active child
+    var sharedAll  = lhGet(lighthouse, "shared", {});
+    var childShared = sharedAll[activeChild] || { books:[], beyond:[], trips:[], goals:[] };
+    var books   = Array.isArray(childShared.books)  ? childShared.books  : [];
+    var beyonds = Array.isArray(childShared.beyond) ? childShared.beyond : [];
+    var trips   = Array.isArray(childShared.trips)  ? childShared.trips  : [];
+    var goals   = Array.isArray(childShared.goals)  ? childShared.goals  : [];
+
+    function applyLh(next) { setLighthouse(next); }
+    function lhSaveAdd(field, item) {
+      applyLh(lhAddItem(lighthouse, activeChild, field, item));
+    }
+    function lhSaveUpdate(field, id, patch) {
+      applyLh(lhUpdateItem(lighthouse, activeChild, field, id, patch));
+    }
+    function lhSaveDel(field, id) {
+      applyLh(lhDeleteItem(lighthouse, activeChild, field, id));
+    }
+
+    function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
+    function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
+    function fChk(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.checked; return n; }); }; }
+    function fNum(k) { return function(v) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=v; return n; }); }; }
+
+    function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
+    function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
+    function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+
     function setMode(childId, mode) {
-      var nextModes = Object.assign({}, modes);
-      nextModes[childId] = mode;
-      setLighthouse(Object.assign({}, lighthouse, { modes: nextModes }));
+      var nm = Object.assign({}, modes); nm[childId] = mode;
+      setLighthouse(Object.assign({}, lighthouse, { modes: nm }));
       setLhSubTab("overview");
     }
 
     var childTabIds = lhChildTabs(modes, activeChild);
+    var beyondLabel   = lhGet(LH_LABELS.beyond,    childMode, "Beyond the Transcript");
+    var summaryLabel  = lhGet(LH_LABELS.summaries, childMode, "Summaries");
     var LH_TAB_META = {
-      overview:  { label: "Overview",                                           emoji: "✨" },
-      books:     { label: "Books",                                              emoji: "📚" },
-      beyond:    { label: lhGet(LH_LABELS.beyond, childMode, "Beyond"),        emoji: "🌎" },
-      trips:     { label: "Trips",                                              emoji: "✈️" },
-      goals:     { label: "Goals",                                              emoji: "🎯" },
-      summaries: { label: lhGet(LH_LABELS.summaries, childMode, "Summaries"),  emoji: "📄" },
-      plan:      { label: "Plan",                                               emoji: "🗓️" },
-      loops:     { label: "Loops",                                              emoji: "🔁" },
-      week:      { label: "This Week",                                          emoji: "📅" },
-      homework:  { label: "Homework",                                           emoji: "✏️" },
-      comms:     { label: "School Comms",                                       emoji: "📬" },
-      grades:    { label: "Grades",                                             emoji: "📊" },
+      overview:  { label:"Overview",     emoji:"✨" },
+      books:     { label:"Books",        emoji:"📚" },
+      beyond:    { label:beyondLabel,    emoji:"🌎" },
+      trips:     { label:"Trips",        emoji:"✈️" },
+      goals:     { label:"Goals",        emoji:"🎯" },
+      summaries: { label:summaryLabel,   emoji:"📄" },
+      plan:      { label:"Plan",         emoji:"🗓️" },
+      loops:     { label:"Loops",        emoji:"🔁" },
+      week:      { label:"This Week",    emoji:"📅" },
+      homework:  { label:"Homework",     emoji:"✏️" },
+      comms:     { label:"School Comms", emoji:"📬" },
+      grades:    { label:"Grades",       emoji:"📊" },
     };
 
-    if (allPeople.length === 0) {
+    // ── Shared UI primitives (no hooks) ──────────────────────────────────────
+    var LH_BEYOND_CATS = ["Field Trip","Museum","Park","Sport","Art","Volunteer","Other"];
+    var LH_TRIP_SUBJ   = ["History","Science","Art","Literature","Geography","Other"];
+    var LH_BOOK_FMTS   = ["Physical","Audio","eBook"];
+    var LH_PROGRESS    = ["Not started","In progress","Achieved"];
+
+    function starRow(ratingKey) {
+      var cur = fv(ratingKey, 0);
+      var stars = [];
+      for (var s = 1; s <= 5; s++) {
+        var filled = cur >= s;
+        var sVal = s;
+        var stSt = {background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"0 1px",color:filled?"#f59e0b":"#d1d5db"};
+        stars.push(
+          <button type="button" key={s} onClick={fNum(ratingKey).bind(null, sVal)} style={stSt}>
+            {filled ? "★" : "☆"}
+          </button>
+        );
+      }
+      return <div style={{display:"flex",alignItems:"center",gap:0}}>{stars}</div>;
+    }
+
+    function starDisplay(rating) {
+      var out = [];
+      for (var s = 1; s <= 5; s++) {
+        out.push(<span key={s} style={{color:rating>=s?"#f59e0b":"#d1d5db",fontSize:"0.8rem"}}>{rating>=s?"★":"☆"}</span>);
+      }
+      return <span>{out}</span>;
+    }
+
+    function pillToggle(label, active, onClick) {
+      var pSt = {padding:"0.22rem 0.65rem",borderRadius:"99px",border:"1.5px solid "+(active?T.blue:T.borderSoft),background:active?T.blue+"22":"transparent",color:active?T.blue:T.textMid,fontSize:"0.76rem",fontWeight:active?700:400,cursor:"pointer",fontFamily:"inherit"};
+      return <button type="button" key={label} onClick={onClick} style={pSt}>{label}</button>;
+    }
+
+    function includeRow(key) {
+      var chkStyle = {display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",fontSize:"0.78rem",color:T.textMid};
       return (
-        <div style={{padding:"2rem 1rem",textAlign:"center"}}>
-          <div style={{fontSize:"2.5rem",marginBottom:"0.75rem"}}>🔭</div>
-          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.4rem",color:T.textDark,marginBottom:"0.5rem"}}>Lighthouse</div>
-          <div style={{color:T.textMid,fontSize:"0.88rem",lineHeight:1.6,marginBottom:"1.25rem"}}>
-            Add people in Settings to start tracking learning records.
-          </div>
-          <button onClick={function(){goTab("settings");}} style={btnP(T.sand)}>Go to Settings</button>
+        <label style={chkStyle}>
+          <input type="checkbox" checked={!!fv(key, false)} onChange={fChk(key)} style={{cursor:"pointer"}}/>
+          Include in summaries
+        </label>
+      );
+    }
+
+    function areaWrap(children) {
+      return <div style={{padding:"0.75rem 1rem 2rem"}}>{children}</div>;
+    }
+
+    function formCard(children) {
+      var fc = card({marginBottom:"1rem",background:T.inputBg,border:"1.5px solid "+T.border});
+      return <div style={fc}>{children}</div>;
+    }
+
+    function fieldRow(label, children) {
+      return (
+        <div style={{marginBottom:"0.7rem"}}>
+          <div style={{fontSize:"0.73rem",fontWeight:600,color:T.textMid,marginBottom:"0.2rem",textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</div>
+          {children}
         </div>
       );
     }
 
-    function ModePicker() {
+    function formBtns(onSave) {
+      return (
+        <div style={{display:"flex",gap:"0.5rem",marginTop:"0.85rem"}}>
+          <button type="button" onClick={onSave} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.45rem 1rem"})}>Save</button>
+          <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.45rem 1rem"})}>Cancel</button>
+        </div>
+      );
+    }
+
+    function itemHeader(title, subtitle, onEdit, onDel) {
+      return (
+        <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem"}}>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:"0.9rem",color:T.textDark,lineHeight:1.3}}>{title}</div>
+            {subtitle && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.15rem"}}>{subtitle}</div>}
+          </div>
+          <button type="button" onClick={onEdit} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+          <button type="button" onClick={onDel}  style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
+        </div>
+      );
+    }
+
+    function badge(label, color) {
+      var bc = {display:"inline-block",fontSize:"0.68rem",fontWeight:700,padding:"0.1rem 0.5rem",borderRadius:"99px",background:(color||T.blue)+"22",color:color||T.blue,letterSpacing:"0.02em"};
+      return <span style={bc}>{label}</span>;
+    }
+
+    // ── Books Area ────────────────────────────────────────────────────────────
+    function BooksArea() {
+      function saveBook() {
+        var title = (fv("title","")).trim();
+        if (!title) return;
+        var item = {
+          id: uid(), title: title, author: (fv("author","")).trim(),
+          who: activeChild, status: fv("status","reading"),
+          fmt: fv("fmt",""), subj: (fv("subj","")).trim(),
+          start: fv("start",""), finish: fv("finish",""),
+          rating: fv("rating",0), note: (fv("note","")).trim(),
+          quote: (fv("quote","")).trim(), includeSummary: !!fv("includeSummary",false)
+        };
+        lhSaveAdd("books", item); closeForm();
+      }
+      function updateBook() {
+        var title = (fv("title","")).trim(); if (!title) return;
+        lhSaveUpdate("books", lhEditId, {
+          title: title, author: (fv("author","")).trim(),
+          status: fv("status","reading"), fmt: fv("fmt",""),
+          subj: (fv("subj","")).trim(), start: fv("start",""), finish: fv("finish",""),
+          rating: fv("rating",0), note: (fv("note","")).trim(),
+          quote: (fv("quote","")).trim(), includeSummary: !!fv("includeSummary",false)
+        });
+        closeForm();
+      }
+      function BookForm(onSave) {
+        return formCard(
+          <div>
+            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Book title" style={inp()} autoFocus/>)}
+            {fieldRow("Author", <input value={fv("author","")} onChange={fSet("author")} placeholder="Author name" style={inp()}/>)}
+            {fieldRow("Status",
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                {pillToggle("Reading",   fv("status","reading")==="reading",   function(){setLhForm(function(f){return Object.assign({},f,{status:"reading"});}); })}
+                {pillToggle("Finished",  fv("status","reading")==="finished",  function(){setLhForm(function(f){return Object.assign({},f,{status:"finished"});}); })}
+              </div>
+            )}
+            {fieldRow("Format",
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")=== fmt, function(){setLhForm(function(f){return Object.assign({},f,{fmt:fmt});}); }); })}
+              </div>
+            )}
+            {fieldRow("Subject", <input value={fv("subj","")} onChange={fSet("subj")} placeholder="e.g. Nature, History" style={inp()}/>)}
+            <div style={{display:"flex",gap:"0.75rem",marginBottom:"0.7rem"}}>
+              <div style={{flex:1}}>{fieldRow("Start", <input type="date" value={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
+              <div style={{flex:1}}>{fieldRow("Finish", <input type="date" value={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
+            </div>
+            {fieldRow("Rating", starRow("rating"))}
+            {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} placeholder="Thoughts, reactions…" style={inp({height:62,resize:"vertical"})}/>)}
+            {fieldRow("Favourite Quote", <textarea value={fv("quote","")} onChange={fSet("quote")} placeholder="A line that stood out…" style={inp({height:50,resize:"vertical"})}/>)}
+            <div style={{marginBottom:"0.7rem"}}>{includeRow("includeSummary")}</div>
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      return areaWrap(
+        <div>
+          {lhAddMode !== "book" && (
+            <button type="button" onClick={function(){ openAdd("book",{status:"reading",rating:0}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Book</button>
+          )}
+          {lhAddMode === "book" && BookForm(saveBook)}
+          {books.length === 0 && lhAddMode !== "book" && (
+            <div style={emptyCard}>📚 No books yet — add your first!</div>
+          )}
+          {books.map(function(b) {
+            if (lhEditId === b.id) {
+              return <div key={b.id}>{BookForm(updateBook)}</div>;
+            }
+            var statusColor = b.status === "finished" ? T.sage : T.blue;
+            var bc = card({marginBottom:"0.65rem"});
+            return (
+              <div key={b.id} style={bc}>
+                {itemHeader(b.title, b.author || null,
+                  function(){ openEdit(b.id, b); },
+                  function(){ if(window.confirm("Remove "+b.title+"?")) lhSaveDel("books", b.id); }
+                )}
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
+                  {badge(b.status==="finished"?"Finished":"Reading", statusColor)}
+                  {b.fmt && badge(b.fmt, T.textFaint)}
+                  {b.subj && <span style={{fontSize:"0.75rem",color:T.textMid}}>{b.subj}</span>}
+                </div>
+                {b.rating > 0 && <div style={{marginTop:"0.3rem"}}>{starDisplay(b.rating)}</div>}
+                {b.note && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.3rem",lineHeight:1.4}}>{b.note}</div>}
+                {b.quote && <div style={{fontSize:"0.76rem",color:T.textFaint,marginTop:"0.25rem",fontStyle:"italic",borderLeft:"2px solid "+T.borderSoft,paddingLeft:"0.5rem"}}>"{b.quote}"</div>}
+                <div style={{marginTop:"0.4rem"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:"0.35rem",cursor:"pointer",fontSize:"0.75rem",color:T.textMid}}>
+                    <input type="checkbox" checked={!!b.includeSummary} onChange={function(e){ lhSaveUpdate("books", b.id, {includeSummary: e.target.checked}); }} style={{cursor:"pointer"}}/>
+                    Include in summaries
+                  </label>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── Beyond Area ───────────────────────────────────────────────────────────
+    function BeyondArea() {
+      function saveBeyond() {
+        var what = (fv("what","")).trim(); if (!what) return;
+        var item = {
+          id: uid(), what: what, who: activeChild,
+          cat: fv("cat",""), date: fv("date",""),
+          skill: (fv("skill","")).trim(), note: (fv("note","")).trim(),
+          includeSummary: !!fv("includeSummary",false)
+        };
+        lhSaveAdd("beyond", item); closeForm();
+      }
+      function updateBeyond() {
+        var what = (fv("what","")).trim(); if (!what) return;
+        lhSaveUpdate("beyond", lhEditId, {
+          what: what, cat: fv("cat",""), date: fv("date",""),
+          skill: (fv("skill","")).trim(), note: (fv("note","")).trim(),
+          includeSummary: !!fv("includeSummary",false)
+        });
+        closeForm();
+      }
+      function BeyondForm(onSave) {
+        return formCard(
+          <div>
+            {fieldRow("What *", <input value={fv("what","")} onChange={fSet("what")} placeholder="What did they do or experience?" style={inp()} autoFocus/>)}
+            {fieldRow("Category",
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){setLhForm(function(f){return Object.assign({},f,{cat:c});}); }); })}
+              </div>
+            )}
+            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+            {fieldRow("Skill or theme", <input value={fv("skill","")} onChange={fSet("skill")} placeholder="e.g. critical thinking, empathy" style={inp()}/>)}
+            {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} placeholder="What stood out?" style={inp({height:62,resize:"vertical"})}/>)}
+            <div style={{marginBottom:"0.7rem"}}>{includeRow("includeSummary")}</div>
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      var areaLabel = beyondLabel;
+      return areaWrap(
+        <div>
+          {lhAddMode !== "beyond" && (
+            <button type="button" onClick={function(){ openAdd("beyond",{}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Entry</button>
+          )}
+          {lhAddMode === "beyond" && BeyondForm(saveBeyond)}
+          {beyonds.length === 0 && lhAddMode !== "beyond" && (
+            <div style={emptyCard}>🌎 No {areaLabel} entries yet — start adding!</div>
+          )}
+          {beyonds.map(function(bx) {
+            if (lhEditId === bx.id) {
+              return <div key={bx.id}>{BeyondForm(updateBeyond)}</div>;
+            }
+            var bc = card({marginBottom:"0.65rem"});
+            return (
+              <div key={bx.id} style={bc}>
+                {itemHeader(bx.what, bx.date || null,
+                  function(){ openEdit(bx.id, bx); },
+                  function(){ if(window.confirm("Remove this entry?")) lhSaveDel("beyond", bx.id); }
+                )}
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
+                  {bx.cat && badge(bx.cat, T.sage)}
+                  {bx.skill && <span style={{fontSize:"0.75rem",color:T.textMid}}>Skill: {bx.skill}</span>}
+                </div>
+                {bx.note && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.3rem",lineHeight:1.4}}>{bx.note}</div>}
+                <div style={{marginTop:"0.4rem"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:"0.35rem",cursor:"pointer",fontSize:"0.75rem",color:T.textMid}}>
+                    <input type="checkbox" checked={!!bx.includeSummary} onChange={function(e){ lhSaveUpdate("beyond", bx.id, {includeSummary: e.target.checked}); }} style={{cursor:"pointer"}}/>
+                    Include in summaries
+                  </label>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── Trips Area ────────────────────────────────────────────────────────────
+    function TripsArea() {
+      function toggleSubj(val) {
+        var cur = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
+        var next = cur.indexOf(val) >= 0 ? cur.filter(function(x){return x!==val;}) : cur.concat([val]);
+        setLhForm(function(f){ return Object.assign({},f,{subj:next}); });
+      }
+      function saveTrip() {
+        var place = (fv("place","")).trim(); if (!place) return;
+        var item = {
+          id: uid(), place: place, date: fv("date",""),
+          who: [activeChild], subj: fv("subj",[]),
+          saw: (fv("saw","")).trim(), learned: (fv("learned","")).trim(),
+          moment: (fv("moment","")).trim(), followup: (fv("followup","")).trim()
+        };
+        lhSaveAdd("trips", item); closeForm();
+      }
+      function updateTrip() {
+        var place = (fv("place","")).trim(); if (!place) return;
+        lhSaveUpdate("trips", lhEditId, {
+          place: place, date: fv("date",""), subj: fv("subj",[]),
+          saw: (fv("saw","")).trim(), learned: (fv("learned","")).trim(),
+          moment: (fv("moment","")).trim(), followup: (fv("followup","")).trim()
+        });
+        closeForm();
+      }
+      function TripForm(onSave) {
+        var curSubj = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
+        return formCard(
+          <div>
+            {fieldRow("Place *", <input value={fv("place","")} onChange={fSet("place")} placeholder="Where did you go?" style={inp()} autoFocus/>)}
+            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+            {fieldRow("Subjects",
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){toggleSubj(s);}); })}
+              </div>
+            )}
+            {fieldRow("What we saw", <textarea value={fv("saw","")} onChange={fSet("saw")} placeholder="Sights, exhibits, landscapes…" style={inp({height:56,resize:"vertical"})}/>)}
+            {fieldRow("What we learned", <textarea value={fv("learned","")} onChange={fSet("learned")} placeholder="Key ideas or discoveries…" style={inp({height:56,resize:"vertical"})}/>)}
+            {fieldRow("A moment", <textarea value={fv("moment","")} onChange={fSet("moment")} placeholder="A memorable detail…" style={inp({height:50,resize:"vertical"})}/>)}
+            {fieldRow("Follow-up ideas", <textarea value={fv("followup","")} onChange={fSet("followup")} placeholder="Books to read, topics to explore…" style={inp({height:50,resize:"vertical"})}/>)}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      return areaWrap(
+        <div>
+          {lhAddMode !== "trip" && (
+            <button type="button" onClick={function(){ openAdd("trip",{subj:[]}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Trip</button>
+          )}
+          {lhAddMode === "trip" && TripForm(saveTrip)}
+          {trips.length === 0 && lhAddMode !== "trip" && (
+            <div style={emptyCard}>✈️ No trips yet — add your first adventure!</div>
+          )}
+          {trips.map(function(tr) {
+            if (lhEditId === tr.id) {
+              return <div key={tr.id}>{TripForm(updateTrip)}</div>;
+            }
+            var subj = Array.isArray(tr.subj) ? tr.subj : [];
+            var bc = card({marginBottom:"0.65rem"});
+            return (
+              <div key={tr.id} style={bc}>
+                {itemHeader(tr.place, tr.date || null,
+                  function(){ openEdit(tr.id, tr); },
+                  function(){ if(window.confirm("Remove trip to "+tr.place+"?")) lhSaveDel("trips", tr.id); }
+                )}
+                {subj.length > 0 && (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem"}}>
+                    {subj.map(function(s){ return badge(s, T.blue); })}
+                  </div>
+                )}
+                {tr.saw     && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.3rem"}}><strong>Saw:</strong> {tr.saw}</div>}
+                {tr.learned && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.15rem"}}><strong>Learned:</strong> {tr.learned}</div>}
+                {tr.moment  && <div style={{fontSize:"0.76rem",color:T.textFaint,marginTop:"0.2rem",fontStyle:"italic"}}>{tr.moment}</div>}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── Goals Area ────────────────────────────────────────────────────────────
+    function GoalsArea() {
+      function saveGoal() {
+        var goalTxt = (fv("goal","")).trim();
+        var cat     = (fv("cat","")).trim();
+        if (!goalTxt || !cat) return;
+        var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){return s.trim();}).filter(Boolean);
+        var item = {
+          id: uid(), cat: cat, goal: goalTxt,
+          why: (fv("why","")).trim(), source: (fv("source","parent")).trim(),
+          steps: stepsRaw.map(function(s,i){ return {id:uid(),text:s,done:false}; }),
+          progress: fv("progress","Not started"),
+          evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
+        };
+        lhSaveAdd("goals", item); closeForm();
+      }
+      function updateGoal() {
+        var goalTxt = (fv("goal","")).trim();
+        var cat     = (fv("cat","")).trim();
+        if (!goalTxt || !cat) return;
+        var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){return s.trim();}).filter(Boolean);
+        lhSaveUpdate("goals", lhEditId, {
+          cat: cat, goal: goalTxt,
+          why: (fv("why","")).trim(), source: (fv("source","parent")).trim(),
+          steps: stepsRaw.map(function(s,i){ return {id:uid(),text:s,done:false}; }),
+          progress: fv("progress","Not started"),
+          evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
+        });
+        closeForm();
+      }
+      function GoalForm(onSave) {
+        return formCard(
+          <div>
+            {fieldRow("Category *", <input value={fv("cat","")} onChange={fSet("cat")} placeholder="e.g. Math, Reading, Character" style={inp()} autoFocus/>)}
+            {fieldRow("Goal *", <textarea value={fv("goal","")} onChange={fSet("goal")} placeholder="What does success look like?" style={inp({height:62,resize:"vertical"})}/>)}
+            {fieldRow("Why", <textarea value={fv("why","")} onChange={fSet("why")} placeholder="Why does this matter?" style={inp({height:50,resize:"vertical"})}/>)}
+            {fieldRow("Source", <input value={fv("source","parent")} onChange={fSet("source")} placeholder="parent, or teacher name" style={inp()}/>)}
+            {fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} placeholder={"Master multiplication facts\nPractice word problems"} style={inp({height:72,resize:"vertical"})}/>)}
+            {fieldRow("Progress",
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {LH_PROGRESS.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){setLhForm(function(f){return Object.assign({},f,{progress:p});}); }); })}
+              </div>
+            )}
+            {fieldRow("Evidence", <textarea value={fv("evidence","")} onChange={fSet("evidence")} placeholder="What shows they've met this goal?" style={inp({height:56,resize:"vertical"})}/>)}
+            {fieldRow("Reflect", <textarea value={fv("reflect","")} onChange={fSet("reflect")} placeholder="What went well? What was hard?" style={inp({height:56,resize:"vertical"})}/>)}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      return areaWrap(
+        <div>
+          {lhAddMode !== "goal" && (
+            <button type="button" onClick={function(){ openAdd("goal",{progress:"Not started",source:"parent"}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Goal</button>
+          )}
+          {lhAddMode === "goal" && GoalForm(saveGoal)}
+          {goals.length === 0 && lhAddMode !== "goal" && (
+            <div style={emptyCard}>🎯 No goals yet — set your first!</div>
+          )}
+          {goals.map(function(g) {
+            if (lhEditId === g.id) {
+              return <div key={g.id}>{GoalForm(updateGoal)}</div>;
+            }
+            var progColor = g.progress==="Achieved"?T.sage:g.progress==="In progress"?T.blue:T.textFaint;
+            var stepsArr = Array.isArray(g.steps) ? g.steps : [];
+            var doneCount = stepsArr.filter(function(s){return s.done;}).length;
+            var bc = card({marginBottom:"0.65rem"});
+            return (
+              <div key={g.id} style={bc}>
+                {itemHeader(g.goal, g.cat || null,
+                  function(){ openEdit(g.id, Object.assign({},g,{stepsText:stepsArr.map(function(s){return s.text;}).join("\n")})); },
+                  function(){ if(window.confirm("Remove this goal?")) lhSaveDel("goals", g.id); }
+                )}
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
+                  {badge(g.progress||"Not started", progColor)}
+                  {g.source && g.source !== "parent" && <span style={{fontSize:"0.75rem",color:T.textMid}}>{g.source}</span>}
+                </div>
+                {stepsArr.length > 0 && (
+                  <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.3rem"}}>
+                    {doneCount}/{stepsArr.length} steps complete
+                    <div style={{marginTop:"0.25rem"}}>
+                      {stepsArr.map(function(step) {
+                        var stepSt = {display:"flex",alignItems:"center",gap:"0.35rem",marginBottom:"0.15rem",cursor:"pointer"};
+                        return (
+                          <div key={step.id} style={stepSt} onClick={function(){
+                            var updated = stepsArr.map(function(s){ return s.id===step.id ? Object.assign({},s,{done:!s.done}) : s; });
+                            lhSaveUpdate("goals", g.id, {steps:updated});
+                          }}>
+                            <span style={{color:step.done?T.sage:T.borderSoft,fontSize:"0.85rem"}}>{step.done?"●":"○"}</span>
+                            <span style={{textDecoration:step.done?"line-through":"none",color:step.done?T.textFaint:T.textMid}}>{step.text}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {g.evidence && <div style={{fontSize:"0.76rem",color:T.textFaint,marginTop:"0.25rem",fontStyle:"italic"}}>Evidence: {g.evidence}</div>}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── Overview Area (counts roll-up) ────────────────────────────────────────
+    function OverviewArea() {
+      var modeLabel = childMode === "homeschool" ? "Homeschool" : childMode === "school" ? "School" : null;
+      var rows = [
+        { emoji:"📚", label:"Books",  count:books.length,   tab:"books"   },
+        { emoji:"🌎", label:beyondLabel, count:beyonds.length, tab:"beyond" },
+        { emoji:"✈️", label:"Trips",  count:trips.length,   tab:"trips"   },
+        { emoji:"🎯", label:"Goals",  count:goals.length,   tab:"goals"   },
+      ];
+      var ov = card({marginBottom:"0.85rem"});
+      return areaWrap(
+        <div>
+          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.2rem",color:T.textDark,marginBottom:"0.75rem"}}>
+            {childPerson ? childPerson.name : ""}
+            {modeLabel && <span style={{fontSize:"0.78rem",color:T.textMid,marginLeft:"0.5rem",fontFamily:"inherit"}}>· {modeLabel}</span>}
+          </div>
+          <div style={ov}>
+            {rows.map(function(r) {
+              var rSt = {display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft,cursor:"pointer"};
+              return (
+                <div key={r.tab} style={rSt} onClick={function(){ setLhSubTab(r.tab); }}>
+                  <span style={{fontSize:"1rem"}}>{r.emoji}</span>
+                  <span style={{flex:1,fontSize:"0.87rem",color:T.textMid}}>{r.label}</span>
+                  <span style={{fontSize:"0.82rem",fontWeight:700,color:r.count>0?T.textDark:T.textFaint}}>{r.count || "—"}</span>
+                  <span style={{fontSize:"0.7rem",color:T.textFaint}}>›</span>
+                </div>
+              );
+            })}
+          </div>
+          {modeLabel && (
+            <button type="button"
+              onClick={function(){ if(window.confirm("Change learning mode for "+childPerson.name+"? Shared data (books, trips, goals) is preserved.")) setMode(activeChild, childMode==="homeschool"?"school":"homeschool"); }}
+              style={btnS({fontSize:"0.78rem",padding:"0.38rem 0.85rem"})}>
+              Switch to {childMode==="homeschool"?"School":"Homeschool"} mode
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // ── Mode picker (no hooks, direct call) ───────────────────────────────────
+    function ModePickerView() {
       if (!childPerson) return null;
       return (
         <div style={{padding:"1.5rem 1rem"}}>
@@ -10720,13 +11262,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             You can change this anytime from their Overview.
           </div>
           <div style={{display:"flex",gap:"0.75rem"}}>
-            <button onClick={function(){setMode(childPerson.id,"homeschool");}}
+            <button type="button" onClick={function(){setMode(childPerson.id,"homeschool");}}
               style={{flex:1,background:T.sagePale,border:"2px solid "+T.sage,borderRadius:"1rem",padding:"1.25rem 0.75rem",cursor:"pointer",textAlign:"center",fontFamily:"inherit"}}>
               <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🏡</div>
               <div style={{fontWeight:700,color:T.sage,fontSize:"0.88rem"}}>Homeschool</div>
               <div style={{color:T.textMid,fontSize:"0.75rem",marginTop:"0.25rem"}}>Plan, loops, summaries</div>
             </button>
-            <button onClick={function(){setMode(childPerson.id,"school");}}
+            <button type="button" onClick={function(){setMode(childPerson.id,"school");}}
               style={{flex:1,background:T.bluePale,border:"2px solid "+T.blue,borderRadius:"1rem",padding:"1.25rem 0.75rem",cursor:"pointer",textAlign:"center",fontFamily:"inherit"}}>
               <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🏫</div>
               <div style={{fontWeight:700,color:T.blue,fontSize:"0.88rem"}}>School</div>
@@ -10737,8 +11279,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Empty state (no people) ───────────────────────────────────────────────
+    if (allPeople.length === 0) {
+      return (
+        <div style={{padding:"2rem 1rem",textAlign:"center"}}>
+          <div style={{fontSize:"2.5rem",marginBottom:"0.75rem"}}>🔭</div>
+          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.4rem",color:T.textDark,marginBottom:"0.5rem"}}>Lighthouse</div>
+          <div style={{color:T.textMid,fontSize:"0.88rem",lineHeight:1.6,marginBottom:"1.25rem"}}>
+            Add people in Settings to start tracking learning records.
+          </div>
+          <button type="button" onClick={function(){goTab("settings");}} style={btnP(T.sand)}>Go to Settings</button>
+        </div>
+      );
+    }
+
     return (
       <div>
+        {/* Child switcher */}
         <div style={{padding:"0.75rem 1rem 0",display:"flex",gap:"0.5rem",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
           {displayPeople.map(function(p) {
             var isAct = p.id === activeChild;
@@ -10746,7 +11303,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             var dot   = {width:8,height:8,borderRadius:"50%",background:p.color||T.blue,display:"inline-block",flexShrink:0};
             var pill  = {flexShrink:0,display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px solid "+(isAct?p.color||T.blue:T.borderSoft),background:isAct?(p.color||T.blue)+"22":"transparent",cursor:"pointer",fontSize:"0.82rem",fontWeight:isAct?700:400,color:isAct?T.textDark:T.textMid,fontFamily:"inherit"};
             return (
-              <button key={p.id} onClick={function(){setActiveChild(p.id);setLhSubTab("overview");}} style={pill}>
+              <button type="button" key={p.id} onClick={function(){setActiveChild(p.id);setLhSubTab("overview");}} style={pill}>
                 <span style={dot}/>
                 {p.name}
                 {pMode === "homeschool" && <span style={{fontSize:"0.65rem"}}> 🏡</span>}
@@ -10755,42 +11312,51 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             );
           })}
           {hasOthers && (
-            <button onClick={function(){setShowAllPeople(true);}}
+            <button type="button" onClick={function(){setShowAllPeople(true);}}
               style={{flexShrink:0,padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px dashed "+T.borderSoft,background:"transparent",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit"}}>
               + others
             </button>
           )}
           {showAllPeople && defaultPeople.length > 0 && (
-            <button onClick={function(){setShowAllPeople(false);}}
+            <button type="button" onClick={function(){setShowAllPeople(false);}}
               style={{flexShrink:0,padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px dashed "+T.borderSoft,background:"transparent",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit"}}>
               fewer
             </button>
           )}
         </div>
 
-        {activeChild && !childMode && <ModePicker/>}
+        {activeChild && !childMode && ModePickerView()}
         {activeChild && childMode && (
           <div>
+            {/* Sub-tab nav */}
             <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0.75rem 1rem 0",display:"flex",gap:"0.25rem"}}>
               {childTabIds.map(function(tabId) {
                 var meta  = LH_TAB_META[tabId] || {label:tabId,emoji:"•"};
                 var isAct = tabId === lhSubTab;
                 var tbSt  = {flexShrink:0,padding:"0.3rem 0.7rem",borderRadius:"99px",border:"none",background:isAct?T.sand:"transparent",color:isAct?T.textDark:T.textMid,fontWeight:isAct?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};
                 return (
-                  <button key={tabId} onClick={function(){setLhSubTab(tabId);}} style={tbSt}>
+                  <button type="button" key={tabId} onClick={function(){setLhSubTab(tabId);closeForm();}} style={tbSt}>
                     {meta.label}
                   </button>
                 );
               })}
             </div>
-            <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
-              <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
-                {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
+            {/* Area content */}
+            {lhSubTab === "overview"  && OverviewArea()}
+            {lhSubTab === "books"     && BooksArea()}
+            {lhSubTab === "beyond"    && BeyondArea()}
+            {lhSubTab === "trips"     && TripsArea()}
+            {lhSubTab === "goals"     && GoalsArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && (
+              <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
+                <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
+                  {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
+                </div>
+                <div style={{fontSize:"0.88rem"}}>
+                  {(LH_TAB_META[lhSubTab]||{label:lhSubTab}).label} — coming soon
+                </div>
               </div>
-              <div style={{fontSize:"0.88rem"}}>
-                {(LH_TAB_META[lhSubTab]||{label:lhSubTab}).label} — coming soon
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>

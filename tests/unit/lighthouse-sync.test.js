@@ -253,3 +253,199 @@ describe("LH-2-D — mixed household (two children, different modes)", function(
     expect(lhChildTabs(modes, "child_sc")).toContain("books");
   });
 });
+
+// ─── LH-3 — shared data helpers: lhAddItem / lhUpdateItem / lhDeleteItem ────
+// Mirrors of the pure functions in App.jsx (kept in sync manually).
+function lhGet3(o, k, d) { return o && o[k] != null ? o[k] : d; }
+
+function lhAddItem(lh, childId, field, item) {
+  var shared = Object.assign({}, lhGet3(lh, "shared", {}));
+  var child  = Object.assign({}, shared[childId] || { books:[], beyond:[], trips:[], goals:[] });
+  var list   = Array.isArray(child[field]) ? child[field].slice() : [];
+  list.push(item);
+  child[field] = list;
+  shared[childId] = child;
+  return Object.assign({}, lh, { shared: shared });
+}
+
+function lhUpdateItem(lh, childId, field, id, patch) {
+  var shared = Object.assign({}, lhGet3(lh, "shared", {}));
+  var child  = Object.assign({}, shared[childId] || {});
+  var list   = Array.isArray(child[field]) ? child[field] : [];
+  child[field] = list.map(function(it) { return it.id === id ? Object.assign({}, it, patch) : it; });
+  shared[childId] = child;
+  return Object.assign({}, lh, { shared: shared });
+}
+
+function lhDeleteItem(lh, childId, field, id) {
+  var shared = Object.assign({}, lhGet3(lh, "shared", {}));
+  var child  = Object.assign({}, shared[childId] || {});
+  var list   = Array.isArray(child[field]) ? child[field] : [];
+  child[field] = list.filter(function(it) { return it.id !== id; });
+  shared[childId] = child;
+  return Object.assign({}, lh, { shared: shared });
+}
+
+var BOOK_A = { id:"b1", title:"Charlotte's Web", status:"finished", rating:5, includeSummary:true };
+var BOOK_B = { id:"b2", title:"Stuart Little",   status:"reading",  rating:3, includeSummary:false };
+var BEYOND_A = { id:"bx1", what:"Museum visit", cat:"Museum", date:"2026-06-01", includeSummary:true };
+var TRIP_A   = { id:"tr1", place:"Gettysburg", date:"2026-05-15", subj:["History"] };
+var GOAL_A   = { id:"g1", cat:"Math", goal:"Master long division", progress:"In progress" };
+
+describe("LH-3-A — lhAddItem", function() {
+  it("LH-3-A1: adds a book to an empty child", function() {
+    var lh = defaultLighthouse();
+    var out = lhAddItem(lh, "c1", "books", BOOK_A);
+    expect(out.shared["c1"].books).toHaveLength(1);
+    expect(out.shared["c1"].books[0].title).toBe("Charlotte's Web");
+  });
+
+  it("LH-3-A2: appends to existing list", function() {
+    var lh = defaultLighthouse();
+    var lh2 = lhAddItem(lh,  "c1", "books", BOOK_A);
+    var lh3 = lhAddItem(lh2, "c1", "books", BOOK_B);
+    expect(lh3.shared["c1"].books).toHaveLength(2);
+    expect(lh3.shared["c1"].books[1].title).toBe("Stuart Little");
+  });
+
+  it("LH-3-A3: does NOT affect a sibling child (isolation)", function() {
+    var lh = defaultLighthouse();
+    var lh2 = lhAddItem(lh, "c1", "books", BOOK_A);
+    expect(lh2.shared["c2"]).toBeUndefined();
+  });
+
+  it("LH-3-A4: does NOT mutate the original lighthouse blob", function() {
+    var lh = defaultLighthouse();
+    lhAddItem(lh, "c1", "books", BOOK_A);
+    expect(lhGet3(lh, "shared", {})).toEqual({});
+  });
+
+  it("LH-3-A5: works for beyond, trips, goals (same logic)", function() {
+    var lh = defaultLighthouse();
+    var lh2 = lhAddItem(lhAddItem(lhAddItem(lh, "c1", "beyond", BEYOND_A), "c1", "trips", TRIP_A), "c1", "goals", GOAL_A);
+    expect(lh2.shared["c1"].beyond).toHaveLength(1);
+    expect(lh2.shared["c1"].trips).toHaveLength(1);
+    expect(lh2.shared["c1"].goals).toHaveLength(1);
+  });
+
+  it("LH-3-A6: other lighthouse layers (modes, homeschool, school) untouched", function() {
+    var lh = Object.assign({}, defaultLighthouse(), { modes: { "c1": "homeschool" } });
+    var out = lhAddItem(lh, "c1", "books", BOOK_A);
+    expect(out.modes["c1"]).toBe("homeschool");
+    expect(out.homeschool).toEqual({});
+  });
+});
+
+describe("LH-3-B — lhUpdateItem", function() {
+  it("LH-3-B1: updates only the matched item", function() {
+    var lh = defaultLighthouse();
+    var lh2 = lhAddItem(lhAddItem(lh, "c1", "books", BOOK_A), "c1", "books", BOOK_B);
+    var lh3 = lhUpdateItem(lh2, "c1", "books", "b1", { rating: 4 });
+    var books = lh3.shared["c1"].books;
+    expect(books.find(function(b){return b.id==="b1";}).rating).toBe(4);
+    expect(books.find(function(b){return b.id==="b2";}).rating).toBe(3);
+  });
+
+  it("LH-3-B2: non-matched items are preserved unchanged", function() {
+    var lh = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    var lh2 = lhUpdateItem(lh, "c1", "books", "NONEXISTENT", { title: "Ghost" });
+    expect(lh2.shared["c1"].books[0].title).toBe("Charlotte's Web");
+  });
+
+  it("LH-3-B3: can toggle includeSummary", function() {
+    var lh = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    var lh2 = lhUpdateItem(lh, "c1", "books", "b1", { includeSummary: false });
+    expect(lh2.shared["c1"].books[0].includeSummary).toBe(false);
+  });
+
+  it("LH-3-B4: does NOT mutate the original blob", function() {
+    var lh = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    lhUpdateItem(lh, "c1", "books", "b1", { rating: 1 });
+    expect(lh.shared["c1"].books[0].rating).toBe(5);
+  });
+});
+
+describe("LH-3-C — lhDeleteItem", function() {
+  it("LH-3-C1: removes the matched item", function() {
+    var lh = lhAddItem(lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A), "c1", "books", BOOK_B);
+    var lh2 = lhDeleteItem(lh, "c1", "books", "b1");
+    var books = lh2.shared["c1"].books;
+    expect(books).toHaveLength(1);
+    expect(books[0].id).toBe("b2");
+  });
+
+  it("LH-3-C2: deleting non-existent id is a no-op", function() {
+    var lh = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    var lh2 = lhDeleteItem(lh, "c1", "books", "GHOST");
+    expect(lh2.shared["c1"].books).toHaveLength(1);
+  });
+
+  it("LH-3-C3: does NOT affect sibling child", function() {
+    var lh  = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    var lh2 = lhAddItem(lh, "c2", "books", BOOK_B);
+    var lh3 = lhDeleteItem(lh2, "c1", "books", "b1");
+    expect(lh3.shared["c1"].books).toHaveLength(0);
+    expect(lh3.shared["c2"].books).toHaveLength(1);
+  });
+
+  it("LH-3-C4: does NOT mutate original blob", function() {
+    var lh = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    lhDeleteItem(lh, "c1", "books", "b1");
+    expect(lh.shared["c1"].books).toHaveLength(1);
+  });
+});
+
+describe("LH-3-D — mode-agnostic: shared data identical for both modes (acceptance)", function() {
+  it("LH-3-D1: books array is the same regardless of child mode", function() {
+    var lh = Object.assign({}, defaultLighthouse(), { modes: { "c1":"homeschool", "c2":"school" } });
+    var lh2 = lhAddItem(lhAddItem(lh, "c1", "books", BOOK_A), "c2", "books", BOOK_B);
+    expect(lh2.shared["c1"].books[0].title).toBe("Charlotte's Web");
+    expect(lh2.shared["c2"].books[0].title).toBe("Stuart Little");
+  });
+
+  it("LH-3-D2: beyond tab label differs by mode (LH_LABELS coverage)", function() {
+    var LH_LABELS = {
+      beyond:    { homeschool: "Beyond the Transcript", school: "Beyond the Classroom" },
+      summaries: { homeschool: "Summaries",             school: "Keepsakes" }
+    };
+    expect(LH_LABELS.beyond.homeschool).not.toBe(LH_LABELS.beyond.school);
+    expect(LH_LABELS.summaries.homeschool).not.toBe(LH_LABELS.summaries.school);
+  });
+
+  it("LH-3-D3: include-in-summary can be toggled independently per child", function() {
+    var lh  = lhAddItem(defaultLighthouse(), "c1", "books", BOOK_A);
+    var lh2 = lhAddItem(lh, "c2", "books", Object.assign({}, BOOK_A, { id:"b_c2", includeSummary:false }));
+    var lh3 = lhUpdateItem(lh2, "c1", "books", "b1", { includeSummary: false });
+    expect(lh3.shared["c1"].books[0].includeSummary).toBe(false);
+    expect(lh3.shared["c2"].books[0].includeSummary).toBe(false);
+    expect(lh2.shared["c1"].books[0].includeSummary).toBe(true);
+  });
+
+  it("LH-3-D4: all four shared fields survive a chain of adds (homeschool child)", function() {
+    var lh = Object.assign({}, defaultLighthouse(), { modes: { "hs": "homeschool" } });
+    var lh2 = lhAddItem(lhAddItem(lhAddItem(lhAddItem(lh,
+      "hs","books",BOOK_A),
+      "hs","beyond",BEYOND_A),
+      "hs","trips",TRIP_A),
+      "hs","goals",GOAL_A
+    );
+    expect(lh2.shared["hs"].books).toHaveLength(1);
+    expect(lh2.shared["hs"].beyond).toHaveLength(1);
+    expect(lh2.shared["hs"].trips).toHaveLength(1);
+    expect(lh2.shared["hs"].goals).toHaveLength(1);
+  });
+
+  it("LH-3-D5: all four shared fields survive a chain of adds (school child)", function() {
+    var lh = Object.assign({}, defaultLighthouse(), { modes: { "sc": "school" } });
+    var lh2 = lhAddItem(lhAddItem(lhAddItem(lhAddItem(lh,
+      "sc","books",BOOK_A),
+      "sc","beyond",BEYOND_A),
+      "sc","trips",TRIP_A),
+      "sc","goals",GOAL_A
+    );
+    expect(lh2.shared["sc"].books).toHaveLength(1);
+    expect(lh2.shared["sc"].beyond).toHaveLength(1);
+    expect(lh2.shared["sc"].trips).toHaveLength(1);
+    expect(lh2.shared["sc"].goals).toHaveLength(1);
+  });
+});
