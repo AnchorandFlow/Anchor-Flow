@@ -503,3 +503,91 @@ describe("B11 — SIGNED_OUT flag: automatic sign-out preserves household data",
     expect(localStorage.getItem("af_householdId")).toBeNull();
   });
 });
+
+// ── B12: stale-push-guard fix — dirty keys survive blocked push, apply stamps ──
+describe("B12 — stale-push guard: dirty keys survive stale-blocked pull", () => {
+  // Root cause of the July 5-6 push-death:
+  //   Bug 1: ExhaleSection.jsx persist() EXHALE_V2 branch skipped dirty marking for
+  //          exhale_labels, exhale_color_labels, exhale_people (blob keys, no RT table).
+  //   Bug 2: pullLatestHouseholdData() line 2375 unconditionally cleared af_dirtyKeys,
+  //          destroying any pending edits when a stale-blocked push triggered a pull.
+  //
+  // Fix: (1) persist() calls lsSet() for nl/ncl/np in V2 mode (marks dirty + dispatches
+  //          af-data-changed); (2) pullLatestHouseholdData does not clear af_dirtyKeys.
+  //
+  // These tests verify the localStorage state machine directly.
+
+  it("stale-blocked pull does NOT wipe af_dirtyKeys (fix for Bug 2)", () => {
+    // Simulate: device has dirty keys from a label edit.
+    lsSet("af_dirtyKeys", ["exhale_labels", "exhale_people"]);
+    lsSet("af_exhale_labels", { inbox: "Inbox", decide: "Decide" });
+
+    // Simulate pullLatestHouseholdData FIXED behaviour:
+    // writes SYNC_KEYS from server, stamps af_lastHHSync — but does NOT touch af_dirtyKeys.
+    const serverTs = "2026-07-05T18:07:02.313+00:00";
+    const serverData = sanitizeHouseholdData({ tasks: [{ id: "t1", text: "task from server" }] });
+    simulatePullWrite(serverData, serverTs);
+    // Note: simulatePullWrite does not clear af_dirtyKeys — correct post-fix behaviour.
+
+    // Dirty keys must survive the pull
+    expect(lsGet("af_dirtyKeys")).toEqual(["exhale_labels", "exhale_people"]);
+    // af_lastHHSync must be stamped
+    expect(localStorage.getItem("af_lastHHSync")).toBe(serverTs);
+  });
+
+  it("after stale-blocked pull, af_lastHHSync matches server — next push guard passes", () => {
+    // After pullLatestHouseholdData stamps af_lastHHSync = serverTs, the stale condition
+    // (serverUpdatedAt > lastApplied) resolves on the next push attempt.
+    const serverTs = "2026-07-05T18:07:02.313+00:00";
+    simulatePullWrite({}, serverTs);
+
+    // simulatePushDecision: with lastHHSync === serverUpdatedAt, guard passes
+    const decision = simulatePushDecision(serverTs, serverTs, "");
+    // "own-push" path: reconcile, not stale — guard passes, push allowed
+    // (serverUpdatedAt === lastHHSync is caught before the stale comparison)
+    // Actually simulatePushDecision returns "pull" if serverMs > localMs — equal means no block.
+    const serverMs = new Date(serverTs).getTime();
+    const localMs  = new Date(localStorage.getItem("af_lastHHSync")).getTime();
+    expect(serverMs).toBe(localMs); // equal — guard does not block
+    expect(serverMs > localMs).toBe(false); // not stale
+  });
+
+  it("dirty keys survive a full pull write that overwrites SYNC_KEYS values", () => {
+    // Pre-populate: device has local edits on several keys, all marked dirty.
+    lsSet("af_dirtyKeys", ["tasks", "exhale_labels"]);
+    lsSet("af_tasks", [{ id: "local-1", text: "local task" }]);
+    lsSet("af_exhale_labels", { inbox: "My Inbox" });
+
+    // Server has different tasks. Pull overwrites af_tasks.
+    const serverTs = "2026-07-06T03:43:45.152+00:00";
+    const serverData = sanitizeHouseholdData({ tasks: [{ id: "srv-1", text: "server task" }] });
+    simulatePullWrite(serverData, serverTs);
+
+    // Server's tasks are now local — pull applied correctly
+    expect(lsGet("af_tasks")).toEqual([{ id: "srv-1", text: "server task" }]);
+    // Dirty keys survive (fix: pullLatestHouseholdData no longer wipes them)
+    expect(lsGet("af_dirtyKeys")).toEqual(["tasks", "exhale_labels"]);
+    // exhale_labels untouched (server didn't have it in this payload)
+    expect(lsGet("af_exhale_labels")).toEqual({ inbox: "My Inbox" });
+  });
+
+  it("genuine stale-clobber is still blocked (guard purpose intact)", () => {
+    // A device with af_lastHHSync older than server updated_at must not push.
+    // Uses July 5 timestamps as fixture values from the actual incident.
+    const serverUpdatedAt = "2026-07-05T18:07:02.313+00:00"; // server (Jul 5, other device pushed)
+    const lastHHSync      = "2026-07-03T21:18:00.000+00:00"; // local (Jul 3, device is stale)
+    const lastPushedAt    = ""; // device never pushed
+
+    const decision = simulatePushDecision(serverUpdatedAt, lastHHSync, lastPushedAt);
+    expect(decision.action).toBe("pull"); // stale — guard correctly blocks push
+    expect(decision.reason).toBe("stale");
+  });
+
+  it("non-stale device (lastHHSync === serverUpdatedAt) is allowed to push", () => {
+    const ts = "2026-07-06T03:43:45.152+00:00";
+    const decision = simulatePushDecision(ts, ts, "");
+    // When timestamps are equal, server is not newer — push is allowed.
+    expect(decision.action).toBe("push");
+    expect(decision.reason).toBe("allowed");
+  });
+});

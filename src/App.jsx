@@ -2372,7 +2372,10 @@ function createLocalBackup() {
       // can return a stale pooled/replica value, creating a phantom diff on the next poll.
       try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
       try { localStorage.setItem("af_lastPullAt", String(Date.now())); } catch {} // separate from af_lastPushAt — poll uses af_lastPushAt to gate reloads; this only gates the stale-push-guard
-      try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
+      // Do NOT clear af_dirtyKeys here. Dirty keys that survived the stale-blocked push
+      // should push on the next sync cycle — now that af_lastHHSync === serverTs the guard
+      // passes. Clearing them was the bug that left devices permanently unable to push:
+      // any edit marked dirty before the pull was silently destroyed.
       AF_DEBUG && console.warn("[AF PULL] RELOADING");
       window.location.reload();
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }

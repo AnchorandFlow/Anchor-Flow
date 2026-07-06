@@ -124,6 +124,63 @@ and redirect any imports to `src/sync-core.js`.
 
 ---
 
+---
+
+## F7 — EXHALE_V2 persist() skips dirty marking for blob keys (FIXED)
+
+**Location:** `src/components/ExhaleSection.jsx` `persist()` lines 425–430
+
+**What happens:** `EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false"` defaults to
+`true`. In V2 mode, `persist()` used raw `localStorage.setItem` for ALL four arguments: `ng`
+(cards), `nl` (exhale_labels), `ncl` (exhale_color_labels), `np` (exhale_people). Only `ng`
+legitimately bypasses the blob path (cards go to the `exhale_cards` realtime table). `nl`,
+`ncl`, `np` are in SYNC_KEYS with no realtime table backing — they must push through the blob.
+With V2, every label/color/person rename stayed permanently local: `af_dirtyKeys` was never
+set, `af-data-changed` was never dispatched, no push was ever triggered.
+
+**Root cause of July 5-6 push-death:** The desktop device could never push Exhale label
+renames. Combined with F8 (stale pull destroying the initially dirty state), the device became
+permanently unable to push any label changes.
+
+**Fix:** `persist()` in EXHALE_V2 mode now uses `lsSet()` for `nl`, `ncl`, `np` (marks dirty,
+dispatches `af-data-changed`, triggers blob push). Only `ng` keeps the raw-write path.
+
+**Status:** Fixed in `stale-push-guard-fix` branch.
+
+---
+
+## F8 — pullLatestHouseholdData destroys dirty keys (FIXED)
+
+**Location:** `src/App.jsx` `pullLatestHouseholdData()` — removed line:
+```javascript
+try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // pulled data overwrites local — nothing left to push
+```
+
+**What happens:** When `pushHouseholdData`'s stale guard blocked a push (server newer than
+`af_lastHHSync`), it called `pullLatestHouseholdData`, which applied server data then
+**unconditionally cleared `af_dirtyKeys`**. Any local edit correctly marked dirty was silently
+destroyed. After reload: `af_dirtyKeys=[]`, device cannot push. Permanent if combined with F7.
+
+**Sequence on July 5:**
+1. July 3: Desktop synced. `af_lastHHSync = "2026-07-03T21:18:..."`.
+2. July 5 18:07: Other device pushed. Server at `"2026-07-05T18:07:02.313"`.
+3. Desktop user edited Exhale label → `af_dirtyKeys=["exhale_labels"]` (this was in V1 mode
+   at that moment, or via another edit path that did mark dirty).
+4. `pushHouseholdData` → stale guard blocked → `pullLatestHouseholdData` → **cleared dirtyKeys** → reload.
+5. Post-reload: `af_lastHHSync` current, `af_dirtyKeys=[]`. Edit lost.
+6. Subsequent edits: F7 (`EXHALE_V2 persist()`) prevents dirty marking → permanent push-death.
+
+**Fix:** Removed the `af_dirtyKeys` clear. Dirty keys that survive a stale-blocked pull will
+push on the next sync cycle — `af_lastHHSync===serverTs` after pull, so the guard passes.
+
+**Hypothesis correction:** The initial hypothesis stated "background pulls never stamp
+lastApplied" — incorrect. All three pull paths stamp `af_lastHHSync` (lines 2290, 2373, 2636).
+The issue was the dirty-key wipe, not a missing stamp.
+
+**Status:** Fixed in `stale-push-guard-fix` branch.
+
+---
+
 ## Summary
 
 | Finding | Severity | Status   | Blocking |
@@ -134,5 +191,7 @@ and redirect any imports to `src/sync-core.js`.
 | F4 — collapsedStores not synced         | Very Low | Open | No |
 | F5 — lastPushedAt raw string vs JSON    | Low    | Open | No |
 | F6 — syncCore.js Phase A copy drifting  | Low    | Open | Phase C cleanup |
+| F7 — EXHALE_V2 persist() silent labels  | High   | Fixed (stale-push-guard-fix) | Was blocking push |
+| F8 — pullLatestHouseholdData wipes dirty | High   | Fixed (stale-push-guard-fix) | Was destroying edits |
 
-None of these were modified during Phase B. All are candidates for future sessions.
+F7 and F8 combined caused the July 5-6 permanent push-death on the desktop device.

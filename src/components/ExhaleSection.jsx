@@ -423,11 +423,15 @@ export default function ExhaleSection(props) {
 
   function persist(ng, nl, ncl, np, opId) {
     if (EXHALE_V2) {
-      // V2: raw cache writes only — no dirty keys, no af-data-changed, no blob push
+      // Cards (ng) go to the exhale_cards realtime table — raw write, no blob push.
       if (ng  !== undefined) try { localStorage.setItem(LS_G,  JSON.stringify(ng));  } catch(e) {}
-      if (nl  !== undefined) try { localStorage.setItem(LS_L,  JSON.stringify(nl));  } catch(e) {}
-      if (ncl !== undefined) try { localStorage.setItem(LS_CL, JSON.stringify(ncl)); } catch(e) {}
-      if (np  !== undefined) try { localStorage.setItem(LS_P,  JSON.stringify(np));  } catch(e) {}
+      // Labels, color labels, people: no realtime table — still in the households blob
+      // (SYNC_KEYS). Must mark dirty and dispatch af-data-changed so the blob push
+      // carries them to other devices. Bug fix: V2 was skipping dirty marking for these
+      // keys, leaving label renames permanently local.
+      if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
+      if (ncl !== undefined) lsSet(LS_CL, ncl, opId);
+      if (np  !== undefined) lsSet(LS_P,  np,  opId);
     } else {
       if (ng  !== undefined) lsSet(LS_G,  ng,  opId);
       if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
