@@ -1742,7 +1742,7 @@ function _afEndHydration(){ _afHydrating = false; }
 
 // Keys that must never be marked dirty — system/session state, not user data.
 // Defined at module scope so markKeyDirty and setSaved share a single list.
-var _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId",
+var _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId","householdOwnerId",
   "dailySummaryScheduled","lastSeenDate","checkedCalEvents","checkedMealItems",
   "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
   "deviceId","dirtyKeys","theme","activeTab"];
@@ -1882,6 +1882,7 @@ function HomeFlow() {
     } catch(e) {}
   }, []);
   const [householdId,setHouseholdId]= useSaved("householdId",null);
+  const [householdOwnerId,setHouseholdOwnerId]= useSaved("householdOwnerId",null);
   const [syncStatus, setSyncStatus] = useState("idle"); // idle | syncing | synced | error
   const [lastSyncTime,setLastSyncTime] = useState(null);
   const [showAuthModal,setShowAuthModal] = useState(false);
@@ -2309,6 +2310,8 @@ function createLocalBackup() {
         try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
         try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
         try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — insert succeeded
+        // Record owner so HouseholdModal can show the correct owner/member UI.
+        if (ownerId) { try { localStorage.setItem("af_householdOwnerId", JSON.stringify(ownerId)); } catch {} }
         // Write owner membership row so new accounts are self-sufficient under RLS.
         // Best-effort: household row already exists at this point, so log and continue on failure.
         if (ownerId) {
@@ -2405,6 +2408,8 @@ function createLocalBackup() {
           }
         });
         try { localStorage.setItem("af_lastHHSync", sourceRow.updated_at || Date.now().toString()); } catch {}
+        // Record the household owner so HouseholdModal can show the correct owner/member UI.
+        if (sourceRow.owner_id) { try { localStorage.setItem("af_householdOwnerId", JSON.stringify(sourceRow.owner_id)); } catch {} }
       }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
@@ -2583,7 +2588,9 @@ function createLocalBackup() {
       sbFetch(`/rest/v1/households?id=eq.${currentId}&select=id,owner_id&limit=1`, { _token: authToken })
         .then(rows => {
           if (rows && rows.length > 0) {
-            // Household exists — keep it regardless of owner (could be a joined household)
+            // Household exists — keep it regardless of owner (could be a joined household).
+            // Persist owner_id so HouseholdModal can show the correct owner/member UI.
+            if (rows[0].owner_id) { try { localStorage.setItem("af_householdOwnerId", JSON.stringify(rows[0].owner_id)); } catch {} }
             AF_DEBUG&&console.log("[AF] Household ID valid:", currentId);
           } else {
             // Household doesn't exist — find the one owned by this user
@@ -11015,6 +11022,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [error, setError] = useState("");
     const [hhCopied, setHhCopied] = useState(false);
     const [lastSynced, setLastSynced] = useState(null);
+    var _ownerId = householdOwnerId || (function(){ try { return JSON.parse(localStorage.getItem("af_householdOwnerId")||"null"); } catch(_e) { return null; } })();
+    var isOwner = !!(authUser && authUser.id && householdId && _ownerId && authUser.id === _ownerId);
+    var isMember = !!(authUser && authUser.id && householdId && !isOwner);
+    function handleLeave() {
+      if (!window.confirm("Leave this household? Your data stays on this device — you can join a different household any time.")) return;
+      try { localStorage.removeItem("af_householdId"); } catch(_e) {}
+      try { localStorage.removeItem("af_householdOwnerId"); } catch(_e) {}
+      setHouseholdId(null);
+      setHouseholdOwnerId(null);
+      onClose();
+    }
     async function handleSync() {
       if (!authToken) return;
       setSyncing(true);
@@ -11095,6 +11113,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={onClose} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.35rem 0.8rem"})}>Done</button>
           </div>
         </div>
+        {isOwner&&(
+          <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginTop:"0.2rem",background:T.bgAlt,borderRadius:"0.85rem",padding:"0.85rem 1rem"}}>
+            <div style={{fontSize:"0.68rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textSoft,marginBottom:"0.4rem"}}>Household ownership</div>
+            <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.65}}>
+              You created this household. Owners can't leave — removing yourself would disconnect any household members who rely on this shared plan. To transfer ownership or dissolve the household, contact support.
+            </div>
+          </div>
+        )}
+        {isMember&&(
+          <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginTop:"0.2rem"}}>
+            <button onClick={handleLeave} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.8rem",color:T.rose,borderColor:T.rose+"55",width:"100%"})}>Leave household</button>
+          </div>
+        )}
       </ModalBox>
     );
   }
