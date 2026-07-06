@@ -11,6 +11,8 @@
 // AUTHORITATIVE: App.jsx imports from here. The Phase A draft (src/sync/syncCore.js)
 // has been deleted — this file is the single source of truth.
 
+import { mergeSafeHarbor } from "./shell/safe-harbor-migrate.js";
+
 // ── Meal day order ─────────────────────────────────────────────────────────────
 // App.jsx line 514 (module scope). Three definitions exist in App.jsx; this is the
 // authoritative one referenced by sanitizeHouseholdData. The other two
@@ -53,7 +55,10 @@ export const SYNC_KEYS = [
   // useSaved("af_nwMealCount") adds its own prefix, so the stored key is
   // af_af_nwMealCount, and sync loops prefix SYNC_KEYS entries with af_.
   // Do NOT normalize this without a data migration for existing devices.
-  "monthMeals","af_nwMealCount"];
+  "monthMeals","af_nwMealCount",
+  // Safe Harbor — household emergency plan (SH-2b). Merge-on-receive via
+  // applyHouseholdKey; never naive last-write-wins. See mergeSafeHarbor.
+  "safe_harbor"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -104,6 +109,8 @@ const _SANITIZE_HANDLED = new Set([
   "connectedCals","exhale_labels","health","career","travel_profile",
   // Explicitly normalized
   "ripples",
+  // Merge-on-receive (applyHouseholdKey handles the merge)
+  "safe_harbor",
 ]);
 
 export function sanitizeHouseholdData(data) {
@@ -178,6 +185,11 @@ export function sanitizeHouseholdData(data) {
     if (data["cove_items_v1"] && typeof data["cove_items_v1"] === "object") {
       out["cove_items_v1"] = data["cove_items_v1"];
     }
+    // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey
+    if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&
+        typeof data["safe_harbor"] === "object" && !Array.isArray(data["safe_harbor"])) {
+      out["safe_harbor"] = data["safe_harbor"];
+    }
     // Defensive pass-through: any SYNC_KEYS key not explicitly handled above
     // syncs as-is (null-guarded) instead of being silently dropped. Fixes
     // receive-side loss of workDays, traditions, cal_markers, cal_marker_types,
@@ -192,3 +204,21 @@ export function sanitizeHouseholdData(data) {
     });
     return out;
   }
+
+// ── applyHouseholdKey ─────────────────────────────────────────────────────────
+// Per-key apply handler for SYNC_KEYS apply loops. Use this everywhere instead
+// of raw localStorage.setItem("af_" + k, ...) so that safe_harbor gets a merge
+// rather than wholesale replacement.
+//
+// For all keys other than safe_harbor: behaves identically to the old raw setItem.
+// For safe_harbor: reads local blob, merges with remote, writes merged result.
+export function applyHouseholdKey(k, remoteVal) {
+  if (k === "safe_harbor") {
+    var localObj = null;
+    try { var raw = localStorage.getItem("af_safe_harbor"); localObj = raw ? JSON.parse(raw) : null; } catch(_e) {}
+    var merged = mergeSafeHarbor(localObj, remoteVal);
+    try { localStorage.setItem("af_safe_harbor", JSON.stringify(merged)); } catch(_e) {}
+    return;
+  }
+  try { localStorage.setItem("af_" + k, JSON.stringify(remoteVal)); } catch(_e) {}
+}

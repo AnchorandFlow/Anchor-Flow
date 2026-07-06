@@ -85,11 +85,12 @@ const PLAUSIBLE = {
   traditions:         [{ id:"tr1", title:"Christmas Eve Drive", when:"12-24" }],
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
   "af_nwMealCount":   2,
+  safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────
 describe("A1 — every SYNC_KEYS key survives sanitize with a plausible value", () => {
-  it("covers all 67 SYNC_KEYS entries", () => {
+  it(`covers all ${SYNC_KEYS.length} SYNC_KEYS entries`, () => {
     // Guard: PLAUSIBLE must cover every key (test the test)
     const missing = SYNC_KEYS.filter(k => !(k in PLAUSIBLE));
     expect(missing, `PLAUSIBLE fixture missing keys: ${missing.join(", ")}`).toHaveLength(0);
