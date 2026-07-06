@@ -1,6 +1,13 @@
 // src/shell/SafeHarbor.jsx — Family emergency plan. "Prepared, not worried."
 import { useState, useEffect, useRef } from "react"
 
+// SAFE_HARBOR_V2 — opt-in (default OFF). Matches the Shopping V2 opt-in pattern.
+// Read once at module scope; toggling requires a full page reload to take effect.
+// Do NOT add a location.reload() call here — document that constraint in console instructions.
+// To enable:  localStorage.setItem("af_safe_harbor_v2","true");  location.reload();
+// To disable: localStorage.removeItem("af_safe_harbor_v2");      location.reload();
+var SAFE_HARBOR_V2 = localStorage.getItem("af_safe_harbor_v2") === "true"
+
 var SERIF = "'Cormorant Garamond', serif"
 var SANS  = "'DM Sans', sans-serif"
 
@@ -251,7 +258,9 @@ function loadData() {
   try {
     var saved = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
     if (!saved || typeof saved !== "object") {
-      return Object.assign({}, DEFAULT_DATA, { grabItems: DEFAULT_GRAB_ITEMS.map(function(i) { return Object.assign({},i) }) })
+      var fresh = Object.assign({}, DEFAULT_DATA, { grabItems: DEFAULT_GRAB_ITEMS.map(function(i) { return Object.assign({},i) }) })
+      if (SAFE_HARBOR_V2) fresh = migrateToV2(fresh)
+      return fresh
     }
     if (!Array.isArray(saved.grabItems) || saved.grabItems.length === 0) {
       saved.grabItems = DEFAULT_GRAB_ITEMS.map(function(i) { return Object.assign({},i) })
@@ -264,7 +273,12 @@ function loadData() {
     if (!Array.isArray(saved.members)) saved.members = []
     if (!Array.isArray(saved.hazards)) saved.hazards  = []
     if (!Array.isArray(saved.removedDefaultIds)) saved.removedDefaultIds = []
-    // Persist cleaned state so localStorage never retains stale tombstones.
+    // V2: one-time migration when flag is on and blob is pre-V2.
+    // migrateToV2 absorbs af_sh_remind into review.remindDismissedAt and adds new top-level fields.
+    if (SAFE_HARBOR_V2 && (!saved.version || saved.version < 2)) {
+      saved = migrateToV2(saved)
+    }
+    // Persist cleaned (and possibly migrated) state.
     try { localStorage.setItem("af_safe_harbor", JSON.stringify(saved)) } catch(_e) {}
     return saved
   } catch(e) {
@@ -273,6 +287,51 @@ function loadData() {
 }
 
 function saveData(d) { try { localStorage.setItem("af_safe_harbor", JSON.stringify(d)) } catch(e) {} }
+
+// ── V2 migration ──────────────────────────────────────────────────────────────
+// Runs once (inside loadData) when SAFE_HARBOR_V2 is true and the stored blob
+// has no version field (or version < 2). Produces a superset of the V1 shape:
+//
+//   version: 2
+//   grabItems: unchanged (field name preserved; items gain optional needsTags:[])
+//   sixPs: null          — shell for SH-4 (category notes per the 6 P's)
+//   familyPlan: null     — shell for SH-5 (full family preparedness plan)
+//   review: {
+//     lastReviewedAt: null   — mirrors lastReviewed for V2 consumers
+//     cadence: "yearly"      — configurable in future
+//     remindDismissedAt: ... — absorbed from af_sh_remind (raw epoch-ms string)
+//   }
+//
+// V1 fields (lastReviewed, contacts, members, grabItems, hazards, reviewDue,
+// removedDefaultIds) are all preserved verbatim. No fields are renamed.
+// All ids remain strings per repo convention.
+// needsTags: [] is optional per-item; existing items are not backfilled here.
+// assignedTo stays free-text (no conversion to person-record references).
+function migrateToV2(saved) {
+  // Absorb af_sh_remind (raw epoch-ms string, NOT JSON) into review.remindDismissedAt.
+  // Treat null/absent as never-dismissed (stored value 0 would also mean never-dismissed
+  // but we keep null distinct so UI can tell "never set" from "set to epoch 0").
+  var rawRemind = localStorage.getItem("af_sh_remind")
+  var absorbedRemindAt = rawRemind !== null ? (parseInt(rawRemind) || null) : null
+  if (rawRemind !== null) {
+    // Remove the now-absorbed standalone key — af_safe_harbor is the single source of truth.
+    try { localStorage.removeItem("af_sh_remind") } catch(_e) {}
+  }
+  var existingReview = (saved.review && typeof saved.review === "object") ? saved.review : {}
+  return Object.assign({}, saved, {
+    version: 2,
+    sixPs:      saved.sixPs      !== undefined ? saved.sixPs      : null,
+    familyPlan: saved.familyPlan !== undefined ? saved.familyPlan : null,
+    review: {
+      lastReviewedAt:    existingReview.lastReviewedAt    || null,
+      cadence:           existingReview.cadence           || "yearly",
+      // Prefer existing V2 value if blob was already partly migrated; fall back to absorbed.
+      remindDismissedAt: existingReview.remindDismissedAt !== undefined
+        ? existingReview.remindDismissedAt
+        : absorbedRemindAt,
+    },
+  })
+}
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
 function card(extra) { return Object.assign({ background:G.card, border:"1px solid "+G.cardBorder, borderRadius:14, padding:"16px 18px", marginBottom:14 }, extra || {}) }
@@ -290,11 +349,27 @@ export default function SafeHarbor() {
   var [conDraft,   setConDraft]   = useState(null)
   var [memberForm, setMemberForm] = useState(null)   // null | { id, name, role, note }
   var [activeTier, setActiveTier] = useState(1)
-  var [session,    setSession]    = useState(false)
+  var [session,        setSession]        = useState(false)
+  // V2: null = no session active; {} = practice-run session overlay.
+  // Session overlay is transient — endSession clears it without touching persistent item.checked.
+  var [sessionChecked, setSessionChecked] = useState(null)
   var [addingCat,  setAddingCat]  = useState(null)   // null | category string
   var [addName,    setAddName]    = useState("")
   var [addLoc,     setAddLoc]     = useState("")
-  var [dismissedAt,setDismissedAt]= useState(function() { try { return parseInt(localStorage.getItem("af_sh_remind") || "0") || 0 } catch(e) { return 0 } })
+  var [dismissedAt,setDismissedAt]= useState(function() {
+    // V2: remindDismissedAt lives in the blob (absorbed from af_sh_remind by migrateToV2).
+    // loadData() runs first and saves the migrated blob, so the blob is current by now.
+    if (SAFE_HARBOR_V2) {
+      try {
+        var v2blob = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
+        if (v2blob && v2blob.review && typeof v2blob.review.remindDismissedAt === "number") {
+          return v2blob.review.remindDismissedAt
+        }
+      } catch(_e) {}
+      return 0
+    }
+    try { return parseInt(localStorage.getItem("af_sh_remind") || "0") || 0 } catch(e) { return 0 }
+  })
   var [pendingUndo,setPendingUndo]= useState({})     // { itemId: { item, timeoutId } }
 
   var contactsRef = useRef(null)
@@ -322,7 +397,16 @@ export default function SafeHarbor() {
 
   function markReviewed() {
     var today = new Date().toISOString().slice(0,10)
-    update({ lastReviewed: today })
+    if (SAFE_HARBOR_V2) {
+      // V2: write lastReviewed (V1 compat) + review.lastReviewedAt + review.remindDismissedAt.
+      // af_sh_remind is no longer used — remindDismissedAt lives in the blob.
+      update({
+        lastReviewed: today,
+        review: Object.assign({}, data.review || {}, { lastReviewedAt: today, remindDismissedAt: nowMs }),
+      })
+    } else {
+      update({ lastReviewed: today })
+    }
     setDismissedAt(nowMs)
     if (contactsRef.current) {
       setTimeout(function() { contactsRef.current.scrollIntoView({ behavior:"smooth", block:"start" }) }, 120)
@@ -331,7 +415,12 @@ export default function SafeHarbor() {
 
   function dismissNudge() {
     setDismissedAt(nowMs)
-    try { localStorage.setItem("af_sh_remind", String(nowMs)) } catch(e) {}
+    if (SAFE_HARBOR_V2) {
+      // V2: persist dismiss timestamp in the blob instead of a separate key.
+      update({ review: Object.assign({}, data.review || {}, { remindDismissedAt: nowMs }) })
+    } else {
+      try { localStorage.setItem("af_sh_remind", String(nowMs)) } catch(e) {}
+    }
   }
 
   // ── Contacts ──────────────────────────────────────────────────────────────
@@ -361,11 +450,35 @@ export default function SafeHarbor() {
   function removeMember(id) { update({ members: (data.members || []).filter(function(m) { return m.id !== id }) }) }
 
   // ── Grab & Go ─────────────────────────────────────────────────────────────
+  // V2: during a practice session, checked state comes from the transient sessionChecked overlay.
+  // Outside a session (V2), checked state is the persistent item.checked flag (always toggleable).
+  // V1: checked state is always item.checked; toggleItem is gated behind the session flag.
+  function getChecked(item) {
+    if (SAFE_HARBOR_V2 && sessionChecked !== null) return sessionChecked[item.id] === true
+    return item.checked
+  }
+
   var visibleItems  = (data.grabItems || []).filter(function(i) { return !i.removed && i.tier <= activeTier })
-  var checkedCount  = visibleItems.filter(function(i) { return i.checked }).length
+  var checkedCount  = visibleItems.filter(function(i) { return getChecked(i) }).length
   var pct           = visibleItems.length ? Math.round((checkedCount / visibleItems.length) * 100) : 0
 
   function toggleItem(id) {
+    if (SAFE_HARBOR_V2) {
+      if (sessionChecked !== null) {
+        // Practice-run session: toggle transient overlay only — never mutates persistent checked.
+        setSessionChecked(function(prev) {
+          var cur = prev[id] !== undefined ? prev[id] : false
+          var next = Object.assign({}, prev)
+          next[id] = !cur
+          return next
+        })
+      } else {
+        // V2 outside session: checked is a persistent flag, toggleable any time.
+        update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked}) : i }) })
+      }
+      return
+    }
+    // V1: check-off is gated behind session mode.
     if (!session) return
     update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked}) : i }) })
   }
@@ -456,8 +569,21 @@ export default function SafeHarbor() {
     update({ grabItems: (data.grabItems || []).concat(toAdd), removedDefaultIds: remainingRemovedIds })
   }
 
-  function startSession() { setSession(true) }
-  function endSession()   {
+  function startSession() {
+    if (SAFE_HARBOR_V2) {
+      // V2: start a practice-run overlay; persistent checked flags are never touched.
+      setSessionChecked({})
+      return
+    }
+    setSession(true)
+  }
+  function endSession() {
+    if (SAFE_HARBOR_V2) {
+      // V2: discard the transient overlay — persistent checked flags remain intact.
+      setSessionChecked(null)
+      return
+    }
+    // V1: end session and wipe all persistent checked flags.
     setSession(false)
     update({ grabItems: (data.grabItems || []).map(function(i) { return Object.assign({},i,{checked:false}) }) })
   }
@@ -664,6 +790,50 @@ export default function SafeHarbor() {
           <button onClick={function() { window.print() }} style={ghostBtn({ width:"100%", textAlign:"center" })} className="af-sh-no-print">
             🖨 Print this plan
           </button>
+
+          {/* V2: Emergency Plan shell — shows when SAFE_HARBOR_V2 is enabled.
+              sixPs (SH-4) and familyPlan (SH-5) are null shells until those phases ship.
+              review.cadence is editable in a future pass. */}
+          {SAFE_HARBOR_V2 && (
+            <div style={Object.assign(card({ marginTop:16 }), { border:"1px solid rgba(200,169,110,0.15)" })}>
+              <div style={{ fontSize:10, letterSpacing:"0.16em", textTransform:"uppercase", color:G.gold, fontWeight:700, marginBottom:12 }}>Emergency Plan</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+
+                {/* Annual review cadence (live) */}
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:18, flexShrink:0 }}>🔄</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, color:"#faf8f4", fontWeight:600 }}>Annual Review</div>
+                    <div style={{ fontSize:11, color:G.muted }}>
+                      Cadence: {(data.review && data.review.cadence) || "yearly"}
+                      {data.review && data.review.lastReviewedAt && (
+                        <span> · last reviewed {data.review.lastReviewedAt}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Six P's — SH-4 shell */}
+                <div style={{ display:"flex", alignItems:"center", gap:10, opacity:0.45 }}>
+                  <span style={{ fontSize:18, flexShrink:0 }}>🏠</span>
+                  <div>
+                    <div style={{ fontSize:13, color:"#faf8f4", fontWeight:600 }}>Six P's of Evacuation</div>
+                    <div style={{ fontSize:11, color:G.muted }}>Category notes layer — coming in SH-4</div>
+                  </div>
+                </div>
+
+                {/* Family Plan — SH-5 shell */}
+                <div style={{ display:"flex", alignItems:"center", gap:10, opacity:0.45 }}>
+                  <span style={{ fontSize:18, flexShrink:0 }}>👨‍👩‍👧</span>
+                  <div>
+                    <div style={{ fontSize:13, color:"#faf8f4", fontWeight:600 }}>Family Emergency Plan</div>
+                    <div style={{ fontSize:11, color:G.muted }}>Full preparedness plan — coming in SH-5</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -693,8 +863,11 @@ export default function SafeHarbor() {
             <div style={{ fontSize:12, color:G.sea, fontStyle:"italic", marginBottom:12, padding:"0 2px" }}>{TIER_NOTE[activeTier]}</div>
           )}
 
-          {/* Session bar */}
-          {!session ? (
+          {/* Session bar
+              V1: gated on session boolean; end clears all checked flags.
+              V2: gated on sessionChecked null-check; end discards overlay only.
+                  Outside a V2 session, items are always tappable (persistent check). */}
+          {(SAFE_HARBOR_V2 ? sessionChecked === null : !session) ? (
             <button onClick={startSession} style={goldBtn({ width:"100%", padding:"13px", fontSize:14, textAlign:"center", display:"block", marginBottom:16 })}>
               ▶ Start Grab & Go
             </button>
@@ -709,7 +882,9 @@ export default function SafeHarbor() {
                   <div style={{ height:"100%", width:pct+"%", background:G.sea, transition:"width .3s", borderRadius:3 }} />
                 </div>
               </div>
-              <button onClick={endSession} style={ghostBtn({ width:"100%", textAlign:"center" })}>✓ Complete and reset list</button>
+              <button onClick={endSession} style={ghostBtn({ width:"100%", textAlign:"center" })}>
+                {SAFE_HARBOR_V2 ? "✓ End practice session" : "✓ Complete and reset list"}
+              </button>
             </div>
           )}
 
@@ -734,18 +909,19 @@ export default function SafeHarbor() {
                       onClick={function() { toggleItem(item.id) }}
                       style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0",
                         borderBottom:"0.5px solid rgba(250,242,229,0.06)",
-                        cursor:session?"pointer":"default",
-                        opacity:!session&&item.tier>activeTier?0.4:1 }}>
-                      {/* Checkbox */}
+                        cursor:(SAFE_HARBOR_V2||session)?"pointer":"default",
+                        opacity:!SAFE_HARBOR_V2&&!session&&item.tier>activeTier?0.4:1 }}>
+                      {/* Checkbox — V2: reflects sessionChecked overlay during sessions,
+                          persistent item.checked otherwise. V1: always item.checked. */}
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0, marginTop:2, transition:"all .15s",
-                        border:"1.5px solid "+(item.checked?G.sea:"rgba(250,248,244,0.25)"),
-                        background:item.checked?G.sea:"transparent",
+                        border:"1.5px solid "+(getChecked(item)?G.sea:"rgba(250,248,244,0.25)"),
+                        background:getChecked(item)?G.sea:"transparent",
                         display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        {item.checked && <span style={{ color:"#fff", fontSize:10 }}>✓</span>}
+                        {getChecked(item) && <span style={{ color:"#fff", fontSize:10 }}>✓</span>}
                       </div>
                       {/* Content */}
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, color:item.checked?G.muted:"#faf8f4", textDecoration:item.checked?"line-through":"none" }}>{item.name}</div>
+                        <div style={{ fontSize:13, color:getChecked(item)?G.muted:"#faf8f4", textDecoration:getChecked(item)?"line-through":"none" }}>{item.name}</div>
                         {item.location && <div style={{ fontSize:11, color:G.muted, marginTop:2 }}>📍 {item.location}</div>}
                         {item.source  && <div style={{ fontSize:10, color:G.sea, fontStyle:"italic", marginTop:2 }}>{item.source}</div>}
                         {item.assignedTo && (
