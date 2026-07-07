@@ -54,9 +54,10 @@ describe("E1 — grabItems: union by id, no data loss", () => {
   });
 });
 
-// ── E2: grabItems — checked state local-wins ───────────────────────────────────
-describe("E2 — grabItems: checked state — local-wins", () => {
-  it("local checked=true is preserved even when remote has checked=false", () => {
+// ── E2: grabItems — checked state OR-merge (legacy, no checkedAt) ─────────────
+// Both sides lack checkedAt → tie → OR. A merge never auto-unchecks.
+describe("E2 — grabItems: checked state — additive OR-merge (no checkedAt)", () => {
+  it("local checked=true is preserved even when remote has checked=false (OR)", () => {
     var local  = makeV2({ grabItems: [item("g01", { checked: true  })] });
     var remote = makeV2({ grabItems: [item("g01", { checked: false })] });
     var result = mergeSafeHarbor(local, remote);
@@ -65,12 +66,13 @@ describe("E2 — grabItems: checked state — local-wins", () => {
     expect(found.checked).toBe(true);
   });
 
-  it("local checked=false does not restore remote checked=true", () => {
+  it("remote checked=true propagates when local has checked=false and no timestamps (OR)", () => {
+    // Old behavior was local-wins (false). New behavior: OR → remote check propagates.
     var local  = makeV2({ grabItems: [item("g01", { checked: false })] });
     var remote = makeV2({ grabItems: [item("g01", { checked: true  })] });
     var result = mergeSafeHarbor(local, remote);
     var found = result.grabItems.find(function(i) { return i.id === "g01"; });
-    expect(found.checked).toBe(false);
+    expect(found.checked).toBe(true);
   });
 
   it("remote-only items keep their remote checked state", () => {
@@ -79,6 +81,14 @@ describe("E2 — grabItems: checked state — local-wins", () => {
     var result = mergeSafeHarbor(local, remote);
     var found = result.grabItems.find(function(i) { return i.id === "g05"; });
     expect(found.checked).toBe(true);
+  });
+
+  it("both unchecked with no timestamps stays unchecked", () => {
+    var local  = makeV2({ grabItems: [item("g01", { checked: false })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: false })] });
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(false);
   });
 });
 
@@ -235,6 +245,120 @@ describe("E8 — mixed-version: V1 blob normalised before merge", () => {
     var v1Remote = { members: [], grabItems: [], hazards: [] };
     var result = mergeSafeHarbor(local, v1Remote);
     expect(result.members.find(function(m) { return m.id === "m99"; })).toBeDefined();
+  });
+});
+
+// ── E11: checkedAt-based last-write-wins (OR-merge additive check sync) ───────
+// These tests cover the six required cases from the sh-checked-merge spec.
+// mergeSafeHarbor(local, remote) — local = device pulling, remote = Supabase blob.
+describe("E11 — checkedAt: last-write-wins with additive OR on tie", () => {
+
+  // (a) check on B appears on A after pull
+  it("(a) check stamped on remote propagates to local when local has no timestamp", () => {
+    var local  = makeV2({ grabItems: [item("g01", { checked: false })] });                          // Device A: unchecked, no ts
+    var remote = makeV2({ grabItems: [item("g01", { checked: true, checkedAt: 1000 })] });           // Device B checked at T=1000
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(true);
+    expect(found.checkedAt).toBe(1000);
+  });
+
+  // (b) check on A appears on B (symmetric of a)
+  it("(b) check stamped on local beats remote uncheck when local timestamp is newer", () => {
+    var local  = makeV2({ grabItems: [item("g01", { checked: true, checkedAt: 2000 })] });           // Device A checked at T=2000
+    var remote = makeV2({ grabItems: [item("g01", { checked: false })] });                           // Device B: unchecked, no ts
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(true);
+    expect(found.checkedAt).toBe(2000);
+  });
+
+  // (c) uncheck on A at newer timestamp beats stale check on B
+  it("(c) uncheck with newer checkedAt beats older check on other device", () => {
+    // B pulling: local=B has old check, remote=A's newer uncheck
+    var local  = makeV2({ grabItems: [item("g01", { checked: true,  checkedAt: 500  })] });         // B: checked at T=500
+    var remote = makeV2({ grabItems: [item("g01", { checked: false, checkedAt: 3000 })] });          // A: unchecked at T=3000
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(false);
+    expect(found.checkedAt).toBe(3000);
+  });
+
+  // (d) re-check on B at newest timestamp beats A's uncheck
+  it("(d) re-check with newest timestamp wins over earlier uncheck", () => {
+    // A pulling: local=A has uncheck at T=3000, remote=B re-checked at T=5000
+    var local  = makeV2({ grabItems: [item("g01", { checked: false, checkedAt: 3000 })] });          // A: unchecked at T=3000
+    var remote = makeV2({ grabItems: [item("g01", { checked: true,  checkedAt: 5000 })] });          // B: re-checked at T=5000
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(true);
+    expect(found.checkedAt).toBe(5000);
+  });
+
+  // (e) equal nonzero checkedAt resolves toward checked (never unchecked on tie)
+  it("(e) equal nonzero checkedAt: local=false remote=true → OR → checked=true", () => {
+    var local  = makeV2({ grabItems: [item("g01", { checked: false, checkedAt: 1000 })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: true,  checkedAt: 1000 })] });
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(true);  // OR on tie — never auto-uncheck
+    expect(found.checkedAt).toBe(1000);
+  });
+
+  it("(e2) equal nonzero checkedAt: both checked stays checked", () => {
+    var local  = makeV2({ grabItems: [item("g01", { checked: true, checkedAt: 1000 })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: true, checkedAt: 1000 })] });
+    var result = mergeSafeHarbor(local, remote);
+    expect(result.grabItems.find(function(i) { return i.id === "g01"; }).checked).toBe(true);
+  });
+
+  it("(e3) equal nonzero checkedAt: both explicitly unchecked stays unchecked", () => {
+    // Two simultaneous deliberate unchecks → unambiguously unchecked
+    var local  = makeV2({ grabItems: [item("g01", { checked: false, checkedAt: 1000 })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: false, checkedAt: 1000 })] });
+    var result = mergeSafeHarbor(local, remote);
+    expect(result.grabItems.find(function(i) { return i.id === "g01"; }).checked).toBe(false);
+  });
+
+  // (f) legacy blob (no checkedAt) merging with new-code blob (has checkedAt)
+  it("(f) new-code checkedAt wins over legacy blob with no timestamp", () => {
+    // Remote has real timestamp (new-code device), local is legacy
+    var local  = makeV2({ grabItems: [item("g01", { checked: false })] });                          // legacy: no checkedAt
+    var remote = makeV2({ grabItems: [item("g01", { checked: true,  checkedAt: 2000 })] });
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(true);
+    expect(found.checkedAt).toBe(2000);
+  });
+
+  it("(f2) local new-code checkedAt wins over remote legacy blob", () => {
+    // Local has real timestamp (was toggled), remote is legacy
+    var local  = makeV2({ grabItems: [item("g01", { checked: true, checkedAt: 2000 })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: false })] });                          // legacy: no checkedAt
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checked).toBe(true);
+    expect(found.checkedAt).toBe(2000);
+  });
+
+  // checkedAt propagates correctly on merge
+  it("winning checkedAt is preserved in merged item (not zeroed)", () => {
+    var local  = makeV2({ grabItems: [item("g01", { checked: false, checkedAt: 100 })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: true,  checkedAt: 900 })] });
+    var result = mergeSafeHarbor(local, remote);
+    var found = result.grabItems.find(function(i) { return i.id === "g01"; });
+    expect(found.checkedAt).toBe(900);  // winning timestamp preserved, not dropped
+  });
+
+  // Practice overlay remains isolated — merge never touches it
+  it("no-auto-uncheck: plain pull with no local toggle keeps previous checked state", () => {
+    // Device already has item checked via a previous explicit action (checkedAt=500).
+    // Remote sends it unchecked with no timestamp (legacy or never toggled).
+    // Local timestamp wins → stays checked.
+    var local  = makeV2({ grabItems: [item("g01", { checked: true,  checkedAt: 500 })] });
+    var remote = makeV2({ grabItems: [item("g01", { checked: false })] });
+    var result = mergeSafeHarbor(local, remote);
+    expect(result.grabItems.find(function(i) { return i.id === "g01"; }).checked).toBe(true);
   });
 });
 

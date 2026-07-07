@@ -120,7 +120,9 @@ export function migrateToV2(saved) {
 // overwriting af_safe_harbor wholesale.
 //
 // Rules:
-//   grabItems  — union by id; remote-wins on field conflicts; local-wins on checked
+//   grabItems  — union by id; remote-wins on field conflicts; checkedAt-based
+//                last-write-wins on checked; ties (equal or both absent/zero)
+//                resolve toward checked=true (OR) — never auto-uncheck on a tie
 //   members    — union by id; remote-wins on conflicts
 //   contacts   — field-by-field: prefer non-empty; if both non-empty, remote-wins
 //   hazards    — union (set semantics)
@@ -182,14 +184,32 @@ export function mergeSafeHarbor(local, remote) {
   var L = normalizeForMerge(local);
   var R = normalizeForMerge(remote);
 
-  // grabItems: union by id; local-wins on checked; remote-wins on everything else
+  // grabItems: union by id; remote-wins on all fields except checked+checkedAt.
+  // checked uses last-write-wins via checkedAt (epoch-ms stamped by toggleItem).
+  // Tie rule (checkedAt equal, including both zero/absent for legacy blobs):
+  //   resolve toward checked=true (OR). A merge must NEVER flip checked→unchecked
+  //   when the intent is ambiguous. Unchecking only wins when strictly newer (>).
   var itemMap = {};
   R.grabItems.forEach(function(item) { if (item && item.id) itemMap[item.id] = item; });
   L.grabItems.forEach(function(item) {
     if (!item || !item.id) return;
     if (itemMap[item.id]) {
-      // Preserve local checked state — never clobber a live emergency checklist
-      itemMap[item.id] = Object.assign({}, itemMap[item.id], { checked: item.checked });
+      var lAt = item.checkedAt || 0;
+      var rAt = itemMap[item.id].checkedAt || 0;
+      var winChecked, winAt;
+      if (lAt === rAt) {
+        // Tie: OR the booleans — never uncheck on ambiguity. Covers both
+        // zero-zero (legacy blobs) and genuine concurrent same-ms toggles.
+        winChecked = item.checked || itemMap[item.id].checked;
+        winAt = lAt;
+      } else if (lAt > rAt) {
+        winChecked = item.checked;
+        winAt = lAt;
+      } else {
+        winChecked = itemMap[item.id].checked;
+        winAt = rAt;
+      }
+      itemMap[item.id] = Object.assign({}, itemMap[item.id], { checked: winChecked, checkedAt: winAt });
     } else {
       itemMap[item.id] = item; // item only on local side
     }

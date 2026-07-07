@@ -400,13 +400,15 @@ export default function SafeHarbor() {
         })
       } else {
         // V2 outside session: checked is a persistent flag, toggleable any time.
-        update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked}) : i }) })
+        var _ts2 = Date.now()
+        update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked, checkedAt:_ts2}) : i }) })
       }
       return
     }
     // V1: check-off is gated behind session mode.
     if (!session) return
-    update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked}) : i }) })
+    var _ts1 = Date.now()
+    update({ grabItems: (data.grabItems || []).map(function(i) { return i.id === id ? Object.assign({},i,{checked:!i.checked, checkedAt:_ts1}) : i }) })
   }
 
   function removeItem(item) {
