@@ -1,5 +1,5 @@
 // tests/unit/lighthouse-challenges.test.js
-// LH-4.6 — Challenges UI pure-logic tests.
+// LH-4.6 — Challenges UI pure-logic tests (revised: no startDate).
 // No React, no App.jsx import (module-scope IIFE touches localStorage).
 // Mirrors the pure helpers from App.jsx.
 
@@ -7,11 +7,9 @@ import { describe, it, expect } from "vitest";
 
 // ── Mirrors (keep in sync with App.jsx) ───────────────────────────────────────
 
-function lhChallengeAutoProgress(books, startDate) {
-  if (!Array.isArray(books) || !startDate) return 0;
-  return books.filter(function(b) {
-    return b.status === "finished" && b.finish && b.finish >= startDate;
-  }).length;
+function lhChallengeAutoProgress(books) {
+  if (!Array.isArray(books)) return 0;
+  return books.filter(function(b) { return b.status === "finished"; }).length;
 }
 
 function lhUpdateItem(lh, childId, field, id, patch) {
@@ -31,70 +29,67 @@ function lhBreakdownLabel(autoProgress, manualAdjust, unit) {
   return autoProgress + " from Books log";
 }
 
-// ── LH-4.6-A — lhChallengeAutoProgress ───────────────────────────────────────
+// ── LH-4.6-A — lhChallengeAutoProgress (no startDate) ────────────────────────
 
 describe("LH-4.6-A — lhChallengeAutoProgress", function() {
   it("A1: empty books array → 0", function() {
-    expect(lhChallengeAutoProgress([], "2026-01-01")).toBe(0);
+    expect(lhChallengeAutoProgress([])).toBe(0);
   });
 
   it("A2: null/missing books → 0", function() {
-    expect(lhChallengeAutoProgress(null, "2026-01-01")).toBe(0);
-    expect(lhChallengeAutoProgress(undefined, "2026-01-01")).toBe(0);
+    expect(lhChallengeAutoProgress(null)).toBe(0);
+    expect(lhChallengeAutoProgress(undefined)).toBe(0);
   });
 
-  it("A3: missing or empty startDate → 0", function() {
-    var books = [{ status:"finished", finish:"2026-03-01" }];
-    expect(lhChallengeAutoProgress(books, "")).toBe(0);
-    expect(lhChallengeAutoProgress(books, null)).toBe(0);
+  it("A3: one finished book → 1", function() {
+    var books = [{ id:"b1", status:"finished" }];
+    expect(lhChallengeAutoProgress(books)).toBe(1);
   });
 
-  it("A4: all books finished BEFORE startDate → 0", function() {
+  it("A4: multiple finished books → count", function() {
     var books = [
-      { status:"finished", finish:"2025-12-31" },
-      { status:"finished", finish:"2025-11-01" },
+      { id:"b1", status:"finished" },
+      { id:"b2", status:"finished" },
+      { id:"b3", status:"finished" },
     ];
-    expect(lhChallengeAutoProgress(books, "2026-01-01")).toBe(0);
+    expect(lhChallengeAutoProgress(books)).toBe(3);
   });
 
-  it("A5: book finished ON startDate → counted", function() {
-    var books = [{ status:"finished", finish:"2026-06-01" }];
-    expect(lhChallengeAutoProgress(books, "2026-06-01")).toBe(1);
-  });
-
-  it("A6: books finished AFTER startDate → all counted", function() {
+  it("A5: reading and want books not counted", function() {
     var books = [
-      { status:"finished", finish:"2026-06-15" },
-      { status:"finished", finish:"2026-07-01" },
+      { id:"b1", status:"reading" },
+      { id:"b2", status:"want" },
+      { id:"b3", status:"finished" },
     ];
-    expect(lhChallengeAutoProgress(books, "2026-06-01")).toBe(2);
+    expect(lhChallengeAutoProgress(books)).toBe(1);
   });
 
-  it("A7: mixed — only on/after startDate counted", function() {
+  it("A6: finished books with or without finish date — all counted", function() {
     var books = [
-      { status:"finished", finish:"2025-12-01" },
-      { status:"finished", finish:"2026-06-01" },
-      { status:"finished", finish:"2026-07-04" },
-      { status:"reading",  finish:null },
+      { id:"b1", status:"finished", finish:"2026-06-01" },
+      { id:"b2", status:"finished", finish:"" },
+      { id:"b3", status:"finished" },
     ];
-    expect(lhChallengeAutoProgress(books, "2026-06-01")).toBe(2);
+    expect(lhChallengeAutoProgress(books)).toBe(3);
   });
 
-  it("A8: non-finished books are not counted", function() {
+  it("A7: mix of statuses — only finished counted", function() {
     var books = [
-      { status:"reading",   finish:"2026-07-01" },
-      { status:"want",      finish:null },
-      { status:"finished",  finish:"2026-07-01" },
+      { id:"b1", status:"finished" },
+      { id:"b2", status:"reading" },
+      { id:"b3", status:"finished" },
+      { id:"b4", status:"want" },
+      { id:"b5", status:"finished" },
     ];
-    expect(lhChallengeAutoProgress(books, "2026-01-01")).toBe(1);
+    expect(lhChallengeAutoProgress(books)).toBe(3);
   });
 
-  it("A9: book finished on/after startDate but missing finish field → not counted", function() {
+  it("A8: book with no status field not counted", function() {
     var books = [
-      { status:"finished", finish:null },
-      { status:"finished" },
+      { id:"b1" },
+      { id:"b2", status:"finished" },
     ];
-    expect(lhChallengeAutoProgress(books, "2026-01-01")).toBe(0);
+    expect(lhChallengeAutoProgress(books)).toBe(1);
   });
 });
 
@@ -106,16 +101,16 @@ describe("LH-4.6-B — kind field semantics", function() {
     expect(g.kind || "goal").toBe("goal");
   });
 
-  it("B2: challenge record carries all challenge fields", function() {
+  it("B2: challenge record carries target, unit, manualAdjust (no startDate)", function() {
     var g = {
       id:"g2", cat:"Reading", goal:"Summer reading", kind:"challenge",
-      target:"20", unit:"books", startDate:"2026-06-01", manualAdjust:0
+      target:"20", unit:"books", manualAdjust:0
     };
     expect(g.kind).toBe("challenge");
     expect(g.target).toBe("20");
     expect(g.unit).toBe("books");
-    expect(g.startDate).toBe("2026-06-01");
     expect(g.manualAdjust).toBe(0);
+    expect(g.startDate).toBeUndefined();
   });
 
   it("B3: lhUpdateItem patches kind without touching other fields", function() {
@@ -128,7 +123,7 @@ describe("LH-4.6-B — kind field semantics", function() {
         }
       }
     };
-    var next = lhUpdateItem(lh, "child1", "goals", "g1", { kind:"challenge", target:"10", unit:"books", startDate:"2026-06-01", manualAdjust:0 });
+    var next = lhUpdateItem(lh, "child1", "goals", "g1", { kind:"challenge", target:"10", unit:"books", manualAdjust:0 });
     var g = next.shared["child1"].goals[0];
     expect(g.kind).toBe("challenge");
     expect(g.target).toBe("10");
@@ -142,7 +137,7 @@ describe("LH-4.6-B — kind field semantics", function() {
       shared: {
         "child1": {
           goals: [
-            { id:"g1", kind:"challenge", target:"20", unit:"books", startDate:"2026-06-01", manualAdjust:0, cat:"Reading", goal:"Summer" }
+            { id:"g1", kind:"challenge", target:"20", unit:"books", manualAdjust:0, cat:"Reading", goal:"Summer" }
           ]
         }
       }
@@ -153,7 +148,6 @@ describe("LH-4.6-B — kind field semantics", function() {
     expect(g.kind).toBe("challenge");
     expect(g.target).toBe("20");
     expect(g.unit).toBe("books");
-    expect(g.startDate).toBe("2026-06-01");
     expect(g.cat).toBe("Reading");
   });
 
@@ -181,21 +175,23 @@ describe("LH-4.6-B — kind field semantics", function() {
 // ── LH-4.6-C — displayProgress arithmetic + breakdown label ──────────────────
 
 describe("LH-4.6-C — displayProgress + breakdown label", function() {
-  it("C1: displayProgress = autoProgress + manualAdjust (both positive)", function() {
-    var auto = lhChallengeAutoProgress(
-      [{ status:"finished", finish:"2026-06-05" }, { status:"finished", finish:"2026-07-01" }],
-      "2026-06-01"
-    );
+  it("C1: displayProgress = autoProgress + manualAdjust", function() {
+    var books = [
+      { status:"finished" }, { status:"finished" }, { status:"reading" }
+    ];
+    var auto = lhChallengeAutoProgress(books);
+    expect(auto).toBe(2);
     expect(auto + 3).toBe(5);
   });
 
   it("C2: negative manualAdjust produces correct total", function() {
-    expect(11 + (-2)).toBe(9);
+    var books = [{ status:"finished" }, { status:"finished" }, { status:"finished" }];
+    var auto = lhChallengeAutoProgress(books);
+    expect(auto + (-2)).toBe(1);
   });
 
   it("C3: zero autoProgress for non-books unit", function() {
-    var books = [{ status:"finished", finish:"2026-07-01" }];
-    var auto = (function(unit) { return unit === "books" ? lhChallengeAutoProgress(books, "2026-01-01") : 0; })("days");
+    var auto = (function(unit, books) { return unit === "books" ? lhChallengeAutoProgress(books) : 0; })("days", [{ status:"finished" }]);
     expect(auto).toBe(0);
   });
 
@@ -216,11 +212,7 @@ describe("LH-4.6-C — displayProgress + breakdown label", function() {
     expect(lhBreakdownLabel(5, 0, "hours")).toBeNull();
   });
 
-  it("C8: displayProgress can be 0 when both auto and manual are 0", function() {
-    expect(0 + 0).toBe(0);
-  });
-
-  it("C9: displayProgress exceeds target (clamped for bar, not for label)", function() {
+  it("C8: progress bar pct capped at 1 even when displayProgress > target", function() {
     var displayProgress = 25;
     var targetNum = 20;
     var pct = targetNum > 0 ? Math.min(1, displayProgress / targetNum) : 0;
@@ -228,17 +220,52 @@ describe("LH-4.6-C — displayProgress + breakdown label", function() {
     expect(displayProgress).toBe(25);
   });
 
-  it("C10: autoProgress counts correctly from books log", function() {
+  it("C9: books without finish date still counted by auto-progress", function() {
     var books = [
-      { status:"finished", finish:"2026-05-31" },
-      { status:"finished", finish:"2026-06-01" },
-      { status:"finished", finish:"2026-06-15" },
-      { status:"finished", finish:"2026-07-04" },
-      { status:"reading",  finish:null },
+      { status:"finished", finish:"" },
+      { status:"finished" },
+      { status:"finished", finish:"2026-07-01" },
     ];
-    expect(lhChallengeAutoProgress(books, "2026-06-01")).toBe(3);
+    expect(lhChallengeAutoProgress(books)).toBe(3);
+  });
+
+  it("C10: end-to-end: 3 finished books + manualAdjust 2 → displayProgress 5", function() {
+    var books = [
+      { status:"finished" }, { status:"finished" }, { status:"finished" },
+      { status:"reading" },
+    ];
+    var auto = lhChallengeAutoProgress(books);
     var manualAdjust = 2;
-    expect(lhChallengeAutoProgress(books, "2026-06-01") + manualAdjust).toBe(5);
-    expect(lhBreakdownLabel(3, 2, "books")).toBe("3 from Books log, +2 added");
+    expect(auto + manualAdjust).toBe(5);
+    expect(lhBreakdownLabel(auto, manualAdjust, "books")).toBe("3 from Books log, +2 added");
+  });
+});
+
+// ── LH-4.6-D — who field on books ────────────────────────────────────────────
+
+describe("LH-4.6-D — book who field assignment", function() {
+  it("D1: saveBook assigns who = activeChild (model invariant)", function() {
+    var activeChild = "child-abc";
+    var item = { id:"b1", title:"Charlotte's Web", who: activeChild, status:"finished" };
+    expect(item.who).toBe("child-abc");
+  });
+
+  it("D2: updateBook patch includes who (mirrors activeChild at edit time)", function() {
+    var activeChild = "child-abc";
+    var patch = { title:"Charlotte's Web", who: activeChild, status:"finished" };
+    expect(patch.who).toBe("child-abc");
+  });
+
+  it("D3: books stored under child's shared[childId].books are child-scoped", function() {
+    var lh = {
+      shared: {
+        "child-abc": { books: [{ id:"b1", status:"finished", who:"child-abc" }] },
+        "child-xyz": { books: [] }
+      }
+    };
+    var childBooks = (lh.shared["child-abc"] || {}).books || [];
+    expect(lhChallengeAutoProgress(childBooks)).toBe(1);
+    var siblingBooks = (lh.shared["child-xyz"] || {}).books || [];
+    expect(lhChallengeAutoProgress(siblingBooks)).toBe(0);
   });
 });

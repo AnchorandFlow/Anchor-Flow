@@ -623,11 +623,9 @@ function lhChildTabs(modes, childId) {
   if (mode === "school")     return SHARED.concat(["week","homework","comms","grades"]);
   return SHARED;
 }
-function lhChallengeAutoProgress(books, startDate) {
-  if (!Array.isArray(books) || !startDate) return 0;
-  return books.filter(function(b) {
-    return b.status === "finished" && b.finish && b.finish >= startDate;
-  }).length;
+function lhChallengeAutoProgress(books) {
+  if (!Array.isArray(books)) return 0;
+  return books.filter(function(b) { return b.status === "finished"; }).length;
 }
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -10961,6 +10959,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var title = (fv("title","")).trim(); if (!title) return;
         lhSaveUpdate("books", lhEditId, {
           title: title, author: (fv("author","")).trim(),
+          who: activeChild,
           status: fv("status","reading"), fmt: fv("fmt",""),
           subj: (fv("subj","")).trim(), start: fv("start",""), finish: fv("finish",""),
           rating: fv("rating",0), note: (fv("note","")).trim(),
@@ -11216,9 +11215,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
         };
         if (kind === "challenge") {
-          item.target      = (fv("target","")).toString().trim();
-          item.unit        = (fv("unit","books")).trim();
-          item.startDate   = (fv("startDate","")).trim();
+          item.target       = (fv("target","")).toString().trim();
+          item.unit         = (fv("unit","books")).trim();
           item.manualAdjust = 0;
         }
         lhSaveAdd("goals", item); closeForm();
@@ -11237,9 +11235,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
         };
         if (kind === "challenge") {
-          patch.target    = (fv("target","")).toString().trim();
-          patch.unit      = (fv("unit","books")).trim();
-          patch.startDate = (fv("startDate","")).trim();
+          patch.target = (fv("target","")).toString().trim();
+          patch.unit   = (fv("unit","books")).trim();
           // manualAdjust is adjusted via +/− on the card, not via the form
         }
         lhSaveUpdate("goals", lhEditId, patch);
@@ -11260,7 +11257,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {fieldRow("Goal *", <textarea value={fv("goal","")} onChange={fSet("goal")} placeholder="What does success look like?" style={inp({height:62,resize:"vertical"})}/>)}
             {isChallenge && fieldRow("Target", <input type="number" min="0" value={fv("target","")} onChange={fSet("target")} placeholder="e.g. 30" style={inp({width:"140px"})}/>)}
             {isChallenge && fieldRow("Unit", <input value={fv("unit","books")} onChange={fSet("unit")} placeholder="books, days, hours…" style={inp()}/>)}
-            {isChallenge && fieldRow("Start Date", <input type="date" value={fv("startDate","")} onChange={fSet("startDate")} style={inp()}/>)}
             {fieldRow("Why", <textarea value={fv("why","")} onChange={fSet("why")} placeholder="Why does this matter?" style={inp({height:50,resize:"vertical"})}/>)}
             {fieldRow("Source", <input value={fv("source","parent")} onChange={fSet("source")} placeholder="parent, or teacher name" style={inp()}/>)}
             {!isChallenge && fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} placeholder={"Master multiplication facts\nPractice word problems"} style={inp({height:72,resize:"vertical"})}/>)}
@@ -11298,7 +11294,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             // Challenge progress display
             var challengeBlock = null;
             if (isChallenge) {
-              var autoProgress = g.unit === "books" ? lhChallengeAutoProgress(books, g.startDate) : 0;
+              var autoProgress = g.unit === "books" ? lhChallengeAutoProgress(books) : 0;
               var manualAdjust = typeof g.manualAdjust === "number" ? g.manualAdjust : 0;
               var displayProgress = autoProgress + manualAdjust;
               var targetNum = parseInt(g.target) || 0;
