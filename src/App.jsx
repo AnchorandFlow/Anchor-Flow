@@ -599,7 +599,7 @@ function lhHsLoopItemUpdate(lh, childId, loopId, itemId, itemPatch) {
 }
 // Pure helpers for the school layer.
 function defaultLhSchoolChild() {
-  return { homework: [], week: {}, comms: { contacts: [], log: [] }, grades: {} };
+  return { homework: [], week: { events: [], forms: [], pack: [] }, comms: { contacts: [], log: [] }, grades: {} };
 }
 function lhSchoolPatch(lh, childId, patch) {
   var sc = Object.assign({}, lhGet(lh, "school", {}));
@@ -10845,6 +10845,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function hwSaveUpdate(id, p) { applySchool({ homework: homework.map(function(h){ return h.id===id ? Object.assign({},h,p) : h; }) }); }
     function hwSaveDel(id) { applySchool({ homework: homework.filter(function(h){ return h.id!==id; }) }); }
 
+    // This Week data for active child
+    var weekData   = (schoolChild.week && typeof schoolChild.week === "object") ? schoolChild.week : {};
+    var weekEvents = Array.isArray(weekData.events) ? weekData.events : [];
+    var weekForms  = Array.isArray(weekData.forms)  ? weekData.forms  : [];
+    var weekPack   = Array.isArray(weekData.pack)   ? weekData.pack   : [];
+    function weekMutate(p) { applySchool({ week: Object.assign({}, weekData, p) }); }
+
     function setMode(childId, mode) {
       var nm = Object.assign({}, modes); nm[childId] = mode;
       setLighthouse(Object.assign({}, lighthouse, { modes: nm }));
@@ -11495,6 +11502,184 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── This Week Area ────────────────────────────────────────────────────────
+    function ThisWeekArea() {
+      function secHead(label) {
+        return <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1.1rem",marginBottom:"0.4rem"}}>{label}</div>;
+      }
+      function dateBadge(dateStr) {
+        if (!dateStr) return null;
+        return <span style={{fontSize:"0.68rem",color:T.textMid,background:T.sand+"33",padding:"0.1rem 0.45rem",borderRadius:"99px",marginLeft:"0.4rem",flexShrink:0}}>{dateStr}</span>;
+      }
+      function delBtn(onDel) {
+        return <button type="button" onClick={onDel} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>;
+      }
+      function sortByDate(arr, key) {
+        return arr.slice().sort(function(a,b){
+          var da = a[key]; var db = b[key];
+          if (!da && !db) return 0;
+          if (!da) return 1;
+          if (!db) return -1;
+          return da < db ? -1 : da > db ? 1 : 0;
+        });
+      }
+
+      var isAddEvt  = lhAddMode === "week-event";
+      var isAddFrm  = lhAddMode === "week-form";
+      var isAddPack = lhAddMode === "week-pack";
+
+      // ── Events ──────────────────────────────────────────────────────────────
+      function EventAddForm() {
+        function save() {
+          var t = (fv("title","")).trim();
+          if (!t) return;
+          weekMutate({ events: weekEvents.concat([{ id:uid(), title:t, date:(fv("date","")).trim() }]) });
+          closeForm();
+        }
+        return formCard(
+          <div>
+            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Picture day, Math test, Spirit day…" style={inp()} autoFocus/>)}
+            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({width:"180px"})}/>)}
+            {formBtns(save)}
+          </div>
+        );
+      }
+      function EventEditForm(evId) {
+        function save() {
+          var t = (fv("title","")).trim();
+          if (!t) return;
+          weekMutate({ events: weekEvents.map(function(e){ return e.id===evId ? Object.assign({},e,{title:t,date:(fv("date","")).trim()}) : e; }) });
+          closeForm();
+        }
+        return formCard(
+          <div>
+            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Picture day, Math test, Spirit day…" style={inp()} autoFocus/>)}
+            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({width:"180px"})}/>)}
+            {formBtns(save)}
+          </div>
+        );
+      }
+
+      // ── Forms ───────────────────────────────────────────────────────────────
+      function FormAddForm() {
+        function save() {
+          var t = (fv("title","")).trim();
+          if (!t) return;
+          weekMutate({ forms: weekForms.concat([{ id:uid(), title:t, due:(fv("due","")).trim(), done:false }]) });
+          closeForm();
+        }
+        return formCard(
+          <div>
+            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Permission slip, lunch form, RSVP…" style={inp()} autoFocus/>)}
+            {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({width:"180px"})}/>)}
+            {formBtns(save)}
+          </div>
+        );
+      }
+      function FormEditForm(fmId) {
+        function save() {
+          var t = (fv("title","")).trim();
+          if (!t) return;
+          weekMutate({ forms: weekForms.map(function(f){ return f.id===fmId ? Object.assign({},f,{title:t,due:(fv("due","")).trim()}) : f; }) });
+          closeForm();
+        }
+        return formCard(
+          <div>
+            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Permission slip, lunch form, RSVP…" style={inp()} autoFocus/>)}
+            {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({width:"180px"})}/>)}
+            {formBtns(save)}
+          </div>
+        );
+      }
+
+      // ── Pack ────────────────────────────────────────────────────────────────
+      function PackAddForm() {
+        function save() {
+          var l = (fv("label","")).trim();
+          if (!l) return;
+          weekMutate({ pack: weekPack.concat([{ id:uid(), label:l, checked:false }]) });
+          closeForm();
+        }
+        return formCard(
+          <div>
+            {fieldRow("Item *", <input value={fv("label","")} onChange={fSet("label")} placeholder="Signed permission slip, PE clothes…" style={inp()} autoFocus/>)}
+            {formBtns(save)}
+          </div>
+        );
+      }
+
+      var emptyTxt = {fontSize:"0.8rem",color:T.textFaint,padding:"0.4rem 0"};
+      var addBtnSt = btnP(T.sand,{fontSize:"0.79rem",marginBottom:"0.4rem"});
+      var evSorted = sortByDate(weekEvents, "date");
+      var fmSorted = sortByDate(weekForms, "due");
+
+      return areaWrap(
+        <div>
+
+          {secHead("Events & Due Dates")}
+          {!isAddEvt && <button type="button" onClick={function(){ openAdd("week-event",{}); }} style={addBtnSt}>+ Add Event</button>}
+          {isAddEvt && EventAddForm()}
+          {evSorted.map(function(ev) {
+            if (lhEditId === ev.id) { return <div key={ev.id}>{EventEditForm(ev.id)}</div>; }
+            var evId = ev.id;
+            var evSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.4rem"});
+            return (
+              <div key={evId} style={evSt}>
+                <div style={{flex:1,fontSize:"0.86rem",color:T.textDark,lineHeight:1.3}}>{ev.title}</div>
+                {dateBadge(ev.date)}
+                <button type="button" onClick={function(){ openEdit(evId, Object.assign({},ev)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                {delBtn(function(){ weekMutate({ events: weekEvents.filter(function(e){ return e.id!==evId; }) }); })}
+              </div>
+            );
+          })}
+          {weekEvents.length === 0 && !isAddEvt && <div style={emptyTxt}>Nothing on the calendar yet.</div>}
+
+          {secHead("Forms & Permission Slips")}
+          {!isAddFrm && <button type="button" onClick={function(){ openAdd("week-form",{done:false}); }} style={addBtnSt}>+ Add Form</button>}
+          {isAddFrm && FormAddForm()}
+          {fmSorted.map(function(fm) {
+            if (lhEditId === fm.id) { return <div key={fm.id}>{FormEditForm(fm.id)}</div>; }
+            var fmId = fm.id;
+            var isDone = !!fm.done;
+            var fmSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
+            return (
+              <div key={fmId} style={fmSt}>
+                <input type="checkbox" checked={isDone}
+                  onChange={function(){ weekMutate({ forms: weekForms.map(function(f){ return f.id===fmId ? Object.assign({},f,{done:!f.done}) : f; }) }); }}
+                  style={{cursor:"pointer",flexShrink:0}}/>
+                <div style={{flex:1,fontSize:"0.86rem",color:isDone?T.textFaint:T.textDark,textDecoration:isDone?"line-through":"none",lineHeight:1.3}}>{fm.title}</div>
+                {dateBadge(fm.due)}
+                <button type="button" onClick={function(){ openEdit(fmId, Object.assign({},fm)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                {delBtn(function(){ weekMutate({ forms: weekForms.filter(function(f){ return f.id!==fmId; }) }); })}
+              </div>
+            );
+          })}
+          {weekForms.length === 0 && !isAddFrm && <div style={emptyTxt}>No forms or slips.</div>}
+
+          {secHead("What to Pack")}
+          {!isAddPack && <button type="button" onClick={function(){ openAdd("week-pack",{}); }} style={addBtnSt}>+ Add Item</button>}
+          {isAddPack && PackAddForm()}
+          {weekPack.map(function(pk) {
+            var pkId = pk.id;
+            var isChk = !!pk.checked;
+            var pkSt = Object.assign({}, card({marginBottom:"0.35rem",padding:"0.5rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"});
+            return (
+              <div key={pkId} style={pkSt}
+                onClick={function(){ weekMutate({ pack: weekPack.map(function(p){ return p.id===pkId ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }}>
+                <span style={{fontSize:"1rem",flexShrink:0,userSelect:"none",color:isChk?T.sage:T.borderSoft}}>{isChk?"●":"○"}</span>
+                <div style={{flex:1,fontSize:"0.86rem",color:isChk?T.textFaint:T.textDark,textDecoration:isChk?"line-through":"none"}}>{pk.label}</div>
+                <button type="button"
+                  onClick={function(e){ e.stopPropagation(); weekMutate({ pack: weekPack.filter(function(p){ return p.id!==pkId; }) }); }}
+                  style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>
+              </div>
+            );
+          })}
+          {weekPack.length === 0 && !isAddPack && <div style={emptyTxt}>Nothing to pack yet.</div>}
+
+        </div>
+      );
+    }
+
     // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
     var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
     var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
@@ -11988,7 +12173,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "plan"      && PlanArea()}
             {lhSubTab === "loops"     && LoopsArea()}
             {lhSubTab === "homework"  && HomeworkArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && (
+            {lhSubTab === "week"      && ThisWeekArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
