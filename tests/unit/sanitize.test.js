@@ -355,7 +355,7 @@ describe("A10 — completeness lint: every useSaved key is classified", () => {
   // Update this list when adding new device-local useSaved calls.
   const DEVICE_LOCAL = new Set([
     // Auth & session — must never leave the device
-    "authToken", "authUser", "refreshToken", "householdId", "googleCalToken",
+    "authToken", "authUser", "refreshToken", "householdId", "householdOwnerId", "googleCalToken",
     // Sync stamps — system bookkeeping, not user data
     "lastHHSync", "lastPushedAt", "lastPushAt", "lastPullAt", "dirtyKeys", "deviceId",
     // Device UI state
