@@ -599,7 +599,7 @@ function lhHsLoopItemUpdate(lh, childId, loopId, itemId, itemPatch) {
 }
 // Pure helpers for the school layer.
 function defaultLhSchoolChild() {
-  return { homework: [], week: { events: [], forms: [], pack: [] }, comms: { contacts: [], log: [] }, grades: {} };
+  return { homework: [], week: { events: [], forms: [], pack: [] }, comms: { contacts: [], log: [] }, grades: { marks: [], scores: [], notes: "" } };
 }
 function lhSchoolPatch(lh, childId, patch) {
   var sc = Object.assign({}, lhGet(lh, "school", {}));
@@ -10858,6 +10858,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var commsLog      = Array.isArray(commsData.log)      ? commsData.log      : [];
     function commsMutate(p) { applySchool({ comms: Object.assign({}, commsData, p) }); }
 
+    // Grades & Growth data for active child
+    var gradesData  = (schoolChild.grades && typeof schoolChild.grades === "object") ? schoolChild.grades : {};
+    var gradeMarks  = Array.isArray(gradesData.marks)  ? gradesData.marks  : [];
+    var gradeScores = Array.isArray(gradesData.scores) ? gradesData.scores : [];
+    var gradeNotes  = typeof gradesData.notes === "string" ? gradesData.notes : "";
+    function gradesMutate(p) { applySchool({ grades: Object.assign({}, gradesData, p) }); }
+
     function setMode(childId, mode) {
       var nm = Object.assign({}, modes); nm[childId] = mode;
       setLighthouse(Object.assign({}, lighthouse, { modes: nm }));
@@ -11844,6 +11851,136 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Grades & Growth Area ──────────────────────────────────────────────────
+    var MARK_OPTIONS = ["Exceeding","Meeting","Approaching","Strength"];
+    function markColor(m) {
+      if (m === "Exceeding")   return T.sage;
+      if (m === "Meeting")     return T.blue;
+      if (m === "Approaching") return "#f59e0b";
+      if (m === "Strength")    return T.rose;
+      return T.textMid;
+    }
+    function GradesArea() {
+      function secHead(label) {
+        return <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1.1rem",marginBottom:"0.4rem"}}>{label}</div>;
+      }
+      function delBtn(onDel) {
+        return <button type="button" onClick={onDel} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>;
+      }
+
+      var isAddMark  = lhAddMode === "grades-mark";
+      var isAddScore = lhAddMode === "grades-score";
+      var emptyTxt   = {fontSize:"0.8rem",color:T.textFaint,padding:"0.4rem 0"};
+      var addBtnSt   = btnP(T.sand,{fontSize:"0.79rem",marginBottom:"0.4rem"});
+
+      // ── Mark form ──────────────────────────────────────────────────────────
+      function MarkForm(onSave) {
+        var curMark = fv("mark","");
+        return formCard(
+          <div>
+            {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
+            {fieldRow("Mark",
+              <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
+                {MARK_OPTIONS.map(function(m) {
+                  var isAct = curMark === m;
+                  var col   = markColor(m);
+                  var pSt   = {padding:"0.2rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(isAct?col:T.borderSoft),background:isAct?col+"22":"transparent",color:isAct?col:T.textMid,fontSize:"0.75rem",fontWeight:isAct?700:400,cursor:"pointer",fontFamily:"inherit"};
+                  return <button type="button" key={m} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{mark:m}); }); }} style={pSt}>{m}</button>;
+                })}
+              </div>
+            )}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      function saveMark() {
+        var s = (fv("subject","")).trim(); var m = fv("mark","");
+        if (!s || !m) return;
+        gradesMutate({ marks: gradeMarks.concat([{ id:uid(), subject:s, mark:m }]) });
+        closeForm();
+      }
+      function updateMark() {
+        var s = (fv("subject","")).trim(); var m = fv("mark","");
+        if (!s || !m) return;
+        gradesMutate({ marks: gradeMarks.map(function(r){ return r.id===lhEditId ? Object.assign({},r,{subject:s,mark:m}) : r; }) });
+        closeForm();
+      }
+
+      // ── Score form ─────────────────────────────────────────────────────────
+      function ScoreForm(onSave) {
+        return formCard(
+          <div>
+            {fieldRow("Label *", <input value={fv("label","")} onChange={fSet("label")} placeholder="Reading level, Spelling, Fluency…" style={inp()} autoFocus/>)}
+            {fieldRow("Value *", <input value={fv("value","")} onChange={fSet("value")} placeholder="R, 18/20, 95 wpm…" style={inp()}/>)}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      function saveScore() {
+        var l = (fv("label","")).trim(); var v = (fv("value","")).trim();
+        if (!l || !v) return;
+        gradesMutate({ scores: gradeScores.concat([{ id:uid(), label:l, value:v }]) });
+        closeForm();
+      }
+      function updateScore() {
+        var l = (fv("label","")).trim(); var v = (fv("value","")).trim();
+        if (!l || !v) return;
+        gradesMutate({ scores: gradeScores.map(function(s){ return s.id===lhEditId ? Object.assign({},s,{label:l,value:v}) : s; }) });
+        closeForm();
+      }
+
+      return areaWrap(
+        <div>
+
+          {secHead("Subject Marks")}
+          {!isAddMark && <button type="button" onClick={function(){ openAdd("grades-mark",{mark:""}); }} style={addBtnSt}>+ Add Subject</button>}
+          {isAddMark && MarkForm(saveMark)}
+          {gradeMarks.map(function(row) {
+            if (lhEditId === row.id) { return <div key={row.id}>{MarkForm(updateMark)}</div>; }
+            var rId  = row.id;
+            var col  = markColor(row.mark);
+            var rSt  = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
+            return (
+              <div key={rId} style={rSt}>
+                <div style={{flex:1,fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{row.subject}</div>
+                {row.mark && <span style={{fontSize:"0.72rem",fontWeight:700,color:col,background:col+"22",padding:"0.12rem 0.55rem",borderRadius:"99px",flexShrink:0}}>{row.mark}</span>}
+                <button type="button" onClick={function(){ openEdit(rId, Object.assign({},row)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                {delBtn(function(){ gradesMutate({ marks: gradeMarks.filter(function(r){ return r.id!==rId; }) }); })}
+              </div>
+            );
+          })}
+          {gradeMarks.length === 0 && !isAddMark && <div style={emptyTxt}>No subjects yet.</div>}
+
+          {secHead("Scores & Assessments")}
+          {!isAddScore && <button type="button" onClick={function(){ openAdd("grades-score",{}); }} style={addBtnSt}>+ Add Score</button>}
+          {isAddScore && ScoreForm(saveScore)}
+          {gradeScores.map(function(sc) {
+            if (lhEditId === sc.id) { return <div key={sc.id}>{ScoreForm(updateScore)}</div>; }
+            var scId = sc.id;
+            var scSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
+            return (
+              <div key={scId} style={scSt}>
+                <div style={{flex:1,fontSize:"0.86rem",color:T.textMid}}>{sc.label}</div>
+                <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,flexShrink:0}}>{sc.value}</div>
+                <button type="button" onClick={function(){ openEdit(scId, Object.assign({},sc)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                {delBtn(function(){ gradesMutate({ scores: gradeScores.filter(function(s){ return s.id!==scId; }) }); })}
+              </div>
+            );
+          })}
+          {gradeScores.length === 0 && !isAddScore && <div style={emptyTxt}>No assessments yet.</div>}
+
+          {secHead("Growth Notes")}
+          <textarea
+            value={gradeNotes}
+            onChange={function(e){ gradesMutate({ notes: e.target.value }); }}
+            placeholder="What are you noticing? What's clicking? What's growing?"
+            style={inp({height:100,resize:"vertical",fontSize:"0.86rem"})}
+          />
+
+        </div>
+      );
+    }
+
     // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
     var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
     var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
@@ -12339,7 +12476,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "homework"  && HomeworkArea()}
             {lhSubTab === "week"      && ThisWeekArea()}
             {lhSubTab === "comms"     && SchoolCommsArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && (
+            {lhSubTab === "grades"    && GradesArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && lhSubTab !== "grades" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
