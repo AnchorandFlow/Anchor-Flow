@@ -64,111 +64,130 @@ Plan (daily/weekly/monthly) + Loops against `homeschool[childId]`.
 
 ---
 
-## LH-4.6 — Challenges (season-aware, mixed auto/manual progress)
+## LH-4.6 — Challenges (inside Goals area, mixed auto/manual progress)
 
-**Goal:** Preserve the existing `af_schoolData` break-goals model in Lighthouse so the active reading challenge (and any others) migrate cleanly and remain usable. Challenges live in `shared[childId]` because they are mode-agnostic — they apply equally to homeschool and school children.
+**Goal:** Preserve the active reading challenge (and any others in `af_schoolData.breakGoals`) by extending the existing Goals area — not by adding a separate section.
 
-### Data model
+### Where challenges live
 
-Add `challenges: []` to `shared[childId]`. A challenge record:
+Challenges are **not** a new array. They extend `shared[childId].goals[]` with a `kind` field. No seasons. No separate challenges tab. The Goals area renders each record according to its `kind`.
+
+### Extended goal record shape
+
+Existing goal fields are unchanged. Add `kind` (default `"goal"`) and the challenge-only fields:
 
 ```js
 {
-  id:           string,    // uid() — 7-char base36
-  season:       "summer" | "winter" | "spring" | "school-year",
-  type:         "goal" | "reading" | "daily",
-  title:        string,    // e.g. "Read 30 books this summer"
-  target:       string,    // numeric target as a string, e.g. "30"
-  unit:         string,    // "books", "days", "hours", etc.
-  startDate:    string,    // ISO date (YYYY-MM-DD) — determines auto-progress window
-  manualAdjust: number,    // stored integer, adjustable via +/−, may be negative
-  notes:        string,
+  // existing fields (unchanged)
+  id:           string,
+  cat:          string,
+  goal:         string,
+  why:          string,
+  steps:        [],
+  progress:     string,
+  evidence:     string,
+  reflect:      string,
+  source:       string,
+
+  // new field on every goal record
+  kind:         "goal" | "challenge",   // default "goal" if absent
+
+  // challenge-only fields (present only when kind === "challenge")
+  target:       string,       // numeric target as a string, e.g. "30"
+  unit:         string,       // "books", "days", "hours", etc.
+  startDate:    string,       // ISO date (YYYY-MM-DD) — auto-progress window
+  manualAdjust: number,       // stored integer, adjustable via +/−, may be negative
 }
 ```
 
-`autoProgress` is **never stored** — derived at render time:
+`kind === "goal"` records render as today — no target, no progress bar, no challenge fields shown.  
+`kind === "challenge"` records add target, unit, startDate, manualAdjust, and a progress bar below the title.
+
+### `defaultLighthouse()` change
+
+None. The `goals: []` array already exists in the shared child shape. No new array is added anywhere.
+
+### Auto-progress (derived, never stored)
 
 ```js
 function lhChallengeAutoProgress(books, startDate) {
-  // Only meaningful for unit === "books". Called with shared[childId].books.
+  // Only meaningful for unit === "books". Pass shared[childId].books.
   if (!Array.isArray(books) || !startDate) return 0;
   return books.filter(function(b) {
     return b.status === "finished" && b.finish && b.finish >= startDate;
   }).length;
 }
-// For non-books units: caller passes autoProgress = 0.
+// For all other units: autoProgress = 0 (manual-only via manualAdjust).
 ```
 
-`displayProgress = autoProgress + manualAdjust`. This sum is what the progress bar and "X / target" label show.
+`displayProgress = autoProgress + manualAdjust`. Shown against `target` on the progress bar and the "X / target unit" label.
 
 ### Progress card display rules
 
-Always show both:
+When `kind === "challenge"` and `target` is set, always show both:
+
 - **+/− buttons** — adjust `manualAdjust` only, even for `unit === "books"`. The user can correct for double-counts or add reads not in the Books log.
-- **Breakdown label** — always visible when `unit === "books"` and `target` is set:
+- **Breakdown label** — always visible when `unit === "books"`:
   - `"11 from Books log, +3 added"` (manualAdjust > 0)
   - `"11 from Books log"` (manualAdjust === 0)
   - `"11 from Books log, −2 removed"` (manualAdjust < 0)
-  - For non-books: standard `"X / target unit"` only, no breakdown.
+  - For non-books units: `"X / target unit"` only — no breakdown label.
 
-No auto-dedupe between `autoProgress` and `manualAdjust`. If a title is both in the Books log and hand-counted, the breakdown surfaces it and the user corrects via the − button.
+No auto-dedupe between `autoProgress` and `manualAdjust`. The breakdown is the transparency mechanism; the user adjusts manually if needed.
 
 ### New pure helpers
 
 ```js
-// Immutable shared-array helpers (same pattern as lhAddItem/lhUpdateItem/lhDeleteItem)
-lhAddChallenge(lh, childId, challenge)    // appends to shared[childId].challenges
-lhUpdateChallenge(lh, childId, id, patch) // immutable patch on matching challenge
-lhDeleteChallenge(lh, childId, id)        // filters out matching challenge
-lhChallengeAutoProgress(books, startDate) // pure, no side effects
+lhChallengeAutoProgress(books, startDate)  // pure, derived — no side effects
+// lhAddItem / lhUpdateItem / lhDeleteItem already cover goals[] — no new array helpers needed
 ```
-
-### `defaultLighthouse()` change
-
-Add `challenges: []` to the default shared child shape, alongside `books`, `beyond`, `trips`, `goals`.
-
-### Season filter
-
-Four seasons in the UI: Summer, Winter, Spring, School Year. The "All" view shows every challenge regardless of season. The current season is highlighted in the header but all seasons are always editable. No auto-detection of "current" season — user picks which panel to view.
 
 ### Tests to add (LH-4.6-A through LH-4.6-C)
 
-- **LH-4.6-A** (`lhChallengeAutoProgress`): empty books array → 0; all books before startDate → 0; books on startDate → count; books after → count; mixed → only on/after; non-books call with 0 → 0.
-- **LH-4.6-B** (immutable helpers): `lhAddChallenge` does not mutate original; `lhUpdateChallenge` patches only named field; `lhDeleteChallenge` removes only target; sibling child unaffected.
-- **LH-4.6-C** (displayProgress): `autoProgress + manualAdjust` arithmetic; negative manualAdjust produces correct total; zero autoProgress for non-books.
+- **LH-4.6-A** (`lhChallengeAutoProgress`): empty books → 0; all books before startDate → 0; books on startDate → count; books after → count; mixed → only on/after count; non-books call → 0.
+- **LH-4.6-B** (kind field): goal record without kind field reads as "goal" (default); challenge record carries target/unit/startDate/manualAdjust; lhUpdateItem patches kind without touching other fields; sibling child goals unaffected.
+- **LH-4.6-C** (displayProgress): autoProgress + manualAdjust arithmetic; negative manualAdjust produces correct total; zero autoProgress for non-books; breakdown label strings for positive/zero/negative manualAdjust.
 
-**Acceptance:** A challenge with `unit === "books"` shows the breakdown label; the + and − buttons are always present; manualAdjust persists; autoProgress updates when a new book is finished. Non-books challenges behave identically to the old breakGoals manual counter. **Stop and report.**
+**Acceptance:** Goals area renders plain goals unchanged. A challenge record shows target, progress bar, +/− buttons, and (for unit==="books") the breakdown label. manualAdjust persists round-trip. autoProgress updates when a new book is finished. **Stop and report.**
 
 ---
 
-## Migration note — `af_schoolData.breakGoals` → `shared[childId].challenges`
+## Migration note — `af_schoolData.breakGoals` → `shared[childId].goals` (kind:"challenge")
 
-**When to run:** as the last step of LH-4.6, or as a one-time migration triggered from Settings when the user first enables Lighthouse. Do NOT run silently on load without user confirmation.
+**When to run:** last step of LH-4.6, triggered from Settings when the user first enables Lighthouse. Do NOT run silently on load without user confirmation.
 
-**Field mapping (1:1, nothing dropped):**
+**Rules:**
 
-| `breakGoals` field | `challenges` field | Notes |
+- `breakGoals` entries with a numeric `target` → goal record with `kind: "challenge"`
+- `breakGoals` entries without a `target` → goal record with `kind: "goal"`
+- `type: "daily"` entries → **discarded** (no equivalent in Lighthouse)
+- `break` (season) field → **dropped** (no season concept in Lighthouse)
+
+**Field mapping:**
+
+| `breakGoals` field | `goals[]` field | Notes |
 |---|---|---|
 | `id` | `id` | identical |
-| `break` | `season` | same string values: "summer"/"winter"/"spring" |
-| `type` | `type` | same values: "goal"/"reading"/"daily" |
-| `title` | `title` | identical |
-| `target` | `target` | identical (string) |
-| `unit` | `unit` | identical |
-| `progress` | `manualAdjust` | old hand-count becomes the manual adjustment |
-| `notes` | `notes` | identical |
+| `title` | `goal` | breakGoals called it `title`; goals calls it `goal` |
+| `target` | `target` | identical (string); omitted for kind:"goal" records |
+| `unit` | `unit` | identical; omitted for kind:"goal" records |
+| `progress` | `manualAdjust` | old hand-count becomes the stored manual adjustment |
+| `notes` | `reflect` | closest semantic match in the goals shape |
 | *(none)* | `startDate` | set to migration date (today's ISO date) |
+| *(none)* | `kind` | `"challenge"` if target present, `"goal"` otherwise |
+| `break` | *(dropped)* | season concept does not exist in Lighthouse |
+| `type: "daily"` | *(discard entire record)* | no equivalent |
 
-**Why `startDate = migration date`:** Books logged before the migration would not have been counted in the old manual counter. Setting startDate to today means autoProgress starts at 0 for migrated challenges, so `displayProgress = 0 + old progress = old progress`. The exact number the user had is preserved with no surprise jump.
+**Why `startDate = migration date`:** Books logged before migration were not counted in the old manual counter. Setting startDate to today means autoProgress = 0 on day one, so `displayProgress = 0 + old progress = old progress`. The exact hand-counted number is preserved with no surprise jump from retroactive books.
 
 **Source read:** `JSON.parse(localStorage.getItem("af_schoolData") || "{}")`.  
-**Destination write:** `lhAddChallenge(lh, childId, migratedChallenge)` for each breakGoal, then persist via `setLighthouse`.
+**Destination write:** `lhAddItem(lh, childId, "goals", migratedGoal)` for each qualifying breakGoal, then persist via `setLighthouse`.
 
-**Child id mapping:** `af_schoolData` is keyed by the same person id (`af_people` → `person.id`) that Lighthouse uses. No translation needed — the key is identical.
+**Child id mapping:** `af_schoolData` is keyed by the same person id (`af_people` → `person.id`) that Lighthouse uses. No translation needed.
 
-**What is NOT migrated:** `childData.type`, `childData.public`, `childData.homeschool` from `af_schoolData`. These belong to the legacy SchoolTab's own data model. Only `breakGoals` is migrated into Lighthouse.
+**What is NOT migrated:** `childData.type`, `childData.public`, `childData.homeschool` from `af_schoolData`. Only `breakGoals` is migrated.
 
-**Post-migration:** `af_schoolData` is left untouched (no deletion). SchoolTab continues to show the original data if somehow reached. No data is destroyed.
+**Post-migration:** `af_schoolData` is left untouched. SchoolTab continues to show original data if somehow reached. No data is destroyed.
 
 ---
 
