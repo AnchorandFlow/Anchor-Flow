@@ -924,4 +924,13 @@ describe("LH-2-fix-2 — _hfComps forEach list matches destructure (no undefined
     expect(registeredNames).toContain("SchoolTab");
     expect(destructuredSet.has("SchoolTab")).toBe(true);
   });
+
+  // Module-scope alias guard: LighthouseTab must also be declared at module scope
+  // as a var alias of _hfComps.LighthouseTab. This makes the name resolvable even
+  // in stale HMR closures or SW-cached bundles that predate the HomeFlow destructure fix.
+  it("LH-2-fix-2-module-alias: var LighthouseTab = _hfComps.LighthouseTab exists at module scope (before HomeFlow)", function() {
+    var homFlowIdx = src.indexOf("function HomeFlow()");
+    var preamble = homFlowIdx > -1 ? src.slice(0, homFlowIdx) : src;
+    expect(preamble).toMatch(/var\s+LighthouseTab\s*=\s*_hfComps\.LighthouseTab\s*;/);
+  });
 });

@@ -1942,6 +1942,10 @@ const _hfComps   = {};
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
   Object.defineProperty(_hfComps[n], 'name', { value: n });
 });
+// Module-scope alias so LighthouseTab is resolvable from any execution context
+// (HMR stale closure, SW-cached bundle chunk, React speculative render) without
+// depending on HomeFlow's const destructure at line ~4178.
+var LighthouseTab = _hfComps.LighthouseTab;
 
 function HomeFlow() {
 
