@@ -623,6 +623,12 @@ function lhChildTabs(modes, childId) {
   if (mode === "school")     return SHARED.concat(["week","homework","comms","grades"]);
   return SHARED;
 }
+function lhChallengeAutoProgress(books, startDate) {
+  if (!Array.isArray(books) || !startDate) return 0;
+  return books.filter(function(b) {
+    return b.status === "finished" && b.finish && b.finish >= startDate;
+  }).length;
+}
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -11200,39 +11206,65 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var goalTxt = (fv("goal","")).trim();
         var cat     = (fv("cat","")).trim();
         if (!goalTxt || !cat) return;
+        var kind = fv("kind","goal");
         var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){return s.trim();}).filter(Boolean);
         var item = {
-          id: uid(), cat: cat, goal: goalTxt,
+          id: uid(), cat: cat, goal: goalTxt, kind: kind,
           why: (fv("why","")).trim(), source: (fv("source","parent")).trim(),
-          steps: stepsRaw.map(function(s,i){ return {id:uid(),text:s,done:false}; }),
+          steps: stepsRaw.map(function(s){ return {id:uid(),text:s,done:false}; }),
           progress: fv("progress","Not started"),
           evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
         };
+        if (kind === "challenge") {
+          item.target      = (fv("target","")).toString().trim();
+          item.unit        = (fv("unit","books")).trim();
+          item.startDate   = (fv("startDate","")).trim();
+          item.manualAdjust = 0;
+        }
         lhSaveAdd("goals", item); closeForm();
       }
       function updateGoal() {
         var goalTxt = (fv("goal","")).trim();
         var cat     = (fv("cat","")).trim();
         if (!goalTxt || !cat) return;
+        var kind = fv("kind","goal");
         var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){return s.trim();}).filter(Boolean);
-        lhSaveUpdate("goals", lhEditId, {
-          cat: cat, goal: goalTxt,
+        var patch = {
+          cat: cat, goal: goalTxt, kind: kind,
           why: (fv("why","")).trim(), source: (fv("source","parent")).trim(),
-          steps: stepsRaw.map(function(s,i){ return {id:uid(),text:s,done:false}; }),
+          steps: stepsRaw.map(function(s){ return {id:uid(),text:s,done:false}; }),
           progress: fv("progress","Not started"),
           evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
-        });
+        };
+        if (kind === "challenge") {
+          patch.target    = (fv("target","")).toString().trim();
+          patch.unit      = (fv("unit","books")).trim();
+          patch.startDate = (fv("startDate","")).trim();
+          // manualAdjust is adjusted via +/− on the card, not via the form
+        }
+        lhSaveUpdate("goals", lhEditId, patch);
         closeForm();
       }
       function GoalForm(onSave) {
+        var isChallenge = fv("kind","goal") === "challenge";
+        var adjBtnSt = {background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"50%",width:"22px",height:"22px",cursor:"pointer",fontSize:"0.9rem",color:T.textMid,padding:0,lineHeight:1,fontFamily:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center"};
         return formCard(
           <div>
+            {fieldRow("Type",
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                {pillToggle("Goal",      !isChallenge, function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"goal"}); }); })}
+                {pillToggle("Challenge", isChallenge,  function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"challenge"}); }); })}
+              </div>
+            )}
             {fieldRow("Category *", <input value={fv("cat","")} onChange={fSet("cat")} placeholder="e.g. Math, Reading, Character" style={inp()} autoFocus/>)}
             {fieldRow("Goal *", <textarea value={fv("goal","")} onChange={fSet("goal")} placeholder="What does success look like?" style={inp({height:62,resize:"vertical"})}/>)}
+            {isChallenge && fieldRow("Target", <input type="number" min="0" value={fv("target","")} onChange={fSet("target")} placeholder="e.g. 30" style={inp({width:"140px"})}/>)}
+            {isChallenge && fieldRow("Unit", <input value={fv("unit","books")} onChange={fSet("unit")} placeholder="books, days, hours…" style={inp()}/>)}
+            {isChallenge && fieldRow("Start Date", <input type="date" value={fv("startDate","")} onChange={fSet("startDate")} style={inp()}/>)}
             {fieldRow("Why", <textarea value={fv("why","")} onChange={fSet("why")} placeholder="Why does this matter?" style={inp({height:50,resize:"vertical"})}/>)}
             {fieldRow("Source", <input value={fv("source","parent")} onChange={fSet("source")} placeholder="parent, or teacher name" style={inp()}/>)}
-            {fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} placeholder={"Master multiplication facts\nPractice word problems"} style={inp({height:72,resize:"vertical"})}/>)}
-            {fieldRow("Progress",
+            {!isChallenge && fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} placeholder={"Master multiplication facts\nPractice word problems"} style={inp({height:72,resize:"vertical"})}/>)}
+            {!isChallenge && fieldRow("Progress",
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
                 {LH_PROGRESS.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){setLhForm(function(f){return Object.assign({},f,{progress:p});}); }); })}
               </div>
@@ -11244,10 +11276,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         );
       }
       var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      var adjBtnSt = {background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"50%",width:"22px",height:"22px",cursor:"pointer",fontSize:"0.9rem",color:T.textMid,padding:0,lineHeight:1,fontFamily:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center"};
       return areaWrap(
         <div>
           {lhAddMode !== "goal" && (
-            <button type="button" onClick={function(){ openAdd("goal",{progress:"Not started",source:"parent"}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Goal</button>
+            <button type="button" onClick={function(){ openAdd("goal",{progress:"Not started",source:"parent",kind:"goal"}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Goal</button>
           )}
           {lhAddMode === "goal" && GoalForm(saveGoal)}
           {goals.length === 0 && lhAddMode !== "goal" && (
@@ -11257,21 +11290,60 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if (lhEditId === g.id) {
               return <div key={g.id}>{GoalForm(updateGoal)}</div>;
             }
+            var isChallenge = g.kind === "challenge";
             var progColor = g.progress==="Achieved"?T.sage:g.progress==="In progress"?T.blue:T.textFaint;
             var stepsArr = Array.isArray(g.steps) ? g.steps : [];
             var doneCount = stepsArr.filter(function(s){return s.done;}).length;
             var bc = card({marginBottom:"0.65rem"});
+            // Challenge progress display
+            var challengeBlock = null;
+            if (isChallenge) {
+              var autoProgress = g.unit === "books" ? lhChallengeAutoProgress(books, g.startDate) : 0;
+              var manualAdjust = typeof g.manualAdjust === "number" ? g.manualAdjust : 0;
+              var displayProgress = autoProgress + manualAdjust;
+              var targetNum = parseInt(g.target) || 0;
+              var pct = targetNum > 0 ? Math.min(1, displayProgress / targetNum) : 0;
+              var breakdownLabel = null;
+              if (g.unit === "books") {
+                if (manualAdjust > 0)      breakdownLabel = autoProgress + " from Books log, +" + manualAdjust + " added";
+                else if (manualAdjust < 0) breakdownLabel = autoProgress + " from Books log, −" + Math.abs(manualAdjust) + " removed";
+                else                       breakdownLabel = autoProgress + " from Books log";
+              }
+              var gId = g.id;
+              challengeBlock = (
+                <div style={{marginTop:"0.65rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.28rem"}}>
+                    <span style={{fontSize:"0.9rem",fontWeight:700,color:T.textDark}}>{displayProgress}</span>
+                    <span style={{fontSize:"0.78rem",color:T.textMid}}>/ {g.target || "?"} {g.unit || ""}</span>
+                    <div style={{display:"flex",gap:"0.28rem",marginLeft:"auto"}}>
+                      <button type="button" style={adjBtnSt} onClick={function(){ lhSaveUpdate("goals",gId,{manualAdjust:manualAdjust-1}); }}>−</button>
+                      <button type="button" style={adjBtnSt} onClick={function(){ lhSaveUpdate("goals",gId,{manualAdjust:manualAdjust+1}); }}>+</button>
+                    </div>
+                  </div>
+                  {targetNum > 0 && (
+                    <div style={{background:T.borderSoft,borderRadius:"99px",height:"6px",overflow:"hidden",marginBottom:"0.22rem"}}>
+                      <div style={{width:(pct*100)+"%",height:"100%",background:T.blue,borderRadius:"99px",transition:"width 0.3s"}}></div>
+                    </div>
+                  )}
+                  {breakdownLabel && <div style={{fontSize:"0.72rem",color:T.textFaint}}>{breakdownLabel}</div>}
+                </div>
+              );
+            }
             return (
               <div key={g.id} style={bc}>
                 {itemHeader(g.goal, g.cat || null,
                   function(){ openEdit(g.id, Object.assign({},g,{stepsText:stepsArr.map(function(s){return s.text;}).join("\n")})); },
                   function(){ if(window.confirm("Remove this goal?")) lhSaveDel("goals", g.id); }
                 )}
-                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
-                  {badge(g.progress||"Not started", progColor)}
-                  {g.source && g.source !== "parent" && <span style={{fontSize:"0.75rem",color:T.textMid}}>{g.source}</span>}
-                </div>
-                {stepsArr.length > 0 && (
+                {!isChallenge && (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
+                    {badge(g.progress||"Not started", progColor)}
+                    {g.source && g.source !== "parent" && <span style={{fontSize:"0.75rem",color:T.textMid}}>{g.source}</span>}
+                  </div>
+                )}
+                {isChallenge && badge("Challenge", T.blue)}
+                {challengeBlock}
+                {!isChallenge && stepsArr.length > 0 && (
                   <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.3rem"}}>
                     {doneCount}/{stepsArr.length} steps complete
                     <div style={{marginTop:"0.25rem"}}>
