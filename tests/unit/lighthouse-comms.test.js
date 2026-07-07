@@ -96,36 +96,65 @@ describe("LH-5c-B — contact add / edit / delete", function() {
     expect(getComms(next, "child1").contacts.length).toBe(1);
   });
 
-  it("B2: contact name and role are stored correctly", function() {
+  it("B2: contact name, role, phone, email all stored correctly", function() {
     var lh = makeChildLh();
     var c = getComms(lh, "child1");
     var next = commsMutate(lh, "child1", lh.school["child1"].comms,
-      { contacts: c.contacts.concat([{ id:"c1", name:"Nurse Patel", role:"Nurse" }]) });
+      { contacts: c.contacts.concat([{ id:"c1", name:"Nurse Patel", role:"Nurse", phone:"555-1234", email:"nurse@school.edu" }]) });
     var ct = getComms(next, "child1").contacts[0];
     expect(ct.name).toBe("Nurse Patel");
     expect(ct.role).toBe("Nurse");
+    expect(ct.phone).toBe("555-1234");
+    expect(ct.email).toBe("nurse@school.edu");
   });
 
-  it("B3: role is optional (empty string)", function() {
+  it("B3: phone and email are optional (empty string)", function() {
     var lh = makeChildLh();
     var c = getComms(lh, "child1");
     var next = commsMutate(lh, "child1", lh.school["child1"].comms,
-      { contacts: c.contacts.concat([{ id:"c1", name:"Main office", role:"" }]) });
-    expect(getComms(next, "child1").contacts[0].role).toBe("");
+      { contacts: c.contacts.concat([{ id:"c1", name:"Main office", role:"", phone:"", email:"" }]) });
+    var ct = getComms(next, "child1").contacts[0];
+    expect(ct.phone).toBe("");
+    expect(ct.email).toBe("");
+  });
+
+  it("B3b: contact with only name (no role, phone, or email)", function() {
+    var lh = makeChildLh();
+    var c = getComms(lh, "child1");
+    var next = commsMutate(lh, "child1", lh.school["child1"].comms,
+      { contacts: c.contacts.concat([{ id:"c1", name:"Front desk", role:"", phone:"", email:"" }]) });
+    var ct = getComms(next, "child1").contacts[0];
+    expect(ct.name).toBe("Front desk");
+    expect(ct.role).toBe("");
+    expect(ct.phone).toBe("");
+    expect(ct.email).toBe("");
+  });
+
+  it("B3c: contact with phone but no email", function() {
+    var lh = makeChildLh();
+    var c = getComms(lh, "child1");
+    var next = commsMutate(lh, "child1", lh.school["child1"].comms,
+      { contacts: c.contacts.concat([{ id:"c1", name:"Coach Davis", role:"Coach", phone:"555-9999", email:"" }]) });
+    var ct = getComms(next, "child1").contacts[0];
+    expect(ct.phone).toBe("555-9999");
+    expect(ct.email).toBe("");
   });
 
   it("B4: editing a contact patches only that contact", function() {
     var lh = makeChildLh({ contacts: [
-      { id:"c1", name:"Ms. Hill",   role:"Teacher" },
-      { id:"c2", name:"Mr. Garcia", role:"Coach" }
+      { id:"c1", name:"Ms. Hill",   role:"Teacher", phone:"", email:"" },
+      { id:"c2", name:"Mr. Garcia", role:"Coach",   phone:"", email:"" }
     ]});
     var c = getComms(lh, "child1");
     var updated = c.contacts.map(function(ct){
-      return ct.id === "c1" ? Object.assign({},ct,{name:"Ms. Hill (Math)",role:"Math Teacher"}) : ct;
+      return ct.id === "c1" ? Object.assign({},ct,{name:"Ms. Hill (Math)",role:"Math Teacher",phone:"555-0001",email:"hill@school.edu"}) : ct;
     });
     var next = commsMutate(lh, "child1", lh.school["child1"].comms, { contacts: updated });
     var cts = getComms(next, "child1").contacts;
-    expect(cts.find(function(ct){ return ct.id==="c1"; }).name).toBe("Ms. Hill (Math)");
+    var c1 = cts.find(function(ct){ return ct.id==="c1"; });
+    expect(c1.name).toBe("Ms. Hill (Math)");
+    expect(c1.phone).toBe("555-0001");
+    expect(c1.email).toBe("hill@school.edu");
     expect(cts.find(function(ct){ return ct.id==="c2"; }).name).toBe("Mr. Garcia");
   });
 

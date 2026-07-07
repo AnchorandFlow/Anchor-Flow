@@ -11712,6 +11712,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div>
             {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="Ms. Johnson, Mr. Garcia…" style={inp()} autoFocus/>)}
             {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} placeholder="Teacher, Nurse, Office, Coach…" style={inp()}/>)}
+            {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} placeholder="(optional)" style={inp()}/>)}
+            {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} placeholder="(optional)" style={inp()}/>)}
             {formBtns(onSave)}
           </div>
         );
@@ -11719,13 +11721,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function saveContact() {
         var n = (fv("name","")).trim();
         if (!n) return;
-        commsMutate({ contacts: commsContacts.concat([{ id:uid(), name:n, role:(fv("role","")).trim() }]) });
+        commsMutate({ contacts: commsContacts.concat([{ id:uid(), name:n, role:(fv("role","")).trim(), phone:(fv("phone","")).trim(), email:(fv("email","")).trim() }]) });
         closeForm();
       }
       function updateContact() {
         var n = (fv("name","")).trim();
         if (!n) return;
-        commsMutate({ contacts: commsContacts.map(function(c){ return c.id===lhEditId ? Object.assign({},c,{name:n,role:(fv("role","")).trim()}) : c; }) });
+        commsMutate({ contacts: commsContacts.map(function(c){ return c.id===lhEditId ? Object.assign({},c,{name:n,role:(fv("role","")).trim(),phone:(fv("phone","")).trim(),email:(fv("email","")).trim()}) : c; }) });
         closeForm();
       }
 
@@ -11778,15 +11780,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {commsContacts.map(function(ct) {
             if (lhEditId === ct.id) { return <div key={ct.id}>{ContactForm(updateContact)}</div>; }
             var ctId = ct.id;
-            var ctSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
+            var ctSt = card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"});
+            var linkSt = {fontSize:"0.76rem",color:T.blue,textDecoration:"none"};
             return (
               <div key={ctId} style={ctSt}>
-                <div style={{flex:1}}>
-                  <span style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark}}>{ct.name}</span>
-                  {ct.role && <span style={{fontSize:"0.72rem",color:T.textMid,marginLeft:"0.45rem",background:T.sand+"33",padding:"0.1rem 0.45rem",borderRadius:"99px"}}>{ct.role}</span>}
+                <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:"0.25rem 0.45rem"}}>
+                      <span style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark}}>{ct.name}</span>
+                      {ct.role && <span style={{fontSize:"0.72rem",color:T.textMid,background:T.sand+"33",padding:"0.1rem 0.45rem",borderRadius:"99px"}}>{ct.role}</span>}
+                    </div>
+                    {(ct.phone || ct.email) && (
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.2rem 0.85rem",marginTop:"0.25rem"}}>
+                        {ct.phone && <a href={"tel:"+ct.phone} style={linkSt}>{ct.phone}</a>}
+                        {ct.email && <a href={"mailto:"+ct.email} style={linkSt}>{ct.email}</a>}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(ctId, Object.assign({},ct)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>Edit</button>
+                  {delBtn(function(){ commsMutate({ contacts: commsContacts.filter(function(c){ return c.id!==ctId; }) }); })}
                 </div>
-                <button type="button" onClick={function(){ openEdit(ctId, Object.assign({},ct)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                {delBtn(function(){ commsMutate({ contacts: commsContacts.filter(function(c){ return c.id!==ctId; }) }); })}
               </div>
             );
           })}
