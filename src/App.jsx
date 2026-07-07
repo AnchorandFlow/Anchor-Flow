@@ -597,6 +597,15 @@ function lhHsLoopItemUpdate(lh, childId, loopId, itemId, itemPatch) {
   hs[childId] = child;
   return Object.assign({}, lh, { homeschool: hs });
 }
+// Pure helpers for the school layer.
+function defaultLhSchoolChild() {
+  return { homework: [], week: {}, comms: { contacts: [], log: [] }, grades: {} };
+}
+function lhSchoolPatch(lh, childId, patch) {
+  var sc = Object.assign({}, lhGet(lh, "school", {}));
+  sc[childId] = Object.assign({}, sc[childId] || defaultLhSchoolChild(), patch);
+  return Object.assign({}, lh, { school: sc });
+}
 // Status cycle for loop items: todo→done→skip→later→todo.
 function lhCycleStatus(status) {
   if (status === "todo")  return "done";
@@ -10826,6 +10835,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       applyLh(lhHsLoopItemUpdate(lighthouse, activeChild, loopId, itemId, itemPatch));
     }
 
+    // School layer for active child
+    var schoolAll  = lhGet(lighthouse, "school", {});
+    var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
+    var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
+
+    function applySchool(patch) { applyLh(lhSchoolPatch(lighthouse, activeChild, patch)); }
+    function hwSaveAdd(item) { applySchool({ homework: homework.concat([item]) }); closeForm(); }
+    function hwSaveUpdate(id, p) { applySchool({ homework: homework.map(function(h){ return h.id===id ? Object.assign({},h,p) : h; }) }); }
+    function hwSaveDel(id) { applySchool({ homework: homework.filter(function(h){ return h.id!==id; }) }); }
+
     function setMode(childId, mode) {
       var nm = Object.assign({}, modes); nm[childId] = mode;
       setLighthouse(Object.assign({}, lighthouse, { modes: nm }));
@@ -11366,6 +11385,116 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Homework Area ─────────────────────────────────────────────────────────
+    var HW_STATUSES = ["Not started","In progress","Done","Turned in"];
+    var HW_STATUS_COLOR = {
+      "Not started": "",        // uses textFaint
+      "In progress": "blue",
+      "Done":        "sage",
+      "Turned in":   "sand"
+    };
+    function hwStatusColor(s) {
+      var key = HW_STATUS_COLOR[s];
+      return key ? T[key] : T.textFaint;
+    }
+    function HomeworkArea() {
+      function saveHw() {
+        var task = (fv("task","")).trim();
+        var subj = (fv("subj","")).trim();
+        if (!task || !subj) return;
+        var item = {
+          id: uid(), subj: subj, task: task,
+          due: (fv("due","")).trim(),
+          status: fv("status","Not started"),
+          help: !!fv("help", false)
+        };
+        hwSaveAdd(item);
+      }
+      function updateHw() {
+        var task = (fv("task","")).trim();
+        var subj = (fv("subj","")).trim();
+        if (!task || !subj) return;
+        hwSaveUpdate(lhEditId, {
+          subj: subj, task: task,
+          due: (fv("due","")).trim(),
+          status: fv("status","Not started"),
+          help: !!fv("help", false)
+        });
+        closeForm();
+      }
+      function HwForm(onSave) {
+        return formCard(
+          <div>
+            {fieldRow("Subject *", <input value={fv("subj","")} onChange={fSet("subj")} placeholder="Math, English, Science…" style={inp()} autoFocus/>)}
+            {fieldRow("Assignment *", <input value={fv("task","")} onChange={fSet("task")} placeholder="What's the assignment?" style={inp()}/>)}
+            {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({width:"180px"})}/>)}
+            {fieldRow("Status",
+              <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
+                {HW_STATUSES.map(function(s) {
+                  var isAct = fv("status","Not started") === s;
+                  var col   = hwStatusColor(s);
+                  var pSt   = {padding:"0.2rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(isAct?col:T.borderSoft),background:isAct?col+"22":"transparent",color:isAct?col:T.textMid,fontSize:"0.75rem",fontWeight:isAct?700:400,cursor:"pointer",fontFamily:"inherit"};
+                  return <button type="button" key={s} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{status:s}); }); }} style={pSt}>{s}</button>;
+                })}
+              </div>
+            )}
+            {fieldRow("",
+              <label style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",color:T.textMid,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!fv("help",false)} onChange={fChk("help")} style={{cursor:"pointer"}}/>
+                Needs help
+              </label>
+            )}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
+      return areaWrap(
+        <div>
+          {lhAddMode !== "hw" && (
+            <button type="button" onClick={function(){ openAdd("hw",{status:"Not started",help:false}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Assignment</button>
+          )}
+          {lhAddMode === "hw" && HwForm(saveHw)}
+          {homework.length === 0 && lhAddMode !== "hw" && (
+            <div style={emptyCard}>✏️ No assignments yet</div>
+          )}
+          {homework.map(function(hw) {
+            if (lhEditId === hw.id) {
+              return <div key={hw.id}>{HwForm(updateHw)}</div>;
+            }
+            var col  = hwStatusColor(hw.status);
+            var isDone = hw.status === "Done" || hw.status === "Turned in";
+            var bc = card({marginBottom:"0.65rem"});
+            return (
+              <div key={hw.id} style={bc}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:"0.88rem",color:isDone?T.textFaint:T.textDark,textDecoration:isDone?"line-through":"none",lineHeight:1.3}}>{hw.task}</div>
+                    <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.12rem"}}>
+                      {hw.subj}
+                      {hw.due && <span style={{marginLeft:"0.5rem",color:T.textFaint}}>due {hw.due}</span>}
+                    </div>
+                  </div>
+                  {hw.help && <span style={{fontSize:"0.7rem",fontWeight:700,color:T.rose,background:T.rose+"18",padding:"0.1rem 0.45rem",borderRadius:"99px",flexShrink:0}}>Needs help</span>}
+                  <button type="button" onClick={function(){ openEdit(hw.id, Object.assign({},hw)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                  <button type="button" onClick={function(){ if(window.confirm("Remove this assignment?")) hwSaveDel(hw.id); }} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
+                </div>
+                <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginTop:"0.55rem"}}>
+                  {HW_STATUSES.map(function(s) {
+                    var isAct = hw.status === s;
+                    var c     = hwStatusColor(s);
+                    var bSt   = {fontSize:"0.7rem",padding:"0.15rem 0.55rem",borderRadius:"99px",fontFamily:"inherit",border:"1.5px solid "+(isAct?c:T.borderSoft),background:isAct?c+"22":"transparent",color:isAct?c:T.textFaint,fontWeight:isAct?700:400,cursor:"pointer"};
+                    var hwId  = hw.id;
+                    return <button type="button" key={s} style={bSt} onClick={function(){ hwSaveUpdate(hwId, {status: hw.status===s?"Not started":s}); }}>{s}</button>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
     var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
     var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
@@ -11858,7 +11987,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "goals"     && GoalsArea()}
             {lhSubTab === "plan"      && PlanArea()}
             {lhSubTab === "loops"     && LoopsArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && (
+            {lhSubTab === "homework"  && HomeworkArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
