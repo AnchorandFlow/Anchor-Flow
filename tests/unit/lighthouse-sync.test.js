@@ -869,3 +869,59 @@ describe("LH-2-fix — Lighthouse nav routing (flag gate)", function() {
     expect(pillarSchoolEntry(true).label).toBe("Lighthouse");
   });
 });
+
+// ─── LH-2 fix-2 — _hfComps registration completeness guard ─────────────────
+// Catches the class of bug where a component is added to the _hfComps forEach
+// registration list but never destructured into HomeFlow's local scope, making
+// the bare <ComponentName/> call fail at runtime with "not defined".
+//
+// Strategy: read App.jsx as text and assert that every name in the forEach list
+// also appears in the const { ... } = _hfComps destructure block. This is a
+// static analysis guard — no React, no import of App.jsx itself.
+
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+describe("LH-2-fix-2 — _hfComps forEach list matches destructure (no undefined tab components)", function() {
+  var src = readFileSync(resolve(__dirname, "../../src/App.jsx"), "utf8");
+
+  // Extract names from the forEach registration list.
+  // Matches the multi-line array literal passed to .forEach(n => { _hfComps[n] = ... })
+  var forEachMatch = src.match(/\[\s*([\s\S]*?)\]\.forEach\(n\s*=>/);
+  var registeredNames = forEachMatch
+    ? forEachMatch[1].match(/'([A-Za-z]+)'/g).map(function(s) { return s.replace(/'/g, ""); })
+    : [];
+
+  // Extract names from the const { ... } = _hfComps destructure block.
+  var destructureMatch = src.match(/const\s*\{([\s\S]*?)\}\s*=\s*_hfComps\s*;/);
+  var destructuredNames = destructureMatch
+    ? destructureMatch[1].match(/[A-Za-z][A-Za-z0-9]*/g) || []
+    : [];
+  var destructuredSet = new Set(destructuredNames);
+
+  it("LH-2-fix-2-parse: forEach list is non-empty (parse guard)", function() {
+    expect(registeredNames.length).toBeGreaterThan(0);
+  });
+
+  it("LH-2-fix-2-parse: destructure block is non-empty (parse guard)", function() {
+    expect(destructuredNames.length).toBeGreaterThan(0);
+  });
+
+  it("LH-2-fix-2-completeness: every name in forEach list is destructured from _hfComps", function() {
+    var missing = registeredNames.filter(function(n) { return !destructuredSet.has(n); });
+    expect(missing).toEqual([]);
+  });
+
+  it("LH-2-fix-2-lighthouse: LighthouseTab specifically is in forEach list", function() {
+    expect(registeredNames).toContain("LighthouseTab");
+  });
+
+  it("LH-2-fix-2-lighthouse: LighthouseTab specifically is in the destructure", function() {
+    expect(destructuredSet.has("LighthouseTab")).toBe(true);
+  });
+
+  it("LH-2-fix-2-school: SchoolTab is in both (regression guard for existing tabs)", function() {
+    expect(registeredNames).toContain("SchoolTab");
+    expect(destructuredSet.has("SchoolTab")).toBe(true);
+  });
+});

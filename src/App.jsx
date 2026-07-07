@@ -4175,7 +4175,7 @@ Respond ONLY with valid JSON array, no markdown:
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
           MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveTab,
-          SchoolTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
+          SchoolTab, LighthouseTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
