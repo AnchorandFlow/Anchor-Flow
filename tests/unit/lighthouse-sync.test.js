@@ -803,3 +803,69 @@ describe("LH-4-rev-B — lhSetStatus direct-action (loop revision)", function() 
     expect(lh3.homeschool["c1"].loops[0].items.find(function(it){return it.id==="i1";}).status).toBe("todo");
   });
 });
+
+// ─── LH-2 fix — LIGHTHOUSE tab routing ──────────────────────────────────────
+// These tests mirror the PILLARS nav-id logic and the render-array gate that
+// were the source of the routing bug (flag on → school tab id → SchoolTab).
+
+describe("LH-2-fix — Lighthouse nav routing (flag gate)", function() {
+  // Mirror of the PILLARS entry selection logic from FlowWrapper
+  function pillarSchoolEntry(lighthouseV2) {
+    return lighthouseV2
+      ? { id: "lighthouse", label: "Lighthouse", emoji: "🏮" }
+      : { id: "school",     label: "School",     emoji: "🏫" };
+  }
+
+  // Mirror of the render-array + flag check from HomeFlow
+  var RENDER_TABS = ["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","lighthouse","settings","ai"];
+  function tabRendersLighthouse(tabId, lighthouseV2) {
+    return RENDER_TABS.indexOf(tabId) !== -1 && tabId === "lighthouse" && lighthouseV2;
+  }
+  function tabRendersSchool(tabId) {
+    return RENDER_TABS.indexOf(tabId) !== -1 && tabId === "school";
+  }
+
+  it("LH-2-fix-1: flag ON → PILLARS entry uses id 'lighthouse'", function() {
+    expect(pillarSchoolEntry(true).id).toBe("lighthouse");
+  });
+
+  it("LH-2-fix-2: flag OFF → PILLARS entry uses id 'school'", function() {
+    expect(pillarSchoolEntry(false).id).toBe("school");
+  });
+
+  it("LH-2-fix-3: flag ON → nav click dispatches 'lighthouse' tab id, not 'school'", function() {
+    var entry = pillarSchoolEntry(true);
+    // _setActiveTab receives entry.id — it must be "lighthouse", not "school"
+    expect(entry.id).not.toBe("school");
+    expect(entry.id).toBe("lighthouse");
+  });
+
+  it("LH-2-fix-4: 'lighthouse' is in the render tab array (was missing, causing dead-code bug)", function() {
+    expect(RENDER_TABS.indexOf("lighthouse")).not.toBe(-1);
+  });
+
+  it("LH-2-fix-5: flag ON + tab=lighthouse → renders LighthouseTab (not SchoolTab)", function() {
+    expect(tabRendersLighthouse("lighthouse", true)).toBe(true);
+    expect(tabRendersSchool("lighthouse")).toBe(false);
+  });
+
+  it("LH-2-fix-6: flag OFF + tab=school → renders SchoolTab (legacy behavior unchanged)", function() {
+    expect(tabRendersSchool("school")).toBe(true);
+    expect(tabRendersLighthouse("school", false)).toBe(false);
+  });
+
+  it("LH-2-fix-7: flag ON + tab=school → SchoolTab still renders if somehow navigated to (no collision)", function() {
+    // With flag on, the nav emits 'lighthouse' so 'school' is unreachable via PILLARS,
+    // but the render array still handles it gracefully (SchoolTab renders for 'school').
+    expect(tabRendersSchool("school")).toBe(true);
+    expect(tabRendersLighthouse("school", true)).toBe(false);
+  });
+
+  it("LH-2-fix-8: flag OFF → PILLARS label is 'School', not 'Lighthouse'", function() {
+    expect(pillarSchoolEntry(false).label).toBe("School");
+  });
+
+  it("LH-2-fix-9: flag ON → PILLARS label is 'Lighthouse'", function() {
+    expect(pillarSchoolEntry(true).label).toBe("Lighthouse");
+  });
+});

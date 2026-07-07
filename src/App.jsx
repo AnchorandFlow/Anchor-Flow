@@ -2994,7 +2994,7 @@ function createLocalBackup() {
     }));
   }
   React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
-  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school") ? "Flow"
+  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school"||tab==="lighthouse") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
@@ -12533,7 +12533,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
+          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","lighthouse","settings","ai"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -12864,7 +12864,7 @@ function FlowWrapper({ onHome, onSignOut }) {
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
       { id: "tidepool", label: "Tide Pool",     emoji: "🏝️" },
-      { id: "school",   label: "Lighthouse",    emoji: "🏮" },
+      LIGHTHOUSE_V2 ? { id: "lighthouse", label: "Lighthouse", emoji: "🏮" } : { id: "school", label: "School", emoji: "🏫" },
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       { id: "meals", label: "Meals", emoji: "🍽️" },
