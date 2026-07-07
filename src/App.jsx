@@ -10852,6 +10852,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var weekPack   = Array.isArray(weekData.pack)   ? weekData.pack   : [];
     function weekMutate(p) { applySchool({ week: Object.assign({}, weekData, p) }); }
 
+    // School comms data for active child
+    var commsData     = (schoolChild.comms && typeof schoolChild.comms === "object") ? schoolChild.comms : {};
+    var commsContacts = Array.isArray(commsData.contacts) ? commsData.contacts : [];
+    var commsLog      = Array.isArray(commsData.log)      ? commsData.log      : [];
+    function commsMutate(p) { applySchool({ comms: Object.assign({}, commsData, p) }); }
+
     function setMode(childId, mode) {
       var nm = Object.assign({}, modes); nm[childId] = mode;
       setLighthouse(Object.assign({}, lighthouse, { modes: nm }));
@@ -11680,6 +11686,151 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── School Comms Area ─────────────────────────────────────────────────────
+    function SchoolCommsArea() {
+      function secHead(label) {
+        return <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1.1rem",marginBottom:"0.4rem"}}>{label}</div>;
+      }
+      function delBtn(onDel) {
+        return <button type="button" onClick={onDel} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>;
+      }
+      function sortedLog() {
+        return commsLog.slice().sort(function(a,b){
+          var da = a.date; var db = b.date;
+          if (!da && !db) return 0;
+          if (!da) return -1;
+          if (!db) return 1;
+          return da > db ? -1 : da < db ? 1 : 0;
+        });
+      }
+
+      var isAddContact = lhAddMode === "comms-contact";
+      var isAddLog     = lhAddMode === "comms-log";
+
+      function ContactForm(onSave) {
+        return formCard(
+          <div>
+            {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="Ms. Johnson, Mr. Garcia…" style={inp()} autoFocus/>)}
+            {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} placeholder="Teacher, Nurse, Office, Coach…" style={inp()}/>)}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      function saveContact() {
+        var n = (fv("name","")).trim();
+        if (!n) return;
+        commsMutate({ contacts: commsContacts.concat([{ id:uid(), name:n, role:(fv("role","")).trim() }]) });
+        closeForm();
+      }
+      function updateContact() {
+        var n = (fv("name","")).trim();
+        if (!n) return;
+        commsMutate({ contacts: commsContacts.map(function(c){ return c.id===lhEditId ? Object.assign({},c,{name:n,role:(fv("role","")).trim()}) : c; }) });
+        closeForm();
+      }
+
+      function LogForm(onSave) {
+        var hasAction = (fv("action","")).trim() !== "";
+        return formCard(
+          <div>
+            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({width:"180px"})}/>)}
+            {fieldRow("Who", <input value={fv("who","")} onChange={fSet("who")} placeholder="Who did you speak with?" style={inp()}/>)}
+            {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="What was it about?" style={inp()}/>)}
+            {fieldRow("Notes", <textarea value={fv("note","")} onChange={fSet("note")} placeholder="What was said?" style={inp({height:72,resize:"vertical"})}/>)}
+            {fieldRow("Action item", <input value={fv("action","")} onChange={fSet("action")} placeholder="Any follow-up needed? (optional)" style={inp()}/>)}
+            {hasAction && fieldRow("",
+              <label style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",color:T.textMid,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!fv("actionDone",false)} onChange={fChk("actionDone")} style={{cursor:"pointer"}}/>
+                Action done
+              </label>
+            )}
+            {formBtns(onSave)}
+          </div>
+        );
+      }
+      function saveLog() {
+        var who = (fv("who","")).trim(); var subj = (fv("subject","")).trim();
+        if (!who && !subj) return;
+        commsMutate({ log: commsLog.concat([{
+          id:uid(), date:(fv("date","")).trim(), who:who, subject:subj,
+          note:(fv("note","")).trim(), action:(fv("action","")).trim(), actionDone:!!fv("actionDone",false)
+        }]) });
+        closeForm();
+      }
+      function updateLog() {
+        var who = (fv("who","")).trim(); var subj = (fv("subject","")).trim();
+        if (!who && !subj) return;
+        commsMutate({ log: commsLog.map(function(e){ return e.id===lhEditId ? Object.assign({},e,{
+          date:(fv("date","")).trim(), who:who, subject:subj,
+          note:(fv("note","")).trim(), action:(fv("action","")).trim(), actionDone:!!fv("actionDone",false)
+        }) : e; }) });
+        closeForm();
+      }
+
+      var emptyTxt = {fontSize:"0.8rem",color:T.textFaint,padding:"0.4rem 0"};
+      var addBtnSt = btnP(T.sand,{fontSize:"0.79rem",marginBottom:"0.4rem"});
+
+      return areaWrap(
+        <div>
+          {secHead("Contacts")}
+          {!isAddContact && <button type="button" onClick={function(){ openAdd("comms-contact",{}); }} style={addBtnSt}>+ Add Contact</button>}
+          {isAddContact && ContactForm(saveContact)}
+          {commsContacts.map(function(ct) {
+            if (lhEditId === ct.id) { return <div key={ct.id}>{ContactForm(updateContact)}</div>; }
+            var ctId = ct.id;
+            var ctSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
+            return (
+              <div key={ctId} style={ctSt}>
+                <div style={{flex:1}}>
+                  <span style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark}}>{ct.name}</span>
+                  {ct.role && <span style={{fontSize:"0.72rem",color:T.textMid,marginLeft:"0.45rem",background:T.sand+"33",padding:"0.1rem 0.45rem",borderRadius:"99px"}}>{ct.role}</span>}
+                </div>
+                <button type="button" onClick={function(){ openEdit(ctId, Object.assign({},ct)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                {delBtn(function(){ commsMutate({ contacts: commsContacts.filter(function(c){ return c.id!==ctId; }) }); })}
+              </div>
+            );
+          })}
+          {commsContacts.length === 0 && !isAddContact && <div style={emptyTxt}>No contacts yet.</div>}
+
+          {secHead("Communication Log")}
+          {!isAddLog && <button type="button" onClick={function(){ openAdd("comms-log",{actionDone:false}); }} style={addBtnSt}>+ Add Entry</button>}
+          {isAddLog && LogForm(saveLog)}
+          {sortedLog().map(function(entry) {
+            if (lhEditId === entry.id) { return <div key={entry.id}>{LogForm(updateLog)}</div>; }
+            var eId = entry.id;
+            var hasAction = entry.action && (entry.action).trim() !== "";
+            var eSt = card({marginBottom:"0.65rem"});
+            return (
+              <div key={eId} style={eSt}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",marginBottom:"0.3rem"}}>
+                  <div style={{flex:1}}>
+                    {entry.subject && <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,lineHeight:1.3}}>{entry.subject}</div>}
+                    <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.1rem"}}>
+                      {entry.who && <span>{entry.who}</span>}
+                      {entry.who && entry.date && <span style={{margin:"0 0.3rem"}}>·</span>}
+                      {entry.date && <span>{entry.date}</span>}
+                    </div>
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(eId, Object.assign({},entry)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>Edit</button>
+                  {delBtn(function(){ commsMutate({ log: commsLog.filter(function(e){ return e.id!==eId; }) }); })}
+                </div>
+                {entry.note && <div style={{fontSize:"0.82rem",color:T.textMid,lineHeight:1.45,marginBottom:hasAction?"0.45rem":"0"}}>{entry.note}</div>}
+                {hasAction && (
+                  <div style={{display:"flex",alignItems:"center",gap:"0.4rem",borderTop:"1px solid "+T.borderSoft,paddingTop:"0.4rem",marginTop:"0.1rem",cursor:"pointer"}}
+                    onClick={function(){ commsMutate({ log: commsLog.map(function(e){ return e.id===eId ? Object.assign({},e,{actionDone:!e.actionDone}) : e; }) }); }}>
+                    <span style={{fontSize:"0.95rem",color:entry.actionDone?T.sage:T.textFaint,flexShrink:0,userSelect:"none"}}>{entry.actionDone?"●":"○"}</span>
+                    <span style={{fontSize:"0.8rem",color:entry.actionDone?T.textFaint:T.textDark,textDecoration:entry.actionDone?"line-through":"none"}}>{entry.action}</span>
+                    {!entry.actionDone && <span style={{fontSize:"0.65rem",fontWeight:700,color:T.rose,background:T.rose+"18",padding:"0.08rem 0.4rem",borderRadius:"99px",flexShrink:0,marginLeft:"auto"}}>Follow up</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {commsLog.length === 0 && !isAddLog && <div style={emptyTxt}>No entries yet.</div>}
+        </div>
+      );
+    }
+
     // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
     var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
     var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
@@ -12174,7 +12325,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "loops"     && LoopsArea()}
             {lhSubTab === "homework"  && HomeworkArea()}
             {lhSubTab === "week"      && ThisWeekArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && (
+            {lhSubTab === "comms"     && SchoolCommsArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
