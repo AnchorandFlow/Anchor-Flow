@@ -16,6 +16,7 @@ import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey } from "./sync-core.js"
+import { BUILD_STAMP } from "./buildStamp.js"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -1675,6 +1676,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         <div style={{color:T.textSoft,fontSize:"0.8rem",fontStyle:"italic",marginTop:"0.15rem",fontFamily:"'Cormorant Garamond',serif"}}>A steadier home, in every season</div>
         <p style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.72,marginTop:"0.85rem",marginBottom:0}}>Data saved locally · AI powered by Claude · Native app coming soon</p>
         <p style={{color:T.textFaint,fontSize:"0.62rem",fontFamily:"monospace",marginTop:"0.35rem",marginBottom:0,textAlign:"center"}}>{APP_VERSION}</p>
+        <p style={{color:T.textFaint,fontSize:"0.62rem",fontFamily:"monospace",marginTop:"0.1rem",marginBottom:0,textAlign:"center"}}>{"Build: "+BUILD_STAMP}</p>
       </div>
     </div>
   );

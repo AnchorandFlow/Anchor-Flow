@@ -6,7 +6,7 @@ Complete every item before deploying to production.
 
 ## Pre-release
 
-- [ ] `npm test` — all tests green (202+ required; if count drops, investigate before shipping)
+- [ ] `npm test` — all tests green (215+ required; if count drops, investigate before shipping)
 - [ ] `npx esbuild src/App.jsx --target=es2019 --loader:.jsx=jsx --outfile=/dev/null` — 0 warnings
 - [ ] `git diff --stat main` — review every changed file in the diff
 - [ ] No secrets, credentials, or `.env.local` staged (`git diff --cached --name-only`)
@@ -15,6 +15,7 @@ Complete every item before deploying to production.
 ## Deploy
 
 - [ ] Run `./deploy.sh "descriptive commit message"`
+- [ ] Script prints `📌 Build stamp: <YYYYMMDD-HHmmss-hash>` — confirm it looks correct
 - [ ] Confirm the diff-stat at the prompt — type `y` only if the staged changes match what you intended
 - [ ] Script completes without `❌` errors
 - [ ] Live bundle hash matches local hash (printed at end of script, or verify manually)

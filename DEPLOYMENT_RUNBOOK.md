@@ -19,17 +19,22 @@ The script is `./deploy.sh [commit message]`. It is interactive.
 ### Steps the script runs
 
 1. **Line-count guard:** `wc -l < src/App.jsx` — aborts if < 5000 lines (wrong file check)
-2. **Build:** `npm run build` (Vite 8, ES2019 target, outputs to `dist/`)
-3. **Stage all:** `git add -A`
-4. **Finder-duplicate guard (NEW):** Aborts if any staged file path matches ` 2.` or ` 2/`
+2. **Build stamp (NEW):** Writes `YYYYMMDD-HHmmss-<7-char-hash>` stamp into `public/sw.js` `CACHE_VERSION` and `src/buildStamp.js` `BUILD_STAMP` **before** the build. This ensures every deploy changes `sw.js`, triggering the update banner on all open clients. The stamp is also surfaced in Settings under "Build:".
+3. **Build:** `npm run build` (Vite 8, ES2019 target, outputs to `dist/`)
+4. **Stage all:** `git add -A`
+5. **Finder-duplicate guard:** Aborts if any staged file path matches ` 2.` or ` 2/`
    (macOS Finder duplicate pattern). Lists offending files and exits with code 1.
-5. **Diff-stat confirm (NEW):** Prints `git diff --cached --stat` and prompts `[y/N]`.
+6. **Diff-stat confirm:** Prints `git diff --cached --stat` and prompts `[y/N]`.
    Aborts unless you type `y`. (Skipped if nothing new to commit.)
-6. **Commit:** `git commit -m "<message>"`
-7. **Push:** `git push origin main`
-8. **Vercel deploy:** `vercel --prod`
-9. **Live hash check:** `curl` the live site and compares the script tag hash against
-   the local `dist/assets/index-*.js` basename. Warns if they differ (aliasing issue).
+7. **Commit:** `git commit -m "<message>"`
+8. **Push:** `git push origin main`
+9. **Vercel deploy:** `vercel --prod`
+10. **Live hash check:** `curl` the live site and compares the script tag hash against
+    the local `dist/assets/index-*.js` basename. Warns if they differ (aliasing issue).
+
+### Cache cleanup on SW activate
+
+The SW `activate` handler deletes **all** caches that don't match the current `CACHE_VERSION`. Since every deploy writes a new timestamp+hash stamp, each deploy's SW activation automatically cleans up the previous stamp's cache. There is no unbounded growth — at most two caches exist simultaneously (current + previous activating).
 
 ### Common deploy failure modes
 
