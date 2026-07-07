@@ -11246,13 +11246,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontSize:"3rem",marginBottom:"0.75rem"}}>✅</div>
               <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.5rem"}}>Password updated!</h3>
               <p style={{color:T.textSoft,fontSize:"0.84rem",marginBottom:"1.25rem"}}>Your new password is set. You can now sign in.</p>
-              <button onClick={()=>{ setShowSetPassword(false); setShowAuthModal(true); }}
+              <button type="button" onClick={()=>{ setShowSetPassword(false); setShowAuthModal(true); }}
                 style={{...btnP(T.blue,{width:"100%",padding:"0.8rem",fontSize:"0.9rem"})}}>
                 Sign In Now
               </button>
             </div>
           ) : (
-            <div>
+            <form onSubmit={function(e){e.preventDefault();handleSetPassword();}}>
               <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Set New Password</h3>
               <p style={{color:T.textSoft,fontSize:"0.82rem",marginBottom:"1.1rem"}}>Choose a new password for your account.</p>
               <div style={{marginBottom:"0.75rem"}}>
@@ -11263,15 +11263,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{marginBottom:"1rem"}}>
                 <label style={lbl}>Confirm password</label>
                 <input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)}
-                  onKeyDown={e=>e.key==="Enter"&&handleSetPassword()}
                   placeholder="Type it again" style={inp()}/>
               </div>
               {error&&<div style={{background:T.rosePale,border:`1.5px solid ${T.rose}50`,borderRadius:"0.65rem",padding:"0.7rem 0.85rem",marginBottom:"0.85rem",fontSize:"0.83rem",color:T.rose,fontWeight:600}}>{error}</div>}
-              <button onClick={handleSetPassword} disabled={loading}
+              <button type="submit" disabled={loading}
                 style={{...btnP(T.blue,{width:"100%",padding:"0.85rem",fontSize:"0.95rem",opacity:loading?0.7:1})}}>
                 {loading ? "Saving…" : "Set Password"}
               </button>
-            </div>
+            </form>
           )}
         </div>
       </div>
