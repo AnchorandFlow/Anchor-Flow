@@ -11645,8 +11645,12 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 
 
 function FlowWrapper({ onHome, onSignOut }) {
-  const [openGroup, setOpenGroup] = React.useState(null);
-  const [navSel, setNavSel] = React.useState("today-pillar");
+  const [openGroup, setOpenGroup] = React.useState(function() {
+    try { var g = sessionStorage.getItem("af_openGroup"); return g || null; } catch { return null; }
+  });
+  const [navSel, setNavSel] = React.useState(function() {
+    try { var n = sessionStorage.getItem("af_navSel"); return n || "today-pillar"; } catch { return "today-pillar"; }
+  });
   const PILLAR_COLORS = {
     "Today":   { accent: "#C7A15A", glow: "rgba(199,161,90,0.35)" },
     "Flow":    { accent: "#8FC4CC", glow: "rgba(110,157,166,0.38)" },
@@ -11674,8 +11678,27 @@ function FlowWrapper({ onHome, onSignOut }) {
     window.addEventListener("af-sections-changed", onStorage)
     return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("af-sections-changed", onStorage); }
   }, [])
-  const [showAnchor, setShowAnchor] = React.useState(false)
-  const [vaultSection, setVaultSection] = React.useState("home")
+  const [showAnchor, setShowAnchor] = React.useState(function() {
+    try { return sessionStorage.getItem("af_showAnchor") === "1"; } catch { return false; }
+  });
+  const [vaultSection, setVaultSection] = React.useState(function() {
+    try { var v = sessionStorage.getItem("af_vaultSection"); return v || "home"; } catch { return "home"; }
+  });
+  // Persist nav state to sessionStorage so a sync-triggered reload restores the
+  // user's exact position (vault section, active group, sidebar highlight).
+  // These four mirror the af_activeTab pattern used by HomeFlow for the same reason.
+  React.useEffect(function() {
+    try { sessionStorage.setItem("af_showAnchor", showAnchor ? "1" : "0"); } catch {}
+  }, [showAnchor]);
+  React.useEffect(function() {
+    try { sessionStorage.setItem("af_vaultSection", vaultSection); } catch {}
+  }, [vaultSection]);
+  React.useEffect(function() {
+    try { sessionStorage.setItem("af_navSel", navSel); } catch {}
+  }, [navSel]);
+  React.useEffect(function() {
+    try { sessionStorage.setItem("af_openGroup", openGroup || ""); } catch {}
+  }, [openGroup]);
   const PILLARS = [
     { id: "anchor", label: "Today", emoji: "🧭", kind: "tab" },
     { label: "Flow", emoji: "🌊", kind: "group", items: [
