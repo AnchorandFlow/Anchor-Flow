@@ -113,14 +113,36 @@ describe("LH-5d-C — subject marks add / edit / delete", function() {
     expect(getGrades(next, "child1").marks.length).toBe(1);
   });
 
-  it("C2: mark fields stored correctly", function() {
+  it("C2: mark fields stored correctly including comment", function() {
     var lh = makeChildLh();
     var g  = getGrades(lh, "child1");
     var next = gradesMutate(lh, "child1", lh.school["child1"].grades,
-      { marks: g.marks.concat([{ id:"m1", subject:"Reading", mark:"Exceeding" }]) });
+      { marks: g.marks.concat([{ id:"m1", subject:"Reading", mark:"Exceeding", comment:"Loves chapter books" }]) });
     var m = getGrades(next, "child1").marks[0];
     expect(m.subject).toBe("Reading");
     expect(m.mark).toBe("Exceeding");
+    expect(m.comment).toBe("Loves chapter books");
+  });
+
+  it("C2b: comment is optional — empty string is valid", function() {
+    var lh = makeChildLh();
+    var g  = getGrades(lh, "child1");
+    var next = gradesMutate(lh, "child1", lh.school["child1"].grades,
+      { marks: g.marks.concat([{ id:"m1", subject:"Math", mark:"Meeting", comment:"" }]) });
+    expect(getGrades(next, "child1").marks[0].comment).toBe("");
+  });
+
+  it("C2c: editing comment does not affect subject or mark", function() {
+    var lh = makeChildLh({ marks: [{ id:"m1", subject:"Math", mark:"Meeting", comment:"" }] });
+    var g  = getGrades(lh, "child1");
+    var updated = g.marks.map(function(r){
+      return r.id==="m1" ? Object.assign({},r,{comment:"Ask about homework club"}) : r;
+    });
+    var next = gradesMutate(lh, "child1", lh.school["child1"].grades, { marks: updated });
+    var m = getGrades(next, "child1").marks[0];
+    expect(m.comment).toBe("Ask about homework club");
+    expect(m.subject).toBe("Math");
+    expect(m.mark).toBe("Meeting");
   });
 
   it("C3: all four mark options can be stored", function() {

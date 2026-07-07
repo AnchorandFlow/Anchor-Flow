@@ -11889,6 +11889,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 })}
               </div>
             )}
+            {fieldRow("Note", <input value={fv("comment","")} onChange={fSet("comment")} placeholder="Optional — anything to remember" style={inp()}/>)}
             {formBtns(onSave)}
           </div>
         );
@@ -11896,13 +11897,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function saveMark() {
         var s = (fv("subject","")).trim(); var m = fv("mark","");
         if (!s || !m) return;
-        gradesMutate({ marks: gradeMarks.concat([{ id:uid(), subject:s, mark:m }]) });
+        gradesMutate({ marks: gradeMarks.concat([{ id:uid(), subject:s, mark:m, comment:(fv("comment","")).trim() }]) });
         closeForm();
       }
       function updateMark() {
         var s = (fv("subject","")).trim(); var m = fv("mark","");
         if (!s || !m) return;
-        gradesMutate({ marks: gradeMarks.map(function(r){ return r.id===lhEditId ? Object.assign({},r,{subject:s,mark:m}) : r; }) });
+        gradesMutate({ marks: gradeMarks.map(function(r){ return r.id===lhEditId ? Object.assign({},r,{subject:s,mark:m,comment:(fv("comment","")).trim()}) : r; }) });
         closeForm();
       }
 
@@ -11939,13 +11940,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if (lhEditId === row.id) { return <div key={row.id}>{MarkForm(updateMark)}</div>; }
             var rId  = row.id;
             var col  = markColor(row.mark);
-            var rSt  = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
+            var rSt  = card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"});
             return (
               <div key={rId} style={rSt}>
-                <div style={{flex:1,fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{row.subject}</div>
-                {row.mark && <span style={{fontSize:"0.72rem",fontWeight:700,color:col,background:col+"22",padding:"0.12rem 0.55rem",borderRadius:"99px",flexShrink:0}}>{row.mark}</span>}
-                <button type="button" onClick={function(){ openEdit(rId, Object.assign({},row)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                {delBtn(function(){ gradesMutate({ marks: gradeMarks.filter(function(r){ return r.id!==rId; }) }); })}
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                  <div style={{flex:1,fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{row.subject}</div>
+                  {row.mark && <span style={{fontSize:"0.72rem",fontWeight:700,color:col,background:col+"22",padding:"0.12rem 0.55rem",borderRadius:"99px",flexShrink:0}}>{row.mark}</span>}
+                  <button type="button" onClick={function(){ openEdit(rId, Object.assign({},row)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
+                  {delBtn(function(){ gradesMutate({ marks: gradeMarks.filter(function(r){ return r.id!==rId; }) }); })}
+                </div>
+                {row.comment && <div style={{fontSize:"0.79rem",color:T.textMid,marginTop:"0.3rem",lineHeight:1.4}}>{row.comment}</div>}
               </div>
             );
           })}
