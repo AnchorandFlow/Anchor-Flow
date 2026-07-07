@@ -2937,7 +2937,7 @@ function createLocalBackup() {
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
-  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s)return s;}catch{}return "anchor";});
+  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"&&LIGHTHOUSE_V2){try{sessionStorage.setItem("af_activeTab","lighthouse");}catch{} return "lighthouse";}return s;}}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
   React.useEffect(() => {
     function nukeGhosts() { document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} }); }
