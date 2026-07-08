@@ -9542,6 +9542,49 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
+  function Celebration(props) {
+    var data = props.data;
+    React.useEffect(function() {
+      if (!data) return;
+      var t = setTimeout(function() { props.onClose(); }, 6000);
+      return function() { clearTimeout(t); };
+    }, [data]);
+    if (!data) return null;
+    var colors = ["#B08C3D", "#182B45", "#e8a84c", "#7db87a", "#6ba3c4", "#d98b8b"];
+    var pieces = [];
+    for (var i = 0; i < 70; i++) {
+      var left = Math.random() * 100;
+      var delay = Math.random() * 0.7;
+      var dur = 2.4 + Math.random() * 2.0;
+      var size = 7 + Math.random() * 8;
+      var color = colors[i % colors.length];
+      var rot = Math.random() * 360;
+      var drift = (Math.random() * 2 - 1) * 70;
+      pieces.push(
+        React.createElement("div", { key: i, style: {
+          position: "absolute", top: "-24px", left: left + "%",
+          width: size + "px", height: (size * 0.6) + "px",
+          background: color, opacity: 0.92,
+          borderRadius: i % 3 === 0 ? "50%" : "1px",
+          "--afDrift": drift + "px",
+          animation: "afConfettiFall " + dur + "s " + delay + "s ease-in forwards"
+        } })
+      );
+    }
+    return (
+      <div onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 9999, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(24,43,69,0.28)" }}>
+        <style>{"@keyframes afConfettiFall{0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:1}100%{transform:translateY(106vh) translateX(var(--afDrift,0px)) rotate(720deg);opacity:0.9}}@keyframes afPop{0%{transform:scale(0.6);opacity:0}60%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}"}</style>
+        {pieces}
+        <div style={{ position: "relative", background: "#FDFBF5", borderRadius: "1.4rem", padding: "2rem 2.2rem", textAlign: "center", maxWidth: "340px", margin: "0 1.5rem", boxShadow: "0 20px 60px rgba(24,43,69,0.35)", animation: "afPop 0.5s ease-out both" }}>
+          <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🎉</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.7rem", fontWeight: 700, color: "#182B45", marginBottom: "0.35rem" }}>Goal reached!</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.15rem", fontStyle: "italic", color: "#B08C3D", marginBottom: "0.9rem" }}>{data.title}</div>
+          <div style={{ fontSize: "0.86rem", color: "#5a6b7a", fontFamily: "DM Sans, sans-serif", lineHeight: 1.5 }}>{data.who ? data.who + ", you did it! " : "You did it! "}Every bit of effort added up.</div>
+          <button onClick={props.onClose} style={{ marginTop: "1.2rem", background: "#182B45", color: "#fff", border: "none", borderRadius: "2rem", padding: "0.55rem 1.7rem", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Celebrate 🎊</button>
+        </div>
+      </div>
+    );
+  }
   _hfRenders.SchoolTab = function SchoolTab() {
     var [schoolData, setSchoolData] = useSaved("schoolData", {});
     var [activeChild, setActiveChild] = React.useState(null);
@@ -9562,6 +9605,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [breakMode, setBreakMode] = React.useState(null); // null | "summer" | "winter" | "spring"
     var [showBreakGoalModal, setShowBreakGoalModal] = React.useState(false);
     var [breakGoalForm, setBreakGoalForm] = React.useState({ title: "", type: "goal", target: "", unit: "", notes: "" });
+    var [celebrate, setCelebrate] = React.useState(null); // {title, who} when a goal is reached
     var [editingBreakGoal, setEditingBreakGoal] = React.useState(null);
     var [teacherForm, setTeacherForm] = React.useState({ name: "", subject: "", email: "", phone: "", notes: "" });
     var [eventForm, setEventForm] = React.useState({ title: "", date: "", type: "event", notes: "" });
@@ -10519,7 +10563,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         }} style={{ background: T.bgAlt, border: "1px solid " + T.border, borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                         <button onClick={function() {
                           var curProg = g.progress || 0;
-                          saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: curProg + 1 }) : x; }));
+                          var newProg = curProg + 1;
+                          saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: newProg }) : x; }));
+                          var tgt = parseInt(g.target);
+                          if (g.target && tgt > 0 && curProg < tgt && newProg >= tgt) {
+                            setCelebrate({ title: g.title, who: (child && child.name) ? child.name : "" });
+                          }
                         }} style={{ background: breakColor + "22", border: "1px solid " + breakColor + "55", borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", color: breakColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>+</button>
                       </div>
                     </div>
@@ -10589,6 +10638,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div style={{ paddingBottom: "4rem" }}>
+        {celebrate && <Celebration data={celebrate} onClose={function(){ setCelebrate(null); }} />}
         {showTypeModal && <TypePicker />}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
