@@ -10919,6 +10919,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [lhSummaryText, setLhSummaryText]         = React.useState("");
     var [lhSummaryChildId, setLhSummaryChildId]   = React.useState(null);
     var [lhHouseholdText, setLhHouseholdText]     = React.useState("");
+    var [lhPlanDate, setLhPlanDate]               = React.useState(function(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); });
+    var [lhTaskSubject, setLhTaskSubject]         = React.useState(null);
+    var [lhTaskText, setLhTaskText]               = React.useState("");
 
     var allPeople = people.filter(function(p) { return p && p.name; });
     var defaultPeople = allPeople.filter(function(p) {
@@ -10933,6 +10936,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     React.useEffect(function() {
       setLhAddMode(null); setLhEditId(null); setLhForm({});
+      setLhTaskSubject(null); setLhTaskText("");
     }, [lhSubTab, activeChild]);
 
     var modes       = lhGet(lighthouse, "modes", {});
@@ -10973,7 +10977,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var hsDaily  = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily : { Mon:"", Tue:"", Wed:"", Thu:"", Fri:"" };
     var hsWeekly = Array.isArray(hsChild.weekly) ? hsChild.weekly : [];
     var hsMonthly = typeof hsChild.monthly === "string" ? hsChild.monthly : "";
-    var lhLoops  = Array.isArray(hsChild.loops) ? hsChild.loops : [];
+    var lhLoops    = Array.isArray(hsChild.loops) ? hsChild.loops : [];
+    var hsSubjects = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
+    var hsWeekPlan = (hsChild.weekPlan && typeof hsChild.weekPlan === "object") ? hsChild.weekPlan : {};
 
     function applyHs(patch) { applyLh(lhHsPatch(lighthouse, activeChild, patch)); }
     function applyHsDayField(day, field, val) {
@@ -12238,134 +12244,303 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var LH_PLAN_TABS  = [{id:"daily",label:"Daily"},{id:"weekly",label:"Weekly"},{id:"monthly",label:"Monthly"}];
 
     function PlanArea() {
-      var ptSt = function(active) {
-        return {padding:"0.28rem 0.75rem",borderRadius:"99px",border:"none",background:active?T.sand:"transparent",color:active?T.textDark:T.textMid,fontWeight:active?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};
-      };
+      // ── pure date helpers (no hooks) ──────────────────────────────────────
+      function isoFromDate(d) {
+        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      }
+      function addDays(iso, n) {
+        var d = new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return isoFromDate(d);
+      }
+      function nextSchoolDay(iso) {
+        var nxt=addDays(iso,1); var dow=new Date(nxt+"T12:00:00").getDay();
+        if(dow===6) return addDays(iso,3); if(dow===0) return addDays(iso,2); return nxt;
+      }
+      function getMondayOf(iso) {
+        var d=new Date(iso+"T12:00:00"); var dow=d.getDay();
+        d.setDate(d.getDate()-(dow===0?6:dow-1)); return isoFromDate(d);
+      }
+      function weekDates(mondayIso) {
+        var r=[]; for(var i=0;i<5;i++) r.push(addDays(mondayIso,i)); return r;
+      }
+      function fmtDate(iso) {
+        var d=new Date(iso+"T12:00:00");
+        var DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+        var MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return DN[d.getDay()]+", "+MN[d.getMonth()]+" "+d.getDate();
+      }
+      var todayIso = isoFromDate(TODAY);
+      var isToday  = lhPlanDate === todayIso;
+
+      // ── day-data helpers (migration-safe: old "Mon" keys silently ignored) ─
+      function getDayObj(date) {
+        var raw = hsDaily[date];
+        if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
+        return { attendance:null, notes:"", tasks:{} };
+      }
+      function getSubjTasks(date, subj) {
+        var d=getDayObj(date); var ts=(d.tasks&&typeof d.tasks==="object")?d.tasks:{};
+        return Array.isArray(ts[subj])?ts[subj]:[];
+      }
+      function patchDay(date, dayPatch) {
+        var nd=Object.assign({},hsDaily);
+        var raw=nd[date];
+        var old=(raw&&typeof raw==="object"&&!Array.isArray(raw))?Object.assign({},raw):{attendance:null,notes:"",tasks:{}};
+        nd[date]=Object.assign({},old,dayPatch); applyHs({daily:nd});
+      }
+      function patchSubjTasks(date, subj, newTasks) {
+        var d=getDayObj(date); var ts=(d.tasks&&typeof d.tasks==="object")?Object.assign({},d.tasks):{};
+        ts[subj]=newTasks; patchDay(date,{tasks:ts});
+      }
+      // Roll a task to the next school day under the same subject — one applyHs call.
+      function rollOver(date, subj, taskId) {
+        var nxt=nextSchoolDay(date);
+        var curTasks=getSubjTasks(date,subj); var nxtTasks=getSubjTasks(nxt,subj);
+        var moved=null;
+        var remaining=curTasks.filter(function(t){if(t.id===taskId){moved=t;return false;}return true;});
+        if(!moved) return;
+        var nd=Object.assign({},hsDaily);
+        // remove from current day
+        var rawC=nd[date]; var dC=(rawC&&typeof rawC==="object"&&!Array.isArray(rawC))?Object.assign({},rawC):{attendance:null,notes:"",tasks:{}};
+        var tsC=(dC.tasks&&typeof dC.tasks==="object")?Object.assign({},dC.tasks):{};
+        tsC[subj]=remaining; dC.tasks=tsC; nd[date]=dC;
+        // add to next day
+        var rawN=nd[nxt]; var dN=(rawN&&typeof rawN==="object"&&!Array.isArray(rawN))?Object.assign({},rawN):{attendance:null,notes:"",tasks:{}};
+        var tsN=(dN.tasks&&typeof dN.tasks==="object")?Object.assign({},dN.tasks):{};
+        tsN[subj]=nxtTasks.concat([Object.assign({},moved,{id:uid(),done:false})]); dN.tasks=tsN; nd[nxt]=dN;
+        applyHs({daily:nd});
+      }
+
+      var att=getDayObj(lhPlanDate).attendance||null;
+
+      // ── compact loop strip (same data as LoopsArea) ───────────────────────
+      function LoopStrip() {
+        if(lhLoops.length===0) return <div style={{fontSize:"0.78rem",color:T.textFaint,padding:"0.4rem 0"}}>No loops yet — add one in the Loops tab.</div>;
+        return (
+          <div>
+            {lhLoops.map(function(loop){
+              var items=Array.isArray(loop.items)?loop.items:[]; var upNext=lhUpNext(items); var tint=loop.tint||T.sage;
+              return (
+                <div key={loop.id} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                  <span style={{fontSize:"1rem",flexShrink:0,lineHeight:1,marginTop:"0.12rem"}}>{loop.icon||"🔁"}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:"0.12rem"}}>{loop.name}</div>
+                    {items.length===0 && <div style={{fontSize:"0.77rem",color:T.textFaint,fontStyle:"italic"}}>No items</div>}
+                    {items.length>0&&!upNext && <div style={{fontSize:"0.77rem",color:tint,fontStyle:"italic"}}>All done ✓</div>}
+                    {upNext && (
+                      <div>
+                        <div style={{fontSize:"0.84rem",color:T.textDark,marginBottom:"0.22rem",lineHeight:1.3}}>{upNext.text}</div>
+                        <div style={{display:"flex",gap:"0.28rem"}}>
+                          {["done","skip","later"].map(function(act){
+                            var isAct=upNext.status===act; var actColor=act==="done"?tint:act==="skip"?T.textFaint:"#f59e0b";
+                            var actLabel=act==="done"?"Done":act==="skip"?"Skip":"Later";
+                            var actSt={fontSize:"0.67rem",padding:"0.1rem 0.42rem",borderRadius:"99px",fontFamily:"inherit",border:"1.5px solid "+(isAct?actColor:T.borderSoft),background:isAct?actColor+"22":"transparent",color:isAct?actColor:T.textFaint,fontWeight:isAct?700:400,cursor:"pointer"};
+                            return <button type="button" key={act} onClick={function(){applyHsLoopItemUpdate(loop.id,upNext.id,{status:lhSetStatus(upNext.status,act)});}} style={actSt}>{actLabel}</button>;
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      var secHd={fontSize:"0.67rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"};
+      var navBtn={background:"none",border:"none",cursor:"pointer",fontSize:"1.15rem",color:T.textMid,padding:"0.1rem 0.35rem",lineHeight:1,fontFamily:"inherit"};
+      var ptSt=function(active){return{padding:"0.28rem 0.75rem",borderRadius:"99px",border:"none",background:active?T.sand:"transparent",color:active?T.textDark:T.textMid,fontWeight:active?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};};
+
       return areaWrap(
         <div>
           {/* Plan sub-tabs */}
           <div style={{display:"flex",gap:"0.25rem",marginBottom:"1rem"}}>
-            {LH_PLAN_TABS.map(function(pt) {
-              var isAct = pt.id === lhPlanSubTab;
-              return <button type="button" key={pt.id} onClick={function(){setLhPlanSubTab(pt.id);}} style={ptSt(isAct)}>{pt.label}</button>;
-            })}
+            {LH_PLAN_TABS.map(function(pt){return <button type="button" key={pt.id} onClick={function(){setLhPlanSubTab(pt.id);}} style={ptSt(pt.id===lhPlanSubTab)}>{pt.label}</button>;})}
           </div>
 
-          {/* Daily plan */}
-          {lhPlanSubTab === "daily" && (
+          {/* ── DAILY ───────────────────────────────────────────────────────── */}
+          {lhPlanSubTab==="daily" && (
             <div>
-              {LH_PLAN_DAYS.map(function(day) {
-                var raw = hsDaily[day];
-                var dayData = (raw && typeof raw === "object") ? raw : { attendance: null, core: "", notes: typeof raw === "string" ? raw : "" };
-                var att = dayData.attendance || null;
-                var dayCard = card({marginBottom:"0.75rem"});
-                var presentSt = {padding:"0.18rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(att==="present"?T.sage:T.borderSoft),background:att==="present"?T.sage+"22":"transparent",color:att==="present"?T.sage:T.textFaint,fontSize:"0.72rem",fontWeight:att==="present"?700:400,cursor:"pointer",fontFamily:"inherit"};
-                var awaySt    = {padding:"0.18rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(att==="away"?T.rose:T.borderSoft),background:att==="away"?T.rose+"22":"transparent",color:att==="away"?T.rose:T.textFaint,fontSize:"0.72rem",fontWeight:att==="away"?700:400,cursor:"pointer",fontFamily:"inherit"};
-                return (
-                  <div key={day} style={dayCard}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
-                      <span style={{fontSize:"0.73rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",flex:1}}>{day}</span>
-                      <button type="button" onClick={function(){ applyHsDayField(day,"attendance",att==="present"?null:"present"); }} style={presentSt}>Present</button>
-                      <button type="button" onClick={function(){ applyHsDayField(day,"attendance",att==="away"?null:"away"); }} style={awaySt}>Away</button>
-                    </div>
-                    <input
-                      value={dayData.core || ""}
-                      onChange={function(e){ applyHsDayField(day,"core",e.target.value); }}
-                      placeholder="Core work, loop, or reading…"
-                      style={inp({fontSize:"0.8rem",padding:"0.35rem 0.65rem",marginBottom:"0.45rem"})}
-                    />
-                    <textarea
-                      value={dayData.notes || ""}
-                      onChange={function(e){ applyHsDayField(day,"notes",e.target.value); }}
-                      placeholder="What we actually did…"
-                      style={inp({height:80,resize:"vertical",fontSize:"0.83rem",lineHeight:1.5})}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+              {/* Date navigation */}
+              <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"1rem"}}>
+                <button type="button" style={navBtn} onClick={function(){setLhPlanDate(addDays(lhPlanDate,-1));setLhTaskSubject(null);setLhTaskText("");}}>‹</button>
+                <span style={{flex:1,textAlign:"center",fontWeight:700,fontSize:"0.9rem",color:T.textDark}}>{fmtDate(lhPlanDate)}</span>
+                <button type="button" style={navBtn} onClick={function(){setLhPlanDate(addDays(lhPlanDate,1));setLhTaskSubject(null);setLhTaskText("");}}>›</button>
+                {!isToday && <button type="button" onClick={function(){setLhPlanDate(todayIso);setLhTaskSubject(null);setLhTaskText("");}} style={{fontSize:"0.7rem",padding:"0.16rem 0.55rem",borderRadius:"99px",border:"1.5px solid "+T.borderSoft,background:"transparent",color:T.textMid,cursor:"pointer",fontFamily:"inherit"}}>Today</button>}
+              </div>
 
-          {/* Weekly rhythm */}
-          {lhPlanSubTab === "weekly" && (
-            <div>
-              <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>Which subjects happen on which days each week?</div>
-              {hsWeekly.map(function(subj) {
-                var isEdit = lhEditId === subj.id && lhAddMode === "weekly-subj";
-                var subjCard = card({marginBottom:"0.65rem"});
-                if (isEdit) {
+              {/* Attendance */}
+              <div style={card({marginBottom:"0.65rem"})}>
+                <div style={secHd}>Attendance</div>
+                <div style={{display:"flex",gap:"0.45rem"}}>
+                  <button type="button" onClick={function(){patchDay(lhPlanDate,{attendance:att==="present"?null:"present"});}} style={{padding:"0.2rem 0.7rem",borderRadius:"99px",border:"1.5px solid "+(att==="present"?T.sage:T.borderSoft),background:att==="present"?T.sage+"22":"transparent",color:att==="present"?T.sage:T.textFaint,fontSize:"0.77rem",fontWeight:att==="present"?700:400,cursor:"pointer",fontFamily:"inherit"}}>Present</button>
+                  <button type="button" onClick={function(){patchDay(lhPlanDate,{attendance:att==="away"?null:"away"});}} style={{padding:"0.2rem 0.7rem",borderRadius:"99px",border:"1.5px solid "+(att==="away"?T.rose:T.borderSoft),background:att==="away"?T.rose+"22":"transparent",color:att==="away"?T.rose:T.textFaint,fontSize:"0.77rem",fontWeight:att==="away"?700:400,cursor:"pointer",fontFamily:"inherit"}}>Away</button>
+                </div>
+              </div>
+
+              {/* Subjects & Tasks */}
+              <div style={card({marginBottom:"0.65rem"})}>
+                <div style={secHd}>{"Subjects & Tasks"}</div>
+                {hsSubjects.length===0&&lhAddMode!=="plan-subjects"&&(
+                  <div style={{fontSize:"0.8rem",color:T.textFaint,marginBottom:"0.5rem"}}>Add subjects below to get started.</div>
+                )}
+                {hsSubjects.map(function(subj){
+                  var tasks=getSubjTasks(lhPlanDate,subj); var isAdding=lhTaskSubject===subj;
                   return (
-                    <div key={subj.id} style={subjCard}>
-                      {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="e.g. Math, Latin" style={inp()} autoFocus/>)}
-                      {fieldRow("Days",
-                        <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                          {LH_PLAN_DAYS.map(function(d){
-                            var cur = Array.isArray(fv("days",[])) ? fv("days",[]) : [];
-                            return pillToggle(d, cur.indexOf(d)>=0, function(){
-                              var next = cur.indexOf(d)>=0 ? cur.filter(function(x){return x!==d;}) : cur.concat([d]);
-                              setLhForm(function(f){return Object.assign({},f,{days:next});});
-                            });
-                          })}
+                    <div key={subj} style={{marginBottom:"0.65rem"}}>
+                      <div style={{fontSize:"0.77rem",fontWeight:700,color:T.textDark,paddingBottom:"0.18rem",marginBottom:"0.22rem",borderBottom:"1px solid "+T.borderSoft}}>{subj}</div>
+                      {tasks.map(function(task){
+                        return (
+                          <div key={task.id} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.18rem 0"}}>
+                            <input type="checkbox" checked={task.done||false} onChange={function(){patchSubjTasks(lhPlanDate,subj,tasks.map(function(t){return t.id===task.id?Object.assign({},t,{done:!t.done}):t;}));}} style={{flexShrink:0,cursor:"pointer",margin:0}}/>
+                            <span style={{flex:1,fontSize:"0.83rem",color:task.done?T.textFaint:T.textDark,textDecoration:task.done?"line-through":"none"}}>{task.text}</span>
+                            <button type="button" title="Roll to next day" onClick={function(){rollOver(lhPlanDate,subj,task.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.82rem",padding:"2px 3px",lineHeight:1,flexShrink:0}}>↩</button>
+                            <button type="button" onClick={function(){patchSubjTasks(lhPlanDate,subj,tasks.filter(function(t){return t.id!==task.id;}));}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.73rem",padding:"2px 3px",lineHeight:1,flexShrink:0}}>✕</button>
+                          </div>
+                        );
+                      })}
+                      {isAdding?(
+                        <div style={{display:"flex",gap:"0.3rem",alignItems:"center",marginTop:"0.2rem"}}>
+                          <div style={{flex:1}}>
+                            <input value={lhTaskText} onChange={function(e){setLhTaskText(e.target.value);}}
+                              onKeyDown={function(e){
+                                if(e.key==="Enter"){var txt=lhTaskText.trim();if(txt){patchSubjTasks(lhPlanDate,subj,tasks.concat([{id:uid(),text:txt,done:false}]));}setLhTaskText("");setLhTaskSubject(null);}
+                                if(e.key==="Escape"){setLhTaskSubject(null);setLhTaskText("");}
+                              }}
+                              placeholder={"Task for "+subj+"…"} style={inp({fontSize:"0.8rem",padding:"0.25rem 0.5rem"})} autoFocus/>
+                          </div>
+                          <button type="button" onClick={function(){var txt=lhTaskText.trim();if(txt){patchSubjTasks(lhPlanDate,subj,tasks.concat([{id:uid(),text:txt,done:false}]));}setLhTaskText("");setLhTaskSubject(null);}} style={btnP(T.sand,{fontSize:"0.75rem",padding:"0.25rem 0.6rem"})}>Add</button>
+                          <button type="button" onClick={function(){setLhTaskSubject(null);setLhTaskText("");}} style={btnS({fontSize:"0.75rem",padding:"0.25rem 0.5rem"})}>✕</button>
                         </div>
+                      ):(
+                        <button type="button" onClick={function(){setLhTaskSubject(subj);setLhTaskText("");closeForm();}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.74rem",fontFamily:"inherit",padding:"0.1rem 0",marginTop:"0.1rem"}}>+ add task</button>
                       )}
-                      {fieldRow("Note", <input value={fv("note","")} onChange={fSet("note")} placeholder="e.g. 30 min, use textbook" style={inp()}/>)}
-                      <div style={{display:"flex",gap:"0.5rem",marginTop:"0.5rem"}}>
-                        <button type="button" onClick={function(){
-                          var updated = hsWeekly.map(function(s){ return s.id===subj.id ? Object.assign({},s,{subject:fv("subject",s.subject),days:fv("days",s.days),note:fv("note",s.note)}) : s; });
-                          applyHs({weekly:updated}); closeForm();
-                        }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Save</button>
-                        <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
-                      </div>
                     </div>
                   );
-                }
-                var days = Array.isArray(subj.days) ? subj.days : [];
-                return (
-                  <div key={subj.id} style={subjCard}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                })}
+                {/* Manage subjects */}
+                {lhAddMode==="plan-subjects"?(
+                  <div style={{borderTop:"1px solid "+T.borderSoft,marginTop:"0.5rem",paddingTop:"0.6rem"}}>
+                    <div style={{fontSize:"0.68rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Manage Subjects</div>
+                    {hsSubjects.map(function(subj){
+                      return (
+                        <div key={subj} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.15rem 0"}}>
+                          <span style={{flex:1,fontSize:"0.82rem",color:T.textDark}}>{subj}</span>
+                          <button type="button" onClick={function(){applyHs({subjects:hsSubjects.filter(function(s){return s!==subj;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.73rem",padding:"2px 4px"}}>✕</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{display:"flex",gap:"0.3rem",alignItems:"center",marginTop:"0.4rem"}}>
                       <div style={{flex:1}}>
-                        <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark}}>{subj.subject}</div>
-                        {days.length > 0 && <div style={{fontSize:"0.76rem",color:T.textMid,marginTop:"0.15rem"}}>{days.join(", ")}{subj.note ? " · "+subj.note : ""}</div>}
+                        <input value={fv("newSubj","")} onChange={fSet("newSubj")}
+                          placeholder="New subject name…"
+                          onKeyDown={function(e){if(e.key==="Enter"){var s=(fv("newSubj","")).trim();if(s&&hsSubjects.indexOf(s)<0){applyHs({subjects:hsSubjects.concat([s])});setLhForm(function(f){return Object.assign({},f,{newSubj:""}); }); }}}}
+                          style={inp({fontSize:"0.8rem",padding:"0.25rem 0.5rem"})} autoFocus/>
                       </div>
-                      <button type="button" onClick={function(){ setLhEditId(subj.id); setLhAddMode("weekly-subj"); setLhForm({subject:subj.subject,days:subj.days||[],note:subj.note||""}); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                      <button type="button" onClick={function(){ applyHs({weekly:hsWeekly.filter(function(s){return s.id!==subj.id;})}); }} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
+                      <button type="button" onClick={function(){var s=(fv("newSubj","")).trim();if(s&&hsSubjects.indexOf(s)<0){applyHs({subjects:hsSubjects.concat([s])});setLhForm(function(f){return Object.assign({},f,{newSubj:""});});}}} style={btnP(T.sand,{fontSize:"0.75rem",padding:"0.25rem 0.6rem"})}>Add</button>
+                      <button type="button" onClick={closeForm} style={btnS({fontSize:"0.75rem",padding:"0.25rem 0.5rem"})}>Done</button>
                     </div>
                   </div>
-                );
-              })}
-              {lhAddMode === "weekly-subj" && !lhEditId && (
-                <div style={card({marginBottom:"0.65rem",background:T.inputBg,border:"1.5px solid "+T.border})}>
-                  {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="e.g. Math, Latin" style={inp()} autoFocus/>)}
-                  {fieldRow("Days",
-                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                      {LH_PLAN_DAYS.map(function(d){
-                        var cur = Array.isArray(fv("days",[])) ? fv("days",[]) : [];
-                        return pillToggle(d, cur.indexOf(d)>=0, function(){
-                          var next = cur.indexOf(d)>=0 ? cur.filter(function(x){return x!==d;}) : cur.concat([d]);
-                          setLhForm(function(f){return Object.assign({},f,{days:next});});
-                        });
-                      })}
-                    </div>
-                  )}
-                  {fieldRow("Note", <input value={fv("note","")} onChange={fSet("note")} placeholder="optional note" style={inp()}/>)}
-                  <div style={{display:"flex",gap:"0.5rem",marginTop:"0.5rem"}}>
-                    <button type="button" onClick={function(){
-                      var s = (fv("subject","")).trim(); if (!s) return;
-                      var newSubj = { id:uid(), subject:s, days:fv("days",[]), note:(fv("note","")).trim() };
-                      applyHs({weekly: hsWeekly.concat([newSubj])}); closeForm();
-                    }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Add</button>
-                    <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
-                  </div>
-                </div>
-              )}
-              {!(lhAddMode === "weekly-subj" && !lhEditId) && (
-                <button type="button" onClick={function(){ openAdd("weekly-subj",{days:[]}); }} style={btnP(T.sand,{fontSize:"0.82rem"})}>+ Add Subject</button>
-              )}
+                ):(
+                  <button type="button" onClick={function(){openAdd("plan-subjects",{});setLhTaskSubject(null);setLhTaskText("");}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.71rem",fontFamily:"inherit",padding:0,marginTop:"0.3rem"}}>⚙ Manage subjects</button>
+                )}
+              </div>
+
+              {/* Loops strip — same data as Loops tab */}
+              <div style={card({})}>
+                <div style={secHd}>Loops</div>
+                {LoopStrip()}
+              </div>
             </div>
           )}
 
-          {/* Monthly focus */}
-          {lhPlanSubTab === "monthly" && (
+          {/* ── WEEKLY ──────────────────────────────────────────────────────── */}
+          {lhPlanSubTab==="weekly" && (function(){
+            var mondayIso=getMondayOf(lhPlanDate); var wDates=weekDates(mondayIso);
+            var wpRaw=hsWeekPlan[mondayIso];
+            var wp=(wpRaw&&typeof wpRaw==="object")?wpRaw:{goals:"",events:[]};
+            var wGoals=typeof wp.goals==="string"?wp.goals:"";
+            var wEvents=Array.isArray(wp.events)?wp.events:[];
+            function setWp(patch){var nxt=Object.assign({},hsWeekPlan);nxt[mondayIso]=Object.assign({},wp,patch);applyHs({weekPlan:nxt});}
+            var DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+            return (
+              <div>
+                <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textMid,marginBottom:"0.85rem"}}>{"Week of "+fmtDate(mondayIso)}</div>
+
+                {/* Read-only task summary */}
+                <div style={card({marginBottom:"0.65rem"})}>
+                  <div style={secHd}>Tasks This Week</div>
+                  {(function(){
+                    var hasAny=false;
+                    var rows=wDates.map(function(dt){
+                      var raw=hsDaily[dt]; var day=(raw&&typeof raw==="object"&&!Array.isArray(raw))?raw:{};
+                      var ts=(day.tasks&&typeof day.tasks==="object")?day.tasks:{};
+                      var allKeys=Object.keys(ts).filter(function(k){return Array.isArray(ts[k])&&ts[k].length>0;});
+                      var ordered=hsSubjects.filter(function(s){return allKeys.indexOf(s)>=0;});
+                      allKeys.forEach(function(k){if(ordered.indexOf(k)<0)ordered.push(k);});
+                      if(ordered.length>0) hasAny=true;
+                      return {dt:dt,ts:ts,ordered:ordered};
+                    });
+                    if(!hasAny) return <div style={{fontSize:"0.8rem",color:T.textFaint}}>No tasks recorded yet for this week.</div>;
+                    return rows.filter(function(r){return r.ordered.length>0;}).map(function(r){
+                      var d=new Date(r.dt+"T12:00:00");
+                      return (
+                        <div key={r.dt} style={{marginBottom:"0.55rem"}}>
+                          <div style={{fontSize:"0.72rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",marginBottom:"0.18rem"}}>{DN[d.getDay()]+" · "+d.getDate()}</div>
+                          {r.ordered.map(function(subj){
+                            var tasks=Array.isArray(r.ts[subj])?r.ts[subj]:[];
+                            return (
+                              <div key={subj} style={{paddingLeft:"0.5rem",marginBottom:"0.15rem"}}>
+                                <span style={{fontSize:"0.72rem",fontWeight:600,color:T.textDark}}>{subj+": "}</span>
+                                {tasks.map(function(t,i){return <span key={t.id} style={{fontSize:"0.78rem",color:t.done?T.textFaint:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text+(i<tasks.length-1?", ":"")}</span>;})}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+
+                {/* Editable: weekly goals */}
+                <div style={card({marginBottom:"0.65rem"})}>
+                  <div style={secHd}>Weekly Goals</div>
+                  <textarea value={wGoals} onChange={function(e){setWp({goals:e.target.value});}} placeholder={"e.g.\n• Finish chapter 4\n• Practice multiplication\n• Co-op project"} style={inp({height:90,resize:"vertical",fontSize:"0.84rem",lineHeight:1.55})}/>
+                </div>
+
+                {/* Editable: special events */}
+                <div style={card({})}>
+                  <div style={secHd}>Special Events</div>
+                  {wEvents.map(function(ev){
+                    return (
+                      <div key={ev.id} style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",padding:"0.28rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:"0.84rem",fontWeight:600,color:T.textDark}}>{ev.title}</div>
+                          {ev.note&&<div style={{fontSize:"0.76rem",color:T.textMid,marginTop:"0.1rem"}}>{ev.note}</div>}
+                        </div>
+                        <button type="button" onClick={function(){setWp({events:wEvents.filter(function(x){return x.id!==ev.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.73rem",padding:"2px 4px",flexShrink:0}}>✕</button>
+                      </div>
+                    );
+                  })}
+                  {lhAddMode==="plan-week-event"?(
+                    <div style={{marginTop:"0.45rem"}}>
+                      <input value={fv("evTitle","")} onChange={fSet("evTitle")} placeholder="Event (e.g. Co-op, Field trip)" style={inp({fontSize:"0.8rem",marginBottom:"0.3rem"})} autoFocus/>
+                      <input value={fv("evNote","")}  onChange={fSet("evNote")}  placeholder="Note (optional)" style={inp({fontSize:"0.8rem",marginBottom:"0.4rem"})}/>
+                      <div style={{display:"flex",gap:"0.45rem"}}>
+                        <button type="button" onClick={function(){var t=(fv("evTitle","")).trim();if(!t)return;setWp({events:wEvents.concat([{id:uid(),title:t,note:(fv("evNote","")).trim()}])});closeForm();}} style={btnP(T.sand,{fontSize:"0.8rem",padding:"0.3rem 0.75rem"})}>Add</button>
+                        <button type="button" onClick={closeForm} style={btnS({fontSize:"0.8rem",padding:"0.3rem 0.7rem"})}>Cancel</button>
+                      </div>
+                    </div>
+                  ):(
+                    <button type="button" onClick={function(){openAdd("plan-week-event",{});}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.77rem",fontFamily:"inherit",padding:"0.22rem 0",marginTop:"0.2rem"}}>+ Add event</button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── MONTHLY ─────────────────────────────────────────────────────── */}
+          {lhPlanSubTab==="monthly" && (
             <div>
               <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>What are the big goals or focus areas this month?</div>
               <textarea
