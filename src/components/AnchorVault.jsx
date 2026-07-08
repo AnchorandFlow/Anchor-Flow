@@ -476,6 +476,7 @@ function InventorySection({ onAddToShopping }) {
   // collapsed subcategories: { "pantry:baking": true, ... }
   // Reset on mount so nothing is pre-hidden (clears any bad state from previous sessions)
   const [collapsedSubs, setCollapsedSubs] = useState({})
+  const [invAZ, setInvAZ] = useState(false)
   React.useEffect(function() {
     try { localStorage.removeItem("af_inv_collapsed") } catch {}
   }, [])
@@ -764,6 +765,11 @@ function InventorySection({ onAddToShopping }) {
             })}
           </div>
 
+          {/* ── Sort toggle ── */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <button onClick={function(){ setInvAZ(!invAZ) }} style={{ fontSize: 11, color: invAZ?"#c8a97a":"rgba(250,248,244,0.5)", background: invAZ?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(invAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "4px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>{invAZ?"A\u2013Z \u2713":"A\u2013Z"}</button>
+          </div>
+
           {/* ── Subcategory accordions ── */}
           <div style={{ marginBottom: 12 }}>
             {(SUBCATS[activeCat] || []).map(function(sub) {
@@ -798,7 +804,7 @@ function InventorySection({ onAddToShopping }) {
                         <div onClick={function() { openInlineAdd(sub.id) }} style={{ padding: "10px 14px", fontSize: 12, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif", fontStyle: "italic", cursor: "text" }}>tap to add an item…</div>
                       )}
 
-                      {subItems.map(function(s) {
+                      {(invAZ?subItems.slice().sort(function(a,b){return (a.item.name||"").localeCompare(b.item.name||"");}):subItems).map(function(s) {
                         const item = s.item; const idx = s.globalIdx
                         const isDragOver = dragOverIdx === idx && dragFrom.current !== idx
                         return (
