@@ -71,7 +71,7 @@ const PLAUSIBLE = {
   cove_sections_v1:   [{ id:"cs1", name:"Reading" }],
   cove_notes_v1:      [{ id:"cn1", text:"A note" }],
   schoolData:         { grade:3, teacher:"Ms. Smith" },
-  coveData:           { theme:"warm" },
+  coveData:           [{ kidId:"k1", chores:[], treasures:[] }],
   dietaryFilters:     ["Dairy-free"],
   compassCache:       { nudge:{ date:"2026-07-03", data:{ message:"hi" } } },
   compassEnabled:     true,
