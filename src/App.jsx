@@ -8412,6 +8412,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     var [selIdx, setSelIdx] = useState(0);
     var [chestOpen, setChestOpen] = useState(false);
+    var [histOpen, setHistOpen] = useState(false);
     var [selectedTreasure, setSelectedTreasure] = useState(null);
     var [claimed, setClaimed] = useState(null);
     var [flyName, setFlyName] = useState("");
@@ -8471,7 +8472,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function claimTreasure() {
       if(!selectedTreasure || kid.shells < selectedTreasure.cost) return;
       var t = selectedTreasure;
-      updateKid({shells: kid.shells - t.cost});
+      var entry = {id:uid(), name:t.name, icon:t.icon||"🎁", cost:t.cost, date:new Date().toISOString()};
+      var hist = [entry].concat((kid.rewardHistory||[])).slice(0,50);
+      updateKid({shells: kid.shells - t.cost, rewardHistory: hist});
       setClaimed(t);
       setSelectedTreasure(null);
       window.dispatchEvent(new CustomEvent("af-celebrate", { detail: { heading: "Prize claimed!", title: t.name, message: ((kid && kid.kidName) ? kid.kidName + ", enjoy your reward! " : "Enjoy your reward! ") + "You earned it." } }));
@@ -8609,6 +8612,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     style={{...btnP(navyHex),fontSize:"0.8rem",padding:"0.45rem 1rem",opacity:selectedTreasure?1:0.35,cursor:selectedTreasure?"pointer":"default"}}>Claim treasure</button>
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {/* Reward history */}
+        {(kid.rewardHistory||[]).length>0 && (
+          <div style={{...card(),marginBottom:"1rem"}}>
+            <div onClick={function(){setHistOpen(!histOpen);}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
+              <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem"}}>Reward history</div>
+              <span style={{fontSize:"0.74rem",color:T.textFaint}}>{histOpen?"Hide":((kid.rewardHistory||[]).length+" claimed")}</span>
+            </div>
+            {histOpen && (
+              <div style={{marginTop:"0.6rem"}}>
+                {(kid.rewardHistory||[]).map(function(h){
+                  return (
+                    <div key={h.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.35rem 0",borderBottom:"1px solid "+T.borderSoft,fontSize:"0.8rem"}}>
+                      <span style={{fontSize:"1rem"}}>{h.icon||"🎁"}</span>
+                      <span style={{flex:1,color:T.textDark}}>{h.name}</span>
+                      <span style={{color:T.textSoft,fontSize:"0.72rem"}}>{h.cost} 🐚</span>
+                      <span style={{color:T.textFaint,fontSize:"0.7rem",minWidth:"56px",textAlign:"right"}}>{h.date?new Date(h.date).toLocaleDateString(undefined,{month:"short",day:"numeric"}):""}</span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
