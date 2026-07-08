@@ -606,6 +606,159 @@ function lhSchoolPatch(lh, childId, patch) {
   sc[childId] = Object.assign({}, sc[childId] || defaultLhSchoolChild(), patch);
   return Object.assign({}, lh, { school: sc });
 }
+
+// LH-6 — pure summary generators (no DOM, no React, no App imports needed).
+function lhBuildSummary(opts) {
+  var name       = (opts && opts.name)       ? opts.name       : "Your child";
+  var mode       = (opts && opts.mode)       ? opts.mode       : "";
+  var books      = (opts && Array.isArray(opts.books))      ? opts.books      : [];
+  var beyond     = (opts && Array.isArray(opts.beyond))     ? opts.beyond     : [];
+  var trips      = (opts && Array.isArray(opts.trips))      ? opts.trips      : [];
+  var goals      = (opts && Array.isArray(opts.goals))      ? opts.goals      : [];
+  var homework   = (opts && Array.isArray(opts.homework))   ? opts.homework   : [];
+  var gradeMarks = (opts && Array.isArray(opts.gradeMarks)) ? opts.gradeMarks : [];
+  var gradeNotes = (opts && typeof opts.gradeNotes === "string") ? opts.gradeNotes : "";
+
+  var paras = [];
+
+  // Books & reading challenges
+  var finished   = books.filter(function(b) { return b.status === "finished"; });
+  var reading    = books.filter(function(b) { return b.status === "reading"; });
+  var challenges = goals.filter(function(g) { return g.kind === "challenge" && g.unit === "books"; });
+  if (finished.length > 0 || reading.length > 0 || challenges.length > 0) {
+    var bookLines = [];
+    if (finished.length > 0) {
+      var fTitles = finished.map(function(b) { return b.title; }).filter(Boolean);
+      var bLine = name + " finished " + finished.length + (finished.length === 1 ? " book" : " books");
+      if (fTitles.length > 0 && fTitles.length <= 4) {
+        bLine += " — " + fTitles.join(", ");
+      } else if (fTitles.length > 4) {
+        bLine += ", including " + fTitles.slice(0, 3).join(", ") + " and " + (fTitles.length - 3) + " more";
+      }
+      bookLines.push(bLine + ".");
+    }
+    if (reading.length > 0) {
+      var rTitles = reading.map(function(b) { return b.title; }).filter(Boolean);
+      if (rTitles.length > 0) {
+        var rList = rTitles.length === 1 ? rTitles[0] : rTitles.slice(0, -1).join(", ") + " and " + rTitles[rTitles.length - 1];
+        bookLines.push("Currently reading: " + rList + ".");
+      }
+    }
+    challenges.forEach(function(ch) {
+      var disp   = finished.length + (typeof ch.manualAdjust === "number" ? ch.manualAdjust : 0);
+      var target = parseInt(ch.target, 10) || 0;
+      if (target > 0) {
+        var cLabel = ch.goal ? "Reading challenge “" + ch.goal + "”" : "Reading challenge";
+        bookLines.push(cLabel + ": " + disp + " of " + target + " books.");
+      }
+    });
+    if (bookLines.length > 0) paras.push(bookLines.join(" "));
+  }
+
+  // Beyond the transcript / classroom
+  if (beyond.length > 0) {
+    var btTitles = beyond.map(function(b) { return b.title; }).filter(Boolean);
+    var btLine;
+    if (beyond.length === 1) {
+      btLine = btTitles.length > 0
+        ? "One memorable experience outside the usual: " + btTitles[0] + "."
+        : "One experience beyond the usual.";
+    } else {
+      btLine = beyond.length + " experiences beyond the usual";
+      if (btTitles.length > 0 && btTitles.length <= 4) {
+        btLine += " — " + btTitles.join(", ");
+      } else if (btTitles.length > 4) {
+        btLine += ", including " + btTitles.slice(0, 3).join(", ") + " and more";
+      }
+      btLine += ".";
+    }
+    paras.push(btLine);
+  }
+
+  // Trips
+  if (trips.length > 0) {
+    var tpTitles = trips.map(function(t) { return t.title; }).filter(Boolean);
+    var tpLine;
+    if (trips.length === 1) {
+      tpLine = tpTitles.length > 0
+        ? "An educational trip: " + tpTitles[0] + "."
+        : "One educational trip.";
+    } else {
+      tpLine = trips.length + " educational trips";
+      if (tpTitles.length > 0 && tpTitles.length <= 4) {
+        tpLine += " — " + tpTitles.join(", ");
+      } else if (tpTitles.length > 4) {
+        tpLine += ", including " + tpTitles.slice(0, 3).join(", ") + " and more";
+      }
+      tpLine += ".";
+    }
+    paras.push(tpLine);
+  }
+
+  // Goals (non-challenge)
+  var achieved   = goals.filter(function(g) { return g.kind !== "challenge" && g.progress === "Achieved"; });
+  var inProgress = goals.filter(function(g) { return g.kind !== "challenge" && g.progress === "In progress"; });
+  if (achieved.length > 0 || inProgress.length > 0) {
+    var gLines = [];
+    if (achieved.length > 0) {
+      var aTitles = achieved.map(function(g) { return g.goal; }).filter(Boolean);
+      var aLine   = achieved.length === 1 ? "Goal achieved" : achieved.length + " goals achieved";
+      if (aTitles.length > 0 && aTitles.length <= 3) aLine += ": " + aTitles.join(", ");
+      gLines.push(aLine + ".");
+    }
+    if (inProgress.length > 0) {
+      gLines.push(inProgress.length + (inProgress.length === 1 ? " goal" : " goals") + " still in progress — the work continues.");
+    }
+    paras.push(gLines.join(" "));
+  }
+
+  // School highlights (school mode only)
+  if (mode === "school") {
+    var sLines = [];
+    var doneHw = homework.filter(function(h) { return h.status === "Done" || h.status === "Turned in"; });
+    if (doneHw.length > 0) {
+      sLines.push(doneHw.length + (doneHw.length === 1 ? " assignment" : " assignments") + " completed.");
+    }
+    var exceeding = gradeMarks.filter(function(m) { return m.mark === "Exceeding"; });
+    var strengths = gradeMarks.filter(function(m) { return m.mark === "Strength"; });
+    if (exceeding.length > 0) {
+      sLines.push("Exceeding in " + exceeding.map(function(m) { return m.subject; }).join(", ") + ".");
+    }
+    if (strengths.length > 0) {
+      sLines.push("Strengths: " + strengths.map(function(m) { return m.subject; }).join(", ") + ".");
+    }
+    if (gradeNotes && gradeNotes.trim()) sLines.push(gradeNotes.trim());
+    if (sLines.length > 0) paras.push(sLines.join(" "));
+  }
+
+  if (paras.length === 0) {
+    return name + " — the record is just getting started. Every day you’re adding to it.";
+  }
+  paras.push("There’s more here than fits on a report card.");
+  return paras.join("\n\n");
+}
+
+function lhBuildHouseholdSummary(children) {
+  if (!children || children.length === 0) return "";
+  var lines = [];
+  children.forEach(function(c) {
+    var books    = Array.isArray(c.books)  ? c.books  : [];
+    var beyond   = Array.isArray(c.beyond) ? c.beyond : [];
+    var trips    = Array.isArray(c.trips)  ? c.trips  : [];
+    var goals    = Array.isArray(c.goals)  ? c.goals  : [];
+    var finished = books.filter(function(b) { return b.status === "finished"; });
+    var achieved = goals.filter(function(g) { return g.kind !== "challenge" && g.progress === "Achieved"; });
+    var items = [];
+    if (finished.length > 0) items.push(finished.length + (finished.length === 1 ? " book" : " books"));
+    if (beyond.length > 0)   items.push(beyond.length   + (beyond.length   === 1 ? " experience" : " experiences"));
+    if (trips.length > 0)    items.push(trips.length    + (trips.length    === 1 ? " trip" : " trips"));
+    if (achieved.length > 0) items.push(achieved.length + (achieved.length === 1 ? " goal achieved" : " goals achieved"));
+    var n = c.name || "Child";
+    lines.push(items.length > 0 ? n + ": " + items.join(", ") + "." : n + ": just getting started.");
+  });
+  return lines.join("\n");
+}
+
 // Status cycle for loop items: todo→done→skip→later→todo.
 function lhCycleStatus(status) {
   if (status === "todo")  return "done";
@@ -10763,6 +10916,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [lhPlanSubTab, setLhPlanSubTab] = React.useState("daily");
     var [lhAddItemLoopId, setLhAddItemLoopId] = React.useState(null);
     var [lhNewItemText, setLhNewItemText]     = React.useState("");
+    var [lhSummaryText, setLhSummaryText]         = React.useState("");
+    var [lhSummaryChildId, setLhSummaryChildId]   = React.useState(null);
+    var [lhHouseholdText, setLhHouseholdText]     = React.useState("");
 
     var allPeople = people.filter(function(p) { return p && p.name; });
     var defaultPeople = allPeople.filter(function(p) {
@@ -11985,6 +12141,97 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Summaries / Keepsakes Area ───────────────────────────────────────────
+    function SummariesArea() {
+      var summaryIsForCurrent = lhSummaryChildId === activeChild;
+      var childName = (childPerson && childPerson.name) ? childPerson.name : "your child";
+
+      function copyText(text) {
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          document.execCommand("copy"); document.body.removeChild(ta);
+        } catch(e) {}
+      }
+
+      function handleGenerate() {
+        var text = lhBuildSummary({
+          name:       childName,
+          mode:       childMode,
+          books:      books,
+          beyond:     beyonds,
+          trips:      trips,
+          goals:      goals,
+          homework:   homework,
+          gradeMarks: gradeMarks,
+          gradeNotes: gradeNotes
+        });
+        setLhSummaryText(text);
+        setLhSummaryChildId(activeChild);
+      }
+
+      function handleHousehold() {
+        var children = displayPeople.map(function(p) {
+          var sc = lhGet(lhGet(lighthouse, "shared", {}), p.id, {});
+          return {
+            name:   p.name || "Child",
+            books:  Array.isArray(sc.books)  ? sc.books  : [],
+            beyond: Array.isArray(sc.beyond) ? sc.beyond : [],
+            trips:  Array.isArray(sc.trips)  ? sc.trips  : [],
+            goals:  Array.isArray(sc.goals)  ? sc.goals  : []
+          };
+        });
+        setLhHouseholdText(lhBuildHouseholdSummary(children));
+      }
+
+      var genLabel = summaryIsForCurrent ? "Regenerate " + summaryLabel : "Generate " + summaryLabel;
+
+      return areaWrap(
+        <div>
+          <div style={{fontSize:"0.82rem",color:T.textMid,lineHeight:1.55,marginBottom:"0.9rem"}}>
+            {childMode === "school"
+              ? "A keepsake record of everything " + childName + " experienced and learned."
+              : "Pull together everything " + childName + " has done — ready for documentation or sharing."}
+          </div>
+          <button type="button" onClick={handleGenerate} style={btnP(T.sand,{fontSize:"0.83rem"})}>
+            {genLabel}
+          </button>
+          {summaryIsForCurrent && (
+            <div style={{marginTop:"0.75rem"}}>
+              <textarea
+                value={lhSummaryText}
+                onChange={function(e) { setLhSummaryText(e.target.value); }}
+                style={inp({height:200,resize:"vertical",fontSize:"0.86rem",lineHeight:1.6})}
+              />
+              <button type="button" onClick={function() { copyText(lhSummaryText); }} style={btnS({marginTop:"0.4rem",fontSize:"0.8rem"})}>
+                Copy text
+              </button>
+            </div>
+          )}
+          {displayPeople.length > 1 && (
+            <div style={{borderTop:"1px solid "+T.borderSoft,marginTop:"1.5rem",paddingTop:"1.25rem"}}>
+              <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Household Overview</div>
+              <div style={{fontSize:"0.78rem",color:T.textFaint,marginBottom:"0.6rem"}}>A quick snapshot of what everyone has been up to.</div>
+              <button type="button" onClick={handleHousehold} style={btnP(T.sand,{fontSize:"0.78rem"})}>Generate overview</button>
+              {lhHouseholdText && (
+                <div style={{marginTop:"0.65rem"}}>
+                  <textarea
+                    value={lhHouseholdText}
+                    onChange={function(e) { setLhHouseholdText(e.target.value); }}
+                    style={inp({height:80,resize:"vertical",fontSize:"0.82rem",lineHeight:1.5})}
+                  />
+                  <button type="button" onClick={function() { copyText(lhHouseholdText); }} style={btnS({marginTop:"0.35rem",fontSize:"0.78rem"})}>
+                    Copy
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
     var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
     var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
@@ -12481,7 +12728,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "week"      && ThisWeekArea()}
             {lhSubTab === "comms"     && SchoolCommsArea()}
             {lhSubTab === "grades"    && GradesArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && lhSubTab !== "grades" && (
+            {lhSubTab === "summaries" && SummariesArea()}
+            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && lhSubTab !== "grades" && lhSubTab !== "summaries" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
