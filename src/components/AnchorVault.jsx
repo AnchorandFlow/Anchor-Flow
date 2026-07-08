@@ -5275,7 +5275,130 @@ function HomeSection() {
   );
 }
 
+// ── Owned Products / Manuals ──────────────────────────────────────────────────
+function prodLoad() { try { var s=localStorage.getItem("af_ownedProducts"); return s?JSON.parse(s):[]; } catch(e){ return []; } }
+function prodSave(v) { try { localStorage.setItem("af_ownedProducts", JSON.stringify(v)); } catch(e){} afVaultChanged("ownedProducts"); }
+
+function ProductsPanel() {
+  var s_cats=useState(prodLoad); var cats=s_cats[0]; var setCats=s_cats[1];
+  var s_exp=useState(null); var expanded=s_exp[0]; var setExpanded=s_exp[1];
+  var s_addCat=useState(false); var addingCat=s_addCat[0]; var setAddingCat=s_addCat[1];
+  var s_catName=useState(""); var catName=s_catName[0]; var setCatName=s_catName[1];
+  var s_modal=useState(null); var modal=s_modal[0]; var setModal=s_modal[1]; // {catId, itemId|null}
+  var s_form=useState({name:"",link:"",purchasedAt:"",warranty:false,warrantyNote:"",notes:""}); var form=s_form[0]; var setForm=s_form[1];
+
+  // Keep in sync with edits from other devices
+  React.useEffect(function(){ var h=function(){ setCats(prodLoad()); }; window.addEventListener("af-data-changed",h); return function(){ window.removeEventListener("af-data-changed",h); }; },[]);
+
+  function save(v){ setCats(v); prodSave(v); }
+  function addCategory(){ if(!catName.trim())return; save(cats.concat([{id:huid(),name:catName.trim(),items:[]}])); setCatName(""); setAddingCat(false); }
+  function deleteCategory(id){ save(cats.filter(function(c){return c.id!==id;})); }
+  function openAdd(catId){ setForm({name:"",link:"",purchasedAt:"",warranty:false,warrantyNote:"",notes:""}); setModal({catId:catId,itemId:null}); }
+  function openEdit(catId,item){ setForm({name:item.name||"",link:item.link||"",purchasedAt:item.purchasedAt||"",warranty:!!item.warranty,warrantyNote:item.warrantyNote||"",notes:item.notes||""}); setModal({catId:catId,itemId:item.id}); }
+  function saveItem(){
+    if(!form.name.trim()||!modal)return;
+    var entry={id:modal.itemId||huid(),name:form.name.trim(),link:form.link.trim(),purchasedAt:form.purchasedAt.trim(),warranty:form.warranty,warrantyNote:form.warrantyNote.trim(),notes:form.notes.trim()};
+    save(cats.map(function(c){
+      if(c.id!==modal.catId)return c;
+      var items=c.items||[];
+      items = modal.itemId ? items.map(function(it){return it.id===modal.itemId?entry:it;}) : items.concat([entry]);
+      return Object.assign({},c,{items:items});
+    }));
+    setModal(null);
+  }
+  function deleteItem(catId,itemId){ save(cats.map(function(c){return c.id!==catId?c:Object.assign({},c,{items:(c.items||[]).filter(function(it){return it.id!==itemId;})});})); }
+
+  var SURF="rgba(250,242,229,0.05)";
+  var inp={width:"100%",background:"rgba(250,242,229,0.04)",border:HBORD,borderRadius:8,padding:"9px 11px",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"};
+  var lbl={fontSize:11,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",display:"block",marginBottom:4,marginTop:11};
+  function up(k){ return function(e){ var v=e.target.value; setForm(function(p){var n=Object.assign({},p);n[k]=v;return n;}); }; }
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
+      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"Products & Manuals"),
+      React.createElement("button",{onClick:function(){setAddingCat(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add category")
+    ),
+    React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Everything you own and its manuals — no more digging through drawers."),
+    addingCat&&React.createElement("div",{style:{display:"flex",gap:8,marginBottom:14}},
+      React.createElement("input",{autoFocus:true,value:catName,onChange:function(e){setCatName(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")addCategory();},placeholder:"Category (Baby, Kitchen, Garage...)",style:inp}),
+      React.createElement("button",{onClick:addCategory,style:{background:HGOLD,color:"#1a2744",border:"none",borderRadius:8,padding:"0 16px",fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:13}},"Add"),
+      React.createElement("button",{onClick:function(){setAddingCat(false);setCatName("");},style:{background:"none",color:"rgba(250,248,244,0.5)",border:HBORD,borderRadius:8,padding:"0 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:13}},"Cancel")
+    ),
+    (cats.length===0&&!addingCat)&&React.createElement("div",{style:{textAlign:"center",padding:"40px 20px",color:"rgba(250,248,244,0.3)",fontSize:13,fontFamily:"DM Sans,sans-serif"}},
+      React.createElement("div",{style:{fontSize:32,marginBottom:10}},"📦"),
+      React.createElement("div",null,"No products yet."),
+      React.createElement("div",{style:{marginTop:4,fontSize:12}},"Add a category like Baby or Kitchen, then the products you own inside it.")
+    ),
+    cats.map(function(cat){
+      var isOpen=expanded===cat.id; var items=cat.items||[];
+      return React.createElement("div",{key:cat.id,style:{background:SURF,border:HBORD,borderRadius:12,marginBottom:10,overflow:"hidden"}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"},onClick:function(){setExpanded(isOpen?null:cat.id);}},
+          React.createElement("span",{style:{fontSize:13,color:"rgba(250,248,244,0.4)",transition:"transform 0.2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"›"),
+          React.createElement("div",{style:{flex:1,fontFamily:"Cormorant Garamond,serif",fontSize:17,fontWeight:700,color:HWHITE}},cat.name),
+          React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}},items.length+(items.length===1?" item":" items")),
+          React.createElement("button",{onClick:function(e){e.stopPropagation();if(window.confirm("Delete category \""+cat.name+"\" and its items?"))deleteCategory(cat.id);},style:{background:"none",border:"none",cursor:"pointer",color:"rgba(226,75,74,0.7)",fontSize:15,padding:"0 2px"}},"✕")
+        ),
+        isOpen&&React.createElement("div",{style:{padding:"0 14px 12px"}},
+          items.length===0&&React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic",fontFamily:"DM Sans,sans-serif",padding:"2px 0 10px"}},"No products in here yet."),
+          items.map(function(item){
+            return React.createElement("div",{key:item.id,style:{background:"rgba(250,242,229,0.03)",border:HBORD,borderRadius:9,padding:"10px 12px",marginBottom:8}},
+              React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}},
+                React.createElement("div",{style:{flex:1,minWidth:0}},
+                  React.createElement("div",{style:{fontSize:14,fontWeight:600,color:HWHITE,fontFamily:"DM Sans,sans-serif"}},item.name),
+                  item.purchasedAt&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",marginTop:2}},"Bought: "+item.purchasedAt),
+                  item.warranty&&React.createElement("div",{style:{fontSize:11,color:"#8bbf9a",fontFamily:"DM Sans,sans-serif",marginTop:2}},"✓ Warranty"+(item.warrantyNote?" — "+item.warrantyNote:"")),
+                  item.notes&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",marginTop:2,fontStyle:"italic"}},item.notes)
+                ),
+                React.createElement("div",{style:{display:"flex",gap:6,flexShrink:0}},
+                  React.createElement("button",{onClick:function(){openEdit(cat.id,item);},style:{background:"none",border:HBORD,borderRadius:6,padding:"3px 8px",fontSize:11,color:"rgba(250,248,244,0.6)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Edit"),
+                  React.createElement("button",{onClick:function(){deleteItem(cat.id,item.id);},style:{background:"none",border:HBORD,borderRadius:6,padding:"3px 7px",fontSize:11,color:"rgba(226,75,74,0.7)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"✕")
+                )
+              ),
+              item.link&&React.createElement("a",{href:(item.link.indexOf("http")===0?item.link:"https://"+item.link),target:"_blank",rel:"noopener noreferrer",onClick:function(e){e.stopPropagation();},style:{display:"inline-block",marginTop:7,fontSize:12,color:HGOLD,textDecoration:"none",fontFamily:"DM Sans,sans-serif"}},"📄 Manual / website ↗")
+            );
+          }),
+          React.createElement("button",{onClick:function(){openAdd(cat.id);},style:{width:"100%",marginTop:4,background:"rgba(200,169,122,0.07)",border:"0.5px dashed rgba(200,169,122,0.3)",borderRadius:8,padding:"9px",color:HGOLD,fontSize:12,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add product")
+        )
+      );
+    }),
+    modal&&React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(15,26,42,0.72)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"},onClick:function(){setModal(null);}},
+      React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:"#1a2744",borderRadius:"18px 18px 0 0",padding:"20px",paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))",width:"min(480px,100%)",maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))",overflowY:"auto"}},
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:19,fontWeight:700,color:HWHITE,marginBottom:2}},modal.itemId?"Edit product":"Add product"),
+        React.createElement("label",{style:lbl},"Name"),
+        React.createElement("input",{autoFocus:true,value:form.name,onChange:up("name"),placeholder:"Snoo, Graco carseat...",style:inp}),
+        React.createElement("label",{style:lbl},"Link (manual or website)"),
+        React.createElement("input",{value:form.link,onChange:up("link"),placeholder:"https://...",style:inp}),
+        React.createElement("label",{style:lbl},"Where purchased"),
+        React.createElement("input",{value:form.purchasedAt,onChange:up("purchasedAt"),placeholder:"Target, Amazon, gift...",style:inp}),
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:9,marginTop:13,cursor:"pointer"},onClick:function(){setForm(function(p){return Object.assign({},p,{warranty:!p.warranty});});}},
+          React.createElement("span",{style:{width:18,height:18,borderRadius:5,border:"1.5px solid "+(form.warranty?HGOLD:"rgba(250,248,244,0.25)"),background:form.warranty?HGOLD:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},form.warranty?React.createElement("span",{style:{color:"#1a2744",fontSize:11,fontWeight:900}},"✓"):null),
+          React.createElement("span",{style:{fontSize:13,color:HWHITE,fontFamily:"DM Sans,sans-serif"}},"Warranty purchased")
+        ),
+        form.warranty&&React.createElement("input",{value:form.warrantyNote,onChange:up("warrantyNote"),placeholder:"Expires 2028, receipt in email...",style:Object.assign({},inp,{marginTop:8})}),
+        React.createElement("label",{style:lbl},"Notes"),
+        React.createElement("textarea",{value:form.notes,onChange:up("notes"),placeholder:"Model number, serial, anything useful...",style:Object.assign({},inp,{minHeight:60,resize:"vertical"})}),
+        React.createElement("div",{style:{display:"flex",gap:8,marginTop:16}},
+          React.createElement("button",{onClick:saveItem,style:{flex:1,background:HGOLD,color:"#1a2744",border:"none",borderRadius:10,padding:"11px",fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:14}},"Save"),
+          React.createElement("button",{onClick:function(){setModal(null);},style:{flex:1,background:"none",color:"rgba(250,248,244,0.6)",border:HBORD,borderRadius:10,padding:"11px",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:14}},"Cancel")
+        )
+      )
+    )
+  );
+}
+
 function HomeSystemsSection() {
+  var s_tab=useState("maintenance"); var sysTab=s_tab[0]; var setSysTab=s_tab[1];
+  function tabBtn(id,label){
+    var active=sysTab===id;
+    return React.createElement("button",{onClick:function(){setSysTab(id);},style:{flex:1,background:active?"rgba(200,169,122,0.15)":"transparent",color:active?HGOLD:"rgba(250,248,244,0.5)",border:"0.5px solid "+(active?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"8px 0",fontSize:12.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label);
+  }
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16}}, tabBtn("maintenance","Maintenance"), tabBtn("products","Products")),
+    sysTab==="products" ? React.createElement(ProductsPanel,null) : React.createElement(MaintenancePanel,null)
+  );
+}
+
+function MaintenancePanel() {
   var s_sys=useState(sysLoadSystems); var systems=s_sys[0]; var setSystems=s_sys[1];
   var s_detail=useState(null); var detail=s_detail[0]; var setDetail=s_detail[1];
   var s_adding=useState(false); var adding=s_adding[0]; var setAdding=s_adding[1];
