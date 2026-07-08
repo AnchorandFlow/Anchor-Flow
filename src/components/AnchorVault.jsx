@@ -5315,7 +5315,7 @@ function ProductsPanel() {
 
   return React.createElement("div",null,
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"Products & Manuals"),
+      React.createElement("div",null),
       React.createElement("button",{onClick:function(){setAddingCat(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add category")
     ),
     React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Everything you own and its manuals — no more digging through drawers."),
@@ -5393,6 +5393,7 @@ function HomeSystemsSection() {
     return React.createElement("button",{onClick:function(){setSysTab(id);},style:{flex:1,background:active?"rgba(200,169,122,0.15)":"transparent",color:active?HGOLD:"rgba(250,248,244,0.5)",border:"0.5px solid "+(active?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"8px 0",fontSize:12.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label);
   }
   return React.createElement("div",null,
+    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE,marginBottom:12}},"Home Systems"),
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16}}, tabBtn("maintenance","Maintenance"), tabBtn("products","Products")),
     sysTab==="products" ? React.createElement(ProductsPanel,null) : React.createElement(MaintenancePanel,null)
   );
@@ -5441,7 +5442,7 @@ function MaintenancePanel() {
   return React.createElement("div",null,
     // header
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"Home Systems"),
+      React.createElement("div",null),
       React.createElement("button",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add system")
     ),
     React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Track maintenance schedules for every part of your home"),
