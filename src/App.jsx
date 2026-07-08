@@ -6675,6 +6675,7 @@ Respond ONLY in valid JSON:
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
     const [showRecipes,setShowRecipes]=useState(false);
+    const [recipeAZ,setRecipeAZ]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
@@ -6826,10 +6827,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{...card({border:`2px solid ${T.sand}50`,background:`linear-gradient(135deg,${T.sandPale},${T.surface})`})}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
                   <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>
-                  <button onClick={()=>setShowRecipeImport(true)} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>+ Import</button>
+                  <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
+                    {recipes.length>1&&<button onClick={()=>setRecipeAZ(v=>!v)} style={btnS({fontSize:"0.7rem",padding:"0.24rem 0.55rem"})}>{recipeAZ?"A–Z ✓":"A–Z"}</button>}
+                    <button onClick={()=>setShowRecipeImport(true)} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>+ Import</button>
+                  </div>
                 </div>
                 {recipes.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontWeight:600,textAlign:"center"}}>No recipes yet — import from a URL or add manually.</p>}
-                {recipes.map(r=>(
+                {(recipeAZ?recipes.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}):recipes).map(r=>(
                   <div key={r.id} style={{padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div>
