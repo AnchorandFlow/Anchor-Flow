@@ -6132,14 +6132,14 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontFamily: "DM Sans,sans-serif", fontSize: 13, fontWeight: 700, color: "#faf8f4" }}>{label}</div>
+              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.01em" }}>{label}</div>
               {summary.count > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.7)", background: "rgba(200,169,122,0.1)", borderRadius: 20, padding: "1px 7px" }}>{summary.count}</div>}
             </div>
             {summary.highlight && (
               <div style={{ fontSize: 12, color: "rgba(250,248,244,0.6)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.highlight}</div>
             )}
             {!summary.highlight && (
-              <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", marginTop: 2, fontStyle: "italic" }}>Nothing added yet</div>
+              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 13, color: "rgba(250,248,244,0.4)", marginTop: 3, fontStyle: "italic" }}>Nothing added yet</div>
             )}
           </div>
           <div style={{ flexShrink: 0, textAlign: "right", marginRight: 8 }}>
@@ -6316,9 +6316,8 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         {shopMsg && <div style={{ fontSize: 11, color: "#9ed4be", marginTop: 7, fontStyle: "italic" }}>{shopMsg}</div>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{leftCards.map(renderCard)}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{rightCards.map(renderCard)}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, alignItems: "start" }}>
+        {leftCards.concat(rightCards).map(renderCard)}
       </div>
     </div>
   )
