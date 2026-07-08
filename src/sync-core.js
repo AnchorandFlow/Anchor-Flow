@@ -128,7 +128,10 @@ export function sanitizeHouseholdData(data) {
      // Vault arrays
      "recurring","celebrations","gifts","inventory","pets","houseFile",
      "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
-     "moments","subs","vaultSystems","packing_templates"
+     "moments","subs","vaultSystems","packing_templates",
+     // coveData: array of per-kid records ({kidId, chores:[], treasures:[]}). Array rule
+     // added — was previously dropped (object-only passthrough rejects arrays).
+     "coveData"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
@@ -176,7 +179,7 @@ export function sanitizeHouseholdData(data) {
     });
     // Objects: pass through if valid (non-null object)
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
-     "coveData","schoolData","cove_items_v1","notifSettings","sections",
+     "schoolData","cove_items_v1","notifSettings","sections",
      "calColorLabels","connectedCals","exhale_labels",
      "health","career","travel_profile"
     ].forEach(k => {
