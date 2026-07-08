@@ -11464,9 +11464,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <span style={{fontSize:"1.2rem",flexShrink:0}}>🔄</span>
           <div style={{flex:1,fontSize:"0.82rem",fontWeight:500,fontFamily:"'DM Sans',sans-serif"}}>App update ready</div>
           <button onClick={function(){
-            if (swRegRef.current && swRegRef.current.waiting) {
-              swRegRef.current.waiting.postMessage({type:"SKIP_WAITING"});
-            }
+            var didReload = false;
+            function forceReload(){ if(!didReload){ didReload = true; try{ window.location.reload(); }catch(e){} } }
+            try {
+              var reg = swRegRef.current;
+              if (reg && reg.waiting) {
+                reg.waiting.postMessage({type:"SKIP_WAITING"});
+                setTimeout(forceReload, 1500); // controllerchange should reload; fall back if it doesn't
+              } else if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+                // ref went stale — re-query for a waiting worker
+                navigator.serviceWorker.getRegistration().then(function(r){
+                  if (r && r.waiting) { r.waiting.postMessage({type:"SKIP_WAITING"}); setTimeout(forceReload, 1500); }
+                  else { forceReload(); }
+                }).catch(forceReload);
+              } else {
+                forceReload();
+              }
+            } catch(e) { forceReload(); }
           }} style={{background:"rgba(200,169,122,0.25)",border:"1px solid rgba(200,169,122,0.5)",borderRadius:"0.5rem",color:"#c8a97a",fontSize:"0.75rem",fontWeight:700,padding:"0.3rem 0.7rem",cursor:"pointer",fontFamily:"inherit",flexShrink:0,minHeight:36,minWidth:36}}>Refresh Now</button>
           <span onClick={function(){setStaleBanner(false);}} style={{fontSize:"0.75rem",opacity:0.5,cursor:"pointer",flexShrink:0,padding:"0.25rem"}}>✕</span>
         </div>
