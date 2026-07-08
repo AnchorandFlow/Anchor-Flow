@@ -3195,6 +3195,8 @@ function createLocalBackup() {
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
   React.useEffect(function(){ var h = function(){ setShowEndOfDay(true); }; window.addEventListener("af-open-sunset", h); return function(){ window.removeEventListener("af-open-sunset", h); }; }, []);
+  const [appCelebrate,setAppCelebrate]            = useState(null);
+  React.useEffect(function(){ var h = function(e){ setAppCelebrate((e && e.detail) ? e.detail : {}); }; window.addEventListener("af-celebrate", h); return function(){ window.removeEventListener("af-celebrate", h); }; }, []);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
   const [dayClosed,setDayClosed]                   = useSaved(_dayClosedKey, false);
   // Personal anchor items — per user, stored separately so each person has their own morning checklist
@@ -8468,6 +8470,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       updateKid({shells: kid.shells - t.cost});
       setClaimed(t);
       setSelectedTreasure(null);
+      window.dispatchEvent(new CustomEvent("af-celebrate", { detail: { heading: "Prize claimed!", title: t.name, message: ((kid && kid.kidName) ? kid.kidName + ", enjoy your reward! " : "Enjoy your reward! ") + "You earned it." } }));
     }
 
     function closeChest() {
@@ -9577,9 +9580,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {pieces}
         <div style={{ position: "relative", background: "#FDFBF5", borderRadius: "1.4rem", padding: "2rem 2.2rem", textAlign: "center", maxWidth: "340px", margin: "0 1.5rem", boxShadow: "0 20px 60px rgba(24,43,69,0.35)", animation: "afPop 0.5s ease-out both" }}>
           <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>🎉</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.7rem", fontWeight: 700, color: "#182B45", marginBottom: "0.35rem" }}>Goal reached!</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.7rem", fontWeight: 700, color: "#182B45", marginBottom: "0.35rem" }}>{data.heading || "Goal reached!"}</div>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.15rem", fontStyle: "italic", color: "#B08C3D", marginBottom: "0.9rem" }}>{data.title}</div>
-          <div style={{ fontSize: "0.86rem", color: "#5a6b7a", fontFamily: "DM Sans, sans-serif", lineHeight: 1.5 }}>{data.who ? data.who + ", you did it! " : "You did it! "}Every bit of effort added up.</div>
+          <div style={{ fontSize: "0.86rem", color: "#5a6b7a", fontFamily: "DM Sans, sans-serif", lineHeight: 1.5 }}>{data.message || ((data.who ? data.who + ", you did it! " : "You did it! ") + "Every bit of effort added up.")}</div>
           <button onClick={props.onClose} style={{ marginTop: "1.2rem", background: "#182B45", color: "#fff", border: "none", borderRadius: "2rem", padding: "0.55rem 1.7rem", fontSize: "0.85rem", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Celebrate 🎊</button>
         </div>
       </div>
@@ -9605,7 +9608,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [breakMode, setBreakMode] = React.useState(null); // null | "summer" | "winter" | "spring"
     var [showBreakGoalModal, setShowBreakGoalModal] = React.useState(false);
     var [breakGoalForm, setBreakGoalForm] = React.useState({ title: "", type: "goal", target: "", unit: "", notes: "" });
-    var [celebrate, setCelebrate] = React.useState(null); // {title, who} when a goal is reached
     var [editingBreakGoal, setEditingBreakGoal] = React.useState(null);
     var [teacherForm, setTeacherForm] = React.useState({ name: "", subject: "", email: "", phone: "", notes: "" });
     var [eventForm, setEventForm] = React.useState({ title: "", date: "", type: "event", notes: "" });
@@ -10567,7 +10569,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                           saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: newProg }) : x; }));
                           var tgt = parseInt(g.target);
                           if (g.target && tgt > 0 && curProg < tgt && newProg >= tgt) {
-                            setCelebrate({ title: g.title, who: (child && child.name) ? child.name : "" });
+                            window.dispatchEvent(new CustomEvent("af-celebrate", { detail: { heading: "Goal reached!", title: g.title, who: (child && child.name) ? child.name : "" } }));
                           }
                         }} style={{ background: breakColor + "22", border: "1px solid " + breakColor + "55", borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", color: breakColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>+</button>
                       </div>
@@ -10638,7 +10640,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div style={{ paddingBottom: "4rem" }}>
-        {celebrate && <Celebration data={celebrate} onClose={function(){ setCelebrate(null); }} />}
         {showTypeModal && <TypePicker />}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
@@ -11604,6 +11605,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {/* AI accessible from header button */}
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)}/>}
       {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = preferredName || (authUser && authUser.displayName ? authUser.displayName.split(" ")[0] : null); setDayClosed(closerName || true); }}/>}
+      {appCelebrate && <Celebration data={appCelebrate} onClose={function(){ setAppCelebrate(null); }} />}
       {showBriefing&&<DailyBriefingModal onClose={()=>setShowBriefing(false)}/>}
       {showSetPassword&&resetToken&&<SetPasswordModal/>
       }
@@ -11825,7 +11827,7 @@ function FlowWrapper({ onHome, onSignOut }) {
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
       { id: "tidepool", label: "Tide Pool",     emoji: "🏝️" },
-      { id: "school",   label: "Lighthouse",    emoji: "🏮" },
+      { id: "school",   label: "Lighthouse",    emoji: "📖" },
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       { id: "meals", label: "Meals", emoji: "🍽️" },
