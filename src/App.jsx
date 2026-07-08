@@ -7485,6 +7485,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[newCatName,setNewCatName]=useState("");
     const[editingCategories,setEditingCategories]=useState(false);
     const[collapsedCats,setCollapsedCats]=useState({});
+    const[shopAZ,setShopAZ]=useState(false);
+    function shopSort(list){ return shopAZ?list.slice().sort(function(a,b){return (a.text||"").localeCompare(b.text||"");}):list; }
     const[collapsedStores,setCollapsedStores2]=useState({});
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
@@ -7719,6 +7721,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={autoCategorize} disabled={isAutoCategorizing} style={{background:isAutoCategorizing?"#ccc":"#3a6b8a",color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:isAutoCategorizing?"wait":"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.4rem",opacity:isAutoCategorizing?0.7:1,transition:"all 0.15s"}}>
               <span style={{fontSize:"1rem"}}>✨</span>{isAutoCategorizing?"Sorting…":"Auto-sort"}
             </button>
+            <button onClick={function(){setShopAZ(function(v){return !v;});}} style={{background:shopAZ?T.sand:"transparent",color:shopAZ?"#fff":T.textMid,border:"2px solid "+(shopAZ?T.sand:T.border),borderRadius:"0.7rem",padding:"0.5rem 0.9rem",cursor:"pointer",fontSize:"0.8rem",fontWeight:700,fontFamily:"inherit"}}>A–Z</button>
             <input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{display:"none"}}/>
           </div>
           {(voiceStatus||photoStatus||autoCatStatus)&&(
@@ -7804,7 +7807,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       Object.keys(grouped).forEach(function(k){if(k!==uncatKey&&!orderedCats.includes(k))orderedCats.push(k);});
                       if(grouped[uncatKey]&&grouped[uncatKey].length>0)orderedCats.push(uncatKey);
                       return orderedCats.map(function(cat){
-                        var catItems=grouped[cat]||[];
+                        var catItems=shopSort(grouped[cat]||[]);
                         var isUncat=cat===uncatKey;
                         var catColKey=st.id+"__"+cat;
                         var isCatCollapsed=!!collapsedCats[catColKey];
@@ -7838,7 +7841,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       });
                     })() : (
                       <div style={{padding:"0 1rem"}}>
-                        {storeItems.map(function(item){
+                        {shopSort(storeItems).map(function(item){
                           return(
                             <ShopItemRow key={item.id} item={item}
                               onToggle={handleToggle}
@@ -8948,6 +8951,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [coveItemsMap, setCoveItemsMap] = useSaved("cove_items_v1", {});
     var [coveSectionsMap, setCoveSectionsMap] = useSaved("cove_sections_v1", {});
     var [coveNotes, setCoveNotes] = useSaved("cove_notes_v1", []);
+    var [coveNotesAZ, setCoveNotesAZ] = React.useState(false);
     var [catFilter, setCatFilter] = useState("all");
     var [coveTab, setCoveTab] = useState("lists"); // "lists" | "notes"
     var [activeNoteId, setActiveNoteId] = useState(null);
@@ -9068,7 +9072,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {coveNotes.map(function(note){
+                {coveNotes.length>1&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:2}}><button onClick={function(){setCoveNotesAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveNotesAZ?"A–Z ✓":"A–Z"}</button></div>}
+                {(coveNotesAZ?coveNotes.slice().sort(function(a,b){return (a.title||a.body||"").localeCompare(b.title||b.body||"");}):coveNotes).map(function(note){
                   var preview=(note.body||"").replace(/\n/g," ").trim().slice(0,90);
                   return(
                     <div key={note.id} onClick={function(){setActiveNoteId(note.id);}}
