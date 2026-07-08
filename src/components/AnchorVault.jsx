@@ -5286,6 +5286,7 @@ function ProductsPanel() {
   var s_catName=useState(""); var catName=s_catName[0]; var setCatName=s_catName[1];
   var s_modal=useState(null); var modal=s_modal[0]; var setModal=s_modal[1]; // {catId, itemId|null}
   var s_form=useState({name:"",link:"",purchasedAt:"",warranty:false,warrantyNote:"",notes:""}); var form=s_form[0]; var setForm=s_form[1];
+  var s_sortAZ=useState(false); var sortAZ=s_sortAZ[0]; var setSortAZ=s_sortAZ[1];
 
   // Keep in sync with edits from other devices
   React.useEffect(function(){ var h=function(){ setCats(prodLoad()); }; window.addEventListener("af-data-changed",h); return function(){ window.removeEventListener("af-data-changed",h); }; },[]);
@@ -5315,7 +5316,7 @@ function ProductsPanel() {
 
   return React.createElement("div",null,
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-      React.createElement("div",null),
+      React.createElement("button",{onClick:function(){setSortAZ(!sortAZ);},style:{fontSize:11,color:sortAZ?HGOLD:"rgba(250,248,244,0.5)",background:sortAZ?"rgba(200,169,122,0.12)":"transparent",border:"0.5px solid "+(sortAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"),borderRadius:7,padding:"5px 11px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},sortAZ?"A–Z ✓":"A–Z"),
       React.createElement("button",{onClick:function(){setAddingCat(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"+ Add category")
     ),
     React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Everything you own and its manuals — no more digging through drawers."),
@@ -5331,6 +5332,7 @@ function ProductsPanel() {
     ),
     cats.map(function(cat){
       var isOpen=expanded===cat.id; var items=cat.items||[];
+      if(sortAZ) items=items.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");});
       return React.createElement("div",{key:cat.id,style:{background:SURF,border:HBORD,borderRadius:12,marginBottom:10,overflow:"hidden"}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"},onClick:function(){setExpanded(isOpen?null:cat.id);}},
           React.createElement("span",{style:{fontSize:13,color:"rgba(250,248,244,0.4)",transition:"transform 0.2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"›"),
