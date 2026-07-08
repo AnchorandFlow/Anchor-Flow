@@ -1003,6 +1003,8 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   var [newChorePts,setNewChorePts]=useState(1);
   var [newTreasureName,setNewTreasureName]=useState("");
   var [newTreasureCost,setNewTreasureCost]=useState("");
+  var [editChoreId,setEditChoreId]=useState(null);
+  var [editTreasureId,setEditTreasureId]=useState(null);
   var [settingsOpen,setSettingsOpen]=useState({tidepool:false});
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){var current=key in p?p[key]:(defaultOpen||false);return Object.assign({},p,{[key]:!current});});
@@ -1067,7 +1069,8 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                       </div>
                       <span style={{flex:1,color:ch.done?T.textFaint:T.textDark,textDecoration:ch.done?"line-through":"none",transition:"all 0.15s"}}>{ch.name}</span>
                       <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{ch.pts} 🐚</span>
-                      <button onClick={function(e){e.stopPropagation();updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                      <button onClick={function(e){e.stopPropagation();setNewChoreName(ch.name);setNewChorePts(ch.pts||1);setEditChoreId(ch.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textMid,fontSize:"0.82rem",padding:"0 2px"}}>✎</button>
+                      <button onClick={function(e){e.stopPropagation();updateSaved({chores:sKidData.chores.filter(function(c){return c.id!==ch.id;})});if(editChoreId===ch.id){setEditChoreId(null);setNewChoreName("");}}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
                     </div>
                   );
                 })}
@@ -1076,11 +1079,11 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                     onFocus={function(){AF_DEBUG&&console.log("[AF INPUT FOCUS] tidepool-chore");}}
                     onBlur={function(){AF_DEBUG&&console.log("[AF INPUT BLUR] tidepool-chore");}}
                     onChange={function(e){AF_DEBUG&&console.log("[AF INPUT CHANGE] tidepool-chore",e.target.value);setNewChoreName(e.target.value);}}
-                    onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} placeholder="New chore…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
+                    onKeyDown={function(e){if(e.key==="Enter"&&newChoreName.trim()){if(editChoreId){updateSaved({chores:(sKidData.chores||[]).map(function(c){return c.id===editChoreId?Object.assign({},c,{name:newChoreName.trim(),pts:newChorePts}):c;})});setEditChoreId(null);}else{updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});}setNewChoreName("");}}} placeholder={editChoreId?"Edit chore…":"New chore…"} style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
                   <select value={newChorePts} onChange={function(e){setNewChorePts(parseInt(e.target.value));}} style={{...inp({width:74,padding:"0.38rem 0.4rem",fontSize:"0.8rem"})}}>
                     <option value={1}>1 🐚</option><option value={2}>2 🐚</option><option value={3}>3 🐚</option>
                   </select>
-                  <button onClick={function(){if(newChoreName.trim()){updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
+                  <button onClick={function(){if(newChoreName.trim()){if(editChoreId){updateSaved({chores:(sKidData.chores||[]).map(function(c){return c.id===editChoreId?Object.assign({},c,{name:newChoreName.trim(),pts:newChorePts}):c;})});setEditChoreId(null);}else{updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});}setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>{editChoreId?"Save":"Add"}</button>
                 </div>
                 {(function(){
                   var siblings=(saved||[]).filter(function(d){return d.kidId!==sKid.id&&d.chores&&d.chores.length>0;});
@@ -1113,14 +1116,15 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                       <span style={{fontSize:"1.05rem"}}>{t.icon}</span>
                       <span style={{flex:1,color:T.textDark}}>{t.name}</span>
                       <span style={{color:T.textSoft,fontSize:"0.76rem"}}>{t.cost} 🐚</span>
-                      <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
+                      <button onClick={function(){setNewTreasureName(t.name);setNewTreasureCost(String(t.cost));setEditTreasureId(t.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textMid,fontSize:"0.82rem",padding:"0 2px"}}>✎</button>
+                      <button onClick={function(){updateSaved({treasures:(sKidData.treasures||[]).filter(function(x){return x.id!==t.id;})});if(editTreasureId===t.id){setEditTreasureId(null);setNewTreasureName("");setNewTreasureCost("");}}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.9rem",padding:"0 2px"}}>✕</button>
                     </div>
                   );
                 })}
                 <div style={{display:"flex",gap:"0.4rem",marginTop:"0.45rem"}}>
                   <input value={newTreasureName} onChange={function(e){setNewTreasureName(e.target.value);}} placeholder="New treasure…" style={{...inp({flex:1,fontSize:"0.8rem",padding:"0.38rem 0.6rem"})}}/>
                   <input value={newTreasureCost} onChange={function(e){setNewTreasureCost(e.target.value);}} type="number" min="1" max="99" placeholder="🐚" style={{...inp({width:58,fontSize:"0.8rem",padding:"0.38rem 0.4rem"})}}/>
-                  <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>Add</button>
+                  <button onClick={function(){var cost=parseInt(newTreasureCost);if(!newTreasureName.trim()||!cost||cost<1)return;if(editTreasureId){updateSaved({treasures:(sKidData.treasures||[]).map(function(x){return x.id===editTreasureId?Object.assign({},x,{name:newTreasureName.trim(),cost:cost}):x;})});setEditTreasureId(null);}else{var icon=TREASURE_ICONS[(sKidData.treasures||[]).length%TREASURE_ICONS.length];updateSaved({treasures:[...(sKidData.treasures||[]),{id:uid(),name:newTreasureName.trim(),icon,cost}]});}setNewTreasureName("");setNewTreasureCost("");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>{editTreasureId?"Save":"Add"}</button>
                 </div>
                 {rawKids.length>1&&(
                   <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
