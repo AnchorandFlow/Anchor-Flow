@@ -6126,28 +6126,26 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     var bgColor = "rgba(250,242,229,0.04)"
 
     return (
-      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 16, marginBottom: 0, overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 16, marginBottom: 12, breakInside: "avoid", WebkitColumnBreakInside: "avoid", overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         {/* Header — always visible */}
-        <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", cursor: "pointer" }}>
-          <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.01em" }}>{label}</div>
-              {summary.count > 0 && <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.7)", background: "rgba(200,169,122,0.1)", borderRadius: 20, padding: "1px 7px" }}>{summary.count}</div>}
-            </div>
-            {summary.highlight && (
-              <div style={{ fontSize: 12, color: "rgba(250,248,244,0.6)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.highlight}</div>
-            )}
-            {!summary.highlight && (
-              <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 13, color: "rgba(250,248,244,0.4)", marginTop: 3, fontStyle: "italic" }}>Nothing added yet</div>
-            )}
+        <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ padding: "13px 16px", cursor: "pointer" }}>
+          {/* Title row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+            <div style={{ flex: 1, minWidth: 0, fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.01em", lineHeight: 1.15 }}>{label}</div>
+            {summary.count > 0 && <div style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.7)", background: "rgba(200,169,122,0.1)", borderRadius: 20, padding: "1px 7px" }}>{summary.count}</div>}
+            <span style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
           </div>
-          <div style={{ flexShrink: 0, textAlign: "right", marginRight: 8 }}>
+          {/* Summary line(s) — full width, aligned under the title */}
+          <div style={{ paddingLeft: 30, marginTop: 4 }}>
+            {summary.highlight
+              ? <div style={{ fontSize: 12, color: "rgba(250,248,244,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.highlight}</div>
+              : <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 13, color: "rgba(250,248,244,0.4)", fontStyle: "italic" }}>Nothing added yet</div>
+            }
             {summary.countdown && summary.count > 0 && (
-              <div style={{ fontSize: 11, fontWeight: 700, color: hasAlert ? "#c8834a" : "#c8a97a", whiteSpace: "nowrap" }}>{summary.countdown}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: hasAlert ? "#c8834a" : "#c8a97a", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.countdown}</div>
             )}
           </div>
-          <span style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
         </div>
 
         {/* Expanded content */}
@@ -6316,7 +6314,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         {shopMsg && <div style={{ fontSize: 11, color: "#9ed4be", marginTop: 7, fontStyle: "italic" }}>{shopMsg}</div>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, alignItems: "start" }}>
+      <div style={{ columnWidth: 260, columnGap: 12 }}>
         {leftCards.concat(rightCards).map(renderCard)}
       </div>
     </div>
