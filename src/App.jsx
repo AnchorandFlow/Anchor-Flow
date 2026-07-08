@@ -2346,6 +2346,30 @@ function createLocalBackup() {
     }
   }
 
+ // Applies remote household keys to localStorage and returns true iff ANY key's
+  // stored value actually changed. Callers use this to skip a full-page reload when
+  // a pull brought nothing new — the dominant case in steady-state polling and in
+  // own-push echoes, and the cause of the constant reflicker/jumping when two
+  // devices are active. Genuine remote changes still flip `changed` → caller reloads.
+  // Interim mitigation until pulls can update React state in place without reload.
+  function _applyHouseholdKeysDetectChange(clean, opts) {
+    opts = opts || {};
+    var arrayKeys = opts.arrayKeys || null;
+    var skip = opts.skip || null;
+    var changed = false;
+    SYNC_KEYS.forEach(function(k) {
+      if (clean[k] === undefined) return;
+      if (skip && skip(k)) return;
+      if (arrayKeys && arrayKeys.indexOf(k) !== -1 && !Array.isArray(clean[k])) return;
+      var before = null, after = null;
+      try { before = localStorage.getItem("af_" + k); } catch (_e) {}
+      applyHouseholdKey(k, clean[k]);
+      try { after = localStorage.getItem("af_" + k); } catch (_e) {}
+      if (before !== after) changed = true;
+    });
+    return changed;
+  }
+
  async function pullHouseholdData(token) {
     if (!token) return;
     const storedHid = (() => { try { return JSON.parse(localStorage.getItem("af_householdId")||"null"); } catch { return null; } })();
@@ -2360,15 +2384,13 @@ function createLocalBackup() {
     createLocalBackup();
     setHouseholdId(row.id); // always trust Supabase over stale localStorage
     const clean1 = sanitizeHouseholdData(row.data);
-    SYNC_KEYS.forEach(k => {
-      if (clean1[k] !== undefined) {
-        applyHouseholdKey(k, clean1[k]);
-      }
-    });
+    const _changed1 = _applyHouseholdKeysDetectChange(clean1, {});
     // Stamp lastHHSync to the version we just applied — otherwise the next stale-check
     // sees server > lastHHSync again and pulls+reloads forever (the blink loop).
     try { if (row.updated_at) localStorage.setItem("af_lastHHSync", row.updated_at); } catch (e) {}
-    window.location.reload();
+    // Only reload if the pull actually changed local data. A bumped updated_at with
+    // identical data (own echo / steady-state) no longer forces a reflicker.
+    if (_changed1) window.location.reload();
   }
 
   async function joinHousehold(token, joinCode) {
@@ -2443,12 +2465,9 @@ function createLocalBackup() {
         "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
         "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
         "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
-      SYNC_KEYS.forEach(k => {
-        if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
-        if (clean[k] !== undefined) {
-          if (_ARRAY_KEYS.includes(k) && !Array.isArray(clean[k])) return;
-          applyHouseholdKey(k, clean[k]);
-        }
+      const _changed = _applyHouseholdKeysDetectChange(clean, {
+        arrayKeys: _ARRAY_KEYS,
+        skip: function(k){ return k === "mealsWeekOf" && localWeekOf === getThisMonday(); }
       });
       // serverTs is the value the DB returned — store it directly. A confirm-GET re-read
       // can return a stale pooled/replica value, creating a phantom diff on the next poll.
@@ -2458,8 +2477,10 @@ function createLocalBackup() {
       // should push on the next sync cycle — now that af_lastHHSync === serverTs the guard
       // passes. Clearing them was the bug that left devices permanently unable to push:
       // any edit marked dirty before the pull was silently destroyed.
-      AF_DEBUG && console.warn("[AF PULL] RELOADING");
-      window.location.reload();
+      // Only reload if the pull actually changed local data — otherwise a bumped
+      // updated_at with identical data would reflicker the screen for nothing.
+      if (_changed) { AF_DEBUG && console.warn("[AF PULL] RELOADING (local data changed)"); window.location.reload(); }
+      else { AF_DEBUG && console.warn("[AF PULL] no local change — skipping reload"); }
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
   }
 
@@ -2484,12 +2505,7 @@ function createLocalBackup() {
                 "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
                 "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
                 "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
-          SYNC_KEYS.forEach(k => {
-            if (clean[k] !== undefined) {
-              if (_AK3.includes(k) && !Array.isArray(clean[k])) return;
-              applyHouseholdKey(k, clean[k]);
-            }
-          });
+          const _changed = _applyHouseholdKeysDetectChange(clean, { arrayKeys: _AK3 });
           try { localStorage.setItem("af_lastHHSync", rows[0].updated_at || Date.now().toString()); } catch {}
           sessionStorage.removeItem("af_synced_this_session");
           // Never reload if user is actively typing or typed in the last 15s
@@ -2497,7 +2513,11 @@ function createLocalBackup() {
           const isTyping2 = activeEl2 && (activeEl2.tagName === "INPUT" || activeEl2.tagName === "TEXTAREA");
           const typedRecently2 = (Date.now() - lastTypedRef.current) < 15000;
           if (isTyping2 || typedRecently2) { setSyncStatus("synced"); return; }
-          window.location.reload();
+          // Only reload if the pull actually changed local data. Kills the constant
+          // reload loop where each device's push bumped updated_at but the returned
+          // blob was identical to what this device already had.
+          if (_changed) { window.location.reload(); return; }
+          setSyncStatus("synced");
           return;
         }
       }
