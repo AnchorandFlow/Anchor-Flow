@@ -58,7 +58,10 @@ export const SYNC_KEYS = [
   "monthMeals","af_nwMealCount",
   // Safe Harbor — household emergency plan (SH-2b). Merge-on-receive via
   // applyHouseholdKey; never naive last-write-wins. See mergeSafeHarbor.
-  "safe_harbor"];
+  "safe_harbor",
+  // Owned products / manuals tracker (Home Systems -> Products). Array of
+  // { id, name, items:[{id,name,link,purchasedAt,warranty,warrantyNote,notes}] }.
+  "ownedProducts"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -126,7 +129,9 @@ export function sanitizeHouseholdData(data) {
      "moments","subs","vaultSystems","packing_templates",
      // coveData: array of per-kid records ({kidId, chores:[], treasures:[]}). Array rule
      // added — was previously dropped (object-only passthrough rejects arrays).
-     "coveData"
+     "coveData",
+     // ownedProducts: array of product categories, each with an items array.
+     "ownedProducts"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
