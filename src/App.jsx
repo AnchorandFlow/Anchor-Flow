@@ -1390,7 +1390,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         <div style={{paddingTop:"0.75rem"}}>
           <div style={{paddingBottom:"0.65rem",borderBottom:"1px solid "+T.borderSoft,marginBottom:"0.1rem"}}>
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>How many meals do you plan each day?</div>
-            <Pills options={[{value:1,label:"Dinner only",emoji:"🌙"},{value:2,label:"Lunch + Dinner",emoji:"☀️"},{value:3,label:"All 3 meals",emoji:"🌅"}]} value={mealCount} onChange={setMealCount} color={T.sage}/>
+            <Pills options={[{value:1,label:"Dinner only"},{value:2,label:"Lunch + Dinner"},{value:3,label:"All 3 meals"}]} value={mealCount} onChange={setMealCount} color={T.sage}/>
           </div>
 
           <Row label="Go-to dinners" sub="Your family's favourite meals — separate with commas">
@@ -6807,8 +6807,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div>
             <div style={{...card({padding:"0.85rem 1rem",background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.85rem"})}}>
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
-                {[{v:1,label:"Dinner Only",emoji:"🌙"},{v:2,label:"Lunch + Dinner",emoji:"☀️🌙"},{v:3,label:"All 3 Meals",emoji:"🌅☀️🌙"}].map(o=>(
-                  <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?T.sage:T.white,color:mealCount===o.v?"#fff":T.textMid,border:`2px solid ${mealCount===o.v?T.sage:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.emoji} {o.label}</button>
+                {[{v:1,label:"Dinner Only"},{v:2,label:"Lunch + Dinner"},{v:3,label:"All 3 Meals"}].map(o=>(
+                  <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?T.sage:T.white,color:mealCount===o.v?"#fff":T.textMid,border:`2px solid ${mealCount===o.v?T.sage:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
                 ))}
               </div>
 
@@ -6896,8 +6896,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
               <p style={{color:T.textSoft,fontSize:"0.8rem",marginBottom:"0.75rem",lineHeight:1.55}}>Fill in your meals ahead of time. Hit "Apply" when ready to load them into This Week.</p>
               <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.7rem"}}>
-                {[{v:1,label:"Dinner Only",emoji:"🌙"},{v:2,label:"Lunch + Dinner",emoji:"☀️🌙"},{v:3,label:"All 3 Meals",emoji:"🌅☀️🌙"}].map(o=>(
-                  <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={{background:nextWeekMealCount===o.v?T.blue:T.white,color:nextWeekMealCount===o.v?"#fff":T.textMid,border:`2px solid ${nextWeekMealCount===o.v?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.emoji} {o.label}</button>
+                {[{v:1,label:"Dinner Only"},{v:2,label:"Lunch + Dinner"},{v:3,label:"All 3 Meals"}].map(o=>(
+                  <button key={o.v} onClick={()=>setNextWeekMealCount(o.v)} style={{background:nextWeekMealCount===o.v?T.blue:T.white,color:nextWeekMealCount===o.v?"#fff":T.textMid,border:`2px solid ${nextWeekMealCount===o.v?T.blue:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
                 ))}
               </div>
                 </div>
