@@ -8342,27 +8342,44 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   _hfRenders.TidePoolTab = function TidePoolTab() {
-    var rawKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||personIsMinor(p); });
-    if(rawKids.length===0) rawKids = [{id:"k1",name:"Child 1",color:"#c8a97a"}];
+    var realKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||personIsMinor(p); });
+    var rosterEmpty = realKids.length===0;
+    // Display-only fallback so the tab renders when the roster hasn't loaded.
+    // NEVER used to rebuild/prune saved coveData — see initializer below.
+    var rawKids = rosterEmpty ? [{id:"k1",name:"Child 1",color:"#c8a97a"}] : realKids;
 
-    // Merge persisted coveData with current people list
+    // Merge persisted coveData with current people list.
+    // Invariant: NEVER drop a saved kid record. Previously this rebuilt the list
+    // as rawKids.map(...), which discarded any saved record whose kidId wasn't in
+    // the current roster — and when af_people was empty, the synthetic fallback
+    // matched nothing, so ALL real chores/treasures were replaced with defaults and
+    // then persisted by the daily-reset/edit setCoveData calls. That was the
+    // chores/treasures-erasing bug.
     var [kids, setKids] = useState(function(){
       var saved = coveData;
       if(!saved||!saved.length) return getDefaultTidePoolData();
-      // Reconcile: keep saved data, add new kids, remove gone kids
-      var merged = rawKids.map(function(p){
-        var existing = saved.find(function(d){ return d.kidId===p.id; });
-        if(existing) return existing;
-        return {kidId:p.id,kidName:p.name,shells:0,chores:[
-          {id:uid(),name:"Make bed",pts:1,done:false},
-          {id:uid(),name:"Clear dishes",pts:1,done:false},
-        ],treasures:[
-          {id:uid(),name:"Extra screen time",icon:"📱",cost:10},
-          {id:uid(),name:"Pick dinner",icon:"🍕",cost:15},
-          {id:uid(),name:"Movie night pick",icon:"🎬",cost:20},
-          {id:uid(),name:"Stay up late",icon:"🌙",cost:25},
-          {id:uid(),name:"Special outing",icon:"🎡",cost:35},
-        ]};
+      // Roster hasn't loaded (using synthetic fallback): do NOT reconcile against a
+      // fake list. Return saved as-is so nothing is dropped.
+      if(rosterEmpty) return saved.slice();
+      // Roster is real: keep ALL saved records in place (orphans included — a saved
+      // record whose kid isn't currently in people is preserved, not pruned), and
+      // append a fresh record only for genuinely new kids.
+      var savedIds = {};
+      saved.forEach(function(d){ if(d && d.kidId) savedIds[d.kidId]=true; });
+      var merged = saved.slice();
+      realKids.forEach(function(p){
+        if(!savedIds[p.id]){
+          merged.push({kidId:p.id,kidName:p.name,shells:0,chores:[
+            {id:uid(),name:"Make bed",pts:1,done:false},
+            {id:uid(),name:"Clear dishes",pts:1,done:false},
+          ],treasures:[
+            {id:uid(),name:"Extra screen time",icon:"📱",cost:10},
+            {id:uid(),name:"Pick dinner",icon:"🍕",cost:15},
+            {id:uid(),name:"Movie night pick",icon:"🎬",cost:20},
+            {id:uid(),name:"Stay up late",icon:"🌙",cost:25},
+            {id:uid(),name:"Special outing",icon:"🎡",cost:35},
+          ]});
+        }
       });
       return merged;
     });
