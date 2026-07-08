@@ -2262,6 +2262,13 @@ function createLocalBackup() {
       AF_DEBUG&&console.log("[AF SAFETY] refused empty cloud push — only", nonNullCount, "non-null keys");
       return;
     }
+    // ── Per-key merge patch ────────────────────────────────────────────────
+    // Send ONLY the keys this device changed. The server merges them into the
+    // existing row (data = data || patch), so a device can never overwrite a key
+    // it didn't touch — two devices editing different things (meals vs chores vs
+    // people) no longer clobber each other. Full whole-blob replace is gone.
+    const mergePatch = {};
+    (dirtyKeys || []).forEach(k => { if (SYNC_KEYS.indexOf(k) !== -1) { try { mergePatch[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} } });
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
@@ -2277,31 +2284,31 @@ function createLocalBackup() {
       // Check if row exists first to decide POST vs PATCH
       const existing = await sbFetch(`/rest/v1/households?id=eq.${hid}&select=id,owner_id&limit=1`, { _token: token });
       if (existing && existing.length > 0) {
-        // Row exists — always PATCH (avoids 409 conflict)
-        if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] SUPABASE_REQUEST_SENT keys="+Object.keys(payload).filter(function(k){return payload[k]!==null;}).join(","));
-        const patchRows = await sbFetch(`/rest/v1/households?id=eq.${hid}`, {
-          method: "PATCH",
+        // Row exists — MERGE only the dirty keys server-side (data = data || patch),
+        // instead of replacing the whole row. This is the two-device clobbering fix.
+        if (Object.keys(mergePatch).length === 0) {
+          // Nothing real changed (dirty keys empty/stale) — nothing to merge.
+          AF_DEBUG&&console.log("[AF SYNC] merge skipped — empty patch");
+          try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {}
+          return;
+        }
+        const patchBody = Object.assign({}, mergePatch, { _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } });
+        if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] SUPABASE_MERGE_SENT keys="+Object.keys(mergePatch).join(","));
+        const rpcResp = await sbFetch("/rest/v1/rpc/merge_household_data", {
+          method: "POST",
           _token: token,
           headers: { "Prefer": "return=representation" },
-          body: JSON.stringify({ data: { ...payload, _meta: { updated_by_device: deviceId, app_version: APP_VERSION, pushed_at: updatedAt } }, updated_at: updatedAt, updated_by: ownerId })
+          body: JSON.stringify({ p_household_id: hid, p_patch: patchBody, p_updated_by: ownerId })
         });
-        if (window.AF_TRACE && opId) {
-          console.log("[AF_TRACE "+opId+"] SUPABASE_RESPONSE_RECEIVED rows="+(patchRows&&patchRows.length));
-          var _eg = patchRows&&patchRows[0]&&patchRows[0].data&&patchRows[0].data.exhale_groups;
-          var _allCards = _eg ? [].concat.apply([], Object.values(_eg)) : [];
-          var _recentCard = _allCards.find(function(c){ return c && c.createdAt && (Date.now()-c.createdAt)<10000; });
-          console.log("[AF_TRACE "+opId+"] SERVER_DATA_CONFIRMED exhale_groups_in_response="+!!_eg+" recent_card_confirmed="+!!_recentCard+(_recentCard?" cardId="+_recentCard.id:""));
-        }
-        // The DB stores exactly the updated_at we send (verified: no trigger, no
-        // rewrite). So we already know the committed server value — it is updatedAt.
-        // No confirm-GET: re-reading could return a stale pooled/replica value,
-        // creating a phantom diff that the stale-push guard reads as a remote
-        // change -> pull -> reload loop. Store the value we sent, directly.
-        try { localStorage.setItem("af_lastPushedAt", updatedAt); } catch {}
-        try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
+        // Server sets updated_at = now() and returns it. Store THAT as our synced
+        // marker so the stale-push guard doesn't read our own write as a remote change.
+        const serverTs = (rpcResp && rpcResp[0] && rpcResp[0].merged_at) ? rpcResp[0].merged_at : updatedAt;
+        if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] SUPABASE_MERGE_DONE serverTs="+serverTs);
+        try { localStorage.setItem("af_lastPushedAt", serverTs); } catch {}
+        try { localStorage.setItem("af_lastHHSync", serverTs); } catch {}
         try { localStorage.setItem("af_lastPushAt", String(Date.now())); } catch {}
-        try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — push succeeded
-        AF_DEBUG&&console.log("[AF SYNC] push success updated_at", updatedAt, "— dirty keys cleared");
+        try { localStorage.setItem("af_dirtyKeys", "[]"); } catch {} // clear dirty — merge succeeded
+        AF_DEBUG&&console.log("[AF SYNC] merge success updated_at", serverTs, "— keys:", Object.keys(mergePatch));
       } else {
         // Row does not exist — INSERT (first time only)
         const insertRows = await sbFetch("/rest/v1/households", {
