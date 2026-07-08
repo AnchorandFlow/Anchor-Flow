@@ -6531,6 +6531,7 @@ function SubscriptionsSection() {
   var [coupons, setCoupons] = React.useState(function() { return load("af_coupons", []) })
   var [perks, setPerks] = React.useState(function() { return load("af_perks", []) })
   var [tab, setTab] = React.useState("subs")
+  var [azSort, setAzSort] = React.useState(false)
   var [modal, setModal] = React.useState(null)
   var [form, setForm] = React.useState({})
   function saveSubs(v) { setSubs(v); persist("af_subs", v) }
@@ -6576,7 +6577,8 @@ function SubscriptionsSection() {
       React.createElement("div", null,
         React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Subscriptions"),
         React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Track what you pay, save & earn")
-      )
+      ),
+      (tab==="subs" && subs.length>1) && React.createElement("button", { onClick: function(){ setAzSort(!azSort) }, style: { fontSize: 11, color: azSort?GOLD:"rgba(250,248,244,0.5)", background: azSort?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(azSort?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" } }, azSort?"A\u2013Z \u2713":"A\u2013Z")
     ),
     React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" } },
       React.createElement("button", { style: tabBtn("subs"), onClick: function() { setTab("subs") } }, "Subscriptions"),
@@ -6594,7 +6596,7 @@ function SubscriptionsSection() {
           React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (monthly*12).toFixed(2))
         )
       ),
-      subs.map(function(s) {
+      (azSort?subs.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}):subs).map(function(s) {
         return React.createElement("div", { key: s.id, style: cardStyle },
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
             React.createElement("div", { style: { flex: 1, minWidth: 0 } },
