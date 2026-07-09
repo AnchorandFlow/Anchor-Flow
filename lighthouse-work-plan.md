@@ -210,7 +210,20 @@ lhChallengeAutoProgress(books, startDate)  // pure, derived — no side effects
 
 ---
 
-## LH-7 — Export/import, a11y, verify, deploy
+## LH-7 — Persistence bug (decision pending)
+
+**Diagnosis:** The stale-push guard in `pushHouseholdData` (App.jsx:~2493) blocks the lighthouse push and calls `pullLatestHouseholdData` instead. That pull does a full overwrite via `applyHouseholdKey` → `localStorage.setItem("af_lighthouse", JSON.stringify(serverVal))` (sync-core.js:64, comment: "no merge hook yet"), then immediately reloads. Any local edits that hadn't yet been pushed to Supabase are silently lost.
+
+**Fix options:**
+
+- **(a) Local-wins guard** — in the pull path, skip `applyHouseholdKey("lighthouse", ...)` when `"lighthouse"` is present in `af_dirtyKeys` (i.e., local has unsent edits). Simple, low-risk, no merge logic needed. Downside: a device with dirty lighthouse edits will never receive another device's lighthouse changes until it successfully pushes first.
+- **(b) Deep merge on receive** — implement a merge hook for the lighthouse key that recursively combines server and local blobs (child by child, day by day) before writing. Correct for multi-device households. Higher complexity; must handle conflicts for every sub-key.
+
+**Decision pending.** Do not touch sync-core.js until one option is chosen.
+
+---
+
+## LH-8 — Export/import, a11y, verify, deploy
 
 - **Export/import guard** for `af_lighthouse` (the piece Safe Harbor SH-2 missed — do not repeat). Add the object-guard block to the import restore handler (template in lighthouse-code-map.md §5).
 - Keyboard focus visible; `prefers-reduced-motion` respected; nav scrolls on mobile.
