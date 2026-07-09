@@ -5290,18 +5290,46 @@ Respond ONLY in valid JSON:
               </div>
               {todayEvents.length===0
                 ?<p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.3rem 0"}}>No events today — open space 🌿</p>
-                :todayEvents.map(e=>(
-                  <AnchorCheckItem
-                    key={e.id} id={e.id}
-                    text={e.title}
-                    checked={checkedCalEvents.includes(e.id)}
-                    onCheck={id=>setCheckedCalEvents(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
-                    color={e.color}
-                    badge={e.time||"all day"}
-                    entityTitle={e.title}
-                    onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}
-                  />
-                ))
+                :(function(){
+                  var nowMin=new Date().getHours()*60+new Date().getMinutes();
+                  var GRACE=60; // minutes past start before a timed event tucks into "Earlier today"
+                  function evtMin(e){ if(!e.time) return null; var pp=e.time.split(":"); return (parseInt(pp[0],10)||0)*60+(parseInt(pp[1],10)||0); }
+                  var upcoming=todayEvents.filter(function(e){ if(checkedCalEvents.includes(e.id)) return true; var mn=evtMin(e); return mn===null||mn+GRACE>nowMin; });
+                  var earlier=todayEvents.filter(function(e){ if(checkedCalEvents.includes(e.id)) return false; var mn=evtMin(e); return mn!==null&&mn+GRACE<=nowMin; });
+                  return(
+                    <>
+                      {upcoming.length===0&&earlier.length>0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.2rem 0"}}>Nothing left on the clock 🌙</p>}
+                      {upcoming.map(function(e){return(
+                        <AnchorCheckItem
+                          key={e.id} id={e.id}
+                          text={e.title}
+                          checked={checkedCalEvents.includes(e.id)}
+                          onCheck={function(id){setCheckedCalEvents(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}}
+                          color={e.color}
+                          badge={e.time||"all day"}
+                          entityTitle={e.title}
+                          onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}
+                        />
+                      );})}
+                      {earlier.length>0&&(
+                        <details style={{marginTop:"0.35rem"}}>
+                          <summary style={{listStyle:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.35rem 0.2rem",color:T.textFaint,fontSize:"0.72rem",fontWeight:600}}>
+                            <span style={{fontSize:"0.8rem"}}>🕓</span> Earlier today · {earlier.length}
+                          </summary>
+                          <div style={{paddingTop:"0.15rem"}}>
+                            {earlier.map(function(e){return(
+                              <div key={e.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.6rem",opacity:0.5}}>
+                                <div style={{width:8,height:8,borderRadius:"50%",background:e.color||T.blue,flexShrink:0}}/>
+                                <span style={{fontSize:"0.8rem",color:T.textDark,flex:1}}>{e.title}</span>
+                                <span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:700}}>{e.time||"all day"}</span>
+                              </div>
+                            );})}
+                          </div>
+                        </details>
+                      )}
+                    </>
+                  );
+                })()
               }
               {todayEvents.some(e=>checkedCalEvents.includes(e.id))&&(
                 <div style={{marginTop:"0.4rem",paddingTop:"0.4rem",borderTop:"1px dashed "+T.borderSoft}}>
