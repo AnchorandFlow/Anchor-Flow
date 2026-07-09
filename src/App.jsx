@@ -5093,6 +5093,17 @@ Respond ONLY in valid JSON:
 
     return (
       <div>
+        {/* ── Mode strip (Calm / Busy / Survival) ── */}
+        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
+          {Object.entries(FM).map(function(entry){
+            var mode=entry[0]; var m=entry[1];
+            var modeLabel=mode==="Smooth"?"Calm":mode;
+            var active=flowMode===mode;
+            return(
+              <button key={mode} onClick={function(){setFlowMode(mode);}} style={{flex:1,background:active?m.color:T.surface,color:active?"#fff":T.textMid,border:"1.5px solid "+(active?m.color:T.border),borderRadius:"2rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {modeLabel}</button>
+            );
+          })}
+        </div>
         {/* ── Hero greeting card ── */}
         <div style={{display:"none",background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
@@ -5167,12 +5178,8 @@ Respond ONLY in valid JSON:
           <RippleNotificationBanner />
         </div>
         {/* ── Ripple Insights ── */}
-        <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
         <CompassFab/>
-        <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
         <DinnerCard/>
-        <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
-        <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
             <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
@@ -5208,7 +5215,7 @@ Respond ONLY in valid JSON:
         )}
 
         {/* ── Expanded day panel ── */}
-        {dayOpen&&!isEvening&&(
+        {!isEvening&&(
           <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
           {incompletePrevTasks.length>0&&(
             <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"50",borderRadius:"1rem",padding:"0.8rem 1rem"}}>
@@ -5655,6 +5662,17 @@ Respond ONLY in valid JSON:
             })()}
           </div>
         )}
+
+        {/* ── For later · Compass notes ── */}
+        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",margin:"1.35rem 0 0.85rem"}}>
+          <div style={{flex:1,height:1,background:T.borderSoft}}/>
+          <span style={{fontSize:"0.66rem",letterSpacing:"0.1em",textTransform:"uppercase",color:T.blueDark||T.blue,fontWeight:800}}>For later</span>
+          <div style={{flex:1,height:1,background:T.borderSoft}}/>
+        </div>
+        <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
+        <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
+        <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
+        <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
 
         {/* ── Evening wind-down panel ── */}
         {dayOpen&&isEvening&&(
