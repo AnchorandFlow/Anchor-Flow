@@ -3088,6 +3088,7 @@ function createLocalBackup() {
   const [weatherLocation,setWeatherLocation]   = useSaved("weatherLocation",null);
   // Birthdays
   const [birthdays,setBirthdays]               = useSaved("birthdays",[]);
+  const [schoolData]                           = useSaved("schoolData",{});
   // Quick Capture
   const [captureOpen,setCaptureOpen]           = useState(false);
   const [captureText,setCaptureText]           = useState("");
@@ -4916,6 +4917,26 @@ Respond ONLY with valid JSON array, no markdown:
       return d===TODAY.getDate()&&(m-1)===TODAY.getMonth()&&y===TODAY.getFullYear();
     }).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
 
+    const schoolDueSoon = (function(){
+      try{
+        var out=[]; var t0=new Date(TODAY); t0.setHours(0,0,0,0);
+        var horizon=new Date(t0); horizon.setDate(horizon.getDate()+2);
+        Object.keys(schoolData||{}).forEach(function(cid){
+          var cd=schoolData[cid]||{};
+          var kidName=(people.find(function(p){return p.id===cid;})||{}).name||"";
+          var pub=(cd.public&&cd.public.calEvents)||[];
+          var les=(cd.homeschool&&cd.homeschool.lessons)||[];
+          pub.concat(les).forEach(function(it){
+            if(!it||!it.date) return;
+            var dd=new Date(it.date+"T00:00:00");
+            if(isNaN(dd.getTime())) return;
+            if(dd>=t0&&dd<=horizon){ out.push({title:it.title||it.subject||"School item", date:it.date, who:kidName, today:dd.getTime()===t0.getTime()}); }
+          });
+        });
+        return out;
+      }catch(e){ return []; }
+    })();
+
     const tmrName2 = (()=>{ const d=new Date(TODAY); d.setDate(d.getDate()+1); return DAY_NAMES[d.getDay()]; })();
     const tmrEvents = calEvents.filter(e=>{
       if(!e.date) return false;
@@ -5333,7 +5354,19 @@ Respond ONLY in valid JSON:
                 );
               })()}
 
-              {/* School / Lighthouse due — placeholder: needs af_lighthouse wired into this scope */}
+              {/* School / Lighthouse due — only when something today or soon */}
+              {schoolDueSoon.length>0&&(
+                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>📖 School</div>
+                  {schoolDueSoon.map(function(s,i){return(
+                    <div key={"sch_"+i} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.32rem 0.5rem"}}>
+                      <span style={{fontSize:"0.8rem",flexShrink:0}}>📖</span>
+                      <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.title}{s.who?" · "+s.who:""}</span>
+                      <span style={{fontSize:"0.68rem",color:T.blueDark,fontWeight:700,flexShrink:0}}>{s.today?"today":"soon"}</span>
+                    </div>
+                  );})}
+                </div>
+              )}
 
               {/* Personal anchors — only if present, no colored box */}
               {personalAnchors.length>0&&(
@@ -5372,6 +5405,7 @@ Respond ONLY in valid JSON:
                   else if(noMealPlanned){ real.push({emoji:"🍽️", text:"Plan tonight's dinner", k:"dinner", onClick:function(){goTab("meals");}}); }
                   var todayStr2=TODAY.toISOString().split("T")[0];
                   notifications.filter(function(n){return !n.fired&&n.date===todayStr2;}).forEach(function(n){ real.push({emoji:"🔔", text:n.entityTitle, k:"n_"+n.id}); });
+                  schoolDueSoon.forEach(function(s){ real.push({emoji:"📖", text:s.title+(s.who?" · "+s.who:""), k:"s_"+s.date+s.title}); });
                   var picks=real.slice(0,3);
                   if(picks.length<3&&aiSuggestions&&aiSuggestions.todos){ for(var i=0;i<aiSuggestions.todos.length&&picks.length<3;i++){ var tv=aiSuggestions.todos[i]; picks.push({emoji:"💭", text:typeof tv==="string"?tv:tv.text, k:"c_"+i, compass:true}); } }
                   return(
@@ -5386,7 +5420,7 @@ Respond ONLY in valid JSON:
                           <div key={p.k} onClick={p.onClick?p.onClick:undefined} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:(T.bluePale||"#dceef0"),borderRadius:"0.8rem",marginBottom:"0.3rem",cursor:p.onClick?"pointer":"default"}}>
                             <span style={{fontSize:"0.95rem",flexShrink:0}}>{p.emoji}</span>
                             <span style={{flex:1,fontSize:"0.88rem",fontWeight:600,color:T.textDark,lineHeight:1.3}}>{p.text}</span>
-                            {p.compass&&<span style={{fontSize:"0.58rem",color:T.lavender,fontWeight:800,background:T.lavender+"20",borderRadius:"2rem",padding:"1px 6px",flexShrink:0}}>Compass</span>}
+                            {p.compass&&<span style={{fontSize:"0.62rem",color:T.textFaint,fontWeight:600,fontStyle:"italic",flexShrink:0}}>idea</span>}
                           </div>
                         );})}
                     </div>
