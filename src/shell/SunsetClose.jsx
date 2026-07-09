@@ -76,6 +76,9 @@ export default function SunsetClose(props) {
 
       <div style={{ background: "rgba(36,54,77,.82)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(230,165,126,.2)", borderRadius: 20, padding: "28px 26px", maxWidth: 430, width: "92%", margin: "20px auto", position: "relative" }}>
 
+        {/* Close — always-visible escape so the flow never feels trapping */}
+        <button onClick={props.onClose} aria-label="Close" style={{ position: "absolute", top: 12, right: 14, background: "rgba(233,220,203,.12)", border: "1px solid rgba(230,165,126,.25)", color: "#E9DCCB", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: ".95rem", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, padding: 0 }}>✕</button>
+
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 22 }}>
           <div style={{ fontSize: "1.8rem", marginBottom: 8 }}>🌇</div>
