@@ -4,7 +4,6 @@ import ExhaleSection from './components/ExhaleSection.jsx';
 import { askFamily } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
-import DinnerCard from "./shell/DinnerCard";
 import NudgeStrip from "./shell/NudgeStrip";
 import WeeklyReviewCard from "./shell/WeeklyReviewCard";
 import PrepCard from "./shell/PrepCard";
@@ -5093,6 +5092,20 @@ Respond ONLY in valid JSON:
 
     return (
       <div>
+        {/* ── Good morning banner (date · weather · greeting) ── */}
+        <div style={{marginBottom:"0.85rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.25rem"}}>
+            <span style={{fontSize:"0.62rem",color:T.sandDark,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</span>
+            {(function(){
+              var w=weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];});
+              if(w) return(<span style={{display:"flex",alignItems:"center",gap:"0.3rem",background:(T.bluePale||T.surface),borderRadius:"50px",padding:"1px 8px"}}><span style={{fontSize:"0.8rem"}}>{w.emoji}</span><span style={{fontSize:"0.62rem",fontWeight:700,color:T.blueDark}}>{w.high}°</span></span>);
+              if(!weatherLocation) return(<button onClick={requestWeatherLocation} style={{fontSize:"0.6rem",color:T.textFaint,background:"none",border:"1px solid "+T.border,borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>);
+              return null;
+            })()}
+          </div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.6rem",fontWeight:700,color:T.textDark,lineHeight:1.1}}>{greeting}{(function(){var n=preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"");return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+          {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.78rem",fontWeight:500,marginTop:"0.15rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
+        </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
           {Object.entries(FM).map(function(entry){
@@ -5179,7 +5192,6 @@ Respond ONLY in valid JSON:
         </div>
         {/* ── Ripple Insights ── */}
         <CompassFab/>
-        <DinnerCard/>
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
             <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
@@ -5216,7 +5228,11 @@ Respond ONLY in valid JSON:
 
         {/* ── Expanded day panel ── */}
         {!isEvening&&(
-          <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.45rem",margin:"0.15rem 0 0.05rem"}}>
+            <span style={{fontSize:"1rem"}}>⚓️</span>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.2rem",color:T.textDark}}>Today at a Glance</span>
+          </div>
           {incompletePrevTasks.length>0&&(
             <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"50",borderRadius:"1rem",padding:"0.8rem 1rem"}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
@@ -5378,7 +5394,7 @@ Respond ONLY in valid JSON:
             )}
 
             {/* Today's tasks */}
-            <div style={{background:T.surface,border:"3px solid "+T.blue,borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:"0 4px 20px "+T.blue+"14"}}>
+            <div style={{background:T.surface,border:(allTaskTiers.length>0?"1.5px solid "+T.blue+"55":"1.5px solid "+T.borderSoft),borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:allTaskTiers.length>0?"0 4px 20px "+T.blue+"14":"none"}}>
               {people.filter(function(p){return !personIsMinor(p)&&!["Kid","Teen","Baby"].includes(p.role);}).length>0&&(
                 <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
                   {[{id:"all",name:"Everyone"},...people.filter(function(p){return !personIsMinor(p)&&!["Kid","Teen","Baby"].includes(p.role);})].map(function(p){
@@ -5472,7 +5488,7 @@ Respond ONLY in valid JSON:
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
                     <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
                       <span style={{fontSize:"0.95rem"}}>🌿</span>
-                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{myName ? myName+"'s anchors" : "My anchors"}</span>
+                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{(function(){var n=myName&&myName.indexOf(".")===-1&&myName.indexOf("@")===-1?(myName.charAt(0).toUpperCase()+myName.slice(1)):null;return n?n+"'s Anchors":"My Anchors";})()}</span>
                       <span style={{fontSize:"0.6rem",background:T.sand+"25",color:T.sandDark,fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>just mine</span>
                     </div>
                     <button onClick={function(){ setAddingPersonalAnchor(function(v){ return !v; }); setNewPersonalAnchorText(""); }} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontSize:"1.1rem",color:T.sandDark,lineHeight:1}}>+</button>
@@ -5534,7 +5550,7 @@ Respond ONLY in valid JSON:
             })()}
 
             {/* Tonight's dinner */}
-            <div style={{background:T.surface,border:"1.5px solid "+(noMealPlanned?T.rose+"50":T.sage+"45"),borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
+            <div style={{background:T.surface,border:"1.5px solid "+(noMealPlanned?T.borderSoft:T.sage+"45"),borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
                   <span style={{fontSize:"0.95rem"}}>🍽️</span>
@@ -5543,11 +5559,11 @@ Respond ONLY in valid JSON:
                 <button onClick={()=>goTab("meals")} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Plan meals</button>
               </div>
               {noMealPlanned
-                ?<div style={{background:T.rose+"10",border:"1.5px dashed "+T.rose+"50",borderRadius:"0.75rem",padding:"0.65rem 0.85rem",display:"flex",alignItems:"center",gap:"0.55rem"}}>
-                  <span style={{fontSize:"0.9rem"}}>⚠️</span>
+                ?<div style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.4rem 0.15rem"}}>
+                  <span style={{fontSize:"0.9rem",opacity:0.7}}>🌙</span>
                   <div>
-                    <div style={{fontSize:"0.83rem",fontWeight:600,color:T.rose}}>No dinner planned</div>
-                    <div style={{fontSize:"0.73rem",color:T.textSoft,marginTop:"0.12rem"}}>Tap "Plan meals" to add something — or wing it 🌿</div>
+                    <div style={{fontSize:"0.82rem",fontWeight:600,color:T.textSoft}}>Nothing planned yet</div>
+                    <div style={{fontSize:"0.73rem",color:T.textFaint,marginTop:"0.1rem"}}>Tap "Plan meals" — or keep it easy tonight 🌿</div>
                   </div>
                 </div>
                 :<div>
@@ -5691,16 +5707,28 @@ Respond ONLY in valid JSON:
           </div>
         )}
 
-        {/* ── For later · Compass notes ── */}
-        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",margin:"1.35rem 0 0.85rem"}}>
+        {/* ── For later · Compass notes (collapsed) ── */}
+        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",margin:"1.35rem 0 0.75rem"}}>
           <div style={{flex:1,height:1,background:T.borderSoft}}/>
           <span style={{fontSize:"0.66rem",letterSpacing:"0.1em",textTransform:"uppercase",color:T.blueDark||T.blue,fontWeight:800}}>For later</span>
           <div style={{flex:1,height:1,background:T.borderSoft}}/>
         </div>
-        <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
-        <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
-        <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
-        <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
+        <details style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",marginBottom:"0.75rem"}}>
+          <summary style={{listStyle:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.85rem 1rem"}}>
+            <span style={{fontSize:"1.05rem"}}>🧭</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Compass</div>
+              <div style={{fontSize:"0.75rem",color:T.textSoft,marginTop:"0.05rem"}}>Reflections & your week — open when you have a moment</div>
+            </div>
+            <span style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,flexShrink:0}}>Open ›</span>
+          </summary>
+          <div style={{padding:"0 0.35rem 0.4rem"}}>
+            <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
+            <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
+            <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
+            <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
+          </div>
+        </details>
 
         {/* ── Evening wind-down panel ── */}
         {dayOpen&&isEvening&&(
