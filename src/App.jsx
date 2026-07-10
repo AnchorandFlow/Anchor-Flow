@@ -5297,8 +5297,8 @@ Respond ONLY in valid JSON:
           </div>
         )}
 
-        {/* ── Expanded day panel ── */}
-        {!isEvening&&(
+        {/* ── Today glance (always shown, day or evening) ── */}
+        {(
           <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
 
             {/* ══════════ Today at a Glance — one unified card ══════════ */}
