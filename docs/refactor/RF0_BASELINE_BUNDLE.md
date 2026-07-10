@@ -21,14 +21,16 @@ All 263 tests green as of commits `53cb369` + `4d386fc` (pre-RF-1). Any extracti
 Command: `npm run build`
 
 ```
-dist/index.html                     1.52 kB  (gzip: 0.68 kB)
+dist/index.html                     1.52 kB  (gzip: 0.69 kB)
 dist/assets/index-B1ELWDVe.css      1.71 kB  (gzip: 0.77 kB)
-dist/assets/index-ThOAidpb.js   1,558.56 kB  (gzip: 369.87 kB)
+dist/assets/index-C0hls7fe.js   1,560.46 kB  (gzip: 370.28 kB)
 
-Build time: 677ms
+Build time: 762ms
 Vite version: 8.0.10
 Chunks: 1 JS bundle (all code in a single file — confirmed by the warning below)
 ```
+
+**Deployed baseline:** commit `0c84f2b`, bundle `index-C0hls7fe.js`, 370.28 kB gzip. Deployed and hash-verified in production 2026-07-09.
 
 Vite warning (expected, pre-existing):
 > Some chunks are larger than 500 kB after minification. Consider using dynamic import() to code-split the application.
@@ -51,7 +53,7 @@ Baseline: zero warnings.
 
 ## App.jsx line count
 
-**14,172 lines** as of the RF-0 snapshot (main branch, 2026-07-09).
+**11,928 lines** as of the RF-0 snapshot (main branch, 2026-07-09). The earlier figure of 14,172 was wrong — it came from a stale session summary that had not re-verified against `wc -l src/App.jsx`.
 
 > Note: `lh-2` branch has Lighthouse code merged; main is the extraction target. Line count after `lh-2` lands will differ — run this section again at that point.
 
