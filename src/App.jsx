@@ -1905,6 +1905,15 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                         try { var _shP = JSON.parse(data["af_safe_harbor"]); _shOk = _shP !== null && typeof _shP === "object" && !Array.isArray(_shP); } catch(_e2) {}
                         if (!_shOk) { try { localStorage.removeItem("af_safe_harbor"); } catch {} }
                       }
+                      // af_lighthouse: same defensive guard as af_safe_harbor above.
+                      // If the restored value is bad JSON, null, a non-object, or an array,
+                      // remove it so LighthouseTab reinitialises from defaultLighthouse() on
+                      // the next mount. LH-8a.
+                      if (data["af_lighthouse"] !== undefined) {
+                        var _lhOk = false;
+                        try { var _lhP = JSON.parse(data["af_lighthouse"]); _lhOk = _lhP !== null && typeof _lhP === "object" && !Array.isArray(_lhP); } catch(_e3) {}
+                        if (!_lhOk) { try { localStorage.removeItem("af_lighthouse"); } catch {} }
+                      }
                       AF_DEBUG&&console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
                       alert("Backup restored. Reloading...");
                       window.location.reload();

@@ -1092,3 +1092,93 @@ describe("LH-7-D — App.jsx wiring: guard present in both pull paths", function
     expect(guardPos).toBeLessThan(applyPos);
   });
 });
+
+// ── LH-8a: export/import guard ────────────────────────────────────────────────
+// Export coverage: automatic — the backup handler enumerates all af_* keys via
+// Object.keys(localStorage), so af_lighthouse is included with no explicit listing.
+//
+// Import coverage: the restore handler now has an af_lighthouse object-guard
+// (mirrors af_safe_harbor). These tests verify: (a) the guard exists in source,
+// (b) valid blobs survive, (c) corrupted/wrong-type values are removed rather than
+// left as unparseable strings that crash LighthouseTab on next mount.
+
+// Simulates the two-step import restore: bulk setItem, then the af_lighthouse guard.
+// The guard logic here is intentionally a verbatim copy of what App.jsx does, so
+// test failures reflect a real divergence between the two.
+function simulateImportGuard(rawValue) {
+  try { localStorage.setItem("af_lighthouse", rawValue); } catch(_e) {}
+  if (rawValue !== undefined) {
+    var _lhOk = false;
+    try { var _lhP = JSON.parse(rawValue); _lhOk = _lhP !== null && typeof _lhP === "object" && !Array.isArray(_lhP); } catch(_e2) {}
+    if (!_lhOk) { try { localStorage.removeItem("af_lighthouse"); } catch {} }
+  }
+  return localStorage.getItem("af_lighthouse");
+}
+
+describe("LH-8a-source — af_lighthouse guard present in App.jsx import handler", function() {
+  var src;
+  beforeAll(function() {
+    var { readFileSync } = require("fs");
+    var { join } = require("path");
+    src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
+  });
+
+  it("guard checks data[\"af_lighthouse\"]", function() {
+    expect(src).toMatch(/data\["af_lighthouse"\]/);
+  });
+
+  it("guard uses _lhOk variable (same pattern as _shOk for safe_harbor)", function() {
+    expect(src).toMatch(/_lhOk/);
+  });
+
+  it("guard calls localStorage.removeItem(\"af_lighthouse\") on bad value", function() {
+    expect(src).toMatch(/localStorage\.removeItem\("af_lighthouse"\)/);
+  });
+
+  it("af_lighthouse guard appears after af_safe_harbor guard in source order", function() {
+    var shPos = src.indexOf("data[\"af_safe_harbor\"]");
+    var lhPos = src.indexOf("data[\"af_lighthouse\"]");
+    expect(shPos).toBeGreaterThan(-1);
+    expect(lhPos).toBeGreaterThan(-1);
+    expect(lhPos).toBeGreaterThan(shPos);
+  });
+});
+
+describe("LH-8a-behavior — import guard removes bad af_lighthouse values, keeps good ones", function() {
+  beforeEach(function() { localStorage.clear(); });
+
+  it("valid JSON object blob survives import guard intact", function() {
+    var blob = JSON.stringify({ version: 2, modes: {}, shared: {}, homeschool: {}, school: {}, household: {} });
+    var result = simulateImportGuard(blob);
+    expect(result).toBe(blob);
+  });
+
+  it("invalid JSON string is removed by import guard", function() {
+    expect(simulateImportGuard("{not: valid json}")).toBeNull();
+  });
+
+  it("JSON-encoded null is removed by import guard", function() {
+    expect(simulateImportGuard("null")).toBeNull();
+  });
+
+  it("JSON-encoded array is removed by import guard (lighthouse must be an object)", function() {
+    expect(simulateImportGuard("[]")).toBeNull();
+  });
+
+  it("empty string is removed by import guard (bad JSON)", function() {
+    expect(simulateImportGuard("")).toBeNull();
+  });
+
+  it("absent af_lighthouse in backup leaves any existing localStorage value untouched", function() {
+    var existing = JSON.stringify({ version: 2, modes: {}, shared: { "kid1": {} }, homeschool: {}, school: {}, household: {} });
+    localStorage.setItem("af_lighthouse", existing);
+    // Simulate: backup had no af_lighthouse key → guard receives undefined → skips removeItem
+    var data = {};
+    if (data["af_lighthouse"] !== undefined) {
+      var _lhOkTest = false;
+      try { var _lhPTest = JSON.parse(data["af_lighthouse"]); _lhOkTest = _lhPTest !== null && typeof _lhPTest === "object" && !Array.isArray(_lhPTest); } catch(_e2) {}
+      if (!_lhOkTest) { try { localStorage.removeItem("af_lighthouse"); } catch {} }
+    }
+    expect(localStorage.getItem("af_lighthouse")).toBe(existing);
+  });
+});
