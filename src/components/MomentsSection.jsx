@@ -540,7 +540,7 @@ function PackingCard({ moment, onUpdate }) {
           {items.map(function(item,i) {
             return (
               <div key={item.id||i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid "+B.border }}>
-                <div onClick={function(){ onUpdate({ packing:{ items: items.map(function(x,j){ return j===i?{...x,done:!x.done}:x }) } }) }} style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?B.coastal:"rgba(0,0,0,0.15)"), background:item.done?B.coastal:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
+                <div onClick={function(){ var nextItems = items.map(function(x,j){ return j===i?{...x,done:!x.done}:x }); onUpdate({ packing:{ items: nextItems } }); if(nextItems.length>0 && nextItems.every(function(x){return x.done}) && !items.every(function(x){return x.done})){ window.dispatchEvent(new CustomEvent("af-celebrate", { detail: { heading: "All packed!", title: (moment && moment.name) ? moment.name : "", message: "Everything's checked off — you're ready to go." } })); } }} style={{ width:18, height:18, borderRadius:4, border:"1.5px solid "+(item.done?B.coastal:"rgba(0,0,0,0.15)"), background:item.done?B.coastal:"transparent", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0 }}>
                   {item.done&&<span style={{ color:"#fff", fontSize:10 }}>✓</span>}
                 </div>
                 <div style={{ flex:1 }}>

@@ -59,6 +59,9 @@ export const SYNC_KEYS = [
   // Safe Harbor — household emergency plan (SH-2b). Merge-on-receive via
   // applyHouseholdKey; never naive last-write-wins. See mergeSafeHarbor.
   "safe_harbor",
+  // Owned products / manuals tracker (Home Systems -> Products). Array of
+  // { id, name, items:[{id,name,link,purchasedAt,warranty,warrantyNote,notes}] }.
+  "ownedProducts",
   // Lighthouse — per-child learning records (LH-1). Object pass-through;
   // no merge hook yet (flag-gated OFF). useSaved("lighthouse") → af_lighthouse.
   "lighthouse"];
@@ -102,13 +105,14 @@ const _SANITIZE_HANDLED = new Set([
   "recurring","celebrations","gifts","inventory","pets","houseFile",
   "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
   "moments","subs","vaultSystems","packing_templates",
+  "coveData","ownedProducts",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // Scalars
   "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
   // Objects
   "familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
-  "coveData","schoolData","cove_items_v1","notifSettings","sections",
+  "schoolData","cove_items_v1","notifSettings","sections",
   "connectedCals","exhale_labels","health","career","travel_profile",
   // Explicitly normalized
   "ripples",
@@ -131,7 +135,9 @@ export function sanitizeHouseholdData(data) {
      "moments","subs","vaultSystems","packing_templates",
      // coveData: array of per-kid records ({kidId, chores:[], treasures:[]}). Array rule
      // added — was previously dropped (object-only passthrough rejects arrays).
-     "coveData"
+     "coveData",
+     // ownedProducts: array of product categories, each with an items array.
+     "ownedProducts"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);

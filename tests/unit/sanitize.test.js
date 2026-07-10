@@ -71,7 +71,7 @@ const PLAUSIBLE = {
   cove_sections_v1:   [{ id:"cs1", name:"Reading" }],
   cove_notes_v1:      [{ id:"cn1", text:"A note" }],
   schoolData:         { grade:3, teacher:"Ms. Smith" },
-  coveData:           [{ kidId:"k1", chores:[], treasures:[] }],
+  coveData:           [{ kidId:"k1", kidName:"Alice", shells:5, chores:[{id:"c1",name:"Make bed",pts:1,done:false}], treasures:[] }],
   dietaryFilters:     ["Dairy-free"],
   compassCache:       { nudge:{ date:"2026-07-03", data:{ message:"hi" } } },
   compassEnabled:     true,
@@ -86,6 +86,7 @@ const PLAUSIBLE = {
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
   "af_nwMealCount":   2,
   safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },
+  ownedProducts:      [{ id:"op1", name:"Appliances", items:[{ id:"i1", name:"Dishwasher", link:"", purchasedAt:"", warranty:"", warrantyNote:"", notes:"" }] }],
   lighthouse:         { version:2, modes:{}, shared:{}, homeschool:{}, school:{}, household:{ readAlouds:[], calendar:[], settings:{} } },
 };
 
@@ -356,7 +357,7 @@ describe("A10 — completeness lint: every useSaved key is classified", () => {
   // Update this list when adding new device-local useSaved calls.
   const DEVICE_LOCAL = new Set([
     // Auth & session — must never leave the device
-    "authToken", "authUser", "refreshToken", "householdId", "googleCalToken",
+    "authToken", "authUser", "refreshToken", "householdId", "householdOwnerId", "googleCalToken",
     // Sync stamps — system bookkeeping, not user data
     "lastHHSync", "lastPushedAt", "lastPushAt", "lastPullAt", "dirtyKeys", "deviceId",
     // Device UI state

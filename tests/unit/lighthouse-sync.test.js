@@ -1052,18 +1052,20 @@ describe("LH-7-D — App.jsx wiring: guard present in both pull paths", function
     expect(fnBody).toMatch(/isLighthouseDirty\(_pullDirtyKeys\)/);
   });
 
-  it("pullLatestHouseholdData: guard line appears before applyHouseholdKey inside the forEach", function() {
+  it("pullLatestHouseholdData: guard is inside _applyHouseholdKeysDetectChange skip predicate", function() {
     var { readFileSync } = require("fs");
     var { join } = require("path");
     var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
     var fnStart = src.indexOf("async function pullLatestHouseholdData(");
     var fnEnd = src.indexOf("async function syncNow(", fnStart);
     var fnBody = fnStart > -1 && fnEnd > -1 ? src.slice(fnStart, fnEnd) : "";
-    var guardPos = fnBody.indexOf("isLighthouseDirty(_pullDirtyKeys)");
-    var applyPos = fnBody.indexOf("applyHouseholdKey(k,");
+    var guardPos   = fnBody.indexOf("isLighthouseDirty(_pullDirtyKeys)");
+    var detectPos  = fnBody.indexOf("_applyHouseholdKeysDetectChange(");
+    // Guard must be present; path must use _applyHouseholdKeysDetectChange (reflicker fix);
+    // guard appears after the opening of the call (it lives inside the skip predicate argument).
     expect(guardPos).toBeGreaterThan(-1);
-    expect(applyPos).toBeGreaterThan(-1);
-    expect(guardPos).toBeLessThan(applyPos);
+    expect(detectPos).toBeGreaterThan(-1);
+    expect(guardPos).toBeGreaterThan(detectPos);
   });
 
   it("background polling loop reads _bgDirtyKeys and guards dirty lighthouse (belt-and-suspenders)", function() {
@@ -1078,18 +1080,20 @@ describe("LH-7-D — App.jsx wiring: guard present in both pull paths", function
     expect(bgBody).toMatch(/isLighthouseDirty\(_bgDirtyKeys\)/);
   });
 
-  it("background loop: guard line appears before applyHouseholdKey inside its forEach", function() {
+  it("background loop: guard is inside _applyHouseholdKeysDetectChange skip predicate", function() {
     var { readFileSync } = require("fs");
     var { join } = require("path");
     var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
-    var bgStart  = src.indexOf("const _ARRAY_KEYS_BG");
-    var bgEnd    = src.indexOf("localStorage.setItem(\"af_lastHHSync\", serverTs)", bgStart);
-    var bgBody   = bgStart > -1 && bgEnd > -1 ? src.slice(bgStart, bgEnd) : "";
-    var guardPos = bgBody.indexOf("isLighthouseDirty(_bgDirtyKeys)");
-    var applyPos = bgBody.indexOf("applyHouseholdKey(k,");
+    var bgStart   = src.indexOf("const _ARRAY_KEYS_BG");
+    var bgEnd     = src.indexOf("localStorage.setItem(\"af_lastHHSync\", serverTs)", bgStart);
+    var bgBody    = bgStart > -1 && bgEnd > -1 ? src.slice(bgStart, bgEnd) : "";
+    var guardPos  = bgBody.indexOf("isLighthouseDirty(_bgDirtyKeys)");
+    var detectPos = bgBody.indexOf("_applyHouseholdKeysDetectChange(");
+    // Guard must be present; path must use _applyHouseholdKeysDetectChange (reflicker fix);
+    // guard appears after the opening of the call (it lives inside the skip predicate argument).
     expect(guardPos).toBeGreaterThan(-1);
-    expect(applyPos).toBeGreaterThan(-1);
-    expect(guardPos).toBeLessThan(applyPos);
+    expect(detectPos).toBeGreaterThan(-1);
+    expect(guardPos).toBeGreaterThan(detectPos);
   });
 });
 

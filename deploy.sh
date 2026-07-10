@@ -7,6 +7,21 @@ APP_LINES=$(wc -l < src/App.jsx)
 echo "📄 App.jsx: $APP_LINES lines"
 if [ "$APP_LINES" -lt 5000 ]; then echo "❌ App.jsx too small — wrong file?"; exit 1; fi
 
+# ── Build stamp ───────────────────────────────────────────────────────────────
+# Write UTC datetime + short git hash into public/sw.js CACHE_VERSION and
+# src/buildStamp.js BEFORE the build so every deploy changes sw.js (→ waiting
+# worker → update banner) and the stamp is visible in Settings without Web Inspector.
+# Pattern is idempotent: sed replaces the entire anchor-flow-v... value in place.
+STAMP_DATE=$(date -u '+%Y%m%d-%H%M%S')
+STAMP_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
+STAMP="${STAMP_DATE}-${STAMP_HASH}"
+echo "📌 Build stamp: $STAMP"
+# sw.js: replace CACHE_VERSION value (anchor-flow-v<anything> → anchor-flow-v<stamp>)
+sed -i '' "s/const CACHE_VERSION = \"anchor-flow-v[^\"]*\"/const CACHE_VERSION = \"anchor-flow-v${STAMP}\"/" public/sw.js
+# buildStamp.js: replace BUILD_STAMP export
+sed -i '' "s/export const BUILD_STAMP = \"[^\"]*\"/export const BUILD_STAMP = \"${STAMP}\"/" src/buildStamp.js
+echo "✅ Stamped sw.js and src/buildStamp.js"
+
 npm run build
 
 git add -A
