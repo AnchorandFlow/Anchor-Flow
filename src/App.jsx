@@ -10913,8 +10913,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // ── Lighthouse Tab ────────────────────────────────────────────────────────────
   _hfRenders.LighthouseTab = function LighthouseTab() {
     var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
-    var [activeChild, setActiveChild] = React.useState(null);
-    var [lhSubTab, setLhSubTab]       = React.useState("overview");
+    var [activeChild, _setActiveChild] = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhActiveChild"); if (s) return s; } catch(_e) {} return null; });
+    var [lhSubTab, _setLhSubTab]       = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhSubTab"); if (s) return s; } catch(_e) {} return "overview"; });
     var [showAllPeople, setShowAllPeople] = React.useState(false);
     var [lhAddMode, setLhAddMode]       = React.useState(null);
     var [lhEditId, setLhEditId]         = React.useState(null);
@@ -10928,6 +10928,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [lhPlanDate, setLhPlanDate]               = React.useState(function(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); });
     var [lhTaskSubject, setLhTaskSubject]         = React.useState(null);
     var [lhTaskText, setLhTaskText]               = React.useState("");
+    function setActiveChild(id) { _setActiveChild(id); try { if (id) sessionStorage.setItem("af_lhActiveChild", id); else sessionStorage.removeItem("af_lhActiveChild"); } catch(_e) {} }
+    function setLhSubTab(tab) { _setLhSubTab(tab); try { sessionStorage.setItem("af_lhSubTab", tab); } catch(_e) {} }
 
     var allPeople = people.filter(function(p) { return p && p.name; });
     var defaultPeople = allPeople.filter(function(p) {
@@ -10937,7 +10939,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var hasOthers = !showAllPeople && allPeople.length > defaultPeople.length;
 
     React.useEffect(function() {
-      if (!activeChild && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
+      var ids = displayPeople.map(function(p){ return p.id; });
+      if ((!activeChild || ids.indexOf(activeChild) === -1) && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
     }, [displayPeople.length]);
 
     React.useEffect(function() {
