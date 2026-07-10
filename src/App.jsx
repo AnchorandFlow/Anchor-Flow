@@ -15,7 +15,7 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, isLighthouseDirty } from "./sync-core.js"
 
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
@@ -2714,12 +2714,15 @@ function createLocalBackup() {
       const clean = sanitizeHouseholdData(row.data);
       AF_DEBUG && console.warn("[AF PULL] APPLYING REMOTE", Object.keys(clean));
       const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+      // LH-7: read dirty keys once before the loop; skip lighthouse if it has unsent local edits.
+      const _pullDirtyKeys = (function() { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (_e) { return []; } })();
       const _ARRAY_KEYS = ["tasks","brainItems","shoppingItems","notifications","calEvents",
         "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
         "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
         "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
       SYNC_KEYS.forEach(k => {
         if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
+        if (k === "lighthouse" && isLighthouseDirty(_pullDirtyKeys)) return;
         if (clean[k] !== undefined) {
           if (_ARRAY_KEYS.includes(k) && !Array.isArray(clean[k])) return;
           applyHouseholdKey(k, clean[k]);
@@ -2981,6 +2984,8 @@ function createLocalBackup() {
           const cleanBg = sanitizeHouseholdData(row.data);
           AF_DEBUG&&console.log("[AF SYNC] applying remote keys", Object.keys(cleanBg));
           const localWeekOf = (() => { try { const r=localStorage.getItem("af_mealsWeekOf"); return r?JSON.parse(r):null; } catch { return null; } })();
+          // LH-7 belt-and-suspenders: same dirty guard as pullLatestHouseholdData.
+          const _bgDirtyKeys = (function() { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (_e) { return []; } })();
           const _ARRAY_KEYS_BG = ["tasks","brainItems","shoppingItems","notifications","calEvents",
             "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
             "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
@@ -2988,6 +2993,7 @@ function createLocalBackup() {
           SYNC_KEYS.forEach(k => {
             // Don't overwrite mealsWeekOf from server if local already has this week's value
             if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
+            if (k === "lighthouse" && isLighthouseDirty(_bgDirtyKeys)) return;
             if (cleanBg[k] !== undefined) {
               if (_ARRAY_KEYS_BG.includes(k) && !Array.isArray(cleanBg[k])) return;
               applyHouseholdKey(k, cleanBg[k]);

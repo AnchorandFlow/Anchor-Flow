@@ -5,7 +5,7 @@
 // (App.jsx has a module-scope IIFE that touches localStorage.)
 
 import { describe, it, expect } from "vitest";
-import { SYNC_KEYS, sanitizeHouseholdData } from "../../src/sync-core.js";
+import { SYNC_KEYS, sanitizeHouseholdData, isLighthouseDirty, applyHouseholdKey } from "../../src/sync-core.js";
 
 // Mirror of defaultLighthouse() from App.jsx (kept in sync manually).
 // Tests must not import App.jsx — it has a module-scope IIFE that touches localStorage.
@@ -932,5 +932,163 @@ describe("LH-2-fix-2 — _hfComps forEach list matches destructure (no undefined
     var homFlowIdx = src.indexOf("function HomeFlow()");
     var preamble = homFlowIdx > -1 ? src.slice(0, homFlowIdx) : src;
     expect(preamble).toMatch(/var\s+LighthouseTab\s*=\s*_hfComps\.LighthouseTab\s*;/);
+  });
+});
+
+// ── LH-7: local-wins guard — dirty lighthouse survives a stale-push-triggered pull ──
+// Tests for isLighthouseDirty() (the exported predicate) and for the pull-path
+// behavior it gates. App.jsx cannot be imported (module IIFE); the behavior is
+// verified via localStorage simulation using applyHouseholdKey from sync-core.js.
+
+var LH7_LOCAL_BLOB = {
+  version: 2, modes: {}, shared: { "kid1": { books: [{ id: "b1", title: "Matilda", status: "finished" }], beyond: [], trips: [], goals: [] } },
+  homeschool: {}, school: {}, household: { readAlouds: [], calendar: [], settings: {} }
+};
+var LH7_SERVER_BLOB = {
+  version: 2, modes: {}, shared: { "kid1": { books: [], beyond: [], trips: [], goals: [] } },
+  homeschool: {}, school: {}, household: { readAlouds: [], calendar: [], settings: {} }
+};
+
+// Mirrors the LH-7 guard logic in pullLatestHouseholdData exactly:
+//   if (k === "lighthouse" && isLighthouseDirty(_pullDirtyKeys)) return;
+//   applyHouseholdKey(k, clean[k]);
+function simulatePullForLighthouse(serverBlob, dirtyKeysList) {
+  if (isLighthouseDirty(dirtyKeysList)) return false; // guard fired — local preserved
+  applyHouseholdKey("lighthouse", serverBlob);
+  return true; // server value applied
+}
+
+describe("LH-7-A — isLighthouseDirty predicate", function() {
+  it("returns true when 'lighthouse' is in dirtyKeys", function() {
+    expect(isLighthouseDirty(["tasks", "lighthouse", "meals"])).toBe(true);
+  });
+
+  it("returns true when 'lighthouse' is the only dirty key", function() {
+    expect(isLighthouseDirty(["lighthouse"])).toBe(true);
+  });
+
+  it("returns false when 'lighthouse' is NOT in dirtyKeys", function() {
+    expect(isLighthouseDirty(["tasks", "meals", "people"])).toBe(false);
+  });
+
+  it("returns false for an empty dirtyKeys list (clean device)", function() {
+    expect(isLighthouseDirty([])).toBe(false);
+  });
+
+  it("returns false for null (corrupt af_dirtyKeys read)", function() {
+    expect(isLighthouseDirty(null)).toBe(false);
+  });
+
+  it("returns false for undefined", function() {
+    expect(isLighthouseDirty(undefined)).toBe(false);
+  });
+
+  it("returns false when dirtyKeys is a string, not an array", function() {
+    expect(isLighthouseDirty("lighthouse")).toBe(false);
+  });
+
+  it("only 'lighthouse' triggers the guard — similar key names do not", function() {
+    expect(isLighthouseDirty(["af_lighthouse", "LIGHTHOUSE", "lighthouse_v2"])).toBe(false);
+  });
+});
+
+describe("LH-7-B — pull-path behavior: dirty lighthouse survives", function() {
+  it("dirty lighthouse: local blob is NOT overwritten by server value", function() {
+    localStorage.setItem("af_lighthouse", JSON.stringify(LH7_LOCAL_BLOB));
+    var applied = simulatePullForLighthouse(LH7_SERVER_BLOB, ["lighthouse"]);
+    expect(applied).toBe(false);
+    var stored = JSON.parse(localStorage.getItem("af_lighthouse"));
+    expect(stored.shared["kid1"].books[0].title).toBe("Matilda");
+  });
+
+  it("dirty lighthouse: other dirty keys in the list do not matter — lighthouse still guarded", function() {
+    localStorage.setItem("af_lighthouse", JSON.stringify(LH7_LOCAL_BLOB));
+    simulatePullForLighthouse(LH7_SERVER_BLOB, ["tasks", "meals", "lighthouse"]);
+    var stored = JSON.parse(localStorage.getItem("af_lighthouse"));
+    expect(stored.shared["kid1"].books[0].title).toBe("Matilda");
+  });
+});
+
+describe("LH-7-C — pull-path behavior: clean lighthouse receives server update", function() {
+  it("clean lighthouse (empty dirtyKeys): server blob IS applied", function() {
+    localStorage.setItem("af_lighthouse", JSON.stringify(LH7_LOCAL_BLOB));
+    var applied = simulatePullForLighthouse(LH7_SERVER_BLOB, []);
+    expect(applied).toBe(true);
+    var stored = JSON.parse(localStorage.getItem("af_lighthouse"));
+    expect(stored.shared["kid1"].books).toEqual([]);
+  });
+
+  it("clean lighthouse (other keys dirty, not lighthouse): server blob IS applied", function() {
+    localStorage.setItem("af_lighthouse", JSON.stringify(LH7_LOCAL_BLOB));
+    simulatePullForLighthouse(LH7_SERVER_BLOB, ["tasks", "meals"]);
+    var stored = JSON.parse(localStorage.getItem("af_lighthouse"));
+    expect(stored.shared["kid1"].books).toEqual([]);
+  });
+
+  it("clean lighthouse (null dirtyKeys — corrupt read): server blob IS applied (fail-safe open)", function() {
+    localStorage.setItem("af_lighthouse", JSON.stringify(LH7_LOCAL_BLOB));
+    simulatePullForLighthouse(LH7_SERVER_BLOB, null);
+    var stored = JSON.parse(localStorage.getItem("af_lighthouse"));
+    expect(stored.shared["kid1"].books).toEqual([]);
+  });
+});
+
+describe("LH-7-D — App.jsx wiring: guard present in both pull paths", function() {
+  it("isLighthouseDirty is imported from sync-core in App.jsx", function() {
+    var { readFileSync } = require("fs");
+    var { join } = require("path");
+    var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
+    expect(src).toMatch(/isLighthouseDirty/);
+  });
+
+  it("pullLatestHouseholdData reads _pullDirtyKeys before its SYNC_KEYS forEach", function() {
+    var { readFileSync } = require("fs");
+    var { join } = require("path");
+    var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
+    var fnStart = src.indexOf("async function pullLatestHouseholdData(");
+    var fnEnd = src.indexOf("async function syncNow(", fnStart);
+    var fnBody = fnStart > -1 && fnEnd > -1 ? src.slice(fnStart, fnEnd) : "";
+    expect(fnBody).toMatch(/_pullDirtyKeys/);
+    expect(fnBody).toMatch(/isLighthouseDirty\(_pullDirtyKeys\)/);
+  });
+
+  it("pullLatestHouseholdData: guard line appears before applyHouseholdKey inside the forEach", function() {
+    var { readFileSync } = require("fs");
+    var { join } = require("path");
+    var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
+    var fnStart = src.indexOf("async function pullLatestHouseholdData(");
+    var fnEnd = src.indexOf("async function syncNow(", fnStart);
+    var fnBody = fnStart > -1 && fnEnd > -1 ? src.slice(fnStart, fnEnd) : "";
+    var guardPos = fnBody.indexOf("isLighthouseDirty(_pullDirtyKeys)");
+    var applyPos = fnBody.indexOf("applyHouseholdKey(k,");
+    expect(guardPos).toBeGreaterThan(-1);
+    expect(applyPos).toBeGreaterThan(-1);
+    expect(guardPos).toBeLessThan(applyPos);
+  });
+
+  it("background polling loop reads _bgDirtyKeys and guards dirty lighthouse (belt-and-suspenders)", function() {
+    var { readFileSync } = require("fs");
+    var { join } = require("path");
+    var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
+    // Anchor on the unique variable name used only in the background polling forEach.
+    var bgStart = src.indexOf("const _ARRAY_KEYS_BG");
+    var bgEnd   = src.indexOf("localStorage.setItem(\"af_lastHHSync\", serverTs)", bgStart);
+    var bgBody  = bgStart > -1 && bgEnd > -1 ? src.slice(bgStart, bgEnd) : "";
+    expect(bgBody).toMatch(/_bgDirtyKeys/);
+    expect(bgBody).toMatch(/isLighthouseDirty\(_bgDirtyKeys\)/);
+  });
+
+  it("background loop: guard line appears before applyHouseholdKey inside its forEach", function() {
+    var { readFileSync } = require("fs");
+    var { join } = require("path");
+    var src = readFileSync(join(process.cwd(), "src/App.jsx"), "utf8");
+    var bgStart  = src.indexOf("const _ARRAY_KEYS_BG");
+    var bgEnd    = src.indexOf("localStorage.setItem(\"af_lastHHSync\", serverTs)", bgStart);
+    var bgBody   = bgStart > -1 && bgEnd > -1 ? src.slice(bgStart, bgEnd) : "";
+    var guardPos = bgBody.indexOf("isLighthouseDirty(_bgDirtyKeys)");
+    var applyPos = bgBody.indexOf("applyHouseholdKey(k,");
+    expect(guardPos).toBeGreaterThan(-1);
+    expect(applyPos).toBeGreaterThan(-1);
+    expect(guardPos).toBeLessThan(applyPos);
   });
 });

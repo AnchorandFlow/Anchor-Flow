@@ -235,3 +235,13 @@ export function applyHouseholdKey(k, remoteVal) {
   }
   try { localStorage.setItem("af_" + k, JSON.stringify(remoteVal)); } catch(_e) {}
 }
+
+// ── isLighthouseDirty ─────────────────────────────────────────────────────────
+// LH-7 local-wins guard predicate. Returns true when "lighthouse" appears in the
+// dirty-keys list, meaning the local af_lighthouse blob has unsent edits that must
+// not be overwritten by a pull. The pull path reads af_dirtyKeys once before its
+// SYNC_KEYS forEach and passes the parsed array here.
+// Exported so the pull-path guard is unit-testable without importing App.jsx.
+export function isLighthouseDirty(dirtyKeys) {
+  return Array.isArray(dirtyKeys) && dirtyKeys.indexOf("lighthouse") !== -1;
+}
