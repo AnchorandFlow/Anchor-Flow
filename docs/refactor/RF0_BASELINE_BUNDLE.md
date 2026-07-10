@@ -7,17 +7,12 @@ Captured: 2026-07-09, before any extraction. All numbers here are the permanent 
 ## Test baseline
 
 ```
-Test Files:  1 failed | 6 passed (7)
-Tests:       3 failed | 260 passed (263)
-Duration:    2.10s
+Test Files:  7 passed (7)
+Tests:       263 passed (263)
+Duration:    2.20s
 ```
 
-**3 pre-existing failures (not introduced by RF-0):**
-- `sanitize.test.js > A1 > covers all 69 SYNC_KEYS entries` — test count stale (key count mismatch)
-- `sanitize.test.js > A1 > key "coveData" is defined in sanitize output` — PLAUSIBLE fixture uses old array shape
-- `sanitize.test.js > A1 > key "ownedProducts" is defined in sanitize output` — key added to SYNC_KEYS but not to sanitizer allowlist
-
-These failures are tracked separately. They are **not** a signal that the refactor broke anything. A green baseline here means 260/263 — any extraction batch that drops below that count is a regression.
+All 263 tests green as of commits `53cb369` + `4d386fc` (pre-RF-1). Any extraction batch that drops below 263/263 is a regression.
 
 ---
 
