@@ -4,7 +4,6 @@ import ExhaleSection from './components/ExhaleSection.jsx';
 import { askFamily } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
-import DinnerCard from "./shell/DinnerCard";
 import NudgeStrip from "./shell/NudgeStrip";
 import WeeklyReviewCard from "./shell/WeeklyReviewCard";
 import PrepCard from "./shell/PrepCard";
@@ -3089,6 +3088,7 @@ function createLocalBackup() {
   const [weatherLocation,setWeatherLocation]   = useSaved("weatherLocation",null);
   // Birthdays
   const [birthdays,setBirthdays]               = useSaved("birthdays",[]);
+  const [schoolData]                           = useSaved("schoolData",{});
   // Quick Capture
   const [captureOpen,setCaptureOpen]           = useState(false);
   const [captureText,setCaptureText]           = useState("");
@@ -4188,6 +4188,56 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Task Row ────────────────────────────────────────────────────────────────
+  // ── Countdowns ──────────────────────────────────────────────────────────────
+  // Derived, no new data entry: pulls upcoming birthdays (already injected into
+  // calEvents) and trips/moments (af_moments), shows the nearest few on Today.
+  _hfRenders.Countdowns = function Countdowns() {
+    var today = new Date(); today.setHours(0,0,0,0);
+    var items = [];
+    (calEvents||[]).forEach(function(e){
+      if(!e || !e.date) return;
+      var isBday = e._birthday || (e.title && e.title.indexOf("🎂") === 0);
+      if(!isBday) return;
+      var d = new Date(e.date + "T00:00:00");
+      if(isNaN(d.getTime()) || d < today) return;
+      var days = Math.round((d - today) / 86400000);
+      items.push({ days: days, icon: "🎂", label: (e.title||"").replace("🎂 ","").replace(/\s*\(turns[^)]*\)\s*$/,"") });
+    });
+    var moments = [];
+    try { var s = localStorage.getItem("af_moments"); moments = s ? JSON.parse(s) : []; } catch(_e) {}
+    (Array.isArray(moments)?moments:[]).forEach(function(m){
+      if(!m || !m.date) return;
+      var d = new Date(m.date + "T00:00:00");
+      if(isNaN(d.getTime()) || d < today) return;
+      var days = Math.round((d - today) / 86400000);
+      items.push({ days: days, icon: "✈️", label: m.name || "Trip" });
+    });
+    items.sort(function(a,b){ return a.days - b.days; });
+    var top = items.slice(0, 4);
+    if(top.length === 0) return null;
+    return (
+      <div style={{...card({padding:"1rem 1.15rem"})}}>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
+          <span style={{fontSize:"1rem"}}>⏳</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Countdowns</span>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+          {top.map(function(it,i){
+            var soon = it.days <= 7;
+            var when = it.days===0 ? "Today!" : it.days===1 ? "Tomorrow" : it.days+" days";
+            return (
+              <div key={i} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft}}>
+                <span style={{fontSize:"1.05rem"}}>{it.icon}</span>
+                <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.label}</span>
+                <span style={{fontSize:"0.8rem",fontWeight:800,color:soon?T.sand:T.blue,whiteSpace:"nowrap"}}>{when}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   _hfRenders.TaskRow = function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(t.text);
@@ -4506,56 +4556,6 @@ Respond ONLY with valid JSON array, no markdown:
             <span style={{fontSize:"0.8rem",color:T.textMid,fontWeight:500,textDecoration:"line-through"}}>{e.title}</span>
           </div>
         ))}</div>}
-      </div>
-    );
-  }
-
-  // ── Countdowns ──────────────────────────────────────────────────────────────
-  // Derived, no new data entry: pulls upcoming birthdays (already injected into
-  // calEvents) and trips/moments (af_moments), shows the nearest few on Today.
-  _hfRenders.Countdowns = function Countdowns() {
-    var today = new Date(); today.setHours(0,0,0,0);
-    var items = [];
-    (calEvents||[]).forEach(function(e){
-      if(!e || !e.date) return;
-      var isBday = e._birthday || (e.title && e.title.indexOf("🎂") === 0);
-      if(!isBday) return;
-      var d = new Date(e.date + "T00:00:00");
-      if(isNaN(d.getTime()) || d < today) return;
-      var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: "🎂", label: (e.title||"").replace("🎂 ","").replace(/\s*\(turns[^)]*\)\s*$/,"") });
-    });
-    var moments = [];
-    try { var s = localStorage.getItem("af_moments"); moments = s ? JSON.parse(s) : []; } catch(_e) {}
-    (Array.isArray(moments)?moments:[]).forEach(function(m){
-      if(!m || !m.date) return;
-      var d = new Date(m.date + "T00:00:00");
-      if(isNaN(d.getTime()) || d < today) return;
-      var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: "✈️", label: m.name || "Trip" });
-    });
-    items.sort(function(a,b){ return a.days - b.days; });
-    var top = items.slice(0, 4);
-    if(top.length === 0) return null;
-    return (
-      <div style={{...card({padding:"1rem 1.15rem"})}}>
-        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-          <span style={{fontSize:"1rem"}}>⏳</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Countdowns</span>
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
-          {top.map(function(it,i){
-            var soon = it.days <= 7;
-            var when = it.days===0 ? "Today!" : it.days===1 ? "Tomorrow" : it.days+" days";
-            return (
-              <div key={i} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft}}>
-                <span style={{fontSize:"1.05rem"}}>{it.icon}</span>
-                <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.label}</span>
-                <span style={{fontSize:"0.8rem",fontWeight:800,color:soon?T.sand:T.blue,whiteSpace:"nowrap"}}>{when}</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     );
   }
@@ -4967,6 +4967,26 @@ Respond ONLY with valid JSON array, no markdown:
       return d===TODAY.getDate()&&(m-1)===TODAY.getMonth()&&y===TODAY.getFullYear();
     }).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
 
+    const schoolDueSoon = (function(){
+      try{
+        var out=[]; var t0=new Date(TODAY); t0.setHours(0,0,0,0);
+        var horizon=new Date(t0); horizon.setDate(horizon.getDate()+2);
+        Object.keys(schoolData||{}).forEach(function(cid){
+          var cd=schoolData[cid]||{};
+          var kidName=(people.find(function(p){return p.id===cid;})||{}).name||"";
+          var pub=(cd.public&&cd.public.calEvents)||[];
+          var les=(cd.homeschool&&cd.homeschool.lessons)||[];
+          pub.concat(les).forEach(function(it){
+            if(!it||!it.date) return;
+            var dd=new Date(it.date+"T00:00:00");
+            if(isNaN(dd.getTime())) return;
+            if(dd>=t0&&dd<=horizon){ out.push({title:it.title||it.subject||"School item", date:it.date, who:kidName, today:dd.getTime()===t0.getTime()}); }
+          });
+        });
+        return out;
+      }catch(e){ return []; }
+    })();
+
     const tmrName2 = (()=>{ const d=new Date(TODAY); d.setDate(d.getDate()+1); return DAY_NAMES[d.getDay()]; })();
     const tmrEvents = calEvents.filter(e=>{
       if(!e.date) return false;
@@ -5143,6 +5163,31 @@ Respond ONLY in valid JSON:
 
     return (
       <div>
+        {/* ── Good morning banner (date · weather · greeting) ── */}
+        <div style={{marginBottom:"0.85rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.25rem"}}>
+            <span style={{fontSize:"0.66rem",color:"#2f8f7a",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</span>
+            {(function(){
+              var w=weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];});
+              if(w) return(<span style={{display:"flex",alignItems:"center",gap:"0.3rem",background:(T.bluePale||T.surface),borderRadius:"50px",padding:"1px 8px"}}><span style={{fontSize:"0.8rem"}}>{w.emoji}</span><span style={{fontSize:"0.62rem",fontWeight:700,color:T.blueDark}}>{w.high}°</span></span>);
+              if(!weatherLocation) return(<button onClick={requestWeatherLocation} style={{fontSize:"0.6rem",color:T.textFaint,background:"none",border:"1px solid "+T.border,borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>);
+              return null;
+            })()}
+          </div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"");return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+          {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.78rem",fontWeight:500,marginTop:"0.15rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
+        </div>
+        {/* ── Mode strip (Calm / Busy / Survival) ── */}
+        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
+          {Object.entries(FM).map(function(entry){
+            var mode=entry[0]; var m=entry[1];
+            var modeLabel=mode==="Smooth"?"Calm":mode;
+            var active=flowMode===mode;
+            return(
+              <button key={mode} onClick={function(){setFlowMode(mode);}} style={{flex:1,background:active?m.color:T.surface,color:active?"#fff":T.textMid,border:"1.5px solid "+(active?m.color:T.border),borderRadius:"2rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {modeLabel}</button>
+            );
+          })}
+        </div>
         {/* ── Hero greeting card ── */}
         <div style={{display:"none",background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
@@ -5217,13 +5262,7 @@ Respond ONLY in valid JSON:
           <RippleNotificationBanner />
         </div>
         {/* ── Ripple Insights ── */}
-        <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
-        {React.createElement(_hfRenders.Countdowns)}
         <CompassFab/>
-        <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
-        <DinnerCard/>
-        <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
-        <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
         {(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
             <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
@@ -5259,453 +5298,213 @@ Respond ONLY in valid JSON:
         )}
 
         {/* ── Expanded day panel ── */}
-        {dayOpen&&!isEvening&&(
+        {!isEvening&&(
           <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-          {incompletePrevTasks.length>0&&(
-            <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"50",borderRadius:"1rem",padding:"0.8rem 1rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
-                <Icon name="carry" size={14} color={T.sandDark}/>
-                <span style={{fontWeight:700,color:T.sandDark,fontSize:"0.83rem",flex:1}}>Unfinished from yesterday</span>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:"0.3rem",marginBottom:"0.65rem"}}>
-                {incompletePrevTasks.map(function(t){return(
-                  <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                    <div style={{width:6,height:6,borderRadius:"50%",background:T.sand,flexShrink:0}}/>
-                    <span style={{fontSize:"0.81rem",color:T.textDark,flex:1}}>{t.text}</span>
-                    <button onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,archived:true}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",lineHeight:1,padding:"0 2px",flexShrink:0}}>×</button>
-                  </div>
-                );})}
-              </div>
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                <button onClick={carryTasksOver} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",gap:"0.3rem"})}><Icon name="carry" size={12} color="#fff"/> Bring all forward</button>
-                <button onClick={()=>setTasks(p=>p.map(t=>incompletePrevTasks.find(x=>x.id===t.id)?{...t,archived:true}:t))} style={btnS({fontSize:"0.73rem",padding:"0.3rem 0.6rem",color:T.textSoft})}>Let all go</button>
-              </div>
-            </div>
-          )}
 
-            {/* ── Today's Reminders ── */}
-            {(function(){
-              var todayStr = TODAY.toISOString().split("T")[0];
-              var todayReminders = notifications.filter(function(n){
-                return !n.fired && n.date === todayStr;
-              });
-              // Also include calendar events today that have a reminder set
-              var todayEvtReminders = calEvents.filter(function(e){
-                return e.date === todayStr && notifications.some(function(n){ return n.entityId === e.id && !n.fired; });
-              });
-              if (todayReminders.length === 0) return null;
-              return (
-                <div style={{background:"linear-gradient(135deg,rgba(200,169,122,0.10),rgba(200,169,122,0.04))",border:"1.5px solid "+T.sand+"60",borderRadius:"1.2rem",padding:"0.9rem 1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                    <span style={{fontSize:"1rem"}}>🔔</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.sandDark}}>Today's Reminders</span>
-                    <span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.sand,fontWeight:700,background:T.sand+"20",borderRadius:"999px",padding:"0.1rem 0.5rem"}}>{todayReminders.length}</span>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                    {todayReminders.map(function(n){
-                      var linkedTask = tasks.find(function(t){ return t.id === n.entityId; });
-                      var linkedEvt  = calEvents.find(function(e){ return e.id === n.entityId; });
-                      var isDone = linkedTask ? linkedTask.done || linkedTask.archived : false;
-                      return (
-                        <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.45rem 0.6rem",background:isDone?"rgba(122,158,142,0.08)":T.surface,borderRadius:"0.65rem",border:"1px solid "+(isDone?T.sage+"30":T.sand+"30"),opacity:isDone?0.6:1}}>
-                          <span style={{fontSize:"0.85rem",flexShrink:0}}>{linkedEvt?"📅":"📌"}</span>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:"0.82rem",fontWeight:600,color:isDone?T.textSoft:T.textDark,textDecoration:isDone?"line-through":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.entityTitle}</div>
-                            {n.time&&<div style={{fontSize:"0.7rem",color:T.sand,fontWeight:700}}>{fmtTime(n.time)}</div>}
-                            {n.note&&<div style={{fontSize:"0.71rem",color:T.textSoft,marginTop:"0.1rem"}}>{n.note}</div>}
-                          </div>
-                          {isDone&&<span style={{fontSize:"0.75rem",color:T.sage,fontWeight:700,flexShrink:0}}>✓ done</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Calendar today */}
-            <div style={{background:T.surface,border:"1.5px solid "+T.blue+"40",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                  <Icon name="cal" size={15} color={T.blueDark}/>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today's schedule</span>
-                </div>
-                <button onClick={()=>{goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Open</button>
+            {/* ══════════ Today at a Glance — one unified card ══════════ */}
+            <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.65rem 0.1rem 0.15rem"}}>
+                <span style={{fontSize:"1rem"}}>⚓️</span>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.25rem",color:T.textDark}}>Today at a Glance</span>
               </div>
-              {todayEvents.length===0
-                ?<p style={{color:T.textFaint,fontSize:"0.82rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.3rem 0"}}>No events today — open space 🌿</p>
-                :todayEvents.map(e=>(
-                  <AnchorCheckItem
-                    key={e.id} id={e.id}
-                    text={e.title}
-                    checked={checkedCalEvents.includes(e.id)}
-                    onCheck={id=>setCheckedCalEvents(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
-                    color={e.color}
-                    badge={e.time||"all day"}
-                    entityTitle={e.title}
-                    onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}
-                  />
-                ))
-              }
-              {todayEvents.some(e=>checkedCalEvents.includes(e.id))&&(
-                <div style={{marginTop:"0.4rem",paddingTop:"0.4rem",borderTop:"1px dashed "+T.borderSoft}}>
-                  {todayEvents.filter(e=>checkedCalEvents.includes(e.id)).map(e=>(
-                    <div key={e.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.6rem",opacity:0.45}}>
-                      <div style={{width:18,height:18,borderRadius:"50%",background:e.color,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={9} color="#fff"/></div>
-                      <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through"}}>{e.title}</span>
-                    </div>
-                  ))}
-                  <button onClick={()=>setCheckedCalEvents(p=>p.filter(id=>!todayEvents.find(e=>e.id===id)))} style={{fontSize:"0.68rem",color:T.textFaint,background:"none",border:"none",cursor:"pointer",padding:"0.2rem 0.6rem",fontFamily:"inherit"}}>Clear done</button>
+
+              {incompletePrevTasks.length>0&&(
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.1rem",borderTop:"1px solid "+T.borderSoft,marginTop:"0.35rem"}}>
+                  <span style={{fontSize:"0.85rem"}}>↩</span>
+                  <span style={{flex:1,fontSize:"0.8rem",color:T.textSoft}}>{incompletePrevTasks.length} unfinished from yesterday</span>
+                  <button onClick={carryTasksOver} style={btnS({fontSize:"0.68rem",padding:"0.2rem 0.55rem"})}>Bring forward</button>
                 </div>
               )}
-            </div>
 
-            {/* Survival mode inline */}
-            {flowMode==="Survival"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
-                <div style={{background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}55`,borderRadius:"1.2rem",padding:"1.4rem 1.3rem",textAlign:"center"}}>
-                  <div style={{fontSize:"2.2rem",marginBottom:"0.4rem"}}>🛟</div>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,marginBottom:"0.4rem"}}>Survival Mode</div>
-                  <p style={{color:T.textMid,fontSize:"0.85rem",lineHeight:1.65,margin:"0 0 0.2rem",fontWeight:600}}>You are not behind. You are not failing.</p>
-                  <p style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.65,margin:0,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>Some days, just getting through is the win.</p>
+              {/* Schedule */}
+              <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>📅 Schedule
+                  <button onClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.68rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:0,textTransform:"none"}}>Open ›</button>
                 </div>
-                <div style={{background:T.surface,border:`1.5px solid ${T.borderSoft}`,borderRadius:"1rem",padding:"0.8rem 1rem",textAlign:"center"}}>
-                  <p style={{color:T.textSoft,fontSize:"0.82rem",margin:0,lineHeight:1.6,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>Only three things matter today. Check them off and you're done.</p>
+                {(function(){
+                  var nowMin=new Date().getHours()*60+new Date().getMinutes(); var GRACE=60;
+                  function em(e){ if(!e.time) return null; var pp=e.time.split(":"); return (parseInt(pp[0],10)||0)*60+(parseInt(pp[1],10)||0); }
+                  var up=todayEvents.filter(function(e){ if(checkedCalEvents.includes(e.id)) return true; var mn=em(e); return mn===null||mn+GRACE>nowMin; });
+                  var earlier=todayEvents.filter(function(e){ if(checkedCalEvents.includes(e.id)) return false; var mn=em(e); return mn!==null&&mn+GRACE<=nowMin; });
+                  if(todayEvents.length===0) return <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No events today — open space 🌿</div>;
+                  return(<>
+                    {up.map(function(e){return(
+                      <AnchorCheckItem key={e.id} id={e.id} text={e.title} checked={checkedCalEvents.includes(e.id)} onCheck={function(id){setCheckedCalEvents(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={e.color} badge={e.time?fmtTime(e.time):"all day"} entityTitle={e.title} onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}/>
+                    );})}
+                    {up.length===0&&earlier.length>0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem"}}>Nothing left on the clock 🌙</div>}
+                    {earlier.length>0&&(<details style={{marginTop:"0.15rem"}}><summary style={{listStyle:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.72rem",fontWeight:600,padding:"0.25rem 0.1rem"}}>🕓 Earlier today · {earlier.length}</summary><div>{earlier.map(function(e){return(<div key={e.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0.5rem",opacity:0.5}}><div style={{width:7,height:7,borderRadius:"50%",background:e.color||T.blue,flexShrink:0}}/><span style={{fontSize:"0.78rem",flex:1}}>{e.title}</span><span style={{fontSize:"0.66rem",color:T.textFaint,fontWeight:700}}>{e.time?fmtTime(e.time):"all day"}</span></div>);})}</div></details>)}
+                  </>);
+                })()}
+              </div>
+
+              {/* Dinner */}
+              <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🍽️ Dinner
+                  <button onClick={function(){goTab("meals");}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.68rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:0,textTransform:"none"}}>Plan ›</button>
                 </div>
-                {BURNOUT_TASKS.map(function(t){var checked=burnoutChecked.includes(t.id);return(
-                  <button key={t.id} onClick={function(){setBurnoutChecked(function(p){return p.includes(t.id)?p.filter(function(x){return x!==t.id;}):[...p,t.id];});}} style={{background:checked?`linear-gradient(135deg,${T.sagePale},${T.sage}18)`:T.surface,border:`2px solid ${checked?T.sage:T.borderSoft}`,borderRadius:"1rem",padding:"1rem 1.2rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"1rem",width:"100%",textAlign:"left",fontFamily:"inherit",transition:"all 0.18s"}}>
-                    <span style={{fontSize:"1.5rem"}}>{t.emoji}</span>
-                    <span style={{flex:1,fontWeight:700,color:checked?T.sageDark:T.textDark,fontSize:"0.95rem",textDecoration:checked?"line-through":"none"}}>{t.label}</span>
-                    <div style={{width:26,height:26,borderRadius:"50%",border:`2.5px solid ${checked?T.sage:T.border}`,background:checked?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.18s"}}>{checked&&<Icon name="check" size={13} color="#fff"/>}</div>
-                  </button>
-                );})}
-                {burnoutChecked.length===3&&(
-                  <div style={{background:`linear-gradient(135deg,${T.sagePale},${T.bluePale})`,border:`2px solid ${T.sage}60`,borderRadius:"1.1rem",padding:"1.3rem",textAlign:"center"}}>
-                    <div style={{fontSize:"1.8rem",marginBottom:"0.35rem"}}>🌿</div>
-                    <p style={{color:T.sageDark,fontWeight:700,fontSize:"1rem",margin:"0 0 0.35rem"}}>You did it. That's everything.</p>
-                    <p style={{fontWeight:500,fontSize:"0.84rem",color:T.textMid,margin:0}}>Rest now. You showed up today — that matters.</p>
-                  </div>
+                {noMealPlanned
+                  ?<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>🌙 Nothing planned yet — keep it easy tonight</div>
+                  :MEALS_TO_SHOW.map(function(m){return todayMeal[m]?(
+                    <AnchorCheckItem key={m} id={"meal_"+m+"_"+TODAY_NAME} text={todayMeal[m]} checked={checkedMealItems.includes("meal_"+m+"_"+TODAY_NAME)} onCheck={function(id){setCheckedMealItems(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sage} badge={m} entityTitle={todayMeal[m]}/>
+                  ):null;})
+                }
+              </div>
+
+              {/* Today's tasks */}
+              <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>⚓️ Today's tasks {allTaskTiers.length>0&&<span style={{color:T.textFaint,fontWeight:700}}>· {allTaskTiers.filter(function(t){return t.done;}).length}/{allTaskTiers.length}</span>}
+                  <button onClick={function(){buildDailyBriefing();}} disabled={briefingLoading} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.68rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:0,textTransform:"none",opacity:briefingLoading?0.6:1}}>✨ Plan</button>
+                </div>
+                {allTaskTiers.filter(function(t){return !t.done;}).length===0
+                  ? (allTaskTiers.length===0
+                      ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No tasks yet — add one or tap ✨ Plan</div>
+                      : <div style={{fontSize:"0.8rem",color:T.sageDark,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",padding:"0.15rem 0.5rem 0.35rem"}}>🌿 All done for today</div>)
+                  : (<>
+                      {top3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.blue} badge="TOP" entityTitle={t.text}/>);})}
+                      {next3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.sage} entityTitle={t.text}/>);})}
+                    </>)
+                }
+                {allTaskTiers.some(function(t){return t.done;})&&(
+                  <details style={{marginTop:"0.15rem"}}>
+                    <summary style={{listStyle:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.72rem",fontWeight:600,padding:"0.25rem 0.1rem"}}>✓ Done today · {allTaskTiers.filter(function(t){return t.done;}).length}</summary>
+                    <div>{allTaskTiers.filter(function(t){return t.done;}).map(function(t){return(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0.5rem",opacity:0.55}}>
+                        <div style={{width:16,height:16,borderRadius:"50%",background:T.sage,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={8} color="#fff"/></div>
+                        <span style={{fontSize:"0.78rem",flex:1,textDecoration:"line-through"}}>{t.text}</span>
+                        <button onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,done:false}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.64rem",color:T.textFaint,fontFamily:"inherit"}}>undo</button>
+                      </div>
+                    );})}</div>
+                  </details>
                 )}
-                <div style={{background:"transparent",border:`1.5px dashed ${T.borderSoft}`,borderRadius:"1rem",padding:"0.9rem",textAlign:"center"}}>
-                  <p style={{color:T.textFaint,fontSize:"0.77rem",margin:"0 0 0.5rem",fontStyle:"italic"}}>You don't have to do everything. Just enough.</p>
-                  <button onClick={function(){setFlowMode("Smooth");}} style={{background:"none",border:`1.5px solid ${T.border}`,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.73rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600}}>✨ Back to a full day when ready</button>
-                </div>
+                {addingTask
+                  ?<div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
+                    <input value={newTask} onChange={function(e){setNewTask(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addQuickTask(newTask,addingTask||"top3",newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setNewTaskPerson("");setAddingTask(null);}}} placeholder="Add a task…" style={inp({flex:1,fontSize:"0.85rem",padding:"0.5rem 0.75rem"})} autoFocus/>
+                    <button onClick={function(){addQuickTask(newTask,addingTask||"top3",newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}} style={btnP(T.blue,{padding:"0.45rem 0.75rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={14} color="#fff"/></button>
+                  </div>
+                  :<div style={{marginTop:"0.35rem"}}><button onClick={function(){setAddingTask("top3");}} style={btnS({fontSize:"0.7rem",padding:"0.28rem 0.65rem"})}>＋ Add task</button></div>
+                }
               </div>
-            )}
 
-            {/* Today's tasks */}
-            <div style={{background:T.surface,border:"3px solid "+T.blue,borderRadius:"1.2rem",padding:"1rem 1.1rem",boxShadow:"0 4px 20px "+T.blue+"14"}}>
-              {people.filter(function(p){return !personIsMinor(p)&&!["Kid","Teen","Baby"].includes(p.role);}).length>0&&(
-                <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
-                  {[{id:"all",name:"Everyone"},...people.filter(function(p){return !personIsMinor(p)&&!["Kid","Teen","Baby"].includes(p.role);})].map(function(p){
-                    return <button key={p.id} onClick={function(){setPersonFilter(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(personFilter===p.id?(p.color||T.blue):T.border),background:personFilter===p.id?(p.color||T.blue)+"22":"transparent",color:personFilter===p.id?(p.color||T.blue):T.textMid,fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
-                  })}
-                </div>
-              )}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                  <span style={{fontSize:"1rem"}}>⚓️</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Today's tasks</span>
-                  {allTaskTiers.length>0&&<span style={{background:T.blue,color:"#fff",fontSize:"0.6rem",fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>{allTaskTiers.filter(t=>t.done).length}/{allTaskTiers.length}</span>}
-                </div>
-                <div style={{display:"flex",gap:"0.3rem"}}>
-                  {allTaskTiers.length>0&&<button onClick={function(){if(window.confirm("Clear all tasks for today?"))setTasks(function(p){return p.map(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)?{...t,archived:true}:t;});});}} style={btnS({fontSize:"0.68rem",padding:"0.22rem 0.55rem",color:T.textFaint})}>Clear</button>}
-                  <button onClick={()=>buildDailyBriefing()} disabled={briefingLoading} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem",display:"flex",alignItems:"center",gap:"0.3rem",opacity:briefingLoading?0.6:1})}>
-                    {briefingLoading?<>{[0,1,2].map(i=><span key={i} style={{width:5,height:5,borderRadius:"50%",background:T.textMid,display:"inline-block",margin:"0 1px"}}/>)}</>:<>✨ Plan my day</>}
-                  </button>
-                </div>
-              </div>
-              {allTaskTiers.filter(t=>!t.done).length===0&&allTaskTiers.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",textAlign:"center",padding:"0.2rem 0 0.5rem"}}>No tasks yet — tap ✨ Plan my day or add one below.</p>}
-              {/* Progress momentum line */}
-              {allTaskTiers.length>0&&allTaskTiers.some(t=>t.done)&&allTaskTiers.some(t=>!t.done)&&(
-                <div style={{fontSize:"0.72rem",color:T.sage,fontWeight:700,marginBottom:"0.5rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                  <span>✓</span>
-                  <span>{allTaskTiers.filter(t=>t.done).length} done — you're doing great.</span>
-                </div>
-              )}
-              {allTaskTiers.length>0&&allTaskTiers.every(t=>t.done)&&(
-                <div style={{fontSize:"0.78rem",color:T.sage,fontWeight:700,marginBottom:"0.5rem",fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",textAlign:"center"}}>🌿 All done. That's everything for today.</div>
-              )}
-              {top3Raw.map(t=>(
-                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done}
-                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
-                  color={T.blue} badge="TOP" entityTitle={t.text}/>
-              ))}
-              {next3Raw.map(t=>(
-                <AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done}
-                  onCheck={id=>setTasks(p=>p.map(x=>x.id===id?{...x,done:!x.done}:x))}
-                  color={T.sage} entityTitle={t.text}/>
-              ))}
-              {/* Completed tasks — collapsed */}
-              {allTaskTiers.some(t=>t.done)&&(
-                <div style={{marginTop:"0.5rem",paddingTop:"0.4rem",borderTop:"1px dashed "+T.borderSoft}}>
-                  {allTaskTiers.filter(t=>t.done).map(t=>(
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.6rem",opacity:0.45}}>
-                      <div style={{width:18,height:18,borderRadius:"50%",background:T.sage,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={9} color="#fff"/></div>
-                      <span style={{fontSize:"0.8rem",color:T.textDark,textDecoration:"line-through"}}>{t.text}</span>
-                      <button onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:false}:x))} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.65rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>undo</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {top3Raw.length > 0 && top3Raw.every(t=>t.done) && (
-                <div style={{textAlign:"center",padding:"0.75rem",background:"rgba(122,158,142,0.1)",borderRadius:"0.75rem",marginTop:"0.5rem",marginBottom:"0.25rem"}}>
-                  <div style={{fontSize:"1.2rem",marginBottom:"0.2rem"}}>🌿</div>
-                  <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",color:"#4d7a6a",fontWeight:600}}>You did enough today.</div>
-                  <div style={{fontSize:"0.75rem",color:"#7a9e8e",marginTop:"0.15rem"}}>That is a win.</div>
-                </div>
-              )}
-              {addingTask&&(
-                <div style={{display:"flex",flexDirection:"column",gap:"0.35rem",marginTop:"0.4rem"}}>
-                  <div style={{display:"flex",gap:"0.4rem"}}>
-                    <input value={newTask} onChange={e=>setNewTask(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter"){addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setNewTaskPerson("");setAddingTask(null);}}}
-                      placeholder={addingTask==="top3"?"Top priority…":"Flow task…"}
-                      style={{...inp({flex:1,fontSize:"0.86rem",borderColor:addingTask==="top3"?T.blue+"70":T.sage+"70",padding:"0.6rem 0.85rem"})}} autoFocus/>
-                    <button onClick={()=>{addQuickTask(newTask,addingTask,newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}} style={btnP(addingTask==="top3"?T.blue:T.sage,{padding:"0.58rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
+              {/* Household heads-up / reminders — only if present */}
+              {(function(){
+                var todayStr=TODAY.toISOString().split("T")[0];
+                var rem=notifications.filter(function(n){return !n.fired&&n.date===todayStr;});
+                if(rem.length===0) return null;
+                return(
+                  <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🔔 Heads-up</div>
+                    {rem.map(function(n){return(
+                      <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.32rem 0.5rem"}}>
+                        <span style={{fontSize:"0.8rem",flexShrink:0}}>📌</span>
+                        <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{n.entityTitle}</span>
+                        {n.time&&<span style={{fontSize:"0.68rem",color:T.sandDark,fontWeight:700,flexShrink:0}}>{fmtTime(n.time)}</span>}
+                      </div>
+                    );})}
                   </div>
-                  <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",paddingLeft:"0.1rem"}}>
-                    <button onClick={()=>setNewTaskPerson("")} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(newTaskPerson===""?T.blue:T.border),background:newTaskPerson===""?T.bluePale:"transparent",color:newTaskPerson===""?T.blue:T.textFaint,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Household</button>
-                    {people.map(function(p){return(<button key={p.id} onClick={()=>setNewTaskPerson(p.name)} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(newTaskPerson===p.name?(p.color||T.blue):T.border),background:newTaskPerson===p.name?(p.color||T.blue)+"22":"transparent",color:newTaskPerson===p.name?(p.color||T.blue):T.textFaint,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>);})}
-                  </div>
-                </div>
-              )}
-              {!addingTask&&(
-                <div style={{display:"flex",gap:"0.4rem",marginTop:"0.55rem"}}>
-                  <button onClick={()=>setAddingTask("top3")} style={btnP(T.blue,{flex:1,fontSize:"0.75rem",padding:"0.45rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}><Icon name="plus" size={12} color="#fff"/> Top priority</button>
-                  <button onClick={()=>setAddingTask("next3")} style={{...btnS({flex:1,fontSize:"0.75rem",padding:"0.45rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem",color:T.sage,borderColor:T.sage+"60"})}}><Icon name="plus" size={12} color={T.sage}/> Flow task</button>
-                </div>
-              )}
-            </div>
+                );
+              })()}
 
-            {/* ── My Morning Anchors — personal per-user checklist ── */}
-            {(function(){
-              var myName = preferredName || (authUser?.displayName ? authUser.displayName.split(" ")[0] : null);
-              var unchecked = personalAnchors.filter(function(a){ return !checkedPersonalAnchors.includes(a.id); });
-              var checked = personalAnchors.filter(function(a){ return checkedPersonalAnchors.includes(a.id); });
-              return (
-                <div style={{background:"linear-gradient(135deg,"+T.sandPale+","+T.surface+")",border:"1.5px solid "+T.sand+"60",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.6rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                      <span style={{fontSize:"0.95rem"}}>🌿</span>
-                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{myName ? myName+"'s anchors" : "My anchors"}</span>
-                      <span style={{fontSize:"0.6rem",background:T.sand+"25",color:T.sandDark,fontWeight:800,padding:"2px 7px",borderRadius:"2rem"}}>just mine</span>
-                    </div>
-                    <button onClick={function(){ setAddingPersonalAnchor(function(v){ return !v; }); setNewPersonalAnchorText(""); }} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontSize:"1.1rem",color:T.sandDark,lineHeight:1}}>+</button>
-                  </div>
-                  {personalAnchors.length === 0 && !addingPersonalAnchor && (
-                    <p style={{color:T.textFaint,fontSize:"0.8rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",margin:"0 0 0.3rem",textAlign:"center",padding:"0.3rem 0"}}>Your personal daily anchors — things only you need to check off each morning.</p>
-                  )}
-                  {unchecked.map(function(a){
-                    return (
-                      <AnchorCheckItem key={a.id} id={a.id} text={a.text}
-                        checked={checkedPersonalAnchors.includes(a.id)}
-                        onCheck={function(id){ setCheckedPersonalAnchors(function(p){ return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id]; }); }}
-                        color={T.sand} bell={false} entityTitle={a.text}/>
-                    );
-                  })}
-                  {checked.length > 0 && (
-                    <div style={{marginTop:"0.35rem",paddingTop:"0.35rem",borderTop:"1px dashed "+T.borderSoft}}>
-                      {checked.map(function(a){
-                        return (
-                          <div key={a.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0.6rem",opacity:0.4}}>
-                            <div style={{width:16,height:16,borderRadius:"50%",background:T.sand,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={8} color="#fff"/></div>
-                            <span style={{fontSize:"0.78rem",color:T.textDark,textDecoration:"line-through",flex:1}}>{a.text}</span>
-                            <button onClick={function(){ setPersonalAnchors(function(p){ return p.filter(function(x){ return x.id!==a.id; }); }); }} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.62rem",color:T.textFaint,padding:"0 2px",fontFamily:"inherit"}}>remove</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {addingPersonalAnchor && (
-                    <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
-                      <input value={newPersonalAnchorText} onChange={function(e){ setNewPersonalAnchorText(e.target.value); }}
-                        onKeyDown={function(e){
-                          if(e.key==="Enter" && newPersonalAnchorText.trim()){
-                            var newA = {id:"pa_"+Date.now(), text:newPersonalAnchorText.trim()};
-                            setPersonalAnchors(function(p){ return [...p, newA]; });
-                            setNewPersonalAnchorText(""); setAddingPersonalAnchor(false);
-                          }
-                          if(e.key==="Escape"){ setAddingPersonalAnchor(false); setNewPersonalAnchorText(""); }
-                        }}
-                        placeholder="Add a personal anchor…"
-                        style={{...inp({flex:1,fontSize:"0.86rem",borderColor:T.sand+"70",padding:"0.55rem 0.85rem"})}} autoFocus/>
-                      <button onClick={function(){
-                        if(newPersonalAnchorText.trim()){
-                          var newA2 = {id:"pa_"+Date.now(), text:newPersonalAnchorText.trim()};
-                          setPersonalAnchors(function(p){ return [...p, newA2]; });
-                          setNewPersonalAnchorText(""); setAddingPersonalAnchor(false);
-                        }
-                      }} style={btnP(T.sand,{padding:"0.55rem 0.8rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={15} color="#fff"/></button>
-                      <button onClick={function(){ setAddingPersonalAnchor(false); setNewPersonalAnchorText(""); }} style={btnS({padding:"0.55rem 0.7rem",fontSize:"0.8rem"})}>✕</button>
-                    </div>
-                  )}
-                  {!addingPersonalAnchor && personalAnchors.length > 0 && (
-                    <button onClick={function(){ setAddingPersonalAnchor(true); setNewPersonalAnchorText(""); }} style={{...btnS({fontSize:"0.73rem",padding:"0.28rem 0.7rem",marginTop:"0.4rem",color:T.sandDark,borderColor:T.sand+"50",display:"flex",alignItems:"center",gap:"0.3rem"})}}>
-                      <Icon name="plus" size={11} color={T.sandDark}/> Add anchor
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Tonight's dinner */}
-            <div style={{background:T.surface,border:"1.5px solid "+(noMealPlanned?T.rose+"50":T.sage+"45"),borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.45rem"}}>
-                  <span style={{fontSize:"0.95rem"}}>🍽️</span>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Tonight's dinner</span>
-                </div>
-                <button onClick={()=>goTab("meals")} style={btnS({fontSize:"0.7rem",padding:"0.25rem 0.65rem"})}>Plan meals</button>
-              </div>
-              {noMealPlanned
-                ?<div style={{background:T.rose+"10",border:"1.5px dashed "+T.rose+"50",borderRadius:"0.75rem",padding:"0.65rem 0.85rem",display:"flex",alignItems:"center",gap:"0.55rem"}}>
-                  <span style={{fontSize:"0.9rem"}}>⚠️</span>
-                  <div>
-                    <div style={{fontSize:"0.83rem",fontWeight:600,color:T.rose}}>No dinner planned</div>
-                    <div style={{fontSize:"0.73rem",color:T.textSoft,marginTop:"0.12rem"}}>Tap "Plan meals" to add something — or wing it 🌿</div>
-                  </div>
-                </div>
-                :<div>
-                  {MEALS_TO_SHOW.map(m=>todayMeal[m]&&(
-                    <AnchorCheckItem key={m} id={"meal_"+m+"_"+TODAY_NAME}
-                      text={todayMeal[m]} checked={checkedMealItems.includes("meal_"+m+"_"+TODAY_NAME)}
-                      onCheck={id=>setCheckedMealItems(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id])}
-                      color={T.sage} badge={m} entityTitle={todayMeal[m]}/>
-                  ))}
-                  {todayMeal.dinner&&!checkedMealItems.includes("meal_dinner_"+TODAY_NAME)&&!todayMeal.dinner.toLowerCase().includes("snack")&&!todayMeal.dinner.toLowerCase().includes("burrito")&&(
-                    <div style={{marginTop:"0.3rem",fontSize:"0.76rem",color:T.textSoft,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",paddingLeft:"0.3rem"}}>💡 Check if anything needs defrosting.</div>
-                  )}
-                </div>
-              }
-            </div>
-
-
-            {/* Brain items scheduled for today via Task Board — always visible bridge */}
-            {flowMode!=="Survival"&&(function(){
-              var scheduledToday=brainItems.filter(function(b){return b.scheduledDay===TODAY_NAME&&!b.done;});
-              var notYetTasks=scheduledToday.filter(function(b){return !allTaskTiers.some(function(t){return t.brainId===b.id||t.linkedTaskId===b.id||t.text===b.text;});});
-              if(notYetTasks.length===0) return null;
-              return(
-                <div style={{background:"linear-gradient(135deg,"+T.lavender+"10,"+T.surface+")",border:"1.5px solid "+T.lavender+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.45rem",marginBottom:"0.6rem"}}>
-                    <span style={{fontSize:"0.9rem"}}>🧠</span>
-                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Queued for today</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:700,color:T.lavender,background:T.lavender+"18",borderRadius:"2rem",padding:"1px 7px"}}>{notYetTasks.length} from Clear Your Mind</span>
-                  </div>
-                  {notYetTasks.map(function(b){return(
-                    <div key={b.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.45rem 0.6rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.lavender+"25"}}>
-                      <div style={{width:8,height:8,borderRadius:"50%",background:T.lavender,flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:500}}>{b.text}</span>
-                      <button onClick={function(){addQuickTask(b.text,"next3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.lavender,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>+ Flow</button>
-                      <button onClick={function(){addQuickTask(b.text,"top3");setBrainItems(function(p){return p.map(function(x){return x.id===b.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={{...btnP(T.blue,{fontSize:"0.68rem",padding:"0.22rem 0.6rem"})}}>Top</button>
+              {/* School / Lighthouse due — only when something today or soon */}
+              {schoolDueSoon.length>0&&(
+                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>📖 School</div>
+                  {schoolDueSoon.map(function(s,i){return(
+                    <div key={"sch_"+i} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.32rem 0.5rem"}}>
+                      <span style={{fontSize:"0.8rem",flexShrink:0}}>📖</span>
+                      <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.title}{s.who?" · "+s.who:""}</span>
+                      <span style={{fontSize:"0.68rem",color:T.blueDark,fontWeight:700,flexShrink:0}}>{s.today?"today":"soon"}</span>
                     </div>
                   );})}
                 </div>
-              );
-            })()}
+              )}
 
-            {/* ── Unified Today's prioritized list — hidden in Survival mode ── */}
-            {flowMode!=="Survival"&&(function(){
-              var brainSuggestions=(!aiLoading&&aiSuggestions?.brain_items?.length>0)
-                ?aiSuggestions.brain_items.map(function(item){
-                    var text=typeof item==="string"?item:item.text;
-                    var reason=typeof item==="object"?item.reason:null;
-                    return {text,reason,src:"brain",brainItem:brainItems.find(function(b){return b.text===text&&!b.done;})};
-                  })
-                :[];
-              var todoSuggestions=(!aiLoading&&aiSuggestions?.todos?.length>0)
-                ?aiSuggestions.todos.map(function(text){return {text,src:"todo"};})
-                :[];
-              var horizonSuggestions=(!aiLoading&&aiSuggestions?.upcoming?.length>0)
-                ?aiSuggestions.upcoming.map(function(text){return {text,src:"horizon"};})
-                :[];
-              var MINOR_ROLES_T=["Kid","Teen","Baby"];
-              var adultNames=people.filter(function(p){return !personIsMinor(p)&&!MINOR_ROLES_T.includes(p.role);}).map(function(p){return p.name;});
-              var ideasPool=brainItems.filter(function(b){
-                if(b.done) return false;
-                if(b.scheduledDay&&b.scheduledDay!=="") return false;
-                if(allTaskTiers.some(function(t){return t.text===b.text||t.brainId===b.id;})) return false;
-                if(b.assignedTo&&!adultNames.includes(b.assignedTo)) return false;
-                if(brainSuggestions.some(function(s){return s.text===b.text;})) return false;
-                return true;
-              });
-              var THEME_TO_CATS_T={"reset":["household","errands"],"errands":["errands","orders"],"admin":["admin","calls","orders"],"clean":["household"],"prep":["household","errands"],"family":["errands","household"],"rest":["someday"],"finance":["admin"],"fitness":["errands"],"batch cook":["household"]};
-              var themeKeyT=(dayRhythm.theme||"").toLowerCase();
-              var themedCats=Object.entries(THEME_TO_CATS_T).find(function(kv){return themeKeyT.includes(kv[0]);})?.[1]||[];
-              var themedIdeas=ideasPool.filter(function(b){return themedCats.includes(b.cat);});
-              var otherIdeas=ideasPool.filter(function(b){return !themedCats.includes(b.cat)&&["errands","admin","household","calls","orders"].includes(b.cat);});
-              var weeklyIdeas=[...themedIdeas,...otherIdeas].slice(0,3).map(function(b){return {text:b.text,src:"weekly",brainItem:b};});
-              var allSuggestions=[...brainSuggestions,...todoSuggestions,...horizonSuggestions,...weeklyIdeas];
-              var seen=new Set();
-              allSuggestions=allSuggestions.filter(function(s){
-                if(seen.has(s.text)) return false;
-                if(allTaskTiers.some(function(t){return t.text===s.text;})) return false;
-                seen.add(s.text);
-                return true;
-              });
-              if(allSuggestions.length===0&&!aiLoading) return null;
-              var top3=allSuggestions.slice(0,3);
-              var alsoToday=allSuggestions.slice(3);
-              return(
-                <div style={{background:T.surface,border:"1.5px solid "+T.blue+"30",borderRadius:"1.2rem",padding:"1rem 1.1rem"}}>
-                  {aiLoading&&(
-                    <div style={{textAlign:"center",padding:"0.5rem 0 0.75rem"}}>
-                      <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:"0.4rem"}}>{[0,1,2].map(function(i){return <div key={i} style={{width:9,height:9,borderRadius:"50%",background:T.sage,animation:"bounce 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>;})}</div>
-                      <div style={{fontSize:"0.78rem",color:T.textSoft,fontStyle:"italic"}}>Looking at your list and calendar…</div>
-                    </div>
-                  )}
-                  {top3.length>0&&(
-                    <div>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.55rem"}}>
-                        <span style={{fontSize:"0.82rem"}}>⭐</span>
-                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>Top 3 — focus here first</span>
-                      </div>
-                      {top3.map(function(s,i){
-                        var sAdded=allTaskTiers.some(function(t){return t.text===s.text;});
-                        var sEmoji=s.src==="horizon"?"🌅":"💭";
-                        return(
-                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.5rem 0.65rem",background:(T.bluePale||"#ddeaf5"),borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.blue+"30"}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:"0.86rem",color:sAdded?T.sageDark:T.textDark,fontWeight:600,lineHeight:1.35}}>{sAdded&&"✓ "}{s.text}</div>
-                              {s.reason&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic"}}>{s.reason}</div>}
-                            </div>
-                            <span style={{fontSize:"0.85rem",alignSelf:"center",flexShrink:0,opacity:0.7}}>{sEmoji}</span>
-                            {!sAdded&&<button onClick={function(){addQuickTask(s.text,"top3");if(s.brainItem)setBrainItems(function(p){return p.map(function(x){return x.id===s.brainItem.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={btnP(T.blue,{fontSize:"0.7rem",padding:"0.25rem 0.65rem",flexShrink:0})}>+ Add</button>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {alsoToday.length>0&&(
-                    <div>
-                      <div style={{height:"0.5px",background:T.borderSoft,margin:"0.75rem 0 0.6rem"}}/>
-                      <div style={{fontSize:"0.72rem",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.5rem",fontFamily:"'DM Sans',sans-serif"}}>Also today</div>
-                      {alsoToday.map(function(s,i){
-                        var sAdded=allTaskTiers.some(function(t){return t.text===s.text;});
-                        var sEmoji=s.src==="horizon"?"🌅":"💭";
-                        return(
-                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.75rem",marginBottom:"0.3rem",border:"1.5px solid "+T.borderSoft}}>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:"0.86rem",color:sAdded?T.sageDark:T.textDark,fontWeight:400,lineHeight:1.35}}>{sAdded&&"✓ "}{s.text}</div>
-                              {s.reason&&<div style={{fontSize:"0.68rem",color:T.textSoft,marginTop:"0.1rem",fontStyle:"italic"}}>{s.reason}</div>}
-                            </div>
-                            <span style={{fontSize:"0.85rem",alignSelf:"center",flexShrink:0,opacity:0.7}}>{sEmoji}</span>
-                            {!sAdded&&<button onClick={function(){addQuickTask(s.text,"next3");if(s.brainItem)setBrainItems(function(p){return p.map(function(x){return x.id===s.brainItem.id?{...x,scheduledDay:TODAY_NAME}:x;});});}} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.25rem 0.65rem",flexShrink:0})}>+ Add</button>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div style={{marginTop:"0.6rem",paddingTop:"0.5rem",borderTop:"1px dashed "+T.borderSoft,display:"flex",gap:"0.8rem",flexWrap:"wrap"}}>
-                    <span style={{fontSize:"0.65rem",color:T.textFaint}}>💭 Clear Your Mind</span>
-                    <span style={{fontSize:"0.65rem",color:T.textFaint}}>🌅 On the horizon</span>
-                  </div>
+              {/* Personal anchors — only if present, no colored box */}
+              {personalAnchors.length>0&&(
+                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🌿 My Anchors</div>
+                  {personalAnchors.map(function(a){return(
+                    <AnchorCheckItem key={a.id} id={a.id} text={a.text} checked={checkedPersonalAnchors.includes(a.id)} onCheck={function(id){setCheckedPersonalAnchors(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sand} entityTitle={a.text}/>
+                  );})}
                 </div>
-              );
-            })()}
+              )}
+
+            </div>{/* ══ end Today at a Glance card ══ */}
+
+            {/* ══════════ Survival burnout OR real-data Top 3 ══════════ */}
+            {flowMode==="Survival"
+              ? (<div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
+                  <div style={{background:"linear-gradient(135deg,"+T.rosePale+","+T.sandPale+")",border:"1.5px solid "+T.rose+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem",textAlign:"center"}}>
+                    <div style={{fontSize:"1.6rem",marginBottom:"0.2rem"}}>🛟</div>
+                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark}}>Only what truly matters</div>
+                    <p style={{color:T.textSoft,fontSize:"0.8rem",margin:"0.2rem 0 0",fontStyle:"italic"}}>Three things. That's the whole day.</p>
+                  </div>
+                  {BURNOUT_TASKS.map(function(t){var checked=burnoutChecked.includes(t.id);return(
+                    <button key={t.id} onClick={function(){setBurnoutChecked(function(p){return p.includes(t.id)?p.filter(function(x){return x!==t.id;}):[...p,t.id];});}} style={{background:checked?T.sagePale:T.surface,border:"2px solid "+(checked?T.sage:T.borderSoft),borderRadius:"1rem",padding:"0.85rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.8rem",width:"100%",textAlign:"left",fontFamily:"inherit"}}>
+                      <span style={{fontSize:"1.3rem"}}>{t.emoji}</span>
+                      <span style={{flex:1,fontWeight:700,color:checked?T.sageDark:T.textDark,fontSize:"0.92rem",textDecoration:checked?"line-through":"none"}}>{t.label}</span>
+                      <div style={{width:24,height:24,borderRadius:"50%",border:"2.5px solid "+(checked?T.sage:T.border),background:checked?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{checked&&<Icon name="check" size={12} color="#fff"/>}</div>
+                    </button>
+                  );})}
+                  <button onClick={function(){setFlowMode("Smooth");}} style={{background:"none",border:"1.5px solid "+T.border,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.72rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600,alignSelf:"center"}}>✨ Back to a full day when ready</button>
+                </div>)
+              : (function(){
+                  var real=[];
+                  todayEvents.forEach(function(e){ if(checkedCalEvents.includes(e.id)) return; real.push({emoji:"📅", text:(e.time?fmtTime(e.time)+" · ":"")+e.title, k:"e_"+e.id, onClick:function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}); });
+                  top3Raw.concat(next3Raw).forEach(function(t){ if(t.done) return; real.push({emoji:"⚓️", text:t.text, k:"t_"+t.id}); });
+                  if(!noMealPlanned&&todayMeal.dinner){ real.push({emoji:"🍽️", text:"Dinner: "+todayMeal.dinner, k:"dinner", onClick:function(){goTab("meals");}}); }
+                  else if(noMealPlanned){ real.push({emoji:"🍽️", text:"Plan tonight's dinner", k:"dinner", onClick:function(){goTab("meals");}}); }
+                  var todayStr2=TODAY.toISOString().split("T")[0];
+                  notifications.filter(function(n){return !n.fired&&n.date===todayStr2;}).forEach(function(n){ real.push({emoji:"🔔", text:n.entityTitle, k:"n_"+n.id}); });
+                  schoolDueSoon.forEach(function(s){ real.push({emoji:"📖", text:s.title+(s.who?" · "+s.who:""), k:"s_"+s.date+s.title}); });
+                  var picks=real.slice(0,3);
+                  if(picks.length<3&&aiSuggestions&&aiSuggestions.todos){ for(var i=0;i<aiSuggestions.todos.length&&picks.length<3;i++){ var tv=aiSuggestions.todos[i]; picks.push({emoji:"💭", text:typeof tv==="string"?tv:tv.text, k:"c_"+i, compass:true}); } }
+                  return(
+                    <div style={{background:T.surface,border:"1.5px solid "+T.blue+"35",borderRadius:"1.2rem",padding:"0.85rem 1rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.5rem"}}>
+                        <span style={{fontSize:"0.9rem"}}>⭐</span>
+                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Top 3 — focus here first</span>
+                      </div>
+                      {picks.length===0
+                        ?<div style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.2rem 0.4rem"}}>Nothing urgent — enjoy the space 🌿</div>
+                        :picks.map(function(p){return(
+                          <div key={p.k} onClick={p.onClick?p.onClick:undefined} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:(T.bluePale||"#dceef0"),borderRadius:"0.8rem",marginBottom:"0.3rem",cursor:p.onClick?"pointer":"default"}}>
+                            <span style={{fontSize:"0.95rem",flexShrink:0}}>{p.emoji}</span>
+                            <span style={{flex:1,fontSize:"0.88rem",fontWeight:600,color:T.textDark,lineHeight:1.3}}>{p.text}</span>
+                            {p.compass&&<span style={{fontSize:"0.62rem",color:T.textFaint,fontWeight:600,fontStyle:"italic",flexShrink:0}}>idea</span>}
+                          </div>
+                        );})}
+                    </div>
+                  );
+                })()
+            }
+
+            {React.createElement(_hfRenders.Countdowns)}
+
           </div>
         )}
+
+        {/* ── For later · Compass notes (collapsed) ── */}
+        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",margin:"1.35rem 0 0.75rem"}}>
+          <div style={{flex:1,height:1,background:T.borderSoft}}/>
+          <span style={{fontSize:"0.66rem",letterSpacing:"0.1em",textTransform:"uppercase",color:T.blueDark||T.blue,fontWeight:800}}>For later</span>
+          <div style={{flex:1,height:1,background:T.borderSoft}}/>
+        </div>
+        <details style={{background:T.bluePale,border:"1.5px solid "+T.blue+"40",borderRadius:"1.2rem",marginBottom:"0.75rem"}}>
+          <summary style={{listStyle:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.85rem 1rem"}}>
+            <span style={{fontSize:"1.05rem"}}>🧭</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Compass</div>
+              <div style={{fontSize:"0.75rem",color:T.textSoft,marginTop:"0.05rem"}}>Reflections & your week — open when you have a moment</div>
+            </div>
+            <span style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,flexShrink:0}}>Open ›</span>
+          </summary>
+          <div style={{padding:"0 0.35rem 0.4rem"}}>
+            <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
+            <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
+            <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
+            <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
+          </div>
+        </details>
 
         {/* ── Evening wind-down panel ── */}
         {dayOpen&&isEvening&&(
