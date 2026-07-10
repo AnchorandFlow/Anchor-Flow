@@ -102,13 +102,14 @@ const _SANITIZE_HANDLED = new Set([
   "recurring","celebrations","gifts","inventory","pets","houseFile",
   "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
   "moments","subs","vaultSystems","packing_templates",
+  "coveData","ownedProducts",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // Scalars
   "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
   // Objects
   "familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
-  "coveData","schoolData","cove_items_v1","notifSettings","sections",
+  "schoolData","cove_items_v1","notifSettings","sections",
   "connectedCals","exhale_labels","health","career","travel_profile",
   // Explicitly normalized
   "ripples",
