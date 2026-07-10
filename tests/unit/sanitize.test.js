@@ -71,7 +71,7 @@ const PLAUSIBLE = {
   cove_sections_v1:   [{ id:"cs1", name:"Reading" }],
   cove_notes_v1:      [{ id:"cn1", text:"A note" }],
   schoolData:         { grade:3, teacher:"Ms. Smith" },
-  coveData:           { theme:"warm" },
+  coveData:           [{ kidId:"k1", kidName:"Alice", shells:5, chores:[{id:"c1",name:"Make bed",pts:1,done:false}], treasures:[] }],
   dietaryFilters:     ["Dairy-free"],
   compassCache:       { nudge:{ date:"2026-07-03", data:{ message:"hi" } } },
   compassEnabled:     true,
@@ -86,6 +86,7 @@ const PLAUSIBLE = {
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
   "af_nwMealCount":   2,
   safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },
+  ownedProducts:      [{ id:"op1", name:"Appliances", items:[{ id:"i1", name:"Dishwasher", link:"", purchasedAt:"", warranty:"", warrantyNote:"", notes:"" }] }],
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────
