@@ -11343,7 +11343,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       {/* ── SW update banner — shown when a new version is waiting for SKIP_WAITING ── */}
       {staleBanner&&(
-        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:10000,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#faf8f4",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",display:"flex",gap:"0.75rem",alignItems:"center",animation:"slideDown 0.3s ease"}}>
+        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:10000,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#faf8f4",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",display:"flex",gap:"0.75rem",alignItems:"center",animation:"slideDown 0.3s ease",pointerEvents:"auto"}}>
           <span style={{fontSize:"1.2rem",flexShrink:0}}>🔄</span>
           <div style={{flex:1,fontSize:"0.82rem",fontWeight:500,fontFamily:"'DM Sans',sans-serif"}}>App update ready</div>
           <button onClick={function(){
@@ -11358,7 +11358,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 // ref went stale — re-query for a waiting worker
                 navigator.serviceWorker.getRegistration().then(function(r){
                   if (r && r.waiting) { r.waiting.postMessage({type:"SKIP_WAITING"}); setTimeout(forceReload, 1500); }
-                  else { forceReload(); }
+                  else { try { r.update().catch(function(){}); } catch(_){} forceReload(); }
                 }).catch(forceReload);
               } else {
                 forceReload();
@@ -11371,7 +11371,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       {/* ── In-app notification banner (iOS + fallback) ── */}
       {inAppBanner&&(
-        <div onClick={()=>setInAppBanner(null)} style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:9999,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#faf8f4",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",cursor:"pointer",display:"flex",gap:"0.75rem",alignItems:"flex-start",animation:"slideDown 0.3s ease"}}>
+        <div onClick={()=>setInAppBanner(null)} style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:9999,maxWidth:360,width:"calc(100% - 2rem)",background:T.navy,color:"#faf8f4",borderRadius:"1rem",padding:"0.85rem 1.1rem",boxShadow:"0 6px 28px rgba(0,0,0,0.28)",cursor:"pointer",display:"flex",gap:"0.75rem",alignItems:"flex-start",animation:"slideDown 0.3s ease",pointerEvents:"auto"}}>
           <span style={{fontSize:"1.3rem",flexShrink:0}}>⚓️</span>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,fontSize:"0.88rem",marginBottom:"0.2rem",fontFamily:"'Cormorant Garamond',serif"}}>{inAppBanner.title}</div>
