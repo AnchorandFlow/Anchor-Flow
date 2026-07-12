@@ -129,17 +129,18 @@ self.addEventListener("push", function(event) {
 self.addEventListener("notificationclick", function(event) {
   event.notification.close();
   if (event.action === "dismiss") return;
+  var dest = (event.notification.data && event.notification.data.url) || "/";
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clients) {
       for (var i = 0; i < clients.length; i++) {
         var client = clients[i];
         if (client.url.includes(self.location.origin) && "focus" in client) {
-          client.postMessage({ type: "NOTIF_CLICK" });
+          client.postMessage({ type: "NOTIF_CLICK", url: dest });
           return client.focus();
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow("/?ripple=1");
+        return self.clients.openWindow(dest);
       }
     })
   );

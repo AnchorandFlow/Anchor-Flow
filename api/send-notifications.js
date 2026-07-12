@@ -142,18 +142,19 @@ export default async function handler(req, res) {
           '🌙 Great work today. Rest up.'
         );
 
+        const NOTIF_DEST = { morning: '/?af_dest=today', midday: '/?af_dest=today', dinner: '/?af_dest=meals', evening: '/?af_dest=today' };
         await webpush.sendNotification(JSON.parse(sub.subscription_json), JSON.stringify({
           title: notifMeta.title,
           body,
           icon: '/favicon.svg',
           badge: '/favicon.svg',
-          data: { type: notifMeta.type, url: '/' },
+          data: { type: notifMeta.type, url: NOTIF_DEST[notifMeta.type] || '/' },
         }));
 
         results.sent++;
       } catch (e) {
         results.failed++;
-        results.errors.push(e.message?.slice(0, 100));
+        results.errors.push((sub.endpoint || '').slice(-40) + ': ' + (e.message || '').slice(0, 80));
         if (e.statusCode === 410 || e.statusCode === 404) {
           try { await sbFetch(`/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(sub.endpoint)}`, { method: 'DELETE' }); } catch {}
         }

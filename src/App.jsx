@@ -121,8 +121,22 @@ function usePushNotifications() {
         window.dispatchEvent(new CustomEvent("ripple-notif-action", { detail: e.data }));
       }
       if (e.data && e.data.type === "NOTIF_CLICK") {
-        try { localStorage.setItem("af_open_ripple", "1"); } catch {}
-        window.dispatchEvent(new CustomEvent("ripple-notif-action", { detail: e.data }));
+        var _destTab = "";
+        try {
+          var _notifUrl = e.data.url || "";
+          if (_notifUrl) {
+            var _nu = new URL(_notifUrl, window.location.origin);
+            var _nd = new URLSearchParams(_nu.search).get("af_dest") || "";
+            var _DM = { today:"anchor", meals:"meals", calendar:"calendar", shopping:"shop", shop:"shop" };
+            _destTab = _DM[_nd] || "";
+          }
+        } catch {}
+        if (_destTab) {
+          window.dispatchEvent(new CustomEvent("af-set-tab", { detail: _destTab }));
+        } else {
+          try { localStorage.setItem("af_open_ripple", "1"); } catch {}
+          window.dispatchEvent(new CustomEvent("ripple-notif-action", { detail: e.data }));
+        }
       }
     };
     navigator.serviceWorker.addEventListener("message", onMessage);
@@ -2901,6 +2915,18 @@ function createLocalBackup() {
             }
           }, 300);
         }, 400);
+      }
+    } catch {}
+    // af_dest: destination-aware notification tap (cold start — app opened from notification).
+    // ?ripple=1 and ?af_dest=* never coexist in the same URL (SW picks one), so
+    // window.location.search still has af_dest even if the ripple block ran above.
+    try {
+      var _afDest = new URLSearchParams(window.location.search).get("af_dest") || "";
+      var _DEST_MAP = { today:"anchor", meals:"meals", calendar:"calendar", shopping:"shop", shop:"shop" };
+      var _destTab = _DEST_MAP[_afDest] || "";
+      if (_destTab) {
+        window.history.replaceState(null, "", window.location.pathname);
+        setTimeout(function() { goTab(_destTab); }, 400);
       }
     } catch {}
     return () => window.removeEventListener("ripple-notif-action", handleRippleNotifAction);
