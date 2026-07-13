@@ -10739,15 +10739,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     async function fetchGoogleEvents(token) {
       setSyncing2(true); setError("");
+      // F-26: every Google fetch gets a hard timeout so a single hung request can't
+      // leave the modal stuck in "Syncing…" forever. AbortController (not the newer
+      // AbortSignal.timeout) for broad Safari support. Each aborted fetch rejects,
+      // is caught per-calendar below, and yields [] — so Promise.all always settles.
+      function fetchWithTimeout(url, opts, ms) {
+        var controller = new AbortController();
+        var timer = setTimeout(function(){ controller.abort(); }, ms || 10000);
+        return fetch(url, Object.assign({}, opts || {}, { signal: controller.signal }))
+          .then(function(r){ clearTimeout(timer); return r; })
+          .catch(function(err){ clearTimeout(timer); throw err; });
+      }
       try {
         const now = new Date();
         const timeMin = encodeURIComponent(new Date(now.getFullYear(), now.getMonth(), 1).toISOString());
         const timeMax = encodeURIComponent(new Date(now.getFullYear(), now.getMonth() + 3, 0).toISOString());
 
         // Step 1: Get all calendars in the account
-        const calListRes = await fetch(
+        const calListRes = await fetchWithTimeout(
           "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader",
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
+          10000
         );
         if (calListRes.status === 401) {
           setGoogleCalToken(null);
@@ -10758,7 +10770,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         const calListData = await calListRes.json();
         if (calListData.error) { setError(calListData.error.message||"Google Calendar error"); setSyncing2(false); return; }
 
-        const calendars = calListData.items || [];
+        // F-26: cap the number of calendars fetched. A power user with dozens of
+        // subscribed calendars would otherwise fire an unbounded fan-out of requests.
+        const calendars = (calListData.items || []).slice(0, 50);
 
         // Step 2: Fetch events from every calendar in parallel
         const calColors = {
@@ -10772,9 +10786,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         const allEventPromises = calendars.map(async (cal, calIdx) => {
           try {
             const calId = encodeURIComponent(cal.id);
-            const res = await fetch(
+            const res = await fetchWithTimeout(
               `https://www.googleapis.com/calendar/v3/calendars/${calId}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=250`,
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: { Authorization: `Bearer ${token}` } },
+              10000
             );
             if (!res.ok) return [];
             const data = await res.json();
@@ -10828,9 +10843,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         setLastSync(new Date().toLocaleTimeString());
         setGoogleCalError("");
       } catch(e) {
-        setError("Couldn't fetch events: " + (e.message || "Unknown error"));
+        // A timeout/abort lands here too — report it instead of hanging.
+        setError("Couldn't fetch events: " + (e.name === "AbortError" ? "request timed out" : (e.message || "Unknown error")));
+      } finally {
+        setSyncing2(false);
       }
-      setSyncing2(false);
     }
 
     async function resync() {
