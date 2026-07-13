@@ -17,6 +17,52 @@ import AuthScreen from "./components/AuthScreen"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey } from "./sync-core.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 
+// ── F-19: in-app confirm/prompt ───────────────────────────────────────────────
+// Native window.confirm/prompt/alert are unreliable in iOS standalone PWA mode —
+// they can be silently suppressed, leaving confirm-gated buttons (leave household,
+// delete list/note, add section) dead: the user taps, no dialog appears, nothing
+// happens. These promise-based helpers dispatch an event that a single root-mounted
+// modal renders and resolves, so the flow works everywhere. If event dispatch ever
+// fails, they fall back to the native dialog so the action is never lost.
+var _afDialogResolve = null;
+function afConfirm(message, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    _afDialogResolve = resolve;
+    try {
+      window.dispatchEvent(new CustomEvent("af-dialog-open", { detail: {
+        mode: "confirm",
+        message: String(message == null ? "" : message),
+        confirmText: opts.confirmText || "Confirm",
+        cancelText: opts.cancelText || "Cancel",
+        danger: !!opts.danger
+      } }));
+    } catch (e) {
+      _afDialogResolve = null;
+      resolve(window.confirm(message));
+    }
+  });
+}
+function afPrompt(message, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    _afDialogResolve = resolve;
+    try {
+      window.dispatchEvent(new CustomEvent("af-dialog-open", { detail: {
+        mode: "prompt",
+        message: String(message == null ? "" : message),
+        defaultValue: opts.defaultValue || "",
+        placeholder: opts.placeholder || "",
+        confirmText: opts.confirmText || "OK",
+        cancelText: opts.cancelText || "Cancel"
+      } }));
+    } catch (e) {
+      _afDialogResolve = null;
+      resolve(window.prompt(message));
+    }
+  });
+}
+
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
   const [notifications, setNotifications] = React.useState([]);
@@ -3266,7 +3312,29 @@ function createLocalBackup() {
   // No auto-dismiss; user-controlled. Cleared on reload (page is gone by then).
   const [staleBanner,setStaleBanner] = useState(false);
 
-  // ── New feature state (all useSaved first, then useState) ───────────────────
+  // ── F-19: in-app confirm/prompt dialog (see afConfirm/afPrompt at module scope) ──
+  // Single root-mounted modal that any afConfirm/afPrompt call anywhere in the app
+  // drives via the "af-dialog-open" event. Resolves the pending promise on choice.
+  const [afDialog,setAfDialog] = useState(null); // {mode, message, ...} or null
+  const [afDialogInput,setAfDialogInput] = useState("");
+  useEffect(function(){
+    function onOpen(e){
+      var d = (e && e.detail) || {};
+      setAfDialog(d);
+      setAfDialogInput(d.mode === "prompt" ? (d.defaultValue || "") : "");
+    }
+    window.addEventListener("af-dialog-open", onOpen);
+    return function(){ window.removeEventListener("af-dialog-open", onOpen); };
+  }, []);
+  function afDialogClose(result){
+    var r = _afDialogResolve;
+    _afDialogResolve = null;
+    setAfDialog(null);
+    setAfDialogInput("");
+    if (r) r(result);
+  }
+
+
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
   const [dayBriefing,setDayBriefing]               = useSaved("dayBriefing",null);
   const [briefingBuilt,setBriefingBuilt]           = useSaved("briefingBuilt",null);
@@ -8921,8 +8989,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return n.id===id ? Object.assign({},n,patch,{updatedAt:Date.now()}) : n;
       }); });
     }
-    function deleteNote(id) {
-      if (!window.confirm("Delete this note? This can't be undone.")) return;
+    async function deleteNote(id) {
+      if (!(await afConfirm("Delete this note? This can't be undone.", { confirmText: "Delete", danger: true }))) return;
       setCoveNotes(function(prev){ return prev.filter(function(n){ return n.id!==id; }); });
       setActiveNoteId(null);
     }
@@ -9082,16 +9150,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setCoveLists(function(prev){ return prev.map(function(l){ return l.id===listId ? Object.assign({},l,{title:newTitle}) : l; }); });
     }
 
-    function deleteList(listId) {
-      if (!window.confirm("Delete this list?")) return;
+    async function deleteList(listId) {
+      if (!(await afConfirm("Delete this list?", { confirmText: "Delete", danger: true }))) return;
       setCoveLists(function(prev){ return prev.filter(function(l){ return l.id!==listId; }); });
       setCoveItemsMap(function(prev){ var n=Object.assign({},prev); delete n[listId]; return n; });
       setCoveSectionsMap(function(prev){ var n=Object.assign({},prev); delete n[listId]; return n; });
       setView("list"); setActiveListId(null);
     }
 
-    function addSection() {
-      var title = window.prompt("Section name:"); if (!title || !title.trim()) return;
+    async function addSection() {
+      var title = await afPrompt("Section name:", { confirmText: "Add", placeholder: "e.g. Produce, Freezer…" }); if (!title || !title.trim()) return;
       var secId = uid2();
       setCoveSectionsMap(function(prev){
         var secs = (prev[activeListId]||[]).concat([{id:secId, title:title.trim(), sort_order:(prev[activeListId]||[]).length}]);
@@ -9477,7 +9545,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         <div style={{fontSize:"0.88rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>{list.title}</div>
                         <div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2}}>{total>0?done+" of "+total+" done · "+CAT_LABELS[list.category]:"Empty · "+CAT_LABELS[list.category]}</div>
                       </div>
-                      <button onClick={function(){if(window.confirm("Delete \""+list.title+"\"?")){setCoveLists(function(p){return p.filter(function(l){return l.id!==list.id;})});setCoveItemsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});setCoveSectionsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});}}}
+                      <button onClick={async function(){if(await afConfirm("Delete \""+list.title+"\"?", {confirmText:"Delete",danger:true})){setCoveLists(function(p){return p.filter(function(l){return l.id!==list.id;})});setCoveItemsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});setCoveSectionsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});}}}
                         style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:3,display:"flex",flexShrink:0,fontSize:13,color:T.textSoft}}>&#10005;</button>
                     </div>
                     {total>0&&(
@@ -11110,8 +11178,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var _ownerId = householdOwnerId || (function(){ try { return JSON.parse(localStorage.getItem("af_householdOwnerId")||"null"); } catch(_e) { return null; } })();
     var isOwner = !!(authUser && authUser.id && householdId && _ownerId && authUser.id === _ownerId);
     var isMember = !!(authUser && authUser.id && householdId && !isOwner);
-    function handleLeave() {
-      if (!window.confirm("Leave this household? Your data stays on this device — you can join a different household any time.")) return;
+    async function handleLeave() {
+      if (!(await afConfirm("Leave this household? Your data stays on this device — you can join a different household any time.", { confirmText: "Leave", danger: true }))) return;
       try { localStorage.removeItem("af_householdId"); } catch(_e) {}
       try { localStorage.removeItem("af_householdOwnerId"); } catch(_e) {}
       setHouseholdId(null);
@@ -11412,6 +11480,33 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
         [draggable]:active{cursor:grabbing!important}
       `}</style>
+
+      {/* ── F-19: in-app confirm / prompt modal (native dialogs die in iOS PWA) ── */}
+      {afDialog&&(
+        <div data-modal-open="true" onClick={function(){ afDialogClose(afDialog.mode==="prompt"?null:false); }}
+          style={{position:"fixed",inset:0,background:"rgba(26,39,68,0.45)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1rem) 1.25rem env(safe-area-inset-bottom,1rem)"}}>
+          <div onClick={function(ev){ ev.stopPropagation(); }}
+            style={{background:"#faf8f4",borderRadius:"1rem",padding:"1.35rem 1.35rem 1.1rem",maxWidth:340,width:"100%",boxShadow:"0 12px 40px rgba(0,0,0,0.32)",fontFamily:"'DM Sans',sans-serif",animation:"slideDown 0.22s ease"}}>
+            <div style={{fontSize:"0.95rem",lineHeight:1.5,color:T.navy,fontWeight:500,whiteSpace:"pre-wrap"}}>{afDialog.message}</div>
+            {afDialog.mode==="prompt"&&(
+              <input
+                autoFocus
+                value={afDialogInput}
+                placeholder={afDialog.placeholder||""}
+                onChange={function(e){ setAfDialogInput(e.target.value); }}
+                onKeyDown={function(e){ if(e.key==="Enter"){ afDialogClose(afDialogInput); } else if(e.key==="Escape"){ afDialogClose(null); } }}
+                style={{marginTop:"0.85rem",width:"100%",boxSizing:"border-box",padding:"0.6rem 0.7rem",borderRadius:"0.6rem",border:"1px solid rgba(26,39,68,0.2)",fontSize:"0.9rem",fontFamily:"inherit",color:T.navy,background:"#fff"}}
+              />
+            )}
+            <div style={{display:"flex",gap:"0.6rem",justifyContent:"flex-end",marginTop:"1.15rem"}}>
+              <button onClick={function(){ afDialogClose(afDialog.mode==="prompt"?null:false); }}
+                style={{background:"transparent",border:"1px solid rgba(26,39,68,0.2)",borderRadius:"0.6rem",color:T.navy,fontSize:"0.82rem",fontWeight:600,padding:"0.5rem 1rem",cursor:"pointer",fontFamily:"inherit",minHeight:40}}>{afDialog.cancelText||"Cancel"}</button>
+              <button onClick={function(){ afDialogClose(afDialog.mode==="prompt"?afDialogInput:true); }}
+                style={{background:afDialog.danger?"#b87265":"#c8a97a",border:"none",borderRadius:"0.6rem",color:afDialog.danger?"#fff":"#1a2744",fontSize:"0.82rem",fontWeight:700,padding:"0.5rem 1.15rem",cursor:"pointer",fontFamily:"inherit",minHeight:40}}>{afDialog.confirmText||"Confirm"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── SW update banner — shown when a new version is waiting for SKIP_WAITING ── */}
       {staleBanner&&(
