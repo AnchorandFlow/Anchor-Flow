@@ -2380,10 +2380,23 @@ function createLocalBackup() {
     opts = opts || {};
     var arrayKeys = opts.arrayKeys || null;
     var skip = opts.skip || null;
+    // ── F-16 fix: never clobber un-pushed local edits ──────────────────────
+    // A pull must not overwrite a key that is currently dirty (edited locally but
+    // not yet pushed). The push path is a per-key server-side merge, so a dirty key
+    // WILL be pushed and merged on the next sync cycle. Overwriting its value here
+    // with the stale remote copy is the "edits silently lost when both devices
+    // active" bug: the local item vanishes, and because the dirty FLAG survives, the
+    // next push then ships the stale value — making the loss permanent.
+    // Pass respectDirty:false only for deliberate baseline adoption (sign-in/join).
+    var dirtyKeys = [];
+    if (opts.respectDirty !== false) {
+      try { dirtyKeys = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch (_d) { dirtyKeys = []; }
+    }
     var changed = false;
     SYNC_KEYS.forEach(function(k) {
       if (clean[k] === undefined) return;
       if (skip && skip(k)) return;
+      if (dirtyKeys.indexOf(k) !== -1) return; // local un-pushed edit wins until it syncs
       if (arrayKeys && arrayKeys.indexOf(k) !== -1 && !Array.isArray(clean[k])) return;
       var before = null, after = null;
       try { before = localStorage.getItem("af_" + k); } catch (_e) {}
@@ -2392,6 +2405,38 @@ function createLocalBackup() {
       if (before !== after) changed = true;
     });
     return changed;
+  }
+
+  // ── Reload safety: is the user mid-edit? (F-17/F-18) ───────────────────────
+  // A sync-triggered reload that fires while the user is typing — or has a modal
+  // draft open — wipes any in-progress text that lives only in the DOM. The
+  // uncontrolled defaultValue+onBlur fields (inline day notes, meal notes, lesson
+  // plans) don't commit to state/localStorage until blur, so an unguarded reload
+  // erases them. Pulled remote data is already written to localStorage BEFORE the
+  // reload decision (and F-16 keeps dirty keys intact), so deferring the reload
+  // loses nothing — the screen just refreshes a moment later instead of mid-keystroke.
+  function afUserIsEditing() {
+    try {
+      var a = document.activeElement;
+      if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.isContentEditable)) return true;
+      if ((Date.now() - (lastTypedRef.current || 0)) < 15000) return true;
+      if (document.querySelector("[data-modal-open='true']")) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  // Reload as soon as it's safe: if the user is mid-edit, poll once a second until
+  // they stop, then reload so the pulled changes appear. Bounded so a user who keeps
+  // a field focused indefinitely never triggers a surprise reload — the next natural
+  // sync cycle will carry the change instead. One-shot: reloads at most once.
+  function afReloadWhenIdle() {
+    if (!afUserIsEditing()) { window.location.reload(); return; }
+    var tries = 0;
+    var t = setInterval(function() {
+      tries++;
+      if (!afUserIsEditing()) { clearInterval(t); window.location.reload(); }
+      else if (tries > 60) { clearInterval(t); AF_DEBUG && console.warn("[AF PULL] user still editing after 60s — deferring reload to next sync cycle"); }
+    }, 1000);
   }
 
  async function pullHouseholdData(token) {
@@ -2414,7 +2459,8 @@ function createLocalBackup() {
     try { if (row.updated_at) localStorage.setItem("af_lastHHSync", row.updated_at); } catch (e) {}
     // Only reload if the pull actually changed local data. A bumped updated_at with
     // identical data (own echo / steady-state) no longer forces a reflicker.
-    if (_changed1) window.location.reload();
+    // F-17: defer the reload if the user is mid-edit so uncommitted DOM text survives.
+    if (_changed1) afReloadWhenIdle();
   }
 
   async function joinHousehold(token, joinCode) {
@@ -2503,7 +2549,12 @@ function createLocalBackup() {
       // any edit marked dirty before the pull was silently destroyed.
       // Only reload if the pull actually changed local data — otherwise a bumped
       // updated_at with identical data would reflicker the screen for nothing.
-      if (_changed) { AF_DEBUG && console.warn("[AF PULL] RELOADING (local data changed)"); window.location.reload(); }
+      if (_changed) {
+        // F-17: don't reload out from under an in-progress edit. Reload once the
+        // user stops typing / closes their draft (bounded — see afReloadWhenIdle).
+        if (afUserIsEditing()) { AF_DEBUG && console.warn("[AF PULL] change applied but user is editing — deferring reload (F-17)"); afReloadWhenIdle(); }
+        else { AF_DEBUG && console.warn("[AF PULL] RELOADING (local data changed)"); window.location.reload(); }
+      }
       else { AF_DEBUG && console.warn("[AF PULL] no local change — skipping reload"); }
     } catch(e) { console.warn("[AF SYNC] pullLatestHouseholdData failed:", e.message); }
   }
@@ -2756,18 +2807,22 @@ function createLocalBackup() {
             "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
             "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
             "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
-          SYNC_KEYS.forEach(k => {
-            // Don't overwrite mealsWeekOf from server if local already has this week's value
-            if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return;
-            if (cleanBg[k] !== undefined) {
-              if (_ARRAY_KEYS_BG.includes(k) && !Array.isArray(cleanBg[k])) return;
-              applyHouseholdKey(k, cleanBg[k]);
-            }
+          // F-16 fix: apply via the shared helper so (a) keys with un-pushed local
+          // edits (af_dirtyKeys) are NOT clobbered by this background poll, and (b) we
+          // reload only when a non-dirty key actually changed — no reflicker on
+          // own-echo / steady state, and no wiping of an item you just entered.
+          const _changedBg = _applyHouseholdKeysDetectChange(cleanBg, {
+            arrayKeys: _ARRAY_KEYS_BG,
+            skip: function(k){ return k === "mealsWeekOf" && localWeekOf === getThisMonday(); }
           });
           localStorage.setItem("af_lastHHSync", serverTs);
           AF_DEBUG&&console.log("[AF SYNC] localStorage updated tasks", localStorage.getItem("af_tasks"));
-          AF_DEBUG&&console.log("[AF SYNC] reloading now");
-          window.location.reload();
+          if (_changedBg) {
+            AF_DEBUG&&console.log("[AF SYNC] reloading now (remote change applied)");
+            window.location.reload();
+          } else {
+            AF_DEBUG && console.warn("[AF POLL] no non-dirty change to apply — skipping reload");
+          }
           setSyncStatus("synced");
           setLastSyncTime(new Date().toLocaleTimeString());
         }
