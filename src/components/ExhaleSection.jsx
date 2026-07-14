@@ -199,7 +199,7 @@ export default function ExhaleSection(props) {
     var g = lsGet(LS_G, null) || groupItems(initialItems);
     if (EXHALE_V2) {
       bootstrapPositions(g);
-      try { localStorage.setItem(LS_G, JSON.stringify(g)); } catch(e) {}
+      lsSet(LS_G, g);
     }
     return g;
   });
@@ -371,6 +371,7 @@ export default function ExhaleSection(props) {
             var ng = clone(prev);
             if (!ng[col]) ng[col] = [];
             ng[col] = [card].concat(ng[col]);
+            // SERVER-origin (dedup guard above rules out own echo) — do NOT lsSet, would echo-push back. See F-61.
             try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
             return ng;
           });
@@ -400,6 +401,7 @@ export default function ExhaleSection(props) {
             if (!ng[col]) ng[col] = [];
             ng[col].push(card);
             ng[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0); });
+            // SERVER-origin (dedup guard above rules out own echo) — do NOT lsSet, would echo-push back. See F-61.
             try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
             return ng;
           });
@@ -414,6 +416,7 @@ export default function ExhaleSection(props) {
             for (var i = 0; i < COLS.length; i++) {
               ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== deletedId; });
             }
+            // SERVER-origin (dedup guard above rules out own echo) — do NOT lsSet, would echo-push back. See F-61.
             try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
             return ng;
           });
@@ -513,8 +516,7 @@ export default function ExhaleSection(props) {
     setInputText("");
 
     if (EXHALE_V2) {
-      // Raw cache write — NOT lsSet, no dirty key, no blob push triggered
-      try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
+      lsSet(LS_G, ng, opId);
       var hhId; try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
       var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
       var createdBy = (_au && _au.id) ? _au.id : null;
