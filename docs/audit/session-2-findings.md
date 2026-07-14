@@ -9,6 +9,7 @@
 - Duplicates merged: **F-05≡F-58**, **F-22≡F-60**, **F-15≡F-57** (kept once each, cross-referenced).
 - **F-21 kept OPEN** — related to Session 1's S3 but distinct: S3 addressed the pg_cron *scheduling* (job unscheduled), but the endpoint's query-param auth branch (`?secret=`) is still present in code at fa9e703 and still logs the secret. Verify against production before closing.
 - **Cluster B (hardcoded developer family data)** expanded to 5 findings across 5 files — the single most pervasive pattern in the audit.
+- **F-61, F-62 added 2026-07-14 (post-audit follow-up, not part of the original fa9e703 pass)** — derived from reading `ExhaleSection.jsx` at commit `57e0549` ("fix(exhale): prevent cards disappearing during column moves"). See **PART D**.
 
 ---
 
