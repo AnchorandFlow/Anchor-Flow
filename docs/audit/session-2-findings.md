@@ -19,11 +19,12 @@
 |---|---|---|
 | **Critical** | 3 | F-06, F-11, F-05★(no—see note) |
 | Critical (confirmed) | **2** | **F-06, F-11** |
-| High | 13 | F-03, F-04, F-07, F-08, F-10, F-13, F-19, F-21, F-22(≡F-60), F-32, F-35, F-40, F-43 |
+| High | 14 | F-03, F-04, F-07, F-08, F-10, F-13, F-19, F-21, F-22(≡F-60), F-32, F-35, F-40, F-43, **F-61** |
 | Medium | ~24 | F-02, F-09, F-12, F-15(≡F-57), F-17, F-18, F-20, F-24, F-25, F-26, F-30, F-33, F-34, F-37, F-38, F-41, F-46, F-47, F-48, F-53, F-54, F-56, F-59, + others |
 | Low | ~12 | F-05(≡F-58), F-14, F-27, F-28, F-29, F-31, F-36, F-39, F-42, F-44, F-45, F-49, F-50, F-51, F-52 |
 | CLOSED | 2 | F-01, F-23 |
 | FIXED (was Critical) | 1 | F-16 |
+| FIXED (was Medium) | 1 | F-62 |
 
 > ★ Correction: F-05 is **Low** (latent, no active leak path). The 2 confirmed Criticals are F-06 and F-11. F-10 is the highest-priority High and carries a mandatory privacy-review flag.
 
@@ -117,9 +118,18 @@
 
 ---
 
+## PART D — F-61, F-62 (post-audit follow-up, 2026-07-14, grounded at commit `57e0549`)
+
+> Added after re-reading `ExhaleSection.jsx` in the course of mapping commit `57e0549`'s two bundled fixes back to this audit. Not part of the original fa9e703 pass; numbering continues from F-60.
+
+- **F-61 — High.** `ExhaleSection.jsx`. `LS_G` (`af_exhale_groups`) is a `SYNC_KEY`, but it is written via raw `localStorage.setItem` — bypassing dirty-key marking — at **five** sites: the mount bootstrap (line 202), the realtime `INSERT`/`UPDATE`/`DELETE` subscription handlers (lines 374, 403, 417), and `handleAdd()` (line 517, which carries its own admission: `// Raw cache write — NOT lsSet, no dirty key, no blob push triggered`). Commit `57e0549` fixed only the `persist()` call path (switched to `lsSet`); these five sibling sites still allow the household-blob pull to clobber freshly added or moved cards with a stale server copy — the same failure mode `57e0549` was written to fix, still live. **Fix:** route all `LS_G` writes through `lsSet`, no exceptions; add a lint/test that fails on raw `setItem` of a sync key (per Cluster A's standing recommendation). **Effort:** S. **[Cluster A]**
+- **F-62 — Medium, FIXED in `57e0549`.** `ExhaleSection.jsx` (exhale_cards mount-load handler). Cards with a null/unknown `category` were defaulted to `"brain"`, which is not a member of `COLS = ["inbox","decide","do","waiting","someday"]`. `clone()` and `flattenGroups()` only iterate `COLS`, so any card sitting under a non-`COLS` key was silently dropped on the next mutation — legacy/uncategorized cards vanished. `57e0549` changed the default to `"inbox"`, validated against `COLS`. Distinct from F-40 (`null household_id` on insert) and F-41 (non-UUID id fallback) — a third, previously unlogged member of Cluster C. **[Cluster C]**
+
+---
+
 ## Systemic clusters (for Session 5 root-cause ranking)
 
-**Cluster A — Sync-write-path data loss** (recurring bug class): F-32, F-33, F-38, F-43, F-44 + S1 sanitizer-allowlist class. *Root cause:* no single enforced "persist a synced key" path. **One helper + a lint/test that fails on raw setItem of a sync key collapses all of these.**
+**Cluster A — Sync-write-path data loss** (recurring bug class): F-32, F-33, F-38, F-43, F-44, **F-61** + S1 sanitizer-allowlist class. *Root cause:* no single enforced "persist a synced key" path. **One helper + a lint/test that fails on raw setItem of a sync key collapses all of these.** **CONFIRMED LIVE IN PRODUCTION — commit `57e0549` fixed one instance (Exhale `persist()`) after real data loss (cards disappearing on refresh); the first attempt was reverted (`003cb1c` → `3a0d3fd`) before landing. Five sibling sites remain open in the same file (F-61). This cluster is the highest-priority pre-launch fix: it has already caused user-visible data loss.**
 
 **Cluster B — Hardcoded developer family data** (most pervasive pattern; 5 findings, 5 files): F-12 (PERSON_COLORS), F-39 (Exhale defaults), F-48 (CalEventFormModal), F-13 (calendar filter), F-53 (Compass context filter). *Every one breaks a feature for non-developer households AND ships family names in the bundle.* **One directive:** no hardcoded developer family data anywhere; all person references derive from `people` state; enforce with a CI grep.
 
