@@ -63,6 +63,18 @@ function afPrompt(message, opts) {
   });
 }
 
+// F-12: the next-week meal count was stored via useSaved("af_nwMealCount"), but
+// useSaved already prepends "af_", so it landed at "af_af_nwMealCount" — invisible
+// to direct reads and to the sync layer (which reads "af_"+key). Rename to the
+// correct key and migrate any existing value once so nobody's count resets.
+try {
+  var _oldNw = localStorage.getItem("af_af_nwMealCount");
+  if (_oldNw !== null) {
+    if (localStorage.getItem("af_nwMealCount") === null) localStorage.setItem("af_nwMealCount", _oldNw);
+    localStorage.removeItem("af_af_nwMealCount");
+  }
+} catch (e) {}
+
 // ── Ripple: day-after relationship notification hook ──────────────────────────
 function useRippleNotifications() {
   const [notifications, setNotifications] = React.useState([]);
@@ -1082,8 +1094,10 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
       return arr;
     });
   }
-  // Daily chore reset — runs when kid changes or on mount
-  var todayStr = TODAY.toISOString().split("T")[0];
+  // Daily chore reset — runs when kid changes or on mount.
+  // Fresh new Date() (not the module-level TODAY captured at page load) so opening
+  // the app the next day reflects the real date (F-09).
+  var todayStr = new Date().toISOString().split("T")[0];
   React.useEffect(function(){
     if(!sKidData) return;
     var lastReset = sKidData.choreLastReset || "";
@@ -3439,12 +3453,15 @@ function createLocalBackup() {
   }, []); // eslint-disable-line
 
   // ── Birthday → Calendar injection ───────────────────────────────────────────
+  // Rebuilds birthday events from the source list so edits (name/date/year) and
+  // deletions are reflected — the old [birthdays.length] dep + genId-exists skip
+  // meant an edited birthday kept its stale calendar title forever (F-07). Only
+  // writes when the computed set actually differs, to avoid render/sync churn.
   useEffect(function(){
-    if(!birthdays||birthdays.length===0)return;
     var today=new Date();today.setHours(0,0,0,0);
     var horizon=new Date(today);horizon.setFullYear(horizon.getFullYear()+2);
-    var toAdd=[];
-    birthdays.forEach(function(b){
+    var desired=[];
+    (birthdays||[]).forEach(function(b){
       if(!b.month||!b.day)return;
       [-1,0,1,2].forEach(function(yOff){
         var yr=today.getFullYear()+yOff;
@@ -3452,14 +3469,20 @@ function createLocalBackup() {
         if(d<today||d>horizon)return;
         var ds=yr+"-"+String(b.month).padStart(2,"0")+"-"+String(b.day).padStart(2,"0");
         var genId="bday_"+b.id+"_"+yr;
-        if(!calEvents.some(function(e){return e.id===genId;})){
-          var age=b.year?yr-b.year:null;
-          toAdd.push({id:genId,title:"🎂 "+b.name+(age?" (turns "+age+")":""),date:ds,time:"",color:"#c878a8",colorLabel:"Birthday",note:"",_birthday:true});
-        }
+        var age=b.year?yr-b.year:null;
+        desired.push({id:genId,title:"🎂 "+b.name+(age?" (turns "+age+")":""),date:ds,time:"",color:"#c878a8",colorLabel:"Birthday",note:"",_birthday:true});
       });
     });
-    if(toAdd.length>0)setCalEvents(function(prev){return[...prev,...toAdd];});
-  },[birthdays.length]);//eslint-disable-line
+    setCalEvents(function(prev){
+      var prevB=prev.filter(function(e){return e._birthday;});
+      var same = prevB.length===desired.length && desired.every(function(d){
+        return prevB.some(function(e){return e.id===d.id&&e.title===d.title&&e.date===d.date;});
+      });
+      if(same) return prev; // no change — avoid a needless write (render/sync churn)
+      return prev.filter(function(e){return !e._birthday;}).concat(desired);
+    });
+  },[JSON.stringify((birthdays||[]).map(function(b){return [b.id,b.name,b.month,b.day,b.year];}))]);//eslint-disable-line
+
 
   // ── Weather ──────────────────────────────────────────────────────────────────
   function weatherEmoji(code){
@@ -6686,7 +6709,7 @@ Respond ONLY in valid JSON:
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
     const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
-    const [nextWeekMealCount,setNextWeekMealCount]=useSaved("af_nwMealCount",1);
+    const [nextWeekMealCount,setNextWeekMealCount]=useSaved("nwMealCount",1);
     var nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
     const [bankFilters,setBankFilters]=useState([]);
@@ -8082,6 +8105,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     React.useEffect(function(){
+      var controller = new AbortController();
+      var cancelled = false;
       const pending = brainItems.filter(b=>!b.done);
       var _pc=null; try{_pc=JSON.parse(localStorage.getItem("af_brainPattern"));}catch(e){}
       if(_pc&&_pc.d===new Date().toDateString()){ if(!patternMsg&&_pc.m)setPatternMsg(_pc.m); }
@@ -8090,12 +8115,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var grouped={};
         pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
         var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
-        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
+        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
           .then(function(r){return r.json();})
-          .then(function(d){var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg){setPatternMsg(msg);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:msg}));}catch(e){}}})
+          .then(function(d){ if(cancelled) return; var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg){setPatternMsg(msg);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:msg}));}catch(e){}}})
           .catch(function(){})
-          .finally(function(){setPatternLoading(false);});
+          .finally(function(){ if(!cancelled) setPatternLoading(false); });
       }
+      return function(){ cancelled = true; try { controller.abort(); } catch(e){} };
     },[]);
 
     // Derived lists
@@ -8434,20 +8460,32 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // ── Daily chore reset ──
     React.useEffect(function(){
       var resetKey = "af_choreResetDate";
-      var todayStr = TODAY.toISOString().split("T")[0];
-      var lastReset;
-      try { lastReset = localStorage.getItem(resetKey); } catch { lastReset = null; }
-      if(lastReset !== todayStr) {
-        setKids(function(prev){
-          var next = prev.map(function(k){
-            return Object.assign({},k,{chores:k.chores.map(function(c){return Object.assign({},c,{done:false});})});
+      // Fresh date each check (not stale module-level TODAY), and re-check when the
+      // app regains focus so chores reset after midnight even if it was left open (F-09).
+      function checkReset(){
+        var todayStr = new Date().toISOString().split("T")[0];
+        var lastReset;
+        try { lastReset = localStorage.getItem(resetKey); } catch { lastReset = null; }
+        if(lastReset !== todayStr) {
+          setKids(function(prev){
+            var next = prev.map(function(k){
+              return Object.assign({},k,{chores:k.chores.map(function(c){return Object.assign({},c,{done:false});})});
+            });
+            setCoveData(next);
+            return next;
           });
-          setCoveData(next);
-          return next;
-        });
-        try { localStorage.setItem(resetKey, todayStr); } catch {}
+          try { localStorage.setItem(resetKey, todayStr); } catch {}
+        }
       }
-    }, [TODAY]);
+      checkReset();
+      function onVis(){ if(!document.hidden) checkReset(); }
+      document.addEventListener("visibilitychange", onVis);
+      window.addEventListener("focus", checkReset);
+      return function(){
+        document.removeEventListener("visibilitychange", onVis);
+        window.removeEventListener("focus", checkReset);
+      };
+    }, []);
 
     var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
 
@@ -8969,6 +9007,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [newForm, setNewForm] = useState({title:"",category:"family",color_accent:"#3a6b8a"});
     var [saving, setSaving] = useState(false);
     var [aiLoading, setAiLoading] = useState(false);
+    var [rippleSuggestion, setRippleSuggestion] = useState(null); // F-21: inline AI response (was alert)
 
     var activeList = coveLists.find(function(l){ return l.id === activeListId; }) || null;
     var activeItems = activeListId ? (coveItemsMap[activeListId] || []) : [];
@@ -9237,7 +9276,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     async function askRipple() {
+      if (aiLoading) return; // F-21: guard against double-tap firing concurrent requests
       setAiLoading(true);
+      setRippleSuggestion(null);
       var unchecked = activeItems.filter(function(i){ return !i.checked; }).map(function(i){ return i.content; });
       var checked = activeItems.filter(function(i){ return i.checked; }).map(function(i){ return i.content; });
       var prompt = 'I have a list called "' + activeList.title + '". Already done: ' + (checked.slice(0,15).join(", ")||"none") + '. Still to do: ' + (unchecked.join(", ")||"none") + '. Suggest 3-5 items I might be missing. Be brief — just a short bulleted list, no preamble.';
@@ -9249,9 +9290,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         });
         var data = await res.json();
         var text = (data.content||[]).map(function(b){ return b.text||""; }).join("");
-        alert("Ripple suggests:\n\n" + text);
+        setRippleSuggestion(text.trim() || "No suggestions right now.");
       } catch(e) {
-        alert("Ripple is unavailable right now.");
+        setRippleSuggestion("Ripple is unavailable right now.");
       }
       setAiLoading(false);
     }
@@ -9464,6 +9505,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <Icon name="sparkles" size={12} color={T.blue}/>{aiLoading?"thinking…":"Ripple: suggest items"}
               </button>
             </div>
+            {rippleSuggestion&&(
+              <div style={{marginTop:12,background:T.blue+"0d",border:"1px solid "+T.blue+"33",borderRadius:10,padding:"12px 14px",position:"relative"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <Icon name="sparkles" size={13} color={T.blue}/>
+                  <span style={{fontSize:"0.72rem",fontWeight:700,color:T.blue,letterSpacing:"0.02em"}}>Ripple suggests</span>
+                  <button onClick={function(){ setRippleSuggestion(null); }}
+                    style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,lineHeight:1,padding:0}}>×</button>
+                </div>
+                <div style={{fontSize:"0.82rem",lineHeight:1.5,color:T.textDark,whiteSpace:"pre-wrap",fontFamily:"inherit"}}>{rippleSuggestion}</div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -9665,8 +9717,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var schoolKids = people.filter(function(p) { return p && p.name && personIsMinor(p); });
 
     React.useEffect(function() {
-      if (!activeChild && schoolKids.length > 0) { setActiveChild(schoolKids[0].id); }
-    }, [schoolKids.length]);
+      if (schoolKids.length === 0) return;
+      var ids = schoolKids.map(function(k){ return k.id; });
+      // Pick the first child if none selected OR the selected child is no longer a
+      // valid minor (aged out / removed). Depending on the id set — not just length —
+      // means a same-length roster change still corrects a stale activeChild (F-08).
+      if (!activeChild || ids.indexOf(activeChild) === -1) { setActiveChild(schoolKids[0].id); }
+    }, [schoolKids.map(function(k){ return k.id; }).join(",")]);
 
     var child = schoolKids.find(function(p) { return p.id === activeChild; });
     var childData = (activeChild && schoolData[activeChild]) || { type: null, public: { teachers: [], calEvents: [], spiritDays: [], teacherAppWeek: {}, schedule: "", notes: "" }, homeschool: { umbrella: {}, curricula: [], lessons: [], activities: [], attendance: {} } };
@@ -11020,7 +11077,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           method: "POST",
           body: JSON.stringify({
             email: trimEmail,
-            redirect_to: "https://anchor-and-flow.vercel.app"
+            redirect_to: (typeof window !== "undefined" && window.location && window.location.origin) ? window.location.origin : "https://www.anchorandflowapp.com"
           })
         });
         setError("");
@@ -12075,8 +12132,6 @@ export default function App() {
       setSession(session);
       if (session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(session.access_token)); } catch {}
-      }
-      if (session?.refresh_token) {
       }
       if (event === "SIGNED_OUT" || !session) {
         try { localStorage.removeItem("af_authToken"); } catch {}
