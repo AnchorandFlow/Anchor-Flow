@@ -133,7 +133,7 @@
 
 **Cluster B — Hardcoded developer family data** (most pervasive pattern; 5 findings, 5 files): F-12 (PERSON_COLORS), F-39 (Exhale defaults), F-48 (CalEventFormModal), F-13 (calendar filter), F-53 (Compass context filter). *Every one breaks a feature for non-developer households AND ships family names in the bundle.* **One directive:** no hardcoded developer family data anywhere; all person references derive from `people` state; enforce with a CI grep.
 
-**Cluster C — Exhale first-run data integrity:** F-40 (null household_id insert), F-41 (non-UUID fallback vs uuid column). Same uuid-vs-text seam as Session 1. Fix together.
+**Cluster C — Exhale first-run data integrity:** F-40 (null household_id insert), F-41 (non-UUID fallback vs uuid column), **F-62 (category default not in COLS → cards vanish on clone()/flattenGroups(), FIXED in 57e0549)**. Same uuid-vs-text seam as Session 1 (F-40, F-41). Fix together.
 
 **Cluster D — Security hygiene pair/trio:** F-34 (print XSS) + F-46 (plaintext health PIN) + F-05/F-58 (credentials in state object). XSS can read the PIN. Fix as a set.
 
