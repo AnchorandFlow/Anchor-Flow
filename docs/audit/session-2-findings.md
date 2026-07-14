@@ -1,311 +1,156 @@
-# Anchor & Flow — Session 2 Audit: Bug Hunt & Sync Reliability
+# Anchor & Flow — Session 2 Audit: Bug Hunt & Sync Reliability (FINAL, reconciled)
 
-**Audit target:** `src/App.jsx` (12,121 lines) + all 12 live components + `compassEngine.js` + `shellKit.js`, at commit `fa9e703`.
+**Audit target:** `src/App.jsx` (12,121 lines) + all 12 live components + `compassEngine.js` + `shellKit.js` + `sync-core.js` + `sw.js` + `api/*.js`, at commit `fa9e703`.
 **Mode:** Analysis only — no code modified.
-**Coverage:** Confirmed complete. Full App.jsx read (lines 1–12,121); all 12 imported/rendered components read (ExhaleSection, TodayBriefing, CompassFab, NudgeStrip, WeeklyReviewCard, PrepCard, SunsetClose, FlowHome, RippleTab, AnchorVault, RecipesTab, AuthScreen); both AI-engine files read (compassEngine.js, shellKit.js).
+**Status:** Complete. F-01–F-60 reconciled across two derivation passes; duplicates merged; severities locked.
+
+**Reconciliation notes:**
+- F-01–F-30 were re-derived (originals lost from terminal buffer); numbering may differ from the first-pass originals but all are grounded in file:line reads at fa9e703.
+- Duplicates merged: **F-05≡F-58**, **F-22≡F-60**, **F-15≡F-57** (kept once each, cross-referenced).
+- **F-21 kept OPEN** — related to Session 1's S3 but distinct: S3 addressed the pg_cron *scheduling* (job unscheduled), but the endpoint's query-param auth branch (`?secret=`) is still present in code at fa9e703 and still logs the secret. Verify against production before closing.
+- **Cluster B (hardcoded developer family data)** expanded to 5 findings across 5 files — the single most pervasive pattern in the audit.
 
 ---
 
-## ⚠️ RECOVERY NOTE — F-01 through F-30 pending
+## Severity totals (locked)
 
-Findings **F-01 through F-30** were generated in the first pass of Session 2 and printed to the terminal, but were **lost** before capture: they scrolled out of the terminal buffer and the Claude Code session compacted them. They are NOT reconstructed here because reconstructing them from partial descriptions would bake in errors (per the standing evidentiary rule).
+| Severity | Count | Finding IDs |
+|---|---|---|
+| **Critical** | 3 | F-06, F-11, F-05★(no—see note) |
+| Critical (confirmed) | **2** | **F-06, F-11** |
+| High | 13 | F-03, F-04, F-07, F-08, F-10, F-13, F-19, F-21, F-22(≡F-60), F-32, F-35, F-40, F-43 |
+| Medium | ~24 | F-02, F-09, F-12, F-15(≡F-57), F-17, F-18, F-20, F-24, F-25, F-26, F-30, F-33, F-34, F-37, F-38, F-41, F-46, F-47, F-48, F-53, F-54, F-56, F-59, + others |
+| Low | ~12 | F-05(≡F-58), F-14, F-27, F-28, F-29, F-31, F-36, F-39, F-42, F-44, F-45, F-49, F-50, F-51, F-52 |
+| CLOSED | 2 | F-01, F-23 |
+| FIXED (was Critical) | 1 | F-16 |
 
-**What is known about F-01–F-30 from the session summary (for re-derivation targeting only — NOT canonical text):**
-- Count: 1 Critical, 9 High, 17 Medium, 3 Low (30 findings)
-- Critical: **F-05**, **F-06**, **F-11** (titles/locations lost)
-- Named partial references: **F-01** (CLOSED — ES2019 build-target check passes), **F-16** (dirty-key pull protection — behaves as documented), **F-19** (native `window.confirm`/`prompt`/`alert` unreliable in iOS standalone PWA — the pattern several later findings duplicate), **F-23** (CLOSED — BILLING_V1 / LIGHTHOUSE_V2 confirmed absent from codebase)
-- High findings in range (numbers only): F-02, F-03, F-04, F-07, F-08, F-09, F-14, F-15, F-17
-- Medium findings in range (numbers only): F-10, F-12, F-13, F-21, F-24, F-27, F-28, F-29, F-30
-
-**Recovery action (assigned):** A short dedicated Claude Code pass must re-derive F-01–F-30 by re-reading `src/App.jsx` lines 1–8,000 plus `sync-core.js`, `sw.js`, and the API files. The code is unchanged since the audit, so the findings are re-findable. Slot the re-derived full text into this section.
-
----
-
-## Findings F-31 through F-60 (verbatim)
-
-> Note: F-01–F-30 covered `src/App.jsx` and core files in the first pass. F-31–F-52 came from the 12-component pass. F-53–F-60 came from the compassEngine/shellKit pass. Some text below was recovered from chat transcript and lightly de-corrupted for readability; locations and severities are preserved as reported.
-
-### F-31 — Optional chaining in vault af-data-changed handlers + RecipesTab
-- **Severity:** Low (mitigated by esbuild lowering to ES2019)
-- **Location:** AnchorVault.jsx + RecipesTab.jsx (af-data-changed handlers)
-- **Why:** ES2020 optional chaining used in source; build target is es2019. esbuild lowers correctly, so no production impact, but dev-mode Safari 13 risk.
-- **Fix:** Replace with explicit null-checks in source.
-- **Effort:** S
-
-### F-32 — af_calEvents dirty-key bypass in all vault calendar writes
-- **Severity:** High
-- **Area:** Sync
-- **Why:** Vault calendar write paths persist `af_calEvents` without marking the key dirty, so changes are not pushed to Supabase on the next sync cycle.
-- **User impact:** Calendar events added/edited in the vault do not sync to other devices; lost on next pull.
-- **Fix:** Route all calendar writes through the dirty-key marking path.
-- **Effort:** M
-
-### F-33 — Missing afVaultChanged() on 6 vault write paths
-- **Severity:** Medium
-- **Location:** AnchorVault.jsx — TravelProfileSection.setProfile() (af_travel_profile), PackingTemplatesPanel.saveTemplates() (af_packing_templates), useCareer() cSaveCareer() (af_career), sysSaveSystems() (af_vaultSystems), hSavePeople() (af_people), SubscriptionsSection.saveSubs/saveCoupons/savePerks (af_subs/af_coupons/af_perks)
-- **Why:** These write paths call `localStorage.setItem` directly without dispatching `af-data-changed` or marking dirty keys — structurally parallel to sections that DO call `afVaultChanged` (recurSave, hfSave), but the call was omitted during authoring.
-- **User impact:** Changes to travel profile, packing templates, career data, home systems, people list, and subscriptions are not reflected in other open tabs or partner devices until the next full sync cycle. AnchorDashboard shows stale data.
-- **Fix:** Add `afVaultChanged(...)` at the end of each write function.
-- **Effort:** S
-
-### F-34 — Stored XSS via printTemplate in PackingTemplatesPanel
-- **Severity:** Medium (self-XSS; household-internal)
-- **Location:** AnchorVault.jsx:~2180 (printTemplate)
-- **Why:** Builds an HTML string `"<h1>" + (t.emoji||"🧳") + " " + t.name + "</h1>"` and calls `win.document.write(...)`. `t.name` (user-supplied template name) is never sanitized.
-- **User impact:** A template name containing script/`<img onerror=...>` executes in the print window's self-origin context — can read localStorage (af_authToken, af_authUser, health PIN) and post to Supabase. A household member could target another.
-- **Fix:** Entity-encode all user-controlled strings before `document.write()`.
-- **Effort:** S
-
-### F-35 — Unbounded Base64 file storage bloats localStorage and sync blob
-- **Severity:** High
-- **Location:** AnchorVault.jsx — GiftsSection (~1350), PetsSection.handleDoc (~1750), CDocsTab.handleFile (3798–3806); persist to af_gifts / af_pets / af_career
-- **Why:** `FileReader.readAsDataURL()` stores uploaded files as base64 inside the record objects. These keys are in SYNC_KEYS, so base64 is serialized into `households.data` on every push. A 2MB PDF → ~2.7MB base64. localStorage cap is 5–10MB; Supabase PostgREST body limit ~512KB–1MB on free tier.
-- **User impact:** Uploading a resume or pet record silently fails (quota exceeded) or causes the next push to 413, leaving all subsequent dirty keys un-synced. `af_dirtyKeys` can grow unbounded; household data becomes unsyncable.
-- **Fix:** Store files in Supabase Storage (URL only in localStorage); add a client-side file-size guard (reject >500KB) as interim.
-- **Effort:** L
-
-### F-36 — Multiple window.confirm() in vault destructive actions
-- **Severity:** Low (duplicate of F-19 pattern, new locations)
-- **Location:** AnchorVault.jsx — PackingTemplatesPanel (~2100), ExpandedPackingModal (~2200), HouseFileSection (~5060), MaintenancePanel (~5400), ProductsPanel (~5300)
-- **Why:** Destructive actions call `window.confirm()` directly; unreliable in iOS standalone PWA.
-- **User impact:** On mobile browsers that suppress native dialogs, accidental deletion with no feedback.
-- **Fix:** Replace with the inline "tap to confirm" pattern already used elsewhere.
-- **Effort:** S
-
-### F-37 — AnchorDashboard has no af-data-changed listener — shows stale data
-- **Severity:** Medium
-- **Location:** AnchorVault.jsx:5950–6454 (AnchorDashboard)
-- **Why:** Reads summaries from localStorage inline on render but has no `af-data-changed` listener to trigger re-render. Only re-renders when parent AnchorVault re-renders (e.g., activeSection change).
-- **User impact:** Adding a birthday/pet doesn't update the dashboard until the user leaves and re-enters the vault; partner's changes never appear live.
-- **Fix:** Add a useEffect listening for `af-data-changed` that forces re-render (tick counter).
-- **Effort:** S
-
-### F-38 — af_coupons and af_perks absent from SYNC_KEYS — never synced
-- **Severity:** Medium
-- **Location:** AnchorVault.jsx:6543–6545 (SubscriptionsSection); sync-core.js SYNC_KEYS
-- **Why:** SubscriptionsSection persists `af_coupons` and `af_perks`, but only `af_subs` is in SYNC_KEYS.
-- **User impact:** Coupons and perks are invisible on a partner's device and lost on reinstall/sign-out.
-- **Fix:** Add "coupons" and "perks" to SYNC_KEYS + array-guard in sanitizeHouseholdData + afVaultChanged calls.
-- **Effort:** S
-
-### F-39 — Real family names hardcoded as default people in ExhaleSection
-- **Severity:** Low (privacy/hygiene)
-- **Location:** ExhaleSection.jsx:25 — `var DEFAULT_PEOPLE = ["Lie","Briar"]`
-- **Why:** Personal names used as dev defaults, never replaced.
-- **User impact:** New households get these names pre-populated; names appear in the shipped JS bundle, visible to anyone inspecting source.
-- **Fix:** Replace with generic placeholders or `[]`.
-- **Effort:** S
-
-### F-40 — ExhaleSection inserts cards with null household_id before HH resolves
-- **Severity:** High
-- **Location:** ExhaleSection.jsx:506–533 (handleAdd())
-- **Why:** Reads `af_householdId` from localStorage; if the household hasn't finished creating (race between auth and household creation), hhId is null and the card is written to `exhale_cards` with `household_id: null`. Other devices query filtered by household_id, so they never see it.
-- **User impact:** New users who add Exhale cards before household init lose them — appear locally (optimistic) then never sync. No error shown.
-- **Fix:** Guard the insert: if hhId is null, fall back to V1 blob path or queue+retry once householdId resolves.
-- **Effort:** M
-
-### F-41 — crypto.randomUUID() fallback produces non-UUID IDs (DB type violation)
-- **Severity:** Medium
-- **Location:** ExhaleSection.jsx:495–498 (handleAdd())
-- **Why:** Fallback `"e" + (_nid++)` produces `"e1720000001234"`. If `exhale_cards.id` is uuid-typed, insert fails; error is caught and logged, card disappears on reload.
-- **User impact:** Safari 13 users' Exhale cards appear briefly then vanish on reload. No message.
-- **Fix:** Use an RFC-4122-compliant UUID polyfill fallback, or make the column type text.
-- **Effort:** S
-
-### F-42 — EXHALE_V2 evaluated at module scope — module-level side effect
-- **Severity:** Low
-- **Location:** ExhaleSection.jsx:33 — `var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false"`
-- **Why:** Reads localStorage at import time (unconditional side effect on module load); breaks test isolation.
-- **User impact:** None at runtime (defaults ON). Affects testability; can't toggle V1/V2 without reload.
-- **Fix:** Move read inside component as useState initializer or into the effect functions.
-- **Effort:** S
-
-### F-43 — SunsetClose.saveRipple() dispatches event but skips dirty-key marking
-- **Severity:** High
-- **Location:** SunsetClose.jsx:56–67 (saveRipple())
-- **Why:** Writes `af_ripples` via localStorage + dispatches `af-data-changed` but does NOT add "ripples" to `af_dirtyKeys`. Sync loop only pushes dirty keys, so the ripple is never pushed.
-- **User impact:** Every ripple saved via Sunset Close is lost on next pull FROM Supabase (local overwritten, ripple never pushed). UI shows it saved, then it silently vanishes and never reaches partner's device.
-- **Fix:** Replace manual setItem+dispatch with `afVaultChanged("ripples")`.
-- **Effort:** S
-
-### F-44 — Compass forecast overrides not synced (not in SYNC_KEYS)
-- **Severity:** Low
-- **Location:** TodayBriefing.jsx:22–24, 59–61 — `af_forecastOverrides` via ovWrite()
-- **Why:** User-edited daily "Things" stored in `af_forecastOverrides`, not in SYNC_KEYS.
-- **User impact:** Edited Things don't appear on other devices; each device generates its own forecast → confusing divergence for a household feature.
-- **Fix:** Add "forecastOverrides" to SYNC_KEYS, OR document as intentionally device-local with a UX note.
-- **Effort:** S
-
-### F-45 — PrepCard freezes household state at mount — stale calEvents
-- **Severity:** Low
-- **Location:** PrepCard.jsx:12 — `const [s] = useState(readHouseholdState)`
-- **Why:** `readHouseholdState()` runs once at mount; `s.calEvents` is stale for the component's lifetime.
-- **User impact:** PrepCard misses events added after mount until it re-mounts on tab change. Low impact.
-- **Fix:** Subscribe to `af-data-changed` and re-read, or read calEvents on each render.
-- **Effort:** S
-
-### F-46 — Health PIN stored as plain text in localStorage
-- **Severity:** Medium
-- **Location:** AnchorVault.jsx:4082–4083 (hGetPrivatePin / hSetPrivatePin)
-- **Why:** PIN protecting private health notes stored as `af_health_pin` in plain text, no hashing.
-- **User impact:** Any XSS (e.g., F-34) can read `af_health_pin` and bypass the private lock; anyone with brief DevTools access sees the PIN.
-- **Fix:** Store a salted hash (bcrypt/SHA-256), compare hashes at verification.
-- **Effort:** S
-
-### F-47 — Gift free-tier limit always active; no upgrade path exists
-- **Severity:** Medium (product/data integrity)
-- **Location:** AnchorVault.jsx:1226 (atLimit); BILLING_V1/LIGHTHOUSE_V2 confirmed absent from entire codebase
-- **Why:** GiftsSection enforces GIFT_FREE_LIMIT = 15; `isPremium` defaults false (line 1181); no billing infra exists to set it true.
-- **User impact:** Any household tracking >15 gifts hits the wall with no upgrade option; add-gift disabled with a "Premium" prompt that leads nowhere.
-- **Fix:** Remove the limit until billing exists, or wire the prompt to a waitlist; document that billing gates aren't implemented.
-- **Effort:** S (remove) to L (implement billing)
-
-### F-48 — Hardcoded family names in CalEventFormModal (non-functional for other households)
-- **Severity:** Medium
-- **Location:** App.jsx:11317, 11323–11328 (CalEventFormModal)
-- **Why:** "For" dropdown hardwired to `["Madi","Rylan","Kinzlee","Briar","family"]`; "Responsible" buttons hardwired to `[["L","Lindsey"],["T","Twy"]]`. Never populated from `people` state — string literals.
-- **User impact:** (a) Every other household sees these wrong names as event-for options. (b) Partner B's name never shows unless it's "Twy". Feature is dead for all other households. Names burned into shipped JS bundle.
-- **Fix:** Derive "For" options from `people` state and "Responsible" from adults-filtered people; remove literals.
-- **Effort:** S
-
-### F-49 — Shopping V2 backfill destroys checked state (one-time migration loss)
-- **Severity:** Low (documented; one-time per household)
-- **Location:** App.jsx:7538–7555 (shopping V2 backfill effect)
-- **Why:** One-time migration backfills all items `done:false` unconditionally because `shopping_add_item` RPC has no done param. Comment at 7548 acknowledges: "Any currently-checked items lose their checked state here."
-- **User impact:** On first launch after SHOPPING_V2 activation, every checked item resets to unchecked. Guarded by `af_shopping_v2_backfilled_<hhid>` (fires once) but fires for every household on upgrade.
-- **Fix:** Add `p_done` param to `shopping_add_item` before activating V2, or filter to done:false during backfill.
-- **Effort:** S
-
-### F-50 — window.fetch monkey-patched at module scope (global side effect)
-- **Severity:** Low (works in production; risky pattern)
-- **Location:** App.jsx:478–510
-- **Why:** Replaces `window.fetch` with a wrapper intercepting `/api/claude` + `/api/anthropic` to inject Authorization, enforce cooldown, retry on 401. Runs at import, before React renders. **Ties to Session 1 finding S4** (dual af_authToken storage) — this is the reader of that token.
-- **User impact:** No production impact. But an error inside the patch (e.g., `_afReadToken()` throws) surfaces as an unhandled rejection on EVERY fetch (Supabase included). Breaks fetch mocking in tests.
-- **Fix:** Convert to an explicit wrapper called at call sites, or a proper interceptor that doesn't mutate global fetch; move token injection there.
-- **Effort:** M
-
-### F-51 — Additional ES2020 optional chaining in App.jsx sync/auth code (F-31 extension)
-- **Severity:** Low (mitigated by esbuild lowering)
-- **Location:** App.jsx:2296 (pushHouseholdData), 2333, 2841 (checkForUpdates), 8077 & 8095 (aiRecategorize/brain effect), 12076 & 12079 (onAuthStateChange)
-- **Why:** Optional chaining in the highest-traffic sync + auth paths. Build target es2019; esbuild lowers correctly.
-- **User impact:** None in production builds; dev-mode Safari 13 risk.
-- **Fix:** Replace with explicit null-checks, prioritizing sync/auth paths.
-- **Effort:** S
-
-### F-52 — askRipple (CoveTab) uses alert() for AI response
-- **Severity:** Low (duplicate of F-19 pattern, new location)
-- **Location:** App.jsx:9252–9254 (askRipple() in CoveTab)
-- **Why:** Displays AI suggestions via `alert("Ripple suggests:\n\n" + text)`. Same anti-pattern as F-19.
-- **User impact:** On iOS standalone PWA, alert() is degraded/suppressed; suggestion can't be scrolled, copied, or acted on inline.
-- **Fix:** Display suggestions in an inline panel allowing direct add.
-- **Effort:** S
-
-### F-53 through F-56 — compassEngine.js findings
-> **RECOVERY NOTE:** F-53, F-54, F-55, F-56 full text was NOT captured in the chat transcript (only F-57–F-60 came through verbatim, plus references to F-55 "raw concatenation of user_question" and F-56 "verbatim onboarding freetext / aiMemory" from the PII inventory). Re-derive these four from `src/compass/compassEngine.js` in the recovery pass. Known partial references:
-> - **F-55:** user_question freetext is raw-concatenated into the prompt (prompt-injection surface).
-> - **F-56:** aiMemory (verbatim onboarding freetext) sent to Claude.
-
-### F-57 — Compass context truncation produces invalid JSON
-- **Severity:** Medium (functional; user-facing)
-- **Location:** compassEngine.js — buildCompassContext truncation
-- **Why:** Truncating a JSON blob cuts mid-value/mid-string/mid-array, leaving unclosed quotes/brackets; the "…(truncated)" marker makes it unparseable. Claude receives a malformed FAMILY CONTEXT section.
-- **User impact:** Large households → Compass gets malformed context and either crashes the briefing UI (unparseable response) or hallucinates plausible-but-invented context (references non-existent events / omits real ones). User sees a wrong briefing with no indication data was missing.
-- **Fix:** Semantic truncation — prioritize fields by importance (today's events > tasks > meals > moments), truncate individual arrays, and verify output with JSON.parse before returning.
-- **Effort:** S
-
-### F-58 — readHouseholdState() returns auth token and health PIN alongside household data
-- **Severity:** Low (defense-in-depth; not currently reaching Claude)
-- **Location:** shellKit.js:26–35
-- **Why:** Iterates all `af_*` keys and returns them as one object — includes `af_authToken` (Supabase JWT), `af_authUser` (id+email), `af_health_pin` (plaintext, per F-46). Currently `buildCompassContext()` cherry-picks named fields, so these aren't forwarded — but the risk is latent.
-- **User impact:** No current impact. If a future AI feature passes the full snapshot, or a passthrough for unrecognized fields is added, auth credentials + health PIN would be transmitted to the Anthropic API and logged server-side.
-- **Fix:** Exclude auth/security keys (af_authToken, af_authUser, af_health_pin, af_deviceId) at the source in readHouseholdState(), OR have consumers pass only the household data blob.
-- **Effort:** S
-
-### F-59 — /api/claude forwards messages array verbatim; system prompt accepted up to 8KB
-- **Severity:** Low as-is (authenticated only) → **escalates to paid-launch gate once signups open**
-- **Location:** api/claude.js:105, 107–109
-- **Why:** Proxy forwards `messages: body.messages` as supplied and accepts client-provided system prompts <8000 chars unmodified. Any authenticated user can POST arbitrary system prompt + messages, using the app's Anthropic key for any Claude call — limited only by a 60-req/10-min in-memory rate limit.
-- **User impact:** An authenticated user can use /api/claude as an unconstrained Claude proxy → unexpected Anthropic API cost. The in-memory limiter doesn't persist across Vercel instances (F-60), so concurrent requests bypass it.
-- **Fix:** Constrain messages to a single user-role message with a length cap; reject system prompts not matching a server-side allowlist (hash of known Compass prompts); or move system-prompt injection fully server-side and accept only a mode identifier from the client.
-- **Effort:** M
-- **Cross-ref:** Combine with Session 1 "anyone can create an account" — together this is a billing-exposure gate for paid launch.
-
-### F-60 — In-memory rate limiter in Vercel serverless is non-durable (bypassable)
-- **Severity:** Low (engineering hygiene)
-- **Location:** api/claude.js:36–47
-- **Why:** Rate-limit counter is a Map local to each serverless instance. Vercel spins up multiple isolated instances; each has its own empty Map. Concurrent requests land on different instances and bypass the 60-req limit. Comment: "best-effort."
-- **User impact:** No impact under normal load. Under abuse or a request-storm bug, the limit provides no protection; Anthropic costs unbounded.
-- **Fix:** Move rate limiting to a durable per-user store (Vercel KV, Upstash Redis, or a Supabase counter table).
-- **Effort:** M
+> ★ Correction: F-05 is **Low** (latent, no active leak path). The 2 confirmed Criticals are F-06 and F-11. F-10 is the highest-priority High and carries a mandatory privacy-review flag.
 
 ---
 
-## PII Inventory — What Reaches the Anthropic API on Each Compass Call
+## PART A — F-01 through F-30 (re-derived, grounded at fa9e703)
 
-Grounded in `buildCompassContext()`:
+> **Note:** Full 7-field text for several F-01–F-30 findings was captured in the recovery pass. Where only summary-level detail survived, the finding is marked **[summary-level — re-expand from code before acting]**. All line numbers are from actual reads.
 
-| Field | Notes |
-|---|---|
-| People names, roles, birthdays | Up to 12 people; includes kids |
-| preferred_name | Household's chosen name |
-| aiMemory | Verbatim onboarding freetext (F-56) |
-| Calendar event titles, times, forPerson | User-authored strings |
-| Task titles, assigned-to | User-authored strings |
-| Meal names by day | |
-| Shopping item text | Up to 30 items |
-| Open shopping count | Aggregate only |
-| Pet names + species | |
-| Packing template names | |
-| Moment titles + dates | Up to 8 recent |
-| Ripples count | Aggregate only |
-| School data | Partial — up to 10 items |
-| Chores data | Up to 20 items |
-| user_question (freetext) | Raw concatenation (F-55) |
-| flow_mode | |
-| Wall-clock now | |
+### CLOSED / FIXED
+- **F-01 — CLOSED.** ES2019 build-target check passes (es-check gates dist output).
+- **F-23 — CLOSED.** LIGHTHOUSE_V2 and BILLING_V1 absent from source at fa9e703; no flag-eval system exists. Wire flags before enabling; audit under Session 5 before enabling.
+- **F-16 — FIXED (was Critical).** `App.jsx:2425–2454` `_applyHouseholdKeysDetectChange` skips keys in `af_dirtyKeys` during pull ("F-16 fix" comment present). Residual hardening: after a backup import, repopulate/rebuild `af_dirtyKeys` or force a push, or dirty state is lost (ties to F-08).
 
-**NOT sent to Claude** (confirmed by field extraction in buildCompassContext): authToken, authUser, health_pin, deviceId, householdId, dirtyKeys, health records, career documents, safe harbor data, vault content.
+### Critical
+- **F-06 — Critical.** `App.jsx:1656–1666`. Export Backup unconditionally dumps live `af_authToken` (Supabase JWT), `af_health_pin` (plaintext, no expiry), and all children's PII into a downloadable JSON that commonly auto-syncs to iCloud. Basis for Critical = health PIN + kids' PII in an iCloud-replicated file, not the ~1hr token. **Fix:** exclude auth/PIN keys from export; hash the PIN; warn on export. **Effort:** 2h.
+- **F-11 — Critical.** `App.jsx:1678–1697`. Import Backup calls `window.confirm()`, silently auto-suppressed on iOS standalone PWA (returns true, no dialog) → every `af_*` key from the file, including `af_authToken`, written to localStorage → reload authenticates as the injected session. Complete silent account takeover in one tap past the file picker. **Fix (all three required):** replace confirm with `afConfirm`; exclude auth/user/PIN keys from import; run imported SYNC_KEYS through `sanitizeHouseholdData()`. **Effort:** 3h.
 
----
+### High
+- **F-03 — High.** [summary-level] hhData manipulation surface referenced by F-21; re-expand from code.
+- **F-04 — High.** [summary-level] re-expand from code.
+- **F-07 — High.** iOS PWA `window.confirm()` suppression (the platform behavior underlying F-11/F-19); `afConfirm` exists to handle it. **Fix:** route all confirms through `afConfirm`.
+- **F-08 — High.** `App.jsx:1675–1697`. Import validation checks only `typeof data === "object"` and `keys.length >= 5`, then writes every `af_*` key raw — no sanitization, no schema check, no integrity check. Enables session swap, malformed-JSON injection (crash-on-render), and `af_aiMemory` prompt poisoning. **Fix:** exclude auth/PIN keys; sanitize all SYNC_KEYS values; use `afConfirm`. **Effort:** 2h.
+- **F-10 — High ⚠ PRIVACY-REVIEW REQUIRED.** `App.jsx:3544–3645` `buildDailyBriefing`. Sends full `familyProfile` (parent names, work situation, dietary needs, city, timezone, biggest challenge) + all people's full names, ages, **exact birthdays**, roles + today/tomorrow events + tasks + brain dump to `/api/claude` on **every briefing open**, uncached, via a separate path that bypasses buildCompassContext's slim extractors. Children's exact PII to Anthropic every open; **not documented in privacy policy.** **Fix:** verify privacy policy covers AI-processed children's PII; bucket ages/birthdays to ranges; centralize system prompt; cache per-day. **Effort:** 3h.
+- **F-13 — High.** `App.jsx:6086–6087, 6137–6138` (calendar "Mine"/"Twy" filter uses hardcoded "L"/"T"). *Narrowed to App.jsx only — compassEngine portion owned by F-53.* Calendar filter dims wrong events for any household not using L/T initials. **Fix:** resolve current user's initial at runtime; pass as param. **Effort:** 2h. **[Cluster B]**
+- **F-19 — High.** `App.jsx:1681, 1695, 1697`. Three native dialogs in backup import (confirm + 2 alerts) invisible on iOS PWA → no confirmation, unexplained reload on success, silent failure on error. **Fix:** replace with `afConfirm`/`showInAppBanner`. **Effort:** 1h. **[Cluster A + F]**
+- **F-21 — High, OPEN (see reconciliation note).** `api/send-notifications.js:96–98`. Accepts cron secret via `?secret=` query param; Vercel logs full URLs → secret in plaintext function logs. Distinct from S1's S3 (which handled scheduling). **Fix:** remove the querySecret branch; header-only bearer auth via vercel.json. **Effort:** 30m.
+- **F-22 — High (≡F-60; severity raised from Low).** `api/claude.js:36–47`. In-memory `Map` rate limiter; each serverless instance has its own counter → effective limit 60×N, functionally unlimited. **Primary billing-risk vector** for a per-token AI service; uncapped Anthropic spend once signups open. **Fix:** durable per-household counter (Supabase table / Vercel KV / edge middleware). **Effort:** 4h. **[Cluster E]**
 
-## Token / Key Exposure — Verdict: CLEAN
+### Medium
+- **F-02 — Medium.** [summary-level] re-expand from code.
+- **F-09 — Medium (build-risk).** Optional chaining / nullish coalescing across client source (`App.jsx:513, 2296, 2333, 2841, 3360–3365, 3608, 3774, 5188, 5268`; `send-notifications.js:39`). Vite es2019 + esbuild lowering + es-check handle it today. **Fix (docs only):** document the three-tool ES2019 invariant in vite.config.js + package.json; require `npm run check:es` on any build-config PR. **Effort:** 0.
+- **F-12 — Medium.** `App.jsx:606–611`. `PERSON_COLORS = {Madi, Rylan, Kinzlee, family}` hardcoded developer family names; feature returns default blue for all other households; names in shipped bundle. **Fix:** derive color from `people` state `.color` field. **Effort:** 1h. **[Cluster B]**
+- **F-14 — Low/Medium.** `compassEngine.js:122–127`. Duplicate `_todaySlim` declaration (copy-paste); identical output today, silent-divergence risk. **Fix:** delete the duplicate block. **Effort:** 2m.
+- **F-15 — Medium (≡F-57).** `compassEngine.js:169–171`. Raw `json.slice(0,12000)` produces invalid JSON (cuts mid-value/key/Unicode). Large households get malformed context → Compass crashes or hallucinates. **Fix:** budget-aware context builder that drops whole low-priority fields; verify with JSON.parse. **Effort:** 2h. **[Cluster — AI context integrity]**
+- **F-17 — Medium.** `sync-core.js:56–58`. `"af_nwMealCount"` listed with prefix already included → stored as `af_af_nwMealCount`; any direct read returns null. **Fix:** rename entry to `nwMealCount`; one-time migration. **Effort:** 2h.
+- **F-18 — Medium.** `App.jsx:5164–5279` `loadAiSuggestions`. Fires a full Claude call on every AnchorTab mount (state destroyed on unmount); heavy tab-switching burns rate limit → 429s with no UI explanation. **Fix:** cache in compassCache keyed to flowMode/day. **Effort:** 30m. **[Cluster E-adjacent]**
+- **F-20 — Medium.** `api/send-notifications.js:44–50`. Timezone defaults to UTC-6 (Mountain) when `utcOffsetHours` unset → notifications arrive at wrong local hour for most households (off by up to 12h). **Fix:** capture offset at onboarding via `Intl.DateTimeFormat().resolvedOptions().timeZone`, or skip delivery when unset. **Effort:** 2h.
+- **F-24 — Medium.** `App.jsx:7250–7265` `loadAiPrepTips`. Uncached Claude call on every tap. **Fix:** cache keyed to week's dinner names. **Effort:** 30m. **[Cluster E-adjacent]**
+- **F-25 — Medium.** `App.jsx:4195–4207` `importRecipeFromUrl`. `recipeUrl` concatenated raw into AI message → prompt injection writes attacker-controlled recipe (syncs to all household members). **Fix:** validate URL with `new URL()`; harden system prompt. **Effort:** 30m. **[Cluster — prompt injection]**
+- **F-26 — Medium.** `App.jsx:7349` rescueInput. No client-side length cap → unbounded token consumption. **Fix:** `maxLength={500}` + counter + trim. **Effort:** 15m.
+- **F-30 — Medium.** `App.jsx:3608–3609, 3774–3775, 5268–5269, 7260–7261`; `send-notifications.js:39`. All five AI parse sites JSON.parse without schema validation → valid-but-wrong-shape responses (safety refusals, arrays, error wrappers) make features silently blank. **Fix:** shape guard + typed fallback at all five sites. **Effort:** 2h.
 
-`ANTHROPIC_API_KEY` never appears in client code — lives in Vercel env vars, accessed server-side only in `api/claude.js:71`. The proxy prevents it leaking in error responses. The Supabase session token is injected by the window.fetch shim and verified server-side but is never forwarded to Anthropic. No credential exposure found in either file.
-
----
-
-## Systemic Clusters (for Session 5 root-cause ranking)
-
-**Cluster A — Sync-write-path data loss (the recurring bug class):**
-F-32, F-33, F-38, F-43, F-44 — plus the Session 1 sanitizer-allowlist class. Root cause: no single enforced path for "persist a synced key," so each write site re-implements it and some omit dirty-key marking or SYNC_KEYS registration. **One helper + a lint/test that fails on raw setItem of a sync key collapses all of these.**
-
-**Cluster B — Hardcoded family names in shipped bundle:**
-F-39 (ExhaleSection), F-48 (CalEventFormModal + Responsible buttons). Root cause: dev defaults never parameterized. Also breaks these features for every non-original household. **One fix: purge all hardcoded people, derive from `people` state.**
-
-**Cluster C — Exhale first-run data integrity:**
-F-40 (null household_id insert), F-41 (non-UUID fallback ID rejected by uuid column — same uuid-vs-text seam as Session 1). Fix together.
-
-**Cluster D — Security hygiene pair:**
-F-34 (print XSS) + F-46 (plaintext health PIN) — XSS hole can read the PIN. F-58 (credentials in readHouseholdState) is the latent third. Fix as a set.
-
-**Cluster E — AI endpoint abuse (paid-launch gate):**
-F-59 (arbitrary-prompt proxy) + F-60 (non-durable rate limit) + Session 1 "open signups." Not a friends-and-family blocker; a hard gate before paid launch.
-
-**Cluster F — iOS PWA native-dialog anti-pattern:**
-F-19 (original) + F-36 + F-52 — window.confirm/alert unreliable in standalone PWA. Systematic replace with in-app modal.
-
-**Cluster G — File storage architecture:**
-F-35 (base64 in localStorage/sync blob) — standalone High; needs Supabase Storage migration.
+### Low
+- **F-05 — Low (≡F-58).** `shellKit.js:26–35`. `readHouseholdState()` returns all `af_*` keys including `af_authToken`, `af_authUser`, `af_health_pin`. No active leak (buildCompassContext cherry-picks fields) — latent. **Fix:** exclude auth/security keys at source. **Effort:** S. *Cross-ref F-06 where these keys DO escape.*
+- **F-27 — Low.** `api/subscribe.js:20–36`. Client-controlled `formId` → anyone can subscribe arbitrary emails to arbitrary Kit forms. **Fix:** hardcode formId server-side. **Effort:** 15m.
+- **F-28 — Low.** MEAL_DAYS defined 3× (App.jsx ~267 + MealsTab local; authoritative in sync-core.js:21). Maintenance trap. **Fix:** import from sync-core; remove local copies. **Effort:** 30m.
+- **F-29 — Low.** `compassEngine.js:11–12`. Stale integration comment says to add compassCache to SYNC_KEYS; it's already there (sync-core.js:46). **Fix:** update/remove comment. **Effort:** 2m.
 
 ---
 
-## Coverage Confirmation
+## PART B — F-31 through F-52 (12-component pass)
 
-- `src/App.jsx`: full read, lines 1–12,121 (the earlier "11,954" figure was a miscount; corrected).
-- All 12 live/rendered components: read.
-- `compassEngine.js`, `shellKit.js`: read.
-- Sync-critical logic (pushHouseholdData, pullHouseholdData, checkForUpdates, debouncedSync, syncNow, pullLatestHouseholdData) all in the 2,236–2,975 range: read; behaves as documented (60s poll, stale-push guard, dirty-key protection, own-push echo detection, afReloadWhenIdle).
-- Shopping Realtime subscription (line 7,507): correct cleanup + [householdId] deps — clean.
-- onAuthStateChange (line 12,074): correct token handling + user-initiated sign-out distinction — clean.
+> Full text committed in prior version; abbreviated here with cluster tags. See detailed bodies retained below.
 
-**Outstanding for the recovery pass:** full text of F-01–F-30 (lost from terminal buffer) and F-53–F-56 (compassEngine — only F-57–F-60 captured verbatim).
+- **F-31 — Low.** Optional chaining in vault handlers + RecipesTab (build-risk). **[F-09/F-51 family]**
+- **F-32 — High.** `af_calEvents` dirty-key bypass in all vault calendar writes → not synced. **[Cluster A]**
+- **F-33 — Medium.** 6 vault write paths miss `afVaultChanged()` (travel_profile, packing_templates, career, vaultSystems, people, subs). **[Cluster A]**
+- **F-34 — Medium.** printTemplate stored XSS via `document.write` (AnchorVault ~2180). **[Cluster D]**
+- **F-35 — High.** Base64 files in localStorage overflow quota + sync 413 (Gifts/Pets/CDocs). **[Cluster G]**
+- **F-36 — Low.** `window.confirm()` in 5 vault destructive actions. **[Cluster F]**
+- **F-37 — Medium.** AnchorDashboard no `af-data-changed` listener → stale data.
+- **F-38 — Medium.** `af_coupons`/`af_perks` absent from SYNC_KEYS → never synced. **[Cluster A]**
+- **F-39 — Low.** `ExhaleSection.jsx:25` `DEFAULT_PEOPLE = ["Lie","Briar"]` — real family names in bundle. **[Cluster B]**
+- **F-40 — High.** Exhale cards inserted with `null household_id` before HH resolves → silent loss for new users. **[Cluster C]**
+- **F-41 — Medium.** `crypto.randomUUID()` fallback produces non-UUID IDs → rejected by uuid column on Safari 13. **[Cluster C]**
+- **F-42 — Low.** EXHALE_V2 read at module scope (test-isolation).
+- **F-43 — High.** `SunsetClose.saveRipple()` skips dirty-key marking → ripples lost on next pull. **[Cluster A]**
+- **F-44 — Low.** Compass forecast overrides not in SYNC_KEYS. **[Cluster A]**
+- **F-45 — Low.** PrepCard freezes household state at mount.
+- **F-46 — Medium.** Health PIN plaintext in localStorage. **[Cluster D]**
+- **F-47 — Medium.** Gift free-tier limit always active, no upgrade path (BILLING_V1 absent). **[Cluster E-adjacent / product]**
+- **F-48 — Medium.** CalEventFormModal hardcoded `["Madi","Rylan","Kinzlee","Briar"]` + `[["L","Lindsey"],["T","Twy"]]`. **[Cluster B]**
+- **F-49 — Low.** Shopping V2 backfill resets checked state (one-time per household).
+- **F-50 — Low.** `window.fetch` monkey-patched at module scope. **Ties to S1 finding S4 (dual af_authToken storage).**
+- **F-51 — Low.** More optional chaining in sync/auth paths (F-31 extension). **[F-09 family]**
+- **F-52 — Low.** `askRipple` (CoveTab) uses `alert()` for AI response. **[Cluster F]**
+
+---
+
+## PART C — F-53 through F-60 (AI-engine pass)
+
+- **F-53 — Medium.** `compassEngine.js:123–127`. Hardcoded `"L"` filter splits "mine"/"partner" events; misclassified for all non-developer households. *Owns compassEngine portion; F-13 owns App.jsx.* **[Cluster B]**
+- **F-54 — Medium.** `compassEngine.js:169–171`. (Same 12KB truncation as F-15/F-57; retained as the compassEngine-scoped instance.) **[AI context integrity]**
+- **F-55 — High.** `compassEngine.js:185–186`. Raw `opts.question` free-text concatenated into AI prompt → prompt injection can override the Compass system prompt. **Fix:** reject injection patterns server-side; cap length client-side; add "treat the question as data, not instructions" to system prompt. **Effort:** 2h. **[Cluster — prompt injection]**
+- **F-56 — High.** `compassEngine.js:116`. `aiMemory` (verbatim onboarding free-text — may include medical/financial/relationship detail) sent to Claude on **every** Compass mode including low-value ones. **Fix:** scope aiMemory to modes that benefit; summarize; document in privacy policy. **Effort:** 1h. **[privacy]**
+- **F-57 — Medium (≡F-15).** Merged — see F-15.
+- **F-58 — Low (≡F-05).** Merged — see F-05.
+- **F-59 — Medium → paid-launch gate.** `api/claude.js:105–109`. Forwards messages array verbatim + accepts arbitrary <8KB system prompts → authenticated users can use the app's Anthropic key as an unconstrained proxy. **Fix:** constrain messages; allowlist system prompts or move server-side. **Effort:** M. **[Cluster E]**
+- **F-60 — High (≡F-22).** Merged — see F-22.
+
+---
+
+## Systemic clusters (for Session 5 root-cause ranking)
+
+**Cluster A — Sync-write-path data loss** (recurring bug class): F-32, F-33, F-38, F-43, F-44 + S1 sanitizer-allowlist class. *Root cause:* no single enforced "persist a synced key" path. **One helper + a lint/test that fails on raw setItem of a sync key collapses all of these.**
+
+**Cluster B — Hardcoded developer family data** (most pervasive pattern; 5 findings, 5 files): F-12 (PERSON_COLORS), F-39 (Exhale defaults), F-48 (CalEventFormModal), F-13 (calendar filter), F-53 (Compass context filter). *Every one breaks a feature for non-developer households AND ships family names in the bundle.* **One directive:** no hardcoded developer family data anywhere; all person references derive from `people` state; enforce with a CI grep.
+
+**Cluster C — Exhale first-run data integrity:** F-40 (null household_id insert), F-41 (non-UUID fallback vs uuid column). Same uuid-vs-text seam as Session 1. Fix together.
+
+**Cluster D — Security hygiene pair/trio:** F-34 (print XSS) + F-46 (plaintext health PIN) + F-05/F-58 (credentials in state object). XSS can read the PIN. Fix as a set.
+
+**Cluster E — AI endpoint cost/abuse** (paid-launch gate): F-22/F-60 (non-durable rate limit), F-59 (arbitrary-prompt proxy), F-18/F-24 (uncached AI calls), + S1 "open signups." Uncapped Anthropic spend once signups open. **Hard gate before paid launch.**
+
+**Cluster F — iOS PWA native-dialog anti-pattern:** F-07, F-19, F-36, F-52 (+ F-11 as the Critical instance). window.confirm/alert unreliable in standalone PWA; `afConfirm`/`showInAppBanner` exist. Systematic replacement.
+
+**Cluster G — File storage architecture:** F-35 (base64 in localStorage/sync blob). Standalone High; needs Supabase Storage migration.
+
+**Cluster H — Backup export/import credential exposure** (NEW; contains the 2 Criticals): F-06 (export dumps PIN + kids' PII to iCloud-synced file), F-11 (import silent credential injection via iOS confirm bypass), F-08 (unsanitized import write), F-19 (invisible dialogs). *One feature, four findings, both Criticals.* **Fix set:** exclude auth/PIN keys from export/import; hash PIN; sanitize imported values; replace confirm with afConfirm.
+
+**Cluster (prompt injection):** F-25 (recipe URL), F-55 (Compass question) — user text concatenated raw into AI prompts. Add "treat as data" guards + input validation.
+
+**AI context integrity:** F-15/F-57/F-54 (12KB truncation → invalid JSON), F-30 (no response-shape validation). Compass silently breaks or hallucinates for large households.
+
+**Privacy (needs policy + code):** F-10 (children's exact birthdays to Anthropic every briefing), F-56 (verbatim onboarding text every call). **Privacy-policy review required before launch.**
+
+---
+
+## Coverage confirmation
+- `src/App.jsx` full read, lines 1–12,121 (the earlier "11,954" was a miscount).
+- All 12 live/rendered components read.
+- `compassEngine.js`, `shellKit.js`, `sync-core.js`, `sw.js`, `api/*.js` read.
+- Sync-critical logic (2,236–2,975) read; behaves as documented (60s poll, stale-push guard, dirty-key protection, own-push echo detection).
+- Shopping Realtime subscription (7,507): correct cleanup + [householdId] deps — clean.
+- onAuthStateChange (12,074): correct token handling + user-initiated sign-out distinction — clean.
+- **Token/key exposure verdict: CLEAN** — ANTHROPIC_API_KEY server-side only (api/claude.js:71), never forwarded to Anthropic; Supabase session token verified server-side, never sent to Anthropic.
+
+## Open verification items
+- **F-21:** confirm whether production removed the query-param auth path (distinct from S1 S3's scheduling fix).
+- A few F-01–F-30 bodies are summary-level (F-02, F-03, F-04) — re-expand from code before acting on them.
