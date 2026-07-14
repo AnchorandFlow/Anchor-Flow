@@ -302,7 +302,10 @@ export default function ExhaleSection(props) {
         if (!result.data || !result.data.length) return;
         var newGroups = {};
         result.data.forEach(function(row) {
-          var col = row.category || "brain";
+          // Null/unknown category → inbox (a real, visible column). The old "brain"
+          // default was not one of COLS, so clone()/flattenGroups silently dropped those
+          // cards on the next mutation — losing legacy/uncategorized cards on load.
+          var col = (row.category && COLS.indexOf(row.category) !== -1) ? row.category : "inbox";
           if (!newGroups[col]) newGroups[col] = [];
           newGroups[col].push({
             id:         row.id,
@@ -423,8 +426,15 @@ export default function ExhaleSection(props) {
 
   function persist(ng, nl, ncl, np, opId) {
     if (EXHALE_V2) {
-      // Cards (ng) go to the exhale_cards realtime table — raw write, no blob push.
-      if (ng  !== undefined) try { localStorage.setItem(LS_G,  JSON.stringify(ng));  } catch(e) {}
+      // Cards (ng) also go to the exhale_cards realtime table, but the local mirror
+      // (af_exhale_groups) MUST be marked dirty on every local write. It is a SYNC_KEY,
+      // so the household-blob pull applies the server's copy onto this mirror. A raw
+      // setItem (the old behavior) left it never-dirty and never-pushed, so the server
+      // copy stayed frozen-stale and clobbered freshly added/moved cards on the next
+      // pull — cards vanished on refresh. lsSet marks it dirty (so F-16's dirty-skip
+      // protects it from being overwritten) and pushes the current blob so it stays
+      // in sync. The mount fetch from exhale_cards remains the final source of truth.
+      if (ng  !== undefined) lsSet(LS_G, ng, opId);
       // Labels, color labels, people: no realtime table — still in the households blob
       // (SYNC_KEYS). Must mark dirty and dispatch af-data-changed so the blob push
       // carries them to other devices. Bug fix: V2 was skipping dirty marking for these
