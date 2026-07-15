@@ -16,7 +16,6 @@ import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData } from "../../src/sync-core
 
 // ── Plausible values for every SYNC_KEYS entry ────────────────────────────────
 // Used by A1. Keys that are arrays get array values; objects get objects, etc.
-// The `af_nwMealCount` entry intentionally uses the double-prefixed key name.
 const PLAUSIBLE = {
   tasks:              [{ id:"t1", text:"buy milk", done:false }],
   brainItems:         [{ id:"b1", text:"idea" }],
@@ -84,7 +83,7 @@ const PLAUSIBLE = {
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],
   traditions:         [{ id:"tr1", title:"Christmas Eve Drive", when:"12-24" }],
   monthMeals:         { "2026-06":{ "2026-06-01":"pasta","2026-06-02":"tacos" } },
-  "af_nwMealCount":   2,
+  nwMealCount:        2,
   safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },
   ownedProducts:      [{ id:"op1", name:"Appliances", items:[{ id:"i1", name:"Dishwasher", link:"", purchasedAt:"", warranty:"", warrantyNote:"", notes:"" }] }],
 };
@@ -112,7 +111,7 @@ describe("A2 — keys handled only by pass-through survive", () => {
   // These keys have no explicit block in sanitizeHouseholdData beyond SYNC_KEYS pass-through.
   const PASS_THROUGH_KEYS = ["workDays","traditions","cal_markers","cal_marker_types",
     "compassEnabled","exhale_groups","exhale_color_labels","exhale_people",
-    "monthMeals","af_nwMealCount"];
+    "monthMeals","nwMealCount"];
 
   PASS_THROUGH_KEYS.forEach(key => {
     it(`pass-through key "${key}" survives`, () => {
@@ -316,34 +315,51 @@ describe("A8 — fuzz: never throws, returns sane object", () => {
   });
 });
 
-// ── A9: SYNC_KEYS double-prefix documentation ─────────────────────────────────
-describe("A9 — af_nwMealCount double-prefix", () => {
-  it('SYNC_KEYS literally contains the string "af_nwMealCount"', () => {
-    expect(SYNC_KEYS).toContain("af_nwMealCount");
+// ── A9: SYNC_KEYS single-prefix invariant (F-17 regression guard) ─────────────
+// History: SYNC_KEYS used to list this entry as "af_nwMealCount" (double-prefixed —
+// useSaved adds its own "af_", so the pair round-tripped to the dead local key
+// af_af_nwMealCount, invisible to any direct read). That was fixed on the App.jsx
+// side (useSaved("nwMealCount",1) + a one-time local migration off the old key) by
+// commit 366ced0, but SYNC_KEYS itself was left unchanged — so the sync push/pull
+// path kept prefixing "af_nwMealCount" a second time and diverged from the local
+// key useSaved actually reads/writes, silently breaking cross-device sync for this
+// field. This suite now guards the CORRECTED single-prefix invariant so that
+// regression can't recur silently.
+describe("A9 — nwMealCount single-prefix invariant", () => {
+  it('SYNC_KEYS contains the single-prefixed "nwMealCount", not "af_nwMealCount"', () => {
+    expect(SYNC_KEYS).toContain("nwMealCount");
+    expect(SYNC_KEYS).not.toContain("af_nwMealCount");
   });
 
-  it("sync loop writes af_nwMealCount to localStorage key af_af_nwMealCount", () => {
+  it("sync loop writes nwMealCount to the same localStorage key useSaved uses", () => {
     // The sync read/write loops do: localStorage.setItem("af_" + k, ...) for each k in SYNC_KEYS.
-    // For k = "af_nwMealCount", the resulting key is "af_" + "af_nwMealCount" = "af_af_nwMealCount".
-    // useSaved("af_nwMealCount") also writes to "af_" + "af_nwMealCount" = "af_af_nwMealCount".
-    // So both paths agree. This test documents and guards that invariant.
-    const k = "af_nwMealCount";
-    const expectedStorageKey = "af_" + k;
-    expect(expectedStorageKey).toBe("af_af_nwMealCount");
+    // useSaved("nwMealCount", 1) does: localStorage.setItem("af_" + key, ...).
+    // Both must resolve to the same local key for cross-device sync to work.
+    const k = "nwMealCount";
+    const syncStorageKey = "af_" + k;
+    const useSavedStorageKey = "af_" + "nwMealCount";
+    expect(syncStorageKey).toBe(useSavedStorageKey);
+    expect(syncStorageKey).toBe("af_nwMealCount");
   });
 
-  it("af_nwMealCount value passes through sanitizer intact", () => {
-    const out = sanitizeHouseholdData({ "af_nwMealCount": 7 });
-    expect(out["af_nwMealCount"]).toBe(7);
+  it("nwMealCount value passes through sanitizer intact", () => {
+    const out = sanitizeHouseholdData({ nwMealCount: 7 });
+    expect(out.nwMealCount).toBe(7);
   });
 
-  it("af_nwMealCount zero passes through (falsy but valid)", () => {
+  it("nwMealCount zero passes through (falsy but valid)", () => {
     // 0 is a valid meal count. Pass-through condition: data[k] !== null && !== undefined.
-    // 0 passes both checks.
-    const out = sanitizeHouseholdData({ "af_nwMealCount": 0 });
-    // 0 is falsy — defensive pass-through requires !== null && !== undefined.
-    // 0 passes those checks, so it SHOULD survive. Documenting actual behavior:
-    expect(out["af_nwMealCount"]).toBe(0);
+    // 0 passes both checks, so it survives.
+    const out = sanitizeHouseholdData({ nwMealCount: 0 });
+    expect(out.nwMealCount).toBe(0);
+  });
+
+  it("legacy blob field af_nwMealCount is no longer read (orphaned by design)", () => {
+    // A pre-fix household's blob may still carry the old field name. It must NOT
+    // be picked up under the new key — confirms we don't accidentally alias them.
+    const out = sanitizeHouseholdData({ af_nwMealCount: 99, nwMealCount: 2 });
+    expect(out.nwMealCount).toBe(2);
+    expect(out.af_nwMealCount).toBeUndefined();
   });
 });
 

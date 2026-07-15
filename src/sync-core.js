@@ -51,11 +51,15 @@ export const SYNC_KEYS = [
   // Traditions (RipplesRoom)
   "traditions",
   // Meals month grid + next-week meal count (July 3 sync-gap audit).
-  // NOTE: "af_nwMealCount" is intentionally listed WITH the af_ prefix:
-  // useSaved("af_nwMealCount") adds its own prefix, so the stored key is
-  // af_af_nwMealCount, and sync loops prefix SYNC_KEYS entries with af_.
-  // Do NOT normalize this without a data migration for existing devices.
-  "monthMeals","af_nwMealCount",
+  // F-17 fix: this entry was "af_nwMealCount" (double-prefixed — useSaved adds its
+  // own "af_", so it round-tripped to the dead key af_af_nwMealCount, invisible to
+  // any direct read). App.jsx's useSaved call was renamed to useSaved("nwMealCount",1)
+  // with a one-time local migration off the old key; this entry must match it.
+  // Blob-side note: existing households.data blobs may still carry a legacy
+  // "af_nwMealCount" field from before this fix — that field is orphaned
+  // (harmless: a display-preference int, not user data) and intentionally NOT
+  // migrated on pull. See F-17 follow-up discussion.
+  "monthMeals","nwMealCount",
   // Safe Harbor — household emergency plan (SH-2b). Merge-on-receive via
   // applyHouseholdKey; never naive last-write-wins. See mergeSafeHarbor.
   "safe_harbor",

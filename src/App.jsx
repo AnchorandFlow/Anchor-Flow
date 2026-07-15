@@ -63,10 +63,11 @@ function afPrompt(message, opts) {
   });
 }
 
-// F-12: the next-week meal count was stored via useSaved("af_nwMealCount"), but
-// useSaved already prepends "af_", so it landed at "af_af_nwMealCount" — invisible
-// to direct reads and to the sync layer (which reads "af_"+key). Rename to the
-// correct key and migrate any existing value once so nobody's count resets.
+// F-17: the next-week meal count used to be stored under the double-prefixed
+// key (useSaved already prepends "af_", so the old call landed one "af_" too
+// deep — invisible to direct reads and to the sync layer). Now stored under
+// the correct single-prefixed key; migrate any existing value once so nobody's
+// count resets.
 try {
   var _oldNw = localStorage.getItem("af_af_nwMealCount");
   if (_oldNw !== null) {
