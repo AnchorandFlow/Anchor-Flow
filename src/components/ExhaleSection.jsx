@@ -294,6 +294,7 @@ export default function ExhaleSection(props) {
       .eq("household_id", householdId)
       .is("deleted_at", null)
       .order("position", { ascending: true })
+      .order("created_at", { ascending: true })
       .then(function(result) {
         if (result.error) {
           console.warn("[AF] Exhale load error:", result.error.message);
@@ -316,11 +317,11 @@ export default function ExhaleSection(props) {
             dueDate:    row.due_date    || null,
             assignedTo: row.assigned_to || null,
             position:   row.position    || 0,
-            createdAt:  row.created_at  || null,
+            createdAt:  row.created_at ? new Date(row.created_at).getTime() : Date.now(),
           });
         });
         Object.keys(newGroups).forEach(function(col) {
-          newGroups[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0); });
+          newGroups[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0) || (a.createdAt || 0) - (b.createdAt || 0); });
         });
         setGroups(function(prev) {
           return Object.assign({}, prev, newGroups);
@@ -400,7 +401,7 @@ export default function ExhaleSection(props) {
             var col = card.category;
             if (!ng[col]) ng[col] = [];
             ng[col].push(card);
-            ng[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0); });
+            ng[col].sort(function(a, b) { return (a.position || 0) - (b.position || 0) || (a.createdAt || 0) - (b.createdAt || 0); });
             // SERVER-origin (dedup guard above rules out own echo) — do NOT lsSet, would echo-push back. See F-61.
             try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
             return ng;
@@ -512,6 +513,11 @@ export default function ExhaleSection(props) {
     var item = { id: cardId, text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
     if (window.AF_TRACE) console.log("[AF_TRACE "+opId+"] EXHALE_ADD_CLICK cardId="+item.id+' text="'+txt+'"');
     var ng = clone(groups); ng.inbox = [item].concat(ng.inbox);
+    // Same call as handleMoveToCol:633 — "before any existing cards". Without a real
+    // position every new card ties at 0, so any position-sort (initial load, UPDATE
+    // handler) can reorder them arbitrarily instead of newest-first.
+    var newPos = computeNewPosition(ng.inbox, 0);
+    item.position = newPos;
     setGroups(ng);
     setInputText("");
 
@@ -531,7 +537,7 @@ export default function ExhaleSection(props) {
         emoji:        null,
         due_date:     null,
         assigned_to:  null,
-        position:     0,
+        position:     newPos,
         created_at:   new Date(item.createdAt).toISOString(),
         created_by:   createdBy,
         updated_by:   createdBy,
