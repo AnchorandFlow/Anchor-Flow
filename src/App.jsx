@@ -1325,6 +1325,12 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
   );
 }
 
+// F-06/F-08/F-11: never export or import live credentials via backup, and never
+// export or import internal rolling-backup snapshots (af_backup_*) — they nest
+// their own copies of these same credentials, so excluding the top-level keys
+// alone isn't enough.
+var AF_BACKUP_EXCLUDE = ["af_authToken", "af_authUser", "af_health_pin"];
+
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
     React.useEffect(() => { AF_DEBUG&&console.log("[AF MOUNT] SettingsTab"); return () => AF_DEBUG&&console.log("[AF UNMOUNT] SettingsTab"); }, []);
@@ -1670,7 +1676,12 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
               </div>
             <button onClick={function(){
                 var data = {};
-                Object.keys(localStorage).forEach(function(k){ if(k.startsWith("af_")) data[k] = localStorage.getItem(k); });
+                Object.keys(localStorage).forEach(function(k){
+                  if(!k.startsWith("af_")) return;
+                  if(k.indexOf("af_backup_") === 0) return; // F-06: rolling internal snapshots may nest stale credentials
+                  if(AF_BACKUP_EXCLUDE.indexOf(k) !== -1) return; // F-06: never export live credentials
+                  data[k] = localStorage.getItem(k);
+                });
                 var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
                 var url = URL.createObjectURL(blob);
                 var a = document.createElement("a");
@@ -1687,29 +1698,40 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                   var file = e.target.files[0];
                   if(!file) return;
                   var reader = new FileReader();
-                  reader.onload = function(ev){
+                  reader.onload = async function(ev){
                     try {
                       var data = JSON.parse(ev.target.result);
-                      if(!data || typeof data !== "object") { alert("Invalid backup file."); return; }
-                      var keys = Object.keys(data).filter(function(k){ return k.startsWith("af_"); });
-                      if(keys.length < 5) { alert("This backup looks incomplete. Import cancelled."); return; }
-                      if(!window.confirm("This will restore " + keys.length + " data keys from your backup. Continue?")) return;
-                      keys.forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch {} });
-                      // af_safe_harbor: apply the same defensive guards as loadData().
-                      // If the value is bad JSON, null, a non-object, or an array, remove it
-                      // so loadData() reconstructs clean defaults on the next mount (never crashes).
-                      // The export enumerates all af_* keys via Object.keys(localStorage), so
-                      // af_safe_harbor, af_sh_remind, and af_safe_harbor_v2 are all included
-                      // automatically — no explicit listing needed on the export side.
-                      if (data["af_safe_harbor"] !== undefined) {
-                        var _shOk = false;
-                        try { var _shP = JSON.parse(data["af_safe_harbor"]); _shOk = _shP !== null && typeof _shP === "object" && !Array.isArray(_shP); } catch(_e2) {}
-                        if (!_shOk) { try { localStorage.removeItem("af_safe_harbor"); } catch {} }
-                      }
+                      if(!data || typeof data !== "object") { showInAppBanner("Invalid backup file", "Please choose a valid Anchor & Flow backup JSON file."); return; }
+                      // F-06/F-08/F-11: exclude live credentials and internal rolling-backup
+                      // snapshots up front, so every count/message below (and the write loop
+                      // itself) reflects what will actually be restored.
+                      var keys = Object.keys(data).filter(function(k){
+                        return k.startsWith("af_") && k.indexOf("af_backup_") !== 0 && AF_BACKUP_EXCLUDE.indexOf(k) === -1;
+                      });
+                      if(keys.length < 5) { showInAppBanner("Backup incomplete", "This file doesn't have enough data to restore safely. Import cancelled."); return; }
+                      if(!(await afConfirm("This will restore " + keys.length + " data keys from your backup. Continue?", {confirmText:"Restore", cancelText:"Cancel", danger:true}))) return;
+                      // SYNC_KEYS entries are collected into a bare-keyed, parsed object and run
+                      // through sanitizeHouseholdData (the same shape guard the sync-pull path
+                      // uses) before being written back — a raw setItem here would trust the
+                      // file's contents completely, same gap as F-08. Non-SYNC_KEYS local
+                      // prefs/state keys write through unchanged, as before.
+                      var syncPayload = {};
+                      keys.forEach(function(k){
+                        var bare = k.slice(3);
+                        if(SYNC_KEYS.indexOf(bare) !== -1) {
+                          try { syncPayload[bare] = JSON.parse(data[k]); } catch(e) {}
+                          return;
+                        }
+                        try { localStorage.setItem(k, data[k]); } catch {}
+                      });
+                      var sanitized = sanitizeHouseholdData(syncPayload);
+                      Object.keys(sanitized).forEach(function(bare){
+                        try { localStorage.setItem("af_" + bare, JSON.stringify(sanitized[bare])); } catch {}
+                      });
                       AF_DEBUG&&console.log("[AF SAFETY] restore available — imported", keys.length, "keys");
-                      alert("Backup restored. Reloading...");
-                      window.location.reload();
-                    } catch(err) { alert("Could not read backup file: " + err.message); }
+                      showInAppBanner("Backup restored", "Reloading to apply your data...");
+                      setTimeout(function(){ window.location.reload(); }, 1200);
+                    } catch(err) { showInAppBanner("Could not read backup file", err.message); }
                   };
                   reader.readAsText(file);
                 };
