@@ -1933,7 +1933,7 @@ const _hfComps   = {};
   Object.defineProperty(_hfComps[n], 'name', { value: n });
 });
 
-function HomeFlow() {
+function HomeFlow({ recoveryToken }) {
 
   const [themeName, setThemeNameRaw] = useSaved("theme", "calm");
   if (!THEMES[themeName]) {
@@ -3422,20 +3422,19 @@ function createLocalBackup() {
 
 
   // ── Handle password reset redirect from email link ───────────────────────
-  // When Supabase redirects back after reset, token is in the URL hash
-  const [showSetPassword, setShowSetPassword] = useState(() => {
-    try {
-      const hash = window.location.hash;
-      return hash.includes("type=recovery") || hash.includes("type=signup");
-    } catch { return false; }
-  });
-  const [resetToken, setResetToken] = useState(() => {
-    try {
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      return params.get("access_token") || null;
-    } catch { return null; }
-  });
+  // F-95: recoveryToken is a prop, lifted from App()'s onAuthStateChange (the only
+  // place PASSWORD_RECOVERY is observed) through FlowWrapper. Not read from
+  // window.location.hash — Supabase's own detectSessionInUrl client consumes that
+  // hash itself, and (verified against the installed auth-js source) the
+  // PASSWORD_RECOVERY notification is dispatched via setTimeout(0) from inside its
+  // _initialize(), so it can arrive either before or after HomeFlow's first mount
+  // relative to getSession()'s own resolution. The useEffect below covers the
+  // "arrives after mount" case; the useState initializer covers "already arrived".
+  const [showSetPassword, setShowSetPassword] = useState(() => !!recoveryToken);
+  const [resetToken, setResetToken] = useState(() => recoveryToken || null);
+  useEffect(() => {
+    if (recoveryToken) { setShowSetPassword(true); setResetToken(recoveryToken); }
+  }, [recoveryToken]);
 
   const fm = FM[flowMode];
   const close = () => setModal(null);
@@ -11949,7 +11948,7 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 }
 
 
-function FlowWrapper({ onHome, onSignOut }) {
+function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   const [openGroup, setOpenGroup] = React.useState(function() {
     try { var g = sessionStorage.getItem("af_openGroup"); return g || null; } catch { return null; }
   });
@@ -12115,7 +12114,7 @@ function FlowWrapper({ onHome, onSignOut }) {
 
         <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
           <ErrorBoundary>
-            <HomeFlow />
+            <HomeFlow recoveryToken={recoveryToken} />
           </ErrorBoundary>
         </div>
       </div>
@@ -12126,6 +12125,13 @@ function FlowWrapper({ onHome, onSignOut }) {
 export default function App() {
   const [session, setSession] = React.useState(undefined)
   const [mode, setMode] = React.useState(null)
+  // F-95: set from onAuthStateChange's PASSWORD_RECOVERY branch below, passed down
+  // as a prop (App -> FlowWrapper -> HomeFlow) rather than read from a module-level
+  // variable or the URL hash — see the fix commit for why: getSession() and the
+  // PASSWORD_RECOVERY notification are not guaranteed to arrive in a fixed order
+  // (verified against the installed auth-js source), so HomeFlow must be able to
+  // react to this value arriving either before or after its own first mount.
+  const [recoveryToken, setRecoveryToken] = React.useState(null)
 
   React.useEffect(() => {
     // Blank-screen guard: if getSession() never resolves (network failure, corrupted
@@ -12152,6 +12158,14 @@ export default function App() {
       setSession(null);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // F-95: PASSWORD_RECOVERY fires when a user lands here via a recovery-email
+      // link — Supabase has already exchanged the link's token for this session.
+      // Store it in real state (recoveryToken, above) so it flows down as a prop
+      // to HomeFlow regardless of whether this fires before or after HomeFlow's
+      // own first mount.
+      if (event === "PASSWORD_RECOVERY" && session && session.access_token) {
+        setRecoveryToken(session.access_token);
+      }
       setSession(session);
       if (session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(session.access_token)); } catch {}
@@ -12195,5 +12209,5 @@ export default function App() {
     }
   }} />
 
-  return <RootErrorBoundary><FlowWrapper onHome={() => setMode(null)} onSignOut={signOut} /></RootErrorBoundary>
+  return <RootErrorBoundary><FlowWrapper onHome={() => setMode(null)} onSignOut={signOut} recoveryToken={recoveryToken} /></RootErrorBoundary>
 }
