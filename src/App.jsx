@@ -1325,11 +1325,19 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
   );
 }
 
-// F-06/F-08/F-11: never export or import live credentials via backup, and never
-// export or import internal rolling-backup snapshots (af_backup_*) — they nest
-// their own copies of these same credentials, so excluding the top-level keys
-// alone isn't enough.
-var AF_BACKUP_EXCLUDE = ["af_authToken", "af_authUser", "af_health_pin"];
+// F-06/F-08/F-11: backup export/import is allow-list, not deny-list. Only
+// SYNC_KEYS entries (real household data) and SAFE_LOCAL_PREFS entries (local-only
+// prefs explicitly reviewed and added here) are ever exported or restored.
+// Everything else — credentials, session tokens, internal rolling-backup
+// snapshots, identifiers, sync bookkeeping, or any key nobody has reviewed yet —
+// is excluded by construction, not by name. A deny-list of credential key names
+// (the previous approach) can never be complete: keys are constructed dynamically
+// via the useSaved helper throughout this file, and a key can outlive the code
+// that wrote it (af_refreshToken is exactly this — dead write path at the
+// AuthScreen onAuth handler below, but still present in real exports from before
+// that code was gutted). Ship this empty; grow it one reviewed key at a time,
+// only when something is actually needed.
+var SAFE_LOCAL_PREFS = [];
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
@@ -1678,8 +1686,8 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                 var data = {};
                 Object.keys(localStorage).forEach(function(k){
                   if(!k.startsWith("af_")) return;
-                  if(k.indexOf("af_backup_") === 0) return; // F-06: rolling internal snapshots may nest stale credentials
-                  if(AF_BACKUP_EXCLUDE.indexOf(k) !== -1) return; // F-06: never export live credentials
+                  var bare = k.slice(3);
+                  if(SYNC_KEYS.indexOf(bare) === -1 && SAFE_LOCAL_PREFS.indexOf(bare) === -1) return; // F-06: allow-list — anything not explicitly listed is never exported
                   data[k] = localStorage.getItem(k);
                 });
                 var blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
@@ -1702,27 +1710,37 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
                     try {
                       var data = JSON.parse(ev.target.result);
                       if(!data || typeof data !== "object") { showInAppBanner("Invalid backup file", "Please choose a valid Anchor & Flow backup JSON file."); return; }
-                      // F-06/F-08/F-11: exclude live credentials and internal rolling-backup
-                      // snapshots up front, so every count/message below (and the write loop
-                      // itself) reflects what will actually be restored.
+                      // F-06/F-08/F-11: allow-list, not deny-list. Only keys whose bare name is
+                      // in SYNC_KEYS or SAFE_LOCAL_PREFS are ever considered — a credential, a
+                      // stale internal snapshot, or any key we've never heard of is silently
+                      // ignored rather than trusted. keys.length is therefore already the count
+                      // that will ACTUALLY be written, so the incomplete-backup check and the
+                      // confirm dialog below both reflect reality, not the file's raw key count.
                       var keys = Object.keys(data).filter(function(k){
-                        return k.startsWith("af_") && k.indexOf("af_backup_") !== 0 && AF_BACKUP_EXCLUDE.indexOf(k) === -1;
+                        if(!k.startsWith("af_")) return false;
+                        var bare = k.slice(3);
+                        return SYNC_KEYS.indexOf(bare) !== -1 || SAFE_LOCAL_PREFS.indexOf(bare) !== -1;
                       });
-                      if(keys.length < 5) { showInAppBanner("Backup incomplete", "This file doesn't have enough data to restore safely. Import cancelled."); return; }
+                      // F-06/F-08/F-11: floor is 1, not an arbitrary "looks complete" threshold —
+                      // useSaved only writes af_<key> once its setter has actually been called
+                      // (App.jsx:1880-1900), so a fresh household can legitimately export just a
+                      // single populated SYNC_KEYS field. This only rejects a file that, post
+                      // allow-list, matched nothing at all — nothing to distinguish "incomplete"
+                      // from "empty" once the allow-list already does the real filtering.
+                      if(keys.length < 1) { showInAppBanner("No data found", "This file doesn't contain any Anchor & Flow data."); return; }
                       if(!(await afConfirm("This will restore " + keys.length + " data keys from your backup. Continue?", {confirmText:"Restore", cancelText:"Cancel", danger:true}))) return;
-                      // SYNC_KEYS entries are collected into a bare-keyed, parsed object and run
-                      // through sanitizeHouseholdData (the same shape guard the sync-pull path
-                      // uses) before being written back — a raw setItem here would trust the
-                      // file's contents completely, same gap as F-08. Non-SYNC_KEYS local
-                      // prefs/state keys write through unchanged, as before.
+                      // SYNC_KEYS entries go through sanitizeHouseholdData (the same shape guard
+                      // the sync-pull path uses) before being written back. SAFE_LOCAL_PREFS
+                      // entries write through directly — currently empty, so this branch is
+                      // inert until a key is deliberately added there.
                       var syncPayload = {};
                       keys.forEach(function(k){
                         var bare = k.slice(3);
                         if(SYNC_KEYS.indexOf(bare) !== -1) {
                           try { syncPayload[bare] = JSON.parse(data[k]); } catch(e) {}
-                          return;
+                        } else {
+                          try { localStorage.setItem(k, data[k]); } catch {}
                         }
-                        try { localStorage.setItem(k, data[k]); } catch {}
                       });
                       var sanitized = sanitizeHouseholdData(syncPayload);
                       Object.keys(sanitized).forEach(function(bare){
