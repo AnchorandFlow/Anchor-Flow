@@ -22,7 +22,11 @@ var DEFAULT_LABELS = {
   someday: "🌱 Maybe Later",
 };
 
-var DEFAULT_PEOPLE = ["Lindsey","Rylan","Madi","Kinzlee","Briar"];
+// F-39: was hardcoded to the developer's own family names. ExhaleSection is
+// self-contained (own af_exhale_people key, no people[] prop from App.jsx) — a
+// new household starting with zero preset assignee tags is correct behavior,
+// not a gap; they add their own via the UI.
+var DEFAULT_PEOPLE = [];
 
 var NAVY = "#1B2E4F";
 var _nid = Date.now();
