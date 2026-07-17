@@ -670,7 +670,18 @@ function derivePersonColor(hex) {
 }
 function getPersonColor(forPerson, people) {
   if (!forPerson) return PERSON_COLOR_DEFAULT;
-  var match = (people||[]).filter(function(p){ return p.name === forPerson; })[0];
+  // "family" is an intentional sentinel meaning "everyone" — never a people[]
+  // entry, always the neutral default. Checked explicitly, not left to fall
+  // through the no-match path, so it reads as deliberate rather than
+  // coincidental with an orphaned-name lookup failure.
+  if (forPerson === "family") return PERSON_COLOR_DEFAULT;
+  var target = forPerson.trim().toLowerCase();
+  var match = (people||[]).filter(function(p){ return p.name && p.name.trim().toLowerCase() === target; })[0];
+  // No match means forPerson references someone no longer in this household's
+  // roster (renamed, removed, or an orphaned legacy value) — PERSON_COLOR_DEFAULT
+  // is the correct, honest result here, not a fallback to paper over: the event
+  // genuinely references a person who isn't a current people[] entry, and the
+  // color should look like that rather than inventing a stable identity for them.
   var derived = match && match.color ? derivePersonColor(match.color) : null;
   return derived || PERSON_COLOR_DEFAULT;
 }
