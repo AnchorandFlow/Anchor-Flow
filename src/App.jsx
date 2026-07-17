@@ -616,17 +616,63 @@ const getThisMonday = () => {
 // MEAL_DAYS imported from ./sync-core.js
 const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
 const WEEKDAYS_SUN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-var PERSON_COLORS = {
-  Madi:    { bg: "#e0f5f1", border: "#3aaa91", text: "#1a6657" },
-  Rylan:   { bg: "#faeae3", border: "#d4704a", text: "#8a3820" },
-  Kinzlee: { bg: "#eeebf8", border: "#8b7dbf", text: "#4a3d85" },
-  Briar:   { bg: "#fdf3dc", border: "#d4a240", text: "#7a5a10" },
-  family:  { bg: "#e3eef7", border: "#4a7fa8", text: "#1c4a6e" },
-};
 var PERSON_COLOR_DEFAULT = { bg: "#f0ede8", border: "#a09080", text: "#4a3e36" };
-function getPersonColor(forPerson) {
+// F-12: was a hardcoded PERSON_COLORS map keyed by the developer's own family
+// names, silently falling back to PERSON_COLOR_DEFAULT for everyone else.
+// Derives {bg, border, text} from a person's own people[].color hex instead.
+// Fixed lightness/saturation TARGETS (not the input color's own L/S) guarantee
+// text-on-bg contrast regardless of what hex someone picks via the custom
+// color input — verified by sweeping the full hue wheel: worst case is pure
+// yellow (~60deg) at 6.93:1, every theme preset (Calm/Coastal/Night) lands
+// between 8.6:1 and 12.5:1. Cross-ref F-72 — this must not become a fifth
+// place in the app that generates unreadable text.
+function hexToHsl(hex) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return null;
+  var r = parseInt(m[1].slice(0,2),16)/255, g = parseInt(m[1].slice(2,4),16)/255, b = parseInt(m[1].slice(4,6),16)/255;
+  var max = Math.max(r,g,b), min = Math.min(r,g,b), l = (max+min)/2, h = 0, s = 0;
+  if (max !== min) {
+    var d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    if (max === r) h = (g-b)/d + (g<b?6:0);
+    else if (max === g) h = (b-r)/d + 2;
+    else h = (r-g)/d + 4;
+    h /= 6;
+  }
+  return { h: h, s: s, l: l };
+}
+function hslToHex(h, s, l) {
+  function hue2rgb(p, q, t) {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1/6) return p + (q-p)*6*t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p + (q-p)*(2/3-t)*6;
+    return p;
+  }
+  var r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    var q = l < 0.5 ? l*(1+s) : l+s-l*s, p = 2*l - q;
+    r = hue2rgb(p, q, h + 1/3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1/3);
+  }
+  function toHex(c) { var v = Math.round(c*255); return (v<16?"0":"")+v.toString(16); }
+  return "#" + toHex(r) + toHex(g) + toHex(b);
+}
+function derivePersonColor(hex) {
+  var hsl = hexToHsl(hex);
+  if (!hsl) return null;
+  return {
+    text:   hslToHex(hsl.h, Math.min(hsl.s, 0.55), 0.22),
+    bg:     hslToHex(hsl.h, Math.min(hsl.s, 0.40), 0.94),
+    border: hslToHex(hsl.h, hsl.s, 0.45)
+  };
+}
+function getPersonColor(forPerson, people) {
   if (!forPerson) return PERSON_COLOR_DEFAULT;
-  return PERSON_COLORS[forPerson] || PERSON_COLOR_DEFAULT;
+  var match = (people||[]).filter(function(p){ return p.name === forPerson; })[0];
+  var derived = match && match.color ? derivePersonColor(match.color) : null;
+  return derived || PERSON_COLOR_DEFAULT;
 }
 function getWorkDays() {
   try { return JSON.parse(localStorage.getItem("af_workDays") || "{}"); } catch(e) { return {}; }
@@ -5961,7 +6007,7 @@ Respond ONLY in valid JSON:
                     </div>
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(function(e){
-                      var _pc=getPersonColor(e.forPerson);
+                      var _pc=getPersonColor(e.forPerson, people);
                       var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
                       return (
                         <div key={e.id} style={{background:e.forPerson?_pc.bg:(e.color+"28"),borderLeft:"2.5px solid "+(e.forPerson?_pc.border:e.color),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.forPerson?_pc.text:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
@@ -6032,7 +6078,7 @@ Respond ONLY in valid JSON:
                     {dayEvts.length===0
                       ?<div style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
                       :dayEvts.map(function(e){
-                          var _pc=getPersonColor(e.forPerson);
+                          var _pc=getPersonColor(e.forPerson, people);
                           var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
                           var _bg=e.forPerson?_pc.bg:(e.color||T.blue);
                           var _col=e.forPerson?_pc.text:"#fff";
@@ -6144,7 +6190,7 @@ Respond ONLY in valid JSON:
             })()}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
-              var _pc=getPersonColor(e.forPerson);
+              var _pc=getPersonColor(e.forPerson, people);
               var _dotColor=e.forPerson?_pc.border:e.color;
               var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
               return (
@@ -6195,7 +6241,7 @@ Respond ONLY in valid JSON:
             </div>
             {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
             :eventsForDay(selectedDay.getDate()).map(function(e){
-              var _pc=getPersonColor(e.forPerson);
+              var _pc=getPersonColor(e.forPerson, people);
               var _dotColor=e.forPerson?_pc.border:e.color;
               var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
               return (
