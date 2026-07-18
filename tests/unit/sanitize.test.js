@@ -91,6 +91,9 @@ const PLAUSIBLE = {
   // real shape is a plain array, matching AnchorVault.jsx:6537-6538.
   coupons:            [{ id:"c1", code:"SAVE10", used:false }],
   perks:              [{ id:"p1", name:"Airline lounge access", used:false }],
+  // Batch 2 Fix 2 / F-44: household-shared forecast overrides — plain object
+  // keyed by slot, matching TodayBriefing.jsx's ovRead/ovWrite shape.
+  forecastOverrides:  { bigThing: { text:"Custom override text" } },
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────

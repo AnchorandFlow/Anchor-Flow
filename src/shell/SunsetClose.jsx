@@ -61,6 +61,14 @@ export default function SunsetClose(props) {
       if (!Array.isArray(cur)) cur = [];
       cur.push({ id: Date.now().toString(), name: t, who: "", category: (chip && chip.category) || "other", date: now.toISOString().slice(0, 10), note: "" });
       localStorage.setItem("af_ripples", JSON.stringify(cur));
+      // F-43: mark dirty so the next household push includes this ripple — the
+      // af-data-changed event below refreshes UI but does NOT queue a push;
+      // without this, a pull can clobber the just-saved ripple (same bug class
+      // as F-61's handleAdd). LOCAL-origin user action → dirty is correct.
+      try {
+        var _dk = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+        if (_dk.indexOf("ripples") === -1) { _dk.push("ripples"); localStorage.setItem("af_dirtyKeys", JSON.stringify(_dk)); }
+      } catch (e2) {}
       window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "ripples" } }));
       setSavedRipple(true); setText(""); setChip(null);
     } catch (e) {}

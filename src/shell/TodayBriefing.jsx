@@ -21,7 +21,14 @@ var FORECAST = {
 function cacheRead() { try { return JSON.parse(localStorage.getItem("af_compassCache")) || {}; } catch (e) { return {}; } }
 function cacheWrite(next) { try { localStorage.setItem("af_compassCache", JSON.stringify(next)); } catch (e) {} }
 function ovRead() { try { return JSON.parse(localStorage.getItem("af_forecastOverrides")) || {}; } catch (e) { return {}; } }
-function ovWrite(o) { try { localStorage.setItem("af_forecastOverrides", JSON.stringify(o)); } catch (e) {} }
+function ovWrite(o) {
+  try {
+    localStorage.setItem("af_forecastOverrides", JSON.stringify(o));
+    // F-44: household-shared — mark dirty so edits push (see SYNC_KEYS note).
+    var _dk = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+    if (_dk.indexOf("forecastOverrides") === -1) { _dk.push("forecastOverrides"); localStorage.setItem("af_dirtyKeys", JSON.stringify(_dk)); }
+  } catch (e) {}
+}
 
 export default function TodayBriefing(props) {
   const [fc, setFc] = useState(null);

@@ -71,7 +71,11 @@ export const SYNC_KEYS = [
   // synced in either direction. Receive-side is covered by the Session-1
   // defensive pass-through (any SYNC_KEYS entry not explicitly typed falls
   // through), so listing them here is sufficient for pull.
-  "coupons","perks"];
+  "coupons","perks",
+  // Forecast overrides (TodayBriefing) — user edits to today's shared forecast.
+  // Previously device-local (F-44). Receive-side covered by the defensive
+  // pass-through, same as coupons/perks.
+  "forecastOverrides"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
