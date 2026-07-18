@@ -3017,7 +3017,7 @@ function TravelProfileSection() {
   function setProfile(changes) {
     var updated = Object.assign({}, profile, changes)
     setProfileRaw(updated)
-    try { localStorage.setItem("af_travel_profile", JSON.stringify(updated)) } catch {}
+    try { localStorage.setItem("af_travel_profile", JSON.stringify(updated)); afVaultChanged("travel_profile") } catch {}
   }
 
   function field(key, label, placeholder, type) {
@@ -3263,7 +3263,7 @@ var C_TABS = [
 
 function cuid() { return Math.random().toString(36).slice(2,9) }
 function cLoadCareer() { try { var s=localStorage.getItem("af_career"); return s?JSON.parse(s):{}; } catch(e){return {};} }
-function cSaveCareer(v) { try { localStorage.setItem("af_career",JSON.stringify(v)); } catch(e){} }
+function cSaveCareer(v) { try { localStorage.setItem("af_career",JSON.stringify(v)); afVaultChanged("career"); } catch(e){} }
 function useCareer() {
   var pair = useState(cLoadCareer); var val=pair[0]; var setRaw=pair[1];
   function set(next) { setRaw(function(prev){ var r=typeof next==="function"?next(prev):next; cSaveCareer(r); return r; }); }
@@ -4139,7 +4139,7 @@ function hLoadPeople() {
   try { var r=localStorage.getItem("af_people"); if(!r) return [{id:"default",name:"You",color:"#6A9BB5"}]; var p=JSON.parse(r); if(Array.isArray(p)&&p.length>0) return p; } catch(e){}
   return [{id:"default",name:"You",color:"#6A9BB5"}];
 }
-function hSavePeople(list) { try { localStorage.setItem("af_people", JSON.stringify(list)); } catch(e){} }
+function hSavePeople(list) { try { localStorage.setItem("af_people", JSON.stringify(list)); afVaultChanged("people"); } catch(e){} }
 var PERSON_COLORS = ["#6A9BB5","#c8a97a","#7a9e8e","#a07ab5","#d98a6e","#6ab5a0","#b5856a","#8e8eb5"]
 
 function HBadge(props) { var b=HBADGE[props.type]||HBADGE.gray; return React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:12,whiteSpace:"nowrap",background:b.bg,color:b.color,border:"0.5px solid "+b.border}},props.label); }
@@ -4901,7 +4901,7 @@ var SYS_FREQ = [
 function sysLoadSystems() {
   try { var s=localStorage.getItem("af_vaultSystems"); return s?JSON.parse(s):[]; } catch(e){return [];}
 }
-function sysSaveSystems(v) { try { localStorage.setItem("af_vaultSystems",JSON.stringify(v)); } catch(e){} }
+function sysSaveSystems(v) { try { localStorage.setItem("af_vaultSystems",JSON.stringify(v)); afVaultChanged("vaultSystems"); } catch(e){} }
 
 function sysDaysUntil(dateStr) {
   if(!dateStr) return null;
@@ -6541,8 +6541,8 @@ function SubscriptionsSection() {
   var [modal, setModal] = React.useState(null)
   var [form, setForm] = React.useState({})
   function saveSubs(v) { setSubs(v); persist("af_subs", v) }
-  function saveCoupons(v) { setCoupons(v); persist("af_coupons", v) }
-  function savePerks(v) { setPerks(v); persist("af_perks", v) }
+  function saveCoupons(v) { setCoupons(v); persist("af_coupons", v); afVaultChanged("coupons") }
+  function savePerks(v) { setPerks(v); persist("af_perks", v); afVaultChanged("perks") }
   function openAdd(type) { setModal(type); setForm({}) }
   function closeModal() { setModal(null); setForm({}) }
   function addSub() {

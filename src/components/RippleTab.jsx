@@ -14,7 +14,8 @@ export default function CompassTab() {
   const [thinking, setThinking] = useState(false)
   const [input, setInput] = useState("")
   const [typed, setTyped] = useState("")
-  const greeting = "Good morning. Here is what I see for your week."
+  const _h = new Date().getHours()
+  const greeting = (_h < 12 ? "Good morning" : _h < 17 ? "Good afternoon" : "Good evening") + ". Here is what I see for your week."
 
   useEffect(() => {
     let i = 0

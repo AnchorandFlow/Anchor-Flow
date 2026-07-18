@@ -65,7 +65,13 @@ export const SYNC_KEYS = [
   "safe_harbor",
   // Owned products / manuals tracker (Home Systems -> Products). Array of
   // { id, name, items:[{id,name,link,purchasedAt,warranty,warrantyNote,notes}] }.
-  "ownedProducts"];
+  "ownedProducts",
+  // Subscriptions section extras — previously local-only (F-38): written raw in
+  // AnchorVault with no dirty-marking AND absent from this list, so they never
+  // synced in either direction. Receive-side is covered by the Session-1
+  // defensive pass-through (any SYNC_KEYS entry not explicitly typed falls
+  // through), so listing them here is sufficient for pull.
+  "coupons","perks"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -188,7 +194,7 @@ export function sanitizeHouseholdData(data) {
      "calColorLabels","connectedCals","exhale_labels",
      "health","career","travel_profile"
     ].forEach(k => {
-      if (data[k] !== undefined && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
+      if (data[k] !== undefined && data[k] !== null && typeof data[k] === "object" && !Array.isArray(data[k])) out[k] = data[k];
     });
     // ripples: normalize to array — was stored as object in earlier versions
     if (data.ripples !== undefined) {

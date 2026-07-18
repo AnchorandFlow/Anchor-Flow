@@ -423,7 +423,7 @@ class RootErrorBoundary extends React.Component {
     if (!this.state.crashed) return this.props.children;
     var code = this.state.code;
     return (
-      <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",fontFamily:"DM Sans, sans-serif",background:"#1a2744",textAlign:"center"}}>
+      <div style={{minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",fontFamily:"DM Sans, sans-serif",background:"#1a2744",textAlign:"center",pointerEvents:"auto",position:"relative",zIndex:99999}}>
         <div style={{fontSize:"2.5rem",marginBottom:"1.25rem"}}>⚓</div>
         <h2 style={{marginBottom:"0.75rem",color:"#faf8f4",fontFamily:"Cormorant Garamond, serif",fontSize:"1.5rem",fontWeight:600}}>Something went sideways</h2>
         <p style={{color:"rgba(250,248,244,0.72)",marginBottom:"0.5rem",maxWidth:320,lineHeight:1.55,fontSize:"0.95rem"}}>Your data is safe.</p>
@@ -449,7 +449,7 @@ class SectionErrorBoundary extends React.Component {
     var self = this;
     var label = this.props.label || "This section";
     return (
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",textAlign:"center",minHeight:"8rem",background:"#f7f3ec",borderRadius:"1rem",margin:"1rem"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem",textAlign:"center",minHeight:"8rem",background:"#f7f3ec",borderRadius:"1rem",margin:"1rem",pointerEvents:"auto"}}>
         <p style={{color:"#5a5a6a",marginBottom:"1rem",fontSize:"0.9rem"}}>{label + " hit a snag."}</p>
         <button
           onClick={function(){ self.setState({ crashed: false }); }}
@@ -815,7 +815,11 @@ const TABS = [
   {id:"calendar", label:"Calendar", emoji:"📆"},
   {id:"meals",    label:"Meals",    emoji:"🍽️"},
   {id:"shop",     label:"Shopping", emoji:"🛒"},
-  {id:"ai",       label:"Ripple",   emoji:"〜"},
+  // Fix 7c: Compass/Ripple tab hidden until it reads real data — INSIGHTS in
+  // RippleTab.jsx is a hardcoded static array, "Compass is thinking..." is a
+  // 2s setTimeout producing nothing, and the Ask box discards input. Fully
+  // reversible: re-add {id:"ai",label:"Ripple",emoji:"〜"} here and "ai" to
+  // PRIMARY_TABS below once it's real.
   {id:"tidepool", label:"Tide Pool", emoji:"🏝️"},
   {id:"cove",     label:"Cove",      emoji:"🪸"},
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
@@ -824,7 +828,7 @@ const TABS = [
   {id:"school",   label:"School",   emoji:"🏫"},
   {id:"settings", label:"Settings", emoji:"⚙️"},
 ];
-const PRIMARY_TABS = ["anchor","calendar","meals","shop","ai"];
+const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
 const MORE_TABS    = ["weekly","home","brain","school","tidepool","cove","settings"];
 
 const CAL_SOURCES = [
@@ -1155,9 +1159,23 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   // Daily chore reset — runs when kid changes or on mount.
   // Fresh new Date() (not the module-level TODAY captured at page load) so opening
   // the app the next day reflects the real date (F-09).
-  var todayStr = new Date().toISOString().split("T")[0];
+  // Local calendar date, not UTC — .toISOString() is UTC and flips "today" at
+  // ~6pm Mountain, resetting chores hours early (verified from production blob
+  // timestamps). Inlined here (not the App.jsx:4316 localDateStr helper) because
+  // TidePoolSection is a top-level function declared before HomeFlow starts —
+  // no closure access to a helper defined inside it.
+  var _tpNow = new Date();
+  var todayStr = _tpNow.getFullYear() + "-" + String(_tpNow.getMonth()+1).padStart(2,"0") + "-" + String(_tpNow.getDate()).padStart(2,"0");
   React.useEffect(function(){
     if(!sKidData) return;
+    // Wipe guard: only reset records that actually exist in coveData. When the
+    // kid has no saved record (sKidIdx2 < 0), sKidData is the bare in-memory
+    // fallback — persisting it from here would push {chores:[],treasures:[],
+    // shells:0} over the server's real data whenever this mounts before the
+    // household pull has landed (slow pull, failed pull, expired auth). That is
+    // the confirmed Tide Pool wipe. A record gets created only by a real user
+    // action (add chore/treasure), never by the reset.
+    if(sKidIdx2 < 0) return;
     var lastReset = sKidData.choreLastReset || "";
     if(lastReset !== todayStr){
       var resetChores = (sKidData.chores||[]).map(function(ch){ return Object.assign({},ch,{done:false}); });
@@ -6174,7 +6192,7 @@ Respond ONLY in valid JSON:
                       {workDayForm.type!=="off"&&(
                         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.55rem"}}>
                           <span style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,whiteSpace:"nowrap"}}>Hours</span>
-                          <div style={{flex:1}}>
+                          <div style={{flex:1,minWidth:0}}>
                             <select value={workDayForm.startHour} onChange={function(ev){setWorkDayForm(function(p){return Object.assign({},p,{startHour:parseInt(ev.target.value,10)});});}} style={inp({padding:"0.3rem 0.4rem",fontSize:"0.75rem",width:"100%"})}>
                               {Array.from({length:24},function(_x,i){return i;}).filter(function(i){return i<workDayForm.endHour;}).map(function(i){return <option key={i} value={i}>{_fmtH(i)}</option>;})}
                             </select>
@@ -6259,7 +6277,7 @@ Respond ONLY in valid JSON:
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
                   <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
-                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center"}}>{e.forPerson?e.forPerson:(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||"")}</span>
+                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{e.forPerson?e.forPerson:(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||"")}</span>
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
@@ -8560,7 +8578,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       // Fresh date each check (not stale module-level TODAY), and re-check when the
       // app regains focus so chores reset after midnight even if it was left open (F-09).
       function checkReset(){
-        var todayStr = new Date().toISOString().split("T")[0];
+        // Local date, not UTC — same fix as TidePoolSection (see its comment).
+        // localDateStr (App.jsx:4316) is in scope here since TidePoolTab is
+        // nested inside HomeFlow — reused instead of re-inlining.
+        var todayStr = localDateStr(new Date());
         var lastReset;
         try { lastReset = localStorage.getItem(resetKey); } catch { lastReset = null; }
         if(lastReset !== todayStr) {
@@ -11629,6 +11650,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         input:focus,select:focus,textarea:focus{border-color:${T.blue}!important;box-shadow:0 0 0 3px ${T.blue}22!important;outline:none}
         select option{background:${T.surface};color:${T.textDark}}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:${T.bgAlt}}::-webkit-scrollbar-thumb{background:${T.blueLight};border-radius:4px}
+        html, body { overflow-x: hidden; width: 100%; }
         @keyframes fu{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}.fu{animation:fu 0.22s ease both}
         @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1.1)}}
         @keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
@@ -11731,19 +11753,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings","ai"].map(t=>{
+          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
-                {t==="anchor"   && <AnchorTab/>}
-                {t==="flowhome" && <FlowHome/>}
+                {t==="anchor"   && <SectionErrorBoundary label="Anchor"><AnchorTab/></SectionErrorBoundary>}
+                {t==="flowhome" && <SectionErrorBoundary label="Flow"><FlowHome/></SectionErrorBoundary>}
                 {t==="calendar" && <SectionErrorBoundary label="Calendar"><CalendarTab/></SectionErrorBoundary>}
-                {t==="weekly"   && <WeeklyTab/>}
-                {t==="meals"    && <MealsTab/>}
-                {t==="shop"     && <ShoppingTab/>}
-                {t==="tidepool" && <TidePoolTab/>}
-                {t==="cove"     && <CoveTab/>}
-                {t==="home"     && <HomeTab/>}
+                {t==="weekly"   && <SectionErrorBoundary label="Weekly Rhythm"><WeeklyTab/></SectionErrorBoundary>}
+                {t==="meals"    && <SectionErrorBoundary label="Meals"><MealsTab/></SectionErrorBoundary>}
+                {t==="shop"     && <SectionErrorBoundary label="Shopping"><ShoppingTab/></SectionErrorBoundary>}
+                {t==="tidepool" && <SectionErrorBoundary label="Tide Pool"><TidePoolTab/></SectionErrorBoundary>}
+                {t==="cove"     && <SectionErrorBoundary label="Cove"><CoveTab/></SectionErrorBoundary>}
+                {t==="home"     && <SectionErrorBoundary label="Home"><HomeTab/></SectionErrorBoundary>}
                 {t==="brain"    && <SectionErrorBoundary label="Exhale"><ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}
@@ -11753,9 +11775,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setExhaleLabels(labels);
                 }}
               /></SectionErrorBoundary>}
-                {t==="school"   && <SchoolTab/>}
-                {t==="career"   && <CareerTab/>}
-                {t==="settings" && <SettingsTab
+                {t==="school"   && <SectionErrorBoundary label="Lighthouse"><SchoolTab/></SectionErrorBoundary>}
+                {t==="career"   && <SectionErrorBoundary label="Career"><CareerTab/></SectionErrorBoundary>}
+                {t==="settings" && <SectionErrorBoundary label="Settings"><SettingsTab
                   people={people} setPeople={setPeople}
                   familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
                   flowMode={flowMode} setFlowMode={setFlowMode}
@@ -11783,8 +11805,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setShowAuthModal={setShowAuthModal}
                   syncNow={syncNow} lastSyncTime={lastSyncTime}
                   card={card}
-                />}
-                {t==="ai" && <RippleTab/>}
+                /></SectionErrorBoundary>}
+                {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
             );
           })}
@@ -12085,7 +12107,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
       { id: "tidepool", label: "Tide Pool",     emoji: "🏝️" },
-      { id: "school",   label: "Lighthouse",    emoji: "📖" },
+      { id: "school",   label: "Lighthouse",    emoji: "🌱" },
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       { id: "meals", label: "Meals", emoji: "🍽️" },

@@ -86,6 +86,11 @@ const PLAUSIBLE = {
   nwMealCount:        2,
   safe_harbor:        { version:2, lastReviewed:"2026-01-01", contacts:{}, members:[], grabItems:[], hazards:[], reviewDue:false, removedDefaultIds:[], sixPs:null, familyPlan:null, review:{ lastReviewedAt:null, cadence:"yearly", remindDismissedAt:null } },
   ownedProducts:      [{ id:"op1", name:"Appliances", items:[{ id:"i1", name:"Dishwasher", link:"", purchasedAt:"", warranty:"", warrantyNote:"", notes:"" }] }],
+  // Fix 4 / F-38: added to SYNC_KEYS so they sync; no explicit handler in
+  // sanitizeHouseholdData, so they rely on the generic defensive pass-through —
+  // real shape is a plain array, matching AnchorVault.jsx:6537-6538.
+  coupons:            [{ id:"c1", code:"SAVE10", used:false }],
+  perks:              [{ id:"p1", name:"Airline lounge access", used:false }],
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────
@@ -145,6 +150,19 @@ describe("A3 — null values are dropped", () => {
     const out = sanitizeHouseholdData({ tasks: null, traditions: ["Christmas Eve"] });
     expect(out.tasks).toBeUndefined();
     expect(out.traditions).toEqual(["Christmas Eve"]);
+  });
+
+  // F-94 / Fix 3: the object-passthrough branch used `typeof data[k] === "object"`
+  // with no explicit null check — typeof null === "object" and !Array.isArray(null)
+  // is true, so null was passing through and getting written back as the literal
+  // string "null" on the next JSON.stringify. Distinct from the tasks/workDays
+  // cases above, which are array-guarded / generic-pass-through and were already
+  // null-safe before this fix — familyProfile/schoolData are the explicitly-typed
+  // object-passthrough branch this fix patches.
+  it("null familyProfile (object-passthrough branch) is dropped, not passed through", () => {
+    const out = sanitizeHouseholdData({ familyProfile: null, schoolData: null });
+    expect(out.familyProfile).toBeUndefined();
+    expect(out.schoolData).toBeUndefined();
   });
 });
 
