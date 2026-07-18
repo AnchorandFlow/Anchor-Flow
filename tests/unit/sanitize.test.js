@@ -94,6 +94,11 @@ const PLAUSIBLE = {
   // Batch 2 Fix 2 / F-44: household-shared forecast overrides — plain object
   // keyed by slot, matching TodayBriefing.jsx's ovRead/ovWrite shape.
   forecastOverrides:  { bigThing: { text:"Custom override text" } },
+  // CareerSection.jsx vault data (F-33 residual, Batch 2 Fix 9) — real shapes
+  // matching CareerSection.jsx's LicenseForm/ContactForm/RetirementForm blanks.
+  career_licenses:    [{ id:"lic1", title:"Registered Nurse (RN)", state:"Colorado", expiry:"2027-01-01", ceuNeeded:20, ceuCompleted:5, website:"", notes:"" }],
+  career_contacts:    [{ id:"ct1", name:"Jane Doe", title:"Director of Nursing", company:"UCHealth", email:"", phone:"", relationship:"Former manager", notes:"" }],
+  career_retirement:  [{ id:"ra1", institution:"Fidelity", accountType:"401(k)", employer:"", website:"", notes:"" }],
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────

@@ -75,7 +75,17 @@ export const SYNC_KEYS = [
   // Forecast overrides (TodayBriefing) — user edits to today's shared forecast.
   // Previously device-local (F-44). Receive-side covered by the defensive
   // pass-through, same as coupons/perks.
-  "forecastOverrides"];
+  "forecastOverrides",
+  // CareerSection.jsx vault data — previously local-only (F-33 residual, found in
+  // the Batch 2 Fix 9 re-sweep): CareerSection's own useSaved() hook writes
+  // af_career_licenses / af_career_contacts / af_career_retirement directly, and
+  // none of these bare names existed here, so this data never synced in either
+  // direction (not just missing dirty-marking — genuinely unregistered). Distinct
+  // from the "career" entry above, which is a different key (af_career, written by
+  // AnchorVault.jsx's cSaveCareer) — same word, unrelated data. Given explicit
+  // array-guard treatment below (not defensive pass-through) since these are lists
+  // of records, same as celebrations/gifts/pets/moments.
+  "career_licenses","career_contacts","career_retirement"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -117,6 +127,7 @@ const _SANITIZE_HANDLED = new Set([
   "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
   "moments","subs","vaultSystems","packing_templates",
   "coveData","ownedProducts",
+  "career_licenses","career_contacts","career_retirement",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // Scalars
@@ -146,7 +157,10 @@ export function sanitizeHouseholdData(data) {
      // added — was previously dropped (object-only passthrough rejects arrays).
      "coveData",
      // ownedProducts: array of product categories, each with an items array.
-     "ownedProducts"
+     "ownedProducts",
+     // CareerSection.jsx vault data (F-33 residual, Batch 2 Fix 9) — flat arrays
+     // of records ({id, ...}), same shape class as celebrations/gifts/moments.
+     "career_licenses","career_contacts","career_retirement"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
