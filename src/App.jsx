@@ -701,7 +701,8 @@ const THEMES = {
     blue:"#5E8FA0", blueDark:"#4a7a94", blueLight:"#96bdd0", bluePale:"#dceef0",
     rose:"#b87265", roseDark:"#8f4f44", rosePale:"#f0ddd8",
     lavender:"#8878b8", lavPale:"#e5e0f5",
-    textDark:"#2a2a38", textMid:"#5a5a6a", textSoft:"#8a8a9a", textFaint:"#b0b0be",
+    // WCAG AA ≥4.5:1 on this theme's surface (F-72) — recompute if surface colors change.
+    textDark:"#2a2a38", textMid:"#5a5a6a", textSoft:"#727284", textFaint:"#71718A",
     white:"#FDFAF5", navBg:"#F0EBE0", topBg:"#FDFAF5",
     inputBg:"#FDFAF5", cardShadow:"rgba(80,70,50,0.08)", modalOverlay:"rgba(42,42,56,0.48)",
   },
@@ -713,7 +714,8 @@ const THEMES = {
     blue:"#2e6ea0", blueDark:"#1a4e78", blueLight:"#68a8d0", bluePale:"#bcd8f0",
     rose:"#a05858", roseDark:"#783838", rosePale:"#ead8d5",
     lavender:"#6058a0", lavPale:"#d5d0f0",
-    textDark:"#101828", textMid:"#284058", textSoft:"#507090", textFaint:"#80a8c8",
+    // WCAG AA ≥4.5:1 on this theme's surface (F-72) — recompute if surface colors change.
+    textDark:"#101828", textMid:"#284058", textSoft:"#507090", textFaint:"#44759C",
     white:"#f5faff", navBg:"#d8e8f5", topBg:"#c8ddf0",
     inputBg:"#f2f7fc", cardShadow:"rgba(10,40,80,0.10)", modalOverlay:"rgba(5,20,45,0.55)",
   },
@@ -725,7 +727,8 @@ const THEMES = {
     blue:"#6FA7AE", blueDark:"#3080a8", blueLight:"#88c8e8", bluePale:"#0c2838",
     rose:"#d88878", roseDark:"#b05848", rosePale:"#2e1010",
     lavender:"#a898d8", lavPale:"#1c1838",
-    textDark:"#e8f0f8", textMid:"#a0b8cc", textSoft:"#607890", textFaint:"#384e64",
+    // WCAG AA ≥4.5:1 on this theme's surface (F-72) — recompute if surface colors change.
+    textDark:"#e8f0f8", textMid:"#a0b8cc", textSoft:"#7C92A7", textFaint:"#7392B0",
     white:"#222e3e", navBg:"#111820", topBg:"#111820",
     inputBg:"#1a2438", cardShadow:"rgba(0,0,0,0.32)", modalOverlay:"rgba(0,0,0,0.72)",
   }
@@ -7484,7 +7487,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             <div style={{...card()}}>
               <label style={lbl}>What's in your fridge / pantry?</label>
-              <textarea value={rescueInput} onChange={e=>{setRescueInput(e.target.value);if(rescueError)setRescueError(null);}} placeholder="e.g. chicken, rice, black beans, avocado, tortillas, eggs…" style={{...inp({height:80,resize:"none",marginBottom:"0.75rem"})}}/>
+              <textarea value={rescueInput} onChange={e=>{setRescueInput(e.target.value);if(rescueError)setRescueError(null);}} placeholder="e.g. chicken, rice, black beans, avocado, tortillas, eggs…" maxLength={500} style={{...inp({height:80,resize:"none",marginBottom:"0.75rem"})}}/>
               <button onClick={findRescueMeals} disabled={!rescueInput.trim()||rescueLoading} style={btnP(T.rose,{width:"100%",justifyContent:"center",display:"flex",opacity:!rescueInput.trim()||rescueLoading?0.5:1,fontSize:"0.88rem",padding:"0.65rem"})}>
                 {rescueLoading?"Finding meals…":"🆘 Find My Dinner"}
               </button>
@@ -11864,7 +11867,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{position:"fixed",bottom:0,left:0,right:0,background:T.navBg,borderTop:`2px solid ${T.border}`,display:"flex",justifyContent:"space-around",padding:"0.5rem 0 max(0.75rem, env(safe-area-inset-bottom))",zIndex:100,boxShadow:`0 -2px 14px ${T.cardShadow}`}}>
           {primaryVisible.map(t=>(
-            <button key={t.id} onClick={()=>{goTab(t.id);setMoreDrawerOpen(false);}} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"0.6rem 0.4rem",minWidth:48,flex:1,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
+            <button key={t.id} onClick={()=>{goTab(t.id);setMoreDrawerOpen(false);}} aria-label={t.label} style={{background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"0.6rem 0.4rem",minWidth:48,flex:1,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
               <span style={{fontSize:"1.25rem",filter:tab===t.id?"none":"grayscale(0.3)",opacity:tab===t.id?1:0.6,transition:"all 0.15s"}}>{t.emoji}</span>
               <span style={{fontSize:"0.58rem",color:tab===t.id?T.blue:T.textFaint,fontWeight:tab===t.id?800:500,letterSpacing:"0.02em",whiteSpace:"nowrap",transition:"color 0.15s"}}>{t.label}</span>
               {tab===t.id&&<div style={{width:18,height:2.5,borderRadius:2,background:T.blue,marginTop:1}}/>}
