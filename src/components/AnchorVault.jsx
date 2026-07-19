@@ -2631,7 +2631,7 @@ function PackingTemplatesPanel(props) {
 
   function saveTemplates(updated) {
     setTemplatesRaw(updated)
-    try { localStorage.setItem("af_packing_templates", JSON.stringify(updated)) } catch {}
+    try { localStorage.setItem("af_packing_templates", JSON.stringify(updated)); afVaultChanged("packing_templates") } catch {}
   }
   function showToast(msg) { setToast(msg); setTimeout(function(){ setToast("") }, 2200) }
 
