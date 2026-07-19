@@ -17,6 +17,7 @@ function injectCalendarEvent(title, dateStr, id, color) {
     if (!events.some(function(e) { return e.id === id })) {
       events.push({ id: id, title: title, date: dateStr, color: color || "#c8a97a", notes: "Added from Moments" })
       localStorage.setItem("af_calEvents", JSON.stringify(events))
+      window.dispatchEvent(new CustomEvent("af-cal-changed"))
       return true
     }
   } catch {}
@@ -28,12 +29,15 @@ function addToGroceryList(items) {
     var stores = []
     try { stores = JSON.parse(localStorage.getItem("af_stores") || "[]") } catch {}
     var store = (stores && stores[0]) ? stores[0] : "Grocery Store"
-    var existing = JSON.parse(localStorage.getItem("af_shoppingItems") || "[]")
-    var newItems = items.map(function(text) {
-      return { id: Date.now().toString() + Math.random().toString(36).slice(2,5), text: text, done: false, store: store, category: "grocery" }
+    // Dispatch one event per item, matching the shape App.jsx's listener
+    // actually consumes (e.detail.text/store) -- same contract as
+    // AnchorVault.jsx's quickAddShop/handleAddToShopping. No raw
+    // localStorage write here: the listener's setShoppingItems (useSaved's
+    // setter) owns the write and dirty-marks it, same pattern as F-32's
+    // af-cal-changed bridge.
+    items.forEach(function(text) {
+      window.dispatchEvent(new CustomEvent("af-shopping-add", { detail: { text: text, store: store } }))
     })
-    localStorage.setItem("af_shoppingItems", JSON.stringify([...existing, ...newItems]))
-    window.dispatchEvent(new CustomEvent("af-shopping-add", { detail: { items: newItems } }))
     return true
   } catch { return false }
 }

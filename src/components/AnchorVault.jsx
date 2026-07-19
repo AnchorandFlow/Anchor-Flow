@@ -1600,6 +1600,7 @@ function PetsSection() {
       if (!events.some(function(e) { return e.id === calId })) {
         events.push({ id: calId, title: title, date: dateStr, color: color || "#7EAEB4", notes: "Added from Pets" })
         localStorage.setItem("af_calEvents", JSON.stringify(events))
+        window.dispatchEvent(new CustomEvent("af-cal-changed"))
       }
     } catch {}
   }
@@ -3534,6 +3535,7 @@ function cWriteGoalToCalendar(goal, personName) {
       _careerGoal: true
     })
     localStorage.setItem("af_calEvents", JSON.stringify(events))
+    window.dispatchEvent(new CustomEvent("af-cal-changed"))
   } catch(e) {}
 }
 
@@ -3541,6 +3543,7 @@ function cRemoveGoalFromCalendar(goalId) {
   try {
     var events = JSON.parse(localStorage.getItem("af_calEvents") || "[]")
     localStorage.setItem("af_calEvents", JSON.stringify(events.filter(function(e){ return e.id !== "career_goal_"+goalId })))
+    window.dispatchEvent(new CustomEvent("af-cal-changed"))
   } catch(e) {}
 }
 

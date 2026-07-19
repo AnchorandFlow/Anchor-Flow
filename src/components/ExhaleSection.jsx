@@ -36,6 +36,31 @@ var LS_CL = "af_exhale_color_labels";
 var LS_P  = "af_exhale_people";
 var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false";
 
+// Guaranteed-valid UUID v4, for values written to Postgres uuid columns.
+// crypto.randomUUID() is unavailable pre-Safari 15.4 and outside secure
+// contexts; crypto.getRandomValues() has much broader support (works in
+// those same cases) and still yields a real UUID, not a downgraded format.
+// Math.random() is the last-resort fallback if neither Crypto API exists.
+function uuidv4() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    try { return crypto.randomUUID(); } catch(e) {}
+  }
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    try {
+      var buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40;
+      buf[8] = (buf[8] & 0x3f) | 0x80;
+      var hex = Array.prototype.map.call(buf, function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+      return hex.slice(0,8) + "-" + hex.slice(8,12) + "-" + hex.slice(12,16) + "-" + hex.slice(16,20) + "-" + hex.slice(20);
+    } catch(e) {}
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 function getColor(id) {
   for (var i = 0; i < CARD_COLORS.length; i++) {
@@ -280,8 +305,27 @@ export default function ExhaleSection(props) {
           console.warn("[AF] Exhale migration error:", result.error.message);
           return; // flag NOT set — retries on next re-run
         }
-        localStorage.setItem(flagKey, "1");
-        window.AF_DEBUG && console.log("[AF] Exhale migration done:", cards.length, "card(s) contributed.");
+        // F-40(b): heal cards this device inserted with a null household_id
+        // during the pre-resolution window (handleAdd, before householdId
+        // resolved). Column-only update, gated on household_id IS NULL, so
+        // we never touch text/notes/position/etc. on rows another device
+        // may have already edited since this local snapshot was taken.
+        var ids = cards.map(function(c) { return c.id; });
+        supabase
+          .from("exhale_cards")
+          .update({ household_id: householdId })
+          .in("id", ids)
+          .is("household_id", null)
+          .then(function(healResult) {
+            if (healResult.error) {
+              console.warn("[AF] Exhale orphan household_id heal failed:", healResult.error.message);
+            }
+            // Flag set regardless of heal outcome -- heal is best-effort on
+            // top of an already-successful migration; retrying the whole
+            // migration for a heal-only failure would be wasteful/risky.
+            localStorage.setItem(flagKey, "1");
+            window.AF_DEBUG && console.log("[AF] Exhale migration done:", cards.length, "card(s) contributed.");
+          });
       });
   }, [householdId]); // re-runs when householdId resolves null → real id; flag guards re-migration
 
@@ -511,9 +555,7 @@ export default function ExhaleSection(props) {
     var txt = inputText.trim();
     if (!txt) return;
     var opId; try { opId = crypto.randomUUID(); } catch(e) { opId = "op-" + Date.now(); }
-    var cardId = EXHALE_V2
-      ? (function(){ try { return crypto.randomUUID(); } catch(e) { return "e" + (_nid++); } })()
-      : "e" + (_nid++);
+    var cardId = EXHALE_V2 ? uuidv4() : "e" + (_nid++);
     var item = { id: cardId, text: txt, notes: "", color: CARD_COLORS[groups.inbox.length % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
     if (window.AF_TRACE) console.log("[AF_TRACE "+opId+"] EXHALE_ADD_CLICK cardId="+item.id+' text="'+txt+'"');
     var ng = clone(groups); ng.inbox = [item].concat(ng.inbox);
@@ -527,7 +569,7 @@ export default function ExhaleSection(props) {
 
     if (EXHALE_V2) {
       lsSet(LS_G, ng, opId);
-      var hhId; try { hhId = JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch(e) { hhId = null; }
+      var hhId = householdId;
       var _au; try { _au = JSON.parse(localStorage.getItem("af_authUser") || "null"); } catch(e) { _au = null; }
       var createdBy = (_au && _au.id) ? _au.id : null;
       setCardSaveState(function(p) { return Object.assign({}, p, { [cardId]: "saving" }); });
