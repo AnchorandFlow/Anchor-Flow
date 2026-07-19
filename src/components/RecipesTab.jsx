@@ -138,6 +138,7 @@ const RecipesTab = React.memo(function RecipesTab({ recipes=[], onSaveRecipe, on
           messages:[{role:"user",content:`URL: ${url.trim()}`}]
         })
       })
+      if (!res.ok) { setError("Could not extract recipe. Try adding manually."); setLoading(false); return }
       const d = await res.json()
       const txt = d.content?.find(b=>b.type==="text")?.text||"{}"
       const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim())

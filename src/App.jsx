@@ -3861,6 +3861,7 @@ function createLocalBackup() {
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,system:sysPrompt,messages:[{role:"user",content:ctx}]})
       });
+      if (!res.ok) throw new Error("Daily briefing request failed: " + res.status);
       const dat = await res.json();
       const txt = dat.content?.find(b=>b.type==="text")?.text||"{}";
       const p   = JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -4027,6 +4028,7 @@ Respond ONLY with valid JSON array, no markdown:
           messages:[{role:"user",content:ctx}]
         })
       });
+      if (!res.ok) throw new Error("Insights request failed: " + res.status);
       const dat = await res.json();
       const txt = dat.content?.find(b=>b.type==="text")?.text||"[]";
       const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -4458,6 +4460,7 @@ Respond ONLY with valid JSON array, no markdown:
         system:`Extract recipe info from a URL. Respond ONLY in JSON: {"name":"","ingredients":[],"servings":"","time":"","notes":"","source":""}. If social media video, set name to "Paste ingredients below" and notes to "Social media video — please paste the ingredient list manually."`,
         messages:[{role:"user",content:`URL: ${recipeUrl.trim()}`}]
       })});
+      if (!r.ok) { setRecipeError("Couldn't parse that URL. Try entering the recipe manually below."); setRecipeLoading(false); return; }
       const d = await r.json();
       const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
       setRecipeResult(JSON.parse(txt.replace(/```json|```/g,"").trim()));
@@ -4881,6 +4884,7 @@ Respond ONLY with valid JSON array, no markdown:
           system:`Today is ${new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}. You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
           messages:msgs.map(m=>({role:m.role,content:m.text}))
         })});
+        if (!r.ok) throw new Error("Chat request failed: " + r.status);
         const d = await r.json();
         setMessages(prev=>[...prev,{role:"assistant",text:d.content?.find(b=>b.type==="text")?.text||"Sorry, try again."}]);
       } catch { setMessages(prev=>[...prev,{role:"assistant",text:"Something went wrong. Please try again."}]); }
@@ -5248,6 +5252,7 @@ Respond ONLY with valid JSON array, no markdown:
           system:"You are Compass. Write ONE warm closing sentence under 20 words. Be specific. Make them feel seen.",
           messages:[{role:"user",content:"Done: "+(done.map(t=>t.text).join(", ")||"nothing")+". Let go: "+letGo.length+". Tomorrow: "+(tmrEvts.map(e=>e.title).join(", ")||"quiet day")+". Mode: "+flowMode}]
         })});
+        if (!res.ok) throw new Error("Reflection request failed: " + res.status);
         const dat = await res.json();
         setRefl(dat.content?.find(b=>b.type==="text")?.text||"You showed up. That's everything.");
       } catch { setRefl("You showed up. That's everything."); }
@@ -5521,6 +5526,7 @@ Respond ONLY in valid JSON:
 {"brain_items":[{"text":"exact text from list","reason":"why today — 1 short phrase"}],"todos":["specific task"],"upcoming":["specific prep for upcoming event"]}`,
           messages:[{role:"user",content:ctx}]
         })});
+        if (!res.ok) throw new Error("AI suggestions request failed: " + res.status);
         const dat = await res.json();
         const txt = dat.content?.find(b=>b.type==="text")?.text||"{}";
         const p = JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -6845,6 +6851,7 @@ Respond ONLY in valid JSON:
           system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
           messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
         })});
+        if(!r.ok) throw new Error("Meal suggestion request failed: "+r.status);
         var d=await r.json();
         var txt=(d.content?.find(function(b){return b.type==="text";})||{}).text||"[]";
         var parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -7520,6 +7527,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 system:"You are a practical family meal prep assistant. Given a week of meals and their ingredients, generate smart prep tips. Focus on: shared ingredients that can be prepped once (e.g. chop all onions Sunday), leftover opportunities (e.g. swap meals to use leftovers), batch cooking ideas, and time-saving shortcuts. Also suggest if swapping 2 meals would create a leftover chain. Respond ONLY as JSON: {\"shared\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"swaps\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"batch\":[{\"tip\":\"string\",\"emoji\":\"string\"}]}. Max 3 items per category. Keep tips under 80 chars.",
                 messages:[{role:"user",content:"Flow mode: "+flowMode+"\n\nThis week's meals:\n"+weekMealSummary.map(function(d){return d.day+": "+d.meals.join(", ")+(d.ingredients.length?" (ingredients: "+d.ingredients.slice(0,6).join(", ")+")":"");}).join("\n")}]
               })});
+              if(!r.ok) throw new Error("Prep tips request failed: "+r.status);
               var d=await r.json();
               var txt=(d.content?.find(function(b){return b.type==="text";})||{}).text||"{}";
               var parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -7926,6 +7934,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setIsAutoCategorizing(true);setAutoCatStatus("Categorizing "+uncategorized.length+" items…");
       try{
         var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,system:"You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other.",messages:[{role:"user",content:"Categories: "+shopCatLabels().join(", ")+"\n\nItems:\n"+uncategorized.map(function(i){return i.id+": "+i.text;}).join("\n")}]})});
+        if(!r.ok){setAutoCatStatus("Could not auto-categorize. Try again.");setIsAutoCategorizing(false);setTimeout(()=>setAutoCatStatus(""),3000);return;}
         var d=await r.json();
         var txt=d.content?.find(function(b){return b.type==="text";})||{};
         var parsed=JSON.parse((txt.text||"[]").replace(/```json|```/g,"").trim());
@@ -7952,6 +7961,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const photoUrl=URL.createObjectURL(file);
       try{
         const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
+        if(!r.ok) throw new Error("Photo analysis request failed: "+r.status);
         const d=await r.json();const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
         const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCatLabels().includes(parsed.category)?parsed.category:"";
         setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
@@ -8340,6 +8350,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       try {
         const catList = allCats.map(c=>c.id+"="+c.label).join(", ");
         const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:"Categorize brain dump items into these categories: "+catList+", or uncategorized. Return ONLY JSON: {results:[{id,cat}]}. Use exact category IDs.",messages:[{role:"user",content:"Categorize:\n"+pending.map(b=>b.id+": "+b.text).join("\n")}]})});
+        if (!res.ok) throw new Error("Recategorize request failed: " + res.status);
         const d = await res.json();
         const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
         const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -8360,7 +8371,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
         var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
         fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
-          .then(function(r){return r.json();})
+          .then(function(r){ if(!r.ok) throw new Error("Pattern insight request failed: "+r.status); return r.json(); })
           .then(function(d){ if(cancelled) return; var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg){setPatternMsg(msg);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:msg}));}catch(e){}}})
           .catch(function(){})
           .finally(function(){ if(!cancelled) setPatternLoading(false); });
