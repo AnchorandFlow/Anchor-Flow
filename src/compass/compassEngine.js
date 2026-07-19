@@ -16,6 +16,7 @@
 //    once, in the console: console.log(buildCompassContext(state, "today")).
 
 import { COMPASS_PROMPTS } from "./compassPrompts";
+import { resolveResponsibleParent } from "../sync-core.js";
 
 // ── small utils ───────────────────────────────────────────────────────────────
 
@@ -110,10 +111,14 @@ function eventsInWindow(state, fromDays, toDays) {
 // scope: "today" | "week" | "prep" | "ask"
 export function buildCompassContext(state, scope, extra) {
   state = state || {};
+  // F-97: prefer the identified person's real name over preferredName, which
+  // is a single shared household string (whoever last typed into it sets it
+  // for every person who signs in, on every device — the "Mama boss" bug).
+  var _me = state.myPersonId ? asArray(state.people).find(function(p){ return p.id === state.myPersonId; }) : null;
   var ctx = {
     now: new Date().toString(),
     family: asArray(state.people).map(slimPerson).slice(0, 12),
-    preferred_name: state.preferredName || null,
+    preferred_name: (_me && _me.name && _me.name.trim()) || state.preferredName || null,
     ai_memory: state.aiMemory || null // answers from the onboarding questions
   };
 
@@ -121,11 +126,11 @@ export function buildCompassContext(state, scope, extra) {
     ctx.flow_mode = state.flowMode || null;
     ctx.events_today_tomorrow = eventsInWindow(state, 0, 1);
     var _todaySlim = eventsInWindow(state, 0, 0);
-    // F-13/F-53 note: the hardcoded "L" split below is known-inert for
-    // non-developer households and is ON HOLD pending F-97 (person↔auth link).
-    // Do not "fix" it in isolation — it must land atomically with F-48/F-13.
-    ctx.events_today_mine = _todaySlim.filter(function(e) { return e.responsibleParent === "L" || !e.responsibleParent; });
-    ctx.events_today_partner = _todaySlim.filter(function(e) { return e.responsibleParent && e.responsibleParent !== "L"; });
+    // F-97: person-linked mine/partner split, replacing the hardcoded "L"
+    // split this was on hold for. If myPersonId is unset, both arrays are
+    // empty rather than guessing — an honest empty "mine" beats a wrong guess.
+    ctx.events_today_mine = state.myPersonId ? _todaySlim.filter(function(e) { return resolveResponsibleParent(e.responsibleParent) === state.myPersonId; }) : [];
+    ctx.events_today_partner = state.myPersonId ? _todaySlim.filter(function(e) { var rp = resolveResponsibleParent(e.responsibleParent); return rp && rp !== state.myPersonId; }) : [];
     ctx.tasks_open = asArray(state.tasks).map(slimTask).filter(function (t) { return !t.done; }).slice(0, 25);
     ctx.meals_this_week = asArray(state.meals).map(slimMeal).slice(0, 14);
     ctx.shopping_open_count = asArray(state.shoppingItems).filter(function (i) { return !pick(i, ["checked", "done"], false); }).length;

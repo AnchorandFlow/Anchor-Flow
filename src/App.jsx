@@ -14,7 +14,7 @@ import AnchorVault from "./components/AnchorVault";
 import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson } from "./sync-core.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 
 // ── F-19: in-app confirm/prompt ───────────────────────────────────────────────
@@ -566,6 +566,10 @@ function readHouseholdState() {
     try { st[k] = JSON.parse(localStorage.getItem("af_" + k)); } catch (e) { st[k] = null; }
   });
   try { st.preferredName = JSON.parse(localStorage.getItem("af_preferredName")); } catch (e) {}
+  // F-97: myPersonId is deliberately NOT in SYNC_KEYS (session-local, never
+  // synced — see the useState comment in HomeFlow), so it needs its own line
+  // here, same as preferredName above.
+  try { st.myPersonId = localStorage.getItem("af_myPersonId") || null; } catch (e) { st.myPersonId = null; }
   return st;
 }
 window.__compassTest = function (q) {
@@ -606,6 +610,52 @@ function ageFromBirthday(birthday) {
 // Effective age for a person: birthday-derived if available, else legacy numeric age.
 function personAge(p) { return p && p.birthday ? ageFromBirthday(p.birthday) : (p && p.age != null ? p.age : null); }
 function personIsMinor(p) { var a = personAge(p); return a !== null && a < 18; }
+// F-97 §2 — display marker for a person: explicit emoji/initial override, else
+// first letter of their name. Purely cosmetic — never used for identity
+// comparison (people are always compared by id, see resolveResponsibleParent
+// / resolveForPerson in sync-core.js).
+function personMarker(person) {
+  if (person && person.marker && person.marker.value) return person.marker.value;
+  return ((person && person.name) || "?").trim().charAt(0).toUpperCase();
+}
+// F-97 — two adult filters, deliberately different, not unified into one:
+// isAdultLenient: anyone not explicitly flagged as a minor counts as an adult.
+// Used for UI convenience lists (sign-in "which one are you", Responsible
+// picker) where a false positive costs nothing. Reuses the exact filter
+// already duplicated at the BrainTab person-tabs list and the brain-item
+// assign-avatar row.
+var MINOR_ROLES = ["Kid","Teen","Baby"];
+function isAdultLenient(p) {
+  return !!(p && p.name && p.name.length > 0 && !p.isMinor && !(p.age != null && p.age < 18) && !MINOR_ROLES.includes(p.role));
+}
+// isAdultStrict: CareerTab's existing rule (requires an explicit adult role or
+// confirmed age >=18; excludes on missing data) — deliberately conservative
+// because career/retirement data is sensitive enough to warrant "exclude when
+// ambiguous." Extracted here for parity/documentation only — CareerTab's own
+// call site is intentionally left as its own local logic, untouched by F-97.
+var ADULT_ROLES = ["Mom","Dad","Guardian","Roommate","Other"];
+function isAdultStrict(p) {
+  if (!p || !p.name) return false;
+  if (MINOR_ROLES.includes(p.role)) return false;
+  if (personIsMinor(p)) return false;
+  if (ADULT_ROLES.includes(p.role)) return true;
+  var a = personAge(p);
+  if (a != null && a >= 18) return true;
+  return false;
+}
+// F-97 §5b — prefer the identified person's real name over preferredName,
+// which is a single shared household string: whoever last typed into it sets
+// it for every person who signs into this household, on every device (the
+// "Mama boss" bug). preferredName is now only the fallback for the
+// pre-identification window (before "Which one are you?" resolves, or if
+// skipped) — kept for that reason, not deleted.
+function myDisplayName(people, myPersonId, preferredName, authUser) {
+  if (myPersonId) {
+    var me = (people || []).find(function(p) { return p.id === myPersonId; });
+    if (me && me.name) return me.name.trim();
+  }
+  return preferredName || (authUser && authUser.displayName ? authUser.displayName.split(" ")[0] : "");
+}
 // Returns the ISO date string (YYYY-MM-DD) of the Monday starting the current week
 const getThisMonday = () => {
   const d = new Date();
@@ -675,8 +725,10 @@ function getPersonColor(forPerson, people) {
   // through the no-match path, so it reads as deliberate rather than
   // coincidental with an orphaned-name lookup failure.
   if (forPerson === "family") return PERSON_COLOR_DEFAULT;
-  var target = forPerson.trim().toLowerCase();
-  var match = (people||[]).filter(function(p){ return p.name && p.name.trim().toLowerCase() === target; })[0];
+  // F-97: forPerson may be a people[].id (new events) or a bare legacy name
+  // string (pre-F-97 events) — resolveForPerson normalizes to an id when it can.
+  var resolved = resolveForPerson(forPerson, people);
+  var match = (people||[]).filter(function(p){ return p.id === resolved; })[0];
   // No match means forPerson references someone no longer in this household's
   // roster (renamed, removed, or an orphaned legacy value) — PERSON_COLOR_DEFAULT
   // is the correct, honest result here, not a fallback to paper over: the event
@@ -684,6 +736,15 @@ function getPersonColor(forPerson, people) {
   // color should look like that rather than inventing a stable identity for them.
   var derived = match && match.color ? derivePersonColor(match.color) : null;
   return derived || PERSON_COLOR_DEFAULT;
+}
+// F-97: resolve forPerson (id or legacy name string) to a display name.
+// Same orphan-honesty rule as getPersonColor — an unresolved reference shows
+// its raw stored value rather than inventing a name.
+function getPersonDisplayName(forPerson, people) {
+  if (!forPerson || forPerson === "family") return forPerson || "";
+  var resolved = resolveForPerson(forPerson, people);
+  var match = (people||[]).filter(function(p){ return p.id === resolved; })[0];
+  return match ? match.name : forPerson;
 }
 function getWorkDays() {
   try { return JSON.parse(localStorage.getItem("af_workDays") || "{}"); } catch(e) { return {}; }
@@ -1327,7 +1388,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
     if(!newMemberName.trim())return;
     var bday=newMemberBirthday.trim()||null;
     var derivedAge=ageFromBirthday(bday);
-    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],birthday:bday,age:derivedAge,role:newMemberRole||null,isMinor:derivedAge!=null&&derivedAge<18}];});
+    setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],birthday:bday,age:derivedAge,role:newMemberRole||null,isMinor:derivedAge!=null&&derivedAge<18,marker:null}];});
     setNewMemberName("");setNewMemberBirthday("");setNewMemberRole("");
   }
   return(
@@ -1419,6 +1480,16 @@ var SAFE_LOCAL_PREFS = [];
 
 function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
+  // F-97 §3 — local display copy of af_myPersonId. Session-local by design
+  // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
+  // same custom-event pattern as af_sections/af-sections-changed elsewhere.
+  const [myPersonIdLocal,setMyPersonIdLocal] = useState(function(){ try { return localStorage.getItem("af_myPersonId")||null; } catch { return null; } });
+  React.useEffect(function(){
+    var h = function(){ try { setMyPersonIdLocal(localStorage.getItem("af_myPersonId")||null); } catch {} };
+    window.addEventListener("af-myPersonId-changed", h);
+    return function(){ window.removeEventListener("af-myPersonId-changed", h); };
+  }, []);
+  var myPersonRecord = people.find(function(p){ return p.id===myPersonIdLocal; });
     React.useEffect(() => { AF_DEBUG&&console.log("[AF MOUNT] SettingsTab"); return () => AF_DEBUG&&console.log("[AF UNMOUNT] SettingsTab"); }, []);
   const _stRenderCount = React.useRef(0); _stRenderCount.current++; AF_DEBUG&&console.count("[AF RENDER] SettingsTab");
   React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] people changed, SettingsTab render #" + _stRenderCount.current); }, [people]);
@@ -1517,6 +1588,9 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
             <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
               <input value={preferredName||""} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
             </div>
+          </Row>
+          <Row label="This is me" sub={myPersonRecord?"Identified as "+myPersonRecord.name+" — calendar filters and greetings use this":"Not set — correct a wrong pick, or re-identify on a shared device"}>
+            <button onClick={function(){try{window.dispatchEvent(new CustomEvent("af-open-whoami"));}catch{}}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.7rem"})}>{myPersonRecord?"Change":"Set up"}</button>
           </Row>
           <Row label="Compass AI" sub="Daily briefing, suggestions, and Ask Compass">
             <Toggle on={compassEnabled!==false} onToggle={function(){setCompassEnabled(compassEnabled===false?true:false);}} color={T.sage}/>
@@ -2023,7 +2097,7 @@ const _hfComps   = {};
   'MealBankDrawer','WeekTypePicker','MealsTab','ShoppingTab','HomeTab','BrainTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveTab',
   'SchoolTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
-  'SetPasswordModal',
+  'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
   Object.defineProperty(_hfComps[n], 'name', { value: n });
@@ -3488,6 +3562,39 @@ function createLocalBackup() {
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
   React.useEffect(function(){ var h = function(){ setShowEndOfDay(true); }; window.addEventListener("af-open-sunset", h); return function(){ window.removeEventListener("af-open-sunset", h); }; }, []);
+  // F-97 §1/§3 — which roster person is "me" on this device/session.
+  // Session-local (localStorage only, never SYNC_KEYS): a shared household
+  // tablet must resolve "me" independently per sign-in, not as one synced fact.
+  const [myPersonId,setMyPersonId] = useState(function(){ try { return localStorage.getItem("af_myPersonId")||null; } catch { return null; } });
+  const [showWhoAmI,setShowWhoAmI] = useState(false);
+  React.useEffect(function(){
+    // Never stack onto the welcome flow — a fresh signup gets one blocking
+    // modal at a time. showWelcomeModal is a dependency here (not just an
+    // early-return check), so the moment it closes this effect re-runs and
+    // shows WhoAmI immediately after, rather than waiting for some unrelated
+    // later trigger.
+    if (showWelcomeModal) return;
+    if (myPersonId) {
+      // Stored id no longer resolves (member removed) — ask again rather than
+      // silently keeping a dangling reference.
+      if (!people.some(function(p){ return p.id===myPersonId; })) setShowWhoAmI(true);
+      return;
+    }
+    if (people.filter(isAdultLenient).length > 0) setShowWhoAmI(true);
+  }, [myPersonId, people, showWelcomeModal]);
+  function chooseMyPersonId(id){
+    try { localStorage.setItem("af_myPersonId", id); } catch {}
+    setMyPersonId(id);
+    setShowWhoAmI(false);
+    try { window.dispatchEvent(new CustomEvent("af-myPersonId-changed")); } catch {}
+  }
+  // "This is me" entry in Settings reopens this same modal — mirrors the
+  // af-open-sunset pattern above.
+  React.useEffect(function(){
+    var h = function(){ setShowWhoAmI(true); };
+    window.addEventListener("af-open-whoami", h);
+    return function(){ window.removeEventListener("af-open-whoami", h); };
+  }, []);
   const [appCelebrate,setAppCelebrate]            = useState(null);
   React.useEffect(function(){ var h = function(e){ setAppCelebrate((e && e.detail) ? e.detail : {}); }; window.addEventListener("af-celebrate", h); return function(){ window.removeEventListener("af-celebrate", h); }; }, []);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
@@ -3735,7 +3842,7 @@ function createLocalBackup() {
       "Full brain dump (undone): "+brainPending.slice(0,12).map(b=>b.text).join(", ")||"none",
       "Tomorrow: "+tmrName+", theme="+(tmrRhythm.theme||"none")+", events: "+(tmrEvts.map(e=>e.title).join(", ")||"none")+", meal: "+(tmrMeal.dinner||"not planned"),
       "Flow mode: "+flowMode,
-      "Preferred name (use in greeting): "+(preferredName||familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||""),
+      "Preferred name (use in greeting): "+(myDisplayName(people,myPersonId,preferredName,authUser)||familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||""),
       "Greeting tone: "+(flowGreetingTone||"warm"),
     ].join(". ");
     const sysPrompt = `You are Compass, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
@@ -4396,7 +4503,7 @@ Respond ONLY with valid JSON array, no markdown:
           MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveTab,
           SchoolTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
-          SetPasswordModal } = _hfComps;
+          SetPasswordModal, WhoAmIModal } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
     useEffect(() => {
@@ -5464,7 +5571,7 @@ Respond ONLY in valid JSON:
               return null;
             })()}
           </div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"");return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
           {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.78rem",fontWeight:500,marginTop:"0.15rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
         </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
@@ -5492,7 +5599,7 @@ Respond ONLY in valid JSON:
                 :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
               </div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:"#faf8f4",lineHeight:1.05}}>
-                {greeting}{(preferredName||authUser?.displayName)?", "+(preferredName||authUser.displayName.split(" ")[0]):""} {greetingEmoji}
+                {greeting}{myDisplayName(people,myPersonId,preferredName,authUser)?", "+myDisplayName(people,myPersonId,preferredName,authUser):""} {greetingEmoji}
               </div>
               {dayRhythm.theme&&<div style={{color:"rgba(250,248,244,0.65)",fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
               {flowMode==="Survival"&&<div style={{color:"#f4a0a0",fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
@@ -5535,7 +5642,7 @@ Respond ONLY in valid JSON:
             <div style={{background:"linear-gradient(135deg,#e8f0ec,#eef3f7)",border:"1.5px solid rgba(122,158,142,0.3)",borderRadius:"1.2rem",padding:"1rem 1.2rem"}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
                 <span style={{fontSize:"1.2rem"}}>🌙</span>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{(preferredName||authUser?.displayName)?", "+(preferredName||authUser.displayName.split(" ")[0]):""}</div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{myDisplayName(people,myPersonId,preferredName,authUser)?", "+myDisplayName(people,myPersonId,preferredName,authUser):""}</div>
               </div>
               <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
               <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"rgba(122,158,142,0.15)",border:"1.5px solid rgba(122,158,142,0.35)",borderRadius:"0.8rem",padding:"0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",color:"#4a7a68"}}>🌙 Wind down my day</button>
@@ -5789,7 +5896,7 @@ Respond ONLY in valid JSON:
             <span style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,flexShrink:0}}>Open ›</span>
           </summary>
           <div style={{padding:"0 0.35rem 0.4rem"}}>
-            <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:"")}/>
+            <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={myDisplayName(people,myPersonId,preferredName,authUser)}/>
             <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
             <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
             <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
@@ -6040,11 +6147,13 @@ Respond ONLY in valid JSON:
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(function(e){
                       var _pc=getPersonColor(e.forPerson, people);
-                      var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+                      var _rp=resolveResponsibleParent(e.responsibleParent);
+                      var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+                      var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
                       return (
                         <div key={e.id} style={{background:e.forPerson?_pc.bg:(e.color+"28"),borderLeft:"2.5px solid "+(e.forPerson?_pc.border:e.color),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.forPerson?_pc.text:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
                           <span style={{overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{e.title}</span>
-                          {e.responsibleParent&&<span style={{marginLeft:2,fontSize:"6px",fontWeight:800,flexShrink:0,opacity:0.85}}>{e.responsibleParent}</span>}
+                          {_rpPerson&&<span style={{marginLeft:2,fontSize:"6px",fontWeight:800,flexShrink:0,opacity:0.85}}>{personMarker(_rpPerson)}</span>}
                         </div>
                       );
                     })}
@@ -6111,7 +6220,8 @@ Respond ONLY in valid JSON:
                       ?<div style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
                       :dayEvts.map(function(e){
                           var _pc=getPersonColor(e.forPerson, people);
-                          var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+                          var _rp=resolveResponsibleParent(e.responsibleParent);
+                          var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
                           var _bg=e.forPerson?_pc.bg:(e.color||T.blue);
                           var _col=e.forPerson?_pc.text:"#fff";
                           return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{e.title}</div>);
@@ -6224,7 +6334,9 @@ Respond ONLY in valid JSON:
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
               var _pc=getPersonColor(e.forPerson, people);
               var _dotColor=e.forPerson?_pc.border:e.color;
-              var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+              var _rp=resolveResponsibleParent(e.responsibleParent);
+              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+              var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
               return (
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:44}}>
@@ -6234,9 +6346,9 @@ Respond ONLY in valid JSON:
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
                     <span>{e.title}</span>
-                    {e.responsibleParent&&<div style={{width:16,height:16,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"9px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{e.responsibleParent}</div>}
+                    {_rpPerson&&<div style={{width:16,height:16,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"9px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
                   </div>
-                  {e.forPerson&&<div style={{fontSize:"0.66rem",color:_pc.text,fontWeight:700,marginTop:"0.1rem"}}>for {e.forPerson}</div>}
+                  {e.forPerson&&<div style={{fontSize:"0.66rem",color:_pc.text,fontWeight:700,marginTop:"0.1rem"}}>for {getPersonDisplayName(e.forPerson,people)}</div>}
                   {e.colorLabel&&!e.forPerson&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel}</div>}
                   {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
                   {notifications.some(function(n){return n.entityId===e.id;})&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
@@ -6275,17 +6387,19 @@ Respond ONLY in valid JSON:
             :eventsForDay(selectedDay.getDate()).map(function(e){
               var _pc=getPersonColor(e.forPerson, people);
               var _dotColor=e.forPerson?_pc.border:e.color;
-              var _dimmed=(calFilter==="mine"&&e.responsibleParent!=="L")||(calFilter==="twy"&&e.responsibleParent!=="T");
+              var _rp=resolveResponsibleParent(e.responsibleParent);
+              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+              var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
               return (
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
                   <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
-                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{e.forPerson?e.forPerson:(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||"")}</span>
+                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{e.forPerson?getPersonDisplayName(e.forPerson,people):(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||"")}</span>
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
                     <span>{e.title}</span>
-                    {e.responsibleParent&&<div style={{width:14,height:14,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"8px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{e.responsibleParent}</div>}
+                    {_rpPerson&&<div style={{width:14,height:14,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"8px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
                   </div>
                   {e.time&&<div style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginTop:"0.1rem"}}>⏰ {e.time}</div>}
                   {e.note&&<div style={{color:T.textMid,fontSize:"0.79rem",marginTop:"0.35rem",lineHeight:1.5,fontStyle:"italic"}}>📝 {e.note}</div>}
@@ -8121,9 +8235,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const brainInputRef = React.useRef(null);
     const [activeTab,setBrainActiveTab] = useState(function(){
       try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}
-      // Default to current user's person tab if they have one, else all
-      var myName=preferredName||(authUser&&authUser.displayName?authUser.displayName.split(" ")[0]:null);
-      if(myName){var myPerson=people.find(function(p){return p.name===myName;});if(myPerson)return "person_"+myPerson.id;}
+      // Default to current user's person tab if identified (F-97) — replaces
+      // the old name-string match entirely, not just its name source: this
+      // was selecting UI state by matching preferredName against people[].name,
+      // the exact bug class F-97 exists to kill.
+      var myPerson=myPersonId?people.find(function(p){return p.id===myPersonId;}):null;
+      if(myPerson)return "person_"+myPerson.id;
       return "all";
     });
     var _setBrainActiveTab=function(v){
@@ -11465,7 +11582,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   _hfRenders.CalEventFormModal = function CalEventFormModal(){
     const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:""});
     const prevMode=useRef(calFormMode);
-    if(prevMode.current!==calFormMode){prevMode.current=calFormMode;if(calFormMode&&calFormInit)setF(calFormInit);}
+    if(prevMode.current!==calFormMode){
+      prevMode.current=calFormMode;
+      if(calFormMode&&calFormInit){
+        // F-97: resolve legacy values (bare name / "L"/"T") to real people[].id
+        // so editing an old event shows the right selection. Read-side only —
+        // the underlying calEvents record isn't rewritten until re-saved.
+        setF(Object.assign({},calFormInit,{
+          forPerson:resolveForPerson(calFormInit.forPerson,people),
+          responsibleParent:resolveResponsibleParent(calFormInit.responsibleParent)
+        }));
+      }
+    }
     if(!calFormMode)return null;
     function handleSave(){
       if(!f.title||!f.date)return;
@@ -11492,17 +11620,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <label style={lbl}>For</label>
             <select value={f.forPerson||""} onChange={function(ev){setF(function(p){return Object.assign({},p,{forPerson:ev.target.value||null});});}} style={inp({padding:"0.4rem 0.5rem"})}>
               <option value="">Anyone</option>
-              {["Madi","Rylan","Kinzlee","Briar","family"].map(function(nm){return <option key={nm} value={nm}>{nm==="family"?"Family":nm}</option>;})}
+              {people.filter(function(p){return p&&p.id&&p.name;}).map(function(p){return <option key={p.id} value={p.id}>{p.name}</option>;})}
+              <option value="family">Family</option>
             </select>
           </div>
           <div>
             <label style={lbl}>Responsible</label>
-            <div style={{display:"flex",gap:"0.35rem",marginTop:"0.25rem"}}>
-              {[["","—"],["L","Lindsey"],["T","Twy"]].map(function(item){
-                var _rv=item[0],_rl=item[1];
+            <div style={{display:"flex",gap:"0.35rem",marginTop:"0.25rem",flexWrap:"wrap"}}>
+              {[{id:"",name:"—"}].concat(people.filter(isAdultLenient)).map(function(p){
+                var _rv=p.id,_rl=p.name;
                 var _ra=_rv===""?!f.responsibleParent:f.responsibleParent===_rv;
                 return (
-                  <button key={_rv} onClick={function(){setF(function(p){return Object.assign({},p,{responsibleParent:_rv||null});});}} style={{flex:1,padding:"0.35rem 0.3rem",borderRadius:"0.45rem",border:"1.5px solid "+(_ra?T.blue:T.border),background:_ra?T.bluePale:"transparent",color:_ra?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                  <button key={_rv||"none"} onClick={function(){setF(function(prev){return Object.assign({},prev,{responsibleParent:_rv||null});});}} style={{flex:1,padding:"0.35rem 0.3rem",borderRadius:"0.45rem",border:"1.5px solid "+(_ra?T.blue:T.border),background:_ra?T.bluePale:"transparent",color:_ra?T.blue:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                     {_rl}
                   </button>
                 );
@@ -11567,6 +11696,53 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <button onClick={closeCalForm} style={btnS()}>Cancel</button>
           <button onClick={handleSave} style={btnP(T.blue)}>{calFormMode==="add"?"Add Event":"Save Changes"}</button>
         </div>
+      </ModalBox>
+    );
+  }
+
+  // ── F-97 §3 — "Which one are you?" sign-in modal ─────────────────────────────
+  _hfRenders.WhoAmIModal = function WhoAmIModal(){
+    var [addingNew,setAddingNew] = useState(false);
+    var [newName,setNewName] = useState("");
+    var [newBirthday,setNewBirthday] = useState("");
+    var adults = people.filter(isAdultLenient);
+    function skip(){ setShowWhoAmI(false); }
+    function addAndSelect(){
+      if(!newName.trim())return;
+      var bday=newBirthday.trim()||null;
+      var derivedAge=ageFromBirthday(bday);
+      var newId=uid();
+      setPeople(function(p){return[...p,{id:newId,name:newName.trim(),color:PC[p.length%PC.length],birthday:bday,age:derivedAge,role:null,isMinor:derivedAge!=null&&derivedAge<18,marker:null}];});
+      chooseMyPersonId(newId);
+    }
+    return (
+      <ModalBox title="Which one are you?" onClose={skip}>
+        {!addingNew?(
+          <div>
+            <div style={{fontSize:"0.82rem",color:T.textSoft,marginBottom:"1rem",lineHeight:1.5}}>This personalizes your greeting and lets calendar filters know what's yours.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.5rem",marginBottom:"1rem"}}>
+              {adults.map(function(p){
+                return (
+                  <button key={p.id} onClick={function(){chooseMyPersonId(p.id);}} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.75rem 0.9rem",borderRadius:"0.85rem",border:"1.5px solid "+T.border,background:T.bgAlt,cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
+                    <div style={{width:32,height:32,borderRadius:"50%",background:p.color||T.blue,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:"0.9rem",flexShrink:0}}>{personMarker(p)}</div>
+                    <span style={{fontSize:"0.92rem",fontWeight:700,color:T.textDark}}>{p.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={function(){setAddingNew(true);}} style={{...btnS({width:"100%",marginBottom:"0.6rem"})}}>That's not me — I'm new</button>
+            <button onClick={skip} style={{background:"none",border:"none",cursor:"pointer",width:"100%",textAlign:"center",color:T.textFaint,fontSize:"0.78rem",padding:"0.4rem",fontFamily:"inherit"}}>Skip for now</button>
+          </div>
+        ):(
+          <div>
+            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Your name</label><input value={newName} onChange={function(e){setNewName(e.target.value);}} placeholder="e.g. Jamie" style={inp()} autoFocus/></div>
+            <div style={{marginBottom:"1rem"}}><label style={lbl}>Birthday (optional)</label><input type="date" value={newBirthday} onChange={function(e){setNewBirthday(e.target.value);}} style={inp()}/></div>
+            <div style={{display:"flex",gap:"0.5rem"}}>
+              <button onClick={function(){setAddingNew(false);}} style={btnS({flex:1})}>Back</button>
+              <button onClick={addAndSelect} style={btnP(T.sage,{flex:1})}>Add me</button>
+            </div>
+          </div>
+        )}
       </ModalBox>
     );
   }
@@ -11887,7 +12063,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       {/* AI accessible from header button */}
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)}/>}
-      {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = preferredName || (authUser && authUser.displayName ? authUser.displayName.split(" ")[0] : null); setDayClosed(closerName || true); }}/>}
+      {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
+      {showWhoAmI&&<WhoAmIModal/>}
       {appCelebrate && <Celebration data={appCelebrate} onClose={function(){ setAppCelebrate(null); }} />}
       {showBriefing&&<DailyBriefingModal onClose={()=>setShowBriefing(false)}/>}
       {showSetPassword&&resetToken&&<SetPasswordModal/>

@@ -259,3 +259,34 @@ export function applyHouseholdKey(k, remoteVal) {
   }
   try { localStorage.setItem("af_" + k, JSON.stringify(remoteVal)); } catch(_e) {}
 }
+
+// ── F-97 migration shims ─────────────────────────────────────────────────────
+// Read-side only — do not bulk-rewrite existing calEvents. Same "orphan it,
+// don't force a migration" precedent as the F-06 backup-key decision.
+
+// responsibleParent had exactly one write site pre-F-97 (the CalEventFormModal
+// "For"/"Responsible" dropdown), producing only "L" or "T" strings. These two
+// literal ids are Lindsey's and Twyla's real people[].id values from a live
+// export (2026-07-18) — legacy data migration only, not a new hardcoding
+// pattern. Delete this function once no calEvents carry "L"/"T" anymore (grep
+// af_calEvents for responsibleParent:"L" — if empty, remove).
+var _LEGACY_RESPONSIBLE_PARENT_IDS = { L: "i3jfymz", T: "69uf6z6" };
+export function resolveResponsibleParent(rp) {
+  if (rp === "L" || rp === "T") return _LEGACY_RESPONSIBLE_PARENT_IDS[rp];
+  return rp; // already a real personId, or null/undefined
+}
+
+// forPerson had no id concept pre-F-97 — every existing calEvent stores it as
+// a bare display-name string (matched case-insensitively against people[].name
+// by the old getPersonColor). Post-F-97 writes always use person.id. This
+// resolves either shape for read/display: id match first (new data), then a
+// legacy name match (old data), else passthrough (orphaned reference — same
+// honesty principle as getPersonColor's own no-match case).
+export function resolveForPerson(forPerson, people) {
+  if (!forPerson || forPerson === "family") return forPerson;
+  var list = people || [];
+  if (list.some(function(p){ return p.id === forPerson; })) return forPerson;
+  var target = String(forPerson).trim().toLowerCase();
+  var byName = list.filter(function(p){ return p.name && p.name.trim().toLowerCase() === target; })[0];
+  return byName ? byName.id : forPerson;
+}
