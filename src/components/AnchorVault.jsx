@@ -6396,7 +6396,18 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     { id:"career", icon:"📋", label:"Career", summary: careerSum },
     { id:"moments", icon:"✨", label:"Moments", summary:{ ...moments, entries: momentEntries } }
   ]
-  function renderCard(c){ return <DashCard key={c.id} id={c.id} icon={c.icon} label={c.label} onOpen={onNavigate} summary={c.summary} /> }
+  // Cards for empty sections are hidden entirely rather than shown with a
+  // "Nothing added yet" placeholder — keeps the dashboard to only what a
+  // household has actually started using. A card reappears the moment its
+  // section gets its first entry (summary.count flips from 0), so nothing
+  // here is ever permanently hidden — it's purely presence-based.
+  function renderCard(c){
+    if (!c.summary || c.summary.count === 0) return null;
+    return <DashCard key={c.id} id={c.id} icon={c.icon} label={c.label} onOpen={onNavigate} summary={c.summary} />;
+  }
+  // Brand-new household, day one — every card empty. Show one calm message
+  // instead of an empty grid, rather than rendering nothing at all.
+  var allCardsEmpty = leftCards.concat(rightCards).every(function(c){ return !c.summary || c.summary.count === 0; });
 
   return (
     <div style={{ paddingBottom: "2rem" }}>
@@ -6446,9 +6457,17 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         {shopMsg && <div style={{ fontSize: 11, color: "#9ed4be", marginTop: 7, fontStyle: "italic" }}>{shopMsg}</div>}
       </div>
 
-      <div style={{ columnWidth: 260, columnGap: 12 }}>
-        {leftCards.concat(rightCards).map(renderCard)}
-      </div>
+      {allCardsEmpty ? (
+        <div style={{ padding: "24px 16px", textAlign: "center" }}>
+          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, color: "rgba(250,248,244,0.4)", fontStyle: "italic", lineHeight: 1.5 }}>
+            Add your first thing — celebrations, pets, moments, and more will show up here once you start.
+          </div>
+        </div>
+      ) : (
+        <div style={{ columnWidth: 260, columnGap: 12 }}>
+          {leftCards.concat(rightCards).map(renderCard)}
+        </div>
+      )}
     </div>
   )
 }
