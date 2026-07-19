@@ -95,6 +95,11 @@ export default function FlowHome(props) {
 
   return (
     <div style={{ paddingBottom: "3rem", fontFamily: SANS }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .af-flow-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid " + C.cardBorder }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
@@ -127,7 +132,7 @@ export default function FlowHome(props) {
       )}
 
       {/* Balanced two-column grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
         {/* LEFT column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
