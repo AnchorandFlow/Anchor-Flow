@@ -906,6 +906,21 @@ export default function ExhaleSection(props) {
   // ── KANBAN VIEW ─────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 13 }}>
+      {/* Mobile-fit: this component is inline-style-only (no className
+          convention anywhere in the file), so a scoped <style> block is the
+          pragmatic equivalent of the CSS-@media convention used elsewhere
+          (App.jsx's own <style>{`...`}</style> blocks) — a real className
+          would be inert without a stylesheet to attach a media query to. */}
+      <style>{`
+        @media (max-width: 640px) {
+          .af-exhale-board {
+            grid-auto-flow: column;
+            grid-template-columns: repeat(5, minmax(150px, 1fr));
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+      `}</style>
 
       {/* App bar */}
       <div style={{ background: NAVY, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
@@ -989,7 +1004,7 @@ export default function ExhaleSection(props) {
       </div>
 
       {/* Kanban */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", minHeight: 200 }}>
+      <div className="af-exhale-board" style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", minHeight: 200 }}>
         {COLS.map(function(col, ci) {
           var isColTarget = dropOver && dropOver.type === "col" && dropOver.col === col;
           var visibleCards = groups[col].filter(function(c) { return cardMatchesFilters(c, filters); });
@@ -1051,7 +1066,7 @@ export default function ExhaleSection(props) {
                       </div>
                     )}
                     {card.notes && (
-                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7, fontStyle: "italic", overflow: "hidden", maxHeight: "2.5em", lineHeight: 1.3 }}>{card.notes}</div>
+                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7, fontStyle: "italic", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.3 }}>{card.notes}</div>
                     )}
                   </div>
                 );
