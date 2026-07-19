@@ -4153,11 +4153,11 @@ Respond ONLY with valid JSON array, no markdown:
     // Session guard: only call Claude APIs once per app session per day.
     // Prevents repeated /api/claude calls on re-renders or repeated useEffect triggers.
     const sessionKey = "af_notifScheduled_" + TODAY.toDateString();
-    if (sessionStorage.getItem(sessionKey)) {
+    if (localStorage.getItem(sessionKey)) {
       AF_DEBUG&&console.log("[AF CLAUDE] notifications already scheduled this session — skipping");
       return;
     }
-    sessionStorage.setItem(sessionKey, "1");
+    localStorage.setItem(sessionKey, "1");
     setDailySummaryScheduled(TODAY.toDateString());
 
     const todayTasks  = tasks.filter(t => (t.day===TODAY_NAME||t.day==="Daily") && !t.archived);
@@ -5427,6 +5427,10 @@ Respond ONLY with valid JSON array, no markdown:
 
     async function loadAiSuggestions() {
       if (aiSuggestions || aiLoading) return;
+      try {
+        var _asc = JSON.parse(localStorage.getItem("af_aiSuggestions"));
+        if (_asc && _asc.d === TODAY.toDateString()) { setAiSuggestions(_asc.s); return; }
+      } catch(e) {}
       setAiLoading(true);
 
       // ── Brain dump items not yet done or scheduled ───────────────────────────
@@ -5531,6 +5535,7 @@ Respond ONLY in valid JSON:
         const txt = dat.content?.find(b=>b.type==="text")?.text||"{}";
         const p = JSON.parse(txt.replace(/```json|```/g,"").trim());
         setAiSuggestions(p);
+        try { localStorage.setItem("af_aiSuggestions", JSON.stringify({d: TODAY.toDateString(), s: p})); } catch(e) {}
       } catch {
         setAiSuggestions({
           brain_items: priorityBrain.slice(0,2).map(b=>({text:b.text,reason:"on your radar for today"})),
