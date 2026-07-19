@@ -542,7 +542,9 @@ async function sbFetch(path, opts={}) {
   const body = ct.includes("json") ? await r.json() : await r.text();
   if (!r.ok) {
     const errMsg = typeof body === "object" ? JSON.stringify(body) : body;
-    throw new Error(errMsg);
+    const e = new Error(errMsg);
+    e.status = r.status;
+    throw e;
   }
   return body;
 }
@@ -2431,6 +2433,13 @@ function createLocalBackup() {
   }
 
  function isAuthExpiredError(err) {
+    // Status-based check first — sbFetch attaches the real HTTP status to
+    // every error it throws (see sbFetch's !r.ok branch). 403 is included
+    // alongside 401: observed live on /auth/v1/user in the same failure
+    // cascade as a 401 on /rest/v1/households, both meaning "this token is
+    // no longer good." Falls back to the string match for errors thrown
+    // elsewhere that don't carry .status (e.g. non-sbFetch call sites).
+    if (err && (err.status === 401 || err.status === 403)) return true;
     const msg = String(err?.message || err || "").toLowerCase();
     return msg.includes("jwt expired") ||
            msg.includes("401") ||
