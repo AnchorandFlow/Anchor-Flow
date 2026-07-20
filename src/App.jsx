@@ -4446,7 +4446,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
-  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"Blue",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null}); setCalFormMode("add"); setCalFormId(null); }
+  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null}); setCalFormMode("add"); setCalFormId(null); }
   function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
   function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
 
@@ -11605,7 +11605,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── Calendar Event Form Modal ────────────────────────────────────────────────
   _hfRenders.CalEventFormModal = function CalEventFormModal(){
-    const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"Blue",colorCustom:"",note:""});
+    const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"",colorCustom:"",note:""});
     const prevMode=useRef(calFormMode);
     if(prevMode.current!==calFormMode){
       prevMode.current=calFormMode;
