@@ -3679,7 +3679,6 @@ function createLocalBackup() {
       buildInsights();
     }
   },[tab]); // eslint-disable-line
-  const hasExistingData    = tasks.length>0 || Object.keys(meals).length>0 || !!familyProfile || brainItems.length>0;
   const shouldShowOnboarding = showOnboardingWizard; // wizard only from Settings
 
   const MICROCOPY = ["Let's keep this simple.","You're doing enough.","It's okay if today is messy.","We'll just focus on what matters.","One thing at a time.","You've got this — really.","Progress, not perfection."];
