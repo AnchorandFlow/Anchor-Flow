@@ -15,6 +15,15 @@ self.addEventListener("message", function(event) {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
+  if (event.data && event.data.type === "SHOW_NOTIFICATION") {
+    self.registration.showNotification(event.data.title || "Anchor & Flow", {
+      body: event.data.body || "",
+      icon: event.data.icon || "/icon.png",
+      badge: "/icon.png",
+      tag: "af-local",
+      data: { url: event.data.url || "/" }
+    });
+  }
 });
 
 // On activate: delete ALL old caches, then claim all clients immediately
