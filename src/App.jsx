@@ -412,6 +412,62 @@ function RippleNotificationBanner() {
   } catch {}
 })();
 
+// ── OB-0 commit 3: existing-household migration ──────────────────────────────
+// ONBOARDING_V1 defaults OFF, but once it flips on, af_onboardingState.complete
+// gates auto-launch (commit 4). Without this, every household that predates the
+// flag would look "incomplete" the moment it flips and get wizard-ambushed.
+// Runs once, before React mounts, and only ever writes af_onboardingState if it
+// is not already present — never overwrites a real completion or an in-progress
+// wizard's own write.
+//
+// isExistingHousehold() checks, in order:
+//   1. Legacy dead-wizard completion flag (af_onboardingComplete). A "🔄 Setup
+//      wizard" Settings button wrote this via the old OnboardingWizard from the
+//      app's first commit until it was removed in da0d9b1 (2026-05-14). The key
+//      was never added to SYNC_KEYS, so any household that ran that flow before
+//      removal still has it sitting device-local, untouched, today.
+//   2. af_people — at least one entry with id and name.
+//   3. Five core-data keys, each checked the same cheap way (parse, is Array,
+//      length > 0): af_tasks, af_calEvents, af_favMeals, af_shoppingItems,
+//      af_brainItems. Matches the app's own existing definition of "real
+//      household data" (see coreKeys in isRemotePayloadSafe), plus calEvents
+//      (a primary tab isRemotePayloadSafe's use case doesn't need to cover).
+//      Deliberately NOT af_meals — that object always has all 7 MEAL_DAYS keys
+//      populated regardless of content, so "non-empty" is never a valid signal
+//      there (favMeals is the real flat-array equivalent). Deliberately NOT
+//      af_exhale_groups/af_schoolData — neither is a flat array (exhale_groups
+//      is a 5-key object of arrays; schoolData is keyed per-child, so any real
+//      content there implies af_people is already non-empty).
+function isExistingHousehold() {
+  try {
+    if (localStorage.getItem("af_onboardingComplete") === "true") return true;
+  } catch {}
+  try {
+    const people = JSON.parse(localStorage.getItem("af_people") || "[]");
+    if (Array.isArray(people) && people.some(p => p && p.id && p.name)) return true;
+  } catch {}
+  const PILLAR_KEYS = ["af_tasks", "af_calEvents", "af_favMeals", "af_shoppingItems", "af_brainItems"];
+  for (let i = 0; i < PILLAR_KEYS.length; i++) {
+    try {
+      const raw = localStorage.getItem(PILLAR_KEYS[i]);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+try {
+  if (localStorage.getItem("af_onboardingState") === null && isExistingHousehold()) {
+    localStorage.setItem("af_onboardingState", JSON.stringify({
+      complete: true,
+      completedAt: "", // migrated, not a real completion — no timestamp claimed
+      version: 1
+    }));
+  }
+} catch {}
+
 // ── RootErrorBoundary — app-level catch, branded recovery ────────────────────
 // Wraps FlowWrapper in App and HomeFlow in FlowWrapper. Shows a calm, branded
 // screen that never suggests clearing storage and never exposes raw error text.
