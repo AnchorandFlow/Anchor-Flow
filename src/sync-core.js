@@ -85,7 +85,10 @@ export const SYNC_KEYS = [
   // AnchorVault.jsx's cSaveCareer) — same word, unrelated data. Given explicit
   // array-guard treatment below (not defensive pass-through) since these are lists
   // of records, same as celebrations/gifts/pets/moments.
-  "career_licenses","career_contacts","career_retirement"];
+  "career_licenses","career_contacts","career_retirement",
+  // Lighthouse — per-child learning records (LH-1). Object pass-through;
+  // no merge hook yet (flag-gated OFF). useSaved("lighthouse") → af_lighthouse.
+  "lighthouse"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -140,6 +143,8 @@ const _SANITIZE_HANDLED = new Set([
   "ripples",
   // Merge-on-receive (applyHouseholdKey handles the merge)
   "safe_harbor",
+  // Object pass-through (LH-1; flag-gated, no merge hook yet)
+  "lighthouse",
 ]);
 
 export function sanitizeHouseholdData(data) {
@@ -227,6 +232,11 @@ export function sanitizeHouseholdData(data) {
         typeof data["safe_harbor"] === "object" && !Array.isArray(data["safe_harbor"])) {
       out["safe_harbor"] = data["safe_harbor"];
     }
+    // lighthouse: pass through as object (LH-1; flag-gated, no merge hook yet)
+    if (data["lighthouse"] !== undefined && data["lighthouse"] !== null &&
+        typeof data["lighthouse"] === "object" && !Array.isArray(data["lighthouse"])) {
+      out["lighthouse"] = data["lighthouse"];
+    }
     // Defensive pass-through: any SYNC_KEYS key not explicitly handled above
     // syncs as-is (null-guarded) instead of being silently dropped. Fixes
     // receive-side loss of workDays, traditions, cal_markers, cal_marker_types,
@@ -289,4 +299,14 @@ export function resolveForPerson(forPerson, people) {
   var target = String(forPerson).trim().toLowerCase();
   var byName = list.filter(function(p){ return p.name && p.name.trim().toLowerCase() === target; })[0];
   return byName ? byName.id : forPerson;
+}
+
+// ── isLighthouseDirty ─────────────────────────────────────────────────────────
+// LH-7 local-wins guard predicate. Returns true when "lighthouse" appears in the
+// dirty-keys list, meaning the local af_lighthouse blob has unsent edits that must
+// not be overwritten by a pull. The pull path reads af_dirtyKeys once before its
+// SYNC_KEYS forEach and passes the parsed array here.
+// Exported so the pull-path guard is unit-testable without importing App.jsx.
+export function isLighthouseDirty(dirtyKeys) {
+  return Array.isArray(dirtyKeys) && dirtyKeys.indexOf("lighthouse") !== -1;
 }

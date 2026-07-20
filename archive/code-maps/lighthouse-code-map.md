@@ -238,16 +238,20 @@ var rawKids = people.filter(function(p) {
 
 **For Lighthouse:** use `people` as the authoritative list. Reference a child by their `person.id` (a 7-char string like `"a3b8c9d"`). Lighthouse's `shared`, `homeschool`, and `school` objects are keyed by this id: `shared[person.id]`, `homeschool[person.id]`, etc.
 
-**Filter for Lighthouse children** (show all people, let the parent select who has a Lighthouse):
-```js
-// Option A — all household people (let user assign lighthouse manually per person):
-people.filter(function(p) { return p && p.name; })
+**Decision (confirmed): Option A** — all household people, defaulting to show role==="Kid"/role==="Teen"/isMinor, with an include-toggle for adults. If no minors exist, fall through to showing all. Implemented in LH-2.
 
-// Option B — minors only (matches TidePool pattern):
-people.filter(function(p) { return p && p.name && personIsMinor(p); })
+**Child switcher filter (LH-2):**
+```js
+var allPeople   = people.filter(function(p) { return p && p.name; });
+var defaultPeople = allPeople.filter(function(p) {
+  return p.role === "Kid" || p.role === "Teen" || personIsMinor(p);
+});
+var displayPeople = (showAllPeople || defaultPeople.length === 0) ? allPeople : defaultPeople;
 ```
 
-Decision before LH-1: Option A is safer (homeschool can include adults) — TBD with user.
+### ⚠ Open risk (a): duplicate person ids across synced devices
+
+`uid()` = `Math.random().toString(36).slice(2,9)` — 7 chars of base36, ~78 billion values. Collision probability across two devices adding a person simultaneously is negligible (~1 in 78B per pair). **However, there is a more serious structural risk:** the `people` array itself syncs via last-write-wins on the whole array (no per-person merge hook). If Device A and Device B both add a person while offline, whichever device pushes last overwrites the other's addition entirely — the added person disappears. This is pre-existing behaviour, not introduced by Lighthouse. **For Lighthouse it is load-bearing:** if a child's person record is lost from `people`, their Lighthouse data (`shared[id]`, etc.) becomes orphaned (keyed to a missing id). Mitigation: the data is not lost — it stays in `af_lighthouse` keyed by the old id — but the child will not appear in the switcher until the person record is restored. Flagged as a known risk; a `people` array merge hook (analogous to `mergeSafeHarbor`) would fix it but is out of scope for Lighthouse.
 
 ---
 
@@ -317,6 +321,17 @@ Background poll / checkForUpdates / pullLatestHouseholdData:
        → currently: localStorage.setItem("af_lighthouse", JSON.stringify(remoteVal))
        → future (LH-merge-hook): could route through mergeLighthouse()
 ```
+
+### ⚠ Open risk (b): af_lighthouse is pass-through (last-write-wins on the whole blob)
+
+Unlike `af_safe_harbor` (which routes through `mergeSafeHarbor` in `applyHouseholdKey`), `af_lighthouse` currently uses a plain `localStorage.setItem` on receive — the entire blob is overwritten with whatever the remote side sent. In a single-user household this is fine. In a two-user household (you + Twyla), simultaneous edits from different children risk overwriting each other: if you edit child A's data on your phone while Twyla edits child B's data on her phone, whichever push arrives last replaces the other's changes across all children.
+
+**Decision deferred to LH-6/LH-7.** Options at that point:
+1. Add `mergeLighthouse(local, remote)` to `safe-harbor-migrate.js` (or a new `lighthouse-merge.js`) and route through `applyHouseholdKey` — same pattern as `safe_harbor`. Merge strategy: child-level last-write-wins (merge by childId key, remote wins per child if remote's timestamp is newer).
+2. Accept the race condition if the household is in practice single-user for Lighthouse editing. Document it as a known limitation.
+3. Optimistic locking: attach a `updatedAt` per child and refuse to apply remote if local is newer.
+
+This must be resolved before Lighthouse is enabled for the beta household (`hh_o7yzu28`).
 
 **The "Exhale V2 Realtime table" drop risk does NOT apply.** That issue was about keys that Exhale used outside SYNC_KEYS via a separate Realtime subscription. `af_lighthouse` goes through the standard blob pull — it is immune as long as it is in both SYNC_KEYS and the sanitize allowlist.
 
