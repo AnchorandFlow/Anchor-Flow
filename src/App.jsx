@@ -341,7 +341,7 @@ function RippleNotificationBanner() {
     // af_safe_harbor is included for belt-and-suspenders consistency. loadData() in
     // SafeHarbor.jsx already handles the "null" string case defensively (JSON.parse("null")
     // → null → fresh defaults), so this guard is redundant but not harmful.
-    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor"];
+    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor","af_onboardingState"];
     NULL_SAFE_KEYS.forEach(function(k) {
       try { if (localStorage.getItem(k) === "null") localStorage.removeItem(k); } catch {}
     });

@@ -85,7 +85,11 @@ export const SYNC_KEYS = [
   // AnchorVault.jsx's cSaveCareer) — same word, unrelated data. Given explicit
   // array-guard treatment below (not defensive pass-through) since these are lists
   // of records, same as celebrations/gifts/pets/moments.
-  "career_licenses","career_contacts","career_retirement"];
+  "career_licenses","career_contacts","career_retirement",
+  // Onboarding wizard completion state (OB-0). Shape: { complete, completedAt,
+  // version }. Drives auto-launch/re-ambush logic on receive, so it gets an
+  // explicit typed rule below rather than the defensive pass-through.
+  "onboardingState"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -140,6 +144,8 @@ const _SANITIZE_HANDLED = new Set([
   "ripples",
   // Merge-on-receive (applyHouseholdKey handles the merge)
   "safe_harbor",
+  // Onboarding completion state — explicit shape guard, see below.
+  "onboardingState",
 ]);
 
 export function sanitizeHouseholdData(data) {
@@ -226,6 +232,19 @@ export function sanitizeHouseholdData(data) {
     if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&
         typeof data["safe_harbor"] === "object" && !Array.isArray(data["safe_harbor"])) {
       out["safe_harbor"] = data["safe_harbor"];
+    }
+    // onboardingState: { complete: boolean, completedAt: string, version: number }.
+    // Drives wizard auto-launch/re-ambush decisions on receive — a malformed
+    // shape must not pass through, so fields are individually validated rather
+    // than trusting the remote object wholesale.
+    if (data["onboardingState"] !== undefined && data["onboardingState"] !== null &&
+        typeof data["onboardingState"] === "object" && !Array.isArray(data["onboardingState"])) {
+      var ob = data["onboardingState"];
+      out["onboardingState"] = {
+        complete: typeof ob.complete === "boolean" ? ob.complete : false,
+        completedAt: typeof ob.completedAt === "string" ? ob.completedAt : "",
+        version: typeof ob.version === "number" ? ob.version : 1
+      };
     }
     // Defensive pass-through: any SYNC_KEYS key not explicitly handled above
     // syncs as-is (null-guarded) instead of being silently dropped. Fixes
