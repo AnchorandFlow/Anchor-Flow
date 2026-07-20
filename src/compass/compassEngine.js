@@ -92,11 +92,55 @@ function slimMeal(m) {
   };
 }
 
+// F-10: birthday (exact DOB) was going out to the AI for every household
+// member on every call, including minors. Age is still useful context (e.g.
+// prep-event packing lists reference "kids' ages"), so we derive a coarse
+// bracket instead of sending the raw date.
+function ageFromBirthday(birthday) {
+  if (!birthday) return null;
+  var parts = String(birthday).split("-");
+  if (parts.length !== 3) return null;
+  var by = parseInt(parts[0], 10), bm = parseInt(parts[1], 10) - 1, bd = parseInt(parts[2], 10);
+  if (isNaN(by) || isNaN(bm) || isNaN(bd)) return null;
+  var t = new Date(), age = t.getFullYear() - by;
+  var md = t.getMonth() - bm;
+  if (md < 0 || (md === 0 && t.getDate() < bd)) age--;
+  return age >= 0 ? age : null;
+}
+
+function personAge(p) {
+  return p && p.birthday ? ageFromBirthday(p.birthday) : (p && p.age != null ? p.age : null);
+}
+
+export function ageBracket(p) {
+  var age = personAge(p);
+  if (age == null) return null;
+  if (age < 3) return "baby";
+  if (age < 13) return "child";
+  if (age < 18) return "teen";
+  return "adult";
+}
+
+// Mirrors the isMinor check App.jsx uses elsewhere (isAdultLenient etc.):
+// the isMinor flag alone isn't trustworthy — it's only set when a person is
+// created or has their birthday edited, so a person given role "Kid"/"Teen"/
+// "Baby" without ever setting a birthday would have isMinor left unset/false.
+var MINOR_ROLES = ["Kid", "Teen", "Baby"];
+export function isPersonMinor(p) {
+  if (!p) return false;
+  if (p.isMinor) return true;
+  var age = personAge(p);
+  if (age != null && age < 18) return true;
+  return MINOR_ROLES.indexOf(p.role) !== -1;
+}
+
 function slimPerson(p) {
+  var fullName = pick(p, ["name", "displayName", "firstName"], "Someone");
+  var minor = isPersonMinor(p);
   return {
-    name: pick(p, ["name", "displayName", "firstName"], "Someone"),
+    name: minor ? String(fullName).split(" ")[0] : fullName,
     role: pick(p, ["role", "relationship", "type"], null),
-    birthday: pick(p, ["birthday", "birthdate", "dob"], null)
+    ageBracket: ageBracket(p)
   };
 }
 

@@ -1,7 +1,7 @@
 const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import ExhaleSection from './components/ExhaleSection.jsx';
-import { askFamily } from "./compass/compassEngine";
+import { askFamily, ageBracket, isPersonMinor } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
 import NudgeStrip from "./shell/NudgeStrip";
@@ -3733,9 +3733,9 @@ function createLocalBackup() {
     const themeKeyBrief = (dayRhythm.theme||"").toLowerCase();
     const matchedCatIds = Object.entries(THEME_TO_CATS_BRIEF).find(([k])=>themeKeyBrief.includes(k))?.[1] || [];
     const ctx = [
-      "Family: "+(familyProfile?JSON.stringify(familyProfile):"not set"),
+      "Family: "+(familyProfile?JSON.stringify((({parentNames,kidNames,...rest})=>rest)(familyProfile)):"not set"),
       "Work situation: "+(familyProfile?.workSituation||"not set"),
-      "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){var a=personAge(p);return p.name+(p.role?" ("+p.role+")":"")+(a!=null?" age "+a:"")+(p.birthday?" born "+p.birthday:"")+(personIsMinor(p)?" [minor]":"");}).join(", "),
+      "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){var minor=isPersonMinor(p);var nm=minor?String(p.name).split(" ")[0]:p.name;var br=ageBracket(p);return nm+(p.role?" ("+p.role+")":"")+(br?" ["+br+"]":"");}).join(", "),
       "Today: "+TODAY_NAME+", theme: "+(dayRhythm.theme||"none"),
       "Events today: "+(todayEvts.map(e=>(e.time||"all day")+" "+e.title).join(", ")||"none"),
       "Upcoming events next 7 days: "+(upcomingEvts7.map(function(e){var d=new Date(e.date+"T12:00:00");var dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dn+" "+e.date+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"),
