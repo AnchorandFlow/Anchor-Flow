@@ -88,7 +88,11 @@ export const SYNC_KEYS = [
   "career_licenses","career_contacts","career_retirement",
   // Lighthouse — per-child learning records (LH-1). Object pass-through;
   // no merge hook yet (flag-gated OFF). useSaved("lighthouse") → af_lighthouse.
-  "lighthouse"];
+  "lighthouse",
+  // Onboarding wizard completion state (OB-0). Shape: { complete, completedAt,
+  // version }. Drives auto-launch/re-ambush logic on receive, so it gets an
+  // explicit typed rule below rather than the defensive pass-through.
+  "onboardingState"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -145,6 +149,8 @@ const _SANITIZE_HANDLED = new Set([
   "safe_harbor",
   // Object pass-through (LH-1; flag-gated, no merge hook yet)
   "lighthouse",
+  // Onboarding completion state — explicit shape guard, see below.
+  "onboardingState",
 ]);
 
 export function sanitizeHouseholdData(data) {
@@ -236,6 +242,19 @@ export function sanitizeHouseholdData(data) {
     if (data["lighthouse"] !== undefined && data["lighthouse"] !== null &&
         typeof data["lighthouse"] === "object" && !Array.isArray(data["lighthouse"])) {
       out["lighthouse"] = data["lighthouse"];
+    }
+    // onboardingState: { complete: boolean, completedAt: string, version: number }.
+    // Drives wizard auto-launch/re-ambush decisions on receive — a malformed
+    // shape must not pass through, so fields are individually validated rather
+    // than trusting the remote object wholesale.
+    if (data["onboardingState"] !== undefined && data["onboardingState"] !== null &&
+        typeof data["onboardingState"] === "object" && !Array.isArray(data["onboardingState"])) {
+      var ob = data["onboardingState"];
+      out["onboardingState"] = {
+        complete: typeof ob.complete === "boolean" ? ob.complete : false,
+        completedAt: typeof ob.completedAt === "string" ? ob.completedAt : "",
+        version: typeof ob.version === "number" ? ob.version : 1
+      };
     }
     // Defensive pass-through: any SYNC_KEYS key not explicitly handled above
     // syncs as-is (null-guarded) instead of being silently dropped. Fixes
