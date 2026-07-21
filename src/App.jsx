@@ -21,8 +21,9 @@ import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson } from "./sync-core.js"
 import { BUILD_STAMP } from "./buildStamp.js"
-// Aliased to avoid colliding with the legacy inline OnboardingWizard still live
-// in HomeFlow (~App.jsx:4924, Settings-only "🔄 Setup wizard" — left untouched).
+// Aliased to avoid colliding with the legacy inline OnboardingWizard still in
+// HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
+// is never called with true anywhere in the codebase, so it has no reachable trigger.
 // The module's own default export is itself named OnboardingWizard.
 import FirstVoyageWizard from "./onboarding/Onboarding.jsx"
 
@@ -1438,7 +1439,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
@@ -1538,6 +1539,14 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
         T={T} inp={inp} btnP={btnP} PC={PC} ROLES={ROLES}
       />
+
+      {/* OB-0 commit 5 — First Voyage re-run entry point. ONBOARDING_V1-gated, same
+          as auto-launch: the feature stays fully dark until the flag is on. */}
+      {ONBOARDING_V1&&(
+        <Row label="Set up my harbor again" sub="Re-run the welcome wizard — your people, meals, and mode stay, nothing gets deleted." tight>
+          <button onClick={onOpenFirstVoyageRerun} style={btnS({fontSize:"0.78rem",padding:"0.4rem 0.85rem"})}>⚓ Set up my harbor again</button>
+        </Row>
+      )}
 
       {/* ════════════════════════════════════
           2. FLOW (YOU)
@@ -3756,30 +3765,70 @@ function createLocalBackup() {
   // which covers the vast majority of any household's lifetime.
   const showFirstVoyage = ONBOARDING_V1 && !onboardingState.complete && !isExistingHousehold();
 
+  // Shapes one wizard-payload person into the app's real people[] entry shape.
+  // Shared by handleOnboardingComplete's replace path (commit 4) and its merge
+  // path's new-person branch (commit 5) so the field construction isn't duplicated.
+  function shapeOnboardingPerson(p, colorIdx) {
+    var bday = p.birthday || null;
+    var derivedAge = ageFromBirthday(bday);
+    return {
+      id: uid(),
+      name: p.name,
+      color: PC[colorIdx % PC.length],
+      birthday: bday,
+      age: derivedAge,
+      role: null,
+      isMinor: derivedAge != null && derivedAge < 18,
+      marker: null
+    };
+  }
+
   // handleOnboardingComplete/handleOnboardingSkip — never log `payload` (names/birthdays).
   // Wires only payload fields with a real existing destination today; see the
   // TODO(OB-0) markers below for fields with no destination yet (per
   // docs/onboarding/OB-0-onboarding-plan.md data contract table). Every write below
   // goes through an existing or new useSaved setter — none of them are a raw
   // localStorage call, so each one already marks itself dirty for sync.
-  function handleOnboardingComplete(payload) {
+  //
+  // mergeMode (OB-0 commit 5, Settings re-run): when true, people are unioned by
+  // name rather than replaced — never deletes an existing person. zip/mealsPerDay/
+  // stores/mode always overwrite in both modes (re-run is meant to update those on
+  // purpose); the TODO(OB-0) fields stay untouched in both modes.
+  function handleOnboardingComplete(payload, mergeMode) {
     // TODO(OB-0): payload.householdName has no destination yet — no householdName
     // field exists anywhere in App.jsx state.
     if (payload.people && payload.people.length > 0) {
-      setPeople(payload.people.map(function(p, i) {
-        var bday = p.birthday || null;
-        var derivedAge = ageFromBirthday(bday);
-        return {
-          id: uid(),
-          name: p.name,
-          color: PC[i % PC.length],
-          birthday: bday,
-          age: derivedAge,
-          role: null,
-          isMinor: derivedAge != null && derivedAge < 18,
-          marker: null
-        };
-      }));
+      if (mergeMode) {
+        setPeople(function(prev) {
+          // Matching is by trimmed, case-insensitive name only — the wizard payload
+          // never carries the original person id (buildPayload strips people down to
+          // {name, birthday}). LIMITATION: two existing people who share the same
+          // name (e.g. two kids both named "Alex") are indistinguishable to this
+          // match and a re-run entry for that name will merge into whichever of them
+          // is found first, rather than prompting for which one. Not solved here —
+          // flagging for a future fix if it comes up in practice.
+          var merged = (prev || []).slice(); // never delete an existing person
+          payload.people.forEach(function(np) {
+            var matchIdx = merged.findIndex(function(ep) {
+              return ep.name && np.name && ep.name.trim().toLowerCase() === np.name.trim().toLowerCase();
+            });
+            if (matchIdx !== -1) {
+              if (np.birthday) {
+                var derivedAge = ageFromBirthday(np.birthday);
+                merged[matchIdx] = Object.assign({}, merged[matchIdx], {
+                  birthday: np.birthday, age: derivedAge, isMinor: derivedAge != null && derivedAge < 18
+                });
+              }
+              // no birthday supplied on the re-run for an existing match — leave as-is
+            } else {
+              merged.push(shapeOnboardingPerson(np, merged.length));
+            }
+          });
+          return merged;
+        });
+      } else {
+        setPeople(payload.people.map(function(p, i) { return shapeOnboardingPerson(p, i); }));
+      }
       // TODO(OB-0): payload.people[].birthday should also seed Lighthouse per-child
       // records — no seeding helper exists yet.
     }
@@ -3815,6 +3864,21 @@ function createLocalBackup() {
     // Marks complete only — never re-ambush after a skip.
     setOnboardingState({complete:true, completedAt:new Date().toISOString(), version:1});
     goTab("anchor");
+  }
+
+  // OB-0 commit 5 — Settings re-run ("Set up my harbor again"). Separate visibility
+  // state from showFirstVoyage: this instance is opened manually, never auto-launched.
+  const [showFirstVoyageRerun,setShowFirstVoyageRerun] = useState(false);
+  function handleFirstVoyageRerunComplete(payload) {
+    handleOnboardingComplete(payload, true); // mergeMode — union people, never delete
+    setShowFirstVoyageRerun(false);
+  }
+  // Re-run skip is intentionally NOT handleOnboardingSkip: the household is already
+  // complete by definition (re-run is only reachable from Settings post-completion),
+  // so bailing out of a voluntary re-run should not rewrite onboardingState or force
+  // navigation away from Settings — it just closes the modal.
+  function handleFirstVoyageRerunSkip() {
+    setShowFirstVoyageRerun(false);
   }
 
   const MICROCOPY = ["Let's keep this simple.","You're doing enough.","It's okay if today is messy.","We'll just focus on what matters.","One thing at a time.","You've got this — really.","Progress, not perfection."];
@@ -12039,6 +12103,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setShowAuthModal={setShowAuthModal}
                   syncNow={syncNow} lastSyncTime={lastSyncTime}
                   card={card}
+                  onOpenFirstVoyageRerun={function(){ setShowFirstVoyageRerun(true); }}
                 /></SectionErrorBoundary>}
                 {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
@@ -12126,6 +12191,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
       {showFirstVoyage&&<FirstVoyageWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
+      {showFirstVoyageRerun&&<FirstVoyageWizard
+        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||""}; })}
+        onComplete={handleFirstVoyageRerunComplete}
+        onSkip={handleFirstVoyageRerunSkip}
+      />}
       {showAuthModal&&<AuthModal onClose={()=>setShowAuthModal(false)}/>}
       {showWelcomeModal&&session&&(
         <div style={{position:"fixed",inset:0,background:"rgba(26,39,68,0.72)",backdropFilter:"blur(14px)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
