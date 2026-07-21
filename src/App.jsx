@@ -21,6 +21,11 @@ import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson } from "./sync-core.js"
 import { BUILD_STAMP } from "./buildStamp.js"
+// Aliased to avoid colliding with the legacy inline OnboardingWizard still in
+// HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
+// is never called with true anywhere in the codebase, so it has no reachable trigger.
+// The module's own default export is itself named OnboardingWizard.
+import FirstVoyageWizard from "./onboarding/Onboarding.jsx"
 
 // ── F-19: in-app confirm/prompt ───────────────────────────────────────────────
 // Native window.confirm/prompt/alert are unreliable in iOS standalone PWA mode —
@@ -341,7 +346,7 @@ function RippleNotificationBanner() {
     // af_safe_harbor is included for belt-and-suspenders consistency. loadData() in
     // SafeHarbor.jsx already handles the "null" string case defensively (JSON.parse("null")
     // → null → fresh defaults), so this guard is redundant but not harmful.
-    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor"];
+    const NULL_SAFE_KEYS = ["af_inventory","af_gifts","af_houseFile","af_health","af_career","af_travel_profile","af_vaultSystems","af_sections","af_moments","af_subs","af_packing_templates","af_safe_harbor","af_onboardingState"];
     NULL_SAFE_KEYS.forEach(function(k) {
       try { if (localStorage.getItem(k) === "null") localStorage.removeItem(k); } catch {}
     });
@@ -411,6 +416,62 @@ function RippleNotificationBanner() {
 
   } catch {}
 })();
+
+// ── OB-0 commit 3: existing-household migration ──────────────────────────────
+// ONBOARDING_V1 defaults OFF, but once it flips on, af_onboardingState.complete
+// gates auto-launch (commit 4). Without this, every household that predates the
+// flag would look "incomplete" the moment it flips and get wizard-ambushed.
+// Runs once, before React mounts, and only ever writes af_onboardingState if it
+// is not already present — never overwrites a real completion or an in-progress
+// wizard's own write.
+//
+// isExistingHousehold() checks, in order:
+//   1. Legacy dead-wizard completion flag (af_onboardingComplete). A "🔄 Setup
+//      wizard" Settings button wrote this via the old OnboardingWizard from the
+//      app's first commit until it was removed in da0d9b1 (2026-05-14). The key
+//      was never added to SYNC_KEYS, so any household that ran that flow before
+//      removal still has it sitting device-local, untouched, today.
+//   2. af_people — at least one entry with id and name.
+//   3. Five core-data keys, each checked the same cheap way (parse, is Array,
+//      length > 0): af_tasks, af_calEvents, af_favMeals, af_shoppingItems,
+//      af_brainItems. Matches the app's own existing definition of "real
+//      household data" (see coreKeys in isRemotePayloadSafe), plus calEvents
+//      (a primary tab isRemotePayloadSafe's use case doesn't need to cover).
+//      Deliberately NOT af_meals — that object always has all 7 MEAL_DAYS keys
+//      populated regardless of content, so "non-empty" is never a valid signal
+//      there (favMeals is the real flat-array equivalent). Deliberately NOT
+//      af_exhale_groups/af_schoolData — neither is a flat array (exhale_groups
+//      is a 5-key object of arrays; schoolData is keyed per-child, so any real
+//      content there implies af_people is already non-empty).
+function isExistingHousehold() {
+  try {
+    if (localStorage.getItem("af_onboardingComplete") === "true") return true;
+  } catch {}
+  try {
+    const people = JSON.parse(localStorage.getItem("af_people") || "[]");
+    if (Array.isArray(people) && people.some(p => p && p.id && p.name)) return true;
+  } catch {}
+  const PILLAR_KEYS = ["af_tasks", "af_calEvents", "af_favMeals", "af_shoppingItems", "af_brainItems"];
+  for (let i = 0; i < PILLAR_KEYS.length; i++) {
+    try {
+      const raw = localStorage.getItem(PILLAR_KEYS[i]);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+try {
+  if (localStorage.getItem("af_onboardingState") === null && isExistingHousehold()) {
+    localStorage.setItem("af_onboardingState", JSON.stringify({
+      complete: true,
+      completedAt: "", // migrated, not a real completion — no timestamp claimed
+      version: 1
+    }));
+  }
+} catch {}
 
 // ── RootErrorBoundary — app-level catch, branded recovery ────────────────────
 // Wraps FlowWrapper in App and HomeFlow in FlowWrapper. Shows a calm, branded
@@ -596,6 +657,9 @@ var _swReloadFired = false;
 //           unpushed edits can push once auth is restored after re-login
 var _afUserInitiatedSignOut = false;
 var SHOPPING_V2 = localStorage.getItem("af_shopping_v2") === "true";
+// First Voyage onboarding wizard flag (OB-0 commit 4). Defaults OFF. Auto-launch
+// gate lives in HomeFlow (showFirstVoyage) and reuses isExistingHousehold() above.
+var ONBOARDING_V1 = localStorage.getItem("af_onboarding_v1") === "true";
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
@@ -1375,7 +1439,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
@@ -1475,6 +1539,14 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
         familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
         T={T} inp={inp} btnP={btnP} PC={PC} ROLES={ROLES}
       />
+
+      {/* OB-0 commit 5 — First Voyage re-run entry point. ONBOARDING_V1-gated, same
+          as auto-launch: the feature stays fully dark until the flag is on. */}
+      {ONBOARDING_V1&&(
+        <Row label="Set up my harbor again" sub="Re-run the welcome wizard — your people, meals, and mode stay, nothing gets deleted." tight>
+          <button onClick={onOpenFirstVoyageRerun} style={btnS({fontSize:"0.78rem",padding:"0.4rem 0.85rem"})}>⚓ Set up my harbor again</button>
+        </Row>
+      )}
 
       {/* ════════════════════════════════════
           2. FLOW (YOU)
@@ -3447,6 +3519,12 @@ function createLocalBackup() {
 
 
   const [onboardingComplete,setOnboardingComplete] = useSaved("onboardingComplete",false);
+  // OB-0 commit 4 — First Voyage wizard state. Distinct key/shape from the legacy
+  // onboardingComplete above (bare boolean, old Settings-only wizard); this one is
+  // { complete, completedAt, version } per the OB-0 data contract. useSaved's own
+  // setter already writes af_onboardingState + marks it dirty for sync — no raw
+  // localStorage call needed anywhere onboardingState is written.
+  const [onboardingState,setOnboardingState]       = useSaved("onboardingState",{complete:false,completedAt:null,version:1});
   const [dayBriefing,setDayBriefing]               = useSaved("dayBriefing",null);
   const [briefingBuilt,setBriefingBuilt]           = useSaved("briefingBuilt",null);
   const [lastSeenDate,setLastSeenDate]             = useSaved("lastSeenDate",null);
@@ -3679,8 +3757,129 @@ function createLocalBackup() {
       buildInsights();
     }
   },[tab]); // eslint-disable-line
-  const hasExistingData    = tasks.length>0 || Object.keys(meals).length>0 || !!familyProfile || brainItems.length>0;
   const shouldShowOnboarding = showOnboardingWizard; // wizard only from Settings
+
+  // OB-0 commit 4 — First Voyage auto-launch gate. ONBOARDING_V1 defaults OFF.
+  // isExistingHousehold() is reused verbatim from commit 3 (no second check) —
+  // short-circuits before it's ever called once onboardingState.complete is true,
+  // which covers the vast majority of any household's lifetime.
+  const showFirstVoyage = ONBOARDING_V1 && !onboardingState.complete && !isExistingHousehold();
+
+  // Shapes one wizard-payload person into the app's real people[] entry shape.
+  // Shared by handleOnboardingComplete's replace path (commit 4) and its merge
+  // path's new-person branch (commit 5) so the field construction isn't duplicated.
+  function shapeOnboardingPerson(p, colorIdx) {
+    var bday = p.birthday || null;
+    var derivedAge = ageFromBirthday(bday);
+    return {
+      id: uid(),
+      name: p.name,
+      color: PC[colorIdx % PC.length],
+      birthday: bday,
+      age: derivedAge,
+      role: null,
+      isMinor: derivedAge != null && derivedAge < 18,
+      marker: null
+    };
+  }
+
+  // handleOnboardingComplete/handleOnboardingSkip — never log `payload` (names/birthdays).
+  // Wires only payload fields with a real existing destination today; see the
+  // TODO(OB-0) markers below for fields with no destination yet (per
+  // docs/onboarding/OB-0-onboarding-plan.md data contract table). Every write below
+  // goes through an existing or new useSaved setter — none of them are a raw
+  // localStorage call, so each one already marks itself dirty for sync.
+  //
+  // mergeMode (OB-0 commit 5, Settings re-run): when true, people are unioned by
+  // name rather than replaced — never deletes an existing person. zip/mealsPerDay/
+  // stores/mode always overwrite in both modes (re-run is meant to update those on
+  // purpose); the TODO(OB-0) fields stay untouched in both modes.
+  function handleOnboardingComplete(payload, mergeMode) {
+    // TODO(OB-0): payload.householdName has no destination yet — no householdName
+    // field exists anywhere in App.jsx state.
+    if (payload.people && payload.people.length > 0) {
+      if (mergeMode) {
+        setPeople(function(prev) {
+          // Matching is by trimmed, case-insensitive name only — the wizard payload
+          // never carries the original person id (buildPayload strips people down to
+          // {name, birthday}). LIMITATION: two existing people who share the same
+          // name (e.g. two kids both named "Alex") are indistinguishable to this
+          // match and a re-run entry for that name will merge into whichever of them
+          // is found first, rather than prompting for which one. Not solved here —
+          // flagging for a future fix if it comes up in practice.
+          var merged = (prev || []).slice(); // never delete an existing person
+          payload.people.forEach(function(np) {
+            var matchIdx = merged.findIndex(function(ep) {
+              return ep.name && np.name && ep.name.trim().toLowerCase() === np.name.trim().toLowerCase();
+            });
+            if (matchIdx !== -1) {
+              if (np.birthday) {
+                var derivedAge = ageFromBirthday(np.birthday);
+                merged[matchIdx] = Object.assign({}, merged[matchIdx], {
+                  birthday: np.birthday, age: derivedAge, isMinor: derivedAge != null && derivedAge < 18
+                });
+              }
+              // no birthday supplied on the re-run for an existing match — leave as-is
+            } else {
+              merged.push(shapeOnboardingPerson(np, merged.length));
+            }
+          });
+          return merged;
+        });
+      } else {
+        setPeople(payload.people.map(function(p, i) { return shapeOnboardingPerson(p, i); }));
+      }
+      // TODO(OB-0): payload.people[].birthday should also seed Lighthouse per-child
+      // records — no seeding helper exists yet.
+    }
+    if (payload.zip) {
+      setFamilyProfile(function(prev) {
+        return Object.assign({}, prev || {}, {zipcode: payload.zip});
+      });
+    }
+    // TODO(OB-0): payload.features.* has no destination yet — only compassEnabled
+    // exists as a per-feature flag; tidePool/lighthouse/celebrations/meals/career/
+    // safeHarbor toggles are not wired to any state.
+    if (payload.areaSettings) {
+      if (payload.areaSettings.mealsPerDay) setMealCount(payload.areaSettings.mealsPerDay);
+      if (payload.areaSettings.stores && payload.areaSettings.stores.length > 0) {
+        setStores(payload.areaSettings.stores);
+      }
+      // TODO(OB-0): payload.areaSettings.trashDay has no destination yet — no
+      // trashDay field exists anywhere in App.jsx state.
+    }
+    // TODO(OB-0): payload.exhaleCards has no destination yet — insertion lives in
+    // ExhaleSection.jsx's Realtime path (supabase.from("exhale_cards").insert), not
+    // reachable from here without new plumbing.
+    if (payload.mode) {
+      var MODE_MAP = {calm:"Smooth", busy:"Busy", survival:"Survival"};
+      var mappedMode = MODE_MAP[payload.mode];
+      if (mappedMode) setFlowMode(mappedMode);
+    }
+    setOnboardingState({complete:true, completedAt:new Date().toISOString(), version:1});
+    goTab("anchor");
+  }
+
+  function handleOnboardingSkip() {
+    // Marks complete only — never re-ambush after a skip.
+    setOnboardingState({complete:true, completedAt:new Date().toISOString(), version:1});
+    goTab("anchor");
+  }
+
+  // OB-0 commit 5 — Settings re-run ("Set up my harbor again"). Separate visibility
+  // state from showFirstVoyage: this instance is opened manually, never auto-launched.
+  const [showFirstVoyageRerun,setShowFirstVoyageRerun] = useState(false);
+  function handleFirstVoyageRerunComplete(payload) {
+    handleOnboardingComplete(payload, true); // mergeMode — union people, never delete
+    setShowFirstVoyageRerun(false);
+  }
+  // Re-run skip is intentionally NOT handleOnboardingSkip: the household is already
+  // complete by definition (re-run is only reachable from Settings post-completion),
+  // so bailing out of a voluntary re-run should not rewrite onboardingState or force
+  // navigation away from Settings — it just closes the modal.
+  function handleFirstVoyageRerunSkip() {
+    setShowFirstVoyageRerun(false);
+  }
 
   const MICROCOPY = ["Let's keep this simple.","You're doing enough.","It's okay if today is messy.","We'll just focus on what matters.","One thing at a time.","You've got this — really.","Progress, not perfection."];
   const todayMicrocopy = MICROCOPY[TODAY.getDate() % MICROCOPY.length];
@@ -11904,6 +12103,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setShowAuthModal={setShowAuthModal}
                   syncNow={syncNow} lastSyncTime={lastSyncTime}
                   card={card}
+                  onOpenFirstVoyageRerun={function(){ setShowFirstVoyageRerun(true); }}
                 /></SectionErrorBoundary>}
                 {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
@@ -11990,6 +12190,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {showSetPassword&&resetToken&&<SetPasswordModal/>
       }
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
+      {showFirstVoyage&&<FirstVoyageWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
+      {showFirstVoyageRerun&&<FirstVoyageWizard
+        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||""}; })}
+        onComplete={handleFirstVoyageRerunComplete}
+        onSkip={handleFirstVoyageRerunSkip}
+      />}
       {showAuthModal&&<AuthModal onClose={()=>setShowAuthModal(false)}/>}
       {showWelcomeModal&&session&&(
         <div style={{position:"fixed",inset:0,background:"rgba(26,39,68,0.72)",backdropFilter:"blur(14px)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
