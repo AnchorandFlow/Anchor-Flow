@@ -14745,6 +14745,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { vault: "pets", label: "Pets", emoji: "🐾" },
       { vault: "moments", label: "Moments", emoji: "✨" },
       { vault: "travel", label: "Travel", emoji: "✈️" },
+      { vault: "trips", label: "Trips", emoji: "🧳" },
       { vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" },
     ]},
     { vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" },

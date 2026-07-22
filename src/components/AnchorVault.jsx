@@ -3400,7 +3400,7 @@ function TravelProfileSection() {
   )
 }
 
-// ── Trips (Travel redesign Step 2) ──────────────────────────────────────────
+// ── Trips (Travel redesign Step 3: Trips Dashboard) ─────────────────────────
 // af_trips: array of trip records, registered in SYNC_KEYS + sanitizeHouseholdData's
 // array-guard (see sync-core.js) — same treatment as celebrations/ownedProducts.
 //
@@ -3410,12 +3410,39 @@ function TravelProfileSection() {
 //
 // TODO: transportation/lodging/itinerary/packing/reservations/budget/documents/
 // dining/activities/emergencyInfo/cardOrder are unvalidated placeholders (null)
-// until Steps 3/4 define their real per-field shape — this is not a design
-// decision to leave them loose permanently, just not yet defined.
+// until Step 4 defines their real per-field shape — this is not a design
+// decision to leave them loose permanently, just not yet defined. This step's
+// add/edit form only touches name/destination/startDate/endDate/status/icon/
+// notes; the remaining 11 fields pass through untouched on every update.
 //
-// Not rendered anywhere yet — no entry in AnchorVault's activeSection routing.
-// Step 3 wires this in and replaces the `return null` below with real UI.
+// Wired into activeSection routing ("trips") and a PILLARS nav sibling next
+// to "travel" in App.jsx.
+
+var TRIP_STATUSES = ["Planning","Booked","Upcoming","In Progress","Completed","Cancelled"]
+// Same shape as CareerSection's STATUS_COLORS (~3680 as of Step 2's commit):
+// a plain object mapping a status string to an rgba color, reusing the same
+// rgba values for the equivalent semantic slot (gold=early stage, blue=
+// confirmed, teal=active-soon, green=underway, gray=done, red=cancelled).
+var TRIP_STATUS_COLORS = {
+  "Planning":    "rgba(200,169,122,0.8)",
+  "Booked":      "rgba(122,154,184,0.8)",
+  "Upcoming":    "rgba(122,184,168,0.8)",
+  "In Progress": "rgba(122,184,122,0.8)",
+  "Completed":   "rgba(150,150,150,0.5)",
+  "Cancelled":   "rgba(184,100,100,0.6)"
+}
+// Echoes PackingTemplatesPanel's DEFAULT_PACKING_TEMPLATES trip types (flight,
+// roadtrip, beach, camping) plus a couple more, for icon/theme consistency
+// across the Travel redesign.
+var TRIP_ICONS = ["🧳","✈️","🚗","🏖️","🏕️","🚢","🎡","⛰️"]
+
 function TripsSection() {
+  var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
+  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
+  var coastal = "#7EAEB4"
+  var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
+  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
+
   var pair = useState(function() {
     try {
       var s = localStorage.getItem("af_trips")
@@ -3430,15 +3457,19 @@ function TripsSection() {
     try { localStorage.setItem("af_trips", JSON.stringify(updated)); afVaultChanged("trips") } catch {}
   }
 
-  function addTrip() {
-    saveTrips([...trips, {
+  // Gained an optional `data` param vs. the Step 2 stub, to support the add
+  // form below — additive only: addTrip() with no args still produces the
+  // exact same 20-field blank record as committed in Step 2, `data` just
+  // overrides fields on top of that same template.
+  function addTrip(data) {
+    saveTrips([...trips, Object.assign({
       id: Date.now().toString(),
       name: "", destination: "", startDate: "", endDate: "", notes: "",
       status: "", icon: "", color: "",
       transportation: null, lodging: null, itinerary: null, packing: null,
       reservations: null, budget: null, documents: null, dining: null,
       activities: null, emergencyInfo: null, cardOrder: null
-    }])
+    }, data || {})])
   }
   function updateTrip(id, changes) {
     saveTrips(trips.map(function(t){ return t.id===id ? Object.assign({}, t, changes) : t }))
@@ -3447,7 +3478,181 @@ function TripsSection() {
     saveTrips(trips.filter(function(t){ return t.id!==id }))
   }
 
-  return null
+  // Adapted from TravelProfileSection's daysUntil (~3067 as of Step 1/2) — full
+  // YYYY-MM-DD diff, no next-year rollover. Deliberately NOT CelebrationsSection's
+  // daysUntil (~1162), which rolls forward to next year for recurring MM-DD
+  // events — a trip is a one-off dated event, so an expired trip should read
+  // as past, not silently jump a year ahead.
+  function daysUntil(dateStr) {
+    if (!dateStr) return null
+    var now = new Date(); now.setHours(0,0,0,0)
+    var parts = dateStr.split("-")
+    if (parts.length===3 && parts[0].length===4) {
+      return Math.round((new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2])) - now) / 86400000)
+    }
+    return null
+  }
+
+  // Adapted from CelebrationsSection's formatOccDate (~1171) — same month-
+  // abbreviation array, extended to include the year since a trip (unlike a
+  // recurring MM-DD celebration) needs one.
+  function formatTripDate(dateStr) {
+    if (!dateStr) return ""
+    var parts = dateStr.split("-")
+    if (parts.length!==3) return dateStr
+    var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    return months[parseInt(parts[1])-1]+" "+parseInt(parts[2])+", "+parts[0]
+  }
+
+  // Adapted from TravelProfileSection's ExpiryBadge (~3077) — same small pill
+  // styling, different logic: a trip counts down to a start date and flags an
+  // in-progress window, rather than counting down to a document's expiry.
+  function TripCountdownBadge(props) {
+    var trip = props.trip
+    var start = daysUntil(trip.startDate)
+    var end = daysUntil(trip.endDate)
+    if (start === null) return null
+    // No endDate means a single-day trip — it ends the same day it starts,
+    // not "ongoing forever." Without this, any past-dated trip missing an
+    // end date reads as permanently "In progress" instead of going "Past".
+    var effectiveEnd = end !== null ? end : start
+    var inProgress = start <= 0 && effectiveEnd >= 0
+    var isPast = effectiveEnd < 0
+    var color = inProgress ? coastal : isPast ? muted : sand
+    var label = inProgress ? "In progress" : isPast ? "Past" : start===0 ? "Today!" : start===1 ? "Tomorrow" : start<=30 ? start+"d away" : "~"+Math.round(start/30)+"mo away"
+    return <span style={{ fontSize:9, fontWeight:700, color:color, fontFamily:"DM Sans,sans-serif", background:"rgba(250,242,229,0.06)", borderRadius:20, padding:"1px 7px", border:"1px solid "+color+"44" }}>{label}</span>
+  }
+
+  // null = form closed; object = open, editing this local draft.
+  // { id: null } means "new trip, not saved yet" — same add/edit-share-one-form
+  // shape as HomeSystemsSection's MaintenancePanel (editIdx null vs. set).
+  var s_form = useState(null)
+  var formTrip = s_form[0]; var setFormTrip = s_form[1]
+
+  function openAdd() {
+    setFormTrip({ id:null, name:"", destination:"", startDate:"", endDate:"", status:TRIP_STATUSES[0], icon:TRIP_ICONS[0], notes:"" })
+  }
+  function openEdit(trip) {
+    setFormTrip({ id:trip.id, name:trip.name||"", destination:trip.destination||"", startDate:trip.startDate||"", endDate:trip.endDate||"", status:trip.status||TRIP_STATUSES[0], icon:trip.icon||TRIP_ICONS[0], notes:trip.notes||"" })
+  }
+  function closeForm() { setFormTrip(null) }
+  function saveForm() {
+    if (!formTrip.name.trim()) return
+    var data = { name:formTrip.name.trim(), destination:formTrip.destination.trim(), startDate:formTrip.startDate, endDate:formTrip.endDate, status:formTrip.status, icon:formTrip.icon, notes:formTrip.notes.trim() }
+    if (formTrip.id) updateTrip(formTrip.id, data)
+    else addTrip(data)
+    closeForm()
+  }
+  // Delete-with-confirm matches the file's established window.confirm pattern
+  // (e.g. MaintenancePanel: "Delete "+sys.name+"?", ~5744) — not a new pattern.
+  function deleteForm() {
+    if (!formTrip || !formTrip.id) return
+    if (!window.confirm("Delete "+(formTrip.name||"this trip")+"?")) return
+    removeTrip(formTrip.id)
+    closeForm()
+  }
+
+  return (
+    <div>
+      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Trips</div>
+      <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
+
+      {trips.length === 0 ? (
+        // Richer empty state, matching HomeSystemsSection's tone (~5683): icon +
+        // heading + one-line subtitle, not just the terser "No X added yet." used
+        // by TravelProfileSection's smaller inline lists (ffPrograms/luggage/etc).
+        <div style={{ textAlign:"center", padding:"40px 20px", color:muted, fontSize:13, fontFamily:"DM Sans,sans-serif" }}>
+          <div style={{ fontSize:32, marginBottom:10 }}>🧳</div>
+          <div>No trips planned yet.</div>
+          <div style={{ marginTop:4, fontSize:12, marginBottom:16 }}>Plan flights, road trips, and everything in between.</div>
+          <button onClick={openAdd} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 16px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>+ Add a trip</button>
+        </div>
+      ) : (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+          {trips.map(function(trip) {
+            return (
+              <div key={trip.id} onClick={function(){ openEdit(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+                  <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
+                  <TripCountdownBadge trip={trip} />
+                </div>
+                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:warm, lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
+                {trip.destination ? <div style={{ fontSize:12, color:muted }}>{trip.destination}</div> : null}
+                {(trip.startDate || trip.endDate) ? (
+                  <div style={{ fontSize:11, color:muted }}>
+                    {formatTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + formatTripDate(trip.endDate) : ""}
+                  </div>
+                ) : null}
+                {trip.status ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+                    <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[trip.status]||sand, display:"inline-block", flexShrink:0 }}/>
+                    <span style={{ fontSize:11, color:TRIP_STATUS_COLORS[trip.status]||sand }}>{trip.status}</span>
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+          {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
+          <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:12, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
+            <span style={{ fontSize:20, color:"rgba(250,248,244,0.18)" }}>+</span>
+            <span style={{ fontSize:11, color:"rgba(250,248,244,0.28)", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
+          </div>
+        </div>
+      )}
+
+      {formTrip && (
+        // Bottom-sheet modal, matching ProductsPanel/MaintenancePanel's modal
+        // shape (~5581/~HModal) but with TravelProfileSection's own palette.
+        <div style={{ position:"fixed", inset:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={closeForm}>
+          <div onClick={function(e){ e.stopPropagation() }} style={{ background:"#1a2744", borderRadius:"18px 18px 0 0", padding:20, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", boxSizing:"border-box" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+              <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:19, fontWeight:700, color:warm }}>{formTrip.id ? "Edit trip" : "Add trip"}</div>
+              <button onClick={closeForm} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.4)", cursor:"pointer", fontSize:18 }}>✕</button>
+            </div>
+
+            <label style={labelStyle}>Icon</label>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+              {TRIP_ICONS.map(function(ic) {
+                return (
+                  <button key={ic} type="button" onClick={function(){ setFormTrip(Object.assign({},formTrip,{icon:ic})) }} style={{ fontSize:16, background:formTrip.icon===ic?"rgba(200,169,122,0.18)":"rgba(250,242,229,0.04)", border:"1px solid "+(formTrip.icon===ic?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"), borderRadius:8, padding:"4px 8px", cursor:"pointer" }}>{ic}</button>
+                )
+              })}
+            </div>
+
+            <label style={labelStyle}>Trip name</label>
+            <input autoFocus value={formTrip.name} onChange={function(e){ setFormTrip(Object.assign({},formTrip,{name:e.target.value})) }} placeholder="e.g. Cancún Family Trip" style={Object.assign({},inputStyle,{marginBottom:10})}/>
+
+            <label style={labelStyle}>Destination</label>
+            <input value={formTrip.destination} onChange={function(e){ setFormTrip(Object.assign({},formTrip,{destination:e.target.value})) }} placeholder="e.g. Cancún, Mexico" style={Object.assign({},inputStyle,{marginBottom:10})}/>
+
+            <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+              <div style={{ flex:1 }}>
+                <label style={labelStyle}>Start date</label>
+                <input type="date" value={formTrip.startDate} onChange={function(e){ setFormTrip(Object.assign({},formTrip,{startDate:e.target.value})) }} style={inputStyle}/>
+              </div>
+              <div style={{ flex:1 }}>
+                <label style={labelStyle}>End date</label>
+                <input type="date" value={formTrip.endDate} onChange={function(e){ setFormTrip(Object.assign({},formTrip,{endDate:e.target.value})) }} style={inputStyle}/>
+              </div>
+            </div>
+
+            <label style={labelStyle}>Status</label>
+            <select value={formTrip.status} onChange={function(e){ setFormTrip(Object.assign({},formTrip,{status:e.target.value})) }} style={Object.assign({},inputStyle,{marginBottom:10,WebkitAppearance:"none",appearance:"none"})}>
+              {TRIP_STATUSES.map(function(s){ return <option key={s} value={s} style={{background:navy}}>{s}</option> })}
+            </select>
+
+            <label style={labelStyle}>Notes</label>
+            <textarea value={formTrip.notes} onChange={function(e){ setFormTrip(Object.assign({},formTrip,{notes:e.target.value})) }} placeholder="Anything worth remembering…" rows={3} style={Object.assign({},inputStyle,{resize:"vertical",marginBottom:14})}/>
+
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={saveForm} style={{ flex:1, background:sand, color:navy, border:"none", borderRadius:10, padding:11, fontWeight:700, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontSize:14 }}>Save</button>
+              {formTrip.id ? <button onClick={deleteForm} style={{ background:"rgba(226,75,74,0.06)", border:"0.5px solid rgba(226,75,74,0.18)", borderRadius:10, padding:"11px 16px", color:"rgba(240,153,123,0.7)", fontSize:13, cursor:"pointer", fontFamily:"DM Sans,sans-serif" }}>Delete</button> : null}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 
@@ -6694,6 +6899,7 @@ const ANCHOR_SECTIONS = [
   { id: "pets",       label: "Pets",          emoji: "🐾" },
   { id: "moments",    label: "Moments",       emoji: "✨" },
   { id: "travel",     label: "Travel",        emoji: "✈️" },
+  { id: "trips",      label: "Trips",         emoji: "🧳" },
   { id: "safeharbor", label: "Safe Harbor",   emoji: "⚓" },
 ]
 
@@ -7186,6 +7392,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
           {activeSection === "travel" && <TravelProfileSection />}
+          {activeSection === "trips" && <TripsSection />}
           {activeSection === "career" && <CareerSection />}
           {activeSection === "settings" && <AnchorSettings />}
           {activeSection === "subs" && <SubscriptionsSection />}
