@@ -2214,29 +2214,25 @@ async function refreshAuthToken() {
   if (_refreshInFlight) return _refreshInFlight;
   const p = (async function() {
     try {
-      const { data: sd } = await supabase.auth.getSession();
-      if (sd?.session?.access_token) {
-        // getSession() does not refresh expired tokens — check exp before trusting it.
-        let stillValid = false;
-        try {
-          const exp = JSON.parse(atob(sd.session.access_token.split('.')[1])).exp;
-          stillValid = exp * 1000 > Date.now() + 10000; // valid for at least 10 more seconds
-        } catch(e) { /* malformed JWT — treat as expired, fall through to refreshSession() */ }
-        if (stillValid) {
-          try { localStorage.setItem("af_authToken", JSON.stringify(sd.session.access_token)); } catch {}
-          AF_DEBUG && console.log("[AF AUTH] token from SDK getSession() — still valid");
-          return sd.session.access_token;
-        }
-        AF_DEBUG && console.log("[AF AUTH] getSession() token expired — falling through to refreshSession()");
-      }
-      // No session, or cached token expired — attempt a real refresh
+      // F-N7: previously trusted getSession()'s LOCAL, unverified token if its
+      // own JWT exp claim hadn't passed yet — but getSession() never contacts
+      // the server. Every caller of this function got here because a real
+      // request already returned 401 from the server; trusting a local-only
+      // check at that point can return the exact same already-rejected token
+      // forever, since its claimed expiry may not have passed even though the
+      // server has independently invalidated it (revoked, password change,
+      // session policy). Confirmed live: this produced an infinite
+      // "refresh succeeds locally, next request 401s again" loop across the
+      // poll/stale-check pollers, never reaching zombie-session cleanup.
+      // Always call the real, server-verifying refreshSession() — the only
+      // function that actually asks Supabase whether this session is good.
       const { data: rd, error: re } = await supabase.auth.refreshSession();
       if (rd?.session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(rd.session.access_token)); } catch {}
         AF_DEBUG && console.log("[AF AUTH] token from SDK refreshSession()");
         return rd.session.access_token;
       }
-      // Both paths failed — hard auth failure, force re-login
+      // refreshSession() failed — hard auth failure, force re-login
       AF_DEBUG && console.warn("[AF AUTH] hard auth failure — signing out to force re-login", re && re.message);
       try { localStorage.removeItem("af_authToken"); } catch {}
       try { localStorage.removeItem("af_authUser"); } catch {}
