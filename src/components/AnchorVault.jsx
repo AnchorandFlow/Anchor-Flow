@@ -3005,6 +3005,34 @@ function PackingTemplatesPanel(props) {
 }
 
 // ── Travel Profile Section ────────────────────────────────────────────────────
+// Reusable masked field — same interaction shape as a password input: dots by
+// default, tap the eye icon to reveal. Used for passport numbers, KTN, loyalty
+// numbers, lock codes — anything sensitive enough to hide from a shoulder-surf
+// but not sensitive enough to need a PIN gate. Expiry dates are never masked.
+function MaskedField(props) {
+  var pair = useState(false); var revealed = pair[0]; var setRevealed = pair[1]
+  return (
+    <div>
+      {props.label && <label style={props.labelStyle}>{props.label}</label>}
+      <div style={{ position:"relative" }}>
+        <input
+          type={revealed ? "text" : "password"}
+          value={props.value || ""}
+          onChange={props.onChange}
+          placeholder={props.placeholder || ""}
+          style={Object.assign({}, props.inputStyle, { paddingRight:34 })}
+        />
+        <button
+          type="button"
+          onClick={function() { setRevealed(function(r){ return !r }) }}
+          aria-label={(revealed ? "Hide " : "Reveal ") + (props.label || "field")}
+          style={{ position:"absolute", right:2, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:14, color:props.muted || "rgba(250,248,244,0.35)", padding:6, lineHeight:1 }}
+        >{revealed ? "🙈" : "👁"}</button>
+      </div>
+    </div>
+  )
+}
+
 function TravelProfileSection() {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
   var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
@@ -3069,6 +3097,25 @@ function TravelProfileSection() {
   function updateHotel(id, changes) { setProfile({ hotelPrograms: hotelPrograms.map(function(p){ return p.id===id?Object.assign({},p,changes):p }) }) }
   function removeHotel(id) { setProfile({ hotelPrograms: hotelPrograms.filter(function(p){ return p.id!==id }) }) }
 
+  var luggage = profile.luggage || []
+  function addLuggage() { setProfile({ luggage: [...luggage, { id:Date.now().toString(), description:"", lockCode:"" }] }) }
+  function updateLuggage(id, changes) { setProfile({ luggage: luggage.map(function(b){ return b.id===id?Object.assign({},b,changes):b }) }) }
+  function removeLuggage(id) { setProfile({ luggage: luggage.filter(function(b){ return b.id!==id }) }) }
+
+  var emergencyContacts = profile.emergencyContacts || []
+  function addContact() { setProfile({ emergencyContacts: [...emergencyContacts, { id:Date.now().toString(), name:"", phone:"", relation:"" }] }) }
+  function updateContact(id, changes) { setProfile({ emergencyContacts: emergencyContacts.map(function(c){ return c.id===id?Object.assign({},c,changes):c }) }) }
+  function removeContact(id) { setProfile({ emergencyContacts: emergencyContacts.filter(function(c){ return c.id!==id }) }) }
+
+  var alwaysBring = profile.alwaysBring || []
+  var s_newEssential = useState(""); var newEssential = s_newEssential[0]; var setNewEssential = s_newEssential[1]
+  function addEssential() {
+    if (!newEssential.trim()) return
+    setProfile({ alwaysBring: [...alwaysBring, newEssential.trim()] })
+    setNewEssential("")
+  }
+  function removeEssential(idx) { setProfile({ alwaysBring: alwaysBring.filter(function(_,i){ return i!==idx }) }) }
+
   var sectionHead = function(emoji, title) {
     return React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"rgba(250,248,244,0.25)",fontFamily:"DM Sans,sans-serif",marginBottom:10,marginTop:4,display:"flex",alignItems:"center",gap:6}},emoji," ",title)
   }
@@ -3085,6 +3132,11 @@ function TravelProfileSection() {
           <div style={{ display:"flex", gap:8 }}>
             <div style={{ flex:2 }}>{field("passportName","Name as on passport","Full name")}</div>
             <div style={{ flex:1 }}>{field("passportCountry","Country","e.g. USA")}</div>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <div style={{ flex:1 }}>
+              <MaskedField label="Passport number" value={profile.passportNum} onChange={function(e){setProfile({passportNum:e.target.value})}} placeholder="Passport #" inputStyle={inputStyle} labelStyle={labelStyle} muted={muted} />
+            </div>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <div style={{ flex:1 }}>
@@ -3107,6 +3159,9 @@ function TravelProfileSection() {
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ display:"flex", gap:8 }}>
             <div style={{ flex:1 }}>{field("passport2Country","Country","e.g. Mexico")}</div>
+          </div>
+          <div style={{ flex:1 }}>
+            <MaskedField label="Passport number" value={profile.passport2Num} onChange={function(e){setProfile({passport2Num:e.target.value})}} placeholder="Passport #" inputStyle={inputStyle} labelStyle={labelStyle} muted={muted} />
           </div>
           <div style={{ flex:1 }}>
             <label style={labelStyle}>Expiration date</label>
@@ -3134,8 +3189,7 @@ function TravelProfileSection() {
                 </div>
                 <div style={{ display:"flex", gap:8 }}>
                   <div style={{ flex:1 }}>
-                    <label style={labelStyle}>Known Traveler #</label>
-                    <input value={profile[prog.numKey]||""} onChange={function(e){var v={};v[prog.numKey]=e.target.value;setProfile(v)}} placeholder="Number" style={inputStyle}/>
+                    <MaskedField label="Known Traveler #" value={profile[prog.numKey]} onChange={function(e){var v={};v[prog.numKey]=e.target.value;setProfile(v)}} placeholder="Number" inputStyle={inputStyle} labelStyle={labelStyle} muted={muted} />
                   </div>
                   <div style={{ flex:1 }}>
                     <label style={labelStyle}>Expiration</label>
@@ -3170,8 +3224,7 @@ function TravelProfileSection() {
                     </select>
                   </div>
                   <div style={{ flex:1 }}>
-                    <label style={labelStyle}>Member #</label>
-                    <input value={p.number||""} onChange={function(e){updateFF(p.id,{number:e.target.value})}} placeholder="Number" style={inputStyle}/>
+                    <MaskedField label="Member #" value={p.number} onChange={function(e){updateFF(p.id,{number:e.target.value})}} placeholder="Number" inputStyle={inputStyle} labelStyle={labelStyle} muted={muted} />
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -3209,8 +3262,7 @@ function TravelProfileSection() {
                     </select>
                   </div>
                   <div style={{ flex:1 }}>
-                    <label style={labelStyle}>Member #</label>
-                    <input value={p.number||""} onChange={function(e){updateHotel(p.id,{number:e.target.value})}} placeholder="Number" style={inputStyle}/>
+                    <MaskedField label="Member #" value={p.number} onChange={function(e){updateHotel(p.id,{number:e.target.value})}} placeholder="Number" inputStyle={inputStyle} labelStyle={labelStyle} muted={muted} />
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -3224,6 +3276,110 @@ function TravelProfileSection() {
             </div>
           )
         })}
+      </div>
+
+      {/* Preferences */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        {sectionHead("⭐","Preferences")}
+        <div style={{ display:"flex", gap:8 }}>
+          <div style={{ flex:1 }}>{field("preferredAirline","Preferred airline","e.g. Delta")}</div>
+          <div style={{ flex:1 }}>{field("preferredHotel","Preferred hotel","e.g. Marriott")}</div>
+        </div>
+      </div>
+
+      {/* Luggage */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          {sectionHead("🧳","Luggage")}
+          <button onClick={addLuggage} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
+        </div>
+        {luggage.length === 0 && (
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No bags added yet.</div>
+        )}
+        {luggage.map(function(b) {
+          return (
+            <div key={b.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                  <div style={{ flex:2 }}>
+                    <label style={labelStyle}>Description</label>
+                    <input value={b.description||""} onChange={function(e){updateLuggage(b.id,{description:e.target.value})}} placeholder="e.g. Black hardshell 26in" style={inputStyle}/>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <MaskedField label="Lock code" value={b.lockCode} onChange={function(e){updateLuggage(b.id,{lockCode:e.target.value})}} placeholder="Code" inputStyle={inputStyle} labelStyle={labelStyle} muted={muted} />
+                  </div>
+                  <button onClick={function(){removeLuggage(b.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Emergency Travel Contacts */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          {sectionHead("🚨","Emergency Travel Contacts")}
+          <button onClick={addContact} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
+        </div>
+        {emergencyContacts.length === 0 && (
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No contacts added yet.</div>
+        )}
+        {emergencyContacts.map(function(c) {
+          return (
+            <div key={c.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ display:"flex", gap:8 }}>
+                  <div style={{ flex:2 }}>
+                    <label style={labelStyle}>Name</label>
+                    <input value={c.name||""} onChange={function(e){updateContact(c.id,{name:e.target.value})}} placeholder="Full name" style={inputStyle}/>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Relation</label>
+                    <input value={c.relation||""} onChange={function(e){updateContact(c.id,{relation:e.target.value})}} placeholder="e.g. Grandparent" style={inputStyle}/>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <div style={{ flex:1 }}>
+                    <label style={labelStyle}>Phone</label>
+                    <input value={c.phone||""} onChange={function(e){updateContact(c.id,{phone:e.target.value})}} placeholder="Phone number" style={inputStyle}/>
+                  </div>
+                  <button onClick={function(){removeContact(c.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginTop:18 }}>remove</button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Always Bring — deliberately separate from PackingTemplatesPanel below:
+          this is one flat always-applies list, templates are named/categorized
+          per trip type. Naming and caption exist specifically so the two don't
+          collapse into an unexplained "two packing systems" mystery later. */}
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+        {sectionHead("🎒","Always Bring")}
+        <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>
+          Things you bring on every trip, regardless of destination — trip-specific packing lists are in the Packing Templates section below.
+        </div>
+        {alwaysBring.length === 0 && (
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No items added yet.</div>
+        )}
+        {alwaysBring.length > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:10 }}>
+            {alwaysBring.map(function(item, idx) {
+              return (
+                <div key={idx} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 10px", background:"rgba(250,242,229,0.03)", borderRadius:8 }}>
+                  <div style={{ flex:1, fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif" }}>{item}</div>
+                  <button onClick={function(){removeEssential(idx)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif" }}>remove</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div style={{ display:"flex", gap:8 }}>
+          <input value={newEssential} onChange={function(e){setNewEssential(e.target.value)}} onKeyDown={function(e){if(e.key==="Enter")addEssential()}} placeholder="Add an item…" style={Object.assign({},inputStyle,{flex:1})}/>
+          <button onClick={addEssential} style={{ background:"rgba(200,169,122,0.15)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"0 14px", color:sand, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
+        </div>
       </div>
 
       {/* Notes */}
