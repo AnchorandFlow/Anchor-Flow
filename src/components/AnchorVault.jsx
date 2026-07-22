@@ -3400,6 +3400,56 @@ function TravelProfileSection() {
   )
 }
 
+// ── Trips (Travel redesign Step 2) ──────────────────────────────────────────
+// af_trips: array of trip records, registered in SYNC_KEYS + sanitizeHouseholdData's
+// array-guard (see sync-core.js) — same treatment as celebrations/ownedProducts.
+//
+// Trip shape: { id, name, destination, startDate, endDate, notes, status, icon,
+//   color, transportation, lodging, itinerary, packing, reservations, budget,
+//   documents, dining, activities, emergencyInfo, cardOrder }
+//
+// TODO: transportation/lodging/itinerary/packing/reservations/budget/documents/
+// dining/activities/emergencyInfo/cardOrder are unvalidated placeholders (null)
+// until Steps 3/4 define their real per-field shape — this is not a design
+// decision to leave them loose permanently, just not yet defined.
+//
+// Not rendered anywhere yet — no entry in AnchorVault's activeSection routing.
+// Step 3 wires this in and replaces the `return null` below with real UI.
+function TripsSection() {
+  var pair = useState(function() {
+    try {
+      var s = localStorage.getItem("af_trips")
+      var parsed = s ? JSON.parse(s) : []
+      return Array.isArray(parsed) ? parsed : []
+    } catch { return [] }
+  })
+  var trips = pair[0]; var setTripsRaw = pair[1]
+
+  function saveTrips(updated) {
+    setTripsRaw(updated)
+    try { localStorage.setItem("af_trips", JSON.stringify(updated)); afVaultChanged("trips") } catch {}
+  }
+
+  function addTrip() {
+    saveTrips([...trips, {
+      id: Date.now().toString(),
+      name: "", destination: "", startDate: "", endDate: "", notes: "",
+      status: "", icon: "", color: "",
+      transportation: null, lodging: null, itinerary: null, packing: null,
+      reservations: null, budget: null, documents: null, dining: null,
+      activities: null, emergencyInfo: null, cardOrder: null
+    }])
+  }
+  function updateTrip(id, changes) {
+    saveTrips(trips.map(function(t){ return t.id===id ? Object.assign({}, t, changes) : t }))
+  }
+  function removeTrip(id) {
+    saveTrips(trips.filter(function(t){ return t.id!==id }))
+  }
+
+  return null
+}
+
 
 // ── Career Section ────────────────────────────────────────────────────────────
 var CAREER_GOLD  = "#c8a97a"

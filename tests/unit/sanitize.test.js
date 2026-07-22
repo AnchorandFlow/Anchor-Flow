@@ -101,6 +101,9 @@ const PLAUSIBLE = {
   career_retirement:  [{ id:"ra1", institution:"Fidelity", accountType:"401(k)", employer:"", website:"", notes:"" }],
   lighthouse:         { version:2, modes:{}, shared:{}, homeschool:{}, school:{}, household:{ readAlouds:[], calendar:[], settings:{} } },
   onboardingState:    { complete:true, completedAt:"2026-07-19T00:00:00.000Z", version:1 },
+  // Trips (Travel redesign Step 2) — sub-fields are null placeholders until
+  // Steps 3/4 define their real shape; see sync-core.js SYNC_KEYS comment.
+  trips:              [{ id:"trip1", name:"Cancún Family Trip", destination:"Cancún, Mexico", startDate:"2026-08-10", endDate:"2026-08-17", notes:"", status:"", icon:"", color:"", transportation:null, lodging:null, itinerary:null, packing:null, reservations:null, budget:null, documents:null, dining:null, activities:null, emergencyInfo:null, cardOrder:null }],
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────

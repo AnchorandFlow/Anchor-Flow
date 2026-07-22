@@ -92,7 +92,20 @@ export const SYNC_KEYS = [
   // Onboarding wizard completion state (OB-0). Shape: { complete, completedAt,
   // version }. Drives auto-launch/re-ambush logic on receive, so it gets an
   // explicit typed rule below rather than the defensive pass-through.
-  "onboardingState"];
+  "onboardingState",
+  // Trips — concrete planned/past trips (Travel redesign Step 2). Array of
+  // { id, name, destination, startDate, endDate, notes, status, icon, color,
+  //   transportation, lodging, itinerary, packing, reservations, budget,
+  //   documents, dining, activities, emergencyInfo, cardOrder }.
+  // TODO: transportation/lodging/itinerary/packing/reservations/budget/
+  // documents/dining/activities/emergencyInfo/cardOrder are unvalidated
+  // placeholders (null) until Steps 3/4 define their real per-field shape —
+  // this is not a design decision to leave them loose permanently.
+  // Distinct from travel_profile (documents/loyalty/preferences, an object)
+  // and packing_templates (reusable per-type checklists) — this is calendar-
+  // anchored trip instances. Array-guard treatment, same as celebrations/
+  // ownedProducts. No UI yet; see TripsSection in AnchorVault.jsx.
+  "trips"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -135,6 +148,7 @@ const _SANITIZE_HANDLED = new Set([
   "moments","subs","vaultSystems","packing_templates",
   "coveData","ownedProducts",
   "career_licenses","career_contacts","career_retirement",
+  "trips",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // Scalars
@@ -171,7 +185,11 @@ export function sanitizeHouseholdData(data) {
      "ownedProducts",
      // CareerSection.jsx vault data (F-33 residual, Batch 2 Fix 9) — flat arrays
      // of records ({id, ...}), same shape class as celebrations/gifts/moments.
-     "career_licenses","career_contacts","career_retirement"
+     "career_licenses","career_contacts","career_retirement",
+     // trips: array of trip records. Only the top-level array and null entries
+     // are guarded here — sub-field shapes (transportation/lodging/itinerary/
+     // etc.) are unvalidated until Steps 3/4 define them. See SYNC_KEYS comment.
+     "trips"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
