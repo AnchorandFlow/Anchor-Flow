@@ -3408,15 +3408,41 @@ function TravelProfileSection() {
 //   color, transportation, lodging, itinerary, packing, reservations, budget,
 //   documents, dining, activities, emergencyInfo, cardOrder }
 //
-// TODO: transportation/lodging/itinerary/packing/reservations/budget/documents/
-// dining/activities/emergencyInfo/cardOrder are unvalidated placeholders (null)
-// until Step 4 defines their real per-field shape — this is not a design
-// decision to leave them loose permanently, just not yet defined. This step's
-// add/edit form only touches name/destination/startDate/endDate/status/icon/
-// notes; the remaining 11 fields pass through untouched on every update.
+// Step 4a defines transportation and lodging as arrays of records — not
+// single objects — same shape class as ffPrograms/hotelPrograms (Step 1):
+// a connecting flight or a two-stay trip isn't an edge case for a real
+// family trip. transportation[]: { id, type, carrier, confirmationNumber,
+// departure, arrival }. lodging[]: { id, name, address, confirmationNumber,
+// checkIn, checkOut }.
+// TODO: itinerary/packing/reservations/budget/documents/dining/activities/
+// emergencyInfo/cardOrder remain unvalidated null placeholders until Step
+// 4b/4c define their real per-field shape — this is not a design decision
+// to leave them loose permanently, just not yet defined.
 //
 // Wired into activeSection routing ("trips") and a PILLARS nav sibling next
 // to "travel" in App.jsx.
+
+// ── Reusable collapsible card shell — used by every sub-card in the trip
+// detail view (Overview/Transportation/Lodging here; Itinerary/Packing/etc.
+// in later steps). Self-contained (own open/closed state + base styling),
+// so a caller only needs to supply icon/title/accent/children — same
+// self-contained-prop-driven shape as MaskedField (Step 1).
+function TripCard(props) {
+  var s = useState(props.defaultOpen !== false); var open = s[0]; var setOpen = s[1]
+  var accent = props.accent || "#c8a97a"
+  return (
+    <div style={{ background:"rgba(250,242,229,0.04)", border:"1px solid "+accent+"33", borderRadius:12, marginBottom:12, overflow:"hidden" }}>
+      <div onClick={function(){ setOpen(function(o){ return !o }) }} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", cursor:"pointer" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:16 }}>{props.icon}</span>
+          <span style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent }}>{props.title}</span>
+        </div>
+        <span style={{ fontSize:10, color:"rgba(250,248,244,0.3)", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s" }}>▾</span>
+      </div>
+      {open && <div style={{ padding:"0 14px 14px", borderTop:"1px solid rgba(250,242,229,0.06)" }}>{props.children}</div>}
+    </div>
+  )
+}
 
 var TRIP_STATUSES = ["Planning","Booked","Upcoming","In Progress","Completed","Cancelled"]
 // Same shape as CareerSection's STATUS_COLORS (~3680 as of Step 2's commit):
@@ -3435,6 +3461,7 @@ var TRIP_STATUS_COLORS = {
 // roadtrip, beach, camping) plus a couple more, for icon/theme consistency
 // across the Travel redesign.
 var TRIP_ICONS = ["🧳","✈️","🚗","🏖️","🏕️","🚢","🎡","⛰️"]
+var TRANSPORT_TYPES = ["Flight","Train","Car Rental","Rideshare","Ferry","Bus","Other"]
 
 function TripsSection() {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
@@ -3549,54 +3576,230 @@ function TripsSection() {
     if (!formTrip || !formTrip.id) return
     if (!window.confirm("Delete "+(formTrip.name||"this trip")+"?")) return
     removeTrip(formTrip.id)
+    if (detailTripId === formTrip.id) setDetailTripId(null)
     closeForm()
+  }
+
+  // Which trip's detail view is open — same shape as CelebrationsSection's
+  // expandedGifts (~906): a single selected id, or null when closed.
+  var s_detail = useState(null)
+  var detailTripId = s_detail[0]; var setDetailTripId = s_detail[1]
+  function openDetail(trip) { setDetailTripId(trip.id) }
+  var detailTrip = detailTripId ? (trips.find(function(t){ return t.id===detailTripId }) || null) : null
+
+  // Transportation/lodging are arrays, not single objects — a connecting
+  // flight or a two-stay trip isn't an edge case for a real family trip.
+  // Same add/update/remove pattern as ffPrograms/hotelPrograms (Step 1):
+  // Object.assign merge on update, filter-by-id on remove.
+  function addTransportation() {
+    if (!detailTrip) return
+    var list = detailTrip.transportation || []
+    updateTrip(detailTrip.id, { transportation: [...list, { id:Date.now().toString(), type:"", carrier:"", confirmationNumber:"", departure:"", arrival:"" }] })
+  }
+  function updateTransportation(id, changes) {
+    if (!detailTrip) return
+    var list = detailTrip.transportation || []
+    updateTrip(detailTrip.id, { transportation: list.map(function(t){ return t.id===id ? Object.assign({},t,changes) : t }) })
+  }
+  function removeTransportation(id) {
+    if (!detailTrip) return
+    var list = detailTrip.transportation || []
+    updateTrip(detailTrip.id, { transportation: list.filter(function(t){ return t.id!==id }) })
+  }
+
+  function addLodging() {
+    if (!detailTrip) return
+    var list = detailTrip.lodging || []
+    updateTrip(detailTrip.id, { lodging: [...list, { id:Date.now().toString(), name:"", address:"", confirmationNumber:"", checkIn:"", checkOut:"" }] })
+  }
+  function updateLodging(id, changes) {
+    if (!detailTrip) return
+    var list = detailTrip.lodging || []
+    updateTrip(detailTrip.id, { lodging: list.map(function(l){ return l.id===id ? Object.assign({},l,changes) : l }) })
+  }
+  function removeLodging(id) {
+    if (!detailTrip) return
+    var list = detailTrip.lodging || []
+    updateTrip(detailTrip.id, { lodging: list.filter(function(l){ return l.id!==id }) })
   }
 
   return (
     <div>
-      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Trips</div>
-      <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
+      {detailTrip ? (
+        <div>
+          {/* Same "← Anchor Home" back-link style as AnchorVault's own top-level nav (~7384) */}
+          <button onClick={function(){ setDetailTripId(null) }} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
 
-      {trips.length === 0 ? (
-        // Richer empty state, matching HomeSystemsSection's tone (~5683): icon +
-        // heading + one-line subtitle, not just the terser "No X added yet." used
-        // by TravelProfileSection's smaller inline lists (ffPrograms/luggage/etc).
-        <div style={{ textAlign:"center", padding:"40px 20px", color:muted, fontSize:13, fontFamily:"DM Sans,sans-serif" }}>
-          <div style={{ fontSize:32, marginBottom:10 }}>🧳</div>
-          <div>No trips planned yet.</div>
-          <div style={{ marginTop:4, fontSize:12, marginBottom:16 }}>Plan flights, road trips, and everything in between.</div>
-          <button onClick={openAdd} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 16px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>+ Add a trip</button>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:24 }}>{detailTrip.icon || "🧳"}</span>
+              <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:20, fontWeight:700, color:warm }}>{detailTrip.name || "Untitled trip"}</div>
+            </div>
+            <button onClick={function(){ openEdit(detailTrip) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"6px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>Edit trip info</button>
+          </div>
+          <div style={{ marginBottom:18 }}><TripCountdownBadge trip={detailTrip} /></div>
+
+          <TripCard icon="📋" title="Overview" accent={sand} defaultOpen={true}>
+            <div style={{ display:"flex", flexDirection:"column", gap:10, paddingTop:10 }}>
+              <div>
+                <label style={labelStyle}>Trip name</label>
+                <input value={detailTrip.name||""} onChange={function(e){ updateTrip(detailTrip.id,{name:e.target.value}) }} style={inputStyle}/>
+              </div>
+              <div>
+                <label style={labelStyle}>Destination</label>
+                <input value={detailTrip.destination||""} onChange={function(e){ updateTrip(detailTrip.id,{destination:e.target.value}) }} style={inputStyle}/>
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <div style={{ flex:1 }}>
+                  <label style={labelStyle}>Start date</label>
+                  <input type="date" value={detailTrip.startDate||""} onChange={function(e){ updateTrip(detailTrip.id,{startDate:e.target.value}) }} style={inputStyle}/>
+                </div>
+                <div style={{ flex:1 }}>
+                  <label style={labelStyle}>End date</label>
+                  <input type="date" value={detailTrip.endDate||""} onChange={function(e){ updateTrip(detailTrip.id,{endDate:e.target.value}) }} style={inputStyle}/>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Status</label>
+                <select value={detailTrip.status||TRIP_STATUSES[0]} onChange={function(e){ updateTrip(detailTrip.id,{status:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none"})}>
+                  {TRIP_STATUSES.map(function(s){ return <option key={s} value={s} style={{background:navy}}>{s}</option> })}
+                </select>
+              </div>
+            </div>
+          </TripCard>
+
+          <TripCard icon="✈️" title="Transportation" accent="#7aa8c8" defaultOpen={false}>
+            <div style={{ paddingTop:10 }}>
+              <button onClick={addTransportation} style={{ background:"rgba(122,168,200,0.12)", border:"1px solid rgba(122,168,200,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7aa8c8", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10 }}>+ Add transportation</button>
+              {(detailTrip.transportation||[]).length === 0 && (
+                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No transportation added yet.</div>
+              )}
+              {(detailTrip.transportation||[]).map(function(tr) {
+                return (
+                  <div key={tr.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      <div style={{ display:"flex", gap:8 }}>
+                        <div style={{ flex:1 }}>
+                          <label style={labelStyle}>Type</label>
+                          <select value={tr.type||""} onChange={function(e){ updateTransportation(tr.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:tr.type?warm:"rgba(250,248,244,0.3)"})}>
+                            <option value="" style={{background:navy}}>Select type…</option>
+                            {TRANSPORT_TYPES.map(function(t){ return <option key={t} value={t} style={{background:navy}}>{t}</option> })}
+                          </select>
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <label style={labelStyle}>Carrier</label>
+                          <input value={tr.carrier||""} onChange={function(e){ updateTransportation(tr.id,{carrier:e.target.value}) }} placeholder="e.g. United Airlines" style={inputStyle}/>
+                        </div>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Confirmation number</label>
+                        <input value={tr.confirmationNumber||""} onChange={function(e){ updateTransportation(tr.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
+                      </div>
+                      <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                        <div style={{ flex:1 }}>
+                          <label style={labelStyle}>Departure</label>
+                          <input value={tr.departure||""} onChange={function(e){ updateTransportation(tr.id,{departure:e.target.value}) }} placeholder="e.g. Aug 10, 6:45 AM" style={inputStyle}/>
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <label style={labelStyle}>Arrival</label>
+                          <input value={tr.arrival||""} onChange={function(e){ updateTransportation(tr.id,{arrival:e.target.value}) }} placeholder="e.g. Aug 10, 9:20 AM" style={inputStyle}/>
+                        </div>
+                        <button onClick={function(){removeTransportation(tr.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </TripCard>
+
+          <TripCard icon="🏨" title="Lodging" accent="#7a9e8e" defaultOpen={false}>
+            <div style={{ paddingTop:10 }}>
+              <button onClick={addLodging} style={{ background:"rgba(122,158,142,0.12)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10 }}>+ Add lodging</button>
+              {(detailTrip.lodging||[]).length === 0 && (
+                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No lodging added yet.</div>
+              )}
+              {(detailTrip.lodging||[]).map(function(lg) {
+                return (
+                  <div key={lg.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      <div>
+                        <label style={labelStyle}>Name</label>
+                        <input value={lg.name||""} onChange={function(e){ updateLodging(lg.id,{name:e.target.value}) }} placeholder="e.g. Beachside Resort" style={inputStyle}/>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Address</label>
+                        <input value={lg.address||""} onChange={function(e){ updateLodging(lg.id,{address:e.target.value}) }} style={inputStyle}/>
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Confirmation number</label>
+                        <input value={lg.confirmationNumber||""} onChange={function(e){ updateLodging(lg.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
+                      </div>
+                      <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                        <div style={{ flex:1 }}>
+                          <label style={labelStyle}>Check-in</label>
+                          <input type="date" value={lg.checkIn||""} onChange={function(e){ updateLodging(lg.id,{checkIn:e.target.value}) }} style={inputStyle}/>
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <label style={labelStyle}>Check-out</label>
+                          <input type="date" value={lg.checkOut||""} onChange={function(e){ updateLodging(lg.id,{checkOut:e.target.value}) }} style={inputStyle}/>
+                        </div>
+                        <button onClick={function(){removeLodging(lg.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </TripCard>
         </div>
       ) : (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
-          {trips.map(function(trip) {
-            return (
-              <div key={trip.id} onClick={function(){ openEdit(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
-                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
-                  <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
-                  <TripCountdownBadge trip={trip} />
-                </div>
-                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:warm, lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
-                {trip.destination ? <div style={{ fontSize:12, color:muted }}>{trip.destination}</div> : null}
-                {(trip.startDate || trip.endDate) ? (
-                  <div style={{ fontSize:11, color:muted }}>
-                    {formatTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + formatTripDate(trip.endDate) : ""}
+        <div>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Trips</div>
+          <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
+
+          {trips.length === 0 ? (
+            // Richer empty state, matching HomeSystemsSection's tone (~5683): icon +
+            // heading + one-line subtitle, not just the terser "No X added yet." used
+            // by TravelProfileSection's smaller inline lists (ffPrograms/luggage/etc).
+            <div style={{ textAlign:"center", padding:"40px 20px", color:muted, fontSize:13, fontFamily:"DM Sans,sans-serif" }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>🧳</div>
+              <div>No trips planned yet.</div>
+              <div style={{ marginTop:4, fontSize:12, marginBottom:16 }}>Plan flights, road trips, and everything in between.</div>
+              <button onClick={openAdd} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 16px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>+ Add a trip</button>
+            </div>
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+              {trips.map(function(trip) {
+                return (
+                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+                      <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
+                      <TripCountdownBadge trip={trip} />
+                    </div>
+                    <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:warm, lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
+                    {trip.destination ? <div style={{ fontSize:12, color:muted }}>{trip.destination}</div> : null}
+                    {(trip.startDate || trip.endDate) ? (
+                      <div style={{ fontSize:11, color:muted }}>
+                        {formatTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + formatTripDate(trip.endDate) : ""}
+                      </div>
+                    ) : null}
+                    {trip.status ? (
+                      <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+                        <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[trip.status]||sand, display:"inline-block", flexShrink:0 }}/>
+                        <span style={{ fontSize:11, color:TRIP_STATUS_COLORS[trip.status]||sand }}>{trip.status}</span>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
-                {trip.status ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
-                    <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[trip.status]||sand, display:"inline-block", flexShrink:0 }}/>
-                    <span style={{ fontSize:11, color:TRIP_STATUS_COLORS[trip.status]||sand }}>{trip.status}</span>
-                  </div>
-                ) : null}
+                )
+              })}
+              {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
+              <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:12, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
+                <span style={{ fontSize:20, color:"rgba(250,248,244,0.18)" }}>+</span>
+                <span style={{ fontSize:11, color:"rgba(250,248,244,0.28)", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
               </div>
-            )
-          })}
-          {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
-          <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:12, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
-            <span style={{ fontSize:20, color:"rgba(250,248,244,0.18)" }}>+</span>
-            <span style={{ fontSize:11, color:"rgba(250,248,244,0.28)", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
-          </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -93,18 +93,21 @@ export const SYNC_KEYS = [
   // version }. Drives auto-launch/re-ambush logic on receive, so it gets an
   // explicit typed rule below rather than the defensive pass-through.
   "onboardingState",
-  // Trips — concrete planned/past trips (Travel redesign Step 2). Array of
-  // { id, name, destination, startDate, endDate, notes, status, icon, color,
-  //   transportation, lodging, itinerary, packing, reservations, budget,
-  //   documents, dining, activities, emergencyInfo, cardOrder }.
-  // TODO: transportation/lodging/itinerary/packing/reservations/budget/
-  // documents/dining/activities/emergencyInfo/cardOrder are unvalidated
-  // placeholders (null) until Steps 3/4 define their real per-field shape —
-  // this is not a design decision to leave them loose permanently.
+  // Trips — concrete planned/past trips (Travel redesign, UI in
+  // TripsSection/AnchorVault.jsx). Array of { id, name, destination,
+  // startDate, endDate, notes, status, icon, color, transportation, lodging,
+  // itinerary, packing, reservations, budget, documents, dining, activities,
+  // emergencyInfo, cardOrder }. transportation/lodging (Step 4a) are arrays
+  // of records, same shape class as ffPrograms/hotelPrograms.
+  // TODO: itinerary/packing/reservations/budget/documents/dining/activities/
+  // emergencyInfo/cardOrder are unvalidated placeholders (null) until later
+  // steps define their real per-field shape — not a decision to leave them
+  // loose permanently.
   // Distinct from travel_profile (documents/loyalty/preferences, an object)
   // and packing_templates (reusable per-type checklists) — this is calendar-
   // anchored trip instances. Array-guard treatment, same as celebrations/
-  // ownedProducts. No UI yet; see TripsSection in AnchorVault.jsx.
+  // ownedProducts (top-level array + null-entry guard only — sub-field
+  // shapes inside each trip are not independently validated).
   "trips"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
