@@ -98,11 +98,12 @@ export const SYNC_KEYS = [
   // startDate, endDate, notes, status, icon, color, transportation, lodging,
   // itinerary, packing, reservations, budget, documents, dining, activities,
   // emergencyInfo, cardOrder }. transportation/lodging (Step 4a) are arrays
-  // of records, same shape class as ffPrograms/hotelPrograms.
-  // TODO: itinerary/packing/reservations/budget/documents/dining/activities/
-  // emergencyInfo/cardOrder are unvalidated placeholders (null) until later
-  // steps define their real per-field shape — not a decision to leave them
-  // loose permanently.
+  // of records, same shape class as ffPrograms/hotelPrograms. packing/
+  // itinerary/activities/reservations (Step 4b) are checklist-shaped arrays
+  // ({ id, text, done }).
+  // TODO: budget/documents/dining/emergencyInfo/cardOrder are unvalidated
+  // placeholders (null) until later steps define their real per-field
+  // shape — not a decision to leave them loose permanently.
   // Distinct from travel_profile (documents/loyalty/preferences, an object)
   // and packing_templates (reusable per-type checklists) — this is calendar-
   // anchored trip instances. Array-guard treatment, same as celebrations/
