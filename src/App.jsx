@@ -9462,16 +9462,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var isOver = dragOverId === item.id && dragFromId !== item.id;
     return (
       <div data-itemid={item.id}
-        onPointerDown={function(e){ itemPointerDown(e, item); }}
         style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",
           borderBottom:"1px solid "+T.borderSoft,
           borderTop: isOver ? "2px solid "+accent : "none",
           opacity: isDragging ? 0.3 : 1,
-          cursor: "grab", userSelect:"none",
+          userSelect:"none",
           background: isOver ? accent+"0a" : "transparent",
           transition:"background 0.1s"}}>
-        {/* Drag handle */}
-        <div style={{opacity:0.2,flexShrink:0,cursor:"grab",paddingRight:2}}>
+        {/* Drag handle — the only part of the row that starts a drag */}
+        <div onPointerDown={function(e){ itemPointerDown(e, item); }}
+          style={{opacity:0.2,flexShrink:0,cursor:"grab",paddingRight:2}}>
           <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
             <circle cx="3" cy="3" r="1.2" fill={T.textSoft}/>
             <circle cx="7" cy="3" r="1.2" fill={T.textSoft}/>
@@ -9523,13 +9523,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var newItemTexts = props.newItemTexts;
     var setNewItemTexts = props.setNewItemTexts;
     var addItem = props.addItem;
+    var mid = Math.ceil(secItems.length / 2);
+    var leftItems = secItems.slice(0, mid);
+    var rightItems = secItems.slice(mid);
+    function renderItem(item) {
+      return <ItemRow key={item.id} item={item} dragFromId={props.dragFromId} dragOverId={props.dragOverId}
+        accent={accent} T={T} itemPointerDown={props.itemPointerDown} toggleItem={props.toggleItem}
+        renameItem={props.renameItem} deleteItem={props.deleteItem}/>;
+    }
     return (
       <div data-secid={sec.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:16}}>
-        {secItems.map(function(item){
-          return <ItemRow key={item.id} item={item} dragFromId={props.dragFromId} dragOverId={props.dragOverId}
-            accent={accent} T={T} itemPointerDown={props.itemPointerDown} toggleItem={props.toggleItem}
-            renameItem={props.renameItem} deleteItem={props.deleteItem}/>;
-        })}
+        {/* Column-fill (not row-fill): column 1 gets the first half, column 2 the rest */}
+        <div style={{display:"flex",flexDirection:"column"}}>{leftItems.map(renderItem)}</div>
+        <div style={{display:"flex",flexDirection:"column"}}>{rightItems.map(renderItem)}</div>
         {/* Add to section — spans both columns */}
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0 2px",gridColumn:"1 / -1"}}>
           <div style={{width:10+8+2,flexShrink:0}}/>
@@ -10085,9 +10091,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       dragItem.current.toIdx = null;
       setDragFromId(item.id);
 
-      var clone = e.currentTarget.cloneNode(true);
+      var rowEl = e.currentTarget.closest("[data-itemid]") || e.currentTarget;
+      var clone = rowEl.cloneNode(true);
       clone.setAttribute("data-drag-clone", "1");
-      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:"+e.currentTarget.offsetWidth+"px;background:"+T.surface+";border:1.5px solid "+accent+";border-radius:8px;padding:7px 12px;box-shadow:0 4px 18px rgba(0,0,0,0.15);transition:none;";
+      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:"+rowEl.offsetWidth+"px;background:"+T.surface+";border:1.5px solid "+accent+";border-radius:8px;padding:7px 12px;box-shadow:0 4px 18px rgba(0,0,0,0.15);transition:none;";
       clone.style.left = (e.clientX - 20) + "px";
       clone.style.top  = (e.clientY - 16) + "px";
       document.body.appendChild(clone);
