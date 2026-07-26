@@ -10210,21 +10210,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               return (
                 <div key={sec.id} style={{marginBottom:14}}>
                   {/* Section header — always full-width, identical in both render styles */}
-                  <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0 4px",borderTop:"1px solid "+T.borderSoft}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0 4px",borderTop:"1px solid "+T.borderSoft,borderLeft:isGrid?"4px solid "+itemAccent:"none"}}>
                     {/* Collapse toggle */}
                     <button
                       onClick={function(){ setCollapsedSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}); }); }}
                       style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0,opacity:0.5}}>
                       <Icon name={isCollapsed?"chevron-right":"chevron-down"} size={13} color={T.textSoft}/>
                     </button>
-                    {/* Editable section title */}
-                    <input
-                      value={sec.title}
-                      onChange={function(e){ renameSection(sec.id, e.target.value); }}
-                      style={{flex:1,fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:T.textMid,border:"none",background:"transparent",outline:"none",fontFamily:"inherit",padding:0,cursor:"text"}}
-                    />
-                    {/* Item count badge */}
-                    <span style={{fontSize:"0.6rem",color:T.textFaint,background:T.bgAlt,borderRadius:999,padding:"1px 6px",border:"1px solid "+T.border,flexShrink:0}}>
+                    {/* Editable section title — wrapped in a colored pill for grid2col regions only */}
+                    <div style={{flex:1,display:"flex",alignItems:"center",background:isGrid?itemAccent+"45":"transparent",borderRadius:999,padding:isGrid?"2px 10px":0}}>
+                      <input
+                        value={sec.title}
+                        onChange={function(e){ renameSection(sec.id, e.target.value); }}
+                        style={{flex:1,fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:isGrid?itemAccent:T.textMid,border:"none",background:"transparent",outline:"none",fontFamily:"inherit",padding:0,cursor:"text"}}
+                      />
+                    </div>
+                    {/* Item count badge — background/border stay neutral; only the text picks up the region tint, so it reads as a quiet nod rather than a second identical pill */}
+                    <span style={{fontSize:"0.6rem",color:isGrid?itemAccent:T.textFaint,background:T.bgAlt,borderRadius:999,padding:"1px 6px",border:"1px solid "+T.border,flexShrink:0}}>
                       {secItems.filter(function(i){return i.checked;}).length}/{secItems.length}
                     </span>
                     {/* Delete section */}
