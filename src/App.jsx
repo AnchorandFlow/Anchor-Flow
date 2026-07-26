@@ -2340,7 +2340,7 @@ const _hfComps   = {};
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
   'MealBankDrawer','WeekTypePicker','MealsTab','ShoppingTab','HomeTab','BrainTab',
-  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveTab',
+  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveTab',
   'SchoolTab','LighthouseTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
@@ -4901,7 +4901,7 @@ Respond ONLY with valid JSON array, no markdown:
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
           MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
-          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveTab,
+          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveTab,
           SchoolTab, LighthouseTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
 
@@ -9513,10 +9513,58 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── Cove grid2col section body — items in 2 columns, reuses ItemRow/toggleItem as-is ──
+  _hfRenders.CoveGridSectionBody = function CoveGridSectionBody(props) {
+    var sec = props.sec;
+    var secItems = props.secItems;
+    var accent = props.accent;
+    var T = props.T;
+    var addKey = props.addKey;
+    var newItemTexts = props.newItemTexts;
+    var setNewItemTexts = props.setNewItemTexts;
+    var addItem = props.addItem;
+    return (
+      <div data-secid={sec.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr",columnGap:16}}>
+        {secItems.map(function(item){
+          return <ItemRow key={item.id} item={item} dragFromId={props.dragFromId} dragOverId={props.dragOverId}
+            accent={accent} T={T} itemPointerDown={props.itemPointerDown} toggleItem={props.toggleItem}
+            renameItem={props.renameItem} deleteItem={props.deleteItem}/>;
+        })}
+        {/* Add to section — spans both columns */}
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0 2px",gridColumn:"1 / -1"}}>
+          <div style={{width:10+8+2,flexShrink:0}}/>
+          <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
+          <input
+            value={newItemTexts[addKey]||""}
+            onChange={function(e){ setNewItemTexts(function(p){ return Object.assign({},p,{[addKey]:e.target.value}); }); }}
+            onKeyDown={function(e){ if(e.key==="Enter") addItem(sec.id); }}
+            placeholder={"Add to "+sec.title+"…"}
+            style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
+          />
+          {(newItemTexts[addKey]||"").trim() && (
+            <button
+              onClick={function(){ addItem(sec.id); }}
+              onPointerDown={function(e){ e.stopPropagation(); }}
+              style={{background:accent,color:"#fff",border:"none",borderRadius:6,padding:"2px 10px",fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,flexShrink:0,lineHeight:"1.6"}}>
+              +
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── Cove — organized lists, ideas, plans & keeps ────────────────────────────
   _hfRenders.CoveTab = function CoveTab() {
     const COVE_ACCENT_COLORS = [
       "#3a6b8a","#c8a97a","#5DCAA5","#AFA9EC","#D4537E","#EF9F27","#888780","#1a2744"
+    ];
+
+    // Region-header colors for the states-parks grid2col template only.
+    // Kept separate from COVE_ACCENT_COLORS (which users assign to their own
+    // custom lists) so this palette can't bleed into or shift other templates.
+    const STATES_PARKS_COLORS = [
+      "#843E33","#768B41","#4B7B32","#4A965C","#3A8886","#50327B","#824899","#883084","#A64E87"
     ];
 
     const COVE_TEMPLATES = {
@@ -9629,6 +9677,71 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       "house-projects":{title:"House projects",category:"home",list_type:"checklist",icon:"tool",color_accent:"#888780",show_progress:false,sections:[]},
       "books-to-read":{title:"Books to read",category:"personal",list_type:"freeform",icon:"book",color_accent:"#D4537E",show_progress:false,sections:[]},
       "goals":{title:"Goals",category:"personal",list_type:"checklist",icon:"target",color_accent:"#EF9F27",show_progress:true,sections:[]},
+      "states-parks":{
+        title:"50 States & National Parks",category:"family",list_type:"checklist",
+        icon:"flag",color_accent:"#1a2744",show_progress:true,render_style:"grid2col",
+        sections:[
+          {title:"States",items:[
+            {content:"Alabama",tags:[]},{content:"Alaska",tags:[]},{content:"Arizona",tags:[]},
+            {content:"Arkansas",tags:[]},{content:"California",tags:[]},{content:"Colorado",tags:[]},
+            {content:"Connecticut",tags:[]},{content:"Delaware",tags:[]},{content:"Florida",tags:[]},
+            {content:"Georgia",tags:[]},{content:"Hawaii",tags:[]},{content:"Idaho",tags:[]},
+            {content:"Illinois",tags:[]},{content:"Indiana",tags:[]},{content:"Iowa",tags:[]},
+            {content:"Kansas",tags:[]},{content:"Kentucky",tags:[]},{content:"Louisiana",tags:[]},
+            {content:"Maine",tags:[]},{content:"Maryland",tags:[]},{content:"Massachusetts",tags:[]},
+            {content:"Michigan",tags:[]},{content:"Minnesota",tags:[]},{content:"Mississippi",tags:[]},
+            {content:"Missouri",tags:[]},{content:"Montana",tags:[]},{content:"Nebraska",tags:[]},
+            {content:"Nevada",tags:[]},{content:"New Hampshire",tags:[]},{content:"New Jersey",tags:[]},
+            {content:"New Mexico",tags:[]},{content:"New York",tags:[]},{content:"North Carolina",tags:[]},
+            {content:"North Dakota",tags:[]},{content:"Ohio",tags:[]},{content:"Oklahoma",tags:[]},
+            {content:"Oregon",tags:[]},{content:"Pennsylvania",tags:[]},{content:"Rhode Island",tags:[]},
+            {content:"South Carolina",tags:[]},{content:"South Dakota",tags:[]},{content:"Tennessee",tags:[]},
+            {content:"Texas",tags:[]},{content:"Utah",tags:[]},{content:"Vermont",tags:[]},
+            {content:"Virginia",tags:[]},{content:"Washington",tags:[]},{content:"West Virginia",tags:[]},
+            {content:"Wisconsin",tags:[]},{content:"Wyoming",tags:[]},
+          ]},
+          {title:"National Parks — Alaska",items:[
+            {content:"Denali",tags:[]},{content:"Gates of the Arctic",tags:[]},{content:"Glacier Bay",tags:[]},
+            {content:"Katmai",tags:[]},{content:"Kenai Fjords",tags:[]},{content:"Kobuk Valley",tags:[]},
+            {content:"Lake Clark",tags:[]},{content:"Wrangell–St. Elias",tags:[]},
+          ]},
+          {title:"National Parks — California",items:[
+            {content:"Channel Islands",tags:[]},{content:"Death Valley",tags:[]},{content:"Joshua Tree",tags:[]},
+            {content:"Kings Canyon",tags:[]},{content:"Lassen Volcanic",tags:[]},{content:"Pinnacles",tags:[]},
+            {content:"Redwood",tags:[]},{content:"Sequoia",tags:[]},{content:"Yosemite",tags:[]},
+          ]},
+          {title:"National Parks — Pacific Northwest & Hawaii",items:[
+            {content:"Crater Lake",tags:[]},{content:"Mount Rainier",tags:[]},{content:"North Cascades",tags:[]},
+            {content:"Olympic",tags:[]},{content:"Haleakalā",tags:[]},{content:"Hawaiʻi Volcanoes",tags:[]},
+          ]},
+          {title:"National Parks — Southwest",items:[
+            {content:"Grand Canyon",tags:[]},{content:"Petrified Forest",tags:[]},{content:"Saguaro",tags:[]},
+            {content:"Carlsbad Caverns",tags:[]},{content:"White Sands",tags:[]},{content:"Big Bend",tags:[]},
+            {content:"Guadalupe Mountains",tags:[]},{content:"Great Basin",tags:[]},
+          ]},
+          {title:"National Parks — Rocky Mountains",items:[
+            {content:"Black Canyon of the Gunnison",tags:[]},{content:"Great Sand Dunes",tags:[]},
+            {content:"Mesa Verde",tags:[]},{content:"Rocky Mountain",tags:[]},{content:"Arches",tags:[]},
+            {content:"Bryce Canyon",tags:[]},{content:"Canyonlands",tags:[]},{content:"Capitol Reef",tags:[]},
+            {content:"Zion",tags:[]},{content:"Grand Teton",tags:[]},{content:"Yellowstone",tags:[]},
+            {content:"Glacier",tags:[]},
+          ]},
+          {title:"National Parks — Midwest & Great Plains",items:[
+            {content:"Voyageurs",tags:[]},{content:"Isle Royale",tags:[]},{content:"Indiana Dunes",tags:[]},
+            {content:"Cuyahoga Valley",tags:[]},{content:"Theodore Roosevelt",tags:[]},{content:"Badlands",tags:[]},
+            {content:"Wind Cave",tags:[]},{content:"Gateway Arch",tags:[]},
+          ]},
+          {title:"National Parks — South & East",items:[
+            {content:"Hot Springs",tags:[]},{content:"Mammoth Cave",tags:[]},{content:"Great Smoky Mountains",tags:[]},
+            {content:"Congaree",tags:[]},{content:"Shenandoah",tags:[]},{content:"New River Gorge",tags:[]},
+            {content:"Biscayne",tags:[]},{content:"Dry Tortugas",tags:[]},{content:"Everglades",tags:[]},
+            {content:"Acadia",tags:[]},
+          ]},
+          {title:"National Parks — Territories",items:[
+            {content:"National Park of American Samoa",tags:[]},{content:"Virgin Islands",tags:[]},
+          ]},
+        ],
+      },
     };
 
     const TEMPLATE_GALLERY = [
@@ -9638,6 +9751,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {id:"house-projects",label:"House projects",icon:"tool",desc:"Track home to-dos with due dates",category:"home"},
       {id:"books-to-read",label:"Books to read",icon:"book",desc:"Your personal reading list",category:"personal"},
       {id:"goals",label:"Goals",icon:"target",desc:"Progress-tracked personal goals",category:"personal"},
+      {id:"states-parks",label:"50 States & National Parks",icon:"flag",desc:"Track every state and all 63 National Parks",category:"family"},
     ];
 
     const CAT_LABELS = {all:"All",family:"Family",home:"Home",personal:"Personal"};
@@ -9885,6 +9999,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         id: listId, title: tmpl.title, category: tmpl.category,
         list_type: tmpl.list_type, icon: tmpl.icon,
         color_accent: tmpl.color_accent, show_progress: tmpl.show_progress,
+        render_style: tmpl.render_style || null,
         template_id: templateId, created_at: Date.now(),
       };
       var sections = [];
@@ -10086,13 +10201,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
             {/* Sections */}
             {activeSections.length > 0 && <div style={{height:8}}/>}
-            {activeSections.map(function(sec) {
+            {activeSections.map(function(sec, si) {
               var secItems = activeItems.filter(function(i){ return i.section_id === sec.id; });
               var isCollapsed = collapsedSections[sec.id];
               var addKey = sec.id;
+              var isGrid = activeList.render_style === "grid2col";
+              var itemAccent = isGrid ? STATES_PARKS_COLORS[si % STATES_PARKS_COLORS.length] : accent;
               return (
                 <div key={sec.id} style={{marginBottom:14}}>
-                  {/* Section header */}
+                  {/* Section header — always full-width, identical in both render styles */}
                   <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0 4px",borderTop:"1px solid "+T.borderSoft}}>
                     {/* Collapse toggle */}
                     <button
@@ -10117,6 +10234,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
                   {/* Section items — collapsible, draggable */}
                   {!isCollapsed && (
+                    isGrid ? (
+                      <CoveGridSectionBody sec={sec} secItems={secItems} accent={itemAccent} T={T}
+                        dragFromId={dragFromId} dragOverId={dragOverId} itemPointerDown={itemPointerDown}
+                        toggleItem={toggleItem} renameItem={renameItem} deleteItem={deleteItem}
+                        addKey={addKey} newItemTexts={newItemTexts} setNewItemTexts={setNewItemTexts} addItem={addItem}/>
+                    ) : (
                     <div data-secid={sec.id}>
                       {secItems.map(function(item){ return <ItemRow key={item.id} item={item} dragFromId={dragFromId} dragOverId={dragOverId} accent={accent} T={T} itemPointerDown={itemPointerDown} toggleItem={toggleItem} renameItem={renameItem} deleteItem={deleteItem}/>; })}
                       {/* Add to section */}
@@ -10140,6 +10263,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         )}
                       </div>
                     </div>
+                    )
                   )}
                 </div>
               );
