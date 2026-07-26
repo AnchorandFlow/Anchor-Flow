@@ -1691,12 +1691,27 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
             <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
           </div>
         </div>
-        {/* ZIP code + home vibe */}
+        {/* Household name + ZIP code + home vibe + trash day */}
+        <FRow label="Household name" sub="What Compass calls your family">
+          <input defaultValue={(familyProfile&&familyProfile.householdName)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{householdName:e.target.value});});}} placeholder="e.g. The Harper Crew" style={{...inp({width:160,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+        </FRow>
         <FRow label="ZIP code" sub="For local weather and notification timing">
           <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
         </FRow>
         <FRow label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
           <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+        </FRow>
+        <FRow label="Trash day" sub="Which day trash/recycling goes out">
+          <select value={(familyProfile&&familyProfile.trashDay)||""} onChange={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{trashDay:e.target.value});});}} style={{...inp({width:130,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}>
+            <option value="">Not set</option>
+            <option value="sun">Sunday</option>
+            <option value="mon">Monday</option>
+            <option value="tue">Tuesday</option>
+            <option value="wed">Wednesday</option>
+            <option value="thu">Thursday</option>
+            <option value="fri">Friday</option>
+            <option value="sat">Saturday</option>
+          </select>
         </FRow>
       </div>
     </Section>
@@ -4089,8 +4104,11 @@ function createLocalBackup() {
   // stores/mode always overwrite in both modes (re-run is meant to update those on
   // purpose); the TODO(OB-0) fields stay untouched in both modes.
   function handleOnboardingComplete(payload, mergeMode) {
-    // TODO(OB-0): payload.householdName has no destination yet — no householdName
-    // field exists anywhere in App.jsx state.
+    if (payload.householdName) {
+      setFamilyProfile(function(prev) {
+        return Object.assign({}, prev || {}, {householdName: payload.householdName});
+      });
+    }
     if (payload.people && payload.people.length > 0) {
       if (mergeMode) {
         setPeople(function(prev) {
@@ -4139,8 +4157,11 @@ function createLocalBackup() {
       if (payload.areaSettings.stores && payload.areaSettings.stores.length > 0) {
         setStores(payload.areaSettings.stores);
       }
-      // TODO(OB-0): payload.areaSettings.trashDay has no destination yet — no
-      // trashDay field exists anywhere in App.jsx state.
+      if (payload.areaSettings.trashDay) {
+        setFamilyProfile(function(prev) {
+          return Object.assign({}, prev || {}, {trashDay: payload.areaSettings.trashDay});
+        });
+      }
     }
     // TODO(OB-0): payload.exhaleCards has no destination yet — insertion lives in
     // ExhaleSection.jsx's Realtime path (supabase.from("exhale_cards").insert), not
