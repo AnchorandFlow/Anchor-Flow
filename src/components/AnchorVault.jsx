@@ -3457,6 +3457,27 @@ function TripCard(props) {
   )
 }
 
+// ── Tappable grid tile — Level 2→3 nav ──────────────────────────────────────
+// Same visual language as TripCard (icon badge, title, preview line) but no
+// chevron/collapse-in-place: the whole tile is a single tap target that
+// navigates to that card's full-page detail view (setActiveTripCard) instead
+// of expanding inline. Used only by cards with a built full-page view so far
+// (packing, itinerary) — other CARD_RENDERERS entries still return a plain
+// TripCard, untouched, until their own turn.
+function TripCardTile(props) {
+  var accent = props.accent || "#c8a97a"
+  return (
+    <div onClick={props.onClick} style={{ background:"rgba(250,242,229,0.04)", border:"1px solid "+accent+"33", borderRadius:12, marginBottom:12, overflow:"hidden", padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+      <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
+        {props.preview && <div style={{ fontSize:11, color:"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
+      </div>
+      <span style={{ fontSize:16, color:"rgba(250,248,244,0.25)", flexShrink:0 }}>›</span>
+    </div>
+  )
+}
+
 var TRIP_STATUSES = ["Planning","Booked","Upcoming","In Progress","Completed","Cancelled"]
 // Same shape as CareerSection's STATUS_COLORS (~3680 as of Step 2's commit):
 // a plain object mapping a status string to an rgba color, reusing the same
@@ -3695,6 +3716,24 @@ function TripsSection() {
   function openDetail(trip) { setDetailTripId(trip.id) }
   var detailTrip = detailTripId ? (trips.find(function(t){ return t.id===detailTripId }) || null) : null
 
+  // Level 3 nav: null = card grid, string (a CARD_META id) = that card's
+  // full-page detail view. Only "packing"/"itinerary" have a real full-page
+  // view built so far — other card ids aren't reachable via activeTripCard
+  // yet (their grid tiles still use the old TripCard collapse-in-place
+  // behavior, untouched, until their turn).
+  var s_activeCard = useState(null)
+  var activeTripCard = s_activeCard[0]; var setActiveTripCard = s_activeCard[1]
+  // Per-section/day collapse state for the two full-page views, and draft
+  // inputs for adding items/sections — all local UI state, nothing persisted.
+  var s_collapsedPackSecs = useState({})
+  var collapsedPackingSections = s_collapsedPackSecs[0]; var setCollapsedPackingSections = s_collapsedPackSecs[1]
+  var s_packDrafts = useState({})
+  var packItemDrafts = s_packDrafts[0]; var setPackItemDrafts = s_packDrafts[1]
+  var s_newPackSec = useState("")
+  var newPackingSectionTitle = s_newPackSec[0]; var setNewPackingSectionTitle = s_newPackSec[1]
+  var s_collapsedItinDays = useState({})
+  var collapsedItineraryDays = s_collapsedItinDays[0]; var setCollapsedItineraryDays = s_collapsedItinDays[1]
+
   // Transportation/lodging are arrays, not single objects — a connecting
   // flight or a two-stay trip isn't an edge case for a real family trip.
   // Same add/update/remove pattern as ffPrograms/hotelPrograms (Step 1):
@@ -3731,29 +3770,56 @@ function TripsSection() {
     updateTrip(detailTrip.id, { lodging: list.filter(function(l){ return l.id!==id }) })
   }
 
-  // Packing/Itinerary/Activities/Reservations are all checklist-shaped:
-  // { id, text, done }, add/remove/toggle. Copied as a pattern from
-  // HouseFileSection's addChecklistItem/removeChecklistItem/toggleItem
-  // (~5724-5733 in this file, Home Systems → House File tab) — that
-  // component isn't Exhale, and its functions aren't exported/importable,
-  // so this is a fresh implementation matching the same {id,text,done}
-  // shape and add/remove/toggle operation set, not a shared function.
-  var s_newPacking = useState(""); var newPackingText = s_newPacking[0]; var setNewPackingText = s_newPacking[1]
-  function addPackingItem() {
-    if (!detailTrip || !newPackingText.trim()) return
-    var list = detailTrip.packing || []
-    updateTrip(detailTrip.id, { packing: [...list, { id:Date.now().toString(), text:newPackingText.trim(), done:false }] })
-    setNewPackingText("")
+  // ── Packing — sectioned shape, full-page detail view (Level 3 nav) ────────
+  // detailTrip.packing was a flat {id,text,done} checklist (Step 4b) with no
+  // section concept. New shape: [{id,title,items:[{id,text,done}]}], items
+  // nested directly inside their section rather than cross-referenced by id
+  // in a second parallel array — deliberately avoiding the class of bug that
+  // hit Cove's cove_sections_v1/cove_items_v1 split (a dangling section_id
+  // reference after any partial data loss). normalizePackingSections
+  // tolerates either shape on read, so a trip with old flat items still
+  // displays correctly (folded into one section) without a separate
+  // migration step or effect — it only ever gets written in the new shape,
+  // the first time any mutator below runs.
+  function normalizePackingSections(raw) {
+    var list = Array.isArray(raw) ? raw : []
+    if (list.length > 0 && list[0] && list[0].items === undefined && list[0].text !== undefined) {
+      return [{ id:"legacy", title:"Packing List", items: list.map(function(it){ return { id:it.id, text:it.text, done:!!it.done } }) }]
+    }
+    return list.map(function(sec){
+      return { id:sec.id, title: sec.title || "Untitled", items:(sec.items||[]).map(function(it){ return { id:it.id, text:it.text, done:!!it.done } }) }
+    })
   }
-  function togglePackingItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.packing || []
-    updateTrip(detailTrip.id, { packing: list.map(function(it){ return it.id===id ? Object.assign({},it,{done:!it.done}) : it }) })
+  function packingSections() { return normalizePackingSections(detailTrip && detailTrip.packing) }
+  function savePackingSections(sections) { if (!detailTrip) return; updateTrip(detailTrip.id, { packing: sections }) }
+  function addPackingSection(title) {
+    savePackingSections([...packingSections(), { id:Date.now().toString(), title: (title||"").trim()||"New section", items:[] }])
   }
-  function removePackingItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.packing || []
-    updateTrip(detailTrip.id, { packing: list.filter(function(it){ return it.id!==id }) })
+  function renamePackingSection(secId, title) {
+    savePackingSections(packingSections().map(function(s){ return s.id===secId ? Object.assign({},s,{title:title}) : s }))
+  }
+  function deletePackingSection(secId) {
+    if (!window.confirm("Delete this section and all its items?")) return
+    savePackingSections(packingSections().filter(function(s){ return s.id!==secId }))
+  }
+  function addPackingItemToSection(secId, text) {
+    if (!text || !text.trim()) return
+    savePackingSections(packingSections().map(function(s){
+      if (s.id!==secId) return s
+      return Object.assign({}, s, { items:[...s.items, { id:Date.now().toString(), text:text.trim(), done:false }] })
+    }))
+  }
+  function togglePackingItem(secId, itemId) {
+    savePackingSections(packingSections().map(function(s){
+      if (s.id!==secId) return s
+      return Object.assign({}, s, { items: s.items.map(function(it){ return it.id===itemId ? Object.assign({},it,{done:!it.done}) : it }) })
+    }))
+  }
+  function removePackingItem(secId, itemId) {
+    savePackingSections(packingSections().map(function(s){
+      if (s.id!==secId) return s
+      return Object.assign({}, s, { items: s.items.filter(function(it){ return it.id!==itemId }) })
+    }))
   }
   // Reads profile.alwaysBring directly from af_travel_profile — TripsSection
   // has no other connection to TravelProfileSection's state, same cross-
@@ -3772,28 +3838,96 @@ function TripsSection() {
     if (!detailTrip) return
     var items = readAlwaysBring()
     if (!items.length) return
-    var existing = detailTrip.packing || []
+    var sections = packingSections()
     var copied = items.map(function(text, idx){ return { id: Date.now().toString()+"_"+idx, text: text, done:false } })
-    updateTrip(detailTrip.id, { packing: [...existing, ...copied] })
+    if (sections.length === 0) {
+      savePackingSections([{ id:Date.now().toString(), title:"Packing List", items: copied }])
+    } else {
+      savePackingSections(sections.map(function(s, i){ return i===0 ? Object.assign({},s,{items:[...s.items,...copied]}) : s }))
+    }
   }
 
-  var s_newItinerary = useState(""); var newItineraryText = s_newItinerary[0]; var setNewItineraryText = s_newItinerary[1]
-  function addItineraryItem() {
-    if (!detailTrip || !newItineraryText.trim()) return
-    var list = detailTrip.itinerary || []
-    updateTrip(detailTrip.id, { itinerary: [...list, { id:Date.now().toString(), text:newItineraryText.trim(), done:false }] })
-    setNewItineraryText("")
+  // ── Itinerary — day-by-day shape, full-page detail view (Level 3 nav) ────
+  // Same migration approach as packing: detailTrip.itinerary was a flat
+  // {id,text,done} checklist; new shape is [{id,label,date,activities:
+  // [{id,title,notes,time}]}], activities nested directly inside their day.
+  function normalizeItineraryDays(raw) {
+    var list = Array.isArray(raw) ? raw : []
+    if (list.length > 0 && list[0] && list[0].activities === undefined && list[0].text !== undefined) {
+      return [{ id:"legacy", label:"Day 1", date:null, activities: list.map(function(it){ return { id:it.id, title:it.text, notes:"", time:"" } }) }]
+    }
+    return list.map(function(d){
+      return { id:d.id, label: d.label || "Day", date: d.date || null, activities:(d.activities||[]).map(function(a){ return { id:a.id, title:a.title||"", notes:a.notes||"", time:a.time||"" } }) }
+    })
   }
-  function toggleItineraryItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.itinerary || []
-    updateTrip(detailTrip.id, { itinerary: list.map(function(it){ return it.id===id ? Object.assign({},it,{done:!it.done}) : it }) })
+  function itineraryDays() { return normalizeItineraryDays(detailTrip && detailTrip.itinerary) }
+  function saveItineraryDays(days) { if (!detailTrip) return; updateTrip(detailTrip.id, { itinerary: days }) }
+  // Auto-generation: one day per calendar day if both dates exist; 3 default
+  // days from startDate alone if only that exists; empty (caller shows
+  // "Add a day" only) if neither exists. Returns [] rather than writing
+  // anything when there's nothing to generate from.
+  function autoGenerateItineraryDays() {
+    if (!detailTrip) return []
+    var days = []
+    if (detailTrip.startDate && detailTrip.endDate) {
+      var start = new Date(detailTrip.startDate+"T00:00:00")
+      var end = new Date(detailTrip.endDate+"T00:00:00")
+      var cur = new Date(start)
+      var dayNum = 1
+      while (cur <= end && dayNum <= 60) { // sanity cap — a trip isn't 2 months of daily itinerary rows
+        var iso = cur.toISOString().slice(0,10)
+        days.push({ id:Date.now().toString()+"_"+dayNum, label:"Day "+dayNum+" — "+formatTripDate(iso), date: iso, activities:[] })
+        cur.setDate(cur.getDate()+1)
+        dayNum++
+      }
+    } else if (detailTrip.startDate) {
+      var start2 = new Date(detailTrip.startDate+"T00:00:00")
+      for (var i=0; i<3; i++) {
+        var d = new Date(start2); d.setDate(d.getDate()+i)
+        var iso2 = d.toISOString().slice(0,10)
+        days.push({ id:Date.now().toString()+"_"+i, label:"Day "+(i+1)+" — "+formatTripDate(iso2), date: iso2, activities:[] })
+      }
+    }
+    return days
   }
-  function removeItineraryItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.itinerary || []
-    updateTrip(detailTrip.id, { itinerary: list.filter(function(it){ return it.id!==id }) })
+  function addItineraryDay() {
+    saveItineraryDays([...itineraryDays(), { id:Date.now().toString(), label:"New day", date:null, activities:[] }])
   }
+  function renameItineraryDay(dayId, label) {
+    saveItineraryDays(itineraryDays().map(function(d){ return d.id===dayId ? Object.assign({},d,{label:label}) : d }))
+  }
+  function deleteItineraryDay(dayId) {
+    if (!window.confirm("Delete this day and its activities?")) return
+    saveItineraryDays(itineraryDays().filter(function(d){ return d.id!==dayId }))
+  }
+  function addItineraryActivity(dayId) {
+    saveItineraryDays(itineraryDays().map(function(d){
+      if (d.id!==dayId) return d
+      return Object.assign({}, d, { activities:[...d.activities, { id:Date.now().toString(), title:"", notes:"", time:"" }] })
+    }))
+  }
+  function updateItineraryActivity(dayId, actId, changes) {
+    saveItineraryDays(itineraryDays().map(function(d){
+      if (d.id!==dayId) return d
+      return Object.assign({}, d, { activities: d.activities.map(function(a){ return a.id===actId ? Object.assign({},a,changes) : a }) })
+    }))
+  }
+  function removeItineraryActivity(dayId, actId) {
+    saveItineraryDays(itineraryDays().map(function(d){
+      if (d.id!==dayId) return d
+      return Object.assign({}, d, { activities: d.activities.filter(function(a){ return a.id!==actId }) })
+    }))
+  }
+  // Generate-once-on-open: fires when the itinerary full-page view becomes
+  // active and no days exist yet. Writes nothing if autoGenerateItineraryDays
+  // returns [] (neither date set) — the empty state then shows "Add a day" only.
+  useEffect(function(){
+    if (activeTripCard !== "itinerary" || !detailTrip) return
+    if (itineraryDays().length > 0) return
+    var generated = autoGenerateItineraryDays()
+    if (generated.length > 0) updateTrip(detailTrip.id, { itinerary: generated })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTripCard, detailTrip && detailTrip.id])
 
   var s_newActivity = useState(""); var newActivityText = s_newActivity[0]; var setNewActivityText = s_newActivity[1]
   function addActivityItem() {
@@ -4070,70 +4204,19 @@ function TripsSection() {
       )
     },
     packing: function(){
-      var packList = detailTrip.packing||[]
-      var packPreview = packList.length===0 ? "No packing items added yet." : packList.filter(function(i){return i.done}).length+"/"+packList.length+" done"
+      var sections = normalizePackingSections(detailTrip.packing)
+      var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
+      var packPreview = allItems.length===0 ? "No packing items added yet." : allItems.filter(function(i){return i.done}).length+"/"+allItems.length+" packed"
       return (
-        <TripCard key="packing" icon={CARD_META.packing.icon} title={CARD_META.packing.title} accent={CARD_META.packing.accent} defaultOpen={false} preview={packPreview}>
-          <div style={{ paddingTop:10 }}>
-            {(detailTrip.packing||[]).length === 0 && readAlwaysBring().length > 0 && (
-              <button onClick={copyAlwaysBring} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10, display:"block" }}>📋 Copy from Always Bring ({readAlwaysBring().length})</button>
-            )}
-            {(detailTrip.packing||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No packing items added yet.</div>
-            )}
-            {(detailTrip.packing||[]).length > 0 && (
-              <div style={{ marginBottom:10 }}>
-                {(detailTrip.packing||[]).map(function(item) {
-                  return (
-                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function(){ togglePackingItem(item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(250,242,229,0.2)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                        {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                      </div>
-                      <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                      <button onClick={function(){ removePackingItem(item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={newPackingText} onChange={function(e){ setNewPackingText(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter") addPackingItem() }} placeholder="Add an item…" style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={addPackingItem} style={{ background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"0 14px", color:"#a07ab5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
-            </div>
-          </div>
-        </TripCard>
+        <TripCardTile key="packing" icon={CARD_META.packing.icon} title={CARD_META.packing.title} accent={CARD_META.packing.accent} preview={packPreview} onClick={function(){ setActiveTripCard("packing") }}/>
       )
     },
     itinerary: function(){
-      var itinList = detailTrip.itinerary||[]
-      var itinPreview = itinList.length===0 ? "No itinerary items added yet." : itinList.filter(function(i){return i.done}).length+"/"+itinList.length+" done"
+      var days = normalizeItineraryDays(detailTrip.itinerary)
+      var allActs = days.reduce(function(acc,d){ return acc.concat(d.activities) }, [])
+      var itinPreview = days.length===0 ? "No itinerary yet." : days.length+" day"+(days.length===1?"":"s")+" · "+allActs.length+" activit"+(allActs.length===1?"y":"ies")
       return (
-        <TripCard key="itinerary" icon={CARD_META.itinerary.icon} title={CARD_META.itinerary.title} accent={CARD_META.itinerary.accent} defaultOpen={false} preview={itinPreview}>
-          <div style={{ paddingTop:10 }}>
-            {(detailTrip.itinerary||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No itinerary items added yet.</div>
-            )}
-            {(detailTrip.itinerary||[]).length > 0 && (
-              <div style={{ marginBottom:10 }}>
-                {(detailTrip.itinerary||[]).map(function(item) {
-                  return (
-                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function(){ toggleItineraryItem(item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#d98a6e":"rgba(250,242,229,0.2)"), background:item.done?"#d98a6e":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                        {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                      </div>
-                      <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                      <button onClick={function(){ removeItineraryItem(item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={newItineraryText} onChange={function(e){ setNewItineraryText(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter") addItineraryItem() }} placeholder="e.g. Day 1: Arrive, check in, dinner at 7" style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={addItineraryItem} style={{ background:"rgba(217,138,110,0.15)", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, padding:"0 14px", color:"#d98a6e", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
-            </div>
-          </div>
-        </TripCard>
+        <TripCardTile key="itinerary" icon={CARD_META.itinerary.icon} title={CARD_META.itinerary.title} accent={CARD_META.itinerary.accent} preview={itinPreview} onClick={function(){ setActiveTripCard("itinerary") }}/>
       )
     },
     activities: function(){
@@ -4393,6 +4476,130 @@ function TripsSection() {
     <div>
       {detailTrip ? (
         <div>
+          {activeTripCard ? (
+            // ── Level 3: full-page card detail view ──────────────────────────
+            <div>
+              <button onClick={function(){ setActiveTripCard(null) }} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to {detailTrip.name || "trip"}</button>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
+                <div style={{ width:36, height:36, borderRadius:"50%", background:(CARD_META[activeTripCard]||{}).accent||sand, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{(CARD_META[activeTripCard]||{}).icon}</div>
+                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:warm }}>{(CARD_META[activeTripCard]||{}).title}</div>
+              </div>
+
+              {activeTripCard === "packing" && (function(){
+                var sections = normalizePackingSections(detailTrip.packing)
+                var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
+                return (
+                  <div>
+                    <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>{allItems.filter(function(i){return i.done}).length} of {allItems.length} packed</div>
+                    {sections.length === 0 && readAlwaysBring().length > 0 && (
+                      <button onClick={copyAlwaysBring} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📋 Copy from Always Bring ({readAlwaysBring().length})</button>
+                    )}
+                    {sections.length === 0 && (
+                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No packing sections yet.</div>
+                    )}
+                    {sections.map(function(sec){
+                      var open = !collapsedPackingSections[sec.id]
+                      return (
+                        <div key={sec.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, marginBottom:12, overflow:"hidden" }}>
+                          <div onClick={function(){ setCollapsedPackingSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
+                            <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:warm, background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                            <span style={{ fontSize:11, color:muted, flexShrink:0 }}>{sec.items.filter(function(i){return i.done}).length}/{sec.items.length}</span>
+                            <button onClick={function(e){ e.stopPropagation(); deletePackingSection(sec.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
+                            <span style={{ fontSize:10, color:muted, transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
+                          </div>
+                          {open && (
+                            <div style={{ padding:"0 12px 12px" }}>
+                              {sec.items.length === 0 && (
+                                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
+                              )}
+                              {sec.items.map(function(item){
+                                return (
+                                  <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
+                                    <div onClick={function(){ togglePackingItem(sec.id, item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(250,242,229,0.2)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
+                                      {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
+                                    </div>
+                                    <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                                    <button onClick={function(){ removePackingItem(sec.id, item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
+                                  </div>
+                                )
+                              })}
+                              <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                                <input value={packItemDrafts[sec.id]||""} onChange={function(e){ var v=e.target.value; setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:v}) }) }} onKeyDown={function(e){ if(e.key==="Enter"){ addPackingItemToSection(sec.id, packItemDrafts[sec.id]||""); setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) } }} placeholder="Add an item…" style={Object.assign({},inputStyle,{flex:1})}/>
+                                <button onClick={function(){ addPackingItemToSection(sec.id, packItemDrafts[sec.id]||""); setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) }} style={{ background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"0 14px", color:"#a07ab5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                      <input value={newPackingSectionTitle} onChange={function(e){ setNewPackingSectionTitle(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter"){ addPackingSection(newPackingSectionTitle); setNewPackingSectionTitle("") } }} placeholder="New section name…" style={Object.assign({},inputStyle,{flex:1})}/>
+                      <button onClick={function(){ addPackingSection(newPackingSectionTitle); setNewPackingSectionTitle("") }} style={{ background:"rgba(200,169,122,0.15)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"0 14px", color:sand, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>+ Section</button>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {activeTripCard === "itinerary" && (function(){
+                var days = normalizeItineraryDays(detailTrip.itinerary)
+                return (
+                  <div>
+                    {days.length === 0 && (
+                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No days added yet.</div>
+                    )}
+                    {days.map(function(day){
+                      var open = !collapsedItineraryDays[day.id]
+                      return (
+                        <div key={day.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, marginBottom:12, overflow:"hidden" }}>
+                          <div onClick={function(){ setCollapsedItineraryDays(function(p){ return Object.assign({},p,{[day.id]:!p[day.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
+                            <input value={day.label} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renameItineraryDay(day.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:warm, background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                            <span style={{ fontSize:11, color:muted, flexShrink:0 }}>{day.activities.length} {day.activities.length===1?"activity":"activities"}</span>
+                            <button onClick={function(e){ e.stopPropagation(); deleteItineraryDay(day.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
+                            <span style={{ fontSize:10, color:muted, transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
+                          </div>
+                          {open && (
+                            <div style={{ padding:"0 12px 12px" }}>
+                              {day.activities.length === 0 && (
+                                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No activities yet.</div>
+                              )}
+                              {day.activities.map(function(act){
+                                return (
+                                  <div key={act.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+                                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                                      <div style={{ display:"flex", gap:8 }}>
+                                        <div style={{ flex:2 }}>
+                                          <label style={labelStyle}>Activity</label>
+                                          <input value={act.title} onChange={function(e){ updateItineraryActivity(day.id, act.id, {title:e.target.value}) }} placeholder="e.g. Dinner at 7" style={inputStyle}/>
+                                        </div>
+                                        <div style={{ flex:1 }}>
+                                          <label style={labelStyle}>Time</label>
+                                          <input value={act.time} onChange={function(e){ updateItineraryActivity(day.id, act.id, {time:e.target.value}) }} placeholder="Optional" style={inputStyle}/>
+                                        </div>
+                                      </div>
+                                      <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                                        <div style={{ flex:1 }}>
+                                          <label style={labelStyle}>Notes</label>
+                                          <input value={act.notes} onChange={function(e){ updateItineraryActivity(day.id, act.id, {notes:e.target.value}) }} placeholder="Optional" style={inputStyle}/>
+                                        </div>
+                                        <button onClick={function(){ removeItineraryActivity(day.id, act.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                              <button onClick={function(){ addItineraryActivity(day.id) }} style={{ background:"rgba(217,138,110,0.15)", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, padding:"5px 12px", color:"#d98a6e", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>+ Add activity</button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <button onClick={addItineraryDay} style={{ background:"rgba(200,169,122,0.15)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"6px 14px", color:sand, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>+ Add a day</button>
+                  </div>
+                )
+              })()}
+            </div>
+          ) : (
+          <div>
           {/* Same "← Anchor Home" back-link style as AnchorVault's own top-level nav (~7384) */}
           <button onClick={backToTrips} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
 
@@ -4470,6 +4677,8 @@ function TripsSection() {
               </div>
             )
           })}
+          </div>
+          )}
         </div>
       ) : (
         <div>

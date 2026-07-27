@@ -110,7 +110,14 @@ const PLAUSIBLE = {
   onboardingState:    { complete:true, completedAt:"2026-07-19T00:00:00.000Z", version:1 },
   // Trips (Travel redesign Step 2) — sub-fields are null placeholders until
   // Steps 3/4 define their real shape; see sync-core.js SYNC_KEYS comment.
-  trips:              [{ id:"trip1", name:"Cancún Family Trip", destination:"Cancún, Mexico", startDate:"2026-08-10", endDate:"2026-08-17", notes:"", status:"", icon:"", color:"", transportation:null, lodging:null, itinerary:null, packing:null, reservations:null, budget:null, documents:null, dining:null, activities:null, emergencyInfo:null, cardOrder:null }],
+  // packing/itinerary sub-field shapes (Travel — full card detail views):
+  // packing is [{id,title,items:[{id,text,done}]}], itinerary is
+  // [{id,label,date,activities:[{id,title,notes,time}]}] — both nested
+  // directly (not cross-referenced by id in a second array, deliberately,
+  // per the cove_sections_v1 dangling-reference lesson). Still unvalidated
+  // by sanitizeHouseholdData (sub-fields on trips remain unguarded per the
+  // SYNC_KEYS comment), so these are documentation-only, not asserted shapes.
+  trips:              [{ id:"trip1", name:"Cancún Family Trip", destination:"Cancún, Mexico", startDate:"2026-08-10", endDate:"2026-08-17", notes:"", status:"", icon:"", color:"", transportation:null, lodging:null, itinerary:[{id:"day1",label:"Day 1 — Aug 10, 2026",date:"2026-08-10",activities:[{id:"act1",title:"Arrive, check in",notes:"",time:""}]}], packing:[{id:"sec1",title:"Clothes",items:[{id:"pi1",text:"Swimsuit",done:false}]}], reservations:null, budget:null, documents:null, dining:null, activities:null, emergencyInfo:null, cardOrder:null }],
 };
 
 // ── A1: Every SYNC_KEYS key survives sanitizeHouseholdData ────────────────────
