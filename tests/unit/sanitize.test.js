@@ -74,6 +74,13 @@ const PLAUSIBLE = {
   dietaryFilters:     ["Dairy-free"],
   compassCache:       { nudge:{ date:"2026-07-03", data:{ message:"hi" } } },
   compassEnabled:     true,
+  // OB-0 gap 2 — feature toggles, same classification/handling as compassEnabled.
+  tidePoolEnabled:     true,
+  lighthouseEnabled:   true,
+  celebrationsEnabled: true,
+  mealsEnabled:        true,
+  careerEnabled:       true,
+  safeHarborEnabled:   true,
   exhale_groups:      { g1:[{ id:"eg1", title:"Work" }] },
   exhale_color_labels:{ g1:"#ff0000" },
   exhale_people:      [{ id:"ep1", name:"Alice" }],
@@ -129,7 +136,8 @@ describe("A2 — keys handled only by pass-through survive", () => {
   // These keys have no explicit block in sanitizeHouseholdData beyond SYNC_KEYS pass-through.
   const PASS_THROUGH_KEYS = ["workDays","traditions","cal_markers","cal_marker_types",
     "compassEnabled","exhale_groups","exhale_color_labels","exhale_people",
-    "monthMeals","nwMealCount"];
+    "monthMeals","nwMealCount",
+    "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled"];
 
   PASS_THROUGH_KEYS.forEach(key => {
     it(`pass-through key "${key}" survives`, () => {

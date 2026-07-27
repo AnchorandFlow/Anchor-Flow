@@ -44,6 +44,10 @@ export const SYNC_KEYS = [
   // Other shared
   "schoolData","coveData","dietaryFilters"
 ,"compassCache","compassEnabled",
+  // OB-0 gap 2 — feature toggles, same classification as compassEnabled
+  // (household-level preferences that should follow the household across
+  // devices, not device-local).
+  "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled",
   // Exhale standalone keys (ExhaleSection.jsx uses af_exhale_* keys)
   "exhale_groups","exhale_color_labels","exhale_people","exhale_labels",
   // Calendar emoji markers

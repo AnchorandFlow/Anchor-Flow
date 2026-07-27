@@ -1732,7 +1732,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
@@ -1856,6 +1856,24 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
           </Row>
           <Row label="Compass AI" sub="Daily briefing, suggestions, and Ask Compass">
             <Toggle on={compassEnabled!==false} onToggle={function(){setCompassEnabled(compassEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Tide Pool" sub="Chores and treasures for your kids">
+            <Toggle on={tidePoolEnabled!==false} onToggle={function(){setTidePoolEnabled(tidePoolEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Lighthouse" sub="Family learning — school activities, homeschool, reading challenges">
+            <Toggle on={lighthouseEnabled!==false} onToggle={function(){setLighthouseEnabled(lighthouseEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Celebrations" sub="Birthdays and countdowns, remembered for you">
+            <Toggle on={celebrationsEnabled!==false} onToggle={function(){setCelebrationsEnabled(celebrationsEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Meals" sub="Plan dinners (and more) without the 5 PM scramble">
+            <Toggle on={mealsEnabled!==false} onToggle={function(){setMealsEnabled(mealsEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Career" sub="Work schedules, certifications, and renewals">
+            <Toggle on={careerEnabled!==false} onToggle={function(){setCareerEnabled(careerEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Safe Harbor" sub="Emergency plans and vital info, ready when you need them">
+            <Toggle on={safeHarborEnabled!==false} onToggle={function(){setSafeHarborEnabled(safeHarborEnabled===false?true:false);}} color={T.sage}/>
           </Row>
           <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Greeting tone</div>
@@ -2293,6 +2311,27 @@ function markKeyDirty(key) {
       AF_DEBUG&&console.log("[AF DIRTY] marked dirty:", key);
     }
   } catch(e) {}
+}
+
+// OB-0 gap 2 — feature toggles. HomeFlow (where these are set, via Settings
+// or handleOnboardingComplete) and FlowWrapper (where PILLARS reads them for
+// nav gating) are sibling components, not parent/child — useSaved alone
+// can't bridge them since it has no cross-component sync. Mirrors the
+// af_sections/af-myPersonId-changed custom-event pattern already used
+// elsewhere in this file for exactly this problem: FEATURE_FLAG_KEYS'
+// setters (below, in HomeFlow) dispatch "af-features-changed" after every
+// write; FlowWrapper listens for it (and the native storage event, for
+// cross-tab) and re-reads via this same helper.
+var FEATURE_FLAG_KEYS = ["tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled"];
+function readFeatureFlags() {
+  var out = {};
+  FEATURE_FLAG_KEYS.forEach(function(k) {
+    try {
+      var s = localStorage.getItem("af_"+k);
+      out[k] = s === null ? true : JSON.parse(s);
+    } catch (e) { out[k] = true; }
+  });
+  return out;
 }
 
 function useSaved(key, fallback) {
@@ -3697,6 +3736,34 @@ function createLocalBackup() {
   function shopCatLabels(){ return shopCategories.map(function(c){return catLabel(c);}); }
   const [calColorLabels,setCalColorLabels]     = useSaved("calColorLabels",{});
   const [familyProfile,setFamilyProfile]       = useSaved("familyProfile",null);
+  // OB-0 gap 2 — feature toggles gating PILLARS nav entries in FlowWrapper.
+  // Each wrapped setter dispatches "af-features-changed" after writing, so
+  // both entry points that can change these (the Settings <Toggle> below and
+  // handleOnboardingComplete) go through the exact same call site and always
+  // trigger FlowWrapper's live re-read — see readFeatureFlags() above.
+  const [tidePoolEnabled,_setTidePoolEnabled]         = useSaved("tidePoolEnabled",true);
+  const [lighthouseEnabled,_setLighthouseEnabled]     = useSaved("lighthouseEnabled",true);
+  const [celebrationsEnabled,_setCelebrationsEnabled] = useSaved("celebrationsEnabled",true);
+  const [mealsEnabled,_setMealsEnabled]               = useSaved("mealsEnabled",true);
+  const [careerEnabled,_setCareerEnabled]             = useSaved("careerEnabled",true);
+  const [safeHarborEnabled,_setSafeHarborEnabled]     = useSaved("safeHarborEnabled",true);
+  // Writes localStorage directly and synchronously BEFORE dispatching —
+  // same ordering as the working chooseMyPersonId/af-myPersonId-changed
+  // precedent (~3934-3937). useSaved's own setter (_setX below) also writes
+  // to localStorage, but that write happens inside a React setState updater,
+  // which is NOT guaranteed to run before this function returns — dispatching
+  // first and letting that write land later was the actual bug: FlowWrapper's
+  // listener re-read localStorage before the new value had actually been
+  // written, so it saw the stale value. The direct write here removes that
+  // race; _setX still runs too, for React state (so the toggle itself
+  // re-renders) — redundant with this write, but idempotent and harmless.
+  function dispatchFeaturesChanged(){ try{ window.dispatchEvent(new CustomEvent("af-features-changed")); }catch(e){} }
+  function setTidePoolEnabled(v){ try{ localStorage.setItem("af_tidePoolEnabled", JSON.stringify(v)); }catch(e){} _setTidePoolEnabled(v); dispatchFeaturesChanged(); }
+  function setLighthouseEnabled(v){ try{ localStorage.setItem("af_lighthouseEnabled", JSON.stringify(v)); }catch(e){} _setLighthouseEnabled(v); dispatchFeaturesChanged(); }
+  function setCelebrationsEnabled(v){ try{ localStorage.setItem("af_celebrationsEnabled", JSON.stringify(v)); }catch(e){} _setCelebrationsEnabled(v); dispatchFeaturesChanged(); }
+  function setMealsEnabled(v){ try{ localStorage.setItem("af_mealsEnabled", JSON.stringify(v)); }catch(e){} _setMealsEnabled(v); dispatchFeaturesChanged(); }
+  function setCareerEnabled(v){ try{ localStorage.setItem("af_careerEnabled", JSON.stringify(v)); }catch(e){} _setCareerEnabled(v); dispatchFeaturesChanged(); }
+  function setSafeHarborEnabled(v){ try{ localStorage.setItem("af_safeHarborEnabled", JSON.stringify(v)); }catch(e){} _setSafeHarborEnabled(v); dispatchFeaturesChanged(); }
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
   const [preferredName,setPreferredName]       = useSaved("preferredName","");
@@ -4149,9 +4216,14 @@ function createLocalBackup() {
         return Object.assign({}, prev || {}, {zipcode: payload.zip});
       });
     }
-    // TODO(OB-0): payload.features.* has no destination yet — only compassEnabled
-    // exists as a per-feature flag; tidePool/lighthouse/celebrations/meals/career/
-    // safeHarbor toggles are not wired to any state.
+    if (payload.features) {
+      setTidePoolEnabled(!!payload.features.tidePool);
+      setLighthouseEnabled(!!payload.features.lighthouse);
+      setCelebrationsEnabled(!!payload.features.celebrations);
+      setMealsEnabled(!!payload.features.meals);
+      setCareerEnabled(!!payload.features.career);
+      setSafeHarborEnabled(!!payload.features.safeHarbor);
+    }
     if (payload.areaSettings) {
       if (payload.areaSettings.mealsPerDay) setMealCount(payload.areaSettings.mealsPerDay);
       if (payload.areaSettings.stores && payload.areaSettings.stores.length > 0) {
@@ -14572,6 +14644,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   syncNow={syncNow} lastSyncTime={lastSyncTime}
                   card={card}
                   onOpenFirstVoyageRerun={function(){ setShowFirstVoyageRerun(true); }}
+                  tidePoolEnabled={tidePoolEnabled} setTidePoolEnabled={setTidePoolEnabled}
+                  lighthouseEnabled={lighthouseEnabled} setLighthouseEnabled={setLighthouseEnabled}
+                  celebrationsEnabled={celebrationsEnabled} setCelebrationsEnabled={setCelebrationsEnabled}
+                  mealsEnabled={mealsEnabled} setMealsEnabled={setMealsEnabled}
+                  careerEnabled={careerEnabled} setCareerEnabled={setCareerEnabled}
+                  safeHarborEnabled={safeHarborEnabled} setSafeHarborEnabled={setSafeHarborEnabled}
                 /></SectionErrorBoundary>}
                 {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
@@ -14853,6 +14931,22 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     window.addEventListener("af-sections-changed", onStorage)
     return () => { window.removeEventListener("storage", onStorage); window.removeEventListener("af-sections-changed", onStorage); }
   }, [])
+  // OB-0 gap 2 — feature toggles. Set in HomeFlow (Settings or
+  // handleOnboardingComplete, a sibling component below), read here for
+  // PILLARS gating. Same cross-component bridge as `sections` above:
+  // storage event for cross-tab, af-features-changed for same-tab/
+  // cross-component (see readFeatureFlags()/dispatchFeaturesChanged() near
+  // useSaved's definition for the write side).
+  const [featureFlags, setFeatureFlags] = React.useState(readFeatureFlags)
+  React.useEffect(() => {
+    const onFeaturesChanged = (e) => {
+      if (e && e.type === "storage" && FEATURE_FLAG_KEYS.indexOf((e.key||"").replace(/^af_/,"")) === -1) return;
+      setFeatureFlags(readFeatureFlags());
+    }
+    window.addEventListener("storage", onFeaturesChanged)
+    window.addEventListener("af-features-changed", onFeaturesChanged)
+    return () => { window.removeEventListener("storage", onFeaturesChanged); window.removeEventListener("af-features-changed", onFeaturesChanged); }
+  }, [])
   const [showAnchor, setShowAnchor] = React.useState(function() {
     try { return sessionStorage.getItem("af_showAnchor") === "1"; } catch { return false; }
   });
@@ -14880,12 +14974,12 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "calendar", label: "Calendar",      emoji: "📆" },
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
-      { id: "tidepool", label: "Tide Pool",     emoji: "🏝️" },
+      ...(featureFlags.tidePoolEnabled ? [{ id: "tidepool", label: "Tide Pool", emoji: "🏝️" }] : []),
       { id: "school", label: "School", emoji: "🏫" },
-      ...(LIGHTHOUSE_V2 ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
+      ...(LIGHTHOUSE_V2 && featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
-      { id: "meals", label: "Meals", emoji: "🍽️" },
+      ...(featureFlags.mealsEnabled ? [{ id: "meals", label: "Meals", emoji: "🍽️" }] : []),
       { id: "shop", label: "Shopping", emoji: "🛒" },
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
@@ -14893,14 +14987,14 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { vault: "inventory", label: "Inventory", emoji: "📦" },
       { vault: "systems", label: "Systems", emoji: "🔧" },
       { vault: "health", label: "Health", emoji: "🩺" },
-      { vault: "career", label: "Career", emoji: "📋" },
+      ...(featureFlags.careerEnabled ? [{ vault: "career", label: "Career", emoji: "📋" }] : []),
       { vault: "subs", label: "Subscriptions", emoji: "🔄" },
-      { vault: "gifts", label: "Celebrate", emoji: "🎉" },
+      ...(featureFlags.celebrationsEnabled ? [{ vault: "gifts", label: "Celebrate", emoji: "🎉" }] : []),
       { vault: "pets", label: "Pets", emoji: "🐾" },
       { vault: "moments", label: "Moments", emoji: "✨" },
       { vault: "travel", label: "Travel", emoji: "✈️" },
       { vault: "trips", label: "Trips", emoji: "🧳" },
-      { vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" },
+      ...(featureFlags.safeHarborEnabled ? [{ vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" }] : []),
     ]},
     { vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" },
   ]
