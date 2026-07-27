@@ -3733,6 +3733,12 @@ function TripsSection() {
   var newPackingSectionTitle = s_newPackSec[0]; var setNewPackingSectionTitle = s_newPackSec[1]
   var s_collapsedItinDays = useState({})
   var collapsedItineraryDays = s_collapsedItinDays[0]; var setCollapsedItineraryDays = s_collapsedItinDays[1]
+  // Import-from-saved-packing-template panel: closed / choosing a template /
+  // a template chosen (showing the merge-vs-replace choice).
+  var s_importOpen = useState(false)
+  var importOpen = s_importOpen[0]; var setImportOpen = s_importOpen[1]
+  var s_importTemplate = useState(null)
+  var importSelectedTemplate = s_importTemplate[0]; var setImportSelectedTemplate = s_importTemplate[1]
 
   // Transportation/lodging are arrays, not single objects — a connecting
   // flight or a two-stay trip isn't an edge case for a real family trip.
@@ -3845,6 +3851,72 @@ function TripsSection() {
     } else {
       savePackingSections(sections.map(function(s, i){ return i===0 ? Object.assign({},s,{items:[...s.items,...copied]}) : s }))
     }
+  }
+  // Import from a saved packing-list template (PackingTemplatesPanel,
+  // af_packing_templates) — reads only, this session doesn't build the
+  // save-as-template side. Read-only local read, same cross-component
+  // localStorage pattern as readAlwaysBring above.
+  function readPackingTemplates() {
+    try {
+      var saved = JSON.parse(localStorage.getItem("af_packing_templates") || "null")
+      return Array.isArray(saved) ? saved : []
+    } catch { return [] }
+  }
+  function uidLocal() { return Date.now().toString()+"_"+Math.random().toString(36).slice(2,8) }
+  // Flattens a template into this view's one-level section shape.
+  // type:"trip" templates are bag -> category -> items (3 levels) — using
+  // "[Bag] — [Category]" as the section title, not category alone, since
+  // multiple bags can share a category name (e.g. Beach template has
+  // "Beach" under "My Bag", "Kid 1", and "Kid 3" — collapsing to just
+  // "Beach" would silently merge different people's items into one
+  // section). type:"custom" templates have no bag level, so the category
+  // name alone is the section title. Every imported item is done:false
+  // regardless of the template's own done state, per spec.
+  function templateToSections(t) {
+    var sections = []
+    if (t.type === "trip") {
+      var bags = t.bags || {}
+      Object.keys(bags).forEach(function(bagName){
+        var cats = bags[bagName] || {}
+        Object.keys(cats).forEach(function(catName){
+          var items = cats[catName] || []
+          if (items.length === 0) return
+          sections.push({ title: bagName+" — "+catName, items: items.map(function(it){ return { text: it.text, done:false } }) })
+        })
+      })
+    } else {
+      var itemsMap = t.items || {}
+      Object.keys(itemsMap).forEach(function(catName){
+        var items = itemsMap[catName] || []
+        if (items.length === 0) return
+        sections.push({ title: catName, items: items.map(function(it){ return { text: it.text, done:false } }) })
+      })
+    }
+    return sections
+  }
+  function importTemplateMerge(t) {
+    var incoming = templateToSections(t)
+    var current = packingSections()
+    incoming.forEach(function(inc){
+      var existingIdx = current.findIndex(function(s){ return s.title === inc.title })
+      var newItems = inc.items.map(function(it){ return { id:uidLocal(), text:it.text, done:false } })
+      if (existingIdx !== -1) {
+        current = current.map(function(s, i){ return i===existingIdx ? Object.assign({}, s, { items:[...s.items, ...newItems] }) : s })
+      } else {
+        current = current.concat([{ id:uidLocal(), title: inc.title, items: newItems }])
+      }
+    })
+    savePackingSections(current)
+  }
+  // Returns true if the replace actually happened (so the caller only
+  // closes the import panel on an actual replace, not a cancelled confirm).
+  function importTemplateReplace(t) {
+    if (!window.confirm("Replace your current packing list? This can't be undone.")) return false
+    var incoming = templateToSections(t).map(function(sec){
+      return { id:uidLocal(), title: sec.title, items: sec.items.map(function(it){ return { id:uidLocal(), text:it.text, done:false } }) }
+    })
+    savePackingSections(incoming)
+    return true
   }
 
   // ── Itinerary — day-by-day shape, full-page detail view (Level 3 nav) ────
@@ -4490,7 +4562,8 @@ function TripsSection() {
                 var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
                 return (
                   <div>
-                    <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>{allItems.filter(function(i){return i.done}).length} of {allItems.length} packed</div>
+                    <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>{allItems.filter(function(i){return i.done}).length} of {allItems.length} packed</div>
+                    <button onClick={function(){ setImportOpen(true) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"5px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📥 Import list</button>
                     {sections.length === 0 && readAlwaysBring().length > 0 && (
                       <button onClick={copyAlwaysBring} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📋 Copy from Always Bring ({readAlwaysBring().length})</button>
                     )}
@@ -4539,6 +4612,40 @@ function TripsSection() {
                   </div>
                 )
               })()}
+
+              {importOpen && (
+                // Same bottom-sheet modal shape as formTrip's edit modal (~4477).
+                <div style={{ position:"fixed", inset:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={function(){ setImportOpen(false); setImportSelectedTemplate(null) }}>
+                  <div onClick={function(e){ e.stopPropagation() }} style={{ background:"#1a2744", borderRadius:"18px 18px 0 0", padding:20, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", boxSizing:"border-box" }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:19, fontWeight:700, color:warm }}>{importSelectedTemplate ? importSelectedTemplate.name : "Import packing list"}</div>
+                      <button onClick={function(){ setImportOpen(false); setImportSelectedTemplate(null) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.4)", cursor:"pointer", fontSize:18 }}>✕</button>
+                    </div>
+                    {!importSelectedTemplate ? (
+                      <div>
+                        {readPackingTemplates().length === 0 ? (
+                          <div style={{ fontSize:13, color:muted, fontStyle:"italic", fontFamily:"DM Sans,sans-serif", padding:"12px 0" }}>No saved packing lists yet — you can save a packing list as a template from the Travel Profile section.</div>
+                        ) : (
+                          readPackingTemplates().map(function(t){
+                            return (
+                              <button key={t.id} onClick={function(){ setImportSelectedTemplate(t) }} style={{ width:"100%", textAlign:"left", background:"rgba(250,242,229,0.04)", border:"1px solid rgba(250,242,229,0.1)", borderRadius:10, padding:"10px 14px", marginBottom:8, color:warm, fontSize:14, fontFamily:"DM Sans,sans-serif", cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
+                                <span>{t.emoji||"🧳"}</span><span>{t.name}</span>
+                              </button>
+                            )
+                          })
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>How do you want to import "{importSelectedTemplate.name}"?</div>
+                        <button onClick={function(){ importTemplateMerge(importSelectedTemplate); setImportOpen(false); setImportSelectedTemplate(null) }} style={{ width:"100%", background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:10, padding:"10px 14px", color:"#a07ab5", fontSize:13, fontWeight:600, fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:8 }}>Merge with current list</button>
+                        <button onClick={function(){ if (importTemplateReplace(importSelectedTemplate)) { setImportOpen(false); setImportSelectedTemplate(null) } }} style={{ width:"100%", background:"rgba(226,75,74,0.08)", border:"1px solid rgba(226,75,74,0.25)", borderRadius:10, padding:"10px 14px", color:"rgba(240,153,123,0.9)", fontSize:13, fontWeight:600, fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:8 }}>Replace current list</button>
+                        <button onClick={function(){ setImportSelectedTemplate(null) }} style={{ width:"100%", background:"none", border:"none", color:muted, fontSize:12, fontFamily:"DM Sans,sans-serif", cursor:"pointer", padding:"6px 0" }}>← Choose a different list</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {activeTripCard === "itinerary" && (function(){
                 var days = normalizeItineraryDays(detailTrip.itinerary)
