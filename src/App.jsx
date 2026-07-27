@@ -3181,8 +3181,26 @@ function createLocalBackup() {
   //
   // Belt-and-suspenders update triggering (MOD 2):
   //   - visibilitychange → registration.update(): catches backgrounded-tab case (July 3 trap)
-  //   - Poll-tick counter every 40 ticks (~10 min): catches foreground-left-open tabs
-  //   Both are wired up below; swRegRef.current is available to the poll useEffect.
+  //   - Standalone ~10min interval (near swRegRef's declaration below): catches
+  //     foreground-left-open tabs. Previously a tick-counter nested inside the
+  //     household-sync poll effect, which stopped this check entirely whenever
+  //     authToken was null (F-N7 follow-up) — now its own effect, unconditional.
+  //   swRegRef.current, set below, is shared by all of these plus the banner's
+  //   "Refresh Now" button.
+  //
+  // F-N7 known gap (Jul 2026), documented not fixed — see PR discussion:
+  // a device already running a bundle from BEFORE this update-banner system
+  // existed has no code path, old or new, that would ever prompt it to adopt
+  // a newer SW (activation has always required explicit user-triggered
+  // SKIP_WAITING, by design, to avoid a mid-session forced reload). Such a
+  // device can sit on an arbitrarily old bundle indefinitely, across every
+  // relaunch. This is a one-time stuck-state per affected device, not an
+  // ongoing failure mode for anyone who has already received this code.
+  // Manual recovery: DevTools → Application → Service Workers → Unregister,
+  // then clear site data, then re-login. A forced version-mismatch eviction
+  // was considered and deliberately not built — it would affect every
+  // currently-open session on the next deploy, which is a bigger blast
+  // radius than this narrow, self-resolving-per-device problem warrants.
   useEffect(function() {
     if (!("serviceWorker" in navigator)) return;
 
@@ -3429,9 +3447,6 @@ function createLocalBackup() {
       const typedRecently = (Date.now() - lastTypedRef.current) < 15000;
       if (!isTyping && !typedRecently) checkForUpdates();
     }, 5000);
-    // SW update: belt-and-suspenders check every 40 poll ticks (~10 min at 15s/tick).
-    // Catches a tab left foregrounded for hours without a visibilitychange event.
-    var _swPollTick = 0;
     const interval = setInterval(function(){
       const active = document.activeElement;
       const isTyping = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
@@ -3439,11 +3454,6 @@ function createLocalBackup() {
       const shopFocused = window._shopInputFocused;
       AF_DEBUG && console.warn("[AF POLL] interval tick", { isTyping, typedRecently, shopFocused });
       AF_DEBUG && console.warn("[AF FOCUS]", { tag: active?.tagName, type: active?.type, className: active?.className, id: active?.id });
-      // Periodic SW update check — every 40 ticks regardless of typing state.
-      _swPollTick++;
-      if (_swPollTick % 40 === 0 && swRegRef.current) {
-        swRegRef.current.update().catch(function() {});
-      }
       if (isTyping) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — isTyping"); return; }
       if (typedRecently) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — typedRecently", Date.now() - lastTypedRef.current, "ms ago"); return; }
       if (shopFocused) { AF_DEBUG && console.warn("[AF POLL RETURN] interval — shopFocused"); return; }
@@ -3481,6 +3491,22 @@ function createLocalBackup() {
   // Holds the active ServiceWorkerRegistration so update checks and SKIP_WAITING
   // posts can reach it from multiple places (poll loop, banner button, visibilitychange).
   const swRegRef = useRef(null);
+  // SW update: belt-and-suspenders check every ~10 min, standalone from the
+  // household-sync poll effect above. Previously nested inside that poll's
+  // interval, gated behind its !authToken||!householdId early return — so
+  // the moment a zombie session was cleared, this check stopped running
+  // entirely, right when a confused user is most likely sitting on the
+  // broken screen without backgrounding the tab (the exact case this check
+  // exists to catch, per its original comment). Runs unconditionally now.
+  // The other two update triggers — the initial reg.waiting check on
+  // registration, and the visibilitychange handler — were never auth-gated
+  // and are unchanged.
+  useEffect(function() {
+    var swPollInterval = setInterval(function() {
+      if (swRegRef.current) { swRegRef.current.update().catch(function() {}); }
+    }, 600000); // 10 min, matching the prior 40-tick * 15s cadence
+    return function() { clearInterval(swPollInterval); };
+  }, []);
   useEffect(() => {
     function onKey() { lastTypedRef.current = Date.now(); }
     window.addEventListener("keydown", onKey, true);
