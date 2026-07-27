@@ -152,7 +152,7 @@ const _SANITIZE_HANDLED = new Set([
   "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
   "brainCats","homeSystems","dietaryFilters",
   "recurring","celebrations","gifts","inventory","pets","houseFile",
-  "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
+  "cove_lists_v1","cove_notes_v1","burnoutChecked",
   "moments","subs","vaultSystems","packing_templates",
   "coveData","ownedProducts",
   "career_licenses","career_contacts","career_retirement",
@@ -163,7 +163,7 @@ const _SANITIZE_HANDLED = new Set([
   "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
   // Objects
   "familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
-  "schoolData","cove_items_v1","notifSettings","sections",
+  "schoolData","cove_items_v1","cove_sections_v1","notifSettings","sections",
   "connectedCals","exhale_labels","health","career","travel_profile",
   // Explicitly normalized
   "ripples",
@@ -184,7 +184,7 @@ export function sanitizeHouseholdData(data) {
      "brainCats","homeSystems","dietaryFilters",
      // Vault arrays
      "recurring","celebrations","gifts","inventory","pets","houseFile",
-     "cove_lists_v1","cove_sections_v1","cove_notes_v1","burnoutChecked",
+     "cove_lists_v1","cove_notes_v1","burnoutChecked",
      "moments","subs","vaultSystems","packing_templates",
      // coveData: array of per-kid records ({kidId, chores:[], treasures:[]}). Array rule
      // added — was previously dropped (object-only passthrough rejects arrays).
@@ -245,7 +245,7 @@ export function sanitizeHouseholdData(data) {
     });
     // Objects: pass through if valid (non-null object)
     ["familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
-     "schoolData","cove_items_v1","notifSettings","sections",
+     "schoolData","cove_items_v1","cove_sections_v1","notifSettings","sections",
      "calColorLabels","connectedCals","exhale_labels",
      "health","career","travel_profile"
     ].forEach(k => {
@@ -258,6 +258,16 @@ export function sanitizeHouseholdData(data) {
     // cove_items_v1: object map — pass through if object
     if (data["cove_items_v1"] && typeof data["cove_items_v1"] === "object") {
       out["cove_items_v1"] = data["cove_items_v1"];
+    }
+    // cove_sections_v1: object map — pass through if object. Was previously
+    // in the array-guard block above, which silently dropped it on every
+    // sync pass (its real shape is {listId: [sections]}, never an array) —
+    // wiping every Cove list's sections while cove_items_v1 (correctly
+    // object-pass-through already) survived, leaving the item count correct
+    // but the detail view rendering zero items. Matches cove_items_v1's
+    // exact handling now.
+    if (data["cove_sections_v1"] && typeof data["cove_sections_v1"] === "object") {
+      out["cove_sections_v1"] = data["cove_sections_v1"];
     }
     // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey
     if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&

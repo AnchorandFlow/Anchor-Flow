@@ -67,7 +67,7 @@ const PLAUSIBLE = {
   travel_profile:     { passportExpiry:"2030-01" },
   cove_lists_v1:      [{ id:"cl1", name:"Books" }],
   cove_items_v1:      { cl1:[{ id:"ci1", text:"Dune" }] },
-  cove_sections_v1:   [{ id:"cs1", name:"Reading" }],
+  cove_sections_v1:   { cl1:[{ id:"cs1", title:"Reading", sort_order:0 }] },
   cove_notes_v1:      [{ id:"cn1", text:"A note" }],
   schoolData:         { grade:3, teacher:"Ms. Smith" },
   coveData:           [{ kidId:"k1", kidName:"Alice", shells:5, chores:[{id:"c1",name:"Make bed",pts:1,done:false}], treasures:[] }],
