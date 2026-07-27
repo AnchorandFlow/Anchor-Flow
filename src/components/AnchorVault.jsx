@@ -3034,21 +3034,11 @@ function MaskedField(props) {
 }
 
 function TravelProfileSection() {
-  // Light-canvas text pass: warm/muted were off-white (#faf8f4 / rgba(250,248,244,0.42))
-  // tuned for a dark background — now navy/slate for readability on the
-  // #F7F3EC cream canvas. sand (#C8A97A) measured 2.02:1 contrast against
-  // the canvas (WCAG AA needs 4.5:1) — darkened to #8A6530 (4.76:1, clears AA).
-  // navy itself is unchanged — still used as-is for <option> dropdown
-  // backgrounds, a background usage, not text.
-  var warm = "#243A5A"; var sand = "#8A6530"; var navy = "#243A5A"
-  // muted -> slate-navy (was off-white text). border -> navy at low opacity
-  // (was off-white border, reads as a soft gray line on cream). cardBg ->
-  // a subtle dark-on-cream shadow instead of a light-on-dark wash (was
-  // rgba(250,242,229,0.04), effectively invisible against a light canvas).
-  var muted = "#5C6E82"; var border = "rgba(36,58,90,0.12)"; var cardBg = "rgba(0,0,0,0.03)"
+  var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
+  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
   var coastal = "#7EAEB4"
   var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
-  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#5C6E82", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
+  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
 
   var pair = useState(function() { try { var s=localStorage.getItem("af_travel_profile"); return s?JSON.parse(s):{}; } catch{return{};} })
   var profile = pair[0]; var setProfileRaw = pair[1]
@@ -3131,7 +3121,7 @@ function TravelProfileSection() {
   }
 
   return (
-    <div style={{ background:"#F7F3EC" }}>
+    <div>
       <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel Profile</div>
       <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
 
@@ -3448,13 +3438,8 @@ function TravelProfileSection() {
 function TripCard(props) {
   var s = useState(props.defaultOpen !== false); var open = s[0]; var setOpen = s[1]
   var accent = props.accent || "#c8a97a"
-  // bg/borderTop come from CARD_META (see its derivation loop); fall back to
-  // the same formula for callers that don't pass them (Overview has no
-  // CARD_META entry).
-  var bg = props.bg || (accent+"1F")
-  var cardBorderTop = props.borderTop || ("3px solid "+accent)
   return (
-    <div style={{ background:bg, border:"1px solid "+accent+"33", borderRadius:12, marginBottom:12, overflow:"hidden", borderTop:cardBorderTop }}>
+    <div style={{ background:"rgba(250,242,229,0.04)", border:"1px solid "+accent+"33", borderRadius:12, marginBottom:12, overflow:"hidden" }}>
       <div onClick={function(){ setOpen(function(o){ return !o }) }} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", cursor:"pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           {/* Circular icon badge — same shape/sizing convention as Health's HPersonCard avatar (~5921), tinted from this card's own accent instead of a solid person-color */}
@@ -3462,12 +3447,12 @@ function TripCard(props) {
           <div>
             <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
             {/* Always-visible content preview, even collapsed — same stat/status-text convention as HPersonCard's preview rows (~5942) */}
-            {props.preview && <div style={{ fontSize:11, color:props.previewColor||"#5C6E82", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
+            {props.preview && <div style={{ fontSize:11, color:props.previewColor||"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
           </div>
         </div>
-        <span style={{ fontSize:10, color:"#5C6E82", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
+        <span style={{ fontSize:10, color:"rgba(250,248,244,0.3)", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
       </div>
-      {open && <div style={{ padding:"0 14px 14px", borderTop:"1px solid rgba(36,58,90,0.12)" }}>{props.children}</div>}
+      {open && <div style={{ padding:"0 14px 14px", borderTop:"1px solid rgba(250,242,229,0.06)" }}>{props.children}</div>}
     </div>
   )
 }
@@ -3519,10 +3504,6 @@ var TRANSPORT_TYPES = ["Flight","Train","Car Rental","Rideshare","Ferry","Bus","
 // IS the correct meaning, so this is the one case where reapplying that
 // signal is accurate rather than a collision.
 var DEFAULT_CARD_ORDER = ["transportation","lodging","packing","itinerary","activities","reservations","budget","documents","dining","weather","notes","emergencyInfo","photos"]
-// bg/borderTop are derived once below from each entry's accent, not
-// hand-typed per entry (bg: accent+"1F" = ~12% opacity tint on the cream
-// canvas; borderTop: 3px solid accent at full strength) — same formula for
-// all 13, applied via the loop after this object literal.
 var CARD_META = {
   transportation: { icon:"✈️", title:"Transportation", accent:"#7aa8c8" },
   lodging:        { icon:"🏨", title:"Lodging",         accent:"#7a9e8e" },
@@ -3536,17 +3517,8 @@ var CARD_META = {
   weather:        { icon:"⛅", title:"Weather",          accent:"#7EAEB4" },
   notes:          { icon:"📝", title:"Notes",            accent:"#c8a97a" },
   emergencyInfo:  { icon:"🚨", title:"Emergency Info",   accent:"#c8834a" },
-  // Was accent:"rgba(250,248,244,0.4)" — an rgba string, not a hex, so the
-  // accent+"1F" formula below would have produced invalid CSS
-  // ("rgba(...)1F"). Normalized to an equivalent hex (a muted warm taupe,
-  // same neutral-placeholder intent) so this entry can go through the same
-  // uniform derivation as the other 12 instead of needing a special case.
-  photos:         { icon:"📷", title:"Photos",           accent:"#A39B8B" }
+  photos:         { icon:"📷", title:"Photos",           accent:"rgba(250,248,244,0.4)" }
 }
-Object.keys(CARD_META).forEach(function(k) {
-  CARD_META[k].bg = CARD_META[k].accent + "1F"
-  CARD_META[k].borderTop = "3px solid " + CARD_META[k].accent
-})
 
 // Fixed structural grouping for the trip detail view — a static id -> group
 // lookup, not a stored field. cardOrder/hiddenCardIds still fully control
@@ -3563,21 +3535,11 @@ var CARD_GROUP_OF = {
 }
 
 function TripsSection() {
-  // Light-canvas text pass: warm/muted were off-white (#faf8f4 / rgba(250,248,244,0.42))
-  // tuned for a dark background — now navy/slate for readability on the
-  // #F7F3EC cream canvas. sand (#C8A97A) measured 2.02:1 contrast against
-  // the canvas (WCAG AA needs 4.5:1) — darkened to #8A6530 (4.76:1, clears AA).
-  // navy itself is unchanged — still used as-is for <option> dropdown
-  // backgrounds, a background usage, not text.
-  var warm = "#243A5A"; var sand = "#8A6530"; var navy = "#243A5A"
-  // muted -> slate-navy (was off-white text). border -> navy at low opacity
-  // (was off-white border, reads as a soft gray line on cream). cardBg ->
-  // a subtle dark-on-cream shadow instead of a light-on-dark wash (was
-  // rgba(250,242,229,0.04), effectively invisible against a light canvas).
-  var muted = "#5C6E82"; var border = "rgba(36,58,90,0.12)"; var cardBg = "rgba(0,0,0,0.03)"
+  var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
+  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
   var coastal = "#7EAEB4"
   var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
-  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#5C6E82", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
+  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
 
   var pair = useState(function() {
     try {
@@ -3977,7 +3939,7 @@ function TripsSection() {
       var trPreview = trList.length===0 ? "No transportation added yet." :
         (trFirst.carrier||trFirst.type||"Trip added")+(trFirst.departure?" · "+trFirst.departure:"")+(trList.length>1?" +"+(trList.length-1)+" more":"")
       return (
-        <TripCard key="transportation" icon={CARD_META.transportation.icon} title={CARD_META.transportation.title} accent={CARD_META.transportation.accent} bg={CARD_META.transportation.bg} borderTop={CARD_META.transportation.borderTop} defaultOpen={false} preview={trPreview}>
+        <TripCard key="transportation" icon={CARD_META.transportation.icon} title={CARD_META.transportation.title} accent={CARD_META.transportation.accent} defaultOpen={false} preview={trPreview}>
           <div style={{ paddingTop:10 }}>
             <button onClick={addTransportation} style={{ background:"rgba(122,168,200,0.12)", border:"1px solid rgba(122,168,200,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7aa8c8", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10 }}>+ Add transportation</button>
             {(detailTrip.transportation||[]).length === 0 && (
@@ -4029,7 +3991,7 @@ function TripsSection() {
       var lgPreview = lgList.length===0 ? "No lodging added yet." :
         (lgFirst.name||"Lodging added")+(lgList.length>1?" +"+(lgList.length-1)+" more":"")
       return (
-        <TripCard key="lodging" icon={CARD_META.lodging.icon} title={CARD_META.lodging.title} accent={CARD_META.lodging.accent} bg={CARD_META.lodging.bg} borderTop={CARD_META.lodging.borderTop} defaultOpen={false} preview={lgPreview}>
+        <TripCard key="lodging" icon={CARD_META.lodging.icon} title={CARD_META.lodging.title} accent={CARD_META.lodging.accent} defaultOpen={false} preview={lgPreview}>
           <div style={{ paddingTop:10 }}>
             <button onClick={addLodging} style={{ background:"rgba(122,158,142,0.12)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10 }}>+ Add lodging</button>
             {(detailTrip.lodging||[]).length === 0 && (
@@ -4074,7 +4036,7 @@ function TripsSection() {
       var packList = detailTrip.packing||[]
       var packPreview = packList.length===0 ? "No packing items added yet." : packList.filter(function(i){return i.done}).length+"/"+packList.length+" done"
       return (
-        <TripCard key="packing" icon={CARD_META.packing.icon} title={CARD_META.packing.title} accent={CARD_META.packing.accent} bg={CARD_META.packing.bg} borderTop={CARD_META.packing.borderTop} defaultOpen={false} preview={packPreview}>
+        <TripCard key="packing" icon={CARD_META.packing.icon} title={CARD_META.packing.title} accent={CARD_META.packing.accent} defaultOpen={false} preview={packPreview}>
           <div style={{ paddingTop:10 }}>
             {(detailTrip.packing||[]).length === 0 && readAlwaysBring().length > 0 && (
               <button onClick={copyAlwaysBring} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10, display:"block" }}>📋 Copy from Always Bring ({readAlwaysBring().length})</button>
@@ -4109,7 +4071,7 @@ function TripsSection() {
       var itinList = detailTrip.itinerary||[]
       var itinPreview = itinList.length===0 ? "No itinerary items added yet." : itinList.filter(function(i){return i.done}).length+"/"+itinList.length+" done"
       return (
-        <TripCard key="itinerary" icon={CARD_META.itinerary.icon} title={CARD_META.itinerary.title} accent={CARD_META.itinerary.accent} bg={CARD_META.itinerary.bg} borderTop={CARD_META.itinerary.borderTop} defaultOpen={false} preview={itinPreview}>
+        <TripCard key="itinerary" icon={CARD_META.itinerary.icon} title={CARD_META.itinerary.title} accent={CARD_META.itinerary.accent} defaultOpen={false} preview={itinPreview}>
           <div style={{ paddingTop:10 }}>
             {(detailTrip.itinerary||[]).length === 0 && (
               <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No itinerary items added yet.</div>
@@ -4141,7 +4103,7 @@ function TripsSection() {
       var actList = detailTrip.activities||[]
       var actPreview = actList.length===0 ? "No activities added yet." : actList.filter(function(i){return i.done}).length+"/"+actList.length+" done"
       return (
-        <TripCard key="activities" icon={CARD_META.activities.icon} title={CARD_META.activities.title} accent={CARD_META.activities.accent} bg={CARD_META.activities.bg} borderTop={CARD_META.activities.borderTop} defaultOpen={false} preview={actPreview}>
+        <TripCard key="activities" icon={CARD_META.activities.icon} title={CARD_META.activities.title} accent={CARD_META.activities.accent} defaultOpen={false} preview={actPreview}>
           <div style={{ paddingTop:10 }}>
             {(detailTrip.activities||[]).length === 0 && (
               <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No activities added yet.</div>
@@ -4173,7 +4135,7 @@ function TripsSection() {
       var resList = detailTrip.reservations||[]
       var resPreview = resList.length===0 ? "No reservations added yet." : resList.filter(function(i){return i.done}).length+"/"+resList.length+" done"
       return (
-        <TripCard key="reservations" icon={CARD_META.reservations.icon} title={CARD_META.reservations.title} accent={CARD_META.reservations.accent} bg={CARD_META.reservations.bg} borderTop={CARD_META.reservations.borderTop} defaultOpen={false} preview={resPreview}>
+        <TripCard key="reservations" icon={CARD_META.reservations.icon} title={CARD_META.reservations.title} accent={CARD_META.reservations.accent} defaultOpen={false} preview={resPreview}>
           <div style={{ paddingTop:10 }}>
             {(detailTrip.reservations||[]).length === 0 && (
               <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No reservations added yet.</div>
@@ -4208,7 +4170,7 @@ function TripsSection() {
       var budgetPreview = remaining===null ? "No budget set yet." : (remaining<0 ? "Over by "+Math.abs(remaining).toLocaleString() : remaining.toLocaleString()+" remaining")
       var budgetPreviewColor = remaining!==null && remaining<0 ? "#e07070" : undefined
       return (
-        <TripCard key="budget" icon={CARD_META.budget.icon} title={CARD_META.budget.title} accent={CARD_META.budget.accent} bg={CARD_META.budget.bg} borderTop={CARD_META.budget.borderTop} defaultOpen={false} preview={budgetPreview} previewColor={budgetPreviewColor}>
+        <TripCard key="budget" icon={CARD_META.budget.icon} title={CARD_META.budget.title} accent={CARD_META.budget.accent} defaultOpen={false} preview={budgetPreview} previewColor={budgetPreviewColor}>
           <div style={{ display:"flex", flexDirection:"column", gap:10, paddingTop:10 }}>
             <div style={{ display:"flex", gap:8 }}>
               <div style={{ flex:1 }}>
@@ -4233,7 +4195,7 @@ function TripsSection() {
       var docList = detailTrip.documents||[]
       var docPreview = docList.length===0 ? "No documents added yet." : docList.filter(function(i){return i.done}).length+"/"+docList.length+" done"
       return (
-        <TripCard key="documents" icon={CARD_META.documents.icon} title={CARD_META.documents.title} accent={CARD_META.documents.accent} bg={CARD_META.documents.bg} borderTop={CARD_META.documents.borderTop} defaultOpen={false} preview={docPreview}>
+        <TripCard key="documents" icon={CARD_META.documents.icon} title={CARD_META.documents.title} accent={CARD_META.documents.accent} defaultOpen={false} preview={docPreview}>
           <div style={{ paddingTop:10 }}>
             <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:10, fontStyle:"italic" }}>What's ready for this trip — passport numbers, KTN, and other sensitive details live in Travel Profile, not here.</div>
             {(detailTrip.documents||[]).length === 0 && (
@@ -4266,7 +4228,7 @@ function TripsSection() {
       var dineList = detailTrip.dining||[]
       var dinePreview = dineList.length===0 ? "No dining plans added yet." : dineList.filter(function(i){return i.done}).length+"/"+dineList.length+" done"
       return (
-        <TripCard key="dining" icon={CARD_META.dining.icon} title={CARD_META.dining.title} accent={CARD_META.dining.accent} bg={CARD_META.dining.bg} borderTop={CARD_META.dining.borderTop} defaultOpen={false} preview={dinePreview}>
+        <TripCard key="dining" icon={CARD_META.dining.icon} title={CARD_META.dining.title} accent={CARD_META.dining.accent} defaultOpen={false} preview={dinePreview}>
           <div style={{ paddingTop:10 }}>
             {(detailTrip.dining||[]).length === 0 && (
               <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No dining plans added yet.</div>
@@ -4298,7 +4260,7 @@ function TripsSection() {
       var weatherLine = (detailTrip.weather||"").split("\n")[0].trim()
       var weatherPreview = weatherLine ? (weatherLine.length>60?weatherLine.slice(0,60)+"…":weatherLine) : "No forecast noted yet."
       return (
-        <TripCard key="weather" icon={CARD_META.weather.icon} title={CARD_META.weather.title} accent={CARD_META.weather.accent} bg={CARD_META.weather.bg} borderTop={CARD_META.weather.borderTop} defaultOpen={false} preview={weatherPreview}>
+        <TripCard key="weather" icon={CARD_META.weather.icon} title={CARD_META.weather.title} accent={CARD_META.weather.accent} defaultOpen={false} preview={weatherPreview}>
           <div style={{ paddingTop:10 }}>
             <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:10, fontStyle:"italic" }}>No live forecast yet — this is just a place to jot expectations for packing purposes.</div>
             <textarea value={detailTrip.weather||""} onChange={function(e){ updateTrip(detailTrip.id,{weather:e.target.value}) }} placeholder="e.g. Highs near 85°F, chance of afternoon rain — pack a light rain jacket" rows={3} style={Object.assign({},inputStyle,{resize:"vertical"})}/>
@@ -4310,7 +4272,7 @@ function TripsSection() {
       var notesLine = (detailTrip.notes||"").split("\n")[0].trim()
       var notesPreview = notesLine ? (notesLine.length>60?notesLine.slice(0,60)+"…":notesLine) : "No notes yet."
       return (
-        <TripCard key="notes" icon={CARD_META.notes.icon} title={CARD_META.notes.title} accent={CARD_META.notes.accent} bg={CARD_META.notes.bg} borderTop={CARD_META.notes.borderTop} defaultOpen={false} preview={notesPreview}>
+        <TripCard key="notes" icon={CARD_META.notes.icon} title={CARD_META.notes.title} accent={CARD_META.notes.accent} defaultOpen={false} preview={notesPreview}>
           <div style={{ paddingTop:10 }}>
             <textarea value={detailTrip.notes||""} onChange={function(e){ updateTrip(detailTrip.id,{notes:e.target.value}) }} placeholder="Anything worth remembering…" rows={4} style={Object.assign({},inputStyle,{resize:"vertical"})}/>
           </div>
@@ -4323,7 +4285,7 @@ function TripsSection() {
       var contactTotal = householdContacts.length + tripContacts.length
       var emergencyPreview = contactTotal===0 ? "No emergency contacts added yet." : contactTotal+" contact"+(contactTotal===1?"":"s")+" on file"
       return (
-        <TripCard key="emergencyInfo" icon={CARD_META.emergencyInfo.icon} title={CARD_META.emergencyInfo.title} accent={CARD_META.emergencyInfo.accent} bg={CARD_META.emergencyInfo.bg} borderTop={CARD_META.emergencyInfo.borderTop} defaultOpen={false} preview={emergencyPreview}>
+        <TripCard key="emergencyInfo" icon={CARD_META.emergencyInfo.icon} title={CARD_META.emergencyInfo.title} accent={CARD_META.emergencyInfo.accent} defaultOpen={false} preview={emergencyPreview}>
           <div style={{ paddingTop:10 }}>
             <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>From your Travel Profile</div>
             {householdContacts.length === 0 && (
@@ -4380,7 +4342,7 @@ function TripsSection() {
     photos: function(){
       if (detailTrip.status !== "Completed") return null
       return (
-        <TripCard key="photos" icon={CARD_META.photos.icon} title={CARD_META.photos.title} accent={CARD_META.photos.accent} bg={CARD_META.photos.bg} borderTop={CARD_META.photos.borderTop} defaultOpen={false} preview="No photos yet — coming soon.">
+        <TripCard key="photos" icon={CARD_META.photos.icon} title={CARD_META.photos.title} accent={CARD_META.photos.accent} defaultOpen={false} preview="No photos yet — coming soon.">
           <div style={{ paddingTop:10, textAlign:"center", padding:"20px 10px" }}>
             <div style={{ fontSize:24, marginBottom:8 }}>📷</div>
             <div style={{ fontSize:12, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", fontStyle:"italic" }}>No photos yet — a place to hold memories from this trip is coming soon.</div>
@@ -4391,7 +4353,7 @@ function TripsSection() {
   } : {}
 
   return (
-    <div style={{ background:"#F7F3EC" }}>
+    <div>
       {detailTrip ? (
         <div>
           {/* Same "← Anchor Home" back-link style as AnchorVault's own top-level nav (~7384) */}
