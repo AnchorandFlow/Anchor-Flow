@@ -3626,20 +3626,47 @@ function TripsSection() {
   // shape as HomeSystemsSection's MaintenancePanel (editIdx null vs. set).
   var s_form = useState(null)
   var formTrip = s_form[0]; var setFormTrip = s_form[1]
+  // Snapshot of formTrip's values at the moment the modal opened — compared
+  // against the live draft to detect unsaved changes, so closeForm/back-
+  // navigation can warn before discarding (Phase B). Not the same object
+  // reference as formTrip (a separate copy), so editing formTrip doesn't
+  // silently drag this along too.
+  var s_formOriginal = useState(null)
+  var formTripOriginal = s_formOriginal[0]; var setFormTripOriginal = s_formOriginal[1]
 
   function openAdd() {
-    setFormTrip({ id:null, name:"", destination:"", startDate:"", endDate:"", status:TRIP_STATUSES[0], icon:TRIP_ICONS[0], notes:"" })
+    var blank = { id:null, name:"", destination:"", startDate:"", endDate:"", status:TRIP_STATUSES[0], icon:TRIP_ICONS[0], notes:"" }
+    setFormTrip(blank)
+    setFormTripOriginal(Object.assign({}, blank))
   }
   function openEdit(trip) {
-    setFormTrip({ id:trip.id, name:trip.name||"", destination:trip.destination||"", startDate:trip.startDate||"", endDate:trip.endDate||"", status:trip.status||TRIP_STATUSES[0], icon:trip.icon||TRIP_ICONS[0], notes:trip.notes||"" })
+    var draft = { id:trip.id, name:trip.name||"", destination:trip.destination||"", startDate:trip.startDate||"", endDate:trip.endDate||"", status:trip.status||TRIP_STATUSES[0], icon:trip.icon||TRIP_ICONS[0], notes:trip.notes||"" }
+    setFormTrip(draft)
+    setFormTripOriginal(Object.assign({}, draft))
   }
-  function closeForm() { setFormTrip(null) }
+  function hasUnsavedFormChanges() {
+    if (!formTrip || !formTripOriginal) return false
+    return ["name","destination","startDate","endDate","status","icon","notes"].some(function(k){ return formTrip[k] !== formTripOriginal[k] })
+  }
+  // Unconditional close — used after an intentional save, where there's
+  // nothing to "discard" even though the draft still differs from the
+  // pre-edit snapshot. closeForm (below) is the guarded one for dismissal.
+  function forceCloseForm() { setFormTrip(null); setFormTripOriginal(null) }
+  // Guards the modal's actual discard paths (✕ button, backdrop click —
+  // both already call closeForm, unchanged) with the file's established
+  // window.confirm pattern (matches deleteForm just below), same as
+  // MaintenancePanel's delete-confirm — only prompts if something would
+  // actually be lost.
+  function closeForm() {
+    if (hasUnsavedFormChanges() && !window.confirm("Discard unsaved changes to this trip?")) return
+    forceCloseForm()
+  }
   function saveForm() {
     if (!formTrip.name.trim()) return
     var data = { name:formTrip.name.trim(), destination:formTrip.destination.trim(), startDate:formTrip.startDate, endDate:formTrip.endDate, status:formTrip.status, icon:formTrip.icon, notes:formTrip.notes.trim() }
     if (formTrip.id) updateTrip(formTrip.id, data)
     else addTrip(data)
-    closeForm()
+    forceCloseForm()
   }
   // Delete-with-confirm matches the file's established window.confirm pattern
   // (e.g. MaintenancePanel: "Delete "+sys.name+"?", ~5744) — not a new pattern.
@@ -3648,7 +3675,17 @@ function TripsSection() {
     if (!window.confirm("Delete "+(formTrip.name||"this trip")+"?")) return
     removeTrip(formTrip.id)
     if (detailTripId === formTrip.id) setDetailTripId(null)
-    closeForm()
+    forceCloseForm()
+  }
+  // Safe back navigation (Phase B): if the edit modal is open with unsaved
+  // changes, warn before leaving the detail view entirely — same guard as
+  // closeForm, applied to the "← Back to Trips" path too, so tapping back
+  // mid-edit can't silently discard a draft. Also closes the modal rather
+  // than leaving it orphaned floating over the trips gallery underneath.
+  function backToTrips() {
+    if (formTrip && hasUnsavedFormChanges() && !window.confirm("Discard unsaved changes to this trip?")) return
+    if (formTrip) forceCloseForm()
+    setDetailTripId(null)
   }
 
   // Which trip's detail view is open — same shape as CelebrationsSection's
@@ -4357,7 +4394,7 @@ function TripsSection() {
       {detailTrip ? (
         <div>
           {/* Same "← Anchor Home" back-link style as AnchorVault's own top-level nav (~7384) */}
-          <button onClick={function(){ setDetailTripId(null) }} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
+          <button onClick={backToTrips} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
 
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -4371,31 +4408,41 @@ function TripsSection() {
           </div>
           <div style={{ marginBottom:18 }}><TripCountdownBadge trip={detailTrip} /></div>
 
+          {/* Phase B: read-only summary — editing now happens only through the
+              "Edit trip info" header button, which opens the existing formTrip
+              modal. Previously this card had its own always-editable inputs, a
+              second, parallel edit surface for the exact same fields as the
+              modal — removed rather than kept in sync with a duplicate draft. */}
           <TripCard icon="📋" title="Overview" accent={sand} defaultOpen={true}>
-            <div style={{ display:"flex", flexDirection:"column", gap:10, paddingTop:10 }}>
+            <div style={{ display:"flex", flexDirection:"column", gap:12, paddingTop:10 }}>
               <div>
                 <label style={labelStyle}>Trip name</label>
-                <input value={detailTrip.name||""} onChange={function(e){ updateTrip(detailTrip.id,{name:e.target.value}) }} style={inputStyle}/>
+                <div style={{ fontSize:15, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.name || "Untitled trip"}</div>
               </div>
               <div>
                 <label style={labelStyle}>Destination</label>
-                <input value={detailTrip.destination||""} onChange={function(e){ updateTrip(detailTrip.id,{destination:e.target.value}) }} style={inputStyle}/>
+                <div style={{ fontSize:15, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.destination || "Not set"}</div>
               </div>
-              <div style={{ display:"flex", gap:8 }}>
-                <div style={{ flex:1 }}>
+              <div style={{ display:"flex", gap:24 }}>
+                <div>
                   <label style={labelStyle}>Start date</label>
-                  <input type="date" value={detailTrip.startDate||""} onChange={function(e){ updateTrip(detailTrip.id,{startDate:e.target.value}) }} style={inputStyle}/>
+                  <div style={{ fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.startDate ? formatTripDate(detailTrip.startDate) : "Not set"}</div>
                 </div>
-                <div style={{ flex:1 }}>
+                <div>
                   <label style={labelStyle}>End date</label>
-                  <input type="date" value={detailTrip.endDate||""} onChange={function(e){ updateTrip(detailTrip.id,{endDate:e.target.value}) }} style={inputStyle}/>
+                  <div style={{ fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.endDate ? formatTripDate(detailTrip.endDate) : "Not set"}</div>
                 </div>
               </div>
               <div>
                 <label style={labelStyle}>Status</label>
-                <select value={detailTrip.status||TRIP_STATUSES[0]} onChange={function(e){ updateTrip(detailTrip.id,{status:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none"})}>
-                  {TRIP_STATUSES.map(function(s){ return <option key={s} value={s} style={{background:navy}}>{s}</option> })}
-                </select>
+                {detailTrip.status ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[detailTrip.status]||sand, display:"inline-block", flexShrink:0 }}/>
+                    <span style={{ fontSize:14, color:TRIP_STATUS_COLORS[detailTrip.status]||sand, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.status}</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif" }}>Not set</div>
+                )}
               </div>
             </div>
           </TripCard>
