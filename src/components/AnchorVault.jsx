@@ -3556,7 +3556,7 @@ var CARD_GROUP_OF = {
   weather:"extras", notes:"extras", emergencyInfo:"extras", photos:"extras"
 }
 
-function TripsSection() {
+function TripsSection({ initialTripId, onTripIdConsumed }) {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
   var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
   var coastal = "#7EAEB4"
@@ -3728,6 +3728,13 @@ function TripsSection() {
   var detailTripId = s_detail[0]; var setDetailTripId = s_detail[1]
   function openDetail(trip) { setDetailTripId(trip.id) }
   var detailTrip = detailTripId ? (trips.find(function(t){ return t.id===detailTripId }) || null) : null
+
+  // Deep-link from FlowHome's Travel overview card (tapping a specific trip
+  // tile) — one-shot: consume it into local state, then tell the parent to
+  // clear it so a later fresh visit to Trips doesn't reopen the same trip.
+  useEffect(function() {
+    if (initialTripId) { setDetailTripId(initialTripId); if (onTripIdConsumed) onTripIdConsumed() }
+  }, [initialTripId])
 
   // Level 3 nav: null = card grid, string (a CARD_META id) = that card's
   // full-page detail view. Only "packing"/"itinerary" have a real full-page
@@ -8926,7 +8933,7 @@ function afVaultChanged(key) {
   } catch(e) {}
 }
 
-export default function AnchorVault({ onClose, calEvents, vaultSection }) {
+export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed }) {
   calEvents = calEvents || []
   vaultSection = vaultSection || "home"
 
@@ -8988,7 +8995,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection }) {
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
           {activeSection === "travel" && <TravelProfileSection />}
-          {activeSection === "trips" && <TripsSection />}
+          {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} />}
           {activeSection === "career" && <CareerSection />}
           {activeSection === "settings" && <AnchorSettings />}
           {activeSection === "subs" && <SubscriptionsSection />}

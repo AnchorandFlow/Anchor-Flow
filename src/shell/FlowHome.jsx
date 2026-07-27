@@ -17,7 +17,150 @@ function rd(key, fb) {
   catch (e) { return fb; }
 }
 function go(tab) { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: tab })); }
-function goVault(section) { window.dispatchEvent(new CustomEvent("af-open-vault", { detail: { section: section } })); }
+function goVault(section, tripId) { window.dispatchEvent(new CustomEvent("af-open-vault", { detail: { section: section, tripId: tripId || null } })); }
+
+// Same manual YYYY-MM-DD part parsing as AnchorVault's daysUntil/TripCountdownBadge
+// (~AnchorVault.jsx:3606) — avoids the timezone ambiguity of new Date(dateStr).
+function daysUntilDate(dateStr) {
+  if (!dateStr) return null;
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var parts = dateStr.split("-");
+  if (parts.length === 3 && parts[0].length === 4) {
+    return Math.round((new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])) - now) / 86400000);
+  }
+  return null;
+}
+function expiryColor(dateStr) {
+  var d = daysUntilDate(dateStr);
+  if (d === null) return null;
+  return d < 0 ? "#c0605f" : d <= 180 ? "#b8863f" : "#5f9e78";
+}
+function fmtTripDate(dateStr) {
+  if (!dateStr) return "";
+  var parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr;
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return months[parseInt(parts[1]) - 1] + " " + parseInt(parts[2]);
+}
+function tripCountdown(trip) {
+  var start = daysUntilDate(trip.startDate);
+  var end = daysUntilDate(trip.endDate);
+  if (start === null) return null;
+  var effectiveEnd = end !== null ? end : start;
+  if (start <= 0 && effectiveEnd >= 0) return "in progress";
+  if (start === 0) return "today";
+  if (start === 1) return "in 1 day";
+  return "in " + start + " days";
+}
+
+function TravelOverviewCard() {
+  var s_trav = useState(function () { return rd("travel_profile", {}); });
+  var profile = s_trav[0]; var setProfile = s_trav[1];
+  var s_trips = useState(function () { return rd("trips", []); });
+  var trips = s_trips[0]; var setTrips = s_trips[1];
+  var s_pastOpen = useState(false);
+  var pastOpen = s_pastOpen[0]; var setPastOpen = s_pastOpen[1];
+
+  useEffect(function () {
+    function refresh(e) {
+      if (!e || !e.detail || !e.detail.key || e.detail.key === "travel_profile") setProfile(rd("travel_profile", {}));
+      if (!e || !e.detail || !e.detail.key || e.detail.key === "trips") setTrips(rd("trips", []));
+    }
+    window.addEventListener("af-data-changed", refresh);
+    return function () { window.removeEventListener("af-data-changed", refresh); };
+  }, []);
+
+  if (!Array.isArray(trips)) trips = [];
+  var todayISO = new Date().toISOString().slice(0, 10);
+  var upcoming = trips.filter(function (t) { return t && t.status !== "Completed" && (!t.endDate || t.endDate >= todayISO); })
+    .sort(function (a, b) { return (a.startDate || "") < (b.startDate || "") ? -1 : 1; });
+  var past = trips.filter(function (t) { return t && (t.status === "Completed" || (t.endDate && t.endDate < todayISO)); })
+    .sort(function (a, b) { return (b.endDate || "") < (a.endDate || "") ? -1 : 1; }).slice(0, 3);
+
+  var ffPrograms = (profile.ffPrograms || []).filter(function (p) { return p.airline; });
+  var hotelPrograms = (profile.hotelPrograms || []).filter(function (p) { return p.chain; });
+  var trustedTraveler = [
+    { label: "TSA PreCheck", num: profile.tsaNum, exp: profile.tsaExp },
+    { label: "Global Entry", num: profile.geNum, exp: profile.geExp },
+    { label: "NEXUS", num: profile.nexusNum, exp: profile.nexusExp },
+    { label: "SENTRI", num: profile.sentriNum, exp: profile.sentriExp },
+  ].filter(function (p) { return p.num || p.exp; });
+  var hasPassport = !!(profile.passportName || profile.passportNum || profile.passportExp);
+  var walletEmpty = !hasPassport && trustedTraveler.length === 0 && ffPrograms.length === 0 && hotelPrograms.length === 0;
+
+  function ExpiryNote(props) {
+    var color = expiryColor(props.date);
+    if (!color) return null;
+    var d = daysUntilDate(props.date);
+    var label = d < 0 ? "expired" : d <= 180 ? "expires " + fmtTripDate(props.date) : "valid";
+    return <span style={{ color: color, fontWeight: 600 }}> · {label}</span>;
+  }
+
+  function TripRow(props) {
+    var trip = props.trip;
+    var countdown = props.showCountdown ? tripCountdown(trip) : null;
+    return (
+      <div onClick={function () { goVault("trips", trip.id); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: props.last ? "none" : "1px solid " + C.cream, cursor: "pointer" }}>
+        <span style={{ fontSize: "1rem", flexShrink: 0 }}>{trip.icon || "✈️"}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: ".82rem", color: C.t1, fontWeight: 500 }}>{trip.name}</div>
+          <div style={{ fontSize: ".68rem", color: C.t3 }}>
+            {trip.destination}{trip.destination && (trip.startDate || trip.endDate) ? " · " : ""}
+            {fmtTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + fmtTripDate(trip.endDate) : ""}
+          </div>
+        </div>
+        {countdown && <div style={{ fontSize: ".68rem", color: C.sea, fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>{countdown}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <Card eyebrow="Anchor" title="Travel" link={{ label: "Open →", onClick: function () { goVault("travel"); } }}>
+      <div onClick={function () { goVault("travel"); }} style={{ cursor: "pointer", marginBottom: (upcoming.length || past.length) ? 14 : 0, paddingBottom: (upcoming.length || past.length) ? 14 : 0, borderBottom: (upcoming.length || past.length) ? "1px solid " + C.cream : "none" }}>
+        {walletEmpty ? (
+          <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Add your travel documents and loyalty numbers in Travel Profile →</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {hasPassport && (
+              <div style={{ fontSize: ".78rem", color: C.t2 }}>📘 {profile.passportName || "Passport"}{profile.passportExp && <ExpiryNote date={profile.passportExp} />}</div>
+            )}
+            {trustedTraveler.map(function (p, i) {
+              return <div key={i} style={{ fontSize: ".78rem", color: C.t2 }}>🛂 {p.label}{p.exp && <ExpiryNote date={p.exp} />}</div>;
+            })}
+            {ffPrograms.map(function (p) {
+              return <div key={p.id} style={{ fontSize: ".78rem", color: C.t2 }}>✈️ {p.airline}{p.tier ? " · " + p.tier : ""}</div>;
+            })}
+            {hotelPrograms.map(function (p) {
+              return <div key={p.id} style={{ fontSize: ".78rem", color: C.t2 }}>🏨 {p.chain}{p.tier ? " · " + p.tier : ""}</div>;
+            })}
+          </div>
+        )}
+      </div>
+
+      {upcoming.length === 0 ? (
+        <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No upcoming trips — <span onClick={function () { goVault("trips"); }} style={{ color: C.sea, cursor: "pointer" }}>plan one →</span></div>
+      ) : upcoming.map(function (t, i) {
+        return <TripRow key={t.id} trip={t} showCountdown last={i === upcoming.length - 1 && past.length === 0 && !pastOpen} />;
+      })}
+
+      {past.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div onClick={function (e) { e.stopPropagation(); setPastOpen(!pastOpen); }} style={{ fontSize: ".68rem", color: C.t3, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ transform: pastOpen ? "rotate(90deg)" : "none", transition: "transform .15s", fontSize: ".6rem" }}>▶</span>
+            Past trips ({past.length})
+          </div>
+          {pastOpen && (
+            <div style={{ marginTop: 8 }}>
+              {past.map(function (t, i) {
+                return <TripRow key={t.id} trip={t} last={i === past.length - 1} />;
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 function Card(props) {
   var [open, setOpen] = useState(props.open !== false);
@@ -207,6 +350,8 @@ export default function FlowHome(props) {
               <div onClick={function () { go("tidepool"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Tide Pool →</div>
             </div>
           </Card>
+
+          <TravelOverviewCard />
         </div>
       </div>
     </div>

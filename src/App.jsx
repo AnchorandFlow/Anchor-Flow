@@ -15055,6 +15055,21 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   React.useEffect(function() {
     try { sessionStorage.setItem("af_vaultSection", vaultSection); } catch {}
   }, [vaultSection]);
+  // Deep-link into a specific trip from FlowHome's Travel overview card.
+  // Not persisted to sessionStorage (unlike vaultSection) — it's a one-shot
+  // "open here" instruction, cleared by TripsSection once it's consumed so a
+  // later fresh visit to Trips doesn't get stuck reopening the same trip.
+  const [vaultTripId, setVaultTripId] = React.useState(null);
+  React.useEffect(function() {
+    function h(e) {
+      var d = (e && e.detail) || {};
+      setShowAnchor(true);
+      setVaultSection(d.section || "home");
+      setVaultTripId(d.tripId || null);
+    }
+    window.addEventListener("af-open-vault", h);
+    return function() { window.removeEventListener("af-open-vault", h); };
+  }, []);
   React.useEffect(function() {
     try { sessionStorage.setItem("af_navSel", navSel); } catch {}
   }, [navSel]);
@@ -15170,7 +15185,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             display: none !important;
           }
         `}</style>
-        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} /></SectionErrorBoundary>}
+        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} /></SectionErrorBoundary>}
 
         <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
           <ErrorBoundary>
