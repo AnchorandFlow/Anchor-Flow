@@ -9885,6 +9885,71 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [coveItemsMap, setCoveItemsMap] = useSaved("cove_items_v1", {});
     var [coveSectionsMap, setCoveSectionsMap] = useSaved("cove_sections_v1", {});
     var [coveNotes, setCoveNotes] = useSaved("cove_notes_v1", []);
+    // Restore Cove lists whose sections were wiped by the cove_sections_v1
+    // sanitizer misclassification (fixed in sync-core.js — but data already
+    // wiped before that fix landed isn't retroactively repaired by it alone).
+    // Sweeps every list on mount, not just whichever one gets opened — any
+    // list with a known template_id could have been hit, not only
+    // states-parks. Trigger requires all three: known template_id, sections
+    // empty/missing, items non-empty — never touches a list that doesn't
+    // meet all three, so there's nothing to overwrite and no way to touch a
+    // genuinely-empty-by-design list.
+    //
+    // Section ids are random per createFromTemplate, so a naive re-seed
+    // (new sections, old items untouched) would leave every existing item's
+    // section_id pointing at a dead id — sections would reappear but every
+    // one would render empty. Re-links each existing item to its new
+    // section by matching item.content against the template (stable,
+    // deterministic strings), preserving id/checked/tags — a content match
+    // miss falls back to the first section rather than orphaning the item.
+    //
+    // Deferred 2s (past the ~1.5s hydration guard, _afHydrating) so
+    // setCoveSectionsMap/setCoveItemsMap's automatic dirty-marking actually
+    // fires — running inside the hydration window would silently skip
+    // dirty-marking, leaving the repair local-only and vulnerable to being
+    // re-wiped by a subsequent pull of the still-broken remote value.
+    useEffect(function() {
+      var t = setTimeout(function() {
+        var sectionsUpdates = {};
+        var itemsUpdates = {};
+        coveLists.forEach(function(list) {
+          var tmpl = list.template_id && COVE_TEMPLATES[list.template_id];
+          if (!tmpl) return;
+          var existingSections = coveSectionsMap[list.id];
+          if (existingSections && existingSections.length > 0) return;
+          var existingItems = coveItemsMap[list.id];
+          if (!existingItems || existingItems.length === 0) return;
+
+          var newSections = [];
+          var contentToSectionId = {};
+          (tmpl.sections || []).forEach(function(sec, si) {
+            var secId = uid2();
+            newSections.push({id: secId, title: sec.title, sort_order: si});
+            (sec.items || []).forEach(function(item) {
+              contentToSectionId[item.content] = secId;
+            });
+          });
+          if (newSections.length === 0) return;
+          var fallbackSectionId = newSections[0].id;
+
+          var relinkedItems = existingItems.map(function(item) {
+            var newSecId = contentToSectionId[item.content] || fallbackSectionId;
+            return Object.assign({}, item, {section_id: newSecId});
+          });
+
+          sectionsUpdates[list.id] = newSections;
+          itemsUpdates[list.id] = relinkedItems;
+          console.warn("[AF COVE] restored sections for list "+list.id+" from template "+list.template_id);
+        });
+
+        if (Object.keys(sectionsUpdates).length > 0) {
+          setCoveSectionsMap(function(prev) { return Object.assign({}, prev, sectionsUpdates); });
+          setCoveItemsMap(function(prev) { return Object.assign({}, prev, itemsUpdates); });
+        }
+      }, 2000);
+      return function() { clearTimeout(t); };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     var [coveNotesAZ, setCoveNotesAZ] = React.useState(false);
     var [catFilter, setCatFilter] = useState("all");
     var [coveTab, setCoveTab] = useState("lists"); // "lists" | "notes"
