@@ -10340,9 +10340,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{paddingBottom:"3rem"}}>
           {/* Header */}
           <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
-            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textSoft,padding:"4px 0",display:"flex",alignItems:"center",flexShrink:0,marginTop:4}}>
-              <Icon name="arrow-left" size={18} color={T.textSoft}/>
-            </button>
+            {/* Icon name="arrow-left" is not registered in Icon.jsx (returns null) — was rendering
+                an invisible-but-clickable button. Using a visible text label instead, matching the
+                established "← Back" pill pattern used elsewhere in this file (~11584), rather than
+                depending on the broken icon. */}
+            <button onClick={function(){ setView("list"); }} style={{background:"none",border:"1px solid "+T.border,borderRadius:"2rem",cursor:"pointer",color:T.textMid,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",flexShrink:0,marginTop:2}}>← Back to lists</button>
             <div style={{flex:1,minWidth:0}}>
               <input
                 value={activeList.title}
