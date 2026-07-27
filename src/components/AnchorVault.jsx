@@ -3496,6 +3496,7 @@ var TRIP_STATUS_COLORS = {
 // across the Travel redesign.
 var TRIP_ICONS = ["🧳","✈️","🚗","🏖️","🏕️","🚢","🎡","⛰️"]
 var TRANSPORT_TYPES = ["Flight","Train","Car Rental","Rideshare","Ferry","Bus","Other"]
+var TRANSPORT_TYPE_ICONS = { "Flight":"✈️", "Train":"🚂", "Car Rental":"🚗", "Rideshare":"🚕", "Ferry":"🚢", "Bus":"🚌", "Other":"🧳" }
 
 // ── Step 4c: remaining sub-cards + hide/reorder ─────────────────────────────
 // Every card except Overview (pinned first, not hideable/reorderable) is
@@ -3622,6 +3623,18 @@ function TripsSection() {
     var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
     return months[parseInt(parts[1])-1]+" "+parseInt(parts[2])+", "+parts[0]
   }
+  // Header/banner trip length ("7 days") — inclusive of both start and end
+  // dates, same manual YYYY-MM-DD part parsing as daysUntil above (avoids
+  // the timezone ambiguity of new Date(dateStr) on a bare date string).
+  function tripLengthDays(trip) {
+    if (!trip.startDate || !trip.endDate) return null
+    var sp = trip.startDate.split("-"); var ep = trip.endDate.split("-")
+    if (sp.length!==3 || ep.length!==3) return null
+    var s = new Date(parseInt(sp[0]),parseInt(sp[1])-1,parseInt(sp[2]))
+    var e = new Date(parseInt(ep[0]),parseInt(ep[1])-1,parseInt(ep[2]))
+    var n = Math.round((e-s)/86400000) + 1
+    return n > 0 ? n : null
+  }
 
   // Adapted from TravelProfileSection's ExpiryBadge (~3077) — same small pill
   // styling, different logic: a trip counts down to a start date and flags an
@@ -3733,12 +3746,24 @@ function TripsSection() {
   var newPackingSectionTitle = s_newPackSec[0]; var setNewPackingSectionTitle = s_newPackSec[1]
   var s_collapsedItinDays = useState({})
   var collapsedItineraryDays = s_collapsedItinDays[0]; var setCollapsedItineraryDays = s_collapsedItinDays[1]
+  // Past Adventures section on the trips gallery — collapsed by default so
+  // completed trips don't dominate the view; still fully accessible via
+  // the chevron toggle.
+  var s_pastCollapsed = useState(true)
+  var collapsedPastAdventures = s_pastCollapsed[0]; var setCollapsedPastAdventures = s_pastCollapsed[1]
   // Import-from-saved-packing-template panel: closed / choosing a template /
   // a template chosen (showing the merge-vs-replace choice).
   var s_importOpen = useState(false)
   var importOpen = s_importOpen[0]; var setImportOpen = s_importOpen[1]
   var s_importTemplate = useState(null)
   var importSelectedTemplate = s_importTemplate[0]; var setImportSelectedTemplate = s_importTemplate[1]
+  // Notes full-page view: local draft + 500ms debounced auto-save (500ms
+  // per spec), so every keystroke doesn't write to storage. No existing
+  // debounce pattern in this file to match — this is a new one, not
+  // reusing an established convention.
+  var s_notesDraft = useState("")
+  var notesDraft = s_notesDraft[0]; var setNotesDraft = s_notesDraft[1]
+  var notesDebounceRef = useRef(null)
 
   // Transportation/lodging are arrays, not single objects — a connecting
   // flight or a two-stay trip isn't an edge case for a real family trip.
@@ -4001,88 +4026,179 @@ function TripsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTripCard, detailTrip && detailTrip.id])
 
-  var s_newActivity = useState(""); var newActivityText = s_newActivity[0]; var setNewActivityText = s_newActivity[1]
-  function addActivityItem() {
-    if (!detailTrip || !newActivityText.trim()) return
-    var list = detailTrip.activities || []
-    updateTrip(detailTrip.id, { activities: [...list, { id:Date.now().toString(), text:newActivityText.trim(), done:false }] })
-    setNewActivityText("")
+  // Notes full-page view: reset the local draft from the saved value each
+  // time the view opens, then debounce-save 500ms after the draft actually
+  // changes — not on mount/reset itself, so opening the view never fires a
+  // spurious write when nothing was typed.
+  useEffect(function(){
+    if (activeTripCard !== "notes" || !detailTrip) return
+    setNotesDraft(detailTrip.notes || "")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTripCard, detailTrip && detailTrip.id])
+  useEffect(function(){
+    if (activeTripCard !== "notes" || !detailTrip) return
+    if (notesDraft === (detailTrip.notes || "")) return
+    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current)
+    notesDebounceRef.current = setTimeout(function(){
+      updateTrip(detailTrip.id, { notes: notesDraft })
+    }, 500)
+    return function(){ if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notesDraft])
+
+  // Activities: was flat {id,text,done} — spec wants name/notes/date/done.
+  // Same tolerate-old-shape-on-read approach as Packing/Itinerary: old
+  // entries display with text promoted to name, notes/date default blank;
+  // only ever written in the new shape once a mutator runs.
+  function normalizeActivities(raw) {
+    var list = Array.isArray(raw) ? raw : []
+    return list.map(function(a){
+      if (a.name !== undefined) return { id:a.id, name:a.name||"", notes:a.notes||"", date:a.date||"", done:!!a.done }
+      return { id:a.id, name:a.text||"", notes:"", date:"", done:!!a.done }
+    })
   }
-  function toggleActivityItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.activities || []
-    updateTrip(detailTrip.id, { activities: list.map(function(it){ return it.id===id ? Object.assign({},it,{done:!it.done}) : it }) })
+  function activitiesList() { return normalizeActivities(detailTrip && detailTrip.activities) }
+  function saveActivities(list) { if (!detailTrip) return; updateTrip(detailTrip.id, { activities: list }) }
+  function addActivity() {
+    saveActivities([...activitiesList(), { id:Date.now().toString(), name:"", notes:"", date:"", done:false }])
   }
-  function removeActivityItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.activities || []
-    updateTrip(detailTrip.id, { activities: list.filter(function(it){ return it.id!==id }) })
+  function updateActivity(id, changes) {
+    saveActivities(activitiesList().map(function(a){ return a.id===id ? Object.assign({},a,changes) : a }))
+  }
+  function toggleActivity(id) {
+    saveActivities(activitiesList().map(function(a){ return a.id===id ? Object.assign({},a,{done:!a.done}) : a }))
+  }
+  function removeActivity(id) {
+    saveActivities(activitiesList().filter(function(a){ return a.id!==id }))
   }
 
-  var s_newReservation = useState(""); var newReservationText = s_newReservation[0]; var setNewReservationText = s_newReservation[1]
-  function addReservationItem() {
-    if (!detailTrip || !newReservationText.trim()) return
-    var list = detailTrip.reservations || []
-    updateTrip(detailTrip.id, { reservations: [...list, { id:Date.now().toString(), text:newReservationText.trim(), done:false }] })
-    setNewReservationText("")
+  // Reservations: was flat {id,text,done} — spec wants name/type/date/time/
+  // confirmationNumber/notes, sorted by date, no done/checkbox at all.
+  function normalizeReservations(raw) {
+    var list = Array.isArray(raw) ? raw : []
+    return list.map(function(r){
+      if (r.name !== undefined) return { id:r.id, name:r.name||"", type:r.type||"", date:r.date||"", time:r.time||"", confirmationNumber:r.confirmationNumber||"", notes:r.notes||"" }
+      return { id:r.id, name:r.text||"", type:"", date:"", time:"", confirmationNumber:"", notes:"" }
+    })
   }
-  function toggleReservationItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.reservations || []
-    updateTrip(detailTrip.id, { reservations: list.map(function(it){ return it.id===id ? Object.assign({},it,{done:!it.done}) : it }) })
+  function reservationsList() {
+    var list = normalizeReservations(detailTrip && detailTrip.reservations)
+    // Sorted by date (blank dates last, stable relative order otherwise) —
+    // .slice() first since .sort() mutates in place.
+    return list.slice().sort(function(a,b){
+      if (!a.date && !b.date) return 0
+      if (!a.date) return 1
+      if (!b.date) return -1
+      return a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+    })
   }
-  function removeReservationItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.reservations || []
-    updateTrip(detailTrip.id, { reservations: list.filter(function(it){ return it.id!==id }) })
+  function saveReservations(list) { if (!detailTrip) return; updateTrip(detailTrip.id, { reservations: list }) }
+  function addReservation() {
+    saveReservations([...normalizeReservations(detailTrip && detailTrip.reservations), { id:Date.now().toString(), name:"", type:"", date:"", time:"", confirmationNumber:"", notes:"" }])
+  }
+  function updateReservation(id, changes) {
+    saveReservations(normalizeReservations(detailTrip && detailTrip.reservations).map(function(r){ return r.id===id ? Object.assign({},r,changes) : r }))
+  }
+  function removeReservation(id) {
+    saveReservations(normalizeReservations(detailTrip && detailTrip.reservations).filter(function(r){ return r.id!==id }))
   }
 
-  // Budget is a single running total per trip, not a list of records —
-  // same Object.assign-merge shape as Transportation/Lodging's per-item
-  // update, just against the whole field instead of one array entry.
+  // Budget: estimated (planned) is unchanged. spent was a single running-
+  // total number the user typed in directly — now an array of expense
+  // records, per spec. Migration: an existing numeric spent value becomes
+  // one expense entry (not discarded) so a trip's prior running total
+  // isn't silently lost when the shape changes.
+  var BUDGET_CATEGORIES = ["Food","Transport","Lodging","Activities","Shopping","Other"]
+  function normalizeExpenses(budget) {
+    var raw = (budget || {}).spent
+    if (Array.isArray(raw)) {
+      return raw.map(function(e){ return { id:e.id, description:e.description||"", amount:e.amount||"", category:e.category||"Other", date:e.date||"" } })
+    }
+    var legacy = parseFloat(raw)
+    if (!isNaN(legacy) && legacy !== 0) {
+      return [{ id:"legacy", description:"Previously recorded total", amount:legacy, category:"Other", date:"" }]
+    }
+    return []
+  }
+  function expensesTotal(expenses) {
+    return expenses.reduce(function(sum, e){ var n = parseFloat(e.amount); return sum + (isNaN(n) ? 0 : n) }, 0)
+  }
   function updateBudget(changes) {
     if (!detailTrip) return
     updateTrip(detailTrip.id, { budget: Object.assign({}, detailTrip.budget, changes) })
   }
-
-  // Documents: checklist-shaped, same pattern as Packing/Itinerary/Activities/
-  // Reservations. Deliberately does NOT re-collect passport numbers, KTN, or
-  // any sensitive value already captured (masked) in TravelProfileSection —
-  // this only tracks which documents are ready for THIS trip.
-  var s_newDocument = useState(""); var newDocumentText = s_newDocument[0]; var setNewDocumentText = s_newDocument[1]
-  function addDocumentItem() {
-    if (!detailTrip || !newDocumentText.trim()) return
-    var list = detailTrip.documents || []
-    updateTrip(detailTrip.id, { documents: [...list, { id:Date.now().toString(), text:newDocumentText.trim(), done:false }] })
-    setNewDocumentText("")
+  function saveExpenses(expenses) { updateBudget({ spent: expenses }) }
+  function addExpense() {
+    saveExpenses([...normalizeExpenses(detailTrip && detailTrip.budget), { id:Date.now().toString(), description:"", amount:"", category:"Other", date:"" }])
   }
-  function toggleDocumentItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.documents || []
-    updateTrip(detailTrip.id, { documents: list.map(function(it){ return it.id===id ? Object.assign({},it,{done:!it.done}) : it }) })
+  function updateExpense(id, changes) {
+    saveExpenses(normalizeExpenses(detailTrip && detailTrip.budget).map(function(e){ return e.id===id ? Object.assign({},e,changes) : e }))
   }
-  function removeDocumentItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.documents || []
-    updateTrip(detailTrip.id, { documents: list.filter(function(it){ return it.id!==id }) })
+  function removeExpense(id) {
+    saveExpenses(normalizeExpenses(detailTrip && detailTrip.budget).filter(function(e){ return e.id!==id }))
   }
 
-  var s_newDining = useState(""); var newDiningText = s_newDining[0]; var setNewDiningText = s_newDining[1]
-  function addDiningItem() {
-    if (!detailTrip || !newDiningText.trim()) return
-    var list = detailTrip.dining || []
-    updateTrip(detailTrip.id, { dining: [...list, { id:Date.now().toString(), text:newDiningText.trim(), done:false }] })
-    setNewDiningText("")
+  // Documents: was flat {id,text,done} — spec wants name/type/expiryDate/
+  // notes/confirmed. Deliberately does NOT re-collect passport numbers,
+  // KTN, or any sensitive value already captured (masked) in
+  // TravelProfileSection — this only tracks which documents are ready for
+  // THIS trip.
+  var DOCUMENT_TYPES = ["Passport","Visa","Insurance","Booking","Other"]
+  function normalizeDocuments(raw) {
+    var list = Array.isArray(raw) ? raw : []
+    return list.map(function(d){
+      if (d.name !== undefined) return { id:d.id, name:d.name||"", type:d.type||"", expiryDate:d.expiryDate||"", notes:d.notes||"", confirmed:!!d.confirmed }
+      return { id:d.id, name:d.text||"", type:"", expiryDate:"", notes:"", confirmed:!!d.done }
+    })
   }
-  function toggleDiningItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.dining || []
-    updateTrip(detailTrip.id, { dining: list.map(function(it){ return it.id===id ? Object.assign({},it,{done:!it.done}) : it }) })
+  function documentsList() { return normalizeDocuments(detailTrip && detailTrip.documents) }
+  function saveDocuments(list) { if (!detailTrip) return; updateTrip(detailTrip.id, { documents: list }) }
+  function addDocument() {
+    saveDocuments([...documentsList(), { id:Date.now().toString(), name:"", type:"", expiryDate:"", notes:"", confirmed:false }])
   }
-  function removeDiningItem(id) {
-    if (!detailTrip) return
-    var list = detailTrip.dining || []
-    updateTrip(detailTrip.id, { dining: list.filter(function(it){ return it.id!==id }) })
+  function updateDocument(id, changes) {
+    saveDocuments(documentsList().map(function(d){ return d.id===id ? Object.assign({},d,changes) : d }))
+  }
+  function toggleDocument(id) {
+    saveDocuments(documentsList().map(function(d){ return d.id===id ? Object.assign({},d,{confirmed:!d.confirmed}) : d }))
+  }
+  function removeDocument(id) {
+    saveDocuments(documentsList().filter(function(d){ return d.id!==id }))
+  }
+  // Expiry warning: red if already expired, amber if expiring within 90
+  // days — reuses the exact daysUntil() this component already defines
+  // for trip countdown badges, not a new date-diffing implementation.
+  function documentExpiryStatus(doc) {
+    if (!doc.expiryDate) return null
+    var d = daysUntil(doc.expiryDate)
+    if (d === null) return null
+    if (d < 0) return "expired"
+    if (d <= 90) return "soon"
+    return null
+  }
+
+  // Dining: was flat {id,text,done} — spec wants name/notes/mealType/visited.
+  var MEAL_TYPES = ["Breakfast","Lunch","Dinner","Snack","Any"]
+  function normalizeDining(raw) {
+    var list = Array.isArray(raw) ? raw : []
+    return list.map(function(d){
+      if (d.name !== undefined) return { id:d.id, name:d.name||"", notes:d.notes||"", mealType:d.mealType||"Any", visited:!!d.visited }
+      return { id:d.id, name:d.text||"", notes:"", mealType:"Any", visited:!!d.done }
+    })
+  }
+  function diningList() { return normalizeDining(detailTrip && detailTrip.dining) }
+  function saveDining(list) { if (!detailTrip) return; updateTrip(detailTrip.id, { dining: list }) }
+  function addDiningSpot() {
+    saveDining([...diningList(), { id:Date.now().toString(), name:"", notes:"", mealType:"Any", visited:false }])
+  }
+  function updateDiningSpot(id, changes) {
+    saveDining(diningList().map(function(d){ return d.id===id ? Object.assign({},d,changes) : d }))
+  }
+  function toggleDiningSpot(id) {
+    saveDining(diningList().map(function(d){ return d.id===id ? Object.assign({},d,{visited:!d.visited}) : d }))
+  }
+  function removeDiningSpot(id) {
+    saveDining(diningList().filter(function(d){ return d.id!==id }))
   }
 
   // Emergency Info: household defaults from TravelProfileSection's
@@ -4182,50 +4298,7 @@ function TripsSection() {
       var trPreview = trList.length===0 ? "No transportation added yet." :
         (trFirst.carrier||trFirst.type||"Trip added")+(trFirst.departure?" · "+trFirst.departure:"")+(trList.length>1?" +"+(trList.length-1)+" more":"")
       return (
-        <TripCard key="transportation" icon={CARD_META.transportation.icon} title={CARD_META.transportation.title} accent={CARD_META.transportation.accent} defaultOpen={false} preview={trPreview}>
-          <div style={{ paddingTop:10 }}>
-            <button onClick={addTransportation} style={{ background:"rgba(122,168,200,0.12)", border:"1px solid rgba(122,168,200,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7aa8c8", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10 }}>+ Add transportation</button>
-            {(detailTrip.transportation||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No transportation added yet.</div>
-            )}
-            {(detailTrip.transportation||[]).map(function(tr) {
-              return (
-                <div key={tr.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
-                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    <div style={{ display:"flex", gap:8 }}>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Type</label>
-                        <select value={tr.type||""} onChange={function(e){ updateTransportation(tr.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:tr.type?warm:"rgba(250,248,244,0.3)"})}>
-                          <option value="" style={{background:navy}}>Select type…</option>
-                          {TRANSPORT_TYPES.map(function(t){ return <option key={t} value={t} style={{background:navy}}>{t}</option> })}
-                        </select>
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Carrier</label>
-                        <input value={tr.carrier||""} onChange={function(e){ updateTransportation(tr.id,{carrier:e.target.value}) }} placeholder="e.g. United Airlines" style={inputStyle}/>
-                      </div>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Confirmation number</label>
-                      <input value={tr.confirmationNumber||""} onChange={function(e){ updateTransportation(tr.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
-                    </div>
-                    <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Departure</label>
-                        <input value={tr.departure||""} onChange={function(e){ updateTransportation(tr.id,{departure:e.target.value}) }} placeholder="e.g. Aug 10, 6:45 AM" style={inputStyle}/>
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Arrival</label>
-                        <input value={tr.arrival||""} onChange={function(e){ updateTransportation(tr.id,{arrival:e.target.value}) }} placeholder="e.g. Aug 10, 9:20 AM" style={inputStyle}/>
-                      </div>
-                      <button onClick={function(){removeTransportation(tr.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </TripCard>
+        <TripCardTile key="transportation" icon={CARD_META.transportation.icon} title={CARD_META.transportation.title} accent={CARD_META.transportation.accent} preview={trPreview} onClick={function(){ setActiveTripCard("transportation") }}/>
       )
     },
     lodging: function(){
@@ -4234,45 +4307,7 @@ function TripsSection() {
       var lgPreview = lgList.length===0 ? "No lodging added yet." :
         (lgFirst.name||"Lodging added")+(lgList.length>1?" +"+(lgList.length-1)+" more":"")
       return (
-        <TripCard key="lodging" icon={CARD_META.lodging.icon} title={CARD_META.lodging.title} accent={CARD_META.lodging.accent} defaultOpen={false} preview={lgPreview}>
-          <div style={{ paddingTop:10 }}>
-            <button onClick={addLodging} style={{ background:"rgba(122,158,142,0.12)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:10 }}>+ Add lodging</button>
-            {(detailTrip.lodging||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No lodging added yet.</div>
-            )}
-            {(detailTrip.lodging||[]).map(function(lg) {
-              return (
-                <div key={lg.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
-                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    <div>
-                      <label style={labelStyle}>Name</label>
-                      <input value={lg.name||""} onChange={function(e){ updateLodging(lg.id,{name:e.target.value}) }} placeholder="e.g. Beachside Resort" style={inputStyle}/>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Address</label>
-                      <input value={lg.address||""} onChange={function(e){ updateLodging(lg.id,{address:e.target.value}) }} style={inputStyle}/>
-                    </div>
-                    <div>
-                      <label style={labelStyle}>Confirmation number</label>
-                      <input value={lg.confirmationNumber||""} onChange={function(e){ updateLodging(lg.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
-                    </div>
-                    <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Check-in</label>
-                        <input type="date" value={lg.checkIn||""} onChange={function(e){ updateLodging(lg.id,{checkIn:e.target.value}) }} style={inputStyle}/>
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Check-out</label>
-                        <input type="date" value={lg.checkOut||""} onChange={function(e){ updateLodging(lg.id,{checkOut:e.target.value}) }} style={inputStyle}/>
-                      </div>
-                      <button onClick={function(){removeLodging(lg.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </TripCard>
+        <TripCardTile key="lodging" icon={CARD_META.lodging.icon} title={CARD_META.lodging.title} accent={CARD_META.lodging.accent} preview={lgPreview} onClick={function(){ setActiveTripCard("lodging") }}/>
       )
     },
     packing: function(){
@@ -4292,160 +4327,44 @@ function TripsSection() {
       )
     },
     activities: function(){
-      var actList = detailTrip.activities||[]
+      var actList = normalizeActivities(detailTrip.activities)
       var actPreview = actList.length===0 ? "No activities added yet." : actList.filter(function(i){return i.done}).length+"/"+actList.length+" done"
       return (
-        <TripCard key="activities" icon={CARD_META.activities.icon} title={CARD_META.activities.title} accent={CARD_META.activities.accent} defaultOpen={false} preview={actPreview}>
-          <div style={{ paddingTop:10 }}>
-            {(detailTrip.activities||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No activities added yet.</div>
-            )}
-            {(detailTrip.activities||[]).length > 0 && (
-              <div style={{ marginBottom:10 }}>
-                {(detailTrip.activities||[]).map(function(item) {
-                  return (
-                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function(){ toggleActivityItem(item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#6ab5a0":"rgba(250,242,229,0.2)"), background:item.done?"#6ab5a0":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                        {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                      </div>
-                      <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                      <button onClick={function(){ removeActivityItem(item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={newActivityText} onChange={function(e){ setNewActivityText(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter") addActivityItem() }} placeholder="e.g. Snorkeling tour" style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={addActivityItem} style={{ background:"rgba(106,181,160,0.15)", border:"1px solid rgba(106,181,160,0.3)", borderRadius:8, padding:"0 14px", color:"#6ab5a0", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
-            </div>
-          </div>
-        </TripCard>
+        <TripCardTile key="activities" icon={CARD_META.activities.icon} title={CARD_META.activities.title} accent={CARD_META.activities.accent} preview={actPreview} onClick={function(){ setActiveTripCard("activities") }}/>
       )
     },
     reservations: function(){
-      var resList = detailTrip.reservations||[]
-      var resPreview = resList.length===0 ? "No reservations added yet." : resList.filter(function(i){return i.done}).length+"/"+resList.length+" done"
+      var resList = normalizeReservations(detailTrip.reservations)
+      var resPreview = resList.length===0 ? "No reservations added yet." : resList.length+(resList.length===1?" reservation":" reservations")
       return (
-        <TripCard key="reservations" icon={CARD_META.reservations.icon} title={CARD_META.reservations.title} accent={CARD_META.reservations.accent} defaultOpen={false} preview={resPreview}>
-          <div style={{ paddingTop:10 }}>
-            {(detailTrip.reservations||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No reservations added yet.</div>
-            )}
-            {(detailTrip.reservations||[]).length > 0 && (
-              <div style={{ marginBottom:10 }}>
-                {(detailTrip.reservations||[]).map(function(item) {
-                  return (
-                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function(){ toggleReservationItem(item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#8e8eb5":"rgba(250,242,229,0.2)"), background:item.done?"#8e8eb5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                        {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                      </div>
-                      <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                      <button onClick={function(){ removeReservationItem(item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={newReservationText} onChange={function(e){ setNewReservationText(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter") addReservationItem() }} placeholder="e.g. Dinner at Coastal Table, 7pm" style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={addReservationItem} style={{ background:"rgba(142,142,181,0.15)", border:"1px solid rgba(142,142,181,0.3)", borderRadius:8, padding:"0 14px", color:"#8e8eb5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
-            </div>
-          </div>
-        </TripCard>
+        <TripCardTile key="reservations" icon={CARD_META.reservations.icon} title={CARD_META.reservations.title} accent={CARD_META.reservations.accent} preview={resPreview} onClick={function(){ setActiveTripCard("reservations") }}/>
       )
     },
     budget: function(){
       var b = detailTrip.budget || {}
-      var est = parseFloat(b.estimated); var spent = parseFloat(b.spent)
-      var remaining = (!isNaN(est) && !isNaN(spent)) ? (est - spent) : null
-      var budgetPreview = remaining===null ? "No budget set yet." : (remaining<0 ? "Over by "+Math.abs(remaining).toLocaleString() : remaining.toLocaleString()+" remaining")
+      var est = parseFloat(b.estimated)
+      var expenses = normalizeExpenses(b)
+      var spentTotal = expensesTotal(expenses)
+      var remaining = !isNaN(est) ? (est - spentTotal) : null
+      var budgetPreview = remaining===null ? "No budget set yet." : "$"+spentTotal.toLocaleString()+" of $"+est.toLocaleString()+" planned"
       var budgetPreviewColor = remaining!==null && remaining<0 ? "#e07070" : undefined
       return (
-        <TripCard key="budget" icon={CARD_META.budget.icon} title={CARD_META.budget.title} accent={CARD_META.budget.accent} defaultOpen={false} preview={budgetPreview} previewColor={budgetPreviewColor}>
-          <div style={{ display:"flex", flexDirection:"column", gap:10, paddingTop:10 }}>
-            <div style={{ display:"flex", gap:8 }}>
-              <div style={{ flex:1 }}>
-                <label style={labelStyle}>Estimated</label>
-                <input value={b.estimated||""} onChange={function(e){ updateBudget({estimated:e.target.value}) }} placeholder="e.g. 2000" style={inputStyle}/>
-              </div>
-              <div style={{ flex:1 }}>
-                <label style={labelStyle}>Spent so far</label>
-                <input value={b.spent||""} onChange={function(e){ updateBudget({spent:e.target.value}) }} placeholder="e.g. 450" style={inputStyle}/>
-              </div>
-            </div>
-            {remaining !== null && (
-              <div style={{ fontSize:12, color: remaining<0 ? "#e07070" : "rgba(250,248,244,0.5)", fontFamily:"DM Sans,sans-serif" }}>
-                {remaining<0 ? "Over by "+Math.abs(remaining).toLocaleString() : remaining.toLocaleString()+" remaining"}
-              </div>
-            )}
-          </div>
-        </TripCard>
+        <TripCardTile key="budget" icon={CARD_META.budget.icon} title={CARD_META.budget.title} accent={CARD_META.budget.accent} preview={budgetPreview} previewColor={budgetPreviewColor} onClick={function(){ setActiveTripCard("budget") }}/>
       )
     },
     documents: function(){
-      var docList = detailTrip.documents||[]
-      var docPreview = docList.length===0 ? "No documents added yet." : docList.filter(function(i){return i.done}).length+"/"+docList.length+" done"
+      var docList = normalizeDocuments(detailTrip.documents)
+      var warnCount = docList.filter(function(d){ return documentExpiryStatus(d)!==null }).length
+      var docPreview = docList.length===0 ? "No documents added yet." : docList.filter(function(i){return i.confirmed}).length+"/"+docList.length+" ready"+(warnCount>0?" · ⚠️ "+warnCount+" expiring soon":"")
       return (
-        <TripCard key="documents" icon={CARD_META.documents.icon} title={CARD_META.documents.title} accent={CARD_META.documents.accent} defaultOpen={false} preview={docPreview}>
-          <div style={{ paddingTop:10 }}>
-            <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:10, fontStyle:"italic" }}>What's ready for this trip — passport numbers, KTN, and other sensitive details live in Travel Profile, not here.</div>
-            {(detailTrip.documents||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No documents added yet.</div>
-            )}
-            {(detailTrip.documents||[]).length > 0 && (
-              <div style={{ marginBottom:10 }}>
-                {(detailTrip.documents||[]).map(function(item) {
-                  return (
-                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function(){ toggleDocumentItem(item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#6A9BB5":"rgba(250,242,229,0.2)"), background:item.done?"#6A9BB5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                        {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                      </div>
-                      <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                      <button onClick={function(){ removeDocumentItem(item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={newDocumentText} onChange={function(e){ setNewDocumentText(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter") addDocumentItem() }} placeholder="e.g. Passport, Visa, Travel insurance" style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={addDocumentItem} style={{ background:"rgba(106,155,181,0.15)", border:"1px solid rgba(106,155,181,0.3)", borderRadius:8, padding:"0 14px", color:"#6A9BB5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
-            </div>
-          </div>
-        </TripCard>
+        <TripCardTile key="documents" icon={CARD_META.documents.icon} title={CARD_META.documents.title} accent={CARD_META.documents.accent} preview={docPreview} previewColor={warnCount>0?"#e0937a":undefined} onClick={function(){ setActiveTripCard("documents") }}/>
       )
     },
     dining: function(){
-      var dineList = detailTrip.dining||[]
-      var dinePreview = dineList.length===0 ? "No dining plans added yet." : dineList.filter(function(i){return i.done}).length+"/"+dineList.length+" done"
+      var dineList = normalizeDining(detailTrip.dining)
+      var dinePreview = dineList.length===0 ? "No dining spots added yet." : dineList.filter(function(i){return i.visited}).length+"/"+dineList.length+" visited"
       return (
-        <TripCard key="dining" icon={CARD_META.dining.icon} title={CARD_META.dining.title} accent={CARD_META.dining.accent} defaultOpen={false} preview={dinePreview}>
-          <div style={{ paddingTop:10 }}>
-            {(detailTrip.dining||[]).length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>No dining plans added yet.</div>
-            )}
-            {(detailTrip.dining||[]).length > 0 && (
-              <div style={{ marginBottom:10 }}>
-                {(detailTrip.dining||[]).map(function(item) {
-                  return (
-                    <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function(){ toggleDiningItem(item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#b5856a":"rgba(250,242,229,0.2)"), background:item.done?"#b5856a":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                        {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                      </div>
-                      <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                      <button onClick={function(){ removeDiningItem(item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ display:"flex", gap:8 }}>
-              <input value={newDiningText} onChange={function(e){ setNewDiningText(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter") addDiningItem() }} placeholder="e.g. Try the crab shack on the pier" style={Object.assign({},inputStyle,{flex:1})}/>
-              <button onClick={addDiningItem} style={{ background:"rgba(181,133,106,0.15)", border:"1px solid rgba(181,133,106,0.3)", borderRadius:8, padding:"0 14px", color:"#b5856a", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
-            </div>
-          </div>
-        </TripCard>
+        <TripCardTile key="dining" icon={CARD_META.dining.icon} title={CARD_META.dining.title} accent={CARD_META.dining.accent} preview={dinePreview} onClick={function(){ setActiveTripCard("dining") }}/>
       )
     },
     weather: function(){
@@ -4464,11 +4383,7 @@ function TripsSection() {
       var notesLine = (detailTrip.notes||"").split("\n")[0].trim()
       var notesPreview = notesLine ? (notesLine.length>60?notesLine.slice(0,60)+"…":notesLine) : "No notes yet."
       return (
-        <TripCard key="notes" icon={CARD_META.notes.icon} title={CARD_META.notes.title} accent={CARD_META.notes.accent} defaultOpen={false} preview={notesPreview}>
-          <div style={{ paddingTop:10 }}>
-            <textarea value={detailTrip.notes||""} onChange={function(e){ updateTrip(detailTrip.id,{notes:e.target.value}) }} placeholder="Anything worth remembering…" rows={4} style={Object.assign({},inputStyle,{resize:"vertical"})}/>
-          </div>
-        </TripCard>
+        <TripCardTile key="notes" icon={CARD_META.notes.icon} title={CARD_META.notes.title} accent={CARD_META.notes.accent} preview={notesPreview} onClick={function(){ setActiveTripCard("notes") }}/>
       )
     },
     emergencyInfo: function(){
@@ -4477,58 +4392,7 @@ function TripsSection() {
       var contactTotal = householdContacts.length + tripContacts.length
       var emergencyPreview = contactTotal===0 ? "No emergency contacts added yet." : contactTotal+" contact"+(contactTotal===1?"":"s")+" on file"
       return (
-        <TripCard key="emergencyInfo" icon={CARD_META.emergencyInfo.icon} title={CARD_META.emergencyInfo.title} accent={CARD_META.emergencyInfo.accent} defaultOpen={false} preview={emergencyPreview}>
-          <div style={{ paddingTop:10 }}>
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>From your Travel Profile</div>
-            {householdContacts.length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:14 }}>No emergency contacts on file yet — add them in Travel Profile.</div>
-            )}
-            {householdContacts.length > 0 && (
-              <div style={{ marginBottom:14 }}>
-                {householdContacts.map(function(c) {
-                  return (
-                    <div key={c.id} style={{ padding:"6px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                      <div style={{ fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif" }}>{c.name||"Unnamed"}{c.relation?" · "+c.relation:""}</div>
-                      {c.phone && <div style={{ fontSize:11, color:"rgba(250,248,244,0.4)" }}>{c.phone}</div>}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              For this trip only
-              <button onClick={addEmergencyContact} style={{ background:"rgba(200,131,74,0.12)", border:"1px solid rgba(200,131,74,0.3)", borderRadius:7, padding:"3px 10px", fontSize:11, color:"#c8834a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, textTransform:"none", letterSpacing:"normal" }}>+ Add</button>
-            </div>
-            {tripContacts.length === 0 && (
-              <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No trip-specific contacts added.</div>
-            )}
-            {tripContacts.map(function(c) {
-              return (
-                <div key={c.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
-                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                    <div style={{ display:"flex", gap:8 }}>
-                      <div style={{ flex:2 }}>
-                        <label style={labelStyle}>Name</label>
-                        <input value={c.name||""} onChange={function(e){ updateEmergencyContact(c.id,{name:e.target.value}) }} placeholder="Full name" style={inputStyle}/>
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Relation</label>
-                        <input value={c.relation||""} onChange={function(e){ updateEmergencyContact(c.id,{relation:e.target.value}) }} placeholder="e.g. Local guide" style={inputStyle}/>
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                      <div style={{ flex:1 }}>
-                        <label style={labelStyle}>Phone</label>
-                        <input value={c.phone||""} onChange={function(e){ updateEmergencyContact(c.id,{phone:e.target.value}) }} placeholder="Phone number" style={inputStyle}/>
-                      </div>
-                      <button onClick={function(){removeEmergencyContact(c.id)}} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginTop:18 }}>remove</button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </TripCard>
+        <TripCardTile key="emergencyInfo" icon={CARD_META.emergencyInfo.icon} title={CARD_META.emergencyInfo.title} accent={CARD_META.emergencyInfo.accent} preview={emergencyPreview} onClick={function(){ setActiveTripCard("emergencyInfo") }}/>
       )
     },
     photos: function(){
@@ -4704,23 +4568,432 @@ function TripsSection() {
                   </div>
                 )
               })()}
+
+              {activeTripCard === "transportation" && (
+                <div>
+                  <button onClick={addTransportation} style={{ background:"rgba(122,168,200,0.12)", border:"1px solid rgba(122,168,200,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7aa8c8", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add transportation</button>
+                  {(detailTrip.transportation||[]).length === 0 && (
+                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No transportation added yet</div>
+                  )}
+                  {(detailTrip.transportation||[]).map(function(tr) {
+                    return (
+                      <div key={tr.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                          <span style={{ fontSize:18 }}>{TRANSPORT_TYPE_ICONS[tr.type]||"🧳"}</span>
+                          <span style={{ fontSize:14, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{tr.carrier || tr.type || "Untitled leg"}</span>
+                        </div>
+                        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Type</label>
+                              <select value={tr.type||""} onChange={function(e){ updateTransportation(tr.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:tr.type?warm:"rgba(250,248,244,0.3)"})}>
+                                <option value="" style={{background:navy}}>Select type…</option>
+                                {TRANSPORT_TYPES.map(function(t){ return <option key={t} value={t} style={{background:navy}}>{t}</option> })}
+                              </select>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Carrier</label>
+                              <input value={tr.carrier||""} onChange={function(e){ updateTransportation(tr.id,{carrier:e.target.value}) }} placeholder="e.g. United Airlines" style={inputStyle}/>
+                            </div>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Confirmation number</label>
+                            <input value={tr.confirmationNumber||""} onChange={function(e){ updateTransportation(tr.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
+                          </div>
+                          <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Departure</label>
+                              <input value={tr.departure||""} onChange={function(e){ updateTransportation(tr.id,{departure:e.target.value}) }} placeholder="e.g. Aug 10, 6:45 AM" style={inputStyle}/>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Arrival</label>
+                              <input value={tr.arrival||""} onChange={function(e){ updateTransportation(tr.id,{arrival:e.target.value}) }} placeholder="e.g. Aug 10, 9:20 AM" style={inputStyle}/>
+                            </div>
+                            <button onClick={function(){ if(window.confirm("Remove this leg?")) removeTransportation(tr.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {activeTripCard === "lodging" && (
+                <div>
+                  <button onClick={addLodging} style={{ background:"rgba(122,158,142,0.12)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add lodging</button>
+                  {(detailTrip.lodging||[]).length === 0 && (
+                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No lodging added yet</div>
+                  )}
+                  {(detailTrip.lodging||[]).map(function(lg) {
+                    return (
+                      <div key={lg.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                          <div>
+                            <label style={labelStyle}>Name</label>
+                            <input value={lg.name||""} onChange={function(e){ updateLodging(lg.id,{name:e.target.value}) }} placeholder="e.g. Beachside Resort" style={inputStyle}/>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Address</label>
+                            <input value={lg.address||""} onChange={function(e){ updateLodging(lg.id,{address:e.target.value}) }} style={inputStyle}/>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Confirmation number</label>
+                            <input value={lg.confirmationNumber||""} onChange={function(e){ updateLodging(lg.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
+                          </div>
+                          <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Check-in</label>
+                              <input type="date" value={lg.checkIn||""} onChange={function(e){ updateLodging(lg.id,{checkIn:e.target.value}) }} style={inputStyle}/>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Check-out</label>
+                              <input type="date" value={lg.checkOut||""} onChange={function(e){ updateLodging(lg.id,{checkOut:e.target.value}) }} style={inputStyle}/>
+                            </div>
+                            <button onClick={function(){ if(window.confirm("Remove this stay?")) removeLodging(lg.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {activeTripCard === "reservations" && (
+                <div>
+                  <button onClick={addReservation} style={{ background:"rgba(142,142,181,0.15)", border:"1px solid rgba(142,142,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#8e8eb5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add reservation</button>
+                  {reservationsList().length === 0 && (
+                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No reservations added yet</div>
+                  )}
+                  {reservationsList().map(function(r) {
+                    return (
+                      <div key={r.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <div style={{ flex:2 }}>
+                              <label style={labelStyle}>Name</label>
+                              <input value={r.name||""} onChange={function(e){ updateReservation(r.id,{name:e.target.value}) }} placeholder="e.g. Coastal Table" style={inputStyle}/>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Type</label>
+                              <input value={r.type||""} onChange={function(e){ updateReservation(r.id,{type:e.target.value}) }} placeholder="e.g. Restaurant" style={inputStyle}/>
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Date</label>
+                              <input type="date" value={r.date||""} onChange={function(e){ updateReservation(r.id,{date:e.target.value}) }} style={inputStyle}/>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Time</label>
+                              <input value={r.time||""} onChange={function(e){ updateReservation(r.id,{time:e.target.value}) }} placeholder="e.g. 7:00 PM" style={inputStyle}/>
+                            </div>
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Confirmation number</label>
+                            <input value={r.confirmationNumber||""} onChange={function(e){ updateReservation(r.id,{confirmationNumber:e.target.value}) }} placeholder="Confirmation #" style={inputStyle}/>
+                          </div>
+                          <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Notes</label>
+                              <input value={r.notes||""} onChange={function(e){ updateReservation(r.id,{notes:e.target.value}) }} placeholder="Optional" style={inputStyle}/>
+                            </div>
+                            <button onClick={function(){ if(window.confirm("Remove this reservation?")) removeReservation(r.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {activeTripCard === "activities" && (
+                <div>
+                  <button onClick={addActivity} style={{ background:"rgba(106,181,160,0.15)", border:"1px solid rgba(106,181,160,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#6ab5a0", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add activity</button>
+                  {activitiesList().length === 0 && (
+                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No activities added yet</div>
+                  )}
+                  {activitiesList().map(function(a) {
+                    return (
+                      <div key={a.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                          <div onClick={function(){ toggleActivity(a.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(a.done?"#6ab5a0":"rgba(250,242,229,0.2)"), background:a.done?"#6ab5a0":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
+                            {a.done ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
+                          </div>
+                          <div style={{ flex:2 }}>
+                            <label style={labelStyle}>Activity</label>
+                            <input value={a.name} onChange={function(e){ updateActivity(a.id,{name:e.target.value}) }} placeholder="e.g. Snorkeling tour" style={Object.assign({},inputStyle,{textDecoration:a.done?"line-through":"none"})}/>
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Date</label>
+                            <input type="date" value={a.date} onChange={function(e){ updateActivity(a.id,{date:e.target.value}) }} style={inputStyle}/>
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Notes</label>
+                            <input value={a.notes} onChange={function(e){ updateActivity(a.id,{notes:e.target.value}) }} placeholder="Optional" style={inputStyle}/>
+                          </div>
+                          <button onClick={function(){ if(window.confirm("Remove this activity?")) removeActivity(a.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {activeTripCard === "dining" && (
+                <div>
+                  <button onClick={addDiningSpot} style={{ background:"rgba(181,133,106,0.15)", border:"1px solid rgba(181,133,106,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#b5856a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add dining spot</button>
+                  {diningList().length === 0 && (
+                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No dining spots added yet</div>
+                  )}
+                  {diningList().map(function(d) {
+                    return (
+                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                          <div onClick={function(){ toggleDiningSpot(d.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(d.visited?"#b5856a":"rgba(250,242,229,0.2)"), background:d.visited?"#b5856a":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
+                            {d.visited ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
+                          </div>
+                          <div style={{ flex:2 }}>
+                            <label style={labelStyle}>Name</label>
+                            <input value={d.name} onChange={function(e){ updateDiningSpot(d.id,{name:e.target.value}) }} placeholder="e.g. The crab shack on the pier" style={Object.assign({},inputStyle,{textDecoration:d.visited?"line-through":"none"})}/>
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Meal</label>
+                            <select value={d.mealType||"Any"} onChange={function(e){ updateDiningSpot(d.id,{mealType:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none"})}>
+                              {MEAL_TYPES.map(function(m){ return <option key={m} value={m} style={{background:navy}}>{m}</option> })}
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Notes</label>
+                            <input value={d.notes} onChange={function(e){ updateDiningSpot(d.id,{notes:e.target.value}) }} placeholder="Optional" style={inputStyle}/>
+                          </div>
+                          <button onClick={function(){ if(window.confirm("Remove this dining spot?")) removeDiningSpot(d.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {activeTripCard === "budget" && (function(){
+                var b = detailTrip.budget || {}
+                var est = parseFloat(b.estimated)
+                var expenses = normalizeExpenses(b)
+                var spentTotal = expensesTotal(expenses)
+                var hasBudget = !isNaN(est) && est > 0
+                var pct = hasBudget ? Math.min(100, Math.round((spentTotal/est)*100)) : 0
+                var over = hasBudget && spentTotal > est
+                return (
+                  <div>
+                    <div style={{ marginBottom:16 }}>
+                      <label style={labelStyle}>Planned budget</label>
+                      <input value={b.estimated||""} onChange={function(e){ updateBudget({estimated:e.target.value}) }} placeholder="e.g. 2000" style={inputStyle}/>
+                    </div>
+                    {!hasBudget && (
+                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>Set a budget to track spending against it.</div>
+                    )}
+                    {hasBudget && (
+                      <div style={{ marginBottom:16 }}>
+                        <div style={{ fontSize:13, color: over?"#e07070":warm, fontFamily:"DM Sans,sans-serif", marginBottom:6 }}>
+                          ${spentTotal.toLocaleString()} of ${est.toLocaleString()} planned
+                        </div>
+                        <div style={{ height:8, background:"rgba(250,242,229,0.08)", borderRadius:4, overflow:"hidden" }}>
+                          <div style={{ width:pct+"%", height:"100%", background: over?"#e07070":"#e0937a", transition:"width 0.2s" }}/>
+                        </div>
+                        {over && <div style={{ fontSize:11, color:"#e07070", fontFamily:"DM Sans,sans-serif", marginTop:6 }}>Over by ${(spentTotal-est).toLocaleString()}</div>}
+                      </div>
+                    )}
+                    <button onClick={addExpense} style={{ background:"rgba(224,147,122,0.15)", border:"1px solid rgba(224,147,122,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#e0937a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add expense</button>
+                    {expenses.length === 0 && (
+                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No expenses logged yet</div>
+                    )}
+                    {expenses.map(function(e){
+                      return (
+                        <div key={e.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                          <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                            <div style={{ flex:2 }}>
+                              <label style={labelStyle}>Description</label>
+                              <input value={e.description||""} onChange={function(ev){ updateExpense(e.id,{description:ev.target.value}) }} placeholder="e.g. Groceries" style={inputStyle}/>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Amount</label>
+                              <input value={e.amount||""} onChange={function(ev){ updateExpense(e.id,{amount:ev.target.value}) }} placeholder="0" style={inputStyle}/>
+                            </div>
+                          </div>
+                          <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Category</label>
+                              <select value={e.category||"Other"} onChange={function(ev){ updateExpense(e.id,{category:ev.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none"})}>
+                                {BUDGET_CATEGORIES.map(function(c){ return <option key={c} value={c} style={{background:navy}}>{c}</option> })}
+                              </select>
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <label style={labelStyle}>Date</label>
+                              <input type="date" value={e.date||""} onChange={function(ev){ updateExpense(e.id,{date:ev.target.value}) }} style={inputStyle}/>
+                            </div>
+                            <button onClick={function(){ if(window.confirm("Remove this expense?")) removeExpense(e.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+
+              {activeTripCard === "documents" && (
+                <div>
+                  <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:12, fontStyle:"italic" }}>What's ready for this trip — passport numbers, KTN, and other sensitive details live in Travel Profile, not here.</div>
+                  <button onClick={addDocument} style={{ background:"rgba(106,155,181,0.15)", border:"1px solid rgba(106,155,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#6A9BB5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add document</button>
+                  {documentsList().length === 0 && (
+                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No documents added yet — add passports, visas, insurance, and booking confirmations here</div>
+                  )}
+                  {documentsList().map(function(d) {
+                    var expiry = documentExpiryStatus(d)
+                    return (
+                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+(expiry?(expiry==="expired"?"rgba(226,75,74,0.4)":"rgba(224,147,122,0.4)"):border), borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                          <div onClick={function(){ toggleDocument(d.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(d.confirmed?"#6A9BB5":"rgba(250,242,229,0.2)"), background:d.confirmed?"#6A9BB5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
+                            {d.confirmed ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
+                          </div>
+                          <div style={{ flex:2 }}>
+                            <label style={labelStyle}>Name</label>
+                            <input value={d.name} onChange={function(e){ updateDocument(d.id,{name:e.target.value}) }} placeholder="e.g. Passport" style={Object.assign({},inputStyle,{textDecoration:d.confirmed?"line-through":"none"})}/>
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Type</label>
+                            <select value={d.type||""} onChange={function(e){ updateDocument(d.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:d.type?warm:"rgba(250,248,244,0.3)"})}>
+                              <option value="" style={{background:navy}}>Select…</option>
+                              {DOCUMENT_TYPES.map(function(t){ return <option key={t} value={t} style={{background:navy}}>{t}</option> })}
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ display:"flex", gap:8, alignItems:"flex-end", marginBottom: expiry?6:0 }}>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Expiry date</label>
+                            <input type="date" value={d.expiryDate} onChange={function(e){ updateDocument(d.id,{expiryDate:e.target.value}) }} style={inputStyle}/>
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <label style={labelStyle}>Notes</label>
+                            <input value={d.notes} onChange={function(e){ updateDocument(d.id,{notes:e.target.value}) }} placeholder="Optional" style={inputStyle}/>
+                          </div>
+                          <button onClick={function(){ if(window.confirm("Remove this document?")) removeDocument(d.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginBottom:9 }}>remove</button>
+                        </div>
+                        {expiry && (
+                          <div style={{ fontSize:11, color: expiry==="expired"?"#e07070":"#e0937a", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>
+                            {expiry==="expired" ? "⚠️ Expired" : "⚠️ Expiring within 90 days"}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {activeTripCard === "notes" && (
+                <div>
+                  <textarea value={notesDraft} onChange={function(e){ setNotesDraft(e.target.value) }} placeholder="Anything worth remembering…" rows={10} style={Object.assign({},inputStyle,{resize:"vertical"})}/>
+                </div>
+              )}
+
+              {activeTripCard === "emergencyInfo" && (function(){
+                var householdContacts = readHouseholdEmergencyContacts()
+                var tripContacts = detailTrip.emergencyInfo || []
+                return (
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>From your Travel Profile</div>
+                    {householdContacts.length === 0 && (
+                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:14 }}>No emergency contacts on file yet — add them in Travel Profile.</div>
+                    )}
+                    {householdContacts.length > 0 && (
+                      <div style={{ marginBottom:14 }}>
+                        {householdContacts.map(function(c) {
+                          return (
+                            <div key={c.id} style={{ padding:"6px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
+                              <div style={{ fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif" }}>{c.name||"Unnamed"}{c.relation?" · "+c.relation:""}</div>
+                              {c.phone && <div style={{ fontSize:11, color:"rgba(250,248,244,0.4)" }}>{c.phone}</div>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                      For this trip only
+                      <button onClick={addEmergencyContact} style={{ background:"rgba(200,131,74,0.12)", border:"1px solid rgba(200,131,74,0.3)", borderRadius:7, padding:"3px 10px", fontSize:11, color:"#c8834a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, textTransform:"none", letterSpacing:"normal" }}>+ Add</button>
+                    </div>
+                    {tripContacts.length === 0 && (
+                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No trip-specific contacts added.</div>
+                    )}
+                    {tripContacts.map(function(c) {
+                      return (
+                        <div key={c.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+                          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                            <div style={{ display:"flex", gap:8 }}>
+                              <div style={{ flex:2 }}>
+                                <label style={labelStyle}>Name</label>
+                                <input value={c.name||""} onChange={function(e){ updateEmergencyContact(c.id,{name:e.target.value}) }} placeholder="Full name" style={inputStyle}/>
+                              </div>
+                              <div style={{ flex:1 }}>
+                                <label style={labelStyle}>Relation</label>
+                                <input value={c.relation||""} onChange={function(e){ updateEmergencyContact(c.id,{relation:e.target.value}) }} placeholder="e.g. Local guide" style={inputStyle}/>
+                              </div>
+                            </div>
+                            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                              <div style={{ flex:1 }}>
+                                <label style={labelStyle}>Phone</label>
+                                <input value={c.phone||""} onChange={function(e){ updateEmergencyContact(c.id,{phone:e.target.value}) }} placeholder="Phone number" style={inputStyle}/>
+                              </div>
+                              <button onClick={function(){ if(window.confirm("Remove this contact?")) removeEmergencyContact(c.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:11, fontFamily:"DM Sans,sans-serif", marginTop:18 }}>remove</button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </div>
           ) : (
           <div>
           {/* Same "← Anchor Home" back-link style as AnchorVault's own top-level nav (~7384) */}
           <button onClick={backToTrips} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
 
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              <span style={{ fontSize:24 }}>{detailTrip.icon || "🧳"}</span>
-              <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:20, fontWeight:700, color:warm }}>{detailTrip.name || "Untitled trip"}</div>
+          {/* Header/banner (Phase C): trip identity + at-a-glance facts, primary
+              quick actions front and center. Customize Cards demoted to a small
+              icon-only ⋮ button — no longer co-equal with the primary actions. */}
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:6 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
+              <span style={{ fontSize:26, flexShrink:0 }}>{detailTrip.icon || "🧳"}</span>
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:warm, lineHeight:1.2 }}>{detailTrip.name || "Untitled trip"}</div>
+                {detailTrip.destination && <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{detailTrip.destination}</div>}
+              </div>
             </div>
-            <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-              <button onClick={function(){ setManageOpen(true) }} style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 12px", fontSize:11, color:"rgba(250,248,244,0.6)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>⋮⋮ Customize cards</button>
-              <button onClick={function(){ openEdit(detailTrip) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"6px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>Edit trip info</button>
-            </div>
+            <button onClick={function(){ setManageOpen(true) }} title="Customize cards" style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 10px", fontSize:14, color:"rgba(250,248,244,0.6)", cursor:"pointer", flexShrink:0 }}>⋮</button>
           </div>
-          <div style={{ marginBottom:18 }}><TripCountdownBadge trip={detailTrip} /></div>
+          <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+            {(detailTrip.startDate || detailTrip.endDate) && (
+              <span style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif" }}>
+                {formatTripDate(detailTrip.startDate)}{detailTrip.startDate && detailTrip.endDate ? " – " + formatTripDate(detailTrip.endDate) : ""}
+                {tripLengthDays(detailTrip) ? " · "+tripLengthDays(detailTrip)+" day"+(tripLengthDays(detailTrip)===1?"":"s") : ""}
+              </span>
+            )}
+            <TripCountdownBadge trip={detailTrip} />
+            {detailTrip.status && (
+              <span style={{ display:"flex", alignItems:"center", gap:5 }}>
+                <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[detailTrip.status]||sand, display:"inline-block", flexShrink:0 }}/>
+                <span style={{ fontSize:12, color:TRIP_STATUS_COLORS[detailTrip.status]||sand, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.status}</span>
+              </span>
+            )}
+          </div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:18 }}>
+            <button onClick={function(){ addReservation(); setActiveTripCard("reservations") }} style={{ background:"rgba(142,142,181,0.12)", border:"1px solid rgba(142,142,181,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:"#8e8eb5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>＋ Reservation</button>
+            <button onClick={function(){ setActiveTripCard("itinerary") }} style={{ background:"rgba(217,138,110,0.12)", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:"#d98a6e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>＋ Itinerary item</button>
+            <button onClick={function(){ setActiveTripCard("packing") }} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>📦 Packing</button>
+            <button onClick={function(){ openEdit(detailTrip) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip</button>
+          </div>
 
           {/* Phase B: read-only summary — editing now happens only through the
               "Edit trip info" header button, which opens the existing formTrip
@@ -4802,11 +5075,22 @@ function TripsSection() {
               <div style={{ marginTop:4, fontSize:12, marginBottom:16 }}>Plan flights, road trips, and everything in between.</div>
               <button onClick={openAdd} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 16px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>+ Add a trip</button>
             </div>
-          ) : (
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
-              {trips.map(function(trip) {
+          ) : (function(){
+              // Past Adventures split: completed trips move to their own
+              // collapsible section below, sorted by end date descending.
+              // Everything else (Planning/Booked/Upcoming/In Progress/
+              // Cancelled/no status set) stays in the main active grid —
+              // only an exact "Completed" status moves a trip out.
+              var activeTrips = trips.filter(function(t){ return t.status !== "Completed" })
+              var pastTrips = trips.filter(function(t){ return t.status === "Completed" }).slice().sort(function(a,b){
+                if (!a.endDate && !b.endDate) return 0
+                if (!a.endDate) return 1
+                if (!b.endDate) return -1
+                return a.endDate < b.endDate ? 1 : a.endDate > b.endDate ? -1 : 0
+              })
+              function renderTripCard(trip, mutedStyle) {
                 return (
-                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
+                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6, opacity: mutedStyle?0.7:1 }}>
                     <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
                       <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
                       <TripCountdownBadge trip={trip} />
@@ -4826,14 +5110,33 @@ function TripsSection() {
                     ) : null}
                   </div>
                 )
-              })}
-              {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
-              <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:12, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
-                <span style={{ fontSize:20, color:"rgba(250,248,244,0.18)" }}>+</span>
-                <span style={{ fontSize:11, color:"rgba(250,248,244,0.28)", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
-              </div>
-            </div>
-          )}
+              }
+              return (
+                <div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+                    {activeTrips.map(function(trip){ return renderTripCard(trip, false) })}
+                    {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
+                    <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:12, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
+                      <span style={{ fontSize:20, color:"rgba(250,248,244,0.18)" }}>+</span>
+                      <span style={{ fontSize:11, color:"rgba(250,248,244,0.28)", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
+                    </div>
+                  </div>
+                  {pastTrips.length > 0 && (
+                    <div>
+                      <div onClick={function(){ setCollapsedPastAdventures(function(p){ return !p }) }} style={{ display:"flex", alignItems:"center", gap:6, padding:"8px 0", borderTop:"1px solid "+border, cursor:"pointer" }}>
+                        <span style={{ flex:1, fontSize:13, fontWeight:700, color:muted, fontFamily:"DM Sans,sans-serif" }}>Past Adventures ({pastTrips.length})</span>
+                        <span style={{ fontSize:11, color:muted, transform:collapsedPastAdventures?"rotate(0deg)":"rotate(180deg)", transition:"transform 0.2s" }}>▾</span>
+                      </div>
+                      {!collapsedPastAdventures && (
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+                          {pastTrips.map(function(trip){ return renderTripCard(trip, true) })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
         </div>
       )}
 
