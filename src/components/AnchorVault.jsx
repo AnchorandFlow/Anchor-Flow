@@ -52,7 +52,6 @@ const NAV = [
   { id: "gifts",     label: "Celebrate", icon: "gift", emoji: "🎉" },
   { id: "pets",      label: "Pets",      icon: "pet",  emoji: "🐾" },
   { id: "moments",   label: "Moments",   icon: "mom",  emoji: "✨" },
-  { id: "travel",    label: "Travel",    icon: "trv",  emoji: "✈️" },
   { id: "ripple",    label: "Ripple",    icon: "rip",  emoji: "🌊" },
   { id: "settings",  label: "Settings",  icon: "set",  emoji: "⚙️" },
 ]

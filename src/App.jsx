@@ -196,7 +196,7 @@ function usePushNotifications() {
           if (_notifUrl) {
             var _nu = new URL(_notifUrl, window.location.origin);
             var _nd = new URLSearchParams(_nu.search).get("af_dest") || "";
-            var _DM = { today:"anchor", meals:"meals", calendar:"calendar", shopping:"shop", shop:"shop" };
+            var _DM = { today:"anchor", meals:"meals", calendar:"calendar", shopping:"shop", shop:"shop", tidepool:"tidepool", anchor:"anchor" };
             _destTab = _DM[_nd] || "";
           }
         } catch {}
@@ -3580,7 +3580,7 @@ function createLocalBackup() {
     // window.location.search still has af_dest even if the ripple block ran above.
     try {
       var _afDest = new URLSearchParams(window.location.search).get("af_dest") || "";
-      var _DEST_MAP = { today:"anchor", meals:"meals", calendar:"calendar", shopping:"shop", shop:"shop" };
+      var _DEST_MAP = { today:"anchor", meals:"meals", calendar:"calendar", shopping:"shop", shop:"shop", tidepool:"tidepool", anchor:"anchor" };
       var _destTab = _DEST_MAP[_afDest] || "";
       if (_destTab) {
         window.history.replaceState(null, "", window.location.pathname);
@@ -4574,7 +4574,12 @@ Respond ONLY with valid JSON array, no markdown:
     bannerTimerRef.current = setTimeout(() => setInAppBanner(null), 8000);
   }
 
-  function scheduleNotification(title, body, fireAt) {
+  // F-N6: dest is one of _DEST_MAP's keys below (e.g. "anchor", "calendar",
+  // "meals", "tidepool") — threaded into the SW notification payload as
+  // ?af_dest=<dest> so tapping the notification opens the right section
+  // instead of just the app root. Optional: omit for notifications with no
+  // single obvious destination.
+  function scheduleNotification(title, body, fireAt, dest) {
     const delay = fireAt instanceof Date
       ? fireAt.getTime() - Date.now()
       : typeof fireAt === "number" ? fireAt : 0;
@@ -4588,7 +4593,8 @@ Respond ONLY with valid JSON array, no markdown:
         // Desktop / Android — use native notification via Service Worker
         if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
           navigator.serviceWorker.controller.postMessage({
-            type: "SHOW_NOTIFICATION", title, body, icon: "/favicon.svg"
+            type: "SHOW_NOTIFICATION", title, body, icon: "/favicon.svg",
+            url: dest ? "/?af_dest=" + dest : "/"
           });
         } else {
           new Notification(title, {body, icon:"/favicon.svg"});
@@ -4603,15 +4609,15 @@ Respond ONLY with valid JSON array, no markdown:
     setTimeout(fire, delay);
   }
 
-  function addNotification(entityId, entityTitle, date, time, note) {
+  function addNotification(entityId, entityTitle, date, time, note, dest) {
     const id = uid();
     const fireAt = date && time ? `${date}T${time}` : null;
     setNotifications(p => [
       ...p.filter(n => n.entityId !== entityId),
-      {id, entityId, entityTitle, date, time, note, fireAt, fired:false}
+      {id, entityId, entityTitle, date, time, note, fireAt, fired:false, dest: dest || ""}
     ]);
     if (fireAt && notifPermission === "granted") {
-      scheduleNotification(entityTitle, note || "Reminder from Anchor & Flow", new Date(fireAt));
+      scheduleNotification(entityTitle, note || "Reminder from Anchor & Flow", new Date(fireAt), dest);
     }
   }
 
@@ -4702,7 +4708,7 @@ Respond ONLY with valid JSON array, no markdown:
         dataCtx,
         "Good morning ⚓️ Here's your day"
       );
-      scheduleNotification(title, body, morningTime);
+      scheduleNotification(title, body, morningTime, "anchor");
     }
 
     // ── 2. MIDDAY CHECK-IN (12pm) ───────────────────────────────────────────
@@ -4717,7 +4723,7 @@ Respond ONLY with valid JSON array, no markdown:
         ? `Coming up: ${afternoonEvts.map(e=>`${fmtTime(e.time)} ${e.title}`).join(", ")}.`
         : "";
       const body = `${doneTasks.length > 0 ? `${doneTasks.length} done ✓ ` : ""}${afternoonStr}${todayMeal ? ` Dinner tonight: ${todayMeal}.` : ""}`.trim() || "Keep going — you're doing great 🌿";
-      scheduleNotification("🌊 Midday check-in", body, middayTime);
+      scheduleNotification("🌊 Midday check-in", body, middayTime, "anchor");
     }
 
     // ── 3. MEAL REMINDER — defrost alert (3pm if dinner needs it) ───────────
@@ -4728,7 +4734,7 @@ Respond ONLY with valid JSON array, no markdown:
         `Dinner tonight: ${todayMeal}. Family: ${familyProfile?.numKids||""} kids.`,
         `🍽️ Dinner reminder — ${todayMeal} tonight. Good time to check if anything needs defrosting!`
       );
-      scheduleNotification("🍽️ Dinner heads-up", msg, defrostTime);
+      scheduleNotification("🍽️ Dinner heads-up", msg, defrostTime, "meals");
     }
 
     // ── 4. EVENING RECAP — Ripple-style (5pm) ─────────────────────────────────
@@ -4745,7 +4751,7 @@ Respond ONLY with valid JSON array, no markdown:
         `Done today: ${doneTasks.map(t=>t.text).join(", ")||"none"}. Still pending: ${pendingTasks.length}. Tomorrow (${tmrName}): ${tmrStr||"nothing planned yet"}.`,
         `Good evening 🌙 ${doneTasks.length>0?`${doneTasks.length} things done today — well done.`:"Rest up."} ${tmrStr?`Tomorrow: ${tmrStr.slice(0,60)}.`:""}`
       );
-      scheduleNotification("🌙 Evening recap", body, eveningTime);
+      scheduleNotification("🌙 Evening recap", body, eveningTime, "anchor");
     }
 
     // ── 5. SMART EVENT NUDGES — 2hrs before each appointment ────────────────
@@ -4760,7 +4766,7 @@ Respond ONLY with valid JSON array, no markdown:
         `Event: ${e.title} at ${e.time}. ${familyCtx}`,
         `⏰ ${e.title} is in 2 hours — time to get ready!`
       );
-      scheduleNotification(`⏰ Coming up: ${e.title}`, msg, nudgeTime);
+      scheduleNotification(`⏰ Coming up: ${e.title}`, msg, nudgeTime, "calendar");
     });
 
     // ── 6. RECURRING REMINDERS (trash, HVAC, street sweeping, custom, etc.) ──
@@ -4846,6 +4852,9 @@ Respond ONLY with valid JSON array, no markdown:
             : r.type === "weekly_day"
               ? "Today is " + r.label + " day. Don't forget!"
               : "Time to take care of: " + r.label + ". Mark it done when finished.";
+          // No dest here on purpose — these live in Anchor Vault's Reminders
+          // sub-section, which _DEST_MAP can't reach (it only opens top-level
+          // tabs, not vault sections). Opens the app root, same as before.
           scheduleNotification(title, body, fireTime);
         });
 
@@ -4889,7 +4898,7 @@ Respond ONLY with valid JSON array, no markdown:
         showInAppBanner(n.entityTitle, n.note || "Reminder from Anchor & Flow");
         setNotifications(p => p.map(x => x.id === n.id ? {...x, fired: true} : x));
       } else {
-        scheduleNotification(n.entityTitle, n.note || "Reminder from Anchor & Flow", new Date(n.fireAt));
+        scheduleNotification(n.entityTitle, n.note || "Reminder from Anchor & Flow", new Date(n.fireAt), n.dest);
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5001,7 +5010,7 @@ Respond ONLY with valid JSON array, no markdown:
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
           {onBack && (
             <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px 2px 0",display:"flex",alignItems:"center",flexShrink:0,opacity:0.55,marginRight:2}}>
-              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
             </button>
           )}
           {emoji&&<span style={{fontSize:"1.05rem",flexShrink:0}}>{emoji}</span>}
@@ -5055,7 +5064,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Anchor Check Item — checkable row with fade-out + inline bell ───────────
-  _hfRenders.AnchorCheckItem = function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick }) {
+  _hfRenders.AnchorCheckItem = function AnchorCheckItem({ id, text, checked, onCheck, color, badge, bell=true, entityTitle, onTitleClick, dest }) {
     const [removing, setRemoving] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
     const [nd, setNd] = useState(""); const [nt, setNt] = useState(""); const [nn, setNn] = useState("");
@@ -5093,7 +5102,7 @@ Respond ONLY with valid JSON array, no markdown:
             </div>
             <input value={nn} onChange={e=>setNn(e.target.value)} placeholder="Note (optional)" style={{...inp({marginBottom:"0.45rem",fontSize:"0.77rem",padding:"0.32rem 0.5rem"})}}/>
             <div style={{display:"flex",gap:"0.35rem"}}>
-              <button onClick={()=>{ addNotification(id, entityTitle||text, nd, nt, nn); setNotifOpen(false); }} style={btnP(T.sand,{fontSize:"0.73rem",padding:"0.3rem 0.7rem"})}>Set</button>
+              <button onClick={()=>{ addNotification(id, entityTitle||text, nd, nt, nn, dest); setNotifOpen(false); }} style={btnP(T.sand,{fontSize:"0.73rem",padding:"0.3rem 0.7rem"})}>Set</button>
               {hasNotif&&<button onClick={()=>{setNotifications(p=>p.filter(n=>n.entityId!==id));setNotifOpen(false);}} style={btnS({fontSize:"0.73rem",padding:"0.3rem 0.6rem",color:T.rose})}>Clear</button>}
               <button onClick={()=>setNotifOpen(false)} style={btnS({fontSize:"0.73rem",padding:"0.3rem 0.6rem"})}>✕</button>
             </div>
@@ -5217,7 +5226,7 @@ Respond ONLY with valid JSON array, no markdown:
                 </div>
                 <input value={notifNote} onChange={function(e){setNotifNote(e.target.value);}} placeholder="Optional note…" style={{...inp({marginBottom:"0.5rem",fontSize:"0.79rem",padding:"0.35rem 0.5rem"})}}/>
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <button onClick={function(){addNotification(t.id,t.text,notifDate,notifTime,notifNote);setShowNotifFor(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
+                  <button onClick={function(){addNotification(t.id,t.text,notifDate,notifTime,notifNote,"anchor");setShowNotifFor(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
                   {hasNotif&&<button onClick={function(){setNotifications(function(p){return p.filter(function(n){return n.entityId!==t.id;});});setShowNotifFor(null);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.65rem",color:T.rose})}>Clear</button>}
                 </div>
               </div>
@@ -6253,7 +6262,7 @@ Respond ONLY in valid JSON:
                   if(todayEvents.length===0) return <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No events today — open space 🌿</div>;
                   return(<>
                     {up.map(function(e){return(
-                      <AnchorCheckItem key={e.id} id={e.id} text={e.title} checked={checkedCalEvents.includes(e.id)} onCheck={function(id){setCheckedCalEvents(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={e.color} badge={e.time?fmtTime(e.time):"all day"} entityTitle={e.title} onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}/>
+                      <AnchorCheckItem key={e.id} id={e.id} text={e.title} checked={checkedCalEvents.includes(e.id)} onCheck={function(id){setCheckedCalEvents(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={e.color} badge={e.time?fmtTime(e.time):"all day"} entityTitle={e.title} onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} dest="calendar"/>
                     );})}
                     {up.length===0&&earlier.length>0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem"}}>Nothing left on the clock 🌙</div>}
                     {earlier.length>0&&(<details style={{marginTop:"0.15rem"}}><summary style={{listStyle:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.72rem",fontWeight:600,padding:"0.25rem 0.1rem"}}>🕓 Earlier today · {earlier.length}</summary><div>{earlier.map(function(e){return(<div key={e.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0.5rem",opacity:0.5}}><div style={{width:7,height:7,borderRadius:"50%",background:e.color||T.blue,flexShrink:0}}/><span style={{fontSize:"0.78rem",flex:1}}>{e.title}</span><span style={{fontSize:"0.66rem",color:T.textFaint,fontWeight:700}}>{e.time?fmtTime(e.time):"all day"}</span></div>);})}</div></details>)}
@@ -6269,7 +6278,7 @@ Respond ONLY in valid JSON:
                 {noMealPlanned
                   ?<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>🌙 Nothing planned yet — keep it easy tonight</div>
                   :MEALS_TO_SHOW.map(function(m){return todayMeal[m]?(
-                    <AnchorCheckItem key={m} id={"meal_"+m+"_"+TODAY_NAME} text={todayMeal[m]} checked={checkedMealItems.includes("meal_"+m+"_"+TODAY_NAME)} onCheck={function(id){setCheckedMealItems(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sage} badge={m} entityTitle={todayMeal[m]}/>
+                    <AnchorCheckItem key={m} id={"meal_"+m+"_"+TODAY_NAME} text={todayMeal[m]} checked={checkedMealItems.includes("meal_"+m+"_"+TODAY_NAME)} onCheck={function(id){setCheckedMealItems(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sage} badge={m} entityTitle={todayMeal[m]} dest="meals"/>
                   ):null;})
                 }
               </div>
@@ -6284,8 +6293,8 @@ Respond ONLY in valid JSON:
                       ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No tasks yet — add one or tap ✨ Plan</div>
                       : <div style={{fontSize:"0.8rem",color:T.sageDark,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",padding:"0.15rem 0.5rem 0.35rem"}}>🌿 All done for today</div>)
                   : (<>
-                      {top3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.blue} badge="TOP" entityTitle={t.text}/>);})}
-                      {next3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.sage} entityTitle={t.text}/>);})}
+                      {top3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.blue} badge="TOP" entityTitle={t.text} dest="anchor"/>);})}
+                      {next3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.sage} entityTitle={t.text} dest="anchor"/>);})}
                     </>)
                 }
                 {allTaskTiers.some(function(t){return t.done;})&&(
@@ -6347,7 +6356,7 @@ Respond ONLY in valid JSON:
                 <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🌿 My Anchors</div>
                   {personalAnchors.map(function(a){return(
-                    <AnchorCheckItem key={a.id} id={a.id} text={a.text} checked={checkedPersonalAnchors.includes(a.id)} onCheck={function(id){setCheckedPersonalAnchors(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sand} entityTitle={a.text}/>
+                    <AnchorCheckItem key={a.id} id={a.id} text={a.text} checked={checkedPersonalAnchors.includes(a.id)} onCheck={function(id){setCheckedPersonalAnchors(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sand} entityTitle={a.text} dest="anchor"/>
                   );})}
                 </div>
               )}
@@ -6896,7 +6905,7 @@ Respond ONLY in valid JSON:
                   <input type="time" value={cnt} onChange={e=>setCnt(e.target.value)} style={inp({padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}/>
                 </div>
                 <input value={cnn} onChange={e=>setCnn(e.target.value)} placeholder="Note…" style={{...inp({marginBottom:"0.5rem",padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}}/>
-                <button onClick={function(){var ev=calEvents.find(function(e){return e.id===showCalNotif;});if(ev)addNotification(ev.id,ev.title,cnd,cnt,cnn);setShowCalNotif(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
+                <button onClick={function(){var ev=calEvents.find(function(e){return e.id===showCalNotif;});if(ev)addNotification(ev.id,ev.title,cnd,cnt,cnn,"calendar");setShowCalNotif(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
               </div>
             )}
           </div>
@@ -9021,7 +9030,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Exhale header */}
         <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem",position:"relative"}}>
           <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
-            <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
           </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>Exhale.</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Clear your mind — then let it go.</div>
@@ -9321,7 +9330,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div>
         <div style={{textAlign:"center",marginBottom:"1.25rem",position:"relative"}}>
           <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
-            <Icon name="arrow-left" size={17} color={T.textSoft}/>
+            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
           </button>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
           <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
@@ -10001,7 +10010,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{paddingBottom:"2rem",minHeight:"100vh"}}>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px 10px",borderBottom:"1px solid "+T.borderSoft}}>
               <button onClick={function(){ setActiveNoteId(null); }} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",flexShrink:0}}>
-                <Icon name="arrow-left" size={18} color={T.textSoft}/>
+                <span style={{fontSize:18,color:T.textSoft,lineHeight:1}}>←</span>
               </button>
               <input
                 value={activeNote.title==="Untitled"?"":activeNote.title}
@@ -10038,7 +10047,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
             <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
               <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
-                <Icon name="arrow-left" size={17} color={T.textSoft}/>
+                <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
               </button>
               <div>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
@@ -10472,13 +10481,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
               <button onClick={askRipple} disabled={aiLoading}
                 style={{fontSize:"0.72rem",color:T.blue,background:"none",border:"1px solid "+T.blue+"44",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5,opacity:aiLoading?0.5:1}}>
-                <Icon name="sparkles" size={12} color={T.blue}/>{aiLoading?"thinking…":"Ripple: suggest items"}
+                <span style={{fontSize:12,color:T.blue,lineHeight:1}}>✨</span>{aiLoading?"thinking…":"Ripple: suggest items"}
               </button>
             </div>
             {rippleSuggestion&&(
               <div style={{marginTop:12,background:T.blue+"0d",border:"1px solid "+T.blue+"33",borderRadius:10,padding:"12px 14px",position:"relative"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                  <Icon name="sparkles" size={13} color={T.blue}/>
+                  <span style={{fontSize:13,color:T.blue,lineHeight:1}}>✨</span>
                   <span style={{fontSize:"0.72rem",fontWeight:700,color:T.blue,letterSpacing:"0.02em"}}>Ripple suggests</span>
                   <button onClick={function(){ setRippleSuggestion(null); }}
                     style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,lineHeight:1,padding:0}}>×</button>
@@ -10496,7 +10505,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
             <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
-              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
             </button>
             <div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
@@ -10583,7 +10592,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           <button onClick={function(){setShowNewModal(true);}}
             style={{marginTop:14,width:"100%",background:"none",border:"1px dashed "+T.border,borderRadius:10,padding:"10px",fontSize:"0.75rem",color:T.textFaint,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            <Icon name="layout-grid-add" size={13} color={T.textFaint}/> Start from a template
+            <span style={{fontSize:13,color:T.textFaint,lineHeight:1}}>+</span> Start from a template
           </button>
         </div>
 
@@ -11717,7 +11726,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
             <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
-              <Icon name="arrow-left" size={17} color={T.textSoft}/>
+              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
             </button>
             <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🏫 School</div>
           </div>
@@ -14354,7 +14363,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       // Set reminder if provided
       if(f.remindDate&&f.remindTime) {
         const eid = calFormMode==="add" ? (calEvents.length+"_new") : calFormId;
-        addNotification(eid, f.title, f.remindDate, f.remindTime, f.note||"");
+        addNotification(eid, f.title, f.remindDate, f.remindTime, f.note||"", "calendar");
       }
       closeCalForm();setSelectedDay(null);
     }
@@ -15115,7 +15124,6 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     { id: "gifts",     label: "Celebrate", emoji: "🎉" },
     { id: "pets",      label: "Pets",      emoji: "🐾" },
     { id: "moments",   label: "Moments",   emoji: "✨" },
-    { id: "travel",    label: "Travel",    emoji: "✈️" },
     { id: "ripples",     label: "Ripples",    emoji: "🌊" },
     { id: "safeharbor", label: "Safe Harbor",emoji: "⚓" },
     { id: "settings",   label: "Settings",   emoji: "⚙️" },
