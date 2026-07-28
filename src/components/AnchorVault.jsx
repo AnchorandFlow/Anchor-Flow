@@ -3556,7 +3556,7 @@ var CARD_GROUP_OF = {
   weather:"extras", notes:"extras", emergencyInfo:"extras", photos:"extras"
 }
 
-function TripsSection({ initialTripId, onTripIdConsumed }) {
+function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
   var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
   var coastal = "#7EAEB4"
@@ -3653,6 +3653,92 @@ function TripsSection({ initialTripId, onTripIdConsumed }) {
     var color = inProgress ? coastal : isPast ? muted : sand
     var label = inProgress ? "In progress" : isPast ? "Past" : start===0 ? "Today!" : start===1 ? "Tomorrow" : start<=30 ? start+"d away" : "~"+Math.round(start/30)+"mo away"
     return <span style={{ fontSize:9, fontWeight:700, color:color, fontFamily:"DM Sans,sans-serif", background:"rgba(250,242,229,0.06)", borderRadius:20, padding:"1px 7px", border:"1px solid "+color+"44" }}>{label}</span>
+  }
+
+  // Read-only mirror of af_travel_profile for the Travel Wallet card at the
+  // top of the trips grid — editing still happens in TravelProfileSection
+  // (reached via the Edit button below), this is just a display copy, same
+  // one-read-on-mount pattern TravelProfileSection itself uses.
+  var travelProfile = useState(function() {
+    try { var s = localStorage.getItem("af_travel_profile"); return s ? JSON.parse(s) : {} } catch { return {} }
+  })[0]
+
+  // Red/amber/green expiry coloring for the wallet card — a plain traffic-
+  // light scheme (not TravelProfileSection's own ExpiryBadge, which only
+  // flags "expired" and "soon" and leaves everything else a neutral muted
+  // grey) since this card's spec calls for a third, reassuring "green" state.
+  function walletExpiryColor(dateStr) {
+    var d = daysUntil(dateStr)
+    if (d === null) return null
+    return d < 0 ? "rgba(200,100,100,0.9)" : d <= 180 ? sand : "rgba(122,184,122,0.9)"
+  }
+  function WalletExpiry(props) {
+    var color = walletExpiryColor(props.date)
+    if (!color) return null
+    var d = daysUntil(props.date)
+    var label = d < 0 ? "expired "+formatTripDate(props.date) : "expires "+formatTripDate(props.date)
+    return <span style={{ fontSize:11, color:color, fontWeight:600 }}> · {label}</span>
+  }
+  function TravelWalletCard() {
+    var p = travelProfile
+    var hasPassport = !!(p.passportName || p.passportNum || p.passportExp)
+    var trusted = [
+      { label:"TSA PreCheck", num:p.tsaNum, exp:p.tsaExp },
+      { label:"Global Entry", num:p.geNum, exp:p.geExp },
+      { label:"NEXUS", num:p.nexusNum, exp:p.nexusExp },
+      { label:"SENTRI", num:p.sentriNum, exp:p.sentriExp },
+    ].filter(function(t){ return t.num || t.exp })
+    var ff = (p.ffPrograms||[]).filter(function(f){ return f.airline || f.number })
+    var hotels = (p.hotelPrograms||[]).filter(function(h){ return h.chain || h.number })
+    var empty = !hasPassport && trusted.length===0 && ff.length===0 && hotels.length===0 && !p.preferredAirline && !p.preferredHotel
+
+    return (
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:18 }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: empty?0:12 }}>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:warm, display:"flex", alignItems:"center", gap:6 }}>🧳 Travel Wallet</div>
+          <button onClick={function(){ if (onNavigate) onNavigate("travel") }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"4px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>Edit</button>
+        </div>
+        {empty ? (
+          <div style={{ fontSize:12, color:"rgba(250,248,244,0.3)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No travel documents or loyalty numbers yet — tap Edit to add some.</div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {hasPassport && (
+              <div style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                📘 {p.passportName || "Passport"}{p.passportNum ? " · "+p.passportNum : ""}
+                <WalletExpiry date={p.passportExp} />
+              </div>
+            )}
+            {trusted.map(function(t) {
+              return (
+                <div key={t.label} style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                  🛂 {t.label}{t.num ? " · "+t.num : ""}
+                  <WalletExpiry date={t.exp} />
+                </div>
+              )
+            })}
+            {ff.map(function(f) {
+              return (
+                <div key={f.id} style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                  ✈️ {f.airline}{f.number ? " · "+f.number : ""}{f.tier ? " · "+f.tier : ""}
+                </div>
+              )
+            })}
+            {hotels.map(function(h) {
+              return (
+                <div key={h.id} style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                  🏨 {h.chain}{h.number ? " · "+h.number : ""}{h.tier ? " · "+h.tier : ""}
+                </div>
+              )
+            })}
+            {(p.preferredAirline || p.preferredHotel) && (
+              <div style={{ fontSize:11, color:muted, fontFamily:"DM Sans,sans-serif", marginTop:2 }}>
+                ⭐ {[p.preferredAirline, p.preferredHotel].filter(Boolean).join(" · ")}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // null = form closed; object = open, editing this local draft.
@@ -5069,8 +5155,10 @@ function TripsSection({ initialTripId, onTripIdConsumed }) {
         </div>
       ) : (
         <div>
-          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Trips</div>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel</div>
           <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
+
+          <TravelWalletCard />
 
           {trips.length === 0 ? (
             // Richer empty state, matching HomeSystemsSection's tone (~5683): icon +
@@ -8404,7 +8492,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     { id:"gifts", icon:"🎉", label:"Celebrations & Gifts", summary:{ count: celeb.count, highlight: celeb.highlight, countdown: celeb.countdown, alert: celeb.soon || celeb.alert, entries: celebEntries } },
     { id:"recurring", icon:"🔁", label:"Recurring Reminders", summary: trashSum },
     { id:"inventory", icon:"📦", label:"Inventory", summary:{ ...inventory, entries: inventoryEntries } },
-    { id:"travel", icon:"✈️", label:"Travel Profile", summary: travelSum },
+    { id:"trips", icon:"🧳", label:"Travel", summary: travelSum },
     { id:"safeharbor", icon:"⚓", label:"Safe Harbor", summary: safeHarborSum }
   ]
   var rightCards = [
@@ -8501,8 +8589,7 @@ const ANCHOR_SECTIONS = [
   { id: "gifts",      label: "Celebrate",     emoji: "🎉" },
   { id: "pets",       label: "Pets",          emoji: "🐾" },
   { id: "moments",    label: "Moments",       emoji: "✨" },
-  { id: "travel",     label: "Travel",        emoji: "✈️" },
-  { id: "trips",      label: "Trips",         emoji: "🧳" },
+  { id: "trips",      label: "Travel",        emoji: "🧳" },
   { id: "safeharbor", label: "Safe Harbor",   emoji: "⚓" },
 ]
 
@@ -8995,7 +9082,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
           {activeSection === "travel" && <TravelProfileSection />}
-          {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} />}
+          {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} onNavigate={setActiveSection} />}
           {activeSection === "career" && <CareerSection />}
           {activeSection === "settings" && <AnchorSettings />}
           {activeSection === "subs" && <SubscriptionsSection />}
