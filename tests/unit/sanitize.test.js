@@ -51,15 +51,15 @@ const PLAUSIBLE = {
   burnoutChecked:     ["2026-06-01","2026-06-15"],
   aiMemory:           { lastTopic:"meals" },
   celebrations:       [{ id:"cel1", name:"Anniversary", date:"08-22" }],
-  celebgifts:         [{ id:"cg1", person:"Alice", idea:"book" }],
-  gifts:              [{ id:"g1", name:"wine", for:"Dad" }],
+  // gifts: person-keyed map (Phase 3) — was a flat array of people before.
+  // celebgifts/moments retired entirely (no longer in SYNC_KEYS).
+  gifts:              { p1: [{ id:"g1", personId:"p1", title:"wine", notes:"", price:20, url:"", imageUrl:"", purchased:false, private:false, occasion:"Anniversary", assignedCelebId:"cel1" }] },
   inventory:          [{ id:"inv1", name:"pasta", qty:3 }],
   pets:               [{ id:"pet1", name:"Buddy", type:"dog" }],
   ripples:            [{ id:"rip1", text:"family vacation" }],
   houseFile:          [{ id:"hf1", type:"deed" }],
   favProducts:        [{ id:"fp1", name:"detergent", brand:"Tide" }],
   packing_templates:  [{ id:"pt1", name:"Beach trip", items:[] }],
-  moments:            [{ id:"mom1", text:"first day of school" }],
   subs:               [{ id:"sub1", name:"Netflix", cost:15 }],
   vaultSystems:       [{ id:"vs1", name:"Security" }],
   health:             { bloodType:"A+", allergies:[] },

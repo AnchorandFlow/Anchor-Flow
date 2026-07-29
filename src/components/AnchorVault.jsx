@@ -937,7 +937,8 @@ function CelebrationsSection({ calEvents }) {
   const [filter, setFilter] = useState("upcoming")
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
-  const [newGiftText, setNewGiftText] = useState("")
+  const [celebTab, setCelebTab] = useState("celebrations")
+  const myPersonId = (function() { try { return localStorage.getItem("af_myPersonId") || null } catch { return null } })()
   React.useEffect(function() {
     function onRefresh(e) {
       if (!e.detail?.key || e.detail.key === "celebrations") {
@@ -979,28 +980,173 @@ function CelebrationsSection({ calEvents }) {
     } catch {}
   }, [])
 
-  // Load/save gifts keyed by celebId
-  const [giftMap, setGiftMap] = useState(function() {
-    try { return JSON.parse(localStorage.getItem("af_celebgifts") || "{}") } catch { return {} }
+  // af_gifts — person-keyed map: { personId: [{ id, personId, title, notes,
+  // price, url, imageUrl, purchased, private, occasion, assignedCelebId }] }
+  const [gifts, setGifts] = useState(function() {
+    try {
+      var raw = JSON.parse(localStorage.getItem("af_gifts") || "null")
+      return (raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {}
+    } catch { return {} }
   })
-  function saveGiftMap(updated) {
-    setGiftMap(updated)
-    try { localStorage.setItem("af_celebgifts", JSON.stringify(updated)) } catch {}
+  React.useEffect(function() {
+    function onRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "gifts") {
+        try {
+          var raw = JSON.parse(localStorage.getItem("af_gifts") || "null")
+          setGifts((raw && typeof raw === "object" && !Array.isArray(raw)) ? raw : {})
+        } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onRefresh)
+    return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
+
+  // One-time defensive migration: the old af_gifts shape was a flat array of
+  // {id,name,relation,occasions:[{id,type,date,gifts:[{id,item,cost,url,
+  // photo,bought}]}]} (GiftsSection, never actually reachable in the UI —
+  // but "never reachable" isn't "provably empty", so this still migrates
+  // rather than assumes). af_celebgifts ({celebId:[{id,text,bought}]}, the
+  // live inline gift panel this session replaced) is folded in too, then
+  // retired. Runs once, after the birthday auto-create effect above so
+  // celebId->personId resolution sees any birthdays created this same mount.
+  React.useEffect(function() {
+    try {
+      if (localStorage.getItem("af_gifts_migrated_v1") === "1") return
+      var merged = {}
+      try {
+        var current = JSON.parse(localStorage.getItem("af_gifts") || "null")
+        if (current && typeof current === "object" && !Array.isArray(current)) {
+          merged = JSON.parse(JSON.stringify(current))
+        }
+      } catch {}
+
+      try {
+        var oldPeopleShape = JSON.parse(localStorage.getItem("af_gifts") || "null")
+        if (Array.isArray(oldPeopleShape)) {
+          oldPeopleShape.forEach(function(person) {
+            if (!person || !person.id) return
+            var list = merged[person.id] || []
+            ;(person.occasions || []).forEach(function(occ) {
+              ;(occ.gifts || []).forEach(function(item) {
+                if (!item) return
+                list.push({
+                  id: item.id || (Date.now().toString()+Math.random().toString(36).slice(2,6)),
+                  personId: person.id,
+                  title: item.item || "",
+                  notes: "",
+                  price: item.cost != null ? item.cost : null,
+                  url: item.url || "",
+                  imageUrl: item.photo || "",
+                  purchased: !!item.bought,
+                  private: false,
+                  occasion: occ.type + (occ.date ? " "+occ.date : ""),
+                  assignedCelebId: null,
+                })
+              })
+            })
+            merged[person.id] = list
+          })
+        }
+      } catch {}
+
+      try {
+        var oldCelebGifts = JSON.parse(localStorage.getItem("af_celebgifts") || "{}")
+        Object.keys(oldCelebGifts || {}).forEach(function(celebId) {
+          var celeb = celebrations.find(function(c) { return c.id === celebId })
+          var personId = (celeb && celeb.personId) || ("celeb_"+celebId)
+          var list = merged[personId] || []
+          ;(oldCelebGifts[celebId] || []).forEach(function(g) {
+            if (!g) return
+            list.push({
+              id: g.id || (Date.now().toString()+Math.random().toString(36).slice(2,6)),
+              personId: personId,
+              title: g.text || "",
+              notes: "",
+              price: null,
+              url: "",
+              imageUrl: "",
+              purchased: !!g.bought,
+              private: false,
+              occasion: celeb ? celeb.name : "",
+              assignedCelebId: celebId,
+            })
+          })
+          merged[personId] = list
+        })
+      } catch {}
+
+      localStorage.setItem("af_gifts", JSON.stringify(merged))
+      afVaultChanged("gifts")
+      localStorage.setItem("af_gifts_migrated_v1", "1")
+      setGifts(merged)
+    } catch {}
+  }, [])
+
+  function saveGifts(updated) {
+    setGifts(updated)
+    afVaultChanged("gifts")
+    try { localStorage.setItem("af_gifts", JSON.stringify(updated)) } catch {}
   }
-  function addGift(celebId) {
-    if (!newGiftText.trim()) return
-    var existing = giftMap[celebId] || []
-    var item = { id: Date.now().toString(), text: newGiftText.trim(), bought: false }
-    saveGiftMap(Object.assign({}, giftMap, { [celebId]: [...existing, item] }))
-    setNewGiftText("")
+  function giftsForPerson(personId) { return gifts[personId] || [] }
+  function addGiftForPerson(personId, fields) {
+    var list = giftsForPerson(personId)
+    var item = Object.assign({
+      id: Date.now().toString()+Math.random().toString(36).slice(2,6),
+      personId: personId, title: "", notes: "", price: null, url: "", imageUrl: "",
+      purchased: false, private: false, occasion: "", assignedCelebId: null,
+    }, fields)
+    saveGifts(Object.assign({}, gifts, { [personId]: [...list, item] }))
   }
-  function toggleGift(celebId, giftId) {
-    var existing = (giftMap[celebId] || []).map(function(g) { return g.id === giftId ? Object.assign({}, g, { bought: !g.bought }) : g })
-    saveGiftMap(Object.assign({}, giftMap, { [celebId]: existing }))
+  function updateGift(personId, giftId, patch) {
+    var list = giftsForPerson(personId).map(function(g) { return g.id === giftId ? Object.assign({}, g, patch) : g })
+    saveGifts(Object.assign({}, gifts, { [personId]: list }))
   }
-  function removeGift(celebId, giftId) {
-    var existing = (giftMap[celebId] || []).filter(function(g) { return g.id !== giftId })
-    saveGiftMap(Object.assign({}, giftMap, { [celebId]: existing }))
+  function removeGiftEntry(personId, giftId) {
+    var list = giftsForPerson(personId).filter(function(g) { return g.id !== giftId })
+    saveGifts(Object.assign({}, gifts, { [personId]: list }))
+  }
+  function toggleGiftPurchased(personId, giftId) {
+    var g = giftsForPerson(personId).find(function(x) { return x.id === giftId })
+    if (g) updateGift(personId, giftId, { purchased: !g.purchased })
+  }
+  function toggleGiftPrivate(personId, giftId) {
+    var g = giftsForPerson(personId).find(function(x) { return x.id === giftId })
+    if (g) updateGift(personId, giftId, { private: !g.private })
+  }
+  function assignGiftToCeleb(personId, giftId, celebId) { updateGift(personId, giftId, { assignedCelebId: celebId }) }
+  function unassignGift(personId, giftId) { updateGift(personId, giftId, { assignedCelebId: null }) }
+  // Private gifts are hidden everywhere from the device user who is the
+  // gift's own recipient — not just their title, the whole entry (counts,
+  // badges, previews included), so nothing leaks a surprise indirectly.
+  function visibleGifts(personId) {
+    var list = giftsForPerson(personId)
+    if (myPersonId && myPersonId === personId) return list.filter(function(g) { return !g.private })
+    return list
+  }
+  // All gifts relevant to a celebration: anything explicitly assigned to it
+  // (assignedCelebId match, any person), plus — if the celebration has a
+  // linked person (auto-created birthdays do) — that person's unassigned
+  // gifts too. Privacy-filtered the same way visibleGifts is.
+  function celebGifts(celebId, personId) {
+    var result = []
+    Object.keys(gifts).forEach(function(pid) {
+      ;(gifts[pid] || []).forEach(function(g) {
+        if (myPersonId && myPersonId === pid && g.private) return
+        if (g.assignedCelebId === celebId) result.push(g)
+        else if (!g.assignedCelebId && personId && pid === personId) result.push(g)
+      })
+    })
+    return result
+  }
+  function personDisplayName(personId) {
+    var roster = hLoadPeople()
+    var p = roster.find(function(x) { return x.id === personId })
+    if (p) return p.name
+    if (personId.indexOf("celeb_") === 0) {
+      var c = celebrations.find(function(x) { return x.id === personId.slice(6) })
+      if (c) return c.name
+    }
+    return "Unknown"
   }
 
   // Level 2/3 nav (same pattern as Travel's detailTripId/activeTripCard):
@@ -1014,6 +1160,8 @@ function CelebrationsSection({ calEvents }) {
 
   // Draft input state for the planning sub-cards.
   const [guestDraft, setGuestDraft] = useState("")
+  const [addingGiftFor, setAddingGiftFor] = useState(null) // key: personId, or "celeb:"+celebId when adding from a celebration's Gift Ideas card
+  const [giftDraft, setGiftDraft] = useState({ title: "", notes: "", price: "", url: "", imageUrl: "", occasion: "", private: false })
   const [budgetItemDraft, setBudgetItemDraft] = useState({ desc: "", amount: "" })
   const [foodDraft, setFoodDraft] = useState({ item: "", who: "", dietary: "" })
   const [decorDraft, setDecorDraft] = useState("")
@@ -1167,8 +1315,8 @@ function CelebrationsSection({ calEvents }) {
     const diff = Math.round((next - now) / 86400000)
     const age = (c.type === "birthday" && c.year) ? (next.getFullYear() - c.year) : null
     const label = c.name + (age ? " turns " + age : c.type === "anniversary" ? " anniversary" : "")
-    const gifts = giftMap[c.id] || []
-    const planned = planningFilledCount(c, gifts.length > 0)
+    const cGifts = celebGifts(c.id, c.personId)
+    const planned = planningFilledCount(c, cGifts.length > 0)
     return { ...c, typeInfo, next, diff, label, emoji: typeInfo.emoji, soon: diff <= 14, countdown: countdownLabel(diff), planned: planned, planTotal: PLANNING_DIMENSIONS.length }
   })
 
@@ -1182,7 +1330,7 @@ function CelebrationsSection({ calEvents }) {
   function celebCardPreview(c, cardId) {
     if (cardId === "overview") return c.notes ? c.notes : "Tap to view details"
     if (cardId === "guestlist") { var gl = c.guestList||[]; return gl.length ? gl.length+" guest"+(gl.length!==1?"s":"") : "No guests yet" }
-    if (cardId === "gifts") { var gf = giftMap[c.id]||[]; if (!gf.length) return "No gift ideas yet"; var bought = gf.filter(function(g){return g.bought}).length; return bought+" of "+gf.length+" bought" }
+    if (cardId === "gifts") { var gf = celebGifts(c.id, c.personId); if (!gf.length) return "No gift ideas yet"; var bought = gf.filter(function(g){return g.purchased}).length; return bought+" of "+gf.length+" bought" }
     if (cardId === "budget") { var b = c.budget; if (!b || (!b.planned && !(b.items&&b.items.length))) return "No budget set"; return b.planned ? "$"+b.planned+" planned" : (b.items.length+" item"+(b.items.length!==1?"s":"")) }
     if (cardId === "food") { var f = c.food||[]; return f.length ? f.length+" item"+(f.length!==1?"s":"") : "Nothing planned yet" }
     if (cardId === "decorations") { var d = c.decorations||[]; if (!d.length) return "No items yet"; var dd = d.filter(function(x){return x.done}).length; return dd+" of "+d.length+" done" }
@@ -1219,9 +1367,84 @@ function CelebrationsSection({ calEvents }) {
     )
   }
 
+  // Shared gift row — used by both the celebration's Gift Ideas sub-card and
+  // the standalone Gifts tab. opts.celebId, if passed, shows an assign/
+  // unassign-to-this-celebration toggle (only meaningful from a celebration's
+  // Gift Ideas card, not the person-based Gifts tab).
+  function renderGiftRow(g, opts) {
+    opts = opts || {}
+    return (
+      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+        <div onClick={function() { toggleGiftPurchased(g.personId, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.purchased ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.purchased ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+          {g.purchased && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
+        </div>
+        {g.imageUrl ? <img src={g.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} /> : null}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: g.purchased ? "rgba(250,248,244,0.4)" : "#faf8f4", fontFamily: "DM Sans,sans-serif", textDecoration: g.purchased ? "line-through" : "none" }}>
+            {g.title}
+            {g.private && <span title="Private — hidden from the recipient" style={{ marginLeft: 6, fontSize: 11 }}>🔒</span>}
+          </div>
+          {g.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{g.notes}</div>}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
+            {g.price != null && g.price !== "" && <span style={{ fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif" }}>${(+g.price).toFixed(2)}</span>}
+            {g.url && <a href={g.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7EAEB4" }}>Link ↗</a>}
+          </div>
+        </div>
+        <button onClick={function() { toggleGiftPrivate(g.personId, g.id) }} title={g.private ? "Make visible" : "Make private"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "rgba(250,248,244,0.3)", flexShrink: 0 }}>{g.private ? "🔒" : "🔓"}</button>
+        {opts.celebId && (g.assignedCelebId === opts.celebId
+          ? <button onClick={function() { unassignGift(g.personId, g.id) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Unassign</button>
+          : <button onClick={function() { assignGiftToCeleb(g.personId, g.id, opts.celebId) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Assign here</button>
+        )}
+        <button onClick={function() { removeGiftEntry(g.personId, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
+      </div>
+    )
+  }
+
+  function renderGiftAddForm(onSubmit) {
+    return (
+      <div style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 10, padding: 12, marginTop: 8 }}>
+        <input value={giftDraft.title} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { title: e.target.value }) }) }} placeholder="Gift idea…" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
+        <input value={giftDraft.notes} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { notes: e.target.value }) }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input value={giftDraft.price} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { price: e.target.value }) }) }} placeholder="Price" type="number" style={Object.assign({}, INP, { flex: 1 })} />
+          <input value={giftDraft.occasion} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { occasion: e.target.value }) }) }} placeholder="Occasion (optional)" style={Object.assign({}, INP, { flex: 1 })} />
+        </div>
+        <input value={giftDraft.url} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { url: e.target.value }) }) }} placeholder="Link URL (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
+        <input value={giftDraft.imageUrl} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { imageUrl: e.target.value }) }) }} placeholder="Image URL (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", marginBottom: 10, cursor: "pointer" }}>
+          <input type="checkbox" checked={giftDraft.private} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { private: e.target.checked }) }) }} />
+          Private (hidden from the recipient)
+        </label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onSubmit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: 8, fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+          <button onClick={function() { setAddingGiftFor(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+        </div>
+      </div>
+    )
+  }
+  function resetGiftDraft() { setGiftDraft({ title: "", notes: "", price: "", url: "", imageUrl: "", occasion: "", private: false }) }
+  function submitGiftDraft(personId, assignedCelebId) {
+    if (!giftDraft.title.trim()) return
+    addGiftForPerson(personId, {
+      title: giftDraft.title.trim(), notes: giftDraft.notes.trim(),
+      price: giftDraft.price ? parseFloat(giftDraft.price) : null,
+      url: giftDraft.url.trim(), imageUrl: giftDraft.imageUrl.trim(),
+      occasion: giftDraft.occasion.trim(), private: giftDraft.private,
+      assignedCelebId: assignedCelebId || null,
+    })
+    resetGiftDraft()
+    setAddingGiftFor(null)
+  }
+
   return (
     <div>
       {!detailCelebId && (<>
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid rgba(250,242,229,0.08)", marginBottom: 16 }}>
+        <button onClick={function() { setCelebTab("celebrations") }} style={{ background: "none", border: "none", borderBottom: celebTab==="celebrations" ? "2px solid #c8a97a" : "2px solid transparent", padding: "8px 16px", fontSize: 13, color: celebTab==="celebrations" ? "#c8a97a" : "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: celebTab==="celebrations" ? 700 : 500 }}>Celebrations</button>
+        <button onClick={function() { setCelebTab("gifts") }} style={{ background: "none", border: "none", borderBottom: celebTab==="gifts" ? "2px solid #c8a97a" : "2px solid transparent", padding: "8px 16px", fontSize: 13, color: celebTab==="gifts" ? "#c8a97a" : "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: celebTab==="gifts" ? 700 : 500 }}>Gifts</button>
+      </div>
+
+      {celebTab === "celebrations" && (<>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>
         <button onClick={function() { setAdding(function(p) { return !p }); setForm({ name: "", month: "", day: "", year: "", notes: "" }) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
@@ -1270,9 +1493,9 @@ function CelebrationsSection({ calEvents }) {
       {shown.length === 0 && <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
       {shown.map(function(e, i) {
         const isPast = e.diff < 0
-        const gifts = giftMap[e.id] || []
-        const boughtCount = gifts.filter(function(g) { return g.bought }).length
-        const hasGifts = gifts.length > 0
+        const cGifts = celebGifts(e.id, e.personId)
+        const boughtCount = cGifts.filter(function(g) { return g.purchased }).length
+        const hasGifts = cGifts.length > 0
 
         return (
           <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 12, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden", cursor: "pointer" }}>
@@ -1282,8 +1505,8 @@ function CelebrationsSection({ calEvents }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: isPast ? "rgba(250,248,244,0.45)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
-                  {hasGifts && <span style={{ fontSize: 12 }} title={boughtCount + "/" + gifts.length + " bought"}>🎁</span>}
-                  {hasGifts && boughtCount < gifts.length && <span style={{ fontSize: 9, background: "rgba(200,131,74,0.2)", color: "#c8834a", borderRadius: 8, padding: "1px 5px", fontFamily: "DM Sans,sans-serif", fontWeight: 700 }}>{gifts.length - boughtCount} to get</span>}
+                  {hasGifts && <span style={{ fontSize: 12 }} title={boughtCount + "/" + cGifts.length + " bought"}>🎁</span>}
+                  {hasGifts && boughtCount < cGifts.length && <span style={{ fontSize: 9, background: "rgba(200,131,74,0.2)", color: "#c8834a", borderRadius: 8, padding: "1px 5px", fontFamily: "DM Sans,sans-serif", fontWeight: 700 }}>{cGifts.length - boughtCount} to get</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
                   {e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.typeInfo && e.typeInfo.label}
@@ -1304,6 +1527,45 @@ function CelebrationsSection({ calEvents }) {
           </div>
         )
       })}
+      </>)}
+
+      {celebTab === "gifts" && (
+        <div>
+          {(function() {
+            var roster = hLoadPeople()
+            var giftPersonIds = Array.from(new Set(roster.map(function(p) { return p.id }).concat(Object.keys(gifts))))
+            if (giftPersonIds.length === 0) return <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No people yet.</div>
+            return giftPersonIds.map(function(personId) {
+              var list = visibleGifts(personId)
+              var name = personDisplayName(personId)
+              var groups = {}
+              list.forEach(function(g) {
+                var occ = g.occasion || "General"
+                if (!groups[occ]) groups[occ] = []
+                groups[occ].push(g)
+              })
+              var occKeys = Object.keys(groups)
+              return (
+                <div key={personId} style={{ marginBottom: 16, background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, padding: "14px" }}>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>{name}</div>
+                  {occKeys.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
+                  {occKeys.map(function(occ) {
+                    return (
+                      <div key={occ} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(250,248,244,0.35)", marginBottom: 4, fontFamily: "DM Sans,sans-serif" }}>{occ}</div>
+                        {groups[occ].map(function(g) { return renderGiftRow(g, {}) })}
+                      </div>
+                    )
+                  })}
+                  {addingGiftFor === personId ? renderGiftAddForm(function() { submitGiftDraft(personId, null) }) : (
+                    <button onClick={function() { resetGiftDraft(); setAddingGiftFor(personId) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift idea</button>
+                  )}
+                </div>
+              )
+            })
+          })()}
+        </div>
+      )}
       </>)}
 
       {/* Level 2/3 — celebration detail view + planning sub-cards */}
@@ -1384,27 +1646,24 @@ function CelebrationsSection({ calEvents }) {
                 </div>
               )}
 
-              {activeCelebCard === "gifts" && (
-                <div>
-                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Gift Ideas</div>
-                  {(giftMap[detailCeleb.id]||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No gift ideas yet.</div>}
-                  {(giftMap[detailCeleb.id]||[]).map(function(g) {
-                    return (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
-                        <div onClick={function() { toggleGift(detailCeleb.id, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.bought ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.bought ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-                          {g.bought && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
-                        </div>
-                        <span style={{ flex: 1, fontSize: 13, color: g.bought ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: g.bought ? "line-through" : "none" }}>{g.text}</span>
-                        <button onClick={function() { removeGift(detailCeleb.id, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
-                      </div>
-                    )
-                  })}
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <input value={newGiftText} onChange={function(e) { setNewGiftText(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") addGift(detailCeleb.id) }} placeholder="Add a gift idea…" style={Object.assign({}, INP, { flex: 1 })} />
-                    <button onClick={function() { addGift(detailCeleb.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+              {activeCelebCard === "gifts" && (function() {
+                var relevant = celebGifts(detailCeleb.id, detailCeleb.personId)
+                var addKey = "celeb:" + detailCeleb.id
+                return (
+                  <div>
+                    <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Gift Ideas</div>
+                    {relevant.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No gift ideas yet.</div>}
+                    {relevant.map(function(g) { return renderGiftRow(g, { celebId: detailCeleb.id }) })}
+                    {detailCeleb.personId ? (
+                      addingGiftFor === addKey ? renderGiftAddForm(function() { submitGiftDraft(detailCeleb.personId, detailCeleb.id) }) : (
+                        <button onClick={function() { resetGiftDraft(); setGiftDraft(function(p) { return Object.assign({}, p, { occasion: detailCeleb.name }) }); setAddingGiftFor(addKey) }} style={{ marginTop: 10, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift idea</button>
+                      )
+                    ) : (
+                      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginTop: 10 }}>This celebration isn't linked to a specific person — add and assign gift ideas from the Gifts tab instead.</div>
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {activeCelebCard === "budget" && (
                 <div>
@@ -1512,390 +1771,6 @@ function CelebrationsSection({ calEvents }) {
               <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-// ── Gifts Section ─────────────────────────────────────────────────────────────
-const OCCASION_TYPES = ["Birthday","Anniversary","Christmas","Mother's Day","Father's Day","Valentine's Day","Graduation","Wedding","Baby Shower","Hanukkah","Easter","Other"]
-const GIFT_FREE_LIMIT = 15
-
-function daysUntil(dateStr) {
-  if (!dateStr) return null
-  const today = new Date()
-  const parts = dateStr.split("-")
-  let target = new Date(today.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]))
-  if (target < today) target.setFullYear(today.getFullYear()+1)
-  return Math.ceil((target-today)/(1000*60*60*24))
-}
-
-function formatOccDate(dateStr) {
-  if (!dateStr) return ""
-  const parts = dateStr.split("-")
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-  return months[parseInt(parts[1])-1]+" "+parseInt(parts[2])
-}
-
-function GiftsSection({ people, celebrations, isPremium, calEvents }) {
-  people = people || []
-  celebrations = celebrations || []
-  isPremium = isPremium || false
-  calEvents = calEvents || []
-
-  const [gifts, setGifts] = useState(function() {
-    try { const _g = JSON.parse(localStorage.getItem("af_gifts") || "[]"); return Array.isArray(_g) ? _g : []; } catch { return [] }
-  })
-  React.useEffect(function() {
-    function onRefresh(e) {
-      if (!e.detail?.key || e.detail.key === "gifts") {
-        try { var _g = JSON.parse(localStorage.getItem("af_gifts") || "[]"); setGifts(Array.isArray(_g) ? _g : []) } catch {}
-      }
-    }
-    window.addEventListener("af-data-changed", onRefresh)
-    return function() { window.removeEventListener("af-data-changed", onRefresh) }
-  }, [])
-  const [view, setView] = useState("upcoming")
-  const [activePerson, setActivePerson] = useState(null)
-  const [activeOccasion, setActiveOccasion] = useState(null)
-  const [addingPerson, setAddingPerson] = useState(false)
-  const [addingOccasion, setAddingOccasion] = useState(false)
-  const [addingGift, setAddingGift] = useState(false)
-  const [newPerson, setNewPerson] = useState({ name: "", relation: "" })
-  const [newOccasion, setNewOccasion] = useState({ type: "Birthday", date: "" })
-  const [newGift, setNewGift] = useState({ item: "", cost: "", url: "", photo: "" })
-  const [editingGift, setEditingGift] = useState(null)
-  const [editGiftVal, setEditGiftVal] = useState({ item: "", cost: "", url: "", photo: "" })
-
-  function gUid() { return Math.random().toString(36).slice(2,9) }
-
-  function saveGifts(updated) {
-    setGifts(updated)
-    afVaultChanged("gifts");
-    try { localStorage.setItem("af_gifts", JSON.stringify(updated)) } catch {}
-  }
-
-  const celebPeople = celebrations.map(function(c) {
-    return { id: "celeb_" + c.id, name: c.name, relation: c.type.charAt(0).toUpperCase() + c.type.slice(1), fromCeleb: true, celebMonth: c.month, celebDay: c.day, celebYear: c.year }
-  })
-
-  const allPeople = [
-    ...people.map(function(p) { return { id: p.id, name: p.name, relation: "Family", fromApp: true } }),
-    ...celebPeople.filter(function(cp) { return !gifts.find(function(g) { return g.id === cp.id }) && !people.find(function(p) { return p.name === cp.name }) }),
-    ...gifts.filter(function(g) { return !people.find(function(p) { return p.id === g.id }) })
-  ]
-
-  const atLimit = gifts.filter(function(g) { return !people.find(function(p) { return p.id === g.id }) }).length >= GIFT_FREE_LIMIT && !isPremium
-
-  const upcoming = []
-  gifts.forEach(function(person) {
-    (person.occasions || []).forEach(function(occ) {
-      if (occ.date) {
-        const days = daysUntil(occ.date)
-        const unbought = (occ.gifts || []).filter(function(g) { return !g.bought }).length
-        upcoming.push({ personId: person.id, personName: person.name, occasion: occ, days, unbought })
-      }
-    })
-  })
-  upcoming.sort(function(a,b) { return (a.days??999)-(b.days??999) })
-  const soonUpcoming = upcoming.filter(function(u) { return u.days !== null && u.days <= 60 })
-  const totalSpent = gifts.reduce(function(sum,p) { return sum+(p.occasions||[]).reduce(function(s2,o) { return s2+(o.gifts||[]).filter(function(g){return g.bought&&g.cost}).reduce(function(s3,g){return s3+g.cost},0) },0) },0)
-  const totalUnbought = gifts.reduce(function(sum,p) { return sum+(p.occasions||[]).reduce(function(s2,o) { return s2+(o.gifts||[]).filter(function(g){return !g.bought}).length },0) },0)
-
-  function addPerson() {
-    if (!newPerson.name.trim() || atLimit) return
-    const entry = { id: gUid(), name: newPerson.name.trim(), relation: newPerson.relation.trim(), occasions: [] }
-    saveGifts([...gifts, entry])
-    setNewPerson({ name: "", relation: "" })
-    setAddingPerson(false)
-    setActivePerson(entry.id)
-    setView("person")
-  }
-
-  function addOccasion(personId) {
-    if (!newOccasion.type) return
-    const occ = { id: gUid(), type: newOccasion.type, date: newOccasion.date, gifts: [] }
-    const exists = gifts.find(function(p) { return p.id === personId })
-    if (!exists) {
-      const appP = people.find(function(p) { return p.id === personId })
-      const celebP = celebPeople.find(function(p) { return p.id === personId })
-      if (appP) saveGifts([...gifts, { id: personId, name: appP.name, relation: "Family", occasions: [occ] }])
-      else if (celebP) saveGifts([...gifts, { id: personId, name: celebP.name, relation: celebP.relation, occasions: [occ] }])
-    } else {
-      saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:[...(p.occasions||[]),occ]} : p }))
-    }
-    setNewOccasion({ type: "Birthday", date: "" })
-    setAddingOccasion(false)
-    setActiveOccasion(occ.id)
-  }
-
-  function addGiftItem(personId, occId) {
-    if (!newGift.item.trim()) return
-    const item = { id: gUid(), item: newGift.item.trim(), cost: newGift.cost ? parseFloat(newGift.cost) : null, url: newGift.url || "", photo: newGift.photo || "", bought: false }
-    saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:[...(o.gifts||[]),item]} : o })} : p }))
-    setNewGift({ item: "", cost: "", url: "", photo: "" })
-    setAddingGift(false)
-  }
-
-  function toggleBought(personId, occId, giftId) {
-    saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:(o.gifts||[]).map(function(g) { return g.id===giftId?{...g,bought:!g.bought}:g })} : o })} : p }))
-  }
-
-  function deleteGiftItem(personId, occId, giftId) {
-    saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:(o.gifts||[]).filter(function(g){return g.id!==giftId})} : o })} : p }))
-  }
-
-  function saveEditGift(personId, occId, giftId) {
-    saveGifts(gifts.map(function(p) { return p.id===personId ? {...p, occasions:(p.occasions||[]).map(function(o) { return o.id===occId ? {...o, gifts:(o.gifts||[]).map(function(g) { return g.id===giftId?{...g,item:editGiftVal.item,cost:editGiftVal.cost?parseFloat(editGiftVal.cost):null,url:editGiftVal.url||"",photo:editGiftVal.photo||""}:g })} : o })} : p }))
-    setEditingGift(null)
-  }
-
-  const currentPerson = gifts.find(function(p){return p.id===activePerson}) || (activePerson?allPeople.find(function(p){return p.id===activePerson}):null)
-  const currentOccasion = currentPerson && currentPerson.occasions && currentPerson.occasions.find(function(o){return o.id===activeOccasion})
-
-  const gS = {
-    card:{ background:"rgba(250,242,229,0.04)", border:"1px solid rgba(250,242,229,0.08)", borderRadius:10, padding:"12px 14px", marginBottom:10 },
-    inp:{ width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#faf8f4", WebkitTextFillColor:"#faf8f4", caretColor:"#c8a97a", fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" },
-    btn:{ background:"#c8a97a", border:"none", borderRadius:8, padding:"8px 14px", fontSize:12, color:"#243A5A", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 },
-    ghost:{ background:"rgba(250,242,229,0.06)", border:"none", borderRadius:8, padding:"8px 12px", fontSize:12, color:"rgba(250,248,244,0.5)", fontFamily:"DM Sans,sans-serif", cursor:"pointer" },
-  }
-
-  if (activeOccasion && currentPerson && currentOccasion) {
-    const giftList = currentOccasion.gifts||[]
-    const spent = giftList.filter(function(g){return g.bought&&g.cost}).reduce(function(s,g){return s+g.cost},0)
-    const days = daysUntil(currentOccasion.date)
-    return (
-      <div>
-        <button onClick={function(){setActiveOccasion(null)}} style={{...gS.ghost,marginBottom:16,fontSize:11}}>← Back</button>
-        <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:600,color:"#faf8f4",marginBottom:2}}>{currentPerson.name}</div>
-        <div style={{fontSize:12,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",marginBottom:4}}>{currentOccasion.type}{currentOccasion.date?" · "+formatOccDate(currentOccasion.date):""}</div>
-        {days!==null&&<div style={{fontSize:11,color:days<=14?"#c8834a":"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:16}}>{days===0?"Today!":days+" days away"}</div>}
-        {spent>0&&<div style={{fontSize:11,color:"#7a9e8e",fontFamily:"DM Sans,sans-serif",marginBottom:12}}>${spent.toFixed(2)} spent</div>}
-        <div style={{...gS.card,padding:0,overflow:"hidden",marginBottom:12}}>
-          {giftList.length===0&&<div style={{padding:14,fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}}>No gift ideas yet</div>}
-          {giftList.map(function(g){
-            return (
-              <div key={g.id} style={{borderBottom:"1px solid rgba(250,242,229,0.05)"}}>
-                <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px"}}>
-                  {g.photo&&<img src={g.photo} alt="" style={{width:44,height:44,borderRadius:6,objectFit:"cover",flexShrink:0,border:"1px solid rgba(250,242,229,0.1)"}}/>}
-                  <div onClick={function(){toggleBought(currentPerson.id,currentOccasion.id,g.id)}} style={{width:20,height:20,borderRadius:5,border:"1.5px solid "+(g.bought?"#7a9e8e":"rgba(250,242,229,0.2)"),background:g.bought?"#7a9e8e":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer",marginTop:2}}>
-                    {g.bought&&<span style={{color:"#fff",fontSize:11}}>✓</span>}
-                  </div>
-                  {editingGift===g.id?(
-                    <div style={{flex:1}}>
-                      <div style={{display:"flex",gap:6,marginBottom:6}}>
-                        <input value={editGiftVal.item} onChange={function(e){setEditGiftVal(function(v){return{...v,item:e.target.value}})}} style={{...gS.inp,flex:2,padding:"4px 8px"}}/>
-                        <input value={editGiftVal.cost} onChange={function(e){setEditGiftVal(function(v){return{...v,cost:e.target.value}})}} placeholder="$" style={{...gS.inp,flex:1,padding:"4px 8px"}}/>
-                      </div>
-                      <input value={editGiftVal.url||""} onChange={function(e){setEditGiftVal(function(v){return{...v,url:e.target.value}})}} placeholder="Link (optional)" style={{...gS.inp,marginBottom:6,padding:"4px 8px"}}/>
-                      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
-                        <label style={{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(250,242,229,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:6,padding:"4px 10px"}}>
-                          📷 {editGiftVal.photo?"Change photo":"Add photo"}
-                          <input type="file" accept="image/*" style={{display:"none"}} onChange={function(e){
-                            var file=e.target.files[0]; if(!file)return
-                            var reader=new FileReader()
-                            reader.onload=function(ev){setEditGiftVal(function(v){return{...v,photo:ev.target.result}})}
-                            reader.readAsDataURL(file)
-                          }}/>
-                        </label>
-                        {editGiftVal.photo&&<button onClick={function(){setEditGiftVal(function(v){return{...v,photo:""}})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.5)",cursor:"pointer",padding:"2px"}}>✕ remove</button>}
-                      </div>
-                      <div style={{display:"flex",gap:6}}>
-                        <button onClick={function(){saveEditGift(currentPerson.id,currentOccasion.id,g.id)}} style={{...gS.btn,padding:"4px 10px",fontSize:11}}>Save</button>
-                        <button onClick={function(){setEditingGift(null)}} style={{...gS.ghost,padding:"4px 8px",fontSize:11}}>Cancel</button>
-                      </div>
-                    </div>
-                  ):(
-                    <React.Fragment>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,color:g.bought?"rgba(250,248,244,0.4)":"rgba(250,248,244,0.85)",fontFamily:"DM Sans,sans-serif",textDecoration:g.bought?"line-through":"none",wordBreak:"break-word"}}>{g.item}</div>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:3,flexWrap:"wrap"}}>
-                          {g.cost&&<span style={{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}}>${g.cost.toFixed(2)}</span>}
-                          {g.url&&safeUrl(g.url)&&<a href={safeUrl(g.url)} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"flex",alignItems:"center",gap:2}}>🔗 <span style={{textDecoration:"underline",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"inline-block",verticalAlign:"middle"}}>{g.url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</span></a>}
-                        </div>
-                      </div>
-                      <div style={{display:"flex",gap:4,flexShrink:0}}>
-                        <button onClick={function(){setEditingGift(g.id);setEditGiftVal({item:g.item,cost:g.cost?String(g.cost):"",url:g.url||"",photo:g.photo||""})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(250,248,244,0.25)",cursor:"pointer",padding:"2px 4px"}}>✏️</button>
-                        <button onClick={function(){deleteGiftItem(currentPerson.id,currentOccasion.id,g.id)}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.4)",cursor:"pointer",padding:"2px 4px"}}>✕</button>
-                      </div>
-                    </React.Fragment>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        {addingGift?(
-          <div style={{...gS.card,marginBottom:12}}>
-            <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <input value={newGift.item} onChange={function(e){setNewGift(function(v){return{...v,item:e.target.value}})}} onKeyDown={function(e){if(e.key==="Enter")addGiftItem(currentPerson.id,currentOccasion.id)}} placeholder="Gift idea..." autoFocus style={{...gS.inp,flex:2}}/>
-              <input value={newGift.cost} onChange={function(e){setNewGift(function(v){return{...v,cost:e.target.value}})}} placeholder="$" type="number" style={{...gS.inp,flex:1}}/>
-            </div>
-            <input value={newGift.url} onChange={function(e){setNewGift(function(v){return{...v,url:e.target.value}})}} placeholder="Link / URL (optional)" style={{...gS.inp,marginBottom:8}}/>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <label style={{fontSize:12,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",cursor:"pointer",background:"rgba(250,242,229,0.06)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:7,padding:"7px 14px",display:"flex",alignItems:"center",gap:6}}>
-                📷 {newGift.photo?"Photo added ✓":"Add photo"}
-                <input type="file" accept="image/*" style={{display:"none"}} onChange={function(e){
-                  var file=e.target.files[0]; if(!file)return
-                  var reader=new FileReader()
-                  reader.onload=function(ev){setNewGift(function(v){return{...v,photo:ev.target.result}})}
-                  reader.readAsDataURL(file)
-                }}/>
-              </label>
-              {newGift.photo&&(
-                <React.Fragment>
-                  <img src={newGift.photo} alt="" style={{width:36,height:36,borderRadius:5,objectFit:"cover",border:"1px solid rgba(200,169,122,0.3)"}}/>
-                  <button onClick={function(){setNewGift(function(v){return{...v,photo:""}})}} style={{background:"none",border:"none",fontSize:11,color:"rgba(200,131,74,0.5)",cursor:"pointer"}}>✕</button>
-                </React.Fragment>
-              )}
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={function(){addGiftItem(currentPerson.id,currentOccasion.id)}} style={gS.btn}>Add gift</button>
-              <button onClick={function(){setAddingGift(false);setNewGift({item:"",cost:"",url:"",photo:""})}} style={gS.ghost}>Cancel</button>
-            </div>
-          </div>
-        ):(
-          <button onClick={function(){setAddingGift(true)}} style={{width:"100%",padding:10,background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:8,fontSize:12,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:"pointer",marginBottom:12}}>+ Add gift idea</button>
-        )}
-      </div>
-    )
-  }
-
-  if (activePerson && currentPerson) {
-    const personData = gifts.find(function(p){return p.id===activePerson})
-    const occasions = (personData && personData.occasions) || []
-    const celebSource = celebPeople.find(function(p){return p.id===activePerson})
-    // Build a suggested date string from celeb data if available
-    var celebSuggestedDate = ""
-    if (celebSource && celebSource.celebMonth && celebSource.celebDay) {
-      var yr = celebSource.celebYear ? celebSource.celebYear : new Date().getFullYear()
-      celebSuggestedDate = yr + "-" + String(celebSource.celebMonth).padStart(2,"0") + "-" + String(celebSource.celebDay).padStart(2,"0")
-    }
-    return (
-      <div>
-        <button onClick={function(){setActivePerson(null);setView("people")}} style={{...gS.ghost,marginBottom:16,fontSize:11}}>← Back</button>
-        <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:600,color:"#faf8f4",marginBottom:2}}>{currentPerson.name}</div>
-        <div style={{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:16}}>{currentPerson.relation}</div>
-        {celebSource && occasions.length===0 && (
-          <div style={{background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"rgba(250,248,244,0.6)",fontFamily:"DM Sans,sans-serif"}}>
-            🎂 From your Celebrations list — tap <span style={{color:"#c8a97a",fontWeight:600}}>+ Add occasion</span> below to start tracking gifts for their birthday.
-          </div>
-        )}
-        {occasions.length===0&&<div style={{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif",marginBottom:16}}>No occasions yet</div>}
-        {occasions.map(function(occ){
-          const days=daysUntil(occ.date)
-          const unbought=(occ.gifts||[]).filter(function(g){return !g.bought}).length
-          const bought=(occ.gifts||[]).filter(function(g){return g.bought}).length
-          return (
-            <div key={occ.id} onClick={function(){setActiveOccasion(occ.id)}} style={{...gS.card,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#faf8f4",fontFamily:"DM Sans,sans-serif"}}>{occ.type}</div>
-                <div style={{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2}}>{occ.date?formatOccDate(occ.date):"No date"}{days!==null&&days<=30?<span style={{color:days<=7?"#c8834a":"#c8a97a",marginLeft:6}}>· {days===0?"Today!":days+"d"}</span>:null}</div>
-                {(occ.gifts||[]).length>0&&<div style={{fontSize:10,color:"rgba(250,248,244,0.3)",marginTop:3}}>{bought>0?bought+" bought":""}{bought>0&&unbought>0?" · ":""}{unbought>0?unbought+" to get":""}</div>}
-              </div>
-              {unbought>0&&<span style={{background:"#c8834a",color:"#fff",fontSize:9,borderRadius:8,padding:"2px 6px",fontWeight:700}}>{unbought}</span>}
-              <span style={{fontSize:12,color:"rgba(200,169,122,0.35)"}}>→</span>
-            </div>
-          )
-        })}
-        {addingOccasion?(
-          <div style={gS.card}>
-            <select value={newOccasion.type} onChange={function(e){setNewOccasion(function(v){return{...v,type:e.target.value}})}} style={{...gS.inp,marginBottom:8}}>
-              {OCCASION_TYPES.map(function(t){return <option key={t} value={t}>{t}</option>})}
-            </select>
-            <input type="date" value={newOccasion.date} onChange={function(e){setNewOccasion(function(v){return{...v,date:e.target.value}})}} style={{...gS.inp,marginBottom:10}}/>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={function(){addOccasion(activePerson)}} style={gS.btn}>Add occasion</button>
-              <button onClick={function(){setAddingOccasion(false)}} style={gS.ghost}>Cancel</button>
-            </div>
-          </div>
-        ):(
-          <button onClick={function(){ setAddingOccasion(true); if(celebSuggestedDate) setNewOccasion({ type: "Birthday", date: celebSuggestedDate }) }} style={{width:"100%",padding:10,background:"rgba(200,169,122,0.08)",border:"1px solid rgba(200,169,122,0.2)",borderRadius:8,fontSize:12,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>+ Add occasion</button>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4",marginBottom:4}}>Gifts & Occasions</div>
-      <div style={{fontSize:12,color:"rgba(250,248,244,0.42)",fontFamily:"DM Sans,sans-serif",marginBottom:16,lineHeight:1.5}}>Track gift ideas for everyone you care about.</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:16}}>
-        {[{num:soonUpcoming.length,lbl:"coming up",alert:soonUpcoming.length>0},{num:totalUnbought,lbl:"to buy",alert:totalUnbought>0},{num:"$"+totalSpent.toFixed(0),lbl:"spent",alert:false}].map(function(s,i){
-          return (
-            <div key={i} style={{background:s.alert?"rgba(200,131,74,0.06)":"rgba(122,158,142,0.06)",border:"1px solid "+(s.alert?"rgba(200,131,74,0.28)":"rgba(122,158,142,0.25)"),borderRadius:10,padding:"10px 12px",textAlign:"center"}}>
-              <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:700,color:s.alert?"#c8834a":"#7a9e8e",lineHeight:1}}>{s.num}</div>
-              <div style={{fontSize:9,color:"rgba(250,248,244,0.4)",marginTop:2,textTransform:"uppercase",letterSpacing:"0.05em",fontFamily:"DM Sans,sans-serif"}}>{s.lbl}</div>
-            </div>
-          )
-        })}
-      </div>
-      <div style={{display:"flex",borderBottom:"0.5px solid rgba(250,242,229,0.08)",marginBottom:16}}>
-        {["upcoming","people"].map(function(t){
-          return (
-            <div key={t} onClick={function(){setView(t)}} style={{padding:"7px 14px",fontSize:11,cursor:"pointer",borderBottom:view===t?"2px solid #c8a97a":"2px solid transparent",color:view===t?"#c8a97a":"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",textTransform:"capitalize"}}>
-              {t==="upcoming"?"Upcoming":"All People"}
-            </div>
-          )
-        })}
-      </div>
-      {view==="upcoming"&&(
-        <div>
-          {soonUpcoming.length===0&&<div style={{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif",padding:"20px 0",textAlign:"center"}}>No occasions in the next 60 days</div>}
-          {soonUpcoming.map(function(u,i){
-            return (
-              <div key={i} onClick={function(){setActivePerson(u.personId);setActiveOccasion(u.occasion.id)}} style={{...gS.card,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
-                <div style={{width:36,height:36,borderRadius:8,background:u.days<=7?"rgba(200,131,74,0.2)":"rgba(200,169,122,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>
-                  {u.occasion.type==="Birthday"?"🎂":u.occasion.type==="Anniversary"?"💍":u.occasion.type==="Christmas"?"🎄":"🎁"}
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:500,color:"#faf8f4",fontFamily:"DM Sans,sans-serif"}}>{u.personName} — {u.occasion.type}</div>
-                  <div style={{fontSize:11,color:u.days<=7?"#c8834a":"rgba(250,248,244,0.4)",marginTop:2}}>{formatOccDate(u.occasion.date)} · {u.days===0?"Today!":u.days+" days away"}</div>
-                  {u.unbought>0&&<div style={{fontSize:10,color:"#c8834a",marginTop:2}}>{u.unbought} gift{u.unbought>1?"s":""} to buy</div>}
-                </div>
-                <span style={{fontSize:12,color:"rgba(200,169,122,0.35)"}}>→</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-      {view==="people"&&(
-        <div>
-          {allPeople.map(function(person){
-            const personData=gifts.find(function(p){return p.id===person.id})
-            const totalOcc=(personData&&personData.occasions||[]).length
-            const nextOcc=(personData&&personData.occasions||[]).filter(function(o){return o.date&&daysUntil(o.date)!==null}).sort(function(a,b){return daysUntil(a.date)-daysUntil(b.date)})[0]
-            const days=nextOcc?daysUntil(nextOcc.date):null
-            return (
-              <div key={person.id} onClick={function(){setActivePerson(person.id);setView("person")}} style={{...gS.card,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
-                <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(200,169,122,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c8a97a",fontFamily:"DM Sans,sans-serif",fontWeight:700,flexShrink:0}}>{person.name[0]}</div>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:13,fontWeight:500,color:"#faf8f4",fontFamily:"DM Sans,sans-serif"}}>{person.name}</span>
-                    {person.fromCeleb && totalOcc===0 && <span style={{fontSize:9,background:"rgba(200,169,122,0.15)",color:"#c8a97a",borderRadius:4,padding:"1px 5px",fontFamily:"DM Sans,sans-serif",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em"}}>from celebrations</span>}
-                  </div>
-                  <div style={{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2}}>{totalOcc===0?"No occasions added":totalOcc+" occasion"+(totalOcc>1?"s":"")}{days!==null&&days<=30?<span style={{color:days<=7?"#c8834a":"#c8a97a",marginLeft:6}}>· next in {days}d</span>:null}</div>
-                </div>
-                <span style={{fontSize:12,color:"rgba(200,169,122,0.35)"}}>→</span>
-              </div>
-            )
-          })}
-          {addingPerson?(
-            <div style={gS.card}>
-              <input value={newPerson.name} onChange={function(e){setNewPerson(function(v){return{...v,name:e.target.value}})}} placeholder="Name" autoFocus style={{...gS.inp,marginBottom:8}}/>
-              <input value={newPerson.relation} onChange={function(e){setNewPerson(function(v){return{...v,relation:e.target.value}})}} placeholder="Relationship (e.g. Mom, Friend)" style={{...gS.inp,marginBottom:10}}/>
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={addPerson} style={gS.btn}>Add person</button>
-                <button onClick={function(){setAddingPerson(false)}} style={gS.ghost}>Cancel</button>
-              </div>
-            </div>
-          ):(
-            <button onClick={function(){if(!atLimit)setAddingPerson(true)}} style={{width:"100%",padding:10,background:atLimit?"rgba(250,242,229,0.03)":"rgba(200,169,122,0.08)",border:"1px solid "+(atLimit?"rgba(250,242,229,0.08)":"rgba(200,169,122,0.2)"),borderRadius:8,fontSize:12,color:atLimit?"rgba(250,248,244,0.25)":"#c8a97a",fontFamily:"DM Sans,sans-serif",cursor:atLimit?"default":"pointer"}}>
-              {atLimit?"Free limit reached — upgrade for more":"+ Add person"}
-            </button>
-          )}
         </div>
       )}
     </div>
@@ -8020,22 +7895,40 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     var list = readCelebrations()
     if (!list.length) return { highlight: null, countdown: null, count: 0 }
     var now = new Date(); now.setHours(0,0,0,0)
-    var giftMap = {}
-    try { giftMap = JSON.parse(localStorage.getItem("af_celebgifts") || "{}") } catch {}
+    // af_gifts (Phase 3): person-keyed map, not celebration-keyed — a gift
+    // belongs to a celebration via assignedCelebId, or implicitly via the
+    // celebration's own personId if unassigned. Private gifts never surface
+    // in this dashboard glance, regardless of who's viewing.
+    var giftsByPerson = {}
+    try {
+      var rawGifts = JSON.parse(localStorage.getItem("af_gifts") || "null")
+      if (rawGifts && typeof rawGifts === "object" && !Array.isArray(rawGifts)) giftsByPerson = rawGifts
+    } catch {}
+    function giftsForCeleb(c) {
+      var result = []
+      Object.keys(giftsByPerson).forEach(function(pid) {
+        (giftsByPerson[pid] || []).forEach(function(g) {
+          if (g.private) return
+          if (g.assignedCelebId === c.id) result.push(g)
+          else if (!g.assignedCelebId && c.personId && pid === c.personId) result.push(g)
+        })
+      })
+      return result
+    }
     var entries = list.map(function(c) {
       var next = new Date(now.getFullYear(), c.month-1, c.day)
       if (next < now) next.setFullYear(next.getFullYear()+1)
       var diff = Math.round((next - now) / 86400000)
       var age = (c.type === "birthday" && c.year) ? (next.getFullYear() - c.year) : null
-      var gifts = giftMap[c.id] || []
-      var unbought = gifts.filter(function(g) { return !g.bought }).length
-      return { ...c, diff, age, giftCount: gifts.length, unbought }
+      var cGifts = giftsForCeleb(c)
+      var unbought = cGifts.filter(function(g) { return !g.purchased }).length
+      return { ...c, diff, age, giftCount: cGifts.length, unbought }
     }).sort(function(a,b) { return a.diff - b.diff })
     var next = entries[0]
     var label = next.name + (next.age ? " turns " + next.age : next.type === "anniversary" ? " anniversary" : "")
     var countdown = next.diff === 0 ? "Today! 🎉" : next.diff === 1 ? "Tomorrow" : "in " + next.diff + " days"
     var hasUnbought = entries.some(function(e) { return e.diff <= 30 && e.unbought > 0 })
-    return { highlight: label, countdown: countdown, count: list.length, soon: next.diff <= 14, alert: hasUnbought, entries: entries.slice(0, 4), giftMap: giftMap }
+    return { highlight: label, countdown: countdown, count: list.length, soon: next.diff <= 14, alert: hasUnbought, entries: entries.slice(0, 4) }
   }
 
   function petsSummary() {

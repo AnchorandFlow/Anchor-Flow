@@ -36,8 +36,10 @@ export const SYNC_KEYS = [
   // App preferences & state that should survive a reset
   "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
-  "celebrations","celebgifts","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
-  "moments","subs","vaultSystems",
+  // celebgifts retired (Phase 3): migrated into gifts on read, no longer
+  // synced independently. moments retired: no real user data, unregistered.
+  "celebrations","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
+  "subs","vaultSystems",
   "health","career","travel_profile",
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
@@ -151,14 +153,19 @@ const _SANITIZE_HANDLED = new Set([
   "tasks","brainItems","shoppingItems","notifications","calEvents","connectedCals",
   "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
   "brainCats","homeSystems","dietaryFilters",
-  "recurring","celebrations","gifts","inventory","pets","houseFile",
+  "recurring","celebrations","inventory","pets","houseFile",
   "cove_lists_v1","cove_notes_v1","burnoutChecked",
-  "moments","subs","vaultSystems","packing_templates",
+  "subs","vaultSystems","packing_templates",
   "coveData","ownedProducts",
   "career_licenses","career_contacts","career_retirement",
   "trips",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
+  // gifts: object map { personId: [gift, ...] } (Phase 3) — moved off the
+  // array-guard list below when the shape changed from a flat array of
+  // people to this person-keyed map. Same fix class as cove_sections_v1:
+  // an object misclassified as an array silently vanishes every sync.
+  "gifts",
   // Scalars
   "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
   // Objects
@@ -183,9 +190,9 @@ export function sanitizeHouseholdData(data) {
      "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories",
      "brainCats","homeSystems","dietaryFilters",
      // Vault arrays
-     "recurring","celebrations","gifts","inventory","pets","houseFile",
+     "recurring","celebrations","inventory","pets","houseFile",
      "cove_lists_v1","cove_notes_v1","burnoutChecked",
-     "moments","subs","vaultSystems","packing_templates",
+     "subs","vaultSystems","packing_templates",
      // coveData: array of per-kid records ({kidId, chores:[], treasures:[]}). Array rule
      // added — was previously dropped (object-only passthrough rejects arrays).
      "coveData",
@@ -268,6 +275,18 @@ export function sanitizeHouseholdData(data) {
     // exact handling now.
     if (data["cove_sections_v1"] && typeof data["cove_sections_v1"] === "object") {
       out["cove_sections_v1"] = data["cove_sections_v1"];
+    }
+    // gifts: object map { personId: [gift, ...] } (Phase 3 — was a flat array
+    // of people before, now person-keyed). Validate the map itself is an
+    // object, and each person's value is actually an array (nulls filtered) —
+    // a malformed per-person value is dropped rather than passed through or
+    // used to reject the whole map.
+    if (data.gifts && typeof data.gifts === "object" && !Array.isArray(data.gifts)) {
+      const safeGifts = {};
+      Object.keys(data.gifts).forEach(pid => {
+        if (Array.isArray(data.gifts[pid])) safeGifts[pid] = data.gifts[pid].filter(g => g != null);
+      });
+      out.gifts = safeGifts;
     }
     // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey
     if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&
