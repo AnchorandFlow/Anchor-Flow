@@ -280,7 +280,11 @@ export function sanitizeHouseholdData(data) {
     // of people before, now person-keyed). Validate the map itself is an
     // object, and each person's value is actually an array (nulls filtered) —
     // a malformed per-person value is dropped rather than passed through or
-    // used to reject the whole map.
+    // used to reject the whole map. Holiday lists (Phase 3b) reuse this same
+    // handler under a reserved "holiday_lists" key whose value is also an
+    // array (of { id, name, gifts } list objects rather than gift objects
+    // directly) — already covered by the same Array.isArray check, no
+    // separate rule needed.
     if (data.gifts && typeof data.gifts === "object" && !Array.isArray(data.gifts)) {
       const safeGifts = {};
       Object.keys(data.gifts).forEach(pid => {
