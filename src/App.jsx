@@ -1014,6 +1014,32 @@ const getThisMonday = () => {
 // MEAL_DAYS imported from ./sync-core.js
 const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
 const WEEKDAYS_SUN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+// Calendar Year view — fixed, final category palette. Categories are inferred
+// from which data source an item came from (calEvents have no category field
+// of their own) — see calYearMarkerCat below for the marker-label mapping.
+const CAL_YEAR_CATEGORIES = [
+  { id:"birthdays",    label:"Birthdays",         color:"#E8957A" },
+  { id:"trips",        label:"Trips/Travel",      color:"#6ABAAA" },
+  { id:"school",       label:"School/Lighthouse", color:"#8BAF8B" },
+  { id:"work",         label:"Work/On-call",      color:"#7A95B8" },
+  { id:"appointments", label:"Appointments",      color:"#C8A97A" },
+  { id:"holidays",     label:"Holidays",          color:"#C4849A" },
+  { id:"celebrations", label:"Celebrations",      color:"#A99AC4" },
+  { id:"custody",      label:"Custody",           color:"#C4A86A" },
+  { id:"deadlines",    label:"Deadlines",         color:"#C47A7A" },
+  { id:"other",        label:"General/Other",     color:"#8A8A8A" },
+];
+function calYearCatColor(catId){ var c=CAL_YEAR_CATEGORIES.find(function(x){return x.id===catId;}); return c?c.color:"#8A8A8A"; }
+function calYearMarkerCat(label){
+  var l=(label||"").toLowerCase();
+  if(l.indexOf("custody")!==-1) return "custody";
+  if(l.indexOf("school")!==-1) return "school";
+  if(l.indexOf("deadline")!==-1) return "deadlines";
+  if(l.indexOf("appt")!==-1||l.indexOf("appointment")!==-1) return "appointments";
+  if(l.indexOf("holiday")!==-1) return "holidays";
+  if(l.indexOf("on call")!==-1||l.indexOf("oncall")!==-1||l.indexOf("on-call")!==-1||l.indexOf("work")!==-1) return "work";
+  return "other";
+}
 var PERSON_COLOR_DEFAULT = { bg: "#f0ede8", border: "#a09080", text: "#4a3e36" };
 // F-12: was a hardcoded PERSON_COLORS map keyed by the developer's own family
 // names, silently falling back to PERSON_COLOR_DEFAULT for everyone else.
@@ -3820,6 +3846,12 @@ function createLocalBackup() {
   const [selectedDay,setSelectedDay]   = useState(null);
   const [calView,setCalView]           = useState("month");
   const [calFilter,setCalFilter]       = useState("all");
+  // Year view — its own local-only filter/layout state, deliberately not
+  // synced and independent of the month/week/day calFilter above.
+  const [calYearMode,setCalYearMode]   = useState(function(){ try { return window.innerWidth<600?"list":"grid"; } catch(e){ return "grid"; } });
+  const [calYearCats,setCalYearCats]   = useState([]); // [] = all categories shown
+  const [calYearPerson,setCalYearPerson] = useState("all");
+  const [calYearDay,setCalYearDay]     = useState(null); // iso date string, day-detail panel
   const goToToday = () => { setCalViewDate(new Date(TODAY)); };
   const [chatOpen,setChatOpen]         = useState(false);
   // Clean up any orphaned drag clones periodically
@@ -6615,11 +6647,67 @@ Respond ONLY in valid JSON:
     }
     function getWeekDates(ref){var d=new Date(ref);var day=d.getDay();d.setDate(d.getDate()-day);return Array.from({length:7},function(_,i){var nd=new Date(d);nd.setDate(d.getDate()+i);return nd;});}
     const weekDates=getWeekDates(calViewDate);
-    function navPrev(){if(calView==="month")setCalViewDate(new Date(year,month-1,1));else if(calView==="week"){const d=new Date(calViewDate);d.setDate(d.getDate()-7);setCalViewDate(d);}else{const d=new Date(calViewDate);d.setDate(d.getDate()-1);setCalViewDate(d);}}
-    function navNext(){if(calView==="month")setCalViewDate(new Date(year,month+1,1));else if(calView==="week"){const d=new Date(calViewDate);d.setDate(d.getDate()+7);setCalViewDate(d);}else{const d=new Date(calViewDate);d.setDate(d.getDate()+1);setCalViewDate(d);}}
-    function navTitle(){if(calView==="month")return calViewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"});if(calView==="week"){const wk=getWeekDates(calViewDate);return `${wk[0].toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${wk[6].toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}`;}return calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});}
+    function navPrev(){if(calView==="year")setCalViewDate(new Date(year-1,month,1));else if(calView==="month")setCalViewDate(new Date(year,month-1,1));else if(calView==="week"){const d=new Date(calViewDate);d.setDate(d.getDate()-7);setCalViewDate(d);}else{const d=new Date(calViewDate);d.setDate(d.getDate()-1);setCalViewDate(d);}}
+    function navNext(){if(calView==="year")setCalViewDate(new Date(year+1,month,1));else if(calView==="month")setCalViewDate(new Date(year,month+1,1));else if(calView==="week"){const d=new Date(calViewDate);d.setDate(d.getDate()+7);setCalViewDate(d);}else{const d=new Date(calViewDate);d.setDate(d.getDate()+1);setCalViewDate(d);}}
+    function navTitle(){if(calView==="year")return String(year);if(calView==="month")return calViewDate.toLocaleDateString("en-US",{month:"long",year:"numeric"});if(calView==="week"){const wk=getWeekDates(calViewDate);return `${wk[0].toLocaleDateString("en-US",{month:"short",day:"numeric"})} – ${wk[6].toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}`;}return calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});}
     function isToday(d){return d.getDate()===TODAY.getDate()&&d.getMonth()===TODAY.getMonth()&&d.getFullYear()===TODAY.getFullYear();}
     const EventDot=({e})=>(<div style={{background:e.color+"28",border:`1px solid ${e.color}55`,borderRadius:"0.25rem",padding:"1px 4px",marginBottom:"2px",fontSize:"0.62rem",fontWeight:700,color:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{e.time&&`${e.time} `}{e.title}</div>);
+    // ── Year view data — reads af_trips/af_celebrations directly, since
+    // neither is loaded anywhere else in App.jsx (they live only in
+    // AnchorVault's own component state). Everything else (calEvents,
+    // calMarkers, workDays) reuses state already loaded above; no new fetch.
+    function loadYearTrips(){ try{ var v=JSON.parse(localStorage.getItem("af_trips")||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+    function loadYearCelebrations(){ try{ var v=JSON.parse(localStorage.getItem("af_celebrations")||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+    function calMarkerLabelForEmoji(em){ var mt=calMarkerTypes.find(function(x){return x.emoji===em;}); return mt?mt.label:""; }
+    var CAL_YEAR_WORKDAY_LABELS={wfh:"Working from home",office:"In the office",travel:"Traveling for work",off:"PTO / off"};
+    // Builds one normalized item per calendar-worthy record for the given
+    // year. calEvents carry no category field, so plain manual/Google events
+    // land in "other" — recurring (weekly/monthly/etc.) events are NOT
+    // expanded across the whole year here, only their literal anchor date
+    // counts, to keep a year-at-a-glance view calm instead of flooding it
+    // with every weekly chore occurrence.
+    function buildYearItems(yr){
+      var items=[];
+      calEvents.forEach(function(e){
+        if(!e.date) return;
+        var ed=new Date(e.date+"T00:00:00");
+        if(ed.getFullYear()!==yr) return;
+        items.push({key:"ev_"+e.id, date:localDateStr(ed), cat:"other", title:e.title||"Event", personId:e.forPerson||e.responsibleParent||null, icon:"📌"});
+      });
+      loadYearTrips().forEach(function(t){
+        if(!t.startDate||!t.endDate) return;
+        var sy=new Date(t.startDate+"T00:00:00").getFullYear(), ey=new Date(t.endDate+"T00:00:00").getFullYear();
+        if(sy!==yr&&ey!==yr) return;
+        items.push({key:"trip_"+t.id, start:t.startDate, end:t.endDate, cat:"trips", title:t.name||"Trip", personId:null, span:true, icon:"🧳"});
+      });
+      loadYearCelebrations().forEach(function(c){
+        if(!c.month||!c.day) return;
+        var dISO=yr+"-"+String(c.month).padStart(2,"0")+"-"+String(c.day).padStart(2,"0");
+        items.push({key:"celeb_"+c.id, date:dISO, cat:c.type==="birthday"?"birthdays":"celebrations", title:c.name||"Celebration", personId:c.personId||null, icon:c.type==="birthday"?"🎂":"🎉"});
+      });
+      Object.keys(calMarkers).forEach(function(dateStr){
+        var d=new Date(dateStr+"T00:00:00");
+        if(d.getFullYear()!==yr) return;
+        (calMarkers[dateStr]||[]).forEach(function(em,i){
+          var label=calMarkerLabelForEmoji(em);
+          items.push({key:"mk_"+dateStr+"_"+i, date:dateStr, cat:calYearMarkerCat(label), title:label||"Marker", personId:null, icon:em});
+        });
+      });
+      Object.keys(workDays).forEach(function(dateStr){
+        var d=new Date(dateStr+"T00:00:00");
+        if(d.getFullYear()!==yr) return;
+        var wd=workDays[dateStr];
+        items.push({key:"wd_"+dateStr, date:dateStr, cat:"work", title:CAL_YEAR_WORKDAY_LABELS[wd.type]||"Work", personId:null, icon:"💼"});
+      });
+      return items;
+    }
+    function filterYearItems(items){
+      return items.filter(function(it){
+        if(calYearCats.length>0&&calYearCats.indexOf(it.cat)===-1) return false;
+        if(calYearPerson!=="all"&&it.personId&&it.personId!==calYearPerson) return false;
+        return true;
+      });
+    }
     const [showCalNotif,setShowCalNotif]=useState(null);
     const [cnd,setCnd]=useState(""); const [cnt,setCnt]=useState(""); const [cnn,setCnn]=useState("");
     return (
@@ -6639,7 +6727,7 @@ Respond ONLY in valid JSON:
           More calendar sources syncing soon — Apple, Outlook & more.
         </div>
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
-          {["month","week","day"].map(v=>(
+          {["month","week","day","year"].map(v=>(
             <button key={v} onClick={()=>{
               setCalView(v);
               if(v==="week"&&selectedDay) setCalViewDate(new Date(selectedDay));
@@ -6647,6 +6735,7 @@ Respond ONLY in valid JSON:
             }} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
           ))}
         </div>
+        {calView!=="year"&&(
         <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",justifyContent:"center"}}>
           {[["all","All"],["mine","Mine"],["twy","Twy’s"]].map(function(item){
             var _fv=item[0],_fl=item[1];
@@ -6657,6 +6746,7 @@ Respond ONLY in valid JSON:
             );
           })}
         </div>
+        )}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
           <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.25rem"}}>
@@ -6967,6 +7057,107 @@ Respond ONLY in valid JSON:
             })}
           </div>
         )}
+        {calView==="year"&&(function(){
+          var yr=calViewDate.getFullYear();
+          var allItems=buildYearItems(yr);
+          var filteredItems=filterYearItems(allItems);
+          var cellSize=calYearMode==="list"?30:16;
+          function isTodayYMD(y,m,d){ return d===TODAY.getDate()&&m===TODAY.getMonth()&&y===TODAY.getFullYear(); }
+          function MiniMonth(m){
+            var dim=getDaysInMonth(yr,m), fd=getFirstDayOfMonth(yr,m);
+            var monthName=new Date(yr,m,1).toLocaleDateString("en-US",{month:"long"});
+            return (
+              <div key={m} style={{background:T.surface,border:`1px solid ${T.borderSoft}`,borderRadius:"0.7rem",overflow:"hidden",marginBottom:calYearMode==="list"?"1rem":0}}>
+                <div style={{position:calYearMode==="list"?"sticky":"static",top:0,zIndex:2,background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`,padding:"0.4rem 0.55rem",textAlign:"center"}}>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:calYearMode==="list"?"1rem":"0.8rem",color:T.textDark}}>{monthName}{calYearMode==="list"?` ${yr}`:""}</span>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",padding:"0.2rem"}}>
+                  {WEEKDAYS_SUN.map(function(dn){return (<div key={dn} style={{textAlign:"center",fontSize:cellSize<24?"0.5rem":"0.6rem",fontWeight:700,color:T.textFaint,padding:"1px 0"}}>{dn[0]}</div>);})}
+                  {Array.from({length:fd}).map(function(_,i){return <div key={"e"+i} style={{height:cellSize}}/>;})}
+                  {Array.from({length:dim}).map(function(_,i){
+                    var day=i+1;
+                    var dateISO=localDateStr(new Date(yr,m,day));
+                    var todayFlag=isTodayYMD(yr,m,day);
+                    var dayItems=filteredItems.filter(function(it){return it.date===dateISO;});
+                    var spanItem=filteredItems.find(function(it){return it.span&&dateISO>=it.start&&dateISO<=it.end;});
+                    var dots=dayItems.slice(0,3);
+                    return (
+                      <div key={day} onClick={function(){setCalYearDay(dateISO);}}
+                        style={{height:cellSize,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",cursor:"pointer",position:"relative",background:spanItem?calYearCatColor(spanItem.cat)+"2A":"transparent",borderRadius:"3px"}}>
+                        <div style={{width:cellSize<24?14:18,height:cellSize<24?14:18,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:cellSize<24?"0.52rem":"0.62rem",fontWeight:todayFlag?800:500,display:"flex",alignItems:"center",justifyContent:"center"}}>{day}</div>
+                        {dots.length>0&&(
+                          <div style={{display:"flex",gap:"1px",marginTop:"1px"}}>
+                            {dots.map(function(it,di){return <span key={di} style={{width:4,height:4,borderRadius:"50%",background:calYearCatColor(it.cat),display:"inline-block"}}/>;})}
+                          </div>
+                        )}
+                        {dayItems.length>3&&<span style={{fontSize:"0.45rem",color:T.textFaint,fontWeight:700,lineHeight:1}}>+{dayItems.length-3}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+          var dayDetailItems=calYearDay?allItems.filter(function(it){ if(it.span) return calYearDay>=it.start&&calYearDay<=it.end; return it.date===calYearDay; }):[];
+          return (
+            <div>
+              <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.7rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
+                {[["grid","Grid"],["list","List"]].map(function(it){
+                  var mv=it[0],ml=it[1];
+                  return (<button key={mv} onClick={function(){setCalYearMode(mv);}} style={{flex:1,background:calYearMode===mv?T.blue:"transparent",color:calYearMode===mv?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.38rem 0.5rem",cursor:"pointer",fontSize:"0.76rem",fontWeight:700,fontFamily:"inherit"}}>{ml}</button>);
+                })}
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginBottom:"0.5rem",justifyContent:"center"}}>
+                <button onClick={function(){setCalYearCats([]);}} style={{padding:"0.2rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(calYearCats.length===0?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearCats.length===0?"rgba(30,58,95,0.08)":"transparent",color:calYearCats.length===0?"#1e3a5f":"#7a8a9a",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All</button>
+                {CAL_YEAR_CATEGORIES.map(function(cat){
+                  var active=calYearCats.indexOf(cat.id)!==-1;
+                  return (
+                    <button key={cat.id} onClick={function(){setCalYearCats(function(p){return active?p.filter(function(x){return x!==cat.id;}):[...p,cat.id];});}}
+                      style={{display:"flex",alignItems:"center",gap:"0.25rem",padding:"0.2rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(active?cat.color:cat.color+"40"),background:active?cat.color+"22":"transparent",color:active?cat.color:T.textFaint,fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block"}}/>{cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {people.length>0&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginBottom:"0.85rem",justifyContent:"center"}}>
+                  <button onClick={function(){setCalYearPerson("all");}} style={{padding:"0.18rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(calYearPerson==="all"?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearPerson==="all"?"rgba(30,58,95,0.08)":"transparent",color:calYearPerson==="all"?"#1e3a5f":"#7a8a9a",fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All Family</button>
+                  {people.map(function(p){
+                    var active=calYearPerson===p.id;
+                    return (<button key={p.id} onClick={function(){setCalYearPerson(p.id);}} style={{padding:"0.18rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(active?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:active?"rgba(30,58,95,0.08)":"transparent",color:active?"#1e3a5f":"#7a8a9a",fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>);
+                  })}
+                </div>
+              )}
+              <div style={calYearMode==="grid"?{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"0.5rem"}:{display:"flex",flexDirection:"column"}}>
+                {Array.from({length:12}).map(function(_,m){return MiniMonth(m);})}
+              </div>
+              {calYearDay&&(
+                <div onClick={function(){setCalYearDay(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+                  <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"70vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+                      <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{new Date(calYearDay+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+                      <button onClick={function(){setCalYearDay(null);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
+                    </div>
+                    {dayDetailItems.length===0
+                      ?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>
+                      :dayDetailItems.map(function(it,i){
+                          var catMeta=CAL_YEAR_CATEGORIES.find(function(c){return c.id===it.cat;});
+                          return (
+                            <div key={i} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0",borderBottom:i<dayDetailItems.length-1?`1px solid ${T.borderSoft}`:"none"}}>
+                              <span style={{width:10,height:10,borderRadius:"50%",background:calYearCatColor(it.cat),flexShrink:0}}/>
+                              <span style={{fontSize:"1rem",flexShrink:0}}>{it.icon}</span>
+                              <span style={{flex:1,fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>{it.title}</span>
+                              <span style={{fontSize:"0.66rem",fontWeight:700,color:calYearCatColor(it.cat)}}>{catMeta?catMeta.label:""}</span>
+                            </div>
+                          );
+                        })
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {connectedCals.length===0&&(
           <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}50`,textAlign:"center",padding:"1.5rem"})}}>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>📆</div>
