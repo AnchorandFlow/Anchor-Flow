@@ -4232,7 +4232,18 @@ function createLocalBackup() {
           return merged;
         });
       } else {
-        setPeople(payload.people.map(function(p, i) { return shapeOnboardingPerson(p, i); }));
+        var shapedPeople = payload.people.map(function(p, i) { return shapeOnboardingPerson(p, i); });
+        setPeople(shapedPeople);
+        // Bug fix: onboarding collects names but never resolved "who am I" on
+        // this device — myDisplayName() prioritizes people[myPersonId].name
+        // over preferredName (F-97, the "Mama boss" fix), so without this the
+        // Today header showed no name at all until the separate WhoAmI modal
+        // was completed (or forever, if skipped/dismissed). Default to person
+        // 0 — whoever filled out onboarding, the common case — so the header
+        // has a name immediately; "This is me" in Settings still corrects it.
+        if (!myPersonId && shapedPeople.length > 0 && shapedPeople[0].name) {
+          chooseMyPersonId(shapedPeople[0].id);
+        }
       }
       // TODO(OB-0): payload.people[].birthday should also seed Lighthouse per-child
       // records — no seeding helper exists yet.
@@ -15164,7 +15175,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
               col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
               return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
             }
-            if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); _setActiveTab(pill.id); }, pillColor("Today")); }
+            if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today")); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
             var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);

@@ -78,11 +78,11 @@ export default function SunsetClose(props) {
   var itemTxt = { fontSize: ".76rem", color: "#E9DCCB", fontFamily: SANS };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto" }}>
+    <div onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto" }}>
       {/* Sunset gradient backdrop */}
       <div style={{ position: "fixed", inset: 0, background: "linear-gradient(170deg, #24364D 0%, #3D4F5C 20%, #5C4A42 38%, #A57B68 58%, #E6A57E 78%, #F1C49A 100%)", zIndex: -1 }} />
 
-      <div style={{ background: "rgba(36,54,77,.82)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(230,165,126,.2)", borderRadius: 20, padding: "28px 26px", maxWidth: 430, width: "92%", margin: "20px auto", position: "relative" }}>
+      <div onClick={function (e) { e.stopPropagation(); }} style={{ background: "rgba(36,54,77,.82)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(230,165,126,.2)", borderRadius: 20, padding: "28px 26px", maxWidth: 430, width: "92%", margin: "20px auto", position: "relative" }}>
 
         {/* Close — always-visible escape so the flow never feels trapping */}
         <button onClick={props.onClose} aria-label="Close" style={{ position: "absolute", top: 12, right: 14, background: "rgba(233,220,203,.12)", border: "1px solid rgba(230,165,126,.25)", color: "#E9DCCB", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", fontSize: ".95rem", lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: SANS, padding: 0 }}>✕</button>
