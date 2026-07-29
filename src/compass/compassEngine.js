@@ -159,11 +159,25 @@ export function buildCompassContext(state, scope, extra) {
   // is a single shared household string (whoever last typed into it sets it
   // for every person who signs in, on every device — the "Mama boss" bug).
   var _me = state.myPersonId ? asArray(state.people).find(function(p){ return p.id === state.myPersonId; }) : null;
+  // F-56: aiMemory (household Q&A answers) is only worth the payload when the
+  // user's own message is substantive. Only "ask" carries a real per-call
+  // user message (extra.question) — briefing/forecast/weeklyReview/nudge/prep
+  // are scheduled, not typed, so they always get full context.
+  var _question = (scope === "ask" && extra && extra.question) ? String(extra.question) : null;
+  var _includeMemory = true;
+  if (_question !== null) {
+    var _wordCount = _question.trim().split(/\s+/).filter(Boolean).length;
+    var _hasQuestionMark = _question.indexOf("?") !== -1;
+    var _lowerQ = _question.toLowerCase();
+    var _hasKeyword = ["plan", "remind", "suggest", "help", "what should", "how do"].some(function (k) { return _lowerQ.indexOf(k) !== -1; });
+    _includeMemory = _wordCount > 8 || _hasQuestionMark || _hasKeyword;
+  }
+  console.log("[COMPASS] context: " + (_includeMemory ? "full" : "minimal"));
   var ctx = {
     now: new Date().toString(),
     family: asArray(state.people).map(slimPerson).slice(0, 12),
     preferred_name: (_me && _me.name && _me.name.trim()) || state.preferredName || null,
-    ai_memory: state.aiMemory || null // answers from the onboarding questions
+    ai_memory: _includeMemory ? (state.aiMemory || null) : null // answers from the onboarding questions
   };
 
   if (scope === "today") {

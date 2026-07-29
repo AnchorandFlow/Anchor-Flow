@@ -6146,8 +6146,18 @@ function useHealth() {
 }
 
 // ── Private PIN helpers ───────────────────────────────────────────────────────
+// F-46: PIN is stored as a SHA-256 hex hash, never plaintext. hHashPin is the
+// only async piece here (Web Crypto's subtle.digest) — every caller below
+// awaits it before comparing/storing.
+function hIsHashedPin(v) { return typeof v==="string" && /^[0-9a-f]{64}$/i.test(v); }
+async function hHashPin(pin) {
+  var enc = new TextEncoder().encode(String(pin));
+  var buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.prototype.map.call(new Uint8Array(buf), function(b){ return b.toString(16).padStart(2,"0"); }).join("");
+}
 function hGetPrivatePin() { try { return localStorage.getItem("af_health_pin")||null; } catch{return null;} }
-function hSetPrivatePin(pin) { try { localStorage.setItem("af_health_pin",pin); } catch{} }
+function hSetPrivatePinRaw(hash) { try { localStorage.setItem("af_health_pin",hash); } catch{} }
+async function hSetPrivatePin(pin) { hSetPrivatePinRaw(await hHashPin(pin)); }
 
 // HPrivateLock: wraps content behind a PIN gate. Set pin=null to prompt setup.
 function HPrivateLock(props) {
@@ -6157,6 +6167,18 @@ function HPrivateLock(props) {
   var s2=useState(""); var confirm=s2[0]; var setConfirm=s2[1];
   var s3=useState(false); var setting=s3[0]; var setSetting=s3[1];
   var s4=useState(null); var err=s4[0]; var setErr=s4[1];
+  var s5=useState(0); var migTick=s5[0]; var setMigTick=s5[1];
+  // F-46: one-time silent migration. An existing plaintext PIN (a short
+  // numeric string, not a 64-char hex hash) is hashed and re-stored the
+  // first time this gate mounts post-change — existing users aren't logged
+  // out or asked to re-set anything. migTick forces storedPin (read fresh
+  // from localStorage above) to be re-evaluated once the rewrite lands.
+  useEffect(function(){
+    var raw=hGetPrivatePin();
+    if(raw && !hIsHashedPin(raw)){
+      hHashPin(raw).then(function(hash){ hSetPrivatePinRaw(hash); setMigTick(function(n){return n+1;}); });
+    }
+  },[]); // eslint-disable-line
   var inputStyle={width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:18,letterSpacing:"0.4em",textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   if(unlocked) return React.createElement(React.Fragment,null,
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:"0.6rem"}},
@@ -6178,10 +6200,10 @@ function HPrivateLock(props) {
       React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,value:confirm,onChange:function(e){setConfirm(e.target.value);setErr(null);},style:inputStyle})
     ),
     err&&React.createElement("p",{style:{fontSize:12,color:"#f0997b",marginBottom:8}},err),
-    React.createElement("button",{onClick:function(){
+    React.createElement("button",{onClick:async function(){
       if(!entered.trim()){setErr("Please enter a PIN.");return;}
       if(entered!==confirm){setErr("PINs don't match.");return;}
-      hSetPrivatePin(entered); setSetting(false); setUnlocked(true); setEntered(""); setConfirm("");
+      await hSetPrivatePin(entered); setSetting(false); setUnlocked(true); setEntered(""); setConfirm("");
     },style:{background:HGOLD,color:HNAVY,border:"none",borderRadius:8,padding:"0.6rem 1.5rem",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",width:"100%"}},"Set PIN & unlock")
   );
   return React.createElement("div",{style:{textAlign:"center",padding:"1.5rem 0.5rem"}},
@@ -6190,12 +6212,13 @@ function HPrivateLock(props) {
     React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",marginBottom:16,lineHeight:1.5}})  ,
     React.createElement("div",{style:{marginBottom:14}},
       React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Enter PIN"),
-      React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,autoFocus:true,value:entered,onKeyDown:function(e){if(e.key==="Enter"&&entered===storedPin){setUnlocked(true);setEntered("");setErr(null);}},onChange:function(e){setEntered(e.target.value);setErr(null);},style:inputStyle})
+      React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,autoFocus:true,value:entered,onKeyDown:async function(e){if(e.key==="Enter"){var h=await hHashPin(entered);if(h===storedPin){setUnlocked(true);setEntered("");setErr(null);}else{setErr("Incorrect PIN — try again.");}}},onChange:function(e){setEntered(e.target.value);setErr(null);},style:inputStyle})
     ),
     err&&React.createElement("p",{style:{fontSize:12,color:"#f0997b",marginBottom:8}},err),
     React.createElement("div",{style:{display:"flex",gap:8}},
-      React.createElement("button",{onClick:function(){
-        if(entered===storedPin){setUnlocked(true);setEntered("");setErr(null);}
+      React.createElement("button",{onClick:async function(){
+        var h=await hHashPin(entered);
+        if(h===storedPin){setUnlocked(true);setEntered("");setErr(null);}
         else{setErr("Incorrect PIN — try again.");}
       },style:{flex:1,background:HGOLD,color:HNAVY,border:"none",borderRadius:8,padding:"0.6rem",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}},"Unlock"),
       React.createElement("button",{onClick:function(){setSetting(true);setEntered("");setConfirm("");setErr(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.6rem 0.9rem",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:12,fontFamily:"inherit"}},"Reset PIN")
