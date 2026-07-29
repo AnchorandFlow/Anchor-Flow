@@ -19,6 +19,15 @@
 // where accessToken is the user's Supabase session token (the same one
 // you already attach to Supabase REST calls). See askClaude() helper note.
 
+// Fixed server-side system prompt. Any system prompt the client sends is
+// ignored (and logged) so this endpoint can't be turned into an
+// unconstrained proxy for the Anthropic key by supplying an arbitrary
+// system prompt from the browser.
+const FIXED_SYSTEM_PROMPT =
+  "You are a helpful household assistant for Anchor & Flow. Help families " +
+  "with planning, organization, and home management. Do not discuss " +
+  "unrelated topics.";
+
 const MODEL_MAP = {
   // client-requested model -> actual model we run
   "claude-sonnet-4-20250514": "claude-sonnet-4-6",
@@ -99,14 +108,16 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "messages required" });
   }
 
+  if (typeof body.system === "string" && body.system.length > 0) {
+    console.warn("Claude proxy: ignoring client-supplied system prompt for user", user.id);
+  }
+
   const safeBody = {
     model: MODEL_MAP[body.model] || DEFAULT_MODEL,
     max_tokens: Math.min(Number(body.max_tokens) || 1000, MAX_TOKENS_CAP),
     messages: body.messages,
+    system: FIXED_SYSTEM_PROMPT,
   };
-  if (typeof body.system === "string" && body.system.length < 8000) {
-    safeBody.system = body.system;
-  }
 
   // ── 4. Forward ────────────────────────────────────────────────────────
   try {
