@@ -61,7 +61,7 @@ function NextTripCard() {
   var countdown = next ? tripCountdown(next) : null;
 
   return (
-    <Card eyebrow="Anchor" title="Next Trip" link={{ label: "Open →", onClick: function () { goVault("trips"); } }}>
+    <Card eyebrow="Anchor" title="Next Trip" open={false} tint="rgba(106,186,170,0.08)" link={{ label: "Open →", onClick: function () { goVault("trips"); } }}>
       {next ? (
         <div onClick={function () { goVault("trips", next.id); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
           <span style={{ fontSize: "1.3rem", flexShrink: 0 }}>{next.icon || "✈️"}</span>
@@ -81,7 +81,7 @@ function NextTripCard() {
 function Card(props) {
   var [open, setOpen] = useState(props.open !== false);
   return (
-    <div style={{ background: C.card, border: "1px solid " + C.cardBorder, borderRadius: 16, padding: "16px 18px", boxShadow: "0 1px 3px rgba(26,39,68,0.04)" }}>
+    <div style={{ background: props.tint || C.card, border: "1px solid " + C.cardBorder, borderTop: "1px solid rgba(106,186,170,0.2)", borderRadius: 16, padding: "16px 18px", boxShadow: "0 1px 3px rgba(26,39,68,0.04)" }}>
       <div onClick={function () { setOpen(!open); }} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", cursor: "pointer", gap: 10 }}>
         <div>
           <div style={{ fontSize: ".54rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.sea, fontWeight: 600, marginBottom: 2 }}>{props.eyebrow}</div>
@@ -89,7 +89,7 @@ function Card(props) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, paddingTop: 3 }}>
           {props.link && <span onClick={function (e) { e.stopPropagation(); props.link.onClick(); }} style={{ fontSize: ".7rem", color: C.sea, cursor: "pointer", whiteSpace: "nowrap" }}>{props.link.label}</span>}
-          <span style={{ color: C.t3, fontSize: ".62rem", transform: open ? "rotate(90deg)" : "none", transition: "transform .15s" }}>▶</span>
+          <span style={{ color: C.t3, fontSize: ".62rem", display: "inline-block", transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
         </div>
       </div>
       {open && <div style={{ marginTop: 13 }}>{props.children}</div>}
@@ -196,7 +196,7 @@ export default function FlowHome(props) {
       <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 20 }}>
         {/* LEFT column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
+          <Card eyebrow="Flow" title="Today's Tasks" tint="rgba(106,186,170,0.07)" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <div style={{ flex: 1, height: 8, background: C.mist, borderRadius: 4, overflow: "hidden" }}>
                 <div style={{ width: pct + "%", height: "100%", background: C.sea, transition: "width .3s" }} />
@@ -215,7 +215,7 @@ export default function FlowHome(props) {
             })}
           </Card>
 
-          <Card eyebrow="Calendar" title="This Week" link={{ label: "Full →", onClick: function () { go("calendar"); } }}>
+          <Card eyebrow="Calendar" title="This Week" tint="rgba(106,186,170,0.06)" link={{ label: "Full →", onClick: function () { go("calendar"); } }}>
             {upcoming.length === 0 ? (
               <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing scheduled — an open week.</div>
             ) : upcoming.map(function (e, i) {
@@ -232,7 +232,7 @@ export default function FlowHome(props) {
 
         {/* RIGHT column — second slot intentionally open (work schedule, future) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card eyebrow="Tonight's Dinner · from Anchor" title={dinner || "Not planned yet"} link={{ label: "Edit →", onClick: function () { go("meals"); } }}>
+          <Card eyebrow="Tonight's Dinner · from Anchor" title={dinner || "Not planned yet"} tint="rgba(106,186,170,0.09)" link={{ label: "Edit →", onClick: function () { go("meals"); } }}>
             {dinner ? (
               <div style={{ fontSize: ".8rem", color: C.t2, lineHeight: 1.5 }}>
                 {tMeal.time ? "~" + tMeal.time + " min · " : ""}tonight's plan.
@@ -252,38 +252,34 @@ export default function FlowHome(props) {
         <span style={{ fontSize: ".62rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.t3, fontWeight: 600, whiteSpace: "nowrap" }}>Also today</span>
         <div style={{ flex: 1, height: 1, background: C.cardBorder }} />
       </div>
-      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card eyebrow="Exhale" title="Unload It" link={{ label: "All →", onClick: function () { go("brain"); } }}>
-            <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
-              <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
-              <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
-            </div>
-            {recentBrain.length === 0 ? (
-              <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
-            ) : recentBrain.map(function (b) {
-              return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
-            })}
-          </Card>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <Card eyebrow="Exhale" title="Unload It" open={false} tint="rgba(106,186,170,0.05)" link={{ label: "All →", onClick: function () { go("brain"); } }}>
+          <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
+            <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
+            <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
+          </div>
+          {recentBrain.length === 0 ? (
+            <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
+          ) : recentBrain.map(function (b) {
+            return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
+          })}
+        </Card>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card eyebrow="From Anchor" title="Household Alerts" open={false}>
-            <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
-              Expiring documents, low inventory, and packing reminders surface here from your Anchor vault.
-              <div onClick={function () { goVault("household"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Anchor →</div>
-            </div>
-          </Card>
+        <Card eyebrow="From Anchor" title="Household Alerts" open={false} tint="rgba(106,186,170,0.05)">
+          <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
+            Expiring documents, low inventory, and packing reminders surface here from your Anchor vault.
+            <div onClick={function () { goVault("household"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Anchor →</div>
+          </div>
+        </Card>
 
-          <Card eyebrow="Tide Pool" title="Today's Chores" open={false} link={{ label: "View →", onClick: function () { go("tidepool"); } }}>
-            <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
-              Kids' chore progress and shell goals live here.
-              <div onClick={function () { go("tidepool"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Tide Pool →</div>
-            </div>
-          </Card>
+        <Card eyebrow="Tide Pool" title="Today's Chores" open={false} tint="rgba(106,186,170,0.05)" link={{ label: "View →", onClick: function () { go("tidepool"); } }}>
+          <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
+            Kids' chore progress and shell goals live here.
+            <div onClick={function () { go("tidepool"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Tide Pool →</div>
+          </div>
+        </Card>
 
-          <NextTripCard />
-        </div>
+        <NextTripCard />
       </div>
     </div>
   );
