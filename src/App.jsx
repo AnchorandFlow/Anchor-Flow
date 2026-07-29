@@ -3945,6 +3945,11 @@ function createLocalBackup() {
   });
   const [showBriefing,setShowBriefing]             = useState(false);
   const [showEndOfDay,setShowEndOfDay]             = useState(false);
+  // Today tab collapsible sea-glass cards — Today at a Glance/Top 3 default
+  // open, For Later/Compass defaults collapsed.
+  const [glanceOpen,setGlanceOpen]                 = useState(true);
+  const [top3Open,setTop3Open]                     = useState(true);
+  const [forLaterOpen,setForLaterOpen]             = useState(false);
   React.useEffect(function(){ var h = function(){ setShowEndOfDay(true); }; window.addEventListener("af-open-sunset", h); return function(){ window.removeEventListener("af-open-sunset", h); }; }, []);
   // F-97 §1/§3 — which roster person is "me" on this device/session.
   // Session-local (localStorage only, never SYNC_KEYS): a shared household
@@ -6246,12 +6251,14 @@ Respond ONLY in valid JSON:
           <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
 
             {/* ══════════ Today at a Glance — one unified card ══════════ */}
-            <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.65rem 0.1rem 0.15rem"}}>
+            <div style={{background:"rgba(106,186,170,0.07)",border:"1.5px solid "+T.borderSoft,borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
+              <div onClick={function(){setGlanceOpen(!glanceOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.65rem 0.1rem 0.15rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1rem"}}>⚓️</span>
                 <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.25rem",color:T.textDark}}>Today at a Glance</span>
+                <span style={{marginLeft:"auto",color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:glanceOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
               </div>
 
+              {glanceOpen&&(<>
               {incompletePrevTasks.length>0&&(
                 <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.1rem",borderTop:"1px solid "+T.borderSoft,marginTop:"0.35rem"}}>
                   <span style={{fontSize:"0.85rem"}}>↩</span>
@@ -6371,6 +6378,7 @@ Respond ONLY in valid JSON:
                   );})}
                 </div>
               )}
+              </>)}
 
             </div>{/* ══ end Today at a Glance card ══ */}
 
@@ -6403,12 +6411,13 @@ Respond ONLY in valid JSON:
                   var picks=real.slice(0,3);
                   if(picks.length<3&&aiSuggestions&&aiSuggestions.todos){ for(var i=0;i<aiSuggestions.todos.length&&picks.length<3;i++){ var tv=aiSuggestions.todos[i]; picks.push({emoji:"💭", text:typeof tv==="string"?tv:tv.text, k:"c_"+i, compass:true}); } }
                   return(
-                    <div style={{background:T.surface,border:"1.5px solid "+T.blue+"35",borderRadius:"1.2rem",padding:"0.85rem 1rem"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.5rem"}}>
+                    <div style={{background:"rgba(106,186,170,0.06)",border:"1.5px solid "+T.blue+"35",borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.2rem",padding:"0.85rem 1rem"}}>
+                      <div onClick={function(){setTop3Open(!top3Open);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:top3Open?"0.5rem":0,cursor:"pointer"}}>
                         <span style={{fontSize:"0.9rem"}}>⭐</span>
                         <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Top 3 — focus here first</span>
+                        <span style={{marginLeft:"auto",color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:top3Open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
                       </div>
-                      {picks.length===0
+                      {top3Open&&(picks.length===0
                         ?<div style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.2rem 0.4rem"}}>Nothing urgent — enjoy the space 🌿</div>
                         :picks.map(function(p){return(
                           <div key={p.k} onClick={p.onClick?p.onClick:undefined} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:(T.bluePale||"#dceef0"),borderRadius:"0.8rem",marginBottom:"0.3rem",cursor:p.onClick?"pointer":"default"}}>
@@ -6416,7 +6425,7 @@ Respond ONLY in valid JSON:
                             <span style={{flex:1,fontSize:"0.88rem",fontWeight:600,color:T.textDark,lineHeight:1.3}}>{p.text}</span>
                             {p.compass&&<span style={{fontSize:"0.62rem",color:T.textFaint,fontWeight:600,fontStyle:"italic",flexShrink:0}}>idea</span>}
                           </div>
-                        );})}
+                        );}))}
                     </div>
                   );
                 })()
@@ -6428,27 +6437,25 @@ Respond ONLY in valid JSON:
         )}
 
         {/* ── For later · Compass notes (collapsed) ── */}
-        <div style={{display:"flex",alignItems:"center",gap:"0.6rem",margin:"1.35rem 0 0.75rem"}}>
-          <div style={{flex:1,height:1,background:T.borderSoft}}/>
-          <span style={{fontSize:"0.66rem",letterSpacing:"0.1em",textTransform:"uppercase",color:T.blueDark||T.blue,fontWeight:800}}>For later</span>
-          <div style={{flex:1,height:1,background:T.borderSoft}}/>
-        </div>
-        <details style={{background:T.bluePale,border:"1.5px solid "+T.blue+"40",borderRadius:"1.2rem",marginBottom:"0.75rem"}}>
-          <summary style={{listStyle:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.85rem 1rem"}}>
+        <div style={{background:"rgba(106,186,170,0.05)",border:"1.5px solid "+T.blue+"40",borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.2rem",marginBottom:"0.75rem"}}>
+          <div onClick={function(){setForLaterOpen(!forLaterOpen);}} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.85rem 1rem"}}>
             <span style={{fontSize:"1.05rem"}}>🧭</span>
             <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:"0.66rem",letterSpacing:"0.1em",textTransform:"uppercase",color:T.blueDark||T.blue,fontWeight:800}}>For later</div>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Compass</div>
               <div style={{fontSize:"0.75rem",color:T.textSoft,marginTop:"0.05rem"}}>Reflections & your week — open when you have a moment</div>
             </div>
-            <span style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,flexShrink:0}}>Open ›</span>
-          </summary>
+            <span style={{color:T.textFaint,fontSize:"0.68rem",flexShrink:0,display:"inline-block",transform:forLaterOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
+          </div>
+          {forLaterOpen&&(
           <div style={{padding:"0 0.35rem 0.4rem"}}>
             <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={myDisplayName(people,myPersonId,preferredName,authUser)}/>
             <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
             <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
             <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
           </div>
-        </details>
+          )}
+        </div>
 
         {/* ── Evening wind-down panel ── */}
         {dayOpen&&isEvening&&(
