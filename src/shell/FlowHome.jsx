@@ -100,6 +100,8 @@ function Card(props) {
 export default function FlowHome(props) {
   var [tasks, setTasks] = useState(function () { return rd("tasks", []); });
   var [brain, setBrain] = useState(function () { return rd("brainItems", []); });
+  var [upNextOpen, setUpNextOpen] = useState(true);
+  var [alsoTodayOpen, setAlsoTodayOpen] = useState(true);
 
   useEffect(function () {
     function refresh(e) {
@@ -175,16 +177,23 @@ export default function FlowHome(props) {
 
       {/* Up Next focus — full width */}
       {upNext && (
-        <div style={{ display: "flex", alignItems: "center", gap: 14, background: "linear-gradient(135deg,#F8FCFC,#DDEBEC)", border: "1px solid " + C.seaL, borderRadius: 16, padding: "16px 20px", marginBottom: 18 }}>
-          <div onClick={function () { toggleTask(upNext.id); }} style={{ width: 28, height: 28, borderRadius: "50%", border: "2px solid " + C.sea, color: C.sea, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: ".85rem" }}>○</div>
-          <div style={{ flex: 1 }}>
+        <div style={{ background: "linear-gradient(135deg,#F8FCFC,#DDEBEC)", border: "1px solid " + C.seaL, borderRadius: 16, padding: "16px 20px", marginBottom: 18 }}>
+          <div onClick={function () { setUpNextOpen(!upNextOpen); }} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 10 }}>
             <div style={{ fontSize: ".54rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.sea, fontWeight: 600 }}>Up next</div>
-            <div style={{ fontSize: "1rem", color: C.t1, fontWeight: 500 }}>{upNext.text || upNext.title}</div>
+            <span style={{ color: C.sea, fontSize: ".62rem", display: "inline-block", transform: upNextOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
           </div>
-          {thenTask && (
-            <div style={{ textAlign: "right", paddingLeft: 16, borderLeft: "1px solid rgba(94,143,160,0.2)" }}>
-              <div style={{ fontSize: ".54rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.t3 }}>Then</div>
-              <div style={{ fontSize: ".82rem", color: C.t2 }}>{thenTask.text || thenTask.title}</div>
+          {upNextOpen && (
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 10 }}>
+              <div onClick={function () { toggleTask(upNext.id); }} style={{ width: 28, height: 28, borderRadius: "50%", border: "2px solid " + C.sea, color: C.sea, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, fontSize: ".85rem" }}>○</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "1rem", color: C.t1, fontWeight: 500 }}>{upNext.text || upNext.title}</div>
+              </div>
+              {thenTask && (
+                <div style={{ textAlign: "right", paddingLeft: 16, borderLeft: "1px solid rgba(94,143,160,0.2)" }}>
+                  <div style={{ fontSize: ".54rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.t3 }}>Then</div>
+                  <div style={{ fontSize: ".82rem", color: C.t2 }}>{thenTask.text || thenTask.title}</div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -248,39 +257,42 @@ export default function FlowHome(props) {
       {/* Also today — lighter secondary zone: reflective/low-urgency content
           demoted below the anchors, set off by a thin label instead of a
           full Card header so it visually reads as "less than" the row above. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 16px" }}>
+      <div onClick={function () { setAlsoTodayOpen(!alsoTodayOpen); }} style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 16px", cursor: "pointer" }}>
         <span style={{ fontSize: ".62rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.t3, fontWeight: 600, whiteSpace: "nowrap" }}>Also today</span>
         <div style={{ flex: 1, height: 1, background: C.cardBorder }} />
+        <span style={{ color: C.t3, fontSize: ".62rem", display: "inline-block", transform: alsoTodayOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Card eyebrow="Exhale" title="Unload It" open={false} tint="rgba(106,186,170,0.05)" link={{ label: "All →", onClick: function () { go("brain"); } }}>
-          <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
-            <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
-            <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
-          </div>
-          {recentBrain.length === 0 ? (
-            <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
-          ) : recentBrain.map(function (b) {
-            return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
-          })}
-        </Card>
+      {alsoTodayOpen && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Card eyebrow="Exhale" title="Unload It" open={false} tint="rgba(106,186,170,0.05)" link={{ label: "All →", onClick: function () { go("brain"); } }}>
+            <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
+              <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
+              <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
+            </div>
+            {recentBrain.length === 0 ? (
+              <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
+            ) : recentBrain.map(function (b) {
+              return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
+            })}
+          </Card>
 
-        <Card eyebrow="From Anchor" title="Household Alerts" open={false} tint="rgba(106,186,170,0.05)">
-          <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
-            Expiring documents, low inventory, and packing reminders surface here from your Anchor vault.
-            <div onClick={function () { goVault("household"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Anchor →</div>
-          </div>
-        </Card>
+          <Card eyebrow="From Anchor" title="Household Alerts" open={false} tint="rgba(106,186,170,0.05)">
+            <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
+              Expiring documents, low inventory, and packing reminders surface here from your Anchor vault.
+              <div onClick={function () { goVault("household"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Anchor →</div>
+            </div>
+          </Card>
 
-        <Card eyebrow="Tide Pool" title="Today's Chores" open={false} tint="rgba(106,186,170,0.05)" link={{ label: "View →", onClick: function () { go("tidepool"); } }}>
-          <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
-            Kids' chore progress and shell goals live here.
-            <div onClick={function () { go("tidepool"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Tide Pool →</div>
-          </div>
-        </Card>
+          <Card eyebrow="Tide Pool" title="Today's Chores" open={false} tint="rgba(106,186,170,0.05)" link={{ label: "View →", onClick: function () { go("tidepool"); } }}>
+            <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
+              Kids' chore progress and shell goals live here.
+              <div onClick={function () { go("tidepool"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Tide Pool →</div>
+            </div>
+          </Card>
 
-        <NextTripCard />
-      </div>
+          <NextTripCard />
+        </div>
+      )}
     </div>
   );
 }
