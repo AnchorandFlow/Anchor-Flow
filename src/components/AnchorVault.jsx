@@ -903,6 +903,20 @@ function planningFilledCount(c, hasGifts) {
   if (Array.isArray(c.todo) && c.todo.length > 0) n++
   return n
 }
+// Phase 2 — planning sub-card tiles inside a celebration's detail view.
+// Same grid-tile / full-page-on-tap pattern as Travel's TripCardTile.
+var CELEB_CARD_ORDER = ["overview","guestlist","gifts","budget","food","decorations","activities","todo","photos"]
+var CELEB_CARD_META = {
+  overview:    { icon: "📋", title: "Overview" },
+  guestlist:   { icon: "👥", title: "Guest List" },
+  gifts:       { icon: "🎁", title: "Gift Ideas" },
+  budget:      { icon: "💰", title: "Budget" },
+  food:        { icon: "🍰", title: "Food & Cake" },
+  decorations: { icon: "🎈", title: "Decorations" },
+  activities:  { icon: "🎯", title: "Activities" },
+  todo:        { icon: "✅", title: "To-Do" },
+  photos:      { icon: "📸", title: "Photos & Memories" },
+}
 
 function CelebrationsSection({ calEvents }) {
   calEvents = calEvents || []
@@ -923,7 +937,6 @@ function CelebrationsSection({ calEvents }) {
   const [filter, setFilter] = useState("upcoming")
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
-  const [expandedGifts, setExpandedGifts] = useState(null) // celebId with gift panel open
   const [newGiftText, setNewGiftText] = useState("")
   React.useEffect(function() {
     function onRefresh(e) {
@@ -990,6 +1003,114 @@ function CelebrationsSection({ calEvents }) {
     saveGiftMap(Object.assign({}, giftMap, { [celebId]: existing }))
   }
 
+  // Level 2/3 nav (same pattern as Travel's detailTripId/activeTripCard):
+  // detailCelebId null = list view; string = that celebration's detail
+  // page. activeCelebCard null = the detail page's card grid; string =
+  // that planning card's full-page view.
+  const [detailCelebId, setDetailCelebId] = useState(null)
+  const [activeCelebCard, setActiveCelebCard] = useState(null)
+  function openCelebDetail(id) { setDetailCelebId(id); setActiveCelebCard(null) }
+  function backToCelebrations() { setDetailCelebId(null); setActiveCelebCard(null) }
+
+  // Draft input state for the planning sub-cards.
+  const [guestDraft, setGuestDraft] = useState("")
+  const [budgetItemDraft, setBudgetItemDraft] = useState({ desc: "", amount: "" })
+  const [foodDraft, setFoodDraft] = useState({ item: "", who: "", dietary: "" })
+  const [decorDraft, setDecorDraft] = useState("")
+  const [activityDraft, setActivityDraft] = useState("")
+  const [todoDraft, setTodoDraft] = useState("")
+
+  function updateCelebField(celebId, patch) {
+    save(celebrations.map(function(c) { return c.id === celebId ? Object.assign({}, c, patch) : c }))
+  }
+
+  // Guest List
+  function addGuest(celebId) {
+    if (!guestDraft.trim()) return
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = (c && c.guestList) || []
+    updateCelebField(celebId, { guestList: [...list, { id: Date.now().toString(), name: guestDraft.trim(), rsvp: "pending", plusOnes: 0 }] })
+    setGuestDraft("")
+  }
+  function setGuestRsvp(celebId, guestId, rsvp) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = ((c && c.guestList) || []).map(function(g) { return g.id === guestId ? Object.assign({}, g, { rsvp: rsvp }) : g })
+    updateCelebField(celebId, { guestList: list })
+  }
+  function setGuestPlusOnes(celebId, guestId, delta) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = ((c && c.guestList) || []).map(function(g) { return g.id === guestId ? Object.assign({}, g, { plusOnes: Math.max(0, (g.plusOnes||0) + delta) }) : g })
+    updateCelebField(celebId, { guestList: list })
+  }
+  function removeGuest(celebId, guestId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = ((c && c.guestList) || []).filter(function(g) { return g.id !== guestId })
+    updateCelebField(celebId, { guestList: list })
+  }
+
+  // Budget
+  function setBudgetPlanned(celebId, amount) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var budget = (c && c.budget) || { planned: null, items: [] }
+    updateCelebField(celebId, { budget: Object.assign({}, budget, { planned: amount ? parseFloat(amount) : null }) })
+  }
+  function addBudgetItem(celebId) {
+    if (!budgetItemDraft.desc.trim()) return
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var budget = (c && c.budget) || { planned: null, items: [] }
+    var items = budget.items || []
+    updateCelebField(celebId, { budget: Object.assign({}, budget, { items: [...items, { id: Date.now().toString(), desc: budgetItemDraft.desc.trim(), amount: budgetItemDraft.amount ? parseFloat(budgetItemDraft.amount) : 0, spent: false }] }) })
+    setBudgetItemDraft({ desc: "", amount: "" })
+  }
+  function toggleBudgetItemSpent(celebId, itemId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var budget = (c && c.budget) || { planned: null, items: [] }
+    var items = (budget.items || []).map(function(it) { return it.id === itemId ? Object.assign({}, it, { spent: !it.spent }) : it })
+    updateCelebField(celebId, { budget: Object.assign({}, budget, { items: items }) })
+  }
+  function removeBudgetItem(celebId, itemId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var budget = (c && c.budget) || { planned: null, items: [] }
+    var items = (budget.items || []).filter(function(it) { return it.id !== itemId })
+    updateCelebField(celebId, { budget: Object.assign({}, budget, { items: items }) })
+  }
+
+  // Food & Cake
+  function addFoodItem(celebId) {
+    if (!foodDraft.item.trim()) return
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = (c && c.food) || []
+    updateCelebField(celebId, { food: [...list, { id: Date.now().toString(), item: foodDraft.item.trim(), who: foodDraft.who.trim(), dietary: foodDraft.dietary.trim() }] })
+    setFoodDraft({ item: "", who: "", dietary: "" })
+  }
+  function removeFoodItem(celebId, itemId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = ((c && c.food) || []).filter(function(it) { return it.id !== itemId })
+    updateCelebField(celebId, { food: list })
+  }
+
+  // Decorations / Activities / To-Do — same flat checklist shape, one
+  // generic set of helpers parameterized by field name.
+  function addChecklistItem(celebId, field, text) {
+    if (!text.trim()) return
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = (c && c[field]) || []
+    var patch = {}; patch[field] = [...list, { id: Date.now().toString(), text: text.trim(), done: false }]
+    updateCelebField(celebId, patch)
+  }
+  function toggleChecklistItem(celebId, field, itemId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = ((c && c[field]) || []).map(function(it) { return it.id === itemId ? Object.assign({}, it, { done: !it.done }) : it })
+    var patch = {}; patch[field] = list
+    updateCelebField(celebId, patch)
+  }
+  function removeChecklistItem(celebId, field, itemId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = ((c && c[field]) || []).filter(function(it) { return it.id !== itemId })
+    var patch = {}; patch[field] = list
+    updateCelebField(celebId, patch)
+  }
+
   function save(updated) {
     setCelebrations(updated)
     afVaultChanged("celebrations");
@@ -1002,7 +1123,7 @@ function CelebrationsSection({ calEvents }) {
     save([...celebrations, { id: newId, type: celebType, name: form.name.trim(), month: parseInt(form.month), day: parseInt(form.day), year: form.year ? parseInt(form.year) : null, notes: form.notes.trim() }])
     setForm({ name: "", month: "", day: "", year: "", notes: "" })
     setAdding(false)
-    setExpandedGifts(newId) // auto-open gift panel after adding
+    openCelebDetail(newId) // jump straight into the new celebration's detail view
   }
 
   function startEdit(c) {
@@ -1023,6 +1144,8 @@ function CelebrationsSection({ calEvents }) {
   const year = now.getFullYear()
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
   const INP = { background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const LBL = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }
+  const VAL = { fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }
 
 
   const passedThisYear = celebrations.filter(function(c) {
@@ -1054,8 +1177,51 @@ function CelebrationsSection({ calEvents }) {
   const past = all.filter(function(e) { return e.diff < 0 })
   const shown = filter === "upcoming" ? upcoming : all
 
+  const detailCeleb = detailCelebId ? celebEntries.find(function(c) { return c.id === detailCelebId }) : null
+
+  function celebCardPreview(c, cardId) {
+    if (cardId === "overview") return c.notes ? c.notes : "Tap to view details"
+    if (cardId === "guestlist") { var gl = c.guestList||[]; return gl.length ? gl.length+" guest"+(gl.length!==1?"s":"") : "No guests yet" }
+    if (cardId === "gifts") { var gf = giftMap[c.id]||[]; if (!gf.length) return "No gift ideas yet"; var bought = gf.filter(function(g){return g.bought}).length; return bought+" of "+gf.length+" bought" }
+    if (cardId === "budget") { var b = c.budget; if (!b || (!b.planned && !(b.items&&b.items.length))) return "No budget set"; return b.planned ? "$"+b.planned+" planned" : (b.items.length+" item"+(b.items.length!==1?"s":"")) }
+    if (cardId === "food") { var f = c.food||[]; return f.length ? f.length+" item"+(f.length!==1?"s":"") : "Nothing planned yet" }
+    if (cardId === "decorations") { var d = c.decorations||[]; if (!d.length) return "No items yet"; var dd = d.filter(function(x){return x.done}).length; return dd+" of "+d.length+" done" }
+    if (cardId === "activities") { var a = c.activities||[]; if (!a.length) return "No items yet"; var ad = a.filter(function(x){return x.done}).length; return ad+" of "+a.length+" done" }
+    if (cardId === "todo") { var t = c.todo||[]; if (!t.length) return "No items yet"; var td = t.filter(function(x){return x.done}).length; return td+" of "+t.length+" done" }
+    if (cardId === "photos") return "Coming soon"
+    return ""
+  }
+
+  // Decorations / Activities / To-Do share one flat checklist shape and UI —
+  // one render function parameterized by field name instead of three copies.
+  function renderChecklistCard(field, title, draft, setDraft) {
+    var list = (detailCeleb && detailCeleb[field]) || []
+    return (
+      <div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>{title}</div>
+        {list.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No items yet.</div>}
+        {list.map(function(it) {
+          return (
+            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+              <div onClick={function() { toggleChecklistItem(detailCeleb.id, field, it.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (it.done ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: it.done ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                {it.done && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
+              </div>
+              <span style={{ flex: 1, fontSize: 13, color: it.done ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
+              <button onClick={function() { removeChecklistItem(detailCeleb.id, field, it.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+            </div>
+          )
+        })}
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <input value={draft} onChange={function(e) { setDraft(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { addChecklistItem(detailCeleb.id, field, draft); setDraft("") } }} placeholder="Add an item…" style={Object.assign({}, INP, { flex: 1 })} />
+          <button onClick={function() { addChecklistItem(detailCeleb.id, field, draft); setDraft("") }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
+      {!detailCelebId && (<>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>
         <button onClick={function() { setAdding(function(p) { return !p }); setForm({ name: "", month: "", day: "", year: "", notes: "" }) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
@@ -1107,42 +1273,9 @@ function CelebrationsSection({ calEvents }) {
         const gifts = giftMap[e.id] || []
         const boughtCount = gifts.filter(function(g) { return g.bought }).length
         const hasGifts = gifts.length > 0
-        const isGiftOpen = expandedGifts === e.id
-
-        if (editingId === e.id) {
-          return (
-            <div key={e.id || i} style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "14px", marginBottom: 7 }}>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                {CELEBRATION_TYPES.map(function(t) {
-                  return (
-                    <button key={t.id} onClick={function() { setEditForm(function(p) { return {...p, type: t.id} }) }} style={{ background: editForm.type === t.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (editForm.type === t.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "4px 10px", fontSize: 11, color: editForm.type === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: editForm.type === t.id ? 700 : 400 }}>
-                      {t.emoji} {t.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
-                  <option value="" style={{ background: "#243A5A", color: "rgba(250,248,244,0.5)" }}>Month</option>
-                  {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#243A5A", color: "#faf8f4" }}>{m}</option> })}
-                </select>
-                <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
-                {(editForm.type === "birthday" || editForm.type === "anniversary") && (
-                  <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={Object.assign({}, INP, { flex: 1 })} />
-                )}
-              </div>
-              <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 10})} />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
-                <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
-              </div>
-            </div>
-          )
-        }
 
         return (
-          <div key={e.id || i} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 12, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden" }}>
+          <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 12, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden", cursor: "pointer" }}>
             {/* Card header — icon, name, type, countdown */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px 8px" }}>
               <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{e.emoji}</div>
@@ -1158,11 +1291,7 @@ function CelebrationsSection({ calEvents }) {
                 </div>
                 {e.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 2, fontStyle: "italic" }}>{e.notes}</div>}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <button onClick={function() { setExpandedGifts(isGiftOpen ? null : e.id); setNewGiftText("") }} style={{ background: "rgba(200,169,122,0.1)", border: "0.5px solid rgba(200,169,122,0.25)", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }} title="Gifts">🎁</button>
-                <button onClick={function() { startEdit(e) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(200,169,122,0.4)" }}>✏️</button>
-                <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)" }}>✕</button>
-              </div>
+              <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)", flexShrink: 0 }}>✕</button>
             </div>
 
             {/* Planning status — N of 7 planning cards have content */}
@@ -1172,39 +1301,219 @@ function CelebrationsSection({ calEvents }) {
               </div>
               <span style={{ fontSize: 10, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", whiteSpace: "nowrap" }}>{e.planned} of {e.planTotal} planned</span>
             </div>
-
-            {/* Gift panel — inline, no extra navigation */}
-            {isGiftOpen && (
-              <div style={{ borderTop: "1px solid rgba(250,242,229,0.07)", padding: "10px 14px 12px" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(250,248,244,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, fontFamily: "DM Sans,sans-serif" }}>Gift ideas for {e.name}</div>
-                {gifts.map(function(g) {
-                  return (
-                    <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid rgba(250,242,229,0.04)" }}>
-                      <div onClick={function() { toggleGift(e.id, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.bought ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.bought ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-                        {g.bought && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
-                      </div>
-                      <span style={{ flex: 1, fontSize: 12, color: g.bought ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.8)", fontFamily: "DM Sans,sans-serif", textDecoration: g.bought ? "line-through" : "none" }}>{g.text}</span>
-                      <button onClick={function() { removeGift(e.id, g.id) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.2)", cursor: "pointer", padding: "0 2px" }}>✕</button>
-                    </div>
-                  )
-                })}
-                {gifts.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet</div>}
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <input
-                    value={newGiftText}
-                    onChange={function(ev) { setNewGiftText(ev.target.value) }}
-                    onKeyDown={function(ev) { if (ev.key === "Enter") addGift(e.id) }}
-                    placeholder="Add a gift idea…"
-                    autoFocus={isGiftOpen}
-                    style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 7, padding: "7px 10px", fontSize: 12, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
-                  />
-                  <button onClick={function() { addGift(e.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "7px 13px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-                </div>
-              </div>
-            )}
           </div>
         )
       })}
+      </>)}
+
+      {/* Level 2/3 — celebration detail view + planning sub-cards */}
+      {detailCeleb && (
+        <div>
+          <button onClick={backToCelebrations} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(200,169,122,0.7)", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 14px 0", display: "flex", alignItems: "center", gap: 5 }}>← Back to Celebrations</button>
+
+          {!activeCelebCard ? (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                <div style={{ fontSize: 32, flexShrink: 0 }}>{detailCeleb.emoji}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 20, fontWeight: 700, color: "#faf8f4" }}>{detailCeleb.label}</div>
+                  <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                    {detailCeleb.month && MONTHS[detailCeleb.month-1]+" "+detailCeleb.day}{" · "}{detailCeleb.typeInfo && detailCeleb.typeInfo.label}{" · "}{detailCeleb.countdown}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                {CELEB_CARD_ORDER.map(function(cardId) {
+                  var meta = CELEB_CARD_META[cardId]
+                  return (
+                    <div key={cardId} onClick={function() { setActiveCelebCard(cardId) }} style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
+                      <div style={{ fontSize: 18, marginBottom: 6 }}>{meta.icon}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }}>{meta.title}</div>
+                      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{celebCardPreview(detailCeleb, cardId)}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <button onClick={function() { setActiveCelebCard(null) }} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(200,169,122,0.6)", fontSize: 12, fontFamily: "DM Sans,sans-serif", padding: "0 0 14px 0", display: "flex", alignItems: "center", gap: 5 }}>← {detailCeleb.name}</button>
+
+              {activeCelebCard === "overview" && (
+                <div style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 12, padding: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                    <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4" }}>Overview</div>
+                    <button onClick={function() { startEdit(detailCeleb) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "4px 12px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>Edit</button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div><div style={LBL}>Name</div><div style={VAL}>{detailCeleb.name}</div></div>
+                    <div><div style={LBL}>Type</div><div style={VAL}>{detailCeleb.typeInfo.emoji} {detailCeleb.typeInfo.label}</div></div>
+                    <div><div style={LBL}>Date</div><div style={VAL}>{detailCeleb.month && MONTHS[detailCeleb.month-1]+" "+detailCeleb.day}{detailCeleb.year ? ", "+detailCeleb.year : ""}</div></div>
+                    <div><div style={LBL}>Notes</div><div style={VAL}>{detailCeleb.notes || "No notes yet."}</div></div>
+                  </div>
+                </div>
+              )}
+
+              {activeCelebCard === "guestlist" && (
+                <div>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Guest List</div>
+                  {(detailCeleb.guestList||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No guests added yet.</div>}
+                  {(detailCeleb.guestList||[]).map(function(g) {
+                    return (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(250,242,229,0.03)", borderRadius: 9, marginBottom: 6, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 80, fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{g.name}</div>
+                        <select value={g.rsvp} onChange={function(e) { setGuestRsvp(detailCeleb.id, g.id, e.target.value) }} style={{ background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 6, padding: "3px 6px", fontSize: 11, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
+                          <option value="pending" style={{ background: "#243A5A" }}>Pending</option>
+                          <option value="yes" style={{ background: "#243A5A" }}>Yes</option>
+                          <option value="no" style={{ background: "#243A5A" }}>No</option>
+                          <option value="maybe" style={{ background: "#243A5A" }}>Maybe</option>
+                        </select>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, -1) }} style={{ background: "none", border: "none", color: "rgba(250,248,244,0.4)", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>−</button>
+                          <span style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", minWidth: 14, textAlign: "center" }}>+{g.plusOnes||0}</span>
+                          <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, 1) }} style={{ background: "none", border: "none", color: "rgba(250,248,244,0.4)", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>+</button>
+                        </div>
+                        <button onClick={function() { removeGuest(detailCeleb.id, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                      </div>
+                    )
+                  })}
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <input value={guestDraft} onChange={function(e) { setGuestDraft(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") addGuest(detailCeleb.id) }} placeholder="Guest name…" style={Object.assign({}, INP, { flex: 1 })} />
+                    <button onClick={function() { addGuest(detailCeleb.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  </div>
+                </div>
+              )}
+
+              {activeCelebCard === "gifts" && (
+                <div>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Gift Ideas</div>
+                  {(giftMap[detailCeleb.id]||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No gift ideas yet.</div>}
+                  {(giftMap[detailCeleb.id]||[]).map(function(g) {
+                    return (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+                        <div onClick={function() { toggleGift(detailCeleb.id, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.bought ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.bought ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                          {g.bought && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
+                        </div>
+                        <span style={{ flex: 1, fontSize: 13, color: g.bought ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: g.bought ? "line-through" : "none" }}>{g.text}</span>
+                        <button onClick={function() { removeGift(detailCeleb.id, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                      </div>
+                    )
+                  })}
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <input value={newGiftText} onChange={function(e) { setNewGiftText(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") addGift(detailCeleb.id) }} placeholder="Add a gift idea…" style={Object.assign({}, INP, { flex: 1 })} />
+                    <button onClick={function() { addGift(detailCeleb.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  </div>
+                </div>
+              )}
+
+              {activeCelebCard === "budget" && (
+                <div>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Budget</div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 14 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={LBL}>Planned</div>
+                      <input value={detailCeleb.budget && detailCeleb.budget.planned!=null ? detailCeleb.budget.planned : ""} onChange={function(e) { setBudgetPlanned(detailCeleb.id, e.target.value) }} placeholder="0" type="number" style={INP} />
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={LBL}>Spent</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#c8a97a", fontFamily: "DM Sans,sans-serif" }}>${(detailCeleb.budget && detailCeleb.budget.items ? detailCeleb.budget.items.filter(function(it){return it.spent}).reduce(function(s,it){return s+(it.amount||0)},0) : 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                  {((detailCeleb.budget && detailCeleb.budget.items) || []).map(function(it) {
+                    return (
+                      <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+                        <div onClick={function() { toggleBudgetItemSpent(detailCeleb.id, it.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (it.spent ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: it.spent ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                          {it.spent && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
+                        </div>
+                        <span style={{ flex: 1, fontSize: 13, color: it.spent ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: it.spent ? "line-through" : "none" }}>{it.desc}</span>
+                        <span style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif" }}>${(it.amount||0).toFixed(2)}</span>
+                        <button onClick={function() { removeBudgetItem(detailCeleb.id, it.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                      </div>
+                    )
+                  })}
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <input value={budgetItemDraft.desc} onChange={function(e) { setBudgetItemDraft(function(p) { return Object.assign({}, p, { desc: e.target.value }) }) }} placeholder="Item…" style={Object.assign({}, INP, { flex: 2 })} />
+                    <input value={budgetItemDraft.amount} onChange={function(e) { setBudgetItemDraft(function(p) { return Object.assign({}, p, { amount: e.target.value }) }) }} placeholder="$" type="number" style={Object.assign({}, INP, { flex: 1 })} />
+                    <button onClick={function() { addBudgetItem(detailCeleb.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  </div>
+                </div>
+              )}
+
+              {activeCelebCard === "food" && (
+                <div>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Food & Cake</div>
+                  {(detailCeleb.food||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>Nothing planned yet.</div>}
+                  {(detailCeleb.food||[]).map(function(f) {
+                    return (
+                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(250,242,229,0.03)", borderRadius: 9, marginBottom: 6 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{f.item}</div>
+                          <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{f.who ? "Bringing: "+f.who : ""}{f.who && f.dietary ? " · " : ""}{f.dietary}</div>
+                        </div>
+                        <button onClick={function() { removeFoodItem(detailCeleb.id, f.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                      </div>
+                    )
+                  })}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                    <input value={foodDraft.item} onChange={function(e) { setFoodDraft(function(p) { return Object.assign({}, p, { item: e.target.value }) }) }} placeholder="Dish or item…" style={INP} />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={foodDraft.who} onChange={function(e) { setFoodDraft(function(p) { return Object.assign({}, p, { who: e.target.value }) }) }} placeholder="Who's bringing it (opt)" style={Object.assign({}, INP, { flex: 1 })} />
+                      <input value={foodDraft.dietary} onChange={function(e) { setFoodDraft(function(p) { return Object.assign({}, p, { dietary: e.target.value }) }) }} placeholder="Dietary notes (opt)" style={Object.assign({}, INP, { flex: 1 })} />
+                    </div>
+                    <button onClick={function() { addFoodItem(detailCeleb.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                  </div>
+                </div>
+              )}
+
+              {activeCelebCard === "decorations" && renderChecklistCard("decorations", "Decorations", decorDraft, setDecorDraft)}
+              {activeCelebCard === "activities" && renderChecklistCard("activities", "Activities", activityDraft, setActivityDraft)}
+              {activeCelebCard === "todo" && renderChecklistCard("todo", "To-Do", todoDraft, setTodoDraft)}
+
+              {activeCelebCard === "photos" && (
+                <div style={{ textAlign: "center", padding: "32px 20px", color: "rgba(250,248,244,0.3)", fontSize: 13, fontFamily: "DM Sans,sans-serif" }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
+                  Add photos coming soon.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Overview edit modal — reachable from the Overview sub-card's Edit
+          button (list-row inline editing was removed in Phase 2). */}
+      {editingId && (
+        <div onClick={function() { setEditingId(null) }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+          <div onClick={function(e) { e.stopPropagation() }} style={{ background: "#243A5A", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 14, padding: "18px", maxWidth: 420, width: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: "#faf8f4", marginBottom: 14 }}>Edit celebration</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+              {CELEBRATION_TYPES.map(function(t) {
+                return (
+                  <button key={t.id} onClick={function() { setEditForm(function(p) { return {...p, type: t.id} }) }} style={{ background: editForm.type === t.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (editForm.type === t.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "4px 10px", fontSize: 11, color: editForm.type === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: editForm.type === t.id ? 700 : 400 }}>
+                    {t.emoji} {t.label}
+                  </button>
+                )
+              })}
+            </div>
+            <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
+                <option value="" style={{ background: "#243A5A", color: "rgba(250,248,244,0.5)" }}>Month</option>
+                {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#243A5A", color: "#faf8f4" }}>{m}</option> })}
+              </select>
+              <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
+              {(editForm.type === "birthday" || editForm.type === "anniversary") && (
+                <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={Object.assign({}, INP, { flex: 1 })} />
+              )}
+            </div>
+            <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 10})} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
+              <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -3395,7 +3704,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   }
 
   // Which trip's detail view is open — same shape as CelebrationsSection's
-  // expandedGifts (~906): a single selected id, or null when closed.
+  // detailCelebId: a single selected id, or null when closed.
   var s_detail = useState(null)
   var detailTripId = s_detail[0]; var setDetailTripId = s_detail[1]
   function openDetail(trip) { setDetailTripId(trip.id) }
