@@ -877,10 +877,32 @@ const CELEBRATION_TYPES = [
   { id: "anniversary",label: "Anniversary",emoji: "💍" },
   { id: "graduation", label: "Graduation", emoji: "🎓" },
   { id: "holiday",    label: "Holiday",    emoji: "🎄" },
+  { id: "party",      label: "Party",      emoji: "🎈" },
+  { id: "milestone",  label: "Milestone",  emoji: "⭐" },
   { id: "wedding",    label: "Wedding",    emoji: "💐" },
   { id: "babyshower", label: "Baby Shower",emoji: "🍼" },
   { id: "other",      label: "Other",      emoji: "🎉" },
 ]
+// Planning dimensions counted toward a celebration's "N of 7 planned"
+// status on the landing-page card. Overview and Photos aren't counted:
+// Overview is always trivially "filled" (it's just the celebration's own
+// core fields), Photos has no data model yet (placeholder card, Phase 2).
+// Fields beyond gifts/celebgifts don't exist on celebration records yet
+// (guestList/budget/food/decorations/activities/todo are Phase 2) — this
+// is written now so Phase 1's status count is forward-compatible with
+// Phase 2 filling those fields in, without another pass over this list.
+var PLANNING_DIMENSIONS = ["guestList","gifts","budget","food","decorations","activities","todo"]
+function planningFilledCount(c, hasGifts) {
+  var n = 0
+  if (Array.isArray(c.guestList) && c.guestList.length > 0) n++
+  if (hasGifts) n++
+  if (c.budget && (c.budget.planned || (Array.isArray(c.budget.items) && c.budget.items.length > 0))) n++
+  if (Array.isArray(c.food) && c.food.length > 0) n++
+  if (Array.isArray(c.decorations) && c.decorations.length > 0) n++
+  if (Array.isArray(c.activities) && c.activities.length > 0) n++
+  if (Array.isArray(c.todo) && c.todo.length > 0) n++
+  return n
+}
 
 function CelebrationsSection({ calEvents }) {
   calEvents = calEvents || []
@@ -919,6 +941,29 @@ function CelebrationsSection({ calEvents }) {
     }
     window.addEventListener("af-data-changed", onRefresh)
     return function() { window.removeEventListener("af-data-changed", onRefresh) }
+  }, [])
+
+  // Auto-create birthday celebrations from the household roster — silent,
+  // on mount only. Matches by personId first (celebrations created by
+  // this effect), falling back to name+type (so a birthday entered
+  // manually before this feature existed, or via the older af_birthdays
+  // migration above, isn't duplicated).
+  React.useEffect(function() {
+    try {
+      var roster = hLoadPeople()
+      var missing = roster.filter(function(p) {
+        if (!p.birthday) return false
+        var parts = String(p.birthday).split("-")
+        if (parts.length !== 3) return false
+        return !celebrations.some(function(c) { return c.type === "birthday" && (c.personId === p.id || c.name === p.name) })
+      })
+      if (missing.length === 0) return
+      var additions = missing.map(function(p) {
+        var parts = p.birthday.split("-")
+        return { id: "pb_"+p.id, type: "birthday", name: p.name, month: parseInt(parts[1]), day: parseInt(parts[2]), year: parseInt(parts[0]) || null, notes: "", personId: p.id }
+      })
+      save([...celebrations, ...additions])
+    } catch {}
   }, [])
 
   // Load/save gifts keyed by celebId
@@ -985,14 +1030,23 @@ function CelebrationsSection({ calEvents }) {
     return thisYear < now
   }).length
 
+  const CELEBRATION_TYPE_OTHER = CELEBRATION_TYPES.find(function(t) { return t.id === "other" }) || CELEBRATION_TYPES[CELEBRATION_TYPES.length-1]
+  function countdownLabel(diff) {
+    if (diff < 0) return "passed"
+    if (diff === 0) return "today"
+    if (diff === 1) return "tomorrow"
+    return "in " + diff + " days"
+  }
   const celebEntries = celebrations.map(function(c) {
-    const typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPES[6]
+    const typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPE_OTHER
     const next = new Date(year, c.month-1, c.day)
     if (next < now) next.setFullYear(next.getFullYear()+1)
     const diff = Math.round((next - now) / 86400000)
     const age = (c.type === "birthday" && c.year) ? (next.getFullYear() - c.year) : null
     const label = c.name + (age ? " turns " + age : c.type === "anniversary" ? " anniversary" : "")
-    return { ...c, typeInfo, next, diff, label, emoji: typeInfo.emoji, soon: diff <= 14 }
+    const gifts = giftMap[c.id] || []
+    const planned = planningFilledCount(c, gifts.length > 0)
+    return { ...c, typeInfo, next, diff, label, emoji: typeInfo.emoji, soon: diff <= 14, countdown: countdownLabel(diff), planned: planned, planTotal: PLANNING_DIMENSIONS.length }
   })
 
   const all = celebEntries.sort(function(a, b) { return a.diff - b.diff })
@@ -1088,32 +1142,35 @@ function CelebrationsSection({ calEvents }) {
         }
 
         return (
-          <div key={e.id || i} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 10, marginBottom: 8, opacity: isPast ? 0.5 : 1, overflow: "hidden" }}>
-            {/* Main row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" }}>
-              <div style={{ width: 40, textAlign: "center", flexShrink: 0 }}>
-                <div style={{ fontSize: 18, lineHeight: 1 }}>{e.emoji}</div>
-                {e.month && <div style={{ fontSize: 11, fontWeight: 700, color: e.soon && !isPast ? "#c8834a" : "rgba(200,169,122,0.6)", fontFamily: "Cormorant Garamond,serif" }}>{MONTHS[e.month-1]} {e.day}</div>}
-              </div>
+          <div key={e.id || i} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 12, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden" }}>
+            {/* Card header — icon, name, type, countdown */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px 8px" }}>
+              <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{e.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: isPast ? "rgba(250,248,244,0.45)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: isPast ? "rgba(250,248,244,0.45)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
                   {hasGifts && <span style={{ fontSize: 12 }} title={boughtCount + "/" + gifts.length + " bought"}>🎁</span>}
                   {hasGifts && boughtCount < gifts.length && <span style={{ fontSize: 9, background: "rgba(200,131,74,0.2)", color: "#c8834a", borderRadius: 8, padding: "1px 5px", fontFamily: "DM Sans,sans-serif", fontWeight: 700 }}>{gifts.length - boughtCount} to get</span>}
                 </div>
-                <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{e.typeInfo && e.typeInfo.label}{e.notes ? " · " + e.notes : ""}</div>
+                <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                  {e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.typeInfo && e.typeInfo.label}
+                  {" · "}<span style={{ color: isPast ? "rgba(250,248,244,0.3)" : e.diff<=7 ? "#c8834a" : "rgba(250,248,244,0.5)", fontWeight: e.diff<=7 && !isPast ? 700 : 500 }}>{e.countdown}</span>
+                </div>
+                {e.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 2, fontStyle: "italic" }}>{e.notes}</div>}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                <div style={{ textAlign: "right" }}>
-                  {isPast ? <span style={{ fontSize: 10, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif" }}>passed</span>
-                  : e.diff === 0 ? <span style={{ fontSize: 11, fontWeight: 800, color: "#c8834a" }}>Today!</span>
-                  : e.diff === 1 ? <span style={{ fontSize: 11, fontWeight: 700, color: "#c8834a" }}>Tomorrow</span>
-                  : <span style={{ fontSize: 11, color: e.diff <= 7 ? "#c8834a" : "rgba(250,248,244,0.3)", fontWeight: e.diff <= 7 ? 600 : 400 }}>in {e.diff}d</span>}
-                </div>
                 <button onClick={function() { setExpandedGifts(isGiftOpen ? null : e.id); setNewGiftText("") }} style={{ background: "rgba(200,169,122,0.1)", border: "0.5px solid rgba(200,169,122,0.25)", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }} title="Gifts">🎁</button>
                 <button onClick={function() { startEdit(e) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(200,169,122,0.4)" }}>✏️</button>
                 <button onClick={function() { save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)" }}>✕</button>
               </div>
+            </div>
+
+            {/* Planning status — N of 7 planning cards have content */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 10px" }}>
+              <div style={{ flex: 1, height: 4, background: "rgba(250,242,229,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ width: (e.planned/e.planTotal*100)+"%", height: "100%", background: e.planned===0 ? "rgba(250,242,229,0.12)" : "#c8a97a", transition: "width 0.3s" }} />
+              </div>
+              <span style={{ fontSize: 10, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", whiteSpace: "nowrap" }}>{e.planned} of {e.planTotal} planned</span>
             </div>
 
             {/* Gift panel — inline, no extra navigation */}
