@@ -51,7 +51,6 @@ const NAV = [
   { id: "subs",      label: "Subs",      icon: "sub",  emoji: "🔄" },
   { id: "gifts",     label: "Celebrate", icon: "gift", emoji: "🎉" },
   { id: "pets",      label: "Pets",      icon: "pet",  emoji: "🐾" },
-  { id: "moments",   label: "Moments",   icon: "mom",  emoji: "✨" },
   { id: "ripple",    label: "Ripple",    icon: "rip",  emoji: "🌊" },
   { id: "settings",  label: "Settings",  icon: "set",  emoji: "⚙️" },
 ]
@@ -8039,8 +8038,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var rightCards = [
     { id:"health", icon:"🩺", label:"Health", summary:{ ...health, entries: healthEntries } },
     { id:"pets", icon:"🐾", label:"Pets", summary:{ ...pets, entries: petEntries } },
-    { id:"career", icon:"📋", label:"Career", summary: careerSum },
-    { id:"moments", icon:"✨", label:"Moments", summary:{ ...moments, entries: momentEntries } }
+    { id:"career", icon:"📋", label:"Career", summary: careerSum }
   ]
   // Cards for empty sections are hidden entirely rather than shown with a
   // "Nothing added yet" placeholder — keeps the dashboard to only what a
@@ -8129,7 +8127,6 @@ const ANCHOR_SECTIONS = [
   { id: "subs",       label: "Subscriptions", emoji: "🔄" },
   { id: "gifts",      label: "Celebrate",     emoji: "🎉" },
   { id: "pets",       label: "Pets",          emoji: "🐾" },
-  { id: "moments",    label: "Moments",       emoji: "✨" },
   { id: "trips",      label: "Travel",        emoji: "🧳" },
   { id: "safeharbor", label: "Safe Harbor",   emoji: "⚓" },
 ]

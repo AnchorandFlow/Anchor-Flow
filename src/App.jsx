@@ -9987,6 +9987,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [newItemTexts, setNewItemTexts] = useState({});
     var [showNewModal, setShowNewModal] = useState(false);
     var [newForm, setNewForm] = useState({title:"",category:"family",color_accent:"#3a6b8a"});
+    var [editingColorFor, setEditingColorFor] = useState(null);
     var [saving, setSaving] = useState(false);
     var [aiLoading, setAiLoading] = useState(false);
     var [rippleSuggestion, setRippleSuggestion] = useState(null); // F-21: inline AI response (was alert)
@@ -10558,17 +10559,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         <div style={{padding:"8px 16px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:T.bgAlt,borderRadius:10,marginBottom:12,border:"1px dashed "+T.border}}>
-            <span style={{fontSize:"0.85rem",color:T.textFaint}}>+</span>
-            <input
-              value={newForm.title}
-              onChange={function(e){setNewForm(function(f){return Object.assign({},f,{title:e.target.value});});}}
-              onKeyDown={function(e){if(e.key==="Enter")createBlank();}}
-              placeholder="New list name… (Enter to create)"
-              style={{flex:1,fontSize:"0.84rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit"}}
-            />
+          <div style={{background:T.bgAlt,borderRadius:10,marginBottom:12,border:"1px dashed "+T.border,padding:"8px 10px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:"0.85rem",color:T.textFaint}}>+</span>
+              <input
+                value={newForm.title}
+                onChange={function(e){setNewForm(function(f){return Object.assign({},f,{title:e.target.value});});}}
+                onKeyDown={function(e){if(e.key==="Enter")createBlank();}}
+                placeholder="New list name… (Enter to create)"
+                style={{flex:1,fontSize:"0.84rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit"}}
+              />
+              {newForm.title.trim()&&(
+                <button onClick={createBlank} style={{...btnP(T.blue,{fontSize:"0.7rem",padding:"3px 10px"})}}>Create</button>
+              )}
+            </div>
             {newForm.title.trim()&&(
-              <button onClick={createBlank} style={{...btnP(T.blue,{fontSize:"0.7rem",padding:"3px 10px"})}}>Create</button>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:8,paddingLeft:2}}>
+                {COVE_ACCENT_COLORS.map(function(c){
+                  var sel=newForm.color_accent===c;
+                  return <div key={c} onClick={function(){setNewForm(function(f){return Object.assign({},f,{color_accent:c});});}} title={c} style={{width:20,height:20,borderRadius:"50%",background:c,cursor:"pointer",border:sel?"2px solid "+T.textDark:"2px solid transparent",boxShadow:sel?"0 0 0 2px "+T.bgAlt:"none",flexShrink:0}}/>;
+                })}
+              </div>
             )}
           </div>
 
@@ -10594,9 +10605,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         <div style={{fontSize:"0.88rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>{list.title}</div>
                         <div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2}}>{total>0?done+" of "+total+" done · "+CAT_LABELS[list.category]:"Empty · "+CAT_LABELS[list.category]}</div>
                       </div>
+                      <button onClick={function(){setEditingColorFor(editingColorFor===list.id?null:list.id);}} title="Change color" style={{width:16,height:16,borderRadius:"50%",background:lAccent,border:"2px solid "+T.surface,boxShadow:"0 0 0 1px "+T.borderSoft,cursor:"pointer",padding:0,flexShrink:0}}/>
                       <button onClick={async function(){if(await afConfirm("Delete \""+list.title+"\"?", {confirmText:"Delete",danger:true})){setCoveLists(function(p){return p.filter(function(l){return l.id!==list.id;})});setCoveItemsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});setCoveSectionsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});}}}
                         style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:3,display:"flex",flexShrink:0,fontSize:13,color:T.textSoft}}>&#10005;</button>
                     </div>
+                    {editingColorFor===list.id&&(
+                      <div style={{display:"flex",gap:7,flexWrap:"wrap",padding:"0 12px 10px"}}>
+                        {COVE_ACCENT_COLORS.map(function(c){
+                          var sel=c===lAccent;
+                          return <div key={c} onClick={function(){setCoveLists(function(p){return p.map(function(l){return l.id===list.id?Object.assign({},l,{color_accent:c}):l;});});setEditingColorFor(null);}} title={c} style={{width:20,height:20,borderRadius:"50%",background:c,cursor:"pointer",border:sel?"2px solid "+T.textDark:"2px solid transparent",flexShrink:0}}/>;
+                        })}
+                      </div>
+                    )}
                     {total>0&&(
                       <div style={{height:2,background:T.borderSoft,margin:"0 12px 8px"}}>
                         <div style={{height:"100%",background:lAccent,width:lPct+"%",transition:"width 0.4s",borderRadius:1}}/>
@@ -15126,7 +15146,6 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { vault: "subs", label: "Subscriptions", emoji: "🔄" },
       ...(featureFlags.celebrationsEnabled ? [{ vault: "gifts", label: "Celebrate", emoji: "🎉" }] : []),
       { vault: "pets", label: "Pets", emoji: "🐾" },
-      { vault: "moments", label: "Moments", emoji: "✨" },
       { vault: "trips", label: "Travel", emoji: "🧳" },
       ...(featureFlags.safeHarborEnabled ? [{ vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" }] : []),
     ]},
@@ -15141,7 +15160,6 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     { id: "subs",      label: "Subscript", emoji: "🔄" },
     { id: "gifts",     label: "Celebrate", emoji: "🎉" },
     { id: "pets",      label: "Pets",      emoji: "🐾" },
-    { id: "moments",   label: "Moments",   emoji: "✨" },
     { id: "ripples",     label: "Ripples",    emoji: "🌊" },
     { id: "safeharbor", label: "Safe Harbor",emoji: "⚓" },
     { id: "settings",   label: "Settings",   emoji: "⚙️" },
