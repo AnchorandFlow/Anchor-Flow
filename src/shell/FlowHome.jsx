@@ -190,8 +190,10 @@ export default function FlowHome(props) {
         </div>
       )}
 
-      {/* Balanced two-column grid */}
-      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      {/* Primary anchors — tasks, dinner, calendar. Work schedule has no
+          data source wired into this file yet (flagged, not built) — the
+          right column's second slot is intentionally left open for it. */}
+      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 20 }}>
         {/* LEFT column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
@@ -213,32 +215,6 @@ export default function FlowHome(props) {
             })}
           </Card>
 
-          <Card eyebrow="Exhale" title="Unload It" link={{ label: "All →", onClick: function () { go("brain"); } }}>
-            <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
-              <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
-              <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
-            </div>
-            {recentBrain.length === 0 ? (
-              <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
-            ) : recentBrain.map(function (b) {
-              return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
-            })}
-          </Card>
-        </div>
-
-        {/* RIGHT column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card eyebrow="Tonight's Dinner · from Anchor" title={dinner || "Not planned yet"} link={{ label: "Edit →", onClick: function () { go("meals"); } }}>
-            {dinner ? (
-              <div style={{ fontSize: ".8rem", color: C.t2, lineHeight: 1.5 }}>
-                {tMeal.time ? "~" + tMeal.time + " min · " : ""}tonight's plan.
-                {tmwDinner && <div style={{ marginTop: 9, padding: "9px 12px", background: C.cream, borderRadius: 9, fontSize: ".76rem" }}>🌙 Tomorrow: <strong>{tmwDinner}</strong></div>}
-              </div>
-            ) : (
-              <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No dinner planned. <span onClick={function () { go("meals"); }} style={{ color: C.sea, cursor: "pointer" }}>Plan one →</span></div>
-            )}
-          </Card>
-
           <Card eyebrow="Calendar" title="This Week" link={{ label: "Full →", onClick: function () { go("calendar"); } }}>
             {upcoming.length === 0 ? (
               <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing scheduled — an open week.</div>
@@ -252,7 +228,46 @@ export default function FlowHome(props) {
               );
             })}
           </Card>
+        </div>
 
+        {/* RIGHT column — second slot intentionally open (work schedule, future) */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Card eyebrow="Tonight's Dinner · from Anchor" title={dinner || "Not planned yet"} link={{ label: "Edit →", onClick: function () { go("meals"); } }}>
+            {dinner ? (
+              <div style={{ fontSize: ".8rem", color: C.t2, lineHeight: 1.5 }}>
+                {tMeal.time ? "~" + tMeal.time + " min · " : ""}tonight's plan.
+                {tmwDinner && <div style={{ marginTop: 9, padding: "9px 12px", background: C.cream, borderRadius: 9, fontSize: ".76rem" }}>🌙 Tomorrow: <strong>{tmwDinner}</strong></div>}
+              </div>
+            ) : (
+              <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No dinner planned. <span onClick={function () { go("meals"); }} style={{ color: C.sea, cursor: "pointer" }}>Plan one →</span></div>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      {/* Also today — lighter secondary zone: reflective/low-urgency content
+          demoted below the anchors, set off by a thin label instead of a
+          full Card header so it visually reads as "less than" the row above. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 16px" }}>
+        <span style={{ fontSize: ".62rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.t3, fontWeight: 600, whiteSpace: "nowrap" }}>Also today</span>
+        <div style={{ flex: 1, height: 1, background: C.cardBorder }} />
+      </div>
+      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Card eyebrow="Exhale" title="Unload It" link={{ label: "All →", onClick: function () { go("brain"); } }}>
+            <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
+              <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
+              <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
+            </div>
+            {recentBrain.length === 0 ? (
+              <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
+            ) : recentBrain.map(function (b) {
+              return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
+            })}
+          </Card>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="From Anchor" title="Household Alerts" open={false}>
             <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
               Expiring documents, low inventory, and packing reminders surface here from your Anchor vault.
