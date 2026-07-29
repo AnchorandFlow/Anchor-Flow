@@ -1082,64 +1082,189 @@ function CelebrationsSection({ calEvents }) {
     } catch {}
   }, [])
 
+  // Second migration, layered on top of the one above: af_gifts[personId]
+  // used to be a flat gift array with a loose `occasion` display-grouping
+  // string. Now it's an array of named lists (Birthday/Christmas/Easter/
+  // custom), each holding its own gifts — holiday lists live under the
+  // person they belong to instead of a separate global section. Depends on
+  // [gifts] rather than running once on [] so it re-fires after the first
+  // migration's async state update lands, same reasoning as that one.
+  // Also folds in the short-lived global af_gifts["holiday_lists"] bucket
+  // (shipped one commit before this restructure — matching each gift's
+  // free-text forPerson against the household roster by name; unmatched
+  // gifts land under a synthetic "unassigned" person rather than being
+  // dropped) and removes that reserved key once folded in.
+  React.useEffect(function() {
+    try {
+      if (localStorage.getItem("af_gifts_nested_lists_v1") === "1") return
+      var roster = hLoadPeople()
+      var updated = {}
+
+      Object.keys(gifts).forEach(function(pid) {
+        if (pid === "holiday_lists") return
+        var val = gifts[pid]
+        if (!Array.isArray(val)) return
+        var alreadyNested = val.length > 0 && val[0] && Array.isArray(val[0].gifts)
+        if (alreadyNested) { updated[pid] = val; return }
+        var byOcc = {}; var order = []
+        val.forEach(function(g) {
+          var key = g.occasion || "General"
+          if (!byOcc[key]) { byOcc[key] = []; order.push(key) }
+          byOcc[key].push(Object.assign({ assignedTo: "" }, g))
+        })
+        updated[pid] = order.map(function(occName) {
+          var lower = occName.toLowerCase()
+          var type = lower.indexOf("birthday") === 0 ? "birthday" : lower.indexOf("christmas") === 0 ? "christmas" : lower.indexOf("easter") === 0 ? "easter" : "custom"
+          return { id: Date.now().toString()+Math.random().toString(36).slice(2,6), name: occName, type: type, gifts: byOcc[occName] }
+        })
+      })
+
+      var oldHolidayLists = gifts.holiday_lists || []
+      oldHolidayLists.forEach(function(oldList) {
+        ;(oldList.gifts || []).forEach(function(g) {
+          if (!g) return
+          var matched = roster.find(function(p) { return g.forPerson && p.name && p.name.toLowerCase() === String(g.forPerson).toLowerCase().trim() })
+          var pid = matched ? matched.id : "unassigned"
+          if (!updated[pid]) updated[pid] = []
+          var newGift = {
+            id: g.id || (Date.now().toString()+Math.random().toString(36).slice(2,6)),
+            personId: pid, title: g.title || "", notes: g.notes || "",
+            price: g.price != null ? g.price : null, url: g.url || "", imageUrl: "",
+            purchased: !!g.purchased, private: false, occasion: oldList.name,
+            assignedCelebId: null, assignedTo: g.assignedTo || "",
+          }
+          var existingList = updated[pid].find(function(l) { return l.name === oldList.name })
+          if (existingList) { existingList.gifts = [...(existingList.gifts||[]), newGift] }
+          else {
+            var lower2 = oldList.name.toLowerCase()
+            var type2 = lower2 === "christmas" ? "christmas" : lower2 === "easter" ? "easter" : "custom"
+            updated[pid].push({ id: Date.now().toString()+Math.random().toString(36).slice(2,6), name: oldList.name, type: type2, gifts: [newGift] })
+          }
+        })
+      })
+
+      localStorage.setItem("af_gifts_nested_lists_v1", "1")
+      saveGifts(updated)
+    } catch {}
+  }, [gifts])
+
+  // Every household person always has Birthday (if they have a birthday
+  // set), Christmas, and Easter lists — created once each, then left alone
+  // (renaming/deleting is a user action, not something this effect should
+  // fight). Re-checks on every gifts change so a newly added family member
+  // gets seeded too, self-terminating once everyone's covered.
+  React.useEffect(function() {
+    try {
+      var roster = hLoadPeople()
+      var updated = Object.assign({}, gifts)
+      var changed = false
+      roster.forEach(function(p) {
+        var lists = (updated[p.id] || []).slice()
+        var hasType = function(t) { return lists.some(function(l) { return l.type === t }) }
+        if (p.birthday && !hasType("birthday")) { lists.push({ id: "bl_"+p.id, name: "Birthday", type: "birthday", gifts: [] }); changed = true }
+        if (!hasType("christmas")) { lists.push({ id: "cl_"+p.id, name: "Christmas", type: "christmas", gifts: [] }); changed = true }
+        if (!hasType("easter")) { lists.push({ id: "el_"+p.id, name: "Easter", type: "easter", gifts: [] }); changed = true }
+        if (lists.length !== (updated[p.id]||[]).length) updated[p.id] = lists
+      })
+      if (changed) saveGifts(updated)
+    } catch {}
+  }, [gifts])
+
   function saveGifts(updated) {
     setGifts(updated)
     afVaultChanged("gifts")
     try { localStorage.setItem("af_gifts", JSON.stringify(updated)) } catch {}
   }
-  function giftsForPerson(personId) { return gifts[personId] || [] }
-  function addGiftForPerson(personId, fields) {
-    var list = giftsForPerson(personId)
-    var item = Object.assign({
-      id: Date.now().toString()+Math.random().toString(36).slice(2,6),
-      personId: personId, title: "", notes: "", price: null, url: "", imageUrl: "",
-      purchased: false, private: false, occasion: "", assignedCelebId: null,
-    }, fields)
-    saveGifts(Object.assign({}, gifts, { [personId]: [...list, item] }))
+  function personLists(personId) { return gifts[personId] || [] }
+  function savePersonLists(personId, lists) { saveGifts(Object.assign({}, gifts, { [personId]: lists })) }
+  function addPersonList(personId, name, type) {
+    if (!name.trim()) return
+    savePersonLists(personId, [...personLists(personId), { id: Date.now().toString()+Math.random().toString(36).slice(2,6), name: name.trim(), type: type || "custom", gifts: [] }])
   }
-  function updateGift(personId, giftId, patch) {
-    var list = giftsForPerson(personId).map(function(g) { return g.id === giftId ? Object.assign({}, g, patch) : g })
-    saveGifts(Object.assign({}, gifts, { [personId]: list }))
+  function renamePersonList(personId, listId, name) {
+    if (!name.trim()) return
+    savePersonLists(personId, personLists(personId).map(function(l) { return l.id === listId ? Object.assign({}, l, { name: name.trim() }) : l }))
   }
-  function removeGiftEntry(personId, giftId) {
-    var list = giftsForPerson(personId).filter(function(g) { return g.id !== giftId })
-    saveGifts(Object.assign({}, gifts, { [personId]: list }))
+  // Finds a person's list by name, creating a "custom" one if none matches —
+  // used when adding a gift idea from a celebration's Gift Ideas card, where
+  // there's a celebration name/type but not necessarily an existing list.
+  function findOrCreatePersonList(personId, name, type) {
+    var existing = personLists(personId).find(function(l) { return l.name === name })
+    if (existing) return existing
+    var created = { id: Date.now().toString()+Math.random().toString(36).slice(2,6), name: name, type: type || "custom", gifts: [] }
+    savePersonLists(personId, [...personLists(personId), created])
+    return created
   }
-  function toggleGiftPurchased(personId, giftId) {
-    var g = giftsForPerson(personId).find(function(x) { return x.id === giftId })
-    if (g) updateGift(personId, giftId, { purchased: !g.purchased })
+  function addGiftToList(personId, listId, fields) {
+    var updated = personLists(personId).map(function(l) {
+      if (l.id !== listId) return l
+      var item = Object.assign({
+        id: Date.now().toString()+Math.random().toString(36).slice(2,6),
+        personId: personId, title: "", notes: "", price: null, url: "", imageUrl: "",
+        purchased: false, private: false, occasion: l.name, assignedCelebId: null, assignedTo: "",
+      }, fields)
+      return Object.assign({}, l, { gifts: [...(l.gifts||[]), item] })
+    })
+    savePersonLists(personId, updated)
   }
-  function toggleGiftPrivate(personId, giftId) {
-    var g = giftsForPerson(personId).find(function(x) { return x.id === giftId })
-    if (g) updateGift(personId, giftId, { private: !g.private })
+  function updateGiftInList(personId, listId, giftId, patch) {
+    var updated = personLists(personId).map(function(l) {
+      if (l.id !== listId) return l
+      return Object.assign({}, l, { gifts: (l.gifts||[]).map(function(g) { return g.id === giftId ? Object.assign({}, g, patch) : g }) })
+    })
+    savePersonLists(personId, updated)
   }
-  function assignGiftToCeleb(personId, giftId, celebId) { updateGift(personId, giftId, { assignedCelebId: celebId }) }
-  function unassignGift(personId, giftId) { updateGift(personId, giftId, { assignedCelebId: null }) }
+  function removeGiftFromList(personId, listId, giftId) {
+    var updated = personLists(personId).map(function(l) {
+      if (l.id !== listId) return l
+      return Object.assign({}, l, { gifts: (l.gifts||[]).filter(function(g) { return g.id !== giftId }) })
+    })
+    savePersonLists(personId, updated)
+  }
+  function findGiftInList(personId, listId, giftId) {
+    var l = personLists(personId).find(function(x) { return x.id === listId })
+    return l && (l.gifts||[]).find(function(g) { return g.id === giftId })
+  }
+  function toggleGiftPurchased(personId, listId, giftId) {
+    var g = findGiftInList(personId, listId, giftId)
+    if (g) updateGiftInList(personId, listId, giftId, { purchased: !g.purchased })
+  }
+  function toggleGiftPrivate(personId, listId, giftId) {
+    var g = findGiftInList(personId, listId, giftId)
+    if (g) updateGiftInList(personId, listId, giftId, { private: !g.private })
+  }
+  function assignGiftToCeleb(personId, listId, giftId, celebId) { updateGiftInList(personId, listId, giftId, { assignedCelebId: celebId }) }
+  function unassignGift(personId, listId, giftId) { updateGiftInList(personId, listId, giftId, { assignedCelebId: null }) }
   // Private gifts are hidden everywhere from the device user who is the
   // gift's own recipient — not just their title, the whole entry (counts,
   // badges, previews included), so nothing leaks a surprise indirectly.
-  function visibleGifts(personId) {
-    var list = giftsForPerson(personId)
-    if (myPersonId && myPersonId === personId) return list.filter(function(g) { return !g.private })
-    return list
+  function visibleListGifts(personId, list) {
+    var g = (list && list.gifts) || []
+    if (myPersonId && myPersonId === personId) return g.filter(function(x) { return !x.private })
+    return g
   }
   // All gifts relevant to a celebration: anything explicitly assigned to it
-  // (assignedCelebId match, any person), plus — if the celebration has a
-  // linked person (auto-created birthdays do) — that person's unassigned
-  // gifts too. Privacy-filtered the same way visibleGifts is.
+  // (assignedCelebId match, any person's any list), plus — if the
+  // celebration has a linked person (auto-created birthdays do) — that
+  // person's unassigned gifts too. Privacy-filtered the same way
+  // visibleListGifts is. Each result is tagged with __listId so callers can
+  // still target the right list for toggle/remove/assign actions.
   function celebGifts(celebId, personId) {
     var result = []
     Object.keys(gifts).forEach(function(pid) {
-      if (pid === "holiday_lists") return // reserved key, different shape — not a person
-      ;(gifts[pid] || []).forEach(function(g) {
-        if (myPersonId && myPersonId === pid && g.private) return
-        if (g.assignedCelebId === celebId) result.push(g)
-        else if (!g.assignedCelebId && personId && pid === personId) result.push(g)
+      if (pid === "holiday_lists") return // stray pre-migration key, defensive
+      ;(gifts[pid] || []).forEach(function(list) {
+        ;(list.gifts || []).forEach(function(g) {
+          if (myPersonId && myPersonId === pid && g.private) return
+          if (g.assignedCelebId === celebId) result.push(Object.assign({}, g, { __listId: list.id }))
+          else if (!g.assignedCelebId && personId && pid === personId) result.push(Object.assign({}, g, { __listId: list.id }))
+        })
       })
     })
     return result
   }
   function personDisplayName(personId) {
+    if (personId === "unassigned") return "Unassigned"
     var roster = hLoadPeople()
     var p = roster.find(function(x) { return x.id === personId })
     if (p) return p.name
@@ -1161,75 +1286,28 @@ function CelebrationsSection({ calEvents }) {
 
   // Draft input state for the planning sub-cards.
   const [guestDraft, setGuestDraft] = useState("")
-  const [addingGiftFor, setAddingGiftFor] = useState(null) // key: personId, or "celeb:"+celebId when adding from a celebration's Gift Ideas card
-  const [giftDraft, setGiftDraft] = useState({ title: "", notes: "", price: "", url: "", imageUrl: "", occasion: "", private: false })
-
-  // Holiday gift lists — reserved "holiday_lists" key inside af_gifts
-  // (alongside personId keys), value: [{ id, name, gifts: [...] }].
-  const [openHolidayLists, setOpenHolidayLists] = useState({}) // listId -> true if expanded; absent/false = collapsed (default)
+  // Gifts tab UI state. Lists (Birthday/Christmas/Easter/custom) live under
+  // each person now, not as a separate global section — openPersonSections
+  // defaults OPEN (undefined !== false), openLists (keyed "personId:listId")
+  // defaults COLLAPSED, matching the chevron convention used elsewhere.
+  const [openPersonSections, setOpenPersonSections] = useState({})
+  const [openLists, setOpenLists] = useState({})
   const [renamingListId, setRenamingListId] = useState(null)
   const [renameDraft, setRenameDraft] = useState("")
-  const [addingHoliday, setAddingHoliday] = useState(false)
-  const [newHolidayName, setNewHolidayName] = useState("")
-  const [addingHolidayGiftFor, setAddingHolidayGiftFor] = useState(null) // listId or null
-  const [holidayGiftDraft, setHolidayGiftDraft] = useState({ title: "", notes: "", price: "", url: "", forPerson: "", assignedTo: "" })
+  const [addingListFor, setAddingListFor] = useState(null) // personId or null
+  const [newListName, setNewListName] = useState("")
+  const [addingGiftTarget, setAddingGiftTarget] = useState(null) // { personId, listId, celebId? } or null
+  const [giftDraft, setGiftDraft] = useState({ title: "", notes: "", price: "", url: "", imageUrl: "", assignedTo: "", private: false })
 
-  // Seed Christmas/Easter once, and re-check on every gifts change so this
-  // also fires after the Phase 3 migration effect's async state update lands
-  // for households that already ran that migration before holiday lists
-  // existed (that effect returns early and won't seed this on its own).
-  React.useEffect(function() {
-    if (!gifts.holiday_lists) {
-      saveGifts(Object.assign({}, gifts, { holiday_lists: [
-        { id: "christmas", name: "Christmas", gifts: [] },
-        { id: "easter", name: "Easter", gifts: [] },
-      ] }))
-    }
-  }, [gifts])
+  function isPersonOpen(personId) { return openPersonSections[personId] !== false }
+  function togglePersonOpen(personId) {
+    setOpenPersonSections(function(p) { var n = Object.assign({}, p); n[personId] = !isPersonOpen(personId); return n })
+  }
+  function toggleListOpen(personId, listId) {
+    var key = personId + ":" + listId
+    setOpenLists(function(p) { var n = Object.assign({}, p); n[key] = !n[key]; return n })
+  }
 
-  function holidayLists() { return gifts.holiday_lists || [] }
-  function saveHolidayLists(updated) { saveGifts(Object.assign({}, gifts, { holiday_lists: updated })) }
-  function addHolidayList(name) {
-    if (!name.trim()) return
-    saveHolidayLists([...holidayLists(), { id: Date.now().toString(), name: name.trim(), gifts: [] }])
-  }
-  function renameHolidayList(listId, name) {
-    if (!name.trim()) return
-    saveHolidayLists(holidayLists().map(function(l) { return l.id === listId ? Object.assign({}, l, { name: name.trim() }) : l }))
-  }
-  function toggleHolidayListOpen(listId) {
-    setOpenHolidayLists(function(p) { var n = Object.assign({}, p); n[listId] = !n[listId]; return n })
-  }
-  function addGiftToHolidayList(listId, fields) {
-    var updated = holidayLists().map(function(l) {
-      if (l.id !== listId) return l
-      var item = Object.assign({
-        id: Date.now().toString()+Math.random().toString(36).slice(2,6),
-        title: "", notes: "", price: null, url: "", forPerson: "", assignedTo: "", purchased: false, occasion: l.name,
-      }, fields)
-      return Object.assign({}, l, { gifts: [...(l.gifts||[]), item] })
-    })
-    saveHolidayLists(updated)
-  }
-  function updateHolidayGift(listId, giftId, patch) {
-    var updated = holidayLists().map(function(l) {
-      if (l.id !== listId) return l
-      return Object.assign({}, l, { gifts: (l.gifts||[]).map(function(g) { return g.id === giftId ? Object.assign({}, g, patch) : g }) })
-    })
-    saveHolidayLists(updated)
-  }
-  function removeHolidayGift(listId, giftId) {
-    var updated = holidayLists().map(function(l) {
-      if (l.id !== listId) return l
-      return Object.assign({}, l, { gifts: (l.gifts||[]).filter(function(g) { return g.id !== giftId }) })
-    })
-    saveHolidayLists(updated)
-  }
-  function toggleHolidayGiftPurchased(listId, giftId) {
-    var l = holidayLists().find(function(x) { return x.id === listId })
-    var g = l && (l.gifts||[]).find(function(x) { return x.id === giftId })
-    if (g) updateHolidayGift(listId, giftId, { purchased: !g.purchased })
-  }
   const [budgetItemDraft, setBudgetItemDraft] = useState({ desc: "", amount: "" })
   const [foodDraft, setFoodDraft] = useState({ item: "", who: "", dietary: "" })
   const [decorDraft, setDecorDraft] = useState("")
@@ -1439,11 +1517,11 @@ function CelebrationsSection({ calEvents }) {
   // the standalone Gifts tab. opts.celebId, if passed, shows an assign/
   // unassign-to-this-celebration toggle (only meaningful from a celebration's
   // Gift Ideas card, not the person-based Gifts tab).
-  function renderGiftRow(g, opts) {
+  function renderGiftRow(g, listId, opts) {
     opts = opts || {}
     return (
       <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
-        <div onClick={function() { toggleGiftPurchased(g.personId, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.purchased ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.purchased ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+        <div onClick={function() { toggleGiftPurchased(g.personId, listId, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.purchased ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.purchased ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
           {g.purchased && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
         </div>
         {g.imageUrl ? <img src={g.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} /> : null}
@@ -1456,14 +1534,15 @@ function CelebrationsSection({ calEvents }) {
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
             {g.price != null && g.price !== "" && <span style={{ fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif" }}>${(+g.price).toFixed(2)}</span>}
             {g.url && <a href={g.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7EAEB4" }}>Link ↗</a>}
+            {g.assignedTo && <span style={{ fontSize: 10, background: "rgba(200,169,122,0.15)", color: "#c8a97a", borderRadius: 8, padding: "1px 7px", fontFamily: "DM Sans,sans-serif" }}>→ {g.assignedTo}</span>}
           </div>
         </div>
-        <button onClick={function() { toggleGiftPrivate(g.personId, g.id) }} title={g.private ? "Make visible" : "Make private"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "rgba(250,248,244,0.3)", flexShrink: 0 }}>{g.private ? "🔒" : "🔓"}</button>
+        <button onClick={function() { toggleGiftPrivate(g.personId, listId, g.id) }} title={g.private ? "Make visible" : "Make private"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "rgba(250,248,244,0.3)", flexShrink: 0 }}>{g.private ? "🔒" : "🔓"}</button>
         {opts.celebId && (g.assignedCelebId === opts.celebId
-          ? <button onClick={function() { unassignGift(g.personId, g.id) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Unassign</button>
-          : <button onClick={function() { assignGiftToCeleb(g.personId, g.id, opts.celebId) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Assign here</button>
+          ? <button onClick={function() { unassignGift(g.personId, listId, g.id) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Unassign</button>
+          : <button onClick={function() { assignGiftToCeleb(g.personId, listId, g.id, opts.celebId) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Assign here</button>
         )}
-        <button onClick={function() { removeGiftEntry(g.personId, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
+        <button onClick={function() { removeGiftFromList(g.personId, listId, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
       </div>
     )
   }
@@ -1475,86 +1554,33 @@ function CelebrationsSection({ calEvents }) {
         <input value={giftDraft.notes} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { notes: e.target.value }) }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
           <input value={giftDraft.price} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { price: e.target.value }) }) }} placeholder="Price" type="number" style={Object.assign({}, INP, { flex: 1 })} />
-          <input value={giftDraft.occasion} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { occasion: e.target.value }) }) }} placeholder="Occasion (optional)" style={Object.assign({}, INP, { flex: 1 })} />
+          <input value={giftDraft.url} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { url: e.target.value }) }) }} placeholder="Link URL (optional)" style={Object.assign({}, INP, { flex: 1 })} />
         </div>
-        <input value={giftDraft.url} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { url: e.target.value }) }) }} placeholder="Link URL (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
         <input value={giftDraft.imageUrl} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { imageUrl: e.target.value }) }) }} placeholder="Image URL (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
+        <input value={giftDraft.assignedTo} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { assignedTo: e.target.value }) }) }} placeholder="Status (e.g. told Grandma, ordered from Amazon)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", marginBottom: 10, cursor: "pointer" }}>
           <input type="checkbox" checked={giftDraft.private} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { private: e.target.checked }) }) }} />
           Private (hidden from the recipient)
         </label>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onSubmit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: 8, fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-          <button onClick={function() { setAddingGiftFor(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+          <button onClick={function() { setAddingGiftTarget(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
         </div>
       </div>
     )
   }
-  function resetGiftDraft() { setGiftDraft({ title: "", notes: "", price: "", url: "", imageUrl: "", occasion: "", private: false }) }
-  function submitGiftDraft(personId, assignedCelebId) {
+  function resetGiftDraft() { setGiftDraft({ title: "", notes: "", price: "", url: "", imageUrl: "", assignedTo: "", private: false }) }
+  function submitGiftDraft(personId, listId, assignedCelebId) {
     if (!giftDraft.title.trim()) return
-    addGiftForPerson(personId, {
+    addGiftToList(personId, listId, {
       title: giftDraft.title.trim(), notes: giftDraft.notes.trim(),
       price: giftDraft.price ? parseFloat(giftDraft.price) : null,
       url: giftDraft.url.trim(), imageUrl: giftDraft.imageUrl.trim(),
-      occasion: giftDraft.occasion.trim(), private: giftDraft.private,
+      assignedTo: giftDraft.assignedTo.trim(), private: giftDraft.private,
       assignedCelebId: assignedCelebId || null,
     })
     resetGiftDraft()
-    setAddingGiftFor(null)
-  }
-
-  function renderHolidayGiftRow(listId, g) {
-    return (
-      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
-        <div onClick={function() { toggleHolidayGiftPurchased(listId, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.purchased ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.purchased ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-          {g.purchased && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: g.purchased ? "rgba(250,248,244,0.4)" : "#faf8f4", fontFamily: "DM Sans,sans-serif", textDecoration: g.purchased ? "line-through" : "none" }}>
-            {g.title}{g.forPerson && <span style={{ color: "rgba(250,248,244,0.4)", fontWeight: 400 }}> · for {g.forPerson}</span>}
-          </div>
-          {g.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{g.notes}</div>}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 3, flexWrap: "wrap" }}>
-            {g.price != null && g.price !== "" && <span style={{ fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif" }}>${(+g.price).toFixed(2)}</span>}
-            {g.url && <a href={g.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7EAEB4" }}>Link ↗</a>}
-            {g.assignedTo && <span style={{ fontSize: 10, background: "rgba(200,169,122,0.15)", color: "#c8a97a", borderRadius: 8, padding: "1px 7px", fontFamily: "DM Sans,sans-serif" }}>→ {g.assignedTo}</span>}
-          </div>
-        </div>
-        <button onClick={function() { removeHolidayGift(listId, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
-      </div>
-    )
-  }
-
-  function renderHolidayGiftAddForm(listId) {
-    return (
-      <div style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 10, padding: 12, marginTop: 8 }}>
-        <input value={holidayGiftDraft.title} onChange={function(e) { setHolidayGiftDraft(function(p) { return Object.assign({}, p, { title: e.target.value }) }) }} placeholder="Gift idea…" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
-        <input value={holidayGiftDraft.forPerson} onChange={function(e) { setHolidayGiftDraft(function(p) { return Object.assign({}, p, { forPerson: e.target.value }) }) }} placeholder="For whom? (e.g. Madi, Grandma)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
-        <input value={holidayGiftDraft.notes} onChange={function(e) { setHolidayGiftDraft(function(p) { return Object.assign({}, p, { notes: e.target.value }) }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
-        <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-          <input value={holidayGiftDraft.price} onChange={function(e) { setHolidayGiftDraft(function(p) { return Object.assign({}, p, { price: e.target.value }) }) }} placeholder="Price" type="number" style={Object.assign({}, INP, { flex: 1 })} />
-          <input value={holidayGiftDraft.url} onChange={function(e) { setHolidayGiftDraft(function(p) { return Object.assign({}, p, { url: e.target.value }) }) }} placeholder="Link URL (optional)" style={Object.assign({}, INP, { flex: 1 })} />
-        </div>
-        <input value={holidayGiftDraft.assignedTo} onChange={function(e) { setHolidayGiftDraft(function(p) { return Object.assign({}, p, { assignedTo: e.target.value }) }) }} placeholder="Status (e.g. told Grandma, ordered from Amazon)" style={Object.assign({}, INP, { width: "100%", marginBottom: 10 })} />
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={function() { submitHolidayGiftDraft(listId) }} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: 8, fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-          <button onClick={function() { setAddingHolidayGiftFor(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
-        </div>
-      </div>
-    )
-  }
-  function resetHolidayGiftDraft() { setHolidayGiftDraft({ title: "", notes: "", price: "", url: "", forPerson: "", assignedTo: "" }) }
-  function submitHolidayGiftDraft(listId) {
-    if (!holidayGiftDraft.title.trim()) return
-    addGiftToHolidayList(listId, {
-      title: holidayGiftDraft.title.trim(), notes: holidayGiftDraft.notes.trim(),
-      price: holidayGiftDraft.price ? parseFloat(holidayGiftDraft.price) : null,
-      url: holidayGiftDraft.url.trim(), forPerson: holidayGiftDraft.forPerson.trim(),
-      assignedTo: holidayGiftDraft.assignedTo.trim(),
-    })
-    resetHolidayGiftDraft()
-    setAddingHolidayGiftFor(null)
+    setAddingGiftTarget(null)
   }
 
   return (
@@ -1657,75 +1683,64 @@ function CelebrationsSection({ calEvents }) {
             var giftPersonIds = Array.from(new Set(roster.map(function(p) { return p.id }).concat(Object.keys(gifts).filter(function(k) { return k !== "holiday_lists" }))))
             if (giftPersonIds.length === 0) return <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No people yet.</div>
             return giftPersonIds.map(function(personId) {
-              var list = visibleGifts(personId)
               var name = personDisplayName(personId)
-              var groups = {}
-              list.forEach(function(g) {
-                var occ = g.occasion || "General"
-                if (!groups[occ]) groups[occ] = []
-                groups[occ].push(g)
-              })
-              var occKeys = Object.keys(groups)
+              var lists = personLists(personId)
+              var personOpen = isPersonOpen(personId)
               return (
-                <div key={personId} style={{ marginBottom: 16, background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, padding: "14px" }}>
-                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>{name}</div>
-                  {occKeys.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
-                  {occKeys.map(function(occ) {
-                    return (
-                      <div key={occ} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(250,248,244,0.35)", marginBottom: 4, fontFamily: "DM Sans,sans-serif" }}>{occ}</div>
-                        {groups[occ].map(function(g) { return renderGiftRow(g, {}) })}
-                      </div>
-                    )
-                  })}
-                  {addingGiftFor === personId ? renderGiftAddForm(function() { submitGiftDraft(personId, null) }) : (
-                    <button onClick={function() { resetGiftDraft(); setAddingGiftFor(personId) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift idea</button>
-                  )}
-                </div>
-              )
-            })
-          })()}
-
-          <div style={{ marginTop: 24 }}>
-            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>Holiday Lists</div>
-            {holidayLists().map(function(list) {
-              var isOpen = !!openHolidayLists[list.id]
-              return (
-                <div key={list.id} style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-                  <div onClick={function() { if (renamingListId !== list.id) toggleHolidayListOpen(list.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", cursor: "pointer" }}>
-                    {renamingListId === list.id ? (
-                      <input autoFocus value={renameDraft} onChange={function(e) { setRenameDraft(e.target.value) }} onClick={function(e) { e.stopPropagation() }}
-                        onKeyDown={function(e) { if (e.key === "Enter") { renameHolidayList(list.id, renameDraft); setRenamingListId(null) } if (e.key === "Escape") setRenamingListId(null) }}
-                        onBlur={function() { if (renameDraft.trim()) renameHolidayList(list.id, renameDraft); setRenamingListId(null) }}
-                        style={Object.assign({}, INP, { flex: 1 })} />
-                    ) : (
-                      <div onClick={function(e) { e.stopPropagation(); setRenamingListId(list.id); setRenameDraft(list.name) }} style={{ flex: 1, fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#faf8f4", cursor: "text" }}>{list.name}</div>
-                    )}
-                    <span style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>{(list.gifts||[]).length}</span>
-                    <span style={{ color: "rgba(250,248,244,0.35)", fontSize: "0.62rem", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
+                <div key={personId} style={{ marginBottom: 16, background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, overflow: "hidden" }}>
+                  <div onClick={function() { togglePersonOpen(personId) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px", cursor: "pointer" }}>
+                    <div style={{ flex: 1, fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#faf8f4" }}>{name}</div>
+                    <span style={{ color: "rgba(250,248,244,0.35)", fontSize: "0.62rem", display: "inline-block", transform: personOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
                   </div>
-                  {isOpen && (
+                  {personOpen && (
                     <div style={{ padding: "0 14px 14px" }}>
-                      {(list.gifts||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
-                      {(list.gifts||[]).map(function(g) { return renderHolidayGiftRow(list.id, g) })}
-                      {addingHolidayGiftFor === list.id ? renderHolidayGiftAddForm(list.id) : (
-                        <button onClick={function() { resetHolidayGiftDraft(); setAddingHolidayGiftFor(list.id) }} style={{ marginTop: 8, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift</button>
+                      {lists.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No lists yet.</div>}
+                      {lists.map(function(list) {
+                        var listKey = personId + ":" + list.id
+                        var listOpen = !!openLists[listKey]
+                        var visibleItems = visibleListGifts(personId, list)
+                        var isAddingHere = addingGiftTarget && addingGiftTarget.personId === personId && addingGiftTarget.listId === list.id
+                        return (
+                          <div key={list.id} style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+                            <div onClick={function() { if (renamingListId !== list.id) toggleListOpen(personId, list.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}>
+                              {renamingListId === list.id ? (
+                                <input autoFocus value={renameDraft} onChange={function(e) { setRenameDraft(e.target.value) }} onClick={function(e) { e.stopPropagation() }}
+                                  onKeyDown={function(e) { if (e.key === "Enter") { renamePersonList(personId, list.id, renameDraft); setRenamingListId(null) } if (e.key === "Escape") setRenamingListId(null) }}
+                                  onBlur={function() { if (renameDraft.trim()) renamePersonList(personId, list.id, renameDraft); setRenamingListId(null) }}
+                                  style={Object.assign({}, INP, { flex: 1 })} />
+                              ) : (
+                                <div onClick={function(e) { e.stopPropagation(); setRenamingListId(list.id); setRenameDraft(list.name) }} style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", cursor: "text" }}>{list.name}</div>
+                              )}
+                              <span style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>{visibleItems.length}</span>
+                              <span style={{ color: "rgba(250,248,244,0.35)", fontSize: "0.62rem", display: "inline-block", transform: listOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
+                            </div>
+                            {listOpen && (
+                              <div style={{ padding: "0 12px 12px" }}>
+                                {visibleItems.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
+                                {visibleItems.map(function(g) { return renderGiftRow(g, list.id, {}) })}
+                                {isAddingHere ? renderGiftAddForm(function() { submitGiftDraft(personId, list.id, null) }) : (
+                                  <button onClick={function() { resetGiftDraft(); setAddingGiftTarget({ personId: personId, listId: list.id }) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {addingListFor === personId ? (
+                        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                          <input autoFocus value={newListName} onChange={function(e) { setNewListName(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { addPersonList(personId, newListName, "custom"); setNewListName(""); setAddingListFor(null) } }} placeholder="List name (e.g. Easter basket)…" style={Object.assign({}, INP, { flex: 1 })} />
+                          <button onClick={function() { addPersonList(personId, newListName, "custom"); setNewListName(""); setAddingListFor(null) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                          <button onClick={function() { setAddingListFor(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={function() { setNewListName(""); setAddingListFor(personId) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add list</button>
                       )}
                     </div>
                   )}
                 </div>
               )
-            })}
-            {addingHoliday ? (
-              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <input autoFocus value={newHolidayName} onChange={function(e) { setNewHolidayName(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { addHolidayList(newHolidayName); setNewHolidayName(""); setAddingHoliday(false) } }} placeholder="Holiday name…" style={Object.assign({}, INP, { flex: 1 })} />
-                <button onClick={function() { addHolidayList(newHolidayName); setNewHolidayName(""); setAddingHoliday(false) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-                <button onClick={function() { setAddingHoliday(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
-              </div>
-            ) : (
-              <button onClick={function() { setAddingHoliday(true) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add holiday</button>
-            )}
-          </div>
+            })
+          })()}
         </div>
       )}
       </>)}
@@ -1810,15 +1825,19 @@ function CelebrationsSection({ calEvents }) {
 
               {activeCelebCard === "gifts" && (function() {
                 var relevant = celebGifts(detailCeleb.id, detailCeleb.personId)
-                var addKey = "celeb:" + detailCeleb.id
+                var isAddingHere = addingGiftTarget && addingGiftTarget.celebId === detailCeleb.id
                 return (
                   <div>
                     <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Gift Ideas</div>
                     {relevant.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No gift ideas yet.</div>}
-                    {relevant.map(function(g) { return renderGiftRow(g, { celebId: detailCeleb.id }) })}
+                    {relevant.map(function(g) { return renderGiftRow(g, g.__listId, { celebId: detailCeleb.id }) })}
                     {detailCeleb.personId ? (
-                      addingGiftFor === addKey ? renderGiftAddForm(function() { submitGiftDraft(detailCeleb.personId, detailCeleb.id) }) : (
-                        <button onClick={function() { resetGiftDraft(); setGiftDraft(function(p) { return Object.assign({}, p, { occasion: detailCeleb.name }) }); setAddingGiftFor(addKey) }} style={{ marginTop: 10, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift idea</button>
+                      isAddingHere ? renderGiftAddForm(function() { submitGiftDraft(addingGiftTarget.personId, addingGiftTarget.listId, addingGiftTarget.celebId) }) : (
+                        <button onClick={function() {
+                          resetGiftDraft()
+                          var list = findOrCreatePersonList(detailCeleb.personId, detailCeleb.name, detailCeleb.type)
+                          setAddingGiftTarget({ personId: detailCeleb.personId, listId: list.id, celebId: detailCeleb.id })
+                        }} style={{ marginTop: 10, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift idea</button>
                       )
                     ) : (
                       <div style={{ fontSize: 11, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginTop: 10 }}>This celebration isn't linked to a specific person — add and assign gift ideas from the Gifts tab instead.</div>
@@ -8069,10 +8088,16 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     function giftsForCeleb(c) {
       var result = []
       Object.keys(giftsByPerson).forEach(function(pid) {
-        (giftsByPerson[pid] || []).forEach(function(g) {
-          if (g.private) return
-          if (g.assignedCelebId === c.id) result.push(g)
-          else if (!g.assignedCelebId && c.personId && pid === c.personId) result.push(g)
+        if (pid === "holiday_lists") return // stray pre-migration key, defensive
+        // af_gifts[personId] is an array of named lists (Birthday/Christmas/
+        // Easter/custom), each holding its own gifts — one level deeper than
+        // the flat per-person array this originally read.
+        (giftsByPerson[pid] || []).forEach(function(gList) {
+          (gList.gifts || []).forEach(function(g) {
+            if (g.private) return
+            if (g.assignedCelebId === c.id) result.push(g)
+            else if (!g.assignedCelebId && c.personId && pid === c.personId) result.push(g)
+          })
         })
       })
       return result
