@@ -928,6 +928,12 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   const [recipeBook] = useState(function() {
     try { var v = JSON.parse(localStorage.getItem("af_recipeBook") || "[]"); return Array.isArray(v) ? v : [] } catch { return [] }
   })
+  // COUNTDOWN-1: reusable countdowns live in HomeFlow/App.jsx (af_countdowns) —
+  // read directly, same reasoning as af_recipeBook above (separate component
+  // tree from AnchorVault, remounts fresh on nav so a mount-time read suffices).
+  const [countdowns] = useState(function() {
+    try { var v = JSON.parse(localStorage.getItem("af_countdowns") || "[]"); return Array.isArray(v) ? v : [] } catch { return [] }
+  })
   const [celebrations, setCelebrations] = useState(function() {
     try {
       const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
@@ -1509,6 +1515,16 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     var bPinned = pinned.includes(b.id) ? 0 : 1
     return aPinned - bPinned
   }) : []
+  // COUNTDOWN-1: a countdown surfaces on this celebration's detail view when
+  // it's tagged to show in Celebrations AND its target date's month/day
+  // matches this celebration's own month/day (year-independent, since
+  // celebrations recur annually).
+  const celebMatchedCountdowns = detailCeleb ? (countdowns || []).filter(function(cd) {
+    if (!cd || !cd.targetDate || !Array.isArray(cd.showOn) || !cd.showOn.includes("Celebrations")) return false
+    var parts = String(cd.targetDate).split("-")
+    if (parts.length !== 3) return false
+    return parseInt(parts[1], 10) === detailCeleb.month && parseInt(parts[2], 10) === detailCeleb.day
+  }) : []
 
   function celebCardPreview(c, cardId) {
     if (cardId === "overview") return c.notes ? c.notes : "Tap to view details"
@@ -1802,6 +1818,17 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                   </div>
                 </div>
               </div>
+              {celebMatchedCountdowns.length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                  {celebMatchedCountdowns.map(function(cd) {
+                    return (
+                      <div key={cd.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(250,242,229,0.04)", border: "1px solid " + (cd.color || "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "4px 11px", fontSize: 12, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
+                        <span>{cd.emoji || "⭐"}</span><span style={{ fontWeight: 700 }}>{cd.title}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
                 {CELEB_CARD_ORDER.map(function(cardId) {
                   var meta = CELEB_CARD_META[cardId]
@@ -3589,6 +3616,20 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     } catch { return [] }
   })
   var trips = pair[0]; var setTripsRaw = pair[1]
+  // COUNTDOWN-1: reusable countdowns tagged to show on Travel — additive,
+  // alongside TripCountdownBadge below (not a replacement for it).
+  var travelCountdowns = useState(function() {
+    try {
+      var s2 = localStorage.getItem("af_countdowns")
+      var parsed2 = s2 ? JSON.parse(s2) : []
+      return Array.isArray(parsed2) ? parsed2 : []
+    } catch { return [] }
+  })[0].filter(function(cd) {
+    if (!cd || !cd.targetDate || !Array.isArray(cd.showOn) || !cd.showOn.includes("Travel")) return false
+    var d = new Date(cd.targetDate + "T00:00:00")
+    var today0 = new Date(); today0.setHours(0,0,0,0)
+    return !isNaN(d.getTime()) && d >= today0
+  })
 
   function saveTrips(updated) {
     setTripsRaw(updated)
@@ -5188,6 +5229,22 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
           <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
 
           <TravelWalletCard />
+
+          {travelCountdowns.length > 0 && (
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:18 }}>
+              {travelCountdowns.map(function(cd) {
+                var d = new Date(cd.targetDate + "T00:00:00")
+                var today0 = new Date(); today0.setHours(0,0,0,0)
+                var days = Math.round((d - today0) / 86400000)
+                var when = days===0 ? "Today!" : days===1 ? "Tomorrow" : "in "+days+" days"
+                return (
+                  <div key={cd.id} style={{ display:"flex", alignItems:"center", gap:7, background:cardBg, border:"1px solid "+(cd.color||border), borderRadius:20, padding:"5px 12px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                    <span>{cd.emoji||"⭐"}</span><span style={{ fontWeight:700 }}>{cd.title}</span><span style={{ color:muted }}>{when}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {trips.length === 0 ? (
             // Richer empty state, matching HomeSystemsSection's tone (~5683): icon +

@@ -118,7 +118,19 @@ export const SYNC_KEYS = [
   // anchored trip instances. Array-guard treatment, same as celebrations/
   // ownedProducts (top-level array + null-entry guard only — sub-field
   // shapes inside each trip are not independently validated).
-  "trips"];
+  "trips",
+  // WORK-1 — per-person recurring work schedule. Object map { [personId]:
+  // {days:[], type, color, notes} }. Distinct from workDays above (an
+  // existing, unrelated household-wide date-keyed ad-hoc marker, e.g.
+  // "2026-08-15": {type:"travel"}) — not a migration of that data, a new
+  // additive feature; the two coexist. Object pass-through, same class as
+  // gifts (object keyed by id, not an array).
+  "work_schedules",
+  // COUNTDOWN-1 — reusable named countdowns, independent of Travel/
+  // Celebrations' own date fields. Array of { id, title, targetDate, emoji,
+  // color, showOn }. Array-guard treatment, same as celebrations/trips.
+  // Deliberately excluded from buildCompassContext() (compassEngine.js).
+  "countdowns"];
 
 // ── errorCode ─────────────────────────────────────────────────────────────────
 // Stable 8-char hex support code derived from an error message string.
@@ -165,6 +177,9 @@ const _SANITIZE_HANDLED = new Set([
   // recipeBook: occasion-tagged full/simple recipes (Meals > Recipes tab).
   // Same array-guard class as celebrations/gifts-array — see SYNC_KEYS comment.
   "recipeBook",
+  // countdowns: reusable named countdowns (COUNTDOWN-1). Same array-guard
+  // class as celebrations/trips.
+  "countdowns",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // gifts: object map { personId: [gift, ...] } (Phase 3) — moved off the
@@ -172,6 +187,10 @@ const _SANITIZE_HANDLED = new Set([
   // people to this person-keyed map. Same fix class as cove_sections_v1:
   // an object misclassified as an array silently vanishes every sync.
   "gifts",
+  // work_schedules: object map { personId: {days,type,color,notes} }
+  // (WORK-1). Same shape class as gifts — object keyed by person id, needs
+  // its own guard so a misclassified array doesn't vanish every sync.
+  "work_schedules",
   // Scalars
   "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
   // Objects
@@ -214,7 +233,10 @@ export function sanitizeHouseholdData(data) {
      // recipeBook: array of recipe records ({id, title, type, occasions,
      // serves, ingredients, steps, notes}). Only the top-level array and null
      // entries are guarded here — sub-field shapes are unvalidated.
-     "recipeBook"
+     "recipeBook",
+     // countdowns: array of { id, title, targetDate, emoji, color, showOn }.
+     // Only the top-level array and null entries are guarded here.
+     "countdowns"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
@@ -301,6 +323,26 @@ export function sanitizeHouseholdData(data) {
         if (Array.isArray(data.gifts[pid])) safeGifts[pid] = data.gifts[pid].filter(g => g != null);
       });
       out.gifts = safeGifts;
+    }
+    // work_schedules: object map { personId: {days:[], type, color, notes} }
+    // (WORK-1). Same validation shape as gifts — map itself must be an
+    // object (not array), and each person's entry must be an object with
+    // days actually an array (nulls filtered); a malformed per-person entry
+    // is dropped rather than rejecting the whole map.
+    if (data.work_schedules && typeof data.work_schedules === "object" && !Array.isArray(data.work_schedules)) {
+      const safeSchedules = {};
+      Object.keys(data.work_schedules).forEach(pid => {
+        const s = data.work_schedules[pid];
+        if (s && typeof s === "object" && !Array.isArray(s)) {
+          safeSchedules[pid] = {
+            days: Array.isArray(s.days) ? s.days.filter(d => d != null) : [],
+            type: typeof s.type === "string" ? s.type : "regular",
+            color: typeof s.color === "string" ? s.color : "",
+            notes: typeof s.notes === "string" ? s.notes : "",
+          };
+        }
+      });
+      out.work_schedules = safeSchedules;
     }
     // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey
     if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&

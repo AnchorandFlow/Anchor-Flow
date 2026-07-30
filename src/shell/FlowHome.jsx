@@ -129,6 +129,20 @@ export default function FlowHome(props) {
   var tmwMeal = meals[tomorrowName] || {};
   var tmwDinner = tmwMeal.name || tmwMeal.dinner || tmwMeal.meal || null;
 
+  // WORK-1: per-person recurring work schedule (af_work_schedules), distinct
+  // from the older af_workDays ad-hoc per-date marker used elsewhere.
+  var flowPeople = rd("people", []);
+  if (!Array.isArray(flowPeople)) flowPeople = [];
+  var workSchedules = rd("work_schedules", {});
+  if (!workSchedules || typeof workSchedules !== "object") workSchedules = {};
+  var workingToday = flowPeople.filter(function (p) {
+    var s = workSchedules[p.id];
+    return s && Array.isArray(s.days) && s.days.includes(todayName);
+  }).map(function (p) {
+    var s = workSchedules[p.id];
+    return { name: p.name, type: s.type, color: s.color || p.color };
+  });
+
   var calEvents = rd("calEvents", []);
   if (!Array.isArray(calEvents)) calEvents = [];
   var todayISO = now.toISOString().slice(0, 10);
@@ -239,7 +253,7 @@ export default function FlowHome(props) {
           </Card>
         </div>
 
-        {/* RIGHT column — second slot intentionally open (work schedule, future) */}
+        {/* RIGHT column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="Tonight's Dinner · from Anchor" title={dinner || "Not planned yet"} link={{ label: "Edit →", onClick: function () { go("meals"); } }}>
             {dinner ? (
@@ -250,6 +264,21 @@ export default function FlowHome(props) {
             ) : (
               <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No dinner planned. <span onClick={function () { go("meals"); }} style={{ color: C.sea, cursor: "pointer" }}>Plan one →</span></div>
             )}
+          </Card>
+
+          {/* WORK-1: who's working today, at a glance */}
+          <Card eyebrow="Work" title="Working Today" link={{ label: "Edit →", onClick: function () { go("settings"); } }}>
+            {workingToday.length === 0 ? (
+              <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No one's scheduled to work today.</div>
+            ) : workingToday.map(function (w, i) {
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 0", borderBottom: i < workingToday.length - 1 ? "1px solid " + C.cream : "none" }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: w.color || C.sea, flexShrink: 0 }} />
+                  <div style={{ flex: 1, fontSize: ".84rem", color: C.t1 }}>{w.name}</div>
+                  {w.type && w.type !== "regular" && <div style={{ fontSize: ".68rem", color: C.t3, textTransform: "capitalize" }}>{w.type.replace("-", " ")}</div>}
+                </div>
+              );
+            })}
           </Card>
         </div>
       </div>

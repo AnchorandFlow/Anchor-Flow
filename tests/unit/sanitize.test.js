@@ -35,6 +35,9 @@ const PLAUSIBLE = {
   // recipeBook: occasion-tagged recipes (Meals > Recipes tab). Distinct from
   // "recipes" above (URL-import feature) — af_recipes was already taken.
   recipeBook:         [{ id:"rb1", title:"Grandma's Stuffing", type:"full", occasions:["Thanksgiving"], serves:8, ingredients:[{id:"i1",amount:"2",unit:"cups",name:"bread cubes"}], steps:[{id:"st1",text:"Toast bread cubes",timer:null}], notes:"", createdAt:"2026-07-01T00:00:00.000Z" }],
+  // countdowns: reusable named countdowns (COUNTDOWN-1), independent of
+  // Travel/Celebrations' own date fields.
+  countdowns:         [{ id:"cd1", title:"Disney trip", targetDate:"2026-12-20", emoji:"✈️", color:"#5E8FA0", showOn:["Today","Travel"] }],
   shoppingItems:      [{ id:"s1", name:"milk" }],
   stores:             ["Costco","Grocery"],
   shopCategories:     [{ id:"sc1", name:"Produce" }],
@@ -57,6 +60,9 @@ const PLAUSIBLE = {
   // gifts: person-keyed map (Phase 3) — was a flat array of people before.
   // celebgifts/moments retired entirely (no longer in SYNC_KEYS).
   gifts:              { p1: [{ id:"g1", personId:"p1", title:"wine", notes:"", price:20, url:"", imageUrl:"", purchased:false, private:false, occasion:"Anniversary", assignedCelebId:"cel1" }] },
+  // work_schedules: per-person recurring work schedule (WORK-1). Object map,
+  // same shape class as gifts — keyed by personId, not an array.
+  work_schedules:     { p1: { days:["Monday","Tuesday","Wednesday","Thursday","Friday"], type:"regular", color:"#5E8FA0", notes:"" } },
   inventory:          [{ id:"inv1", name:"pasta", qty:3 }],
   pets:               [{ id:"pet1", name:"Buddy", type:"dog" }],
   ripples:            [{ id:"rip1", text:"family vacation" }],

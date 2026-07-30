@@ -1016,6 +1016,10 @@ const getThisSunday = () => {
 };
 // MEAL_DAYS imported from ./sync-core.js
 const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
+// COUNTDOWN-1: shared config for the reusable countdowns feature.
+const COUNTDOWN_EMOJIS = ["⭐","🎂","✈️","🎉","🎄","🎁","💍","🏖️","🎓","❤️"];
+const COUNTDOWN_COLORS = ["#5E8FA0","#7a9e8e","#c4a882","#b87265","#8878b8","#e8a838"];
+const COUNTDOWN_SECTIONS = ["Today","Flow","Travel","Celebrations","Lighthouse"];
 const WEEKDAYS_SUN = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 // Calendar Year view — fixed, final category palette. Categories are inferred
 // from which data source an item came from (calEvents have no category field
@@ -1616,13 +1620,23 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   );
 }
 
-function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,btnP,PC,ROLES}){
+function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,T,inp,btnP,PC,ROLES}){
   React.useEffect(function(){AF_DEBUG&&console.log("[AF MOUNT] FamilySection");return function(){AF_DEBUG&&console.log("[AF UNMOUNT] FamilySection");};},[]);
   var _fsRender=React.useRef(0);_fsRender.current++;AF_DEBUG&&console.count("[AF RENDER] Family-section");
   var [newMemberName,setNewMemberName]=useState("");
   var [newMemberBirthday,setNewMemberBirthday]=useState("");
   var [newMemberRole,setNewMemberRole]=useState("");
   var [settingsOpen,setSettingsOpen]=useState({family:true});
+  var [workScheduleOpenFor,setWorkScheduleOpenFor]=useState(null);
+  var WORK_SCHEDULE_COLORS=["#5E8FA0","#7a9e8e","#c4a882","#b87265","#8878b8","#e8a838"];
+  function updateWorkSchedule(personId,patch){
+    setWorkSchedules(function(prev){
+      var cur=(prev&&prev[personId])||{days:[],type:"regular",color:"",notes:""};
+      var next=Object.assign({},prev);
+      next[personId]=Object.assign({},cur,patch);
+      return next;
+    });
+  }
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){
       var current=key in p?p[key]:(defaultOpen||false);
@@ -1688,6 +1702,40 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
                   </label>
                 </div>
               </div>
+              {/* WORK-1: per-person work schedule, collapsible below the main row */}
+              <div style={{marginTop:"0.4rem"}}>
+                <button onClick={function(){setWorkScheduleOpenFor(workScheduleOpenFor===p.id?null:p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.72rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
+                  💼 Work schedule{(workSchedules[p.id]&&workSchedules[p.id].days&&workSchedules[p.id].days.length>0)?" ("+workSchedules[p.id].days.length+" days)":""}
+                </button>
+                {workScheduleOpenFor===p.id&&(function(){
+                  var sched=workSchedules[p.id]||{days:[],type:"regular",color:"",notes:""};
+                  return (
+                    <div style={{background:T.surface,borderRadius:"0.7rem",padding:"0.6rem 0.7rem",marginTop:"0.3rem",border:"1px solid "+T.borderSoft}}>
+                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+                        {MEAL_DAYS.map(function(day){
+                          var on=(sched.days||[]).includes(day);
+                          var swatch=sched.color||T.blue;
+                          return <button key={day} onClick={function(){updateWorkSchedule(p.id,{days:on?sched.days.filter(function(d){return d!==day;}):[...(sched.days||[]),day]});}} style={{background:on?swatch:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?swatch:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
+                        })}
+                      </div>
+                      <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",alignItems:"center",marginBottom:"0.5rem"}}>
+                        <select value={sched.type||"regular"} onChange={function(e){updateWorkSchedule(p.id,{type:e.target.value});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
+                          <option value="regular">Regular</option>
+                          <option value="irregular">Irregular</option>
+                          <option value="on-call">On-call</option>
+                          <option value="overnight">Overnight</option>
+                        </select>
+                        <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
+                          {WORK_SCHEDULE_COLORS.map(function(c){return(
+                            <button key={c} onClick={function(){updateWorkSchedule(p.id,{color:c});}} style={{width:16,height:16,borderRadius:"50%",background:c,border:sched.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0}}/>
+                          );})}
+                        </div>
+                      </div>
+                      <input value={sched.notes||""} onChange={function(e){updateWorkSchedule(p.id,{notes:e.target.value});}} placeholder="Notes (optional)" style={{...inp({fontSize:"0.75rem",padding:"0.25rem 0.5rem",width:"100%"})}}/>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           );
         })}
@@ -1751,7 +1799,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,T,inp,bt
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled}){
   const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
@@ -1849,6 +1897,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,flowMode,s
       <FamilySection
         people={people} setPeople={setPeople}
         familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
+        workSchedules={workSchedules} setWorkSchedules={setWorkSchedules}
         T={T} inp={inp} btnP={btnP} PC={PC} ROLES={ROLES}
       />
 
@@ -3649,6 +3698,8 @@ function createLocalBackup() {
   const [modal,setModal]                       = useState(null);
   const [flowMode,setFlowMode]                 = useSaved("flowMode","Smooth");
   const [people,setPeople]                     = useSaved("people",[{id:uid(),name:"You",color:"#6A9BB5"},{id:uid(),name:"Partner",color:"#7a9e8e"}]);
+  const [workSchedules,setWorkSchedules]       = useSaved("work_schedules",{});
+  const [countdowns,setCountdowns]             = useSaved("countdowns",[]);
   const [tasks,setTasks]                       = useSaved("tasks",[]);
   // meals — sanitized at read time; rolls over to next week's plan if the calendar week has changed
   const [meals, setMealsRaw] = useState(() => {
@@ -5133,6 +5184,9 @@ Respond ONLY with valid JSON array, no markdown:
   // Derived, no new data entry: pulls upcoming birthdays (already injected into
   // calEvents) and trips/moments (af_moments), shows the nearest few on Today.
   _hfRenders.Countdowns = function Countdowns() {
+    var s_add=useState(false); var addOpen=s_add[0]; var setAddOpen=s_add[1];
+    var s_form=useState({title:"",targetDate:"",emoji:COUNTDOWN_EMOJIS[0],color:COUNTDOWN_COLORS[0],showOn:["Today"]});
+    var form=s_form[0]; var setForm=s_form[1];
     var today = new Date(); today.setHours(0,0,0,0);
     var items = [];
     (calEvents||[]).forEach(function(e){
@@ -5142,7 +5196,7 @@ Respond ONLY with valid JSON array, no markdown:
       var d = new Date(e.date + "T00:00:00");
       if(isNaN(d.getTime()) || d < today) return;
       var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: "🎂", label: (e.title||"").replace("🎂 ","").replace(/\s*\(turns[^)]*\)\s*$/,"") });
+      items.push({ days: days, icon: "🎂", label: (e.title||"").replace("🎂 ","").replace(/\s*\(turns[^)]*\)\s*$/,""), color:null });
     });
     var moments = [];
     try { var s = localStorage.getItem("af_moments"); moments = s ? JSON.parse(s) : []; } catch(_e) {}
@@ -5151,30 +5205,89 @@ Respond ONLY with valid JSON array, no markdown:
       var d = new Date(m.date + "T00:00:00");
       if(isNaN(d.getTime()) || d < today) return;
       var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: "✈️", label: m.name || "Trip" });
+      items.push({ days: days, icon: "✈️", label: m.name || "Trip", color:null });
+    });
+    // COUNTDOWN-1: user-created reusable countdowns, tagged to show here.
+    (countdowns||[]).forEach(function(c){
+      if(!c || !c.targetDate || !Array.isArray(c.showOn) || !c.showOn.includes("Today")) return;
+      var d = new Date(c.targetDate + "T00:00:00");
+      if(isNaN(d.getTime()) || d < today) return;
+      var days = Math.round((d - today) / 86400000);
+      items.push({ days: days, icon: c.emoji||"⭐", label: c.title||"Countdown", color: c.color||null });
     });
     items.sort(function(a,b){ return a.days - b.days; });
     var top = items.slice(0, 4);
-    if(top.length === 0) return null;
+    function submitCountdown(){
+      if(!form.title.trim()||!form.targetDate) return;
+      setCountdowns(function(p){return [...p,{id:uid(),title:form.title.trim(),targetDate:form.targetDate,emoji:form.emoji,color:form.color,showOn:form.showOn}];});
+      setForm({title:"",targetDate:"",emoji:COUNTDOWN_EMOJIS[0],color:COUNTDOWN_COLORS[0],showOn:["Today"]});
+      setAddOpen(false);
+    }
     return (
       <div style={{...card({padding:"1rem 1.15rem"})}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
           <span style={{fontSize:"1rem"}}>⏳</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Countdowns</span>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark,flex:1}}>Countdowns</span>
+          <button onClick={function(){setAddOpen(true);}} style={btnS({fontSize:"0.72rem",padding:"0.28rem 0.65rem"})}>+ Add</button>
         </div>
-        <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
-          {top.map(function(it,i){
-            var soon = it.days <= 7;
-            var when = it.days===0 ? "Today!" : it.days===1 ? "Tomorrow" : it.days+" days";
-            return (
-              <div key={i} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft}}>
-                <span style={{fontSize:"1.05rem"}}>{it.icon}</span>
-                <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.label}</span>
-                <span style={{fontSize:"0.8rem",fontWeight:800,color:soon?T.sand:T.blue,whiteSpace:"nowrap"}}>{when}</span>
+        {top.length===0 ? (
+          <p style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",margin:0}}>No countdowns yet — add one for birthdays, trips, holidays, or anything you're looking forward to.</p>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
+            {top.map(function(it,i){
+              var soon = it.days <= 7;
+              var when = it.days===0 ? "Today!" : it.days===1 ? "Tomorrow" : it.days+" days";
+              return (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.5rem 0.65rem",background:T.white,borderRadius:"0.7rem",border:"1.5px solid "+(it.color||T.borderSoft)}}>
+                  <span style={{fontSize:"1.05rem"}}>{it.icon}</span>
+                  <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.label}</span>
+                  <span style={{fontSize:"0.8rem",fontWeight:800,color:it.color||(soon?T.sand:T.blue),whiteSpace:"nowrap"}}>{when}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {addOpen&&(
+          <ModalBox title="Add countdown" onClose={function(){setAddOpen(false);}}>
+            <div style={{marginBottom:"0.75rem"}}>
+              <label style={lbl}>Title</label>
+              <input value={form.title} onChange={function(e){setForm(function(p){return Object.assign({},p,{title:e.target.value});});}} placeholder="e.g. Disney trip" style={inp()} autoFocus/>
+            </div>
+            <div style={{marginBottom:"0.75rem"}}>
+              <label style={lbl}>Date</label>
+              <input type="date" value={form.targetDate} onChange={function(e){setForm(function(p){return Object.assign({},p,{targetDate:e.target.value});});}} style={inp()}/>
+            </div>
+            <div style={{marginBottom:"0.75rem"}}>
+              <label style={lbl}>Icon</label>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {COUNTDOWN_EMOJIS.map(function(em){return(
+                  <button key={em} onClick={function(){setForm(function(p){return Object.assign({},p,{emoji:em});});}} style={{fontSize:"1.1rem",background:form.emoji===em?T.sagePale:T.white,border:"1.5px solid "+(form.emoji===em?T.sage:T.border),borderRadius:"0.6rem",padding:"0.25rem 0.5rem",cursor:"pointer"}}>{em}</button>
+                );})}
               </div>
-            );
-          })}
-        </div>
+            </div>
+            <div style={{marginBottom:"0.75rem"}}>
+              <label style={lbl}>Color</label>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {COUNTDOWN_COLORS.map(function(c){return(
+                  <button key={c} onClick={function(){setForm(function(p){return Object.assign({},p,{color:c});});}} style={{width:22,height:22,borderRadius:"50%",background:c,border:form.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer"}}/>
+                );})}
+              </div>
+            </div>
+            <div style={{marginBottom:"1rem"}}>
+              <label style={lbl}>Show on</label>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                {COUNTDOWN_SECTIONS.map(function(sec){
+                  var on=form.showOn.includes(sec);
+                  return <button key={sec} onClick={function(){setForm(function(p){return Object.assign({},p,{showOn:on?p.showOn.filter(function(x){return x!==sec;}):[...p.showOn,sec]});});}} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.sage:T.border),borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{sec}</button>;
+                })}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+              <button onClick={function(){setAddOpen(false);}} style={btnS()}>Cancel</button>
+              <button onClick={submitCountdown} disabled={!form.title.trim()||!form.targetDate} style={btnP(T.sage,{opacity:(!form.title.trim()||!form.targetDate)?0.5:1})}>Save</button>
+            </div>
+          </ModalBox>
+        )}
       </div>
     );
   }
@@ -6666,6 +6779,23 @@ Respond ONLY in valid JSON:
         if(d.getFullYear()!==yr) return;
         var wd=workDays[dateStr];
         items.push({key:"wd_"+dateStr, date:dateStr, cat:"work", title:CAL_YEAR_WORKDAY_LABELS[wd.type]||"Work", personId:null, icon:"💼"});
+      });
+      // WORK-1: per-person recurring work schedule (af_work_schedules) — a
+      // weekly weekday pattern, distinct from the date-keyed workDays above.
+      Object.keys(workSchedules).forEach(function(personId){
+        var sched=workSchedules[personId];
+        if(!sched||!Array.isArray(sched.days)||sched.days.length===0) return;
+        var person=people.find(function(p){return p.id===personId;});
+        var personName=person?person.name:"Work";
+        var dCur=new Date(yr,0,1); var dEnd=new Date(yr,11,31);
+        while(dCur<=dEnd){
+          var dayName=DAY_NAMES[dCur.getDay()];
+          if(sched.days.includes(dayName)){
+            var dateStr2=localDateStr(dCur);
+            items.push({key:"ws_"+personId+"_"+dateStr2, date:dateStr2, cat:"work", title:personName+" working", personId:personId, icon:"💼"});
+          }
+          dCur.setDate(dCur.getDate()+1);
+        }
       });
       return items;
     }
@@ -14791,6 +14921,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="settings" && <SectionErrorBoundary label="Settings"><SettingsTab
                   people={people} setPeople={setPeople}
                   familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
+                  workSchedules={workSchedules} setWorkSchedules={setWorkSchedules}
                   flowMode={flowMode} setFlowMode={setFlowMode}
                   flowGreetingTone={flowGreetingTone} setFlowGreetingTone={setFlowGreetingTone}
                   mealCount={mealCount} setMealCount={setMealCount}
