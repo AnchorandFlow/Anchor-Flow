@@ -1318,6 +1318,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
   const [budgetItemDraft, setBudgetItemDraft] = useState({ desc: "", amount: "" })
   const [foodDraft, setFoodDraft] = useState({ item: "", who: "", dietary: "" })
+  const [usedRecipeConfirm, setUsedRecipeConfirm] = useState(null)
   const [decorDraft, setDecorDraft] = useState("")
   const [activityDraft, setActivityDraft] = useState("")
   const [todoDraft, setTodoDraft] = useState("")
@@ -1384,6 +1385,21 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     var list = (c && c.food) || []
     updateCelebField(celebId, { food: [...list, { id: Date.now().toString(), item: foodDraft.item.trim(), who: foodDraft.who.trim(), dietary: foodDraft.dietary.trim() }] })
     setFoodDraft({ item: "", who: "", dietary: "" })
+  }
+  // Copies a matched recipe's title into the dish checklist as a new food
+  // item — the recipe itself is untouched, this only adds a dish entry.
+  function useRecipeAsDish(celebId, recipe) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var list = (c && c.food) || []
+    updateCelebField(celebId, { food: [...list, { id: Date.now().toString(), item: recipe.title, who: "", dietary: "", fromRecipe: recipe.title }] })
+    setUsedRecipeConfirm(recipe.id)
+    setTimeout(function() { setUsedRecipeConfirm(function(cur) { return cur === recipe.id ? null : cur }) }, 2500)
+  }
+  function toggleRecipePin(celebId, recipeId) {
+    var c = celebrations.find(function(x) { return x.id === celebId })
+    var pinned = (c && c.pinnedRecipes) || []
+    var next = pinned.includes(recipeId) ? pinned.filter(function(id) { return id !== recipeId }) : [...pinned, recipeId]
+    updateCelebField(celebId, { pinnedRecipes: next })
   }
   function removeFoodItem(celebId, itemId) {
     var c = celebrations.find(function(x) { return x.id === celebId })
@@ -1486,6 +1502,11 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   const celebFoodMatchedRecipes = detailCeleb ? (recipeBook || []).filter(function(r) {
     var nameLower = (detailCeleb.name || "").toLowerCase()
     return (r.occasions || []).some(function(occ) { return nameLower.indexOf(String(occ).toLowerCase()) !== -1 })
+  }).sort(function(a, b) {
+    var pinned = detailCeleb.pinnedRecipes || []
+    var aPinned = pinned.includes(a.id) ? 0 : 1
+    var bPinned = pinned.includes(b.id) ? 0 : 1
+    return aPinned - bPinned
   }) : []
 
   function celebCardPreview(c, cardId) {
@@ -1908,12 +1929,16 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                         No recipes tagged for this occasion yet — {onBrowseRecipes ? <span onClick={onBrowseRecipes} style={{ color: "#c8a97a", cursor: "pointer", fontStyle: "normal", textDecoration: "underline" }}>add one in Meals → Recipes</span> : "add one in Meals → Recipes"}.
                       </div>
                     ) : celebFoodMatchedRecipes.map(function(r) {
+                      var pinned = (detailCeleb.pinnedRecipes || []).includes(r.id)
                       return (
-                        <div key={r.id} onClick={function() { onOpenRecipe && onOpenRecipe(r.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.15)", borderRadius: 9, marginBottom: 6, cursor: onOpenRecipe ? "pointer" : "default" }}>
-                          <div style={{ flex: 1 }}>
+                        <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: pinned ? "rgba(200,169,122,0.14)" : "rgba(200,169,122,0.06)", border: "1px solid " + (pinned ? "rgba(200,169,122,0.35)" : "rgba(200,169,122,0.15)"), borderRadius: 9, marginBottom: 6 }}>
+                          <button onClick={function() { toggleRecipePin(detailCeleb.id, r.id) }} title={pinned ? "Unpin from this celebration" : "Pin to this celebration"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: pinned ? "#c8a97a" : "rgba(250,248,244,0.25)", flexShrink: 0, padding: 2, lineHeight: 1 }}>{pinned ? "📌" : "📍"}</button>
+                          <div onClick={function() { onOpenRecipe && onOpenRecipe(r.id) }} style={{ flex: 1, cursor: onOpenRecipe ? "pointer" : "default" }}>
                             <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", fontWeight: 600 }}>{r.title}</div>
                             <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>{r.type === "full" ? "Full recipe" : "Simple dish"}{r.serves ? " · Serves " + r.serves : ""}</div>
+                            {usedRecipeConfirm === r.id && <div style={{ fontSize: 11, color: "#7a9e8e", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontWeight: 600 }}>✓ Added to dish checklist below</div>}
                           </div>
+                          <button onClick={function() { useRecipeAsDish(detailCeleb.id, r) }} style={{ background: "rgba(200,169,122,0.15)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "4px 9px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>Use this recipe</button>
                         </div>
                       )
                     })}
@@ -1925,7 +1950,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                       <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(250,242,229,0.03)", borderRadius: 9, marginBottom: 6 }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{f.item}</div>
-                          <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{f.who ? "Bringing: "+f.who : ""}{f.who && f.dietary ? " · " : ""}{f.dietary}</div>
+                          <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{f.who ? "Bringing: "+f.who : ""}{f.who && f.dietary ? " · " : ""}{f.dietary}{(f.who || f.dietary) && f.fromRecipe ? " · " : ""}{f.fromRecipe ? "From recipe: "+f.fromRecipe : ""}</div>
                         </div>
                         <button onClick={function() { removeFoodItem(detailCeleb.id, f.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
                       </div>
