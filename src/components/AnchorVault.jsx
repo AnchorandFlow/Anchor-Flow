@@ -8550,7 +8550,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   if (momentEntries && momentEntries.length) { var mn = momentEntries[0]; if (mn && mn.badge) glance.push((mn.label||"").replace(/^[^ ]+ /,"") + " " + mn.badge) }
   var glanceText = glance.length ? glance.slice(0,3).join("  ·  ") : "Everything's calm — nothing needs attention right now."
 
-  var MEAL_DAYS_DASH = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+  var MEAL_DAYS_DASH = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
   function readMealsDash(){ try { return JSON.parse(localStorage.getItem("af_meals")||"{}")||{} } catch(e){ return {} } }
   var weekMeals = readMealsDash()
   var dinnerRows = MEAL_DAYS_DASH.map(function(d){ var m=weekMeals[d]||{}; return { day:d, dinner:(m.Dinner||m.dinner||m.name||"") } })

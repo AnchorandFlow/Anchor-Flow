@@ -350,7 +350,7 @@ function RippleNotificationBanner() {
       try { if (localStorage.getItem(k) === "null") localStorage.removeItem(k); } catch {}
     });
     const ARRAY_KEYS = ["af_tasks", "af_brainItems", "af_shoppingItems", "af_notifications", "af_calEvents", "af_connectedCals", "af_favMeals", "af_checkedCalEvents", "af_checkedMealItems", "af_burnoutChecked", "af_recurring"];
-    const MEAL_DAYS_S = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+    const MEAL_DAYS_S = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
     // Sanitize all array keys — filter out null/non-object entries
     ARRAY_KEYS.forEach(key => {
@@ -1003,11 +1003,17 @@ function myDisplayName(people, myPersonId, preferredName, authUser) {
   }
   return preferredName || (authUser && authUser.displayName ? authUser.displayName.split(" ")[0] : "");
 }
-// Returns the ISO date string (YYYY-MM-DD) of the Monday starting the current week
-const getThisMonday = () => {
+// MEALS-1: week anchor switched from Monday to Sunday, matching MEAL_DAYS'
+// new Sunday-first order. Simple swap, no migration — single-user app at the
+// time of this change, so an existing Monday-dated af_mealsWeekOf simply not
+// matching this week's Sunday once (triggering one normal rollover check) is
+// an accepted, low-stakes tradeoff rather than something worth a transition
+// scheme for.
+// Returns the ISO date string (YYYY-MM-DD) of the Sunday starting the current week
+const getThisSunday = () => {
   const d = new Date();
   const day = d.getDay(); // 0=Sun, 1=Mon...
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setDate(d.getDate() - day);
   return d.toISOString().slice(0, 10);
 };
 // MEAL_DAYS imported from ./sync-core.js
@@ -3132,7 +3138,7 @@ function createLocalBackup() {
       const _changed = _applyHouseholdKeysDetectChange(clean, {
         arrayKeys: _ARRAY_KEYS,
         skip: function(k) {
-          if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return true;
+          if (k === "mealsWeekOf" && localWeekOf === getThisSunday()) return true;
           if (k === "lighthouse" && isLighthouseDirty(_pullDirtyKeys)) return true;
           return false;
         }
@@ -3434,7 +3440,7 @@ function createLocalBackup() {
           const _changedBg = _applyHouseholdKeysDetectChange(cleanBg, {
             arrayKeys: _ARRAY_KEYS_BG,
             skip: function(k) {
-              if (k === "mealsWeekOf" && localWeekOf === getThisMonday()) return true;
+              if (k === "mealsWeekOf" && localWeekOf === getThisSunday()) return true;
               if (k === "lighthouse" && isLighthouseDirty(_bgDirtyKeys)) return true;
               return false;
             }
@@ -3649,7 +3655,7 @@ function createLocalBackup() {
   // meals — sanitized at read time; rolls over to next week's plan if the calendar week has changed
   const [meals, setMealsRaw] = useState(() => {
     try {
-      const thisMonday = getThisMonday();
+      const thisSunday = getThisSunday();
       // Safely read mealsWeekOf — may be plain string or JSON-stringified string
       const storedWeekOf = (() => {
         try {
@@ -3662,7 +3668,7 @@ function createLocalBackup() {
       })();
 
       // If we're in a new week, promote nextWeekMeals → current and clear the old plan
-      if (storedWeekOf && storedWeekOf !== thisMonday) {
+      if (storedWeekOf && storedWeekOf !== thisSunday) {
         const nextRaw = (() => { try { return JSON.parse(localStorage.getItem("af_nextWeekMeals")||"null"); } catch { return null; } })();
         const promoted = (nextRaw && typeof nextRaw === "object") ? nextRaw : {};
         const safe = {};
@@ -3677,14 +3683,14 @@ function createLocalBackup() {
         });
         // Persist the promoted plan as this week and clear next week
         try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
-        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisMonday)); } catch {}
+        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday)); } catch {}
         try { localStorage.setItem("af_nextWeekMeals", JSON.stringify({})); } catch {}
         return safe;
       }
 
       // Same week — stamp mealsWeekOf if missing so future rollover works
       if (!storedWeekOf) {
-        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisMonday)); } catch {}
+        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday)); } catch {}
       }
 
       const raw = localStorage.getItem("af_meals");
@@ -4475,7 +4481,7 @@ function createLocalBackup() {
         });
 
       // ── Meals: full week plan ──────────────────────────────────────────────
-      const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+      const MEAL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
       const mealSummary = MEAL_DAYS
         .map(day=>{
@@ -7542,7 +7548,7 @@ Respond ONLY in valid JSON:
       try{
         var r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-6",max_tokens:700,
-          system:"You are a practical family meal planner. Suggest 7 dinners (one per day Mon–Sun) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
+          system:"You are a practical family meal planner. Suggest 7 dinners (one per day Sun–Sat) for a "+weekTypeKey+" week. "+modeDesc+" "+dietInfo+" Available meal bank options: "+bankNames+". Prefer meal bank options when they fit. Also suggest 1-2 non-cooking nights (takeout, paper plates, etc). Respond ONLY as JSON: [{\"day\":\"Monday\",\"meal\":\"name\",\"note\":\"one short tip\",\"effort\":\"none|minimal|easy\"}]. No preamble.",
           messages:[{role:"user",content:"Suggest meals for my "+weekTypeKey+" week."}]
         })});
         if(!r.ok) throw new Error("Meal suggestion request failed: "+r.status);

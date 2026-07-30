@@ -18,7 +18,7 @@ import { mergeSafeHarbor } from "./shell/safe-harbor-migrate.js";
 // authoritative one referenced by sanitizeHouseholdData. The other two
 // (line 267 inside the IIFE as MEAL_DAYS_S; line 3400 inside MealsTab) remain
 // in App.jsx as independent local copies and are not affected by this extraction.
-export const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+export const MEAL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 // ── Household data keys that get synced to Supabase ───────────────────────────
 // App.jsx lines 450-484 (verbatim).
