@@ -45,7 +45,7 @@ const VAULT_INPUT_STYLE = `
 const NAV = [
   { id: "home",      label: "Home",      icon: "home", emoji: "🏠" },
   { id: "inventory", label: "Inventory", icon: "inv",  emoji: "📦" },
-  { id: "systems",   label: "Systems",   icon: "sys",  emoji: "🔧" },
+  { id: "systems",   label: "Maintenance",   icon: "sys",  emoji: "🔧" },
   { id: "health",    label: "Health",    icon: "hlth", emoji: "🩺" },
   { id: "career",    label: "Career",    icon: "car",  emoji: "📋" },
   { id: "subs",      label: "Subs",      icon: "sub",  emoji: "🔄" },
@@ -7430,7 +7430,7 @@ function HomeSection() {
   return React.createElement("div",null,
     // top tab row
     React.createElement("div",{style:{display:"flex",gap:0,borderBottom:HBORD,marginBottom:20}},
-      React.createElement("button",{onClick:function(){setHomeTab("systems");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="systems"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="systems"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="systems"?600:400}},"🏠 Systems"),
+      React.createElement("button",{onClick:function(){setHomeTab("systems");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="systems"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="systems"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="systems"?600:400}},"🔧 Maintenance"),
       React.createElement("button",{onClick:function(){setHomeTab("file");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="file"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="file"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="file"?600:400}},"📁 House File")
     ),
     homeTab==="systems"&&React.createElement(HomeSystemsSection,null),
@@ -7558,7 +7558,7 @@ function HomeSystemsSection() {
     return React.createElement("button",{onClick:function(){setSysTab(id);},style:{flex:1,background:active?"rgba(200,169,122,0.15)":"transparent",color:active?HGOLD:"rgba(250,248,244,0.5)",border:"0.5px solid "+(active?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"8px 0",fontSize:12.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label);
   }
   return React.createElement("div",null,
-    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE,marginBottom:12}},"Home Systems"),
+    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE,marginBottom:12}},"Maintenance"),
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16}}, tabBtn("maintenance","Maintenance"), tabBtn("products","Products")),
     sysTab==="products" ? React.createElement(ProductsPanel,null) : React.createElement(MaintenancePanel,null)
   );
@@ -8657,7 +8657,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 // ── Anchor Settings ───────────────────────────────────────────────────────────
 const ANCHOR_SECTIONS = [
   { id: "inventory",  label: "Inventory",     emoji: "📦" },
-  { id: "systems",    label: "Home Systems",  emoji: "🏠" },
+  { id: "systems",    label: "Maintenance",  emoji: "🏠" },
   { id: "health",     label: "Health",        emoji: "🩺" },
   { id: "career",     label: "Career",        emoji: "📋" },
   { id: "subs",       label: "Subscriptions", emoji: "🔄" },

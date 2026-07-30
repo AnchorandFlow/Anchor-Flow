@@ -968,9 +968,7 @@ function personMarker(person) {
 // F-97 — two adult filters, deliberately different, not unified into one:
 // isAdultLenient: anyone not explicitly flagged as a minor counts as an adult.
 // Used for UI convenience lists (sign-in "which one are you", Responsible
-// picker) where a false positive costs nothing. Reuses the exact filter
-// already duplicated at the BrainTab person-tabs list and the brain-item
-// assign-avatar row.
+// picker) where a false positive costs nothing.
 var MINOR_ROLES = ["Kid","Teen","Baby"];
 function isAdultLenient(p) {
   return !!(p && p.name && p.name.length > 0 && !p.isMinor && !(p.age != null && p.age < 18) && !MINOR_ROLES.includes(p.role));
@@ -2414,7 +2412,7 @@ const _hfComps   = {};
   'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
-  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','BrainTab',
+  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveTab',
   'SchoolTab','LighthouseTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
@@ -5046,7 +5044,7 @@ Respond ONLY with valid JSON array, no markdown:
           ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
-          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, BrainTab,
+          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveTab,
           SchoolTab, LighthouseTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
@@ -9167,364 +9165,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <button onClick={saveSystem} style={btnP(T.sage)}>{editingSystem==="new"?"Create System":"Save Changes"}</button>
             </div>
           </ModalBox>
-        )}
-      </div>
-    );
-  }
-
-  _hfRenders.BrainTab = function BrainTab(){
-    const [newText,setNewText] = useState("");
-    const [newCat,setNewCat] = useState(function(){try{var s=sessionStorage.getItem("af_brainNewCat");if(s)return s;}catch{}return "personal";});
-    const [aiRecatLoading,setAiRecatLoading] = useState(false);
-    const [patternMsg,setPatternMsg] = useState(null);
-    const [patternLoading,setPatternLoading] = useState(false);
-    const brainInputRef = React.useRef(null);
-    const [activeTab,setBrainActiveTab] = useState(function(){
-      try{var s=sessionStorage.getItem("af_brainActiveTab");if(s)return s;}catch{}
-      // Default to current user's person tab if identified (F-97) — replaces
-      // the old name-string match entirely, not just its name source: this
-      // was selecting UI state by matching preferredName against people[].name,
-      // the exact bug class F-97 exists to kill.
-      var myPerson=myPersonId?people.find(function(p){return p.id===myPersonId;}):null;
-      if(myPerson)return "person_"+myPerson.id;
-      return "all";
-    });
-    var _setBrainActiveTab=function(v){
-      setBrainActiveTab(v);
-      try{sessionStorage.setItem("af_brainActiveTab",v);}catch{}
-      if(v!=="all"&&v!=="unfiled"&&!v.startsWith("person_")){
-        setNewCat(v);
-        try{sessionStorage.setItem("af_brainNewCat",v);}catch{}
-      }
-    };
-    const [search,setBrainSearch] = useState("");
-    const brainDragId = React.useRef(null);
-    const brainDragOver = React.useRef(null);
-
-    // allCats comes from brainCats (persisted, color-coded)
-    const allCats = brainCats;
-    const DAY_NAMES_SHORT = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-
-    function getCatColor(catId){ var c=brainCats.find(function(x){return x.id===catId;}); return c?c.color:"#c8a97a"; }
-    function getCatEmoji(catId){ var c=brainCats.find(function(x){return x.id===catId;}); return c?c.emoji:"📌"; }
-
-    function handleBrainDrop(catId) {
-      const fromId = brainDragId.current;
-      const toId = brainDragOver.current;
-      if (!fromId || !toId || fromId === toId) { brainDragId.current=null; brainDragOver.current=null; return; }
-      setBrainItems(function(prev) {
-        const items = catId === "_unc"
-          ? prev.filter(function(b){return !b.cat||b.cat==="uncategorized"||!brainCats.find(function(c){return c.id===b.cat;});})
-          : prev.filter(function(b){return b.cat===catId&&!b.done;});
-        const fromIdx = items.findIndex(function(b){return b.id===fromId;});
-        const toIdx = items.findIndex(function(b){return b.id===toId;});
-        if(fromIdx===-1||toIdx===-1) return prev;
-        const reordered = [...items];
-        const [moved] = reordered.splice(fromIdx,1);
-        reordered.splice(toIdx,0,moved);
-        const otherItems = prev.filter(function(b){return items.findIndex(function(x){return x.id===b.id;})===-1;});
-        return [...otherItems,...reordered];
-      });
-      brainDragId.current=null; brainDragOver.current=null;
-    }
-
-    function smartCat(text){
-      const t = text.toLowerCase();
-      if(/order|buy|purchase|pick up|get more|restock|amazon|walmart|target|costco|ship|deliver|online|need to get/.test(t)) return "orders";
-      if(/call|phone|voicemail|ring|text|email|reply|respond|message|reach out|follow up|contact|check with|ask/.test(t)) return "calls";
-      if(/errand|drop off|return|library|pharmacy|prescription|dry clean|post office|bank|store|dentist|doctor|appointment|vet/.test(t)) return "errands";
-      if(/paperwork|schedule|book|appoint|form|file|tax|insurance|admin|renewal|register|submit|sign|fill out|apply|renew/.test(t)) return "admin";
-      if(/someday|maybe|eventually|would be nice|idea|dream|wish|research|look into|consider|explore/.test(t)) return "someday";
-      if(/clean|fix|repair|organize|tidy|laundry|dishes|vacuum|wipe|declutter|home|house|mow|sweep|mop|bathroom|kitchen/.test(t)) return "household";
-      if(/self|me time|read|journal|meditat|workout|gym|exercise|hobby|personal|hair|nails|skin|therapy/.test(t)) return "personal";
-      return null;
-    }
-
-    function addItem(){
-      if(!newText.trim()) return;
-      const detected = smartCat(newText.trim());
-      const cat = detected || (newCat!=="unfiled"&&newCat!=="all"?newCat:"uncategorized");
-      AF_DEBUG && console.warn("[AF MIND ADD]", { text: newText.trim(), cat });
-      setBrainItems(p=>[...p,{id:uid(),text:newText.trim(),cat:cat||"uncategorized",done:false,scheduledDay:null,assignedTo:null}]);
-      setNewText("");
-      setTimeout(function(){if(brainInputRef.current)brainInputRef.current.blur();},0);
-    }
-
-    function scheduleItem(id, day){
-      setBrainItems(p=>p.map(function(b){
-        if(b.id!==id) return b;
-        var updated = {...b, scheduledDay:day};
-        // Also add to tasks for that day
-        if(day&&day!=="none"){
-          setTasks(function(tp){return [...tp,{id:uid(),text:b.text,day:day,done:false,tier:"next3",fromBrain:true,brainId:id}];});
-        }
-        return updated;
-      }));
-    }
-
-    function assignItem(id, person){
-      setBrainItems(p=>p.map(function(b){return b.id===id?{...b,assignedTo:b.assignedTo===person?null:person}:b;}));
-    }
-
-    function fileItem(id, catId){
-      setBrainItems(p=>p.map(function(b){return b.id===id?{...b,cat:catId}:b;}));
-    }
-
-    async function aiRecategorize(){
-      const pending = brainItems.filter(b=>!b.done);
-      if(!pending.length) return;
-      setAiRecatLoading(true);
-      try {
-        const catList = allCats.map(c=>c.id+"="+c.label).join(", ");
-        const res = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:"Categorize brain dump items into these categories: "+catList+", or uncategorized. Return ONLY JSON: {results:[{id,cat}]}. Use exact category IDs.",messages:[{role:"user",content:"Categorize:\n"+pending.map(b=>b.id+": "+b.text).join("\n")}]})});
-        if (!res.ok) throw new Error("Recategorize request failed: " + res.status);
-        const d = await res.json();
-        const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
-        const parsed = JSON.parse(txt.replace(/```json|```/g,"").trim());
-        if(parsed.results){ const map={}; parsed.results.forEach(r=>{map[r.id]=r.cat;}); setBrainItems(p=>p.map(b=>map[b.id]?{...b,cat:map[b.id]}:b)); }
-      } catch(e){ AF_DEBUG && console.error("[AF] AI recategorize error (dev only)"); }
-      setAiRecatLoading(false);
-    }
-
-    React.useEffect(function(){
-      var controller = new AbortController();
-      var cancelled = false;
-      const pending = brainItems.filter(b=>!b.done);
-      var _pc=null; try{_pc=JSON.parse(localStorage.getItem("af_brainPattern"));}catch(e){}
-      if(_pc&&_pc.d===new Date().toDateString()){ if(!patternMsg&&_pc.m)setPatternMsg(_pc.m); }
-      else if(pending.length>=3&&!patternMsg&&!patternLoading){
-        setPatternLoading(true);
-        var grouped={};
-        pending.forEach(function(b){ if(!grouped[b.cat])grouped[b.cat]=[]; grouped[b.cat].push(b.text); });
-        var summary=Object.entries(grouped).map(function(kv){return kv[0]+": "+kv[1].length+" items ("+kv[1].slice(0,3).join(", ")+")";}).join("\n");
-        fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},signal:controller.signal,body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:150,system:"You are a home assistant. Look at these brain dump categories and notice ONE useful pattern. Be specific and actionable. Under 25 words.",messages:[{role:"user",content:summary}]})})
-          .then(function(r){ if(!r.ok) throw new Error("Pattern insight request failed: "+r.status); return r.json(); })
-          .then(function(d){ if(cancelled) return; var msg=d.content?.find(function(b){return b.type==="text";})?.text||""; if(msg){setPatternMsg(msg);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:msg}));}catch(e){}}})
-          .catch(function(){})
-          .finally(function(){ if(!cancelled) setPatternLoading(false); });
-      }
-      return function(){ cancelled = true; try { controller.abort(); } catch(e){} };
-    },[]);
-
-    // Derived lists
-    const active = brainItems.filter(function(b){return !b.done;});
-    const done = brainItems.filter(function(b){return b.done;});
-    const unfiled = active.filter(function(b){return !b.cat||b.cat==="uncategorized"||!brainCats.find(function(c){return c.id===b.cat;});});
-
-    // Build person tabs from people state
-    var MINOR_ROLES=["Kid","Teen","Baby"];
-    var personTabs = people.filter(function(p){ return p&&p.name&&p.name.length>0 && !p.isMinor && !(p.age!=null && p.age<18) && !MINOR_ROLES.includes(p.role); }).map(function(p){ return {id:"person_"+p.id, label:p.name, initials:(p.name||"?")[0].toUpperCase(), color:p.color||T.blue}; });
-
-    // Items for current tab
-    function getTabItems(){
-      var items;
-      if(activeTab==="all") items=active;
-      else if(activeTab==="unfiled") items=unfiled;
-      else if(activeTab.startsWith("person_")){
-        var pid=activeTab.replace("person_","");
-        var pname=people.find(function(p){return p.id===pid;})?.name||"";
-        items=active.filter(function(b){return b.assignedTo===pname;});
-      } else {
-        items=active.filter(function(b){return b.cat===activeTab;});
-      }
-      if(search) items=items.filter(function(b){return b.text.toLowerCase().includes(search.toLowerCase());});
-      return items;
-    }
-    var tabItems = getTabItems();
-
-    function BrainItemRow({item, catId}){
-      const [editing,setEditing] = useState(false);
-      const [val,setVal] = useState(item.text);
-      const [isDragOver,setIsDragOver] = useState(false);
-      const color = getCatColor(item.cat);
-      const tint = color+"18";
-      return (
-        <div
-          draggable
-          onDragStart={function(e){brainDragId.current=item.id; var g=document.createElement("div"); g.style.cssText="position:fixed;top:-9999px;left:-9999px;"; document.body.appendChild(g); e.dataTransfer.setDragImage(g,0,0); setTimeout(function(){try{g.remove();}catch{}},0);}}
-          onDragEnter={function(){brainDragOver.current=item.id;setIsDragOver(true);}}
-          onDragLeave={function(){setIsDragOver(false);}}
-          onDragOver={function(e){e.preventDefault();}}
-          onDrop={function(){setIsDragOver(false);handleBrainDrop(catId||"_unc");}}
-          onDragEnd={function(){setIsDragOver(false);}}
-          style={{background:isDragOver?color+"30":tint,borderRadius:"0.75rem",padding:"0.6rem 0.75rem",marginBottom:"0.35rem",border:"1.5px solid "+(isDragOver?color:color+"30"),transition:"all 0.12s"}}>
-          {/* Task text */}
-          <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",marginBottom:"0.45rem"}}>
-            <div onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,done:!x.done}:x;});});}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+color,background:item.done?color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:2}}>
-              {item.done&&<span style={{color:"#fff",fontSize:9}}>✓</span>}
-            </div>
-            <div style={{flex:1,minWidth:0}}>
-              {editing?(
-                <div style={{display:"flex",gap:"0.3rem"}}>
-                  <input value={val} onChange={function(e){setVal(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}if(e.key==="Escape")setEditing(false);}} style={{...inp({flex:1,padding:"0.25rem 0.45rem",fontSize:"0.84rem"})}} autoFocus/>
-                  <button onClick={function(){setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,text:val}:x;});});setEditing(false);}} style={btnP(color,{fontSize:"0.7rem",padding:"0.25rem 0.5rem"})}>✓</button>
-                </div>
-              ):(
-                <span onClick={function(){setEditing(true);}} style={{fontSize:"0.88rem",color:item.done?T.textFaint:T.textDark,textDecoration:item.done?"line-through":"none",cursor:"text",lineHeight:1.4,display:"block"}}>{item.text}</span>
-              )}
-            </div>
-            <button onClick={function(){ AF_DEBUG && console.warn("[AF MIND DELETE]", { id: item.id, text: item.text }); setBrainItems(function(p){return p.filter(function(x){return x.id!==item.id;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.textFaint,padding:"0 2px",flexShrink:0}}>×</button>
-          </div>
-          {/* Controls row: File · Date · Initials */}
-          <div style={{display:"flex",alignItems:"center",gap:"0.3rem"}}>
-            <select value={item.cat||"uncategorized"} onChange={function(e){fileItem(item.id,e.target.value);}} style={{fontSize:"0.7rem",padding:"2px 4px",borderRadius:5,border:"0.5px solid "+color+"50",background:"rgba(255,255,255,0.6)",color:T.textMid,fontFamily:"inherit",cursor:"pointer"}}>
-              <option value="uncategorized">📁 Unfiled</option>
-              {brainCats.map(function(c){return <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>;})}
-            </select>
-            {(function(){
-              var [dateOpen,setDateOpen] = useState(false);
-              var tomorrowName = DAY_NAMES_SHORT[(new Date(TODAY).getDay()+1)%7];
-              var quickDays = [{label:"Today",val:TODAY_NAME},{label:"Tomorrow",val:tomorrowName}];
-              var remainingDays = DAY_NAMES_SHORT.filter(function(d){return d!==TODAY_NAME&&d!==tomorrowName;});
-              var hasDate = !!item.scheduledDay;
-              return (
-                <div style={{position:"relative",display:"inline-block"}}>
-                  <button onClick={function(){setDateOpen(function(v){return !v;});}} style={{fontSize:"0.7rem",padding:"2px 7px",borderRadius:5,border:"0.5px solid "+(hasDate?color:color+"50"),background:hasDate?color+"18":"rgba(255,255,255,0.6)",color:hasDate?color:T.textMid,fontFamily:"inherit",cursor:"pointer",display:"flex",alignItems:"center",gap:"3px",fontWeight:hasDate?700:400}}>
-                    📅 {hasDate?item.scheduledDay:"Date"}
-                    {hasDate&&<span onClick={function(e){e.stopPropagation();scheduleItem(item.id,null);}} style={{marginLeft:2,opacity:0.6,fontWeight:900,fontSize:"0.8rem",lineHeight:1}}>×</span>}
-                  </button>
-                  {dateOpen&&(
-                    <div onClick={function(e){e.stopPropagation();}} style={{position:"absolute",bottom:"calc(100% + 6px)",left:0,zIndex:200,background:T.surface,border:"1.5px solid "+T.border,borderRadius:"0.85rem",padding:"0.65rem 0.75rem",boxShadow:"0 8px 32px rgba(0,0,0,0.14)",minWidth:220}}>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Quick pick</div>
-                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
-                        {quickDays.map(function(q){
-                          var isSel=item.scheduledDay===q.val;
-                          return <button key={q.val} onClick={function(){scheduleItem(item.id,q.val);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 9px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{q.label}</button>;
-                        })}
-                      </div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.4rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>This week</div>
-                      <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",marginBottom:"0.55rem"}}>
-                        {remainingDays.map(function(d){
-                          var isSel=item.scheduledDay===d;
-                          return <button key={d} onClick={function(){scheduleItem(item.id,d);setDateOpen(false);}} style={{fontSize:"0.7rem",padding:"3px 8px",borderRadius:"2rem",border:"1.5px solid "+(isSel?color:T.border),background:isSel?color:"transparent",color:isSel?"#fff":T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:isSel?700:400}}>{d.slice(0,3)}</button>;
-                        })}
-                      </div>
-                      <div style={{fontSize:"0.65rem",fontWeight:700,color:T.textFaint,marginBottom:"0.3rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Specific date</div>
-                      <input type="date" defaultValue={item.scheduledExactDate||""} onChange={function(e){
-                        var raw=e.target.value;
-                        if(!raw){scheduleItem(item.id,null);return;}
-                        var d=new Date(raw+"T12:00:00");
-                        var dayName=DAY_NAMES_SHORT[d.getDay()];
-                        var mo=d.toLocaleString("default",{month:"short"});
-                        var label=mo+" "+d.getDate();
-                        setBrainItems(function(p){return p.map(function(x){return x.id===item.id?{...x,scheduledDay:label,scheduledExactDate:raw}:x;});});
-                        setDateOpen(false);
-                      }} style={{...inp({fontSize:"0.72rem",padding:"0.28rem 0.5rem",width:"100%"})}}/>
-                      {hasDate&&<button onClick={function(){scheduleItem(item.id,null);setDateOpen(false);}} style={{marginTop:"0.4rem",background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.rose,fontFamily:"inherit",fontWeight:600,padding:0}}>✕ Clear date</button>}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            <div style={{flex:1}}/>
-            {people.filter(function(p){ return p&&p.name&&p.name.length>0 && !personIsMinor(p)&&!MINOR_ROLES.includes(p.role); }).map(function(p){
-              var isAssigned=item.assignedTo===p.name;
-              return(
-                <button key={p.id} onClick={function(){assignItem(item.id,p.name);}} style={{width:22,height:22,borderRadius:"50%",border:"none",background:isAssigned?(p.color||T.blue):"rgba(0,0,0,0.08)",color:isAssigned?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit",transition:"all 0.15s"}}>
-                  {(p.name||"?")[0].toUpperCase()}
-                </button>
-              );
-            })}
-          </div>
-          {item.scheduledDay&&<div style={{fontSize:"0.65rem",color:color,fontWeight:600,marginTop:"0.3rem"}}>📅 {item.scheduledDay}</div>}
-        </div>
-      );
-    }
-
-    return (
-      <div style={{paddingBottom:"2rem"}}>
-        {/* Exhale header */}
-        <div style={{textAlign:"center",marginBottom:"1rem",paddingTop:"0.25rem",position:"relative"}}>
-          <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
-            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
-          </button>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.45rem",fontWeight:700,color:T.textDark,letterSpacing:"0.03em"}}>Exhale.</div>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.15rem",lineHeight:1.6}}>Clear your mind — then let it go.</div>
-        </div>
-        {/* AI Pattern banner */}
-        {patternMsg&&(
-          <div style={{background:"linear-gradient(135deg,"+T.lavPale+","+T.bluePale+")",border:"1px solid "+T.lavender+"40",borderRadius:"0.9rem",padding:"0.75rem 1rem",marginBottom:"0.85rem",display:"flex",gap:"0.6rem",alignItems:"flex-start"}}>
-            <span style={{fontSize:"1rem",flexShrink:0}}>✦</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:"0.68rem",fontWeight:800,color:T.lavender,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Compass noticed</div>
-              <div style={{fontSize:"0.83rem",color:T.textDark,lineHeight:1.55}}>{patternMsg}</div>
-            </div>
-            <button onClick={function(){setPatternMsg(null);try{localStorage.setItem("af_brainPattern",JSON.stringify({d:new Date().toDateString(),m:""}));}catch(e){}}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:16,flexShrink:0}}>×</button>
-          </div>
-        )}
-
-        {/* Input */}
-        <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1rem",padding:"0.85rem",marginBottom:"0.75rem"}}>
-          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
-            <input ref={brainInputRef} value={newText} onChange={function(e){setNewText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addItem();}}} placeholder="Type it here — exhale…" style={{...inp({flex:1,fontSize:"0.88rem"})}} autoFocus/>
-            <button onClick={addItem} disabled={!newText.trim()} style={{...btnP(T.blue,{fontSize:"0.82rem",padding:"0.5rem 0.9rem",opacity:newText.trim()?1:0.4})}}>Add</button>
-          </div>
-          <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
-            {brainCats.map(function(c){
-              var isSel=newCat===c.id;
-              return <button key={c.id} onClick={function(){setNewCat(c.id);try{sessionStorage.setItem("af_brainNewCat",c.id);}catch{}_setBrainActiveTab(c.id);}} style={{background:isSel?c.color:"transparent",color:isSel?"#fff":T.textMid,border:"1.5px solid "+(isSel?c.color:T.border),borderRadius:"2rem",padding:"0.18rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontFamily:"inherit",fontWeight:isSel?700:400,transition:"all 0.12s"}}>{c.emoji} {c.label}</button>;
-            })}
-          </div>
-        </div>
-
-        {/* Search */}
-        <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.6rem"}}>
-          <input value={search} onChange={function(e){setBrainSearch(e.target.value);}} placeholder="Search..." style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.35rem 0.65rem"})}}/>
-          <div style={{fontSize:"0.72rem",color:T.textFaint}}>{active.length} active</div>
-          <button onClick={aiRecategorize} disabled={aiRecatLoading} style={{background:"none",border:"1.5px solid "+T.lavender,borderRadius:"2rem",padding:"0.2rem 0.65rem",cursor:"pointer",fontSize:"0.7rem",fontWeight:700,color:T.lavender,opacity:aiRecatLoading?0.6:1,flexShrink:0}}>
-            {aiRecatLoading?"⟳":"✨"} AI sort
-          </button>
-        </div>
-
-        {/* Tab bar */}
-        <ScrollTabs style={{borderBottom:"1.5px solid "+T.borderSoft,marginBottom:"0.75rem"}}>
-          <button onClick={function(){_setBrainActiveTab("all");}} style={{background:"none",border:"none",borderBottom:activeTab==="all"?"2.5px solid "+T.blue:"2.5px solid transparent",color:activeTab==="all"?T.blue:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="all"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-            🗂 All
-            <span style={{background:T.blue+"22",color:T.blue,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{active.length}</span>
-          </button>
-          <button onClick={function(){_setBrainActiveTab("unfiled");}} style={{background:"none",border:"none",borderBottom:activeTab==="unfiled"?"2.5px solid #c8a97a":"2.5px solid transparent",color:activeTab==="unfiled"?"#c8834a":T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab==="unfiled"?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-            📥 Unfiled
-            {unfiled.length>0&&<span style={{background:"#e05c5c",color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{unfiled.length}</span>}
-          </button>
-          {personTabs.map(function(pt){
-            var count=active.filter(function(b){var pname=people.find(function(p){return p.id===pt.id.replace("person_","");})?.name||""; return b.assignedTo===pname;}).length;
-            return(
-              <button key={pt.id} onClick={function(){_setBrainActiveTab(pt.id);}} style={{background:"none",border:"none",borderBottom:activeTab===pt.id?"2.5px solid "+(pt.color||T.blue):"2.5px solid transparent",color:activeTab===pt.id?(pt.color||T.blue):T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===pt.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                {pt.label}
-                {count>0&&<span style={{background:pt.color||T.blue,color:"#fff",borderRadius:"2rem",padding:"1px 6px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>}
-              </button>
-            );
-          })}
-          {brainCats.map(function(cat){
-            var count=active.filter(function(b){return b.cat===cat.id;}).length;
-            if(count===0) return null;
-            return(
-              <button key={cat.id} onClick={function(){_setBrainActiveTab(cat.id);}} style={{background:"none",border:"none",borderBottom:activeTab===cat.id?"2.5px solid "+cat.color:"2.5px solid transparent",color:activeTab===cat.id?cat.color:T.textFaint,padding:"0.45rem 0.75rem",cursor:"pointer",fontSize:"0.75rem",fontWeight:activeTab===cat.id?700:500,fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block",flexShrink:0}}/>
-                {cat.label}
-                <span style={{background:cat.color+"22",color:cat.color,borderRadius:"2rem",padding:"1px 5px",fontSize:"0.65rem",fontWeight:700}}>{count}</span>
-              </button>
-            );
-          })}
-        </ScrollTabs>
-
-        {/* Items */}
-        {tabItems.length===0&&(
-          <div style={{textAlign:"center",padding:"2rem 1rem",color:T.textFaint,fontStyle:"italic",fontSize:"0.84rem"}}>
-            {activeTab==="all"?"Nothing in your Clear Your Mind list yet ✓":activeTab==="unfiled"?"All items are filed ✓":"Nothing here yet"}
-          </div>
-        )}
-        {tabItems.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
-
-        {/* Done */}
-        {done.length>0&&(
-          <div style={{marginTop:"1rem",paddingTop:"0.75rem",borderTop:"1px dashed "+T.borderSoft}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem"}}>
-              <div style={{fontSize:"0.78rem",color:T.textFaint,fontWeight:700}}>✓ Done ({done.length})</div>
-              <button onClick={function(){setBrainItems(function(p){return p.filter(function(b){return !b.done;});});}} style={{fontSize:"0.72rem",color:T.rose||"#d85a30",background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"2rem",padding:"0.18rem 0.65rem",cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>🗑 Clear completed</button>
-            </div>
-            {done.map(function(item){return <BrainItemRow key={item.id} item={item} catId={item.cat||"_unc"}/>;}) }
-          </div>
         )}
       </div>
     );
@@ -15533,7 +15173,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "home", label: "Home", emoji: "🏡" },
       { vault: "recurring", label: "Reminders", emoji: "🔁" },
       { vault: "inventory", label: "Inventory", emoji: "📦" },
-      { vault: "systems", label: "Systems", emoji: "🔧" },
+      { vault: "systems", label: "Maintenance", emoji: "🔧" },
       { vault: "health", label: "Health", emoji: "🩺" },
       ...(featureFlags.careerEnabled ? [{ vault: "career", label: "Career", emoji: "📋" }] : []),
       { vault: "subs", label: "Subscriptions", emoji: "🔄" },
@@ -15547,7 +15187,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   const VAULT_NAV = [
     { id: "recurring", label: "Reminders", emoji: "🔁" },
     { id: "inventory", label: "Inventory", emoji: "📦" },
-    { id: "systems",   label: "Systems",   emoji: "🏠" },
+    { id: "systems",   label: "Maintenance",   emoji: "🏠" },
     { id: "health",    label: "Health",    emoji: "🩺" },
     { id: "career",    label: "Career",    emoji: "📋" },
     { id: "subs",      label: "Subscript", emoji: "🔄" },
