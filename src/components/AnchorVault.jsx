@@ -509,6 +509,7 @@ function InventorySection({ onAddToShopping }) {
 
   function saveFavs(updated) {
     setFavorites(updated)
+    afVaultChanged("favProducts")
     try { localStorage.setItem("af_favProducts", JSON.stringify(updated)) } catch {}
   }
 
@@ -1554,7 +1555,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 {it.done && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
               </div>
               <span style={{ flex: 1, fontSize: 13, color: it.done ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
-              <button onClick={function() { removeChecklistItem(detailCeleb.id, field, it.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+              <button onClick={function() { removeChecklistItem(detailCeleb.id, field, it.id) }} aria-label="Remove item" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
             </div>
           )
         })}
@@ -1595,7 +1596,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
           ? <button onClick={function() { unassignGift(g.personId, listId, g.id) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Unassign</button>
           : <button onClick={function() { assignGiftToCeleb(g.personId, listId, g.id, opts.celebId) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Assign here</button>
         )}
-        <button onClick={function() { removeGiftFromList(g.personId, listId, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
+        <button onClick={function() { removeGiftFromList(g.personId, listId, g.id) }} aria-label="Remove gift" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
       </div>
     )
   }
@@ -1714,7 +1715,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 </div>
                 {e.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 2, fontStyle: "italic" }}>{e.notes}</div>}
               </div>
-              <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)", flexShrink: 0 }}>✕</button>
+              <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} aria-label="Delete celebration" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)", flexShrink: 0 }}>✕</button>
             </div>
 
             {/* Planning status — N of 7 planning cards have content */}
@@ -1880,7 +1881,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                           <span style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", minWidth: 14, textAlign: "center" }}>+{g.plusOnes||0}</span>
                           <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, 1) }} style={{ background: "none", border: "none", color: "rgba(250,248,244,0.4)", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>+</button>
                         </div>
-                        <button onClick={function() { removeGuest(detailCeleb.id, g.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                        <button onClick={function() { removeGuest(detailCeleb.id, g.id) }} aria-label="Remove guest" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
                       </div>
                     )
                   })}
@@ -1935,7 +1936,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                         </div>
                         <span style={{ flex: 1, fontSize: 13, color: it.spent ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: it.spent ? "line-through" : "none" }}>{it.desc}</span>
                         <span style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif" }}>${(it.amount||0).toFixed(2)}</span>
-                        <button onClick={function() { removeBudgetItem(detailCeleb.id, it.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                        <button onClick={function() { removeBudgetItem(detailCeleb.id, it.id) }} aria-label="Remove budget item" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
                       </div>
                     )
                   })}
@@ -1984,7 +1985,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                           <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{f.item}</div>
                           <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{f.who ? "Bringing: "+f.who : ""}{f.who && f.dietary ? " · " : ""}{f.dietary}{(f.who || f.dietary) && f.fromRecipe ? " · " : ""}{f.fromRecipe ? "From recipe: "+f.fromRecipe : ""}</div>
                         </div>
-                        <button onClick={function() { removeFoodItem(detailCeleb.id, f.id) }} style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                        <button onClick={function() { removeFoodItem(detailCeleb.id, f.id) }} aria-label="Remove food item" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
                       </div>
                     )
                   })}
@@ -2172,6 +2173,7 @@ function PetsSection() {
           const updated = current.map(function(p) {
             return p.id === petId ? { ...p, documents: [...(p.documents || []), doc] } : p
           })
+          afVaultChanged("pets")
           try { localStorage.setItem("af_pets", JSON.stringify(updated)) } catch {}
           return updated
         })
@@ -2401,7 +2403,7 @@ function PetsSection() {
                   <div style={{ fontSize: 12, fontWeight: 600, color: overdue ? "#e88" : soon ? sand : muted, fontFamily: "DM Sans,sans-serif" }}>{overdue ? Math.abs(days) + "d overdue" : days === 0 ? "Today!" : days + "d"}</div>
                 </div>
               )}
-              <button onClick={function() { updatePet(activePet.id, { vaccines: vaccines.filter(function(x) { return x.id !== v.id }) }) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px" }}>✕</button>
+              <button onClick={function() { updatePet(activePet.id, { vaccines: vaccines.filter(function(x) { return x.id !== v.id }) }) }} aria-label="Remove vaccine" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px" }}>✕</button>
             </div>
           )
         })}
@@ -2459,7 +2461,7 @@ function PetsSection() {
                   <div style={{ fontSize: 12, fontWeight: 600, color: refillDays !== null && refillDays <= 7 ? sand : muted, fontFamily: "DM Sans,sans-serif" }}>{refillDays !== null && refillDays <= 0 ? "Now!" : refillDays + "d"}</div>
                 </div>
               )}
-              <button onClick={function() { updatePet(activePet.id, { medications: medications.filter(function(x) { return x.id !== m.id }) }) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px" }}>✕</button>
+              <button onClick={function() { updatePet(activePet.id, { medications: medications.filter(function(x) { return x.id !== m.id }) }) }} aria-label="Remove medication" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px" }}>✕</button>
             </div>
           )
         })}
@@ -2503,7 +2505,7 @@ function PetsSection() {
                     <div style={{ fontSize: 10, color: muted, fontFamily: "DM Sans,sans-serif" }}>{doc.uploaded}{kb ? " · " + kb + " KB" : ""}</div>
                   </div>
                   <button onClick={function() { openDoc(doc) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 6, padding: "4px 10px", fontSize: 10, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}>Open</button>
-                  <button onClick={function() { removeDoc(activePet.id, doc.id) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px", flexShrink: 0 }}>✕</button>
+                  <button onClick={function() { removeDoc(activePet.id, doc.id) }} aria-label="Remove document" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px", flexShrink: 0 }}>✕</button>
                 </div>
               )
             })}
@@ -5762,6 +5764,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
       var cuid2="cstep_"+Date.now();
       items.push({id:cuid2,text:step.text,cat:"admin",done:false,scheduledDay:null,assignedTo:null});
       localStorage.setItem("af_brainItems",JSON.stringify(items));
+      afVaultChanged("brainItems");
     } catch(e){}
   }
   function addStep(goalId) {
@@ -6175,7 +6178,7 @@ function CareerSection() {
         )
       ),
       addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
-        React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Twyla, Ellie, Sam"}),
+        React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Jordan, Alex, Sam"}),
         React.createElement(HSaveBtn,{onClick:savePerson,label:"Add person"})
       )
     );
@@ -6208,7 +6211,7 @@ function CareerSection() {
       detail.tab==="docs"   && React.createElement(CDocsTab,  tp)
     ),
     addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
-      React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Twyla, Ellie, Sam"}),
+      React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Jordan, Alex, Sam"}),
       React.createElement(HSaveBtn,{onClick:savePerson,label:"Add person"})
     )
   );
@@ -6262,7 +6265,7 @@ var H_COND_TYPES = [
 
 function huid() { return Math.random().toString(36).slice(2,9) }
 function hLoadHealth() { try { var s=localStorage.getItem("af_health"); return s?JSON.parse(s):{}; } catch(e){return {};} }
-function hSaveHealth(v) { try { localStorage.setItem("af_health",JSON.stringify(v)); } catch(e){} }
+function hSaveHealth(v) { try { localStorage.setItem("af_health",JSON.stringify(v)); afVaultChanged("health"); } catch(e){} }
 function useHealth() {
   var pair = useState(hLoadHealth); var val=pair[0]; var setRaw=pair[1];
   function set(next) { setRaw(function(prev){ var r=typeof next==="function"?next(prev):next; hSaveHealth(r); return r; }); }
@@ -7038,7 +7041,7 @@ function HealthSection() {
         )
       ),
       addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
-        React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Twyla, Ellie, Sam"}),
+        React.createElement(HInput,{label:"Name",value:newPersonName,onChange:setNewPersonName,placeholder:"e.g. Jordan, Alex, Sam"}),
         React.createElement(HSaveBtn,{onClick:savePerson,label:"Add person"})
       )
     );
@@ -8795,7 +8798,7 @@ function SubscriptionsSection() {
   var [azSort, setAzSort] = React.useState(false)
   var [modal, setModal] = React.useState(null)
   var [form, setForm] = React.useState({})
-  function saveSubs(v) { setSubs(v); persist("af_subs", v) }
+  function saveSubs(v) { setSubs(v); persist("af_subs", v); afVaultChanged("subs") }
   function saveCoupons(v) { setCoupons(v); persist("af_coupons", v); afVaultChanged("coupons") }
   function savePerks(v) { setPerks(v); persist("af_perks", v); afVaultChanged("perks") }
   function openAdd(type) { setModal(type); setForm({}) }

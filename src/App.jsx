@@ -1916,7 +1916,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
         <div style={{paddingTop:"0.75rem"}}>
           <Row label="What should Compass call you?" sub="Used in your morning anchor greeting">
             <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-              <input value={preferredName||""} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Lindsey"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
+              <input value={preferredName||""} onChange={function(e){setPreferredName(e.target.value);}} onBlur={function(e){var v=e.target.value.trim();setPreferredName(v);var updated=Object.assign({},authUser,{displayName:v||authUser&&authUser.displayName});setAuthUser(updated);try{localStorage.setItem("af_authUser",JSON.stringify(updated));}catch{};}} placeholder={familyProfile&&familyProfile.parentNames?familyProfile.parentNames.split(/[&,]/)[0].trim():"e.g. Jordan"} style={{...inp({width:110,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
             </div>
           </Row>
           <Row label="This is me" sub={myPersonRecord?"Identified as "+myPersonRecord.name+" — calendar filters and greetings use this":"Not set — correct a wrong pick, or re-identify on a shared device"}>
@@ -5076,7 +5076,7 @@ Respond ONLY with valid JSON array, no markdown:
       <div style={{minWidth:0,flex:1}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
           {onBack && (
-            <button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px 2px 0",display:"flex",alignItems:"center",flexShrink:0,opacity:0.55,marginRight:2}}>
+            <button onClick={onBack} aria-label="Back" style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px 2px 0",display:"flex",alignItems:"center",flexShrink:0,opacity:0.55,marginRight:2}}>
               <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
             </button>
           )}
@@ -5111,7 +5111,7 @@ Respond ONLY with valid JSON array, no markdown:
         <div style={{background:T.surface,border:`1.5px solid ${T.border}`,borderRadius:"1.4rem",padding:"1.8rem",width:"100%",maxWidth:wide?600:460,boxShadow:`0 32px 100px ${T.cardShadow}`,margin:"auto",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.4rem"}}>
             <h3 style={{margin:0,color:T.textDark,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700}}>{title}</h3>
-            <button onClick={onClose} style={{background:T.bgAlt,border:`1px solid ${T.border}`,color:T.textMid,cursor:"pointer",padding:6,display:"flex",borderRadius:"50%"}}><Icon name="close" size={16} color={T.textMid}/></button>
+            <button onClick={onClose} aria-label="Close" style={{background:T.bgAlt,border:`1px solid ${T.border}`,color:T.textMid,cursor:"pointer",padding:6,display:"flex",borderRadius:"50%"}}><Icon name="close" size={16} color={T.textMid}/></button>
           </div>
           {children}
         </div>
@@ -5315,7 +5315,7 @@ Respond ONLY with valid JSON array, no markdown:
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.55rem 0"}}>
               <div style={{cursor:"grab",display:"flex",flexShrink:0,opacity:0.35}}><Icon name="drag" size={14} color={T.textSoft}/></div>
-              <button onClick={function(){onToggle(t.id);}} style={{width:22,height:22,borderRadius:"50%",border:"2px solid "+(t.done?(accent||T.sage):T.border),background:t.done?(accent||T.sage):"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+              <button onClick={function(){onToggle(t.id);}} aria-label={t.done?"Mark task not done":"Mark task done"} style={{width:22,height:22,borderRadius:"50%",border:"2px solid "+(t.done?(accent||T.sage):T.border),background:t.done?(accent||T.sage):"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {t.done&&<Icon name="check" size={12} color="#fff"/>}
               </button>
               <span style={{flex:1,fontSize:"0.87rem",color:t.done?T.textFaint:T.textDark,textDecoration:t.done?"line-through":"none",fontWeight:t.done?400:600}}>
@@ -5339,9 +5339,9 @@ Respond ONLY with valid JSON array, no markdown:
                   )}
                 </div>
               )}
-              {setShowNotifFor&&<button onClick={function(){setShowNotifFor(isShowingNotif?null:t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="bell" size={13} color={hasNotif?T.sand:T.textSoft}/></button>}
-              <button onClick={function(){setEditVal(t.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={13} color={T.textSoft}/></button>
-              <button onClick={function(){onDelete(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.textFaint}/></button>
+              {setShowNotifFor&&<button onClick={function(){setShowNotifFor(isShowingNotif?null:t.id);}} aria-label="Set reminder" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5}}><Icon name="bell" size={13} color={hasNotif?T.sand:T.textSoft}/></button>}
+              <button onClick={function(){setEditVal(t.text);setEditing(true);}} aria-label="Edit task" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={13} color={T.textSoft}/></button>
+              <button onClick={function(){onDelete(t.id);}} aria-label="Delete task" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.textFaint}/></button>
             </div>
             {isShowingNotif&&(
               <div style={{background:T.bgAlt,border:"1px solid "+T.sand+"50",borderRadius:"0.7rem",padding:"0.75rem",marginBottom:"0.5rem"}}>
@@ -5411,11 +5411,11 @@ Respond ONLY with valid JSON array, no markdown:
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.44rem 0"}}>
               {onDragStart&&<span onPointerDown={function(e){onDragStart(e,item.id);}} style={{cursor:"grab",color:T.textFaint,fontSize:"0.9rem",userSelect:"none",touchAction:"none",padding:"0 2px",flexShrink:0,lineHeight:1}}>⠿</span>}
-              <button onClick={()=>onToggle(item.id,item.done)} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+              <button onClick={()=>onToggle(item.id,item.done)} aria-label={item.done?"Mark item not done":"Mark item done"} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
               {item.photo&&(
-                <button onClick={()=>setShowPhoto(v=>!v)} style={{width:28,height:28,borderRadius:"0.35rem",overflow:"hidden",border:`2px solid ${T.sage}50`,flexShrink:0,padding:0,cursor:"pointer",background:"none"}}>
+                <button onClick={()=>setShowPhoto(v=>!v)} aria-label="Toggle item photo" style={{width:28,height:28,borderRadius:"0.35rem",overflow:"hidden",border:`2px solid ${T.sage}50`,flexShrink:0,padding:0,cursor:"pointer",background:"none"}}>
                   <img src={item.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 </button>
               )}
@@ -5423,8 +5423,8 @@ Respond ONLY with valid JSON array, no markdown:
                 {item.text}
                 {item.photo&&<span style={{fontSize:"0.62rem",color:T.sage,fontWeight:700,marginLeft:"0.4rem"}}>📷</span>}
               </span>
-              <button onClick={()=>{setEditVal(item.text);setEditing(true);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={12} color={T.textSoft}/></button>
-              <button onClick={()=>onDelete(item.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+              <button onClick={()=>{setEditVal(item.text);setEditing(true);}} aria-label="Edit item" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="edit" size={12} color={T.textSoft}/></button>
+              <button onClick={()=>onDelete(item.id)} aria-label="Delete item" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
             </div>
             {showPhoto&&item.photo&&(
               <div style={{paddingBottom:"0.6rem"}}>
@@ -5686,7 +5686,7 @@ Respond ONLY with valid JSON array, no markdown:
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>👨‍👩‍👧 Your family</div>
             <div style={{color:T.textSoft,fontSize:"0.83rem",marginBottom:"1rem"}}>This helps personalise everything — from meal suggestions to daily rhythms.</div>
             <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-              <div><label style={lbl}>Your name</label><input defaultValue={d.name} onBlur={function(e){set("name",e.target.value);}} placeholder="e.g. Lindsey" style={inp()} autoFocus/></div>
+              <div><label style={lbl}>Your name</label><input defaultValue={d.name} onBlur={function(e){set("name",e.target.value);}} placeholder="e.g. Jordan" style={inp()} autoFocus/></div>
               <div><label style={lbl}>Partner's name (optional)</label><input defaultValue={d.partner} onBlur={function(e){set("partner",e.target.value);}} placeholder="e.g. Jake" style={inp()}/></div>
               <div><label style={lbl}>Biggest home management challenge</label>
                 <select value={d.challenge} onChange={e=>set("challenge",e.target.value)} style={inp()}>
@@ -6787,12 +6787,13 @@ Respond ONLY in valid JSON:
         if(!sched||!Array.isArray(sched.days)||sched.days.length===0) return;
         var person=people.find(function(p){return p.id===personId;});
         var personName=person?person.name:"Work";
+        var typeSuffix=(sched.type&&sched.type!=="regular")?" ("+sched.type.replace("-"," ")+")":"";
         var dCur=new Date(yr,0,1); var dEnd=new Date(yr,11,31);
         while(dCur<=dEnd){
           var dayName=DAY_NAMES[dCur.getDay()];
           if(sched.days.includes(dayName)){
             var dateStr2=localDateStr(dCur);
-            items.push({key:"ws_"+personId+"_"+dateStr2, date:dateStr2, cat:"work", title:personName+" working", personId:personId, icon:"💼"});
+            items.push({key:"ws_"+personId+"_"+dateStr2, date:dateStr2, cat:"work", title:personName+" working"+typeSuffix, personId:personId, icon:"💼"});
           }
           dCur.setDate(dCur.getDate()+1);
         }
@@ -6835,7 +6836,7 @@ Respond ONLY in valid JSON:
         </div>
         {calView!=="year"&&(
         <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",justifyContent:"center"}}>
-          {[["all","All"],["mine","Mine"],["twy","Twy’s"]].map(function(item){
+          {[["all","All"],["mine","Mine"],["partner","Partner’s"]].map(function(item){
             var _fv=item[0],_fl=item[1];
             return (
               <button key={_fv} onClick={function(){setCalFilter(_fv);}} style={{padding:"0.22rem 0.8rem",borderRadius:"50px",border:"1.5px solid "+(calFilter===_fv?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calFilter===_fv?"rgba(30,58,95,0.08)":"transparent",color:calFilter===_fv?"#1e3a5f":"#7a8a9a",fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}}>
@@ -6890,7 +6891,7 @@ Respond ONLY in valid JSON:
                     {dayEvts.slice(0,2).map(function(e){
                       var _pc=getPersonColor(e.forPerson, people);
                       var _rp=resolveResponsibleParent(e.responsibleParent);
-                      var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+                      var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
                       var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
                       return (
                         <div key={e.id} style={{background:e.forPerson?_pc.bg:(e.color+"28"),borderLeft:"2.5px solid "+(e.forPerson?_pc.border:e.color),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.forPerson?_pc.text:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
@@ -6963,7 +6964,7 @@ Respond ONLY in valid JSON:
                       :dayEvts.map(function(e){
                           var _pc=getPersonColor(e.forPerson, people);
                           var _rp=resolveResponsibleParent(e.responsibleParent);
-                          var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+                          var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
                           var _bg=e.forPerson?_pc.bg:(e.color||T.blue);
                           var _col=e.forPerson?_pc.text:"#fff";
                           return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{e.title}</div>);
@@ -7077,7 +7078,7 @@ Respond ONLY in valid JSON:
               var _pc=getPersonColor(e.forPerson, people);
               var _dotColor=e.forPerson?_pc.border:e.color;
               var _rp=resolveResponsibleParent(e.responsibleParent);
-              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
               var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
               return (
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
@@ -7130,7 +7131,7 @@ Respond ONLY in valid JSON:
               var _pc=getPersonColor(e.forPerson, people);
               var _dotColor=e.forPerson?_pc.border:e.color;
               var _rp=resolveResponsibleParent(e.responsibleParent);
-              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="twy"&&_rp===myPersonId);
+              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
               var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
               return (
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
@@ -7206,11 +7207,12 @@ Respond ONLY in valid JSON:
                 })}
               </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginBottom:"0.5rem",justifyContent:"center"}}>
-                <button onClick={function(){setCalYearCats([]);}} style={{padding:"0.2rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(calYearCats.length===0?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearCats.length===0?"rgba(30,58,95,0.08)":"transparent",color:calYearCats.length===0?"#1e3a5f":"#7a8a9a",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All</button>
+                <button onClick={function(){setCalYearCats([]);}} aria-label="Show all categories" aria-pressed={calYearCats.length===0} style={{padding:"0.2rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(calYearCats.length===0?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calYearCats.length===0?"rgba(30,58,95,0.08)":"transparent",color:calYearCats.length===0?"#1e3a5f":"#7a8a9a",fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>All</button>
                 {CAL_YEAR_CATEGORIES.map(function(cat){
                   var active=calYearCats.indexOf(cat.id)!==-1;
                   return (
                     <button key={cat.id} onClick={function(){setCalYearCats(function(p){return active?p.filter(function(x){return x!==cat.id;}):[...p,cat.id];});}}
+                      aria-label={cat.label+" filter"} aria-pressed={active}
                       style={{display:"flex",alignItems:"center",gap:"0.25rem",padding:"0.2rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(active?cat.color:cat.color+"40"),background:active?cat.color+"22":"transparent",color:active?cat.color:T.textFaint,fontSize:"0.66rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                       <span style={{width:7,height:7,borderRadius:"50%",background:cat.color,display:"inline-block"}}/>{cat.label}
                     </button>
@@ -15362,12 +15364,12 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           PILLARS.map(function(pill){
             function rowBtn(it, active, onClick, col){
               col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
-              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
+              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} aria-label={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
             }
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today")); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
             if (!isOpen) return header;
             var kids = pill.items.map(function(it){
               if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }
@@ -15379,8 +15381,8 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
-          <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "16px", opacity: 0.82 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
+          <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" aria-label="Sunset — end of day reset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
+          <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" aria-label="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "16px", opacity: 0.82 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
         </div>
       </div>

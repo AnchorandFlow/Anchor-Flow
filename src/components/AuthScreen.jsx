@@ -77,7 +77,7 @@ export default function AuthScreen({ onAuth }) {
         {mode === "signup" && (
           <>
             <label style={{ fontSize: "12px", color: "rgba(250,248,244,0.55)", marginBottom: "6px", display: "block" }}>Your name</label>
-            <input style={inputStyle("name")} type="text" placeholder="Lindsey" value={name} onChange={e => setName(e.target.value)} onFocus={() => setFocused("name")} onBlur={() => setFocused(null)} autoComplete="given-name" />
+            <input style={inputStyle("name")} type="text" placeholder="Jordan" value={name} onChange={e => setName(e.target.value)} onFocus={() => setFocused("name")} onBlur={() => setFocused(null)} autoComplete="given-name" />
           </>
         )}
         <label style={{ fontSize: "12px", color: "rgba(250,248,244,0.55)", marginBottom: "6px", display: "block" }}>Email</label>
