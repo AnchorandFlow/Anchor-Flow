@@ -20,7 +20,10 @@ rough, and where to send feedback. It is not an engineering doc.
   picker for custom lists (swatch picker on create, and on any existing
   list's card in the gallery).
 - **Meals, Shopping, Calendar, Exhale (brain dump)** — day-to-day
-  household planning tools.
+  household planning tools. Meals now has a Recipes tab (occasion-tagged
+  full recipes and simple dishes, with "Import from URL" and manual entry,
+  plus linking a recipe to a Celebration's Food & Cake card) — this
+  replaces the old recipe-import feature that lived inside Meal Bank.
 - **Tide Pool** — kids' chores and rewards tracking.
 - **Lighthouse** — homeschool/school tracking (opt-in).
 - **Compass** — AI assistant answering questions from your household's own

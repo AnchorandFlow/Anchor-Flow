@@ -11,7 +11,6 @@ import SunsetClose from "./shell/SunsetClose";
 import FlowHome from "./shell/FlowHome";
 import RippleTab from "./components/RippleTab";
 import AnchorVault from "./components/AnchorVault";
-import RecipesTab from "./components/RecipesTab";
 import { supabase } from "./lib/supabase"
 import AuthScreen from "./components/AuthScreen"
 import AnchorLogo from "./components/AnchorLogo.jsx"
@@ -3907,13 +3906,6 @@ function createLocalBackup() {
   const [calFormId,setCalFormId]       = useState(null);
   const [calFormInit,setCalFormInit]   = useState(null);
 
-  const [showRecipeImport,setShowRecipeImport] = useState(false);
-  const [recipeUrl,setRecipeUrl]       = useState("");
-  const [recipeLoading,setRecipeLoading] = useState(false);
-  const [recipeResult,setRecipeResult] = useState(null);
-  const [recipeError,setRecipeError]   = useState("");
-  const [manualRecipe,setManualRecipe] = useState({name:"",ingredients:"",servings:"",notes:"",source:""});
-
   const [onboardStep,setOnboardStep]   = useState(0);
   const [onboardAnswers,setOnboardAnswers] = useState({parentNames:"",numKids:"",kidAges:"",dietaryNeeds:"",biggestChallenge:"",favoriteDinner:"",cookingStyle:""});
   const [showOnboarding,setShowOnboarding] = useState(false);
@@ -5014,39 +5006,6 @@ Respond ONLY with valid JSON array, no markdown:
   function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null}); setCalFormMode("add"); setCalFormId(null); }
   function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
   function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
-
-  // ── Recipe import ───────────────────────────────────────────────────────────
-  async function importRecipeFromUrl() {
-    if (!recipeUrl.trim()) return;
-    setRecipeLoading(true); setRecipeError(""); setRecipeResult(null);
-    try {
-      const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-6", max_tokens:800,
-        system:`Extract recipe info from a URL. Respond ONLY in JSON: {"name":"","ingredients":[],"servings":"","time":"","notes":"","source":""}. If social media video, set name to "Paste ingredients below" and notes to "Social media video — please paste the ingredient list manually."`,
-        messages:[{role:"user",content:`URL: ${recipeUrl.trim()}`}]
-      })});
-      if (!r.ok) { setRecipeError("Couldn't parse that URL. Try entering the recipe manually below."); setRecipeLoading(false); return; }
-      const d = await r.json();
-      const txt = d.content?.find(b=>b.type==="text")?.text||"{}";
-      setRecipeResult(JSON.parse(txt.replace(/```json|```/g,"").trim()));
-    } catch { setRecipeError("Couldn't parse that URL. Try entering the recipe manually below."); }
-    setRecipeLoading(false);
-  }
-
-  function saveImportedRecipe() {
-    if (recipeResult) {
-      setRecipes(p=>[...p,{...recipeResult,id:uid(),savedAt:new Date().toISOString()}]);
-      setRecipeResult(null); setRecipeUrl(""); setShowRecipeImport(false);
-    }
-  }
-
-  function saveManualRecipe() {
-    if (!manualRecipe.name.trim()) return;
-    const ing = manualRecipe.ingredients.split("\n").filter(Boolean);
-    setRecipes(p=>[...p,{...manualRecipe,ingredients:ing,id:uid(),savedAt:new Date().toISOString()}]);
-    setManualRecipe({name:"",ingredients:"",servings:"",notes:"",source:""});
-    setShowRecipeImport(false);
-  }
 
   // ── Shared UI helpers ───────────────────────────────────────────────────────
   _hfRenders.Pill = ({label,color,tiny}) => (
@@ -7682,8 +7641,6 @@ Respond ONLY in valid JSON:
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
-    const [showRecipes,setShowRecipes]=useState(false);
-    const [recipeAZ,setRecipeAZ]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
     // Deep-link from Celebrations > Food & Cake ("Browse all recipes" / tap a
     // recipe): AnchorVault.jsx can't reach this state via props (separate
@@ -7711,7 +7668,6 @@ Respond ONLY in valid JSON:
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
     const [bankFilters,setBankFilters]=useState([]);
     const [selectedBankMeal,setSelectedBankMeal]=useState(null);
-    const [bankInnerTab,setBankInnerTab]=useState("meals");
     const [showAddToBank,setShowAddToBank]=useState(false);
     const [newBankMeal,setNewBankMeal]=useState({name:"",tags:[],notes:""});
     const [addToBankMealName,setAddToBankMealName]=useState("");
@@ -7853,34 +7809,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 ))}
               </div>
 
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",alignItems:"center"}}>
-                <button onClick={()=>setShowRecipes(v=>!v)} style={btnS({fontSize:"0.7rem",padding:"0.22rem 0.55rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="recipe" size={11} color={T.textMid}/> Recipes ({recipes.length})</button>
-              </div>
             </div>
-            {showRecipes&&(
-              <div style={{...card({border:`2px solid ${T.sand}50`,background:`linear-gradient(135deg,${T.sandPale},${T.surface})`})}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>
-                  <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
-                    {recipes.length>1&&<button onClick={()=>setRecipeAZ(v=>!v)} style={btnS({fontSize:"0.7rem",padding:"0.24rem 0.55rem"})}>{recipeAZ?"A–Z ✓":"A–Z"}</button>}
-                    <button onClick={()=>setShowRecipeImport(true)} style={btnP(T.sand,{fontSize:"0.74rem",padding:"0.28rem 0.7rem"})}>+ Import</button>
-                  </div>
-                </div>
-                {recipes.length===0&&<p style={{color:T.textFaint,fontSize:"0.8rem",fontWeight:600,textAlign:"center"}}>No recipes yet — import from a URL or add manually.</p>}
-                {(recipeAZ?recipes.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}):recipes).map(r=>(
-                  <div key={r.id} style={{padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div>
-                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.87rem"}}>{r.name}</div>
-                        <div style={{color:T.textSoft,fontSize:"0.72rem",marginTop:"0.1rem"}}>{r.servings&&`${r.servings} servings · `}{r.time&&`${r.time} · `}{r.source&&`from ${r.source}`}</div>
-                        {Array.isArray(r.ingredients)&&r.ingredients.length>0&&<div style={{color:T.textMid,fontSize:"0.71rem",marginTop:"0.22rem"}}>{r.ingredients.slice(0,3).join(", ")}{r.ingredients.length>3?` +${r.ingredients.length-3} more`:""}</div>}
-                      </div>
-                      <button onClick={()=>setRecipes(p=>p.filter(x=>x.id!==r.id))} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
             {swapDay&&(
               <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
                 <span style={{fontSize:"0.85rem"}}>🔄</span>
@@ -8137,17 +8066,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="bank"&&(
           <div>
-            {/* ── Inner tab bar: Meal Bank | Recipe Import ── */}
-            <div style={{display:"flex",gap:"0.3rem",marginBottom:"1rem",background:T.bgAlt,borderRadius:"0.7rem",padding:"0.22rem",border:`1px solid ${T.border}`}}>
-              {[{id:"meals",label:"Meal Bank",emoji:"📋"},{id:"recipes",label:"Recipe Import",emoji:"📖"}].map(function(it){return(
-                <button key={it.id} onClick={function(){setBankInnerTab(it.id);}} style={{flex:1,background:bankInnerTab===it.id?T.sage:"transparent",color:bankInnerTab===it.id?"#fff":T.textMid,border:"none",borderRadius:"0.5rem",padding:"0.42rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}>
-                  {it.emoji} {it.label}
-                </button>
-              );})}
-            </div>
-
-            {/* ── MEALS inner tab ── */}
-            <div style={{display:bankInnerTab==="meals"?"block":"none"}}>
+            <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
                   <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
                   <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
@@ -8247,21 +8166,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                   </ModalBox>
                 )}
-            </div>
-
-            {/* ── RECIPES inner tab ── */}
-            <div style={{display:bankInnerTab==="recipes"?"block":"none"}}>
-              <RecipesTab
-                recipes={recipes}
-                onSaveRecipe={function(r){setRecipes(function(p){return[...p,r];});}}
-                onDeleteRecipe={function(id){setRecipes(function(p){return p.filter(function(x){return x.id!==id;});});}}
-                onEditTags={function(id,tags){setRecipes(function(p){return p.map(function(r){return r.id===id?{...r,tags}:r;});});}}
-                onAddToShopping={addIngredientToShopping}
-                onAddToMealBank={function(name,tags,ingredients){
-                  var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.trim().toLowerCase();});
-                  if(!already){setMealBankCustom(function(p){return[...p,{id:"r"+Date.now(),name:name.trim(),tags:tags||[],notes:"",ingredients:ingredients||[],isCustom:true}];});}
-                }}
-              />
             </div>
           </div>
         )}
@@ -8467,39 +8371,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealsTopTab==="recipes"&&<RecipeBookTab/>}
 
-        {showRecipeImport&&(
-          <ModalBox title="Import Recipe" onClose={()=>{setShowRecipeImport(false);setRecipeResult(null);setRecipeError("");setRecipeUrl("");}} wide>
-            <div style={{marginBottom:"0.9rem"}}>
-              <label style={lbl}>Paste a URL</label>
-              <p style={{color:T.textSoft,fontSize:"0.77rem",marginBottom:"0.6rem",lineHeight:1.5}}>Works with recipe websites and Pinterest. For TikTok/Instagram, paste ingredients manually below.</p>
-              <div style={{display:"flex",gap:"0.5rem"}}>
-                <input value={recipeUrl} onChange={e=>setRecipeUrl(e.target.value)} placeholder="https://..." style={{...inp({flex:1})}}/>
-                <button onClick={importRecipeFromUrl} disabled={recipeLoading||!recipeUrl.trim()} style={btnP(T.blue,{flexShrink:0,opacity:recipeLoading||!recipeUrl.trim()?0.5:1})}>{recipeLoading?"…":"Import"}</button>
-              </div>
-              {recipeError&&<p style={{color:T.rose,fontSize:"0.77rem",marginTop:"0.4rem"}}>{recipeError}</p>}
-            </div>
-            {recipeResult&&(
-              <div style={{...card({background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.9rem"})}}>
-                <p style={{fontWeight:700,color:T.sageDark,fontSize:"0.95rem",marginBottom:"0.4rem"}}>✓ Found: {recipeResult.name}</p>
-                <p style={{fontSize:"0.78rem",color:T.textMid}}>{recipeResult.ingredients?.length} ingredients · {recipeResult.servings||"?"} servings · {recipeResult.time||"?"}</p>
-                <button onClick={saveImportedRecipe} style={{...btnP(T.sage,{marginTop:"0.65rem",display:"flex",alignItems:"center",gap:"0.4rem"})}}><Icon name="check" size={14} color="#fff"/> Save Recipe</button>
-              </div>
-            )}
-            <div style={{borderTop:`1px solid ${T.borderSoft}`,paddingTop:"0.9rem"}}>
-              <label style={lbl}>Or enter manually</label>
-              <div style={{display:"flex",flexDirection:"column",gap:"0.6rem"}}>
-                <input value={manualRecipe.name} onChange={e=>setManualRecipe(p=>({...p,name:e.target.value}))} placeholder="Recipe name" style={inp()}/>
-                <textarea value={manualRecipe.ingredients} onChange={e=>setManualRecipe(p=>({...p,ingredients:e.target.value}))} placeholder="Ingredients (one per line)" style={{...inp({height:80,resize:"none"})}}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}}>
-                  <input value={manualRecipe.servings} onChange={e=>setManualRecipe(p=>({...p,servings:e.target.value}))} placeholder="Servings" style={inp()}/>
-                  <input value={manualRecipe.source} onChange={e=>setManualRecipe(p=>({...p,source:e.target.value}))} placeholder="Source" style={inp()}/>
-                </div>
-                <textarea value={manualRecipe.notes} onChange={e=>setManualRecipe(p=>({...p,notes:e.target.value}))} placeholder="Notes or instructions" style={{...inp({height:65,resize:"none"})}}/>
-                <button onClick={saveManualRecipe} disabled={!manualRecipe.name.trim()} style={btnP(T.blue,{opacity:manualRecipe.name.trim()?1:0.5})}>Save Recipe</button>
-              </div>
-            </div>
-          </ModalBox>
-        )}
       </div>
     );
   }
@@ -8529,6 +8400,49 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     },[]);
     const [addingType,setAddingType]=useState(false);
     const [occDraft,setOccDraft]=useState("");
+    const [importOpen,setImportOpen]=useState(false);
+    const [importUrl,setImportUrl]=useState("");
+    const [importLoading,setImportLoading]=useState(false);
+    const [importError,setImportError]=useState("");
+    // Parsed-but-unsaved recipe from "Import from URL" — reviewed/edited in
+    // the same detail view as a saved recipe (see record/isDraft below), but
+    // never written to recipeBook until the user explicitly saves it.
+    const [importDraft,setImportDraft]=useState(null);
+
+    async function submitImportUrl(){
+      if(!importUrl.trim())return;
+      setImportLoading(true); setImportError("");
+      var body = JSON.stringify({url:importUrl.trim()});
+      try{
+        var r = await fetch("/api/fetch-recipe",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+_afReadToken()},body:body});
+        if(r.status===401){
+          var fresh = await refreshAuthToken();
+          if(fresh) r = await fetch("/api/fetch-recipe",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+fresh},body:body});
+        }
+        var data = await r.json().catch(function(){return null;});
+        if(!r.ok || !data || !data.ok || !data.recipe){
+          setImportError((data && data.error) || "Couldn't import that URL.");
+          setImportLoading(false);
+          return;
+        }
+        var parsed = data.recipe;
+        setImportDraft({
+          id: uid(),
+          title: parsed.title || "Imported recipe",
+          type: parsed.type==="full" ? "full" : "simple",
+          occasions: [],
+          serves: parsed.serves || null,
+          ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients.map(function(i){ return {id:i.id||uid(),amount:i.amount||"",unit:i.unit||"",name:i.name||""}; }) : [],
+          steps: Array.isArray(parsed.steps) ? parsed.steps.map(function(s){ return {id:s.id||uid(),text:s.text||"",timer:s.timer||null}; }) : [],
+          notes: parsed.notes || "",
+          createdAt: new Date().toISOString(),
+        });
+        setImportOpen(false); setImportUrl(""); setImportError("");
+      } catch(e){
+        setImportError("Couldn't reach that URL.");
+      }
+      setImportLoading(false);
+    }
 
     function addRecipe(type){
       var r={id:uid(),title:"New Recipe",type:type,occasions:[],serves:type==="full"?4:null,ingredients:[],steps:[],notes:"",createdAt:new Date().toISOString()};
@@ -8543,102 +8457,128 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function updateRecipe(id,patch){
       setRecipeBook(function(p){return p.map(function(r){return r.id===id?Object.assign({},r,patch):r;});});
     }
-    function toggleOccasion(r,occ){
-      var has=(r.occasions||[]).includes(occ);
-      updateRecipe(r.id,{occasions:has?r.occasions.filter(function(o){return o!==occ;}):[...(r.occasions||[]),occ]});
+    const detail = detailId ? recipeBook.find(function(r){return r.id===detailId;}) : null;
+    // A URL-import draft is reviewed/edited in the same detail view as a
+    // saved recipe. updateField routes edits to the draft (local state,
+    // nothing written yet) or to the saved recipe (recipeBook), so the field
+    // markup below doesn't need two copies.
+    var isDraft = !!importDraft;
+    var record = importDraft || detail;
+    function updateField(patch){
+      if(isDraft) setImportDraft(function(p){return Object.assign({},p,patch);});
+      else if(detail) updateRecipe(detail.id,patch);
     }
-    function addCustomOccasion(r){
+    function saveDraft(){
+      if(!importDraft)return;
+      setRecipeBook(function(p){return [...p,importDraft];});
+      setDetailId(importDraft.id);
+      setImportDraft(null);
+    }
+    function discardDraft(){ setImportDraft(null); }
+    function toggleOccasion(occ){
+      var has=(record.occasions||[]).includes(occ);
+      updateField({occasions:has?record.occasions.filter(function(o){return o!==occ;}):[...(record.occasions||[]),occ]});
+    }
+    function addCustomOccasion(){
       var v=occDraft.trim();
-      if(!v||(r.occasions||[]).includes(v)){setOccDraft("");return;}
-      updateRecipe(r.id,{occasions:[...(r.occasions||[]),v]});
+      if(!v||(record.occasions||[]).includes(v)){setOccDraft("");return;}
+      updateField({occasions:[...(record.occasions||[]),v]});
       setOccDraft("");
     }
-    function scaleServings(r,rawVal){
+    function scaleServings(rawVal){
       var n=parseInt(rawVal,10);
-      if(!rawVal||!n||n<1){updateRecipe(r.id,{serves:null});return;}
-      var oldServes=r.serves||n;
+      if(!rawVal||!n||n<1){updateField({serves:null});return;}
+      var oldServes=record.serves||n;
       var factor=n/oldServes;
-      var scaledIngredients=(r.ingredients||[]).map(function(ing){
+      var scaledIngredients=(record.ingredients||[]).map(function(ing){
         var amt=parseFloat(ing.amount);
         if(isNaN(amt))return ing;
         return Object.assign({},ing,{amount:String(Math.round(amt*factor*100)/100)});
       });
-      updateRecipe(r.id,{serves:n,ingredients:scaledIngredients});
+      updateField({serves:n,ingredients:scaledIngredients});
     }
-    function addIngredient(r){updateRecipe(r.id,{ingredients:[...(r.ingredients||[]),{id:uid(),amount:"",unit:"",name:""}]});}
-    function updateIngredient(r,ingId,field,val){updateRecipe(r.id,{ingredients:(r.ingredients||[]).map(function(i){return i.id===ingId?Object.assign({},i,{[field]:val}):i;})});}
-    function removeIngredient(r,ingId){updateRecipe(r.id,{ingredients:(r.ingredients||[]).filter(function(i){return i.id!==ingId;})});}
-    function addStep(r){updateRecipe(r.id,{steps:[...(r.steps||[]),{id:uid(),text:"",timer:null}]});}
-    function updateStep(r,stepId,field,val){updateRecipe(r.id,{steps:(r.steps||[]).map(function(s){return s.id===stepId?Object.assign({},s,{[field]:val}):s;})});}
-    function removeStep(r,stepId){updateRecipe(r.id,{steps:(r.steps||[]).filter(function(s){return s.id!==stepId;})});}
+    function addIngredient(){updateField({ingredients:[...(record.ingredients||[]),{id:uid(),amount:"",unit:"",name:""}]});}
+    function updateIngredient(ingId,field,val){updateField({ingredients:(record.ingredients||[]).map(function(i){return i.id===ingId?Object.assign({},i,{[field]:val}):i;})});}
+    function removeIngredient(ingId){updateField({ingredients:(record.ingredients||[]).filter(function(i){return i.id!==ingId;})});}
+    function addStep(){updateField({steps:[...(record.steps||[]),{id:uid(),text:"",timer:null}]});}
+    function updateStep(stepId,field,val){updateField({steps:(record.steps||[]).map(function(s){return s.id===stepId?Object.assign({},s,{[field]:val}):s;})});}
+    function removeStep(stepId){updateField({steps:(record.steps||[]).filter(function(s){return s.id!==stepId;})});}
 
-    const detail = detailId ? recipeBook.find(function(r){return r.id===detailId;}) : null;
-
-    if (detail) {
-      var customTags=(detail.occasions||[]).filter(function(o){return !RECIPE_OCCASIONS.includes(o);});
+    if (record) {
+      var customTags=(record.occasions||[]).filter(function(o){return !RECIPE_OCCASIONS.includes(o);});
       return (
         <div>
-          <button onClick={()=>setDetailId(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.sageDark,fontSize:"0.8rem",fontFamily:"inherit",padding:"0 0 0.85rem 0",display:"flex",alignItems:"center",gap:5}}>← Recipes</button>
+          <button onClick={()=>{ if(isDraft) discardDraft(); else setDetailId(null); }} style={{background:"none",border:"none",cursor:"pointer",color:T.sageDark,fontSize:"0.8rem",fontFamily:"inherit",padding:"0 0 0.85rem 0",display:"flex",alignItems:"center",gap:5}}>← Recipes</button>
+
+          {isDraft && (
+            <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}50`,display:"flex",justifyContent:"space-between",alignItems:"center"})}}>
+              <span style={{fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>Imported — review, then save</span>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <button onClick={discardDraft} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.7rem"})}>Discard</button>
+                <button onClick={saveDraft} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>Save recipe</button>
+              </div>
+            </div>
+          )}
 
           <div style={{...card()}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
-              <input value={detail.title} onChange={e=>updateRecipe(detail.id,{title:e.target.value})} style={{...inp(),fontSize:"1.05rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",flex:1}}/>
-              <button onClick={()=>deleteRecipe(detail.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={14} color={T.textFaint}/></button>
+              <input value={record.title} onChange={e=>updateField({title:e.target.value})} style={{...inp(),fontSize:"1.05rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",flex:1}}/>
+              {!isDraft && <button onClick={()=>deleteRecipe(detail.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={14} color={T.textFaint}/></button>}
             </div>
-            <Pill label={detail.type==="full"?"Full recipe":"Simple dish"} color={detail.type==="full"?T.sage:T.sand} tiny/>
+            <Pill label={record.type==="full"?"Full recipe":"Simple dish"} color={record.type==="full"?T.sage:T.sand} tiny/>
 
             <div style={{marginTop:"0.9rem"}}>
               <label style={lbl}>Occasions</label>
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.5rem"}}>
                 {RECIPE_OCCASIONS.map(function(occ){
-                  var on=(detail.occasions||[]).includes(occ);
-                  return <button key={occ} onClick={()=>toggleOccasion(detail,occ)} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{occ}</button>
+                  var on=(record.occasions||[]).includes(occ);
+                  return <button key={occ} onClick={()=>toggleOccasion(occ)} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{occ}</button>
                 })}
                 {customTags.map(function(occ){
-                  return <button key={occ} onClick={()=>toggleOccasion(detail,occ)} style={{background:T.sage,color:"#fff",border:`1.5px solid ${T.sage}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{occ} ✕</button>
+                  return <button key={occ} onClick={()=>toggleOccasion(occ)} style={{background:T.sage,color:"#fff",border:`1.5px solid ${T.sage}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{occ} ✕</button>
                 })}
               </div>
               <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.9rem"}}>
-                <input value={occDraft} onChange={e=>setOccDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomOccasion(detail);}} placeholder="Add custom occasion…" style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.4rem 0.6rem"})}}/>
-                <button onClick={()=>addCustomOccasion(detail)} style={btnS({fontSize:"0.74rem",padding:"0.4rem 0.7rem"})}>Add</button>
+                <input value={occDraft} onChange={e=>setOccDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomOccasion();}} placeholder="Add custom occasion…" style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.4rem 0.6rem"})}}/>
+                <button onClick={()=>addCustomOccasion()} style={btnS({fontSize:"0.74rem",padding:"0.4rem 0.7rem"})}>Add</button>
               </div>
 
               <div style={{display:"flex",gap:"0.6rem",alignItems:"center",marginBottom:"0.9rem"}}>
                 <label style={{...lbl,marginBottom:0}}>Serves</label>
-                <input type="number" min="1" value={detail.serves||""} onChange={e=>detail.type==="full"?scaleServings(detail,e.target.value):updateRecipe(detail.id,{serves:e.target.value?parseInt(e.target.value,10):null})} placeholder="—" style={{...inp({width:70,padding:"0.35rem 0.5rem"})}}/>
-                {detail.type==="full" && <span style={{fontSize:"0.72rem",color:T.textFaint}}>Adjusting scales ingredient amounts</span>}
+                <input type="number" min="1" value={record.serves||""} onChange={e=>record.type==="full"?scaleServings(e.target.value):updateField({serves:e.target.value?parseInt(e.target.value,10):null})} placeholder="—" style={{...inp({width:70,padding:"0.35rem 0.5rem"})}}/>
+                {record.type==="full" && <span style={{fontSize:"0.72rem",color:T.textFaint}}>Adjusting scales ingredient amounts</span>}
               </div>
 
-              {detail.type==="full" && (<>
+              {record.type==="full" && (<>
                 <label style={lbl}>Ingredients</label>
-                {(detail.ingredients||[]).map(function(ing){
+                {(record.ingredients||[]).map(function(ing){
                   return (
                     <div key={ing.id} style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
-                      <input value={ing.amount} onChange={e=>updateIngredient(detail,ing.id,"amount",e.target.value)} placeholder="Amt" style={{...inp({width:60,padding:"0.4rem 0.5rem"})}}/>
-                      <input value={ing.unit} onChange={e=>updateIngredient(detail,ing.id,"unit",e.target.value)} placeholder="Unit" style={{...inp({width:80,padding:"0.4rem 0.5rem"})}}/>
-                      <input value={ing.name} onChange={e=>updateIngredient(detail,ing.id,"name",e.target.value)} placeholder="Ingredient" style={{...inp({flex:1,padding:"0.4rem 0.5rem"})}}/>
-                      <button onClick={()=>removeIngredient(detail,ing.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                      <input value={ing.amount} onChange={e=>updateIngredient(ing.id,"amount",e.target.value)} placeholder="Amt" style={{...inp({width:60,padding:"0.4rem 0.5rem"})}}/>
+                      <input value={ing.unit} onChange={e=>updateIngredient(ing.id,"unit",e.target.value)} placeholder="Unit" style={{...inp({width:80,padding:"0.4rem 0.5rem"})}}/>
+                      <input value={ing.name} onChange={e=>updateIngredient(ing.id,"name",e.target.value)} placeholder="Ingredient" style={{...inp({flex:1,padding:"0.4rem 0.5rem"})}}/>
+                      <button onClick={()=>removeIngredient(ing.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
                     </div>
                   )
                 })}
-                <button onClick={()=>addIngredient(detail)} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.65rem",marginBottom:"0.9rem"})}>+ Ingredient</button>
+                <button onClick={()=>addIngredient()} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.65rem",marginBottom:"0.9rem"})}>+ Ingredient</button>
 
                 <label style={lbl}>Steps</label>
-                {(detail.steps||[]).map(function(st,si){
+                {(record.steps||[]).map(function(st,si){
                   return (
                     <div key={st.id} style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
                       <span style={{fontSize:"0.78rem",color:T.textFaint,paddingTop:"0.5rem",minWidth:16}}>{si+1}.</span>
-                      <textarea value={st.text} onChange={e=>updateStep(detail,st.id,"text",e.target.value)} placeholder="Step description" style={{...inp({flex:1,resize:"none",height:44})}}/>
-                      <input type="number" min="0" value={st.timer||""} onChange={e=>updateStep(detail,st.id,"timer",e.target.value?parseInt(e.target.value,10):null)} placeholder="min" style={{...inp({width:56,padding:"0.4rem 0.5rem"})}}/>
-                      <button onClick={()=>removeStep(detail,st.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                      <textarea value={st.text} onChange={e=>updateStep(st.id,"text",e.target.value)} placeholder="Step description" style={{...inp({flex:1,resize:"none",height:44})}}/>
+                      <input type="number" min="0" value={st.timer||""} onChange={e=>updateStep(st.id,"timer",e.target.value?parseInt(e.target.value,10):null)} placeholder="min" style={{...inp({width:56,padding:"0.4rem 0.5rem"})}}/>
+                      <button onClick={()=>removeStep(st.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
                     </div>
                   )
                 })}
-                <button onClick={()=>addStep(detail)} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.65rem",marginBottom:"0.9rem"})}>+ Step</button>
+                <button onClick={()=>addStep()} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.65rem",marginBottom:"0.9rem"})}>+ Step</button>
               </>)}
 
               <label style={lbl}>Notes</label>
-              <textarea value={detail.notes} onChange={e=>updateRecipe(detail.id,{notes:e.target.value})} placeholder={detail.type==="full"?"Notes":"Who's bringing it, dietary notes, serving size…"} style={{...inp({height:70,resize:"none"})}}/>
+              <textarea value={record.notes} onChange={e=>updateField({notes:e.target.value})} placeholder={record.type==="full"?"Notes":"Who's bringing it, dietary notes, serving size…"} style={{...inp({height:70,resize:"none"})}}/>
             </div>
           </div>
         </div>
@@ -8647,10 +8587,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem",flexWrap:"wrap",gap:"0.4rem"}}>
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>
-          <button onClick={()=>setAddingType(function(v){return !v;})} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>+ Add Recipe</button>
+          <div style={{display:"flex",gap:"0.4rem"}}>
+            <button onClick={()=>{setImportOpen(function(v){return !v;});setImportError("");}} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>Import from URL</button>
+            <button onClick={()=>setAddingType(function(v){return !v;})} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>+ Add Recipe</button>
+          </div>
         </div>
+
+        {importOpen && (
+          <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}50`})}}>
+            <p style={{fontSize:"0.8rem",color:T.textMid,marginBottom:"0.65rem",fontWeight:600}}>Paste a recipe URL</p>
+            <div style={{display:"flex",gap:"0.5rem"}}>
+              <input value={importUrl} onChange={e=>setImportUrl(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")submitImportUrl();}} placeholder="https://..." style={{...inp({flex:1})}}/>
+              <button onClick={submitImportUrl} disabled={importLoading||!importUrl.trim()} style={btnP(T.blue,{flexShrink:0,opacity:importLoading||!importUrl.trim()?0.5:1})}>{importLoading?"…":"Import"}</button>
+            </div>
+            {importError && <p style={{color:T.rose,fontSize:"0.77rem",marginTop:"0.5rem"}}>{importError}</p>}
+          </div>
+        )}
 
         {addingType && (
           <div style={{...card({background:T.sagePale,border:`2px solid ${T.sage}50`})}}>
