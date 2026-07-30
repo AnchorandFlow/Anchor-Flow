@@ -1562,26 +1562,16 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
                   </select>
                   <button onClick={function(){if(newChoreName.trim()){if(editChoreId){updateSaved({chores:(sKidData.chores||[]).map(function(c){return c.id===editChoreId?Object.assign({},c,{name:newChoreName.trim(),pts:newChorePts}):c;})});setEditChoreId(null);}else{updateSaved({chores:[...(sKidData.chores||[]),{id:uid(),name:newChoreName.trim(),pts:newChorePts,done:false}]});}setNewChoreName("");}}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.75rem"})}>{editChoreId?"Save":"Add"}</button>
                 </div>
-                {(function(){
-                  var siblings=(saved||[]).filter(function(d){return d.kidId!==sKid.id&&d.chores&&d.chores.length>0;});
-                  if(siblings.length===0) return null;
-                  return(
-                    <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginTop:"0.35rem"}}>
-                      <span style={{color:T.textFaint,fontSize:"0.76rem",whiteSpace:"nowrap"}}>Copy from:</span>
-                      {siblings.map(function(sib){
-                        return(
-                          <button key={sib.kidId} onClick={function(){
-                            var existingNames=(sKidData.chores||[]).map(function(c){return c.name;});
-                            var toAdd=sib.chores.filter(function(c){return !existingNames.includes(c.name);}).map(function(c){return {id:uid(),name:c.name,pts:c.pts,done:false};});
-                            if(toAdd.length>0) updateSaved({chores:[...(sKidData.chores||[]),...toAdd]});
-                          }} style={{background:"none",border:"1px solid "+T.borderSoft,borderRadius:"0.5rem",cursor:"pointer",color:T.textMid,fontSize:"0.74rem",padding:"0.22rem 0.55rem",fontFamily:"inherit"}}>
-                            {sib.kidName}
-                          </button>
-                        );
+                {rawKids.length>1&&(
+                  <div style={{marginTop:"0.75rem",paddingTop:"0.65rem",borderTop:"1px solid "+T.borderSoft}}>
+                    <div style={{fontSize:"0.7rem",color:T.textSoft,fontWeight:700,marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.06em"}}>Copy from another child</div>
+                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                      {rawKids.filter(function(_,i){return i!==sKidIdx;}).map(function(k){
+                        return <button key={k.id} onClick={function(){var fromData=saved.find(function(d){return d.kidId===k.id;});if(!fromData)return;updateSaved({chores:(fromData.chores||[]).map(function(c){return Object.assign({},c,{id:uid(),done:false});})});}} style={{...btnS({fontSize:"0.74rem",padding:"0.28rem 0.8rem",borderRadius:"99px"})}}>Copy from {k.name}</button>;
                       })}
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
             )}
             {tpTab==="treasures"&&(
@@ -8771,6 +8761,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:val,p_store:cur.store||"Grocery",p_category:cur.category||"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":UPDATE");}else{}});
       }
     }
+    // Reuse handleDelete per matched item — same local + SHOPPING_V2 RPC path
+    // as every other delete here, no new bulk-delete surface needed.
+    function clearCompleted(storeLabel){
+      shoppingItems.filter(function(i){return i.done&&(!storeLabel||normalizeStore(i.store)===storeLabel);}).forEach(function(i){handleDelete(i.id);});
+    }
+    function clearAll(){
+      if(!window.confirm("Clear your entire shopping list? This can't be undone.")) return;
+      shoppingItems.forEach(function(i){handleDelete(i.id);});
+    }
     function handleMoveStore(id,targetStoreLabel){
       var cur=shoppingItems.find(function(x){return x.id===id;});
       if(!cur)return;
@@ -8885,6 +8884,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div>
         <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"} onBack={function(){goTab("anchor");}}/>
 
+        {shoppingItems.length>0&&(
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
+            {shoppingItems.some(function(i){return i.done;})
+              ? <button onClick={function(){clearCompleted();}} style={btnP(T.sage,{fontSize:"0.8rem",padding:"0.45rem 0.9rem"})}>✓ Clear completed</button>
+              : <span/>}
+            <button onClick={clearAll} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontWeight:600,fontFamily:"inherit",padding:"0.2rem 0.3rem"}}>Clear all</button>
+          </div>
+        )}
+
         {/* Add item card */}
         <div style={{...card({background:T.sandPale,border:"2px solid "+T.sand+"55"})}}>
           {/* Store tabs */}
@@ -8971,6 +8979,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if(storeItems.length===0) return null;
             var isCollapsed=!!collapsedStores[st.id];
             var pendingCount=storeItems.filter(function(i){return !i.done;}).length;
+            var doneCount=storeItems.length-pendingCount;
             var storeColor=st.id==="grocery"?T.sage:st.id==="costco"?T.blue:st.id==="target"?"#cc3333":st.id==="amazon"?"#e8a838":T.sand;
             return(
               <div key={st.id} data-shopstore={st.id} style={{...card({padding:"0",marginBottom:"0.65rem",border:"1.5px solid "+(shopDragOverStore===st.id?"#4a7fa8":T.borderSoft),outline:shopDragOverStore===st.id?"2px solid #4a7fa8aa":"none",transition:"outline 0.1s,border 0.1s"})}}>
@@ -8982,6 +8991,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {pendingCount>0&&<span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700,background:T.surface,borderRadius:"2rem",padding:"1px 7px",border:"1px solid "+T.borderSoft}}>{pendingCount}</span>}
                     <div style={{display:"flex",transition:"transform 0.2s",transform:isCollapsed?"rotate(-90deg)":"rotate(0deg)"}}><Icon name="chevD" size={15} color={T.textSoft}/></div>
                   </button>
+                  {doneCount>0&&<button onClick={function(e){e.stopPropagation();clearCompleted(st.label);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.68rem",color:T.textFaint,fontWeight:600,fontFamily:"inherit",padding:"0.2rem 0.3rem",flexShrink:0}}>Clear section</button>}
                 </div>
                 {!isCollapsed&&(
                   <div style={{padding:"0 0 0.5rem"}}>
@@ -10350,6 +10360,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     var [coveNotesAZ, setCoveNotesAZ] = React.useState(false);
+    var [coveListsAZ, setCoveListsAZ] = React.useState(false);
     var [catFilter, setCatFilter] = useState("all");
     var [coveTab, setCoveTab] = useState("lists"); // "lists" | "notes"
     var [activeNoteId, setActiveNoteId] = useState(null);
@@ -10656,6 +10667,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var filteredLists = coveLists.filter(function(l) {
       return catFilter === "all" || l.category === catFilter;
     });
+    if (coveListsAZ) filteredLists = filteredLists.slice().sort(function(a,b){ return (a.title||"").localeCompare(b.title||""); });
 
     var accent = activeList ? (activeList.color_accent || T.blue) : T.blue;
     var totalItems = activeItems.length;
@@ -10918,16 +10930,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           })}
         </div>
 
-        <div style={{padding:"10px 16px 6px",display:"flex",gap:6,flexWrap:"wrap"}}>
-          {["all","family","home","personal"].map(function(cat){
-            var active=catFilter===cat;
-            return(
-              <button key={cat} onClick={function(){setCatFilter(cat);}}
-                style={{fontSize:"0.7rem",padding:"3px 10px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}>
-                {CAT_LABELS[cat]}
-              </button>
-            );
-          })}
+        <div style={{padding:"10px 16px 6px",display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {["all","family","home","personal"].map(function(cat){
+              var active=catFilter===cat;
+              return(
+                <button key={cat} onClick={function(){setCatFilter(cat);}}
+                  style={{fontSize:"0.7rem",padding:"3px 10px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}>
+                  {CAT_LABELS[cat]}
+                </button>
+              );
+            })}
+          </div>
+          {coveLists.length>1&&<button onClick={function(){setCoveListsAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveListsAZ?"A–Z ✓":"A–Z"}</button>}
         </div>
 
         <div style={{padding:"8px 16px"}}>

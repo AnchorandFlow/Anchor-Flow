@@ -1300,6 +1300,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   // defaults COLLAPSED, matching the chevron convention used elsewhere.
   const [openPersonSections, setOpenPersonSections] = useState({})
   const [openLists, setOpenLists] = useState({})
+  const [giftsAZ, setGiftsAZ] = useState(false)
   const [renamingListId, setRenamingListId] = useState(null)
   const [renameDraft, setRenameDraft] = useState("")
   const [addingListFor, setAddingListFor] = useState(null) // personId or null
@@ -1714,6 +1715,9 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
       {celebTab === "gifts" && (
         <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <button onClick={function() { setGiftsAZ(!giftsAZ) }} style={{ fontSize: 11, color: giftsAZ?"#c8a97a":"rgba(250,248,244,0.5)", background: giftsAZ?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(giftsAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "4px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>{giftsAZ?"A–Z ✓":"A–Z"}</button>
+          </div>
           {(function() {
             var roster = hLoadPeople()
             var giftPersonIds = Array.from(new Set(roster.map(function(p) { return p.id }).concat(Object.keys(gifts).filter(function(k) { return k !== "holiday_lists" }))))
@@ -1735,6 +1739,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                         var listKey = personId + ":" + list.id
                         var listOpen = !!openLists[listKey]
                         var visibleItems = visibleListGifts(personId, list)
+                        if (giftsAZ) visibleItems = visibleItems.slice().sort(function(a, b) { return (a.title||"").localeCompare(b.title||"") })
                         var isAddingHere = addingGiftTarget && addingGiftTarget.personId === personId && addingGiftTarget.listId === list.id
                         return (
                           <div key={list.id} style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
