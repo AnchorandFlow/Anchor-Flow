@@ -2419,7 +2419,7 @@ const _hfComps   = {};
   'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
-  'MealBankDrawer','WeekTypePicker','MealsTab','ShoppingTab','HomeTab','BrainTab',
+  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','BrainTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveTab',
   'SchoolTab','LighthouseTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
@@ -5077,7 +5077,7 @@ Respond ONLY with valid JSON array, no markdown:
           ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
-          MealBankDrawer, WeekTypePicker, MealsTab, ShoppingTab, HomeTab, BrainTab,
+          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, BrainTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveTab,
           SchoolTab, LighthouseTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
@@ -7685,7 +7685,24 @@ Respond ONLY in valid JSON:
     const [showRecipes,setShowRecipes]=useState(false);
     const [recipeAZ,setRecipeAZ]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
-    const [mealsTopTab,setMealsTopTab]=useState("meals");
+    // Deep-link from Celebrations > Food & Cake ("Browse all recipes" / tap a
+    // recipe): AnchorVault.jsx can't reach this state via props (separate
+    // component tree, see AnchorVault's handleOpenRecipe/handleBrowseRecipes),
+    // so it sets af_pendingRecipesTab in sessionStorage before switching tabs.
+    // Checked here at mount for the case MealsTab isn't mounted yet when the
+    // nav fires; the live "af-open-recipes-tab" listener below covers the
+    // case it's already mounted in the background.
+    const [mealsTopTab,setMealsTopTab]=useState(function(){
+      try { return sessionStorage.getItem("af_pendingRecipesTab") ? "recipes" : "meals"; } catch { return "meals"; }
+    });
+    useEffect(function(){
+      function onNav(){
+        setMealsTopTab("recipes");
+        try { sessionStorage.removeItem("af_pendingRecipesTab"); } catch {}
+      }
+      window.addEventListener("af-open-recipes-tab", onNav);
+      return function(){ window.removeEventListener("af-open-recipes-tab", onNav); };
+    },[]);
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
     const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
@@ -8448,7 +8465,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         </>)}
 
-        {mealsTopTab==="recipes"&&React.createElement(_hfRenders.RecipeBookTab)}
+        {mealsTopTab==="recipes"&&<RecipeBookTab/>}
 
         {showRecipeImport&&(
           <ModalBox title="Import Recipe" onClose={()=>{setShowRecipeImport(false);setRecipeResult(null);setRecipeError("");setRecipeUrl("");}} wide>
@@ -8492,7 +8509,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // localStorage af_recipes) — this uses `recipeBook` / af_recipeBook.
   var RECIPE_OCCASIONS = ["Thanksgiving","Christmas","Easter","Birthday","General"];
   _hfRenders.RecipeBookTab = function RecipeBookTab(){
-    const [detailId,setDetailId]=useState(null);
+    // See mealsTopTab above — same deep-link mechanism, one level deeper
+    // (opens a specific recipe's detail view, not just the Recipes tab).
+    const [detailId,setDetailId]=useState(function(){
+      try {
+        var id = sessionStorage.getItem("af_pendingRecipeId");
+        sessionStorage.removeItem("af_pendingRecipeId");
+        sessionStorage.removeItem("af_pendingRecipesTab");
+        return id || null;
+      } catch { return null; }
+    });
+    useEffect(function(){
+      function onOpen(e){
+        if (e && e.detail && e.detail.recipeId) setDetailId(e.detail.recipeId);
+        try { sessionStorage.removeItem("af_pendingRecipeId"); sessionStorage.removeItem("af_pendingRecipesTab"); } catch {}
+      }
+      window.addEventListener("af-open-recipe", onOpen);
+      return function(){ window.removeEventListener("af-open-recipe", onOpen); };
+    },[]);
     const [addingType,setAddingType]=useState(false);
     const [occDraft,setOccDraft]=useState("");
 

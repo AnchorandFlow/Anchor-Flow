@@ -918,8 +918,16 @@ var CELEB_CARD_META = {
   photos:      { icon: "📸", title: "Photos & Memories" },
 }
 
-function CelebrationsSection({ calEvents }) {
+function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   calEvents = calEvents || []
+  // af_recipeBook lives in HomeFlow/MealsTab (App.jsx) — read directly from
+  // localStorage, same as af_celebrations/af_birthdays above. This section
+  // remounts fresh each time the user navigates into it (see activeSection
+  // conditional in AnchorVault), so a mount-time read is sufficient — no
+  // live cross-tab reactivity needed within a single view session.
+  const [recipeBook] = useState(function() {
+    try { var v = JSON.parse(localStorage.getItem("af_recipeBook") || "[]"); return Array.isArray(v) ? v : [] } catch { return [] }
+  })
   const [celebrations, setCelebrations] = useState(function() {
     try {
       const rawSaved = JSON.parse(localStorage.getItem("af_celebrations") || "[]")
@@ -1472,6 +1480,13 @@ function CelebrationsSection({ calEvents }) {
   const shown = filter === "upcoming" ? upcoming : all
 
   const detailCeleb = detailCelebId ? celebEntries.find(function(c) { return c.id === detailCelebId }) : null
+  // F-recipes: a recipe matches this celebration when any of its occasion
+  // tags appears as a substring of the celebration's name (case-insensitive) —
+  // e.g. a recipe tagged "Christmas" matches a celebration named "Christmas 2026".
+  const celebFoodMatchedRecipes = detailCeleb ? (recipeBook || []).filter(function(r) {
+    var nameLower = (detailCeleb.name || "").toLowerCase()
+    return (r.occasions || []).some(function(occ) { return nameLower.indexOf(String(occ).toLowerCase()) !== -1 })
+  }) : []
 
   function celebCardPreview(c, cardId) {
     if (cardId === "overview") return c.notes ? c.notes : "Tap to view details"
@@ -1882,6 +1897,28 @@ function CelebrationsSection({ calEvents }) {
               {activeCelebCard === "food" && (
                 <div>
                   <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Food & Cake</div>
+
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>Recipes</div>
+                      {onBrowseRecipes && <button onClick={onBrowseRecipes} style={{ background: "none", border: "none", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>Browse all recipes →</button>}
+                    </div>
+                    {celebFoodMatchedRecipes.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif" }}>
+                        No recipes tagged for this occasion yet — {onBrowseRecipes ? <span onClick={onBrowseRecipes} style={{ color: "#c8a97a", cursor: "pointer", fontStyle: "normal", textDecoration: "underline" }}>add one in Meals → Recipes</span> : "add one in Meals → Recipes"}.
+                      </div>
+                    ) : celebFoodMatchedRecipes.map(function(r) {
+                      return (
+                        <div key={r.id} onClick={function() { onOpenRecipe && onOpenRecipe(r.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.15)", borderRadius: 9, marginBottom: 6, cursor: onOpenRecipe ? "pointer" : "default" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", fontWeight: 600 }}>{r.title}</div>
+                            <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>{r.type === "full" ? "Full recipe" : "Simple dish"}{r.serves ? " · Serves " + r.serves : ""}</div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
                   {(detailCeleb.food||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>Nothing planned yet.</div>}
                   {(detailCeleb.food||[]).map(function(f) {
                     return (
@@ -1958,9 +1995,9 @@ function CelebrationsSection({ calEvents }) {
   )
 }
 
-function GiftsAndCelebrations({ calEvents }) {
+function GiftsAndCelebrations({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   calEvents = calEvents || []
-  return <CelebrationsSection calEvents={calEvents} />
+  return <CelebrationsSection calEvents={calEvents} onOpenRecipe={onOpenRecipe} onBrowseRecipes={onBrowseRecipes} />
 }
 
 // ── Pets Section ──────────────────────────────────────────────────────────────
@@ -9028,6 +9065,25 @@ function afVaultChanged(key) {
 }
 
 export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed }) {
+  // Recipes tab lives in HomeFlow/MealsTab (App.jsx), a sibling component
+  // FlowWrapper renders separately from AnchorVault — there's no prop path
+  // from here to there. Navigate the same way AnchorVault already talks to
+  // HomeFlow elsewhere: close the vault, dispatch the existing af-set-tab
+  // event to switch tabs, and dispatch a one-shot event carrying the recipe
+  // to open. MealsTab/RecipeBookTab also check sessionStorage on mount, in
+  // case they aren't mounted yet when this fires (tab switch is async).
+  function handleOpenRecipe(recipeId) {
+    try { sessionStorage.setItem("af_pendingRecipeId", recipeId); sessionStorage.setItem("af_pendingRecipesTab", "1"); } catch {}
+    try { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: "meals" })); } catch {}
+    try { window.dispatchEvent(new CustomEvent("af-open-recipe", { detail: { recipeId } })); } catch {}
+    onClose()
+  }
+  function handleBrowseRecipes() {
+    try { sessionStorage.removeItem("af_pendingRecipeId"); sessionStorage.setItem("af_pendingRecipesTab", "1"); } catch {}
+    try { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: "meals" })); } catch {}
+    try { window.dispatchEvent(new CustomEvent("af-open-recipes-tab")); } catch {}
+    onClose()
+  }
   calEvents = calEvents || []
   vaultSection = vaultSection || "home"
 
@@ -9085,7 +9141,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
           {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
           {activeSection === "systems" && <HomeSection />}
           {activeSection === "health" && <HealthSection />}
-          {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} />}
+          {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} onOpenRecipe={handleOpenRecipe} onBrowseRecipes={handleBrowseRecipes} />}
           {activeSection === "pets" && <PetsSection />}
           {activeSection === "moments" && <MomentsSection />}
           {activeSection === "travel" && <TravelProfileSection />}
