@@ -2498,10 +2498,24 @@ function HomeFlow({ recoveryToken }) {
   // Extends zombie-session detection to the boot path. When the stored token
   // is stale and refreshAuthToken() fails, surface the auth modal immediately
   // rather than leaving the app in a silent no-sync state.
+  //
+  // AUTH-1: this was the only one of the four refreshAuthToken() call sites
+  // that didn't gate on isAuthExpiredError(e) first — it treated ANY
+  // rejection here (including a pure network failure, the most likely thing
+  // to happen at boot, when connectivity may still be settling) as grounds
+  // to force sign-out UI. The other three (stale-check push guard,
+  // pushHouseholdData, poll) all already do this correctly. A network error
+  // now just logs and leaves auth state alone — the token wasn't actually
+  // shown to be bad, and the poll/push/stale-check cycles will validate it
+  // again shortly regardless.
   useEffect(() => {
     if (!authToken) return;
     sbFetch("/auth/v1/user", { _token: authToken })
-      .catch(async () => {
+      .catch(async (e) => {
+        if (!isAuthExpiredError(e)) {
+          console.warn("[AF AUTH] boot token validation network/unknown error — leaving auth state alone", e && e.message);
+          return;
+        }
         console.warn("[AF AUTH] boot token validation failed — attempting refresh");
         const newToken = await refreshAuthToken();
         if (newToken) {
