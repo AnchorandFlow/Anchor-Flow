@@ -27,6 +27,9 @@ export const SYNC_KEYS = [
   "tasks","brainItems","brainCats","calEvents","connectedCals","calColorLabels",
   // Meals
   "meals","mealsWeekOf","nextWeekMeals","mealCount","mealThemeEnabled","mealThemes","favMeals","mealBankCustom","recipes",
+  // Recipes tab (occasion-tagged full/simple recipes; distinct from the
+  // "recipes" URL-import feature above — af_recipes was already taken).
+  "recipeBook",
   // Shopping
   "shoppingItems","stores","shopCategories",
   // People & household
@@ -159,6 +162,9 @@ const _SANITIZE_HANDLED = new Set([
   "coveData","ownedProducts",
   "career_licenses","career_contacts","career_retirement",
   "trips",
+  // recipeBook: occasion-tagged full/simple recipes (Meals > Recipes tab).
+  // Same array-guard class as celebrations/gifts-array — see SYNC_KEYS comment.
+  "recipeBook",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // gifts: object map { personId: [gift, ...] } (Phase 3) — moved off the
@@ -204,7 +210,11 @@ export function sanitizeHouseholdData(data) {
      // trips: array of trip records. Only the top-level array and null entries
      // are guarded here — sub-field shapes (transportation/lodging/itinerary/
      // etc.) are unvalidated until Steps 3/4 define them. See SYNC_KEYS comment.
-     "trips"
+     "trips",
+     // recipeBook: array of recipe records ({id, title, type, occasions,
+     // serves, ingredients, steps, notes}). Only the top-level array and null
+     // entries are guarded here — sub-field shapes are unvalidated.
+     "recipeBook"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);

@@ -32,6 +32,9 @@ const PLAUSIBLE = {
   favMeals:           [{ id:"fm1", name:"pasta" }],
   mealBankCustom:     [{ id:"mb1", name:"tacos" }],
   recipes:            [{ id:"r1", name:"chili" }],
+  // recipeBook: occasion-tagged recipes (Meals > Recipes tab). Distinct from
+  // "recipes" above (URL-import feature) — af_recipes was already taken.
+  recipeBook:         [{ id:"rb1", title:"Grandma's Stuffing", type:"full", occasions:["Thanksgiving"], serves:8, ingredients:[{id:"i1",amount:"2",unit:"cups",name:"bread cubes"}], steps:[{id:"st1",text:"Toast bread cubes",timer:null}], notes:"", createdAt:"2026-07-01T00:00:00.000Z" }],
   shoppingItems:      [{ id:"s1", name:"milk" }],
   stores:             ["Costco","Grocery"],
   shopCategories:     [{ id:"sc1", name:"Produce" }],

@@ -3729,6 +3729,7 @@ function createLocalBackup() {
   const [mealThemeEnabled,setMealThemeEnabled] = useSaved("mealThemeEnabled",false);
   const [mealThemes,setMealThemes]             = useSaved("mealThemes",DEFAULT_MEAL_THEMES);
   const [recipes,setRecipes]                   = useSaved("recipes",[]);
+  const [recipeBook,setRecipeBook]             = useSaved("recipeBook",[]);
   const [mealBankCustom,setMealBankCustom]     = useSaved("mealBankCustom",[]);
   const [wtAiMeals,setWtAiMeals]              = useState(null);
   const [wtSelected,setWtSelected]            = useState([]);
@@ -7684,6 +7685,7 @@ Respond ONLY in valid JSON:
     const [showRecipes,setShowRecipes]=useState(false);
     const [recipeAZ,setRecipeAZ]=useState(false);
     const [editingThemes,setEditingThemes]=useState(false);
+    const [mealsTopTab,setMealsTopTab]=useState("meals");
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
     const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
@@ -7806,6 +7808,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
             {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
           </button>}/>
+
+        <div style={{display:"flex",gap:4,borderBottom:`1px solid ${T.border}`,marginBottom:"0.85rem"}}>
+          {[{id:"meals",label:"Meals"},{id:"recipes",label:"Recipes"}].map(tt=>(
+            <button key={tt.id} onClick={()=>setMealsTopTab(tt.id)} style={{background:"none",border:"none",borderBottom:mealsTopTab===tt.id?`2px solid ${T.sage}`:"2px solid transparent",padding:"0.5rem 1rem",fontSize:"0.85rem",color:mealsTopTab===tt.id?T.sageDark:T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:mealsTopTab===tt.id?700:500}}>{tt.label}</button>
+          ))}
+        </div>
+
+        {mealsTopTab==="meals"&&(<>
 
         {showWeekTypePicker&&<WeekTypePicker weekTypeKey={weekTypeKey} applyWeekType={applyWeekType} setShowWeekTypePicker={setShowWeekTypePicker} flowMode={flowMode} dietaryFilters={dietaryFilters} setNextWeekMeals={setNextWeekMeals} setMeals={setMeals} setMealSubTab={setMealSubTab} mealBankCustom={mealBankCustom} targetWeek={mealSubTab==="week"?"this":"next"} wtAiMeals={wtAiMeals} setWtAiMeals={setWtAiMeals} wtSelected={wtSelected} setWtSelected={setWtSelected}/>}
 
@@ -8110,9 +8120,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealSubTab==="bank"&&(
           <div>
-            {/* ── Inner tab bar: Meals | Recipes ── */}
+            {/* ── Inner tab bar: Meal Bank | Recipe Import ── */}
             <div style={{display:"flex",gap:"0.3rem",marginBottom:"1rem",background:T.bgAlt,borderRadius:"0.7rem",padding:"0.22rem",border:`1px solid ${T.border}`}}>
-              {[{id:"meals",label:"Meal Bank",emoji:"📋"},{id:"recipes",label:"Recipes",emoji:"📖"}].map(function(it){return(
+              {[{id:"meals",label:"Meal Bank",emoji:"📋"},{id:"recipes",label:"Recipe Import",emoji:"📖"}].map(function(it){return(
                 <button key={it.id} onClick={function(){setBankInnerTab(it.id);}} style={{flex:1,background:bankInnerTab===it.id?T.sage:"transparent",color:bankInnerTab===it.id?"#fff":T.textMid,border:"none",borderRadius:"0.5rem",padding:"0.42rem 0.6rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"}}>
                   {it.emoji} {it.label}
                 </button>
@@ -8435,6 +8445,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}><button onClick={()=>setEditingThemes(false)} style={btnP(T.sage)}>Done</button></div>
           </ModalBox>
         )}
+
+        </>)}
+
+        {mealsTopTab==="recipes"&&React.createElement(_hfRenders.RecipeBookTab)}
+
         {showRecipeImport&&(
           <ModalBox title="Import Recipe" onClose={()=>{setShowRecipeImport(false);setRecipeResult(null);setRecipeError("");setRecipeUrl("");}} wide>
             <div style={{marginBottom:"0.9rem"}}>
@@ -8470,6 +8485,170 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         )}
       </div>
     );
+  }
+
+  // ── RECIPES TAB (Meals > Recipes: occasion-tagged full/simple recipes) ────
+  // Distinct from the "recipes" URL-import feature (state var `recipes`,
+  // localStorage af_recipes) — this uses `recipeBook` / af_recipeBook.
+  var RECIPE_OCCASIONS = ["Thanksgiving","Christmas","Easter","Birthday","General"];
+  _hfRenders.RecipeBookTab = function RecipeBookTab(){
+    const [detailId,setDetailId]=useState(null);
+    const [addingType,setAddingType]=useState(false);
+    const [occDraft,setOccDraft]=useState("");
+
+    function addRecipe(type){
+      var r={id:uid(),title:"New Recipe",type:type,occasions:[],serves:type==="full"?4:null,ingredients:[],steps:[],notes:"",createdAt:new Date().toISOString()};
+      setRecipeBook(function(p){return [...p,r];});
+      setAddingType(false);
+      setDetailId(r.id);
+    }
+    function deleteRecipe(id){
+      setRecipeBook(function(p){return p.filter(function(r){return r.id!==id;});});
+      if(detailId===id) setDetailId(null);
+    }
+    function updateRecipe(id,patch){
+      setRecipeBook(function(p){return p.map(function(r){return r.id===id?Object.assign({},r,patch):r;});});
+    }
+    function toggleOccasion(r,occ){
+      var has=(r.occasions||[]).includes(occ);
+      updateRecipe(r.id,{occasions:has?r.occasions.filter(function(o){return o!==occ;}):[...(r.occasions||[]),occ]});
+    }
+    function addCustomOccasion(r){
+      var v=occDraft.trim();
+      if(!v||(r.occasions||[]).includes(v)){setOccDraft("");return;}
+      updateRecipe(r.id,{occasions:[...(r.occasions||[]),v]});
+      setOccDraft("");
+    }
+    function scaleServings(r,rawVal){
+      var n=parseInt(rawVal,10);
+      if(!rawVal||!n||n<1){updateRecipe(r.id,{serves:null});return;}
+      var oldServes=r.serves||n;
+      var factor=n/oldServes;
+      var scaledIngredients=(r.ingredients||[]).map(function(ing){
+        var amt=parseFloat(ing.amount);
+        if(isNaN(amt))return ing;
+        return Object.assign({},ing,{amount:String(Math.round(amt*factor*100)/100)});
+      });
+      updateRecipe(r.id,{serves:n,ingredients:scaledIngredients});
+    }
+    function addIngredient(r){updateRecipe(r.id,{ingredients:[...(r.ingredients||[]),{id:uid(),amount:"",unit:"",name:""}]});}
+    function updateIngredient(r,ingId,field,val){updateRecipe(r.id,{ingredients:(r.ingredients||[]).map(function(i){return i.id===ingId?Object.assign({},i,{[field]:val}):i;})});}
+    function removeIngredient(r,ingId){updateRecipe(r.id,{ingredients:(r.ingredients||[]).filter(function(i){return i.id!==ingId;})});}
+    function addStep(r){updateRecipe(r.id,{steps:[...(r.steps||[]),{id:uid(),text:"",timer:null}]});}
+    function updateStep(r,stepId,field,val){updateRecipe(r.id,{steps:(r.steps||[]).map(function(s){return s.id===stepId?Object.assign({},s,{[field]:val}):s;})});}
+    function removeStep(r,stepId){updateRecipe(r.id,{steps:(r.steps||[]).filter(function(s){return s.id!==stepId;})});}
+
+    const detail = detailId ? recipeBook.find(function(r){return r.id===detailId;}) : null;
+
+    if (detail) {
+      var customTags=(detail.occasions||[]).filter(function(o){return !RECIPE_OCCASIONS.includes(o);});
+      return (
+        <div>
+          <button onClick={()=>setDetailId(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.sageDark,fontSize:"0.8rem",fontFamily:"inherit",padding:"0 0 0.85rem 0",display:"flex",alignItems:"center",gap:5}}>← Recipes</button>
+
+          <div style={{...card()}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
+              <input value={detail.title} onChange={e=>updateRecipe(detail.id,{title:e.target.value})} style={{...inp(),fontSize:"1.05rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",flex:1}}/>
+              <button onClick={()=>deleteRecipe(detail.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={14} color={T.textFaint}/></button>
+            </div>
+            <Pill label={detail.type==="full"?"Full recipe":"Simple dish"} color={detail.type==="full"?T.sage:T.sand} tiny/>
+
+            <div style={{marginTop:"0.9rem"}}>
+              <label style={lbl}>Occasions</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.5rem"}}>
+                {RECIPE_OCCASIONS.map(function(occ){
+                  var on=(detail.occasions||[]).includes(occ);
+                  return <button key={occ} onClick={()=>toggleOccasion(detail,occ)} style={{background:on?T.sage:T.white,color:on?"#fff":T.textMid,border:`1.5px solid ${on?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{occ}</button>
+                })}
+                {customTags.map(function(occ){
+                  return <button key={occ} onClick={()=>toggleOccasion(detail,occ)} style={{background:T.sage,color:"#fff",border:`1.5px solid ${T.sage}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit"}}>{occ} ✕</button>
+                })}
+              </div>
+              <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.9rem"}}>
+                <input value={occDraft} onChange={e=>setOccDraft(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addCustomOccasion(detail);}} placeholder="Add custom occasion…" style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.4rem 0.6rem"})}}/>
+                <button onClick={()=>addCustomOccasion(detail)} style={btnS({fontSize:"0.74rem",padding:"0.4rem 0.7rem"})}>Add</button>
+              </div>
+
+              <div style={{display:"flex",gap:"0.6rem",alignItems:"center",marginBottom:"0.9rem"}}>
+                <label style={{...lbl,marginBottom:0}}>Serves</label>
+                <input type="number" min="1" value={detail.serves||""} onChange={e=>detail.type==="full"?scaleServings(detail,e.target.value):updateRecipe(detail.id,{serves:e.target.value?parseInt(e.target.value,10):null})} placeholder="—" style={{...inp({width:70,padding:"0.35rem 0.5rem"})}}/>
+                {detail.type==="full" && <span style={{fontSize:"0.72rem",color:T.textFaint}}>Adjusting scales ingredient amounts</span>}
+              </div>
+
+              {detail.type==="full" && (<>
+                <label style={lbl}>Ingredients</label>
+                {(detail.ingredients||[]).map(function(ing){
+                  return (
+                    <div key={ing.id} style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
+                      <input value={ing.amount} onChange={e=>updateIngredient(detail,ing.id,"amount",e.target.value)} placeholder="Amt" style={{...inp({width:60,padding:"0.4rem 0.5rem"})}}/>
+                      <input value={ing.unit} onChange={e=>updateIngredient(detail,ing.id,"unit",e.target.value)} placeholder="Unit" style={{...inp({width:80,padding:"0.4rem 0.5rem"})}}/>
+                      <input value={ing.name} onChange={e=>updateIngredient(detail,ing.id,"name",e.target.value)} placeholder="Ingredient" style={{...inp({flex:1,padding:"0.4rem 0.5rem"})}}/>
+                      <button onClick={()=>removeIngredient(detail,ing.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                    </div>
+                  )
+                })}
+                <button onClick={()=>addIngredient(detail)} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.65rem",marginBottom:"0.9rem"})}>+ Ingredient</button>
+
+                <label style={lbl}>Steps</label>
+                {(detail.steps||[]).map(function(st,si){
+                  return (
+                    <div key={st.id} style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem",alignItems:"flex-start"}}>
+                      <span style={{fontSize:"0.78rem",color:T.textFaint,paddingTop:"0.5rem",minWidth:16}}>{si+1}.</span>
+                      <textarea value={st.text} onChange={e=>updateStep(detail,st.id,"text",e.target.value)} placeholder="Step description" style={{...inp({flex:1,resize:"none",height:44})}}/>
+                      <input type="number" min="0" value={st.timer||""} onChange={e=>updateStep(detail,st.id,"timer",e.target.value?parseInt(e.target.value,10):null)} placeholder="min" style={{...inp({width:56,padding:"0.4rem 0.5rem"})}}/>
+                      <button onClick={()=>removeStep(detail,st.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                    </div>
+                  )
+                })}
+                <button onClick={()=>addStep(detail)} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.65rem",marginBottom:"0.9rem"})}>+ Step</button>
+              </>)}
+
+              <label style={lbl}>Notes</label>
+              <textarea value={detail.notes} onChange={e=>updateRecipe(detail.id,{notes:e.target.value})} placeholder={detail.type==="full"?"Notes":"Who's bringing it, dietary notes, serving size…"} style={{...inp({height:70,resize:"none"})}}/>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>My Recipes</span>
+          <button onClick={()=>setAddingType(function(v){return !v;})} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>+ Add Recipe</button>
+        </div>
+
+        {addingType && (
+          <div style={{...card({background:T.sagePale,border:`2px solid ${T.sage}50`})}}>
+            <p style={{fontSize:"0.8rem",color:T.textMid,marginBottom:"0.65rem",fontWeight:600}}>What kind of recipe?</p>
+            <div style={{display:"flex",gap:"0.5rem"}}>
+              <button onClick={()=>addRecipe("full")} style={btnP(T.sage,{flex:1})}>Full recipe</button>
+              <button onClick={()=>addRecipe("simple")} style={btnP(T.sand,{flex:1})}>Simple dish</button>
+            </div>
+          </div>
+        )}
+
+        {recipeBook.length===0 && !addingType && <p style={{color:T.textFaint,fontSize:"0.85rem",fontWeight:600,textAlign:"center",padding:"1.5rem 0"}}>No recipes yet — add your first one.</p>}
+
+        {recipeBook.map(function(r){
+          return (
+            <div key={r.id} onClick={()=>setDetailId(r.id)} style={{...card({padding:"0.85rem 1rem",cursor:"pointer"})}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{r.title}</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.35rem"}}>
+                    <Pill label={r.type==="full"?"Full recipe":"Simple dish"} color={r.type==="full"?T.sage:T.sand} tiny/>
+                    {(r.occasions||[]).map(function(occ){return <Pill key={occ} label={occ} color={T.blue} tiny/>})}
+                  </div>
+                  {r.serves && <div style={{fontSize:"0.74rem",color:T.textSoft,marginTop:"0.3rem"}}>Serves {r.serves}</div>}
+                </div>
+                <button onClick={function(e){e.stopPropagation();deleteRecipe(r.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
