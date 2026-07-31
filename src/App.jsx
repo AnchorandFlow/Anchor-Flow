@@ -15645,6 +15645,544 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Growth tab (Phase 5) ──────────────────────────────────────────────────
+    // Portfolio/progress data was checked before building (grepped the whole repo
+    // for "portfolio" — no existing field anywhere), so this section writes a new
+    // additive lighthouse.homeschool[id].portfolio array rather than repurposing
+    // anything. Attendance writes to both af_schoolData and af_lighthouse mirrors
+    // (see setAttendance below) so a date touched here is never shadowed by stale
+    // legacy data on the next read — see Phase 5 commit notes for the full reasoning.
+    var LH_PROGRESS_GROWTH = ["Not started","In progress","Achieved"];
+    var MARK_OPTIONS = ["Exceeding","Meeting","Approaching","Strength"];
+    var BREAK_COLORS = { summer:"#e8a84c", winter:"#6ba3c4", spring:"#7db87a" };
+    var BREAK_EMOJIS = { summer:"☀️", winter:"❄️", spring:"🌸" };
+    var BREAK_LABELS = { summer:"Summer Break", winter:"Winter Break", spring:"Spring Break" };
+    function markColor(m) {
+      if (m==="Exceeding") return "#6ABAAA";
+      if (m==="Meeting") return "#7A95B8";
+      if (m==="Approaching") return "#C9A45B";
+      if (m==="Strength") return "#C4849A";
+      return "#8a8578";
+    }
+
+    function GrowthArea() {
+      var [lhForm, setLhForm] = React.useState({});
+      var [lhAddMode, setLhAddMode] = React.useState(null);
+      var [lhEditId, setLhEditId] = React.useState(null);
+      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
+      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
+      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
+      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fieldRow(label, children) {
+        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+      }
+      function formCard(children) {
+        return (<div style={{ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" }}>{children}</div>);
+      }
+      function formBtns(onSave) {
+        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+      }
+      function pillToggle(label, active, onClick) {
+        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+      }
+
+      var sectionCardStyle = { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" };
+      var sectionTitleStyle = { fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, marginBottom:"0.65rem" };
+      var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
+      var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
+      var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
+      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem", flexShrink:0 };
+      var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
+      var adjBtnSt = { background:"none", border:"1.5px solid #D8D2C4", borderRadius:"50%", width:"24px", height:"24px", cursor:"pointer", fontSize:"0.9rem", color:"#7a7568", padding:0, lineHeight:1, fontFamily:"inherit" };
+
+      var childSchoolHs = (schoolData[activeChild] && schoolData[activeChild].homeschool) || {};
+      var schAttendance = childSchoolHs.attendance || {};
+      var hsAll = lhGet(lighthouse, "homeschool", {});
+      var hsChild = hsAll[activeChild] || defaultLhHsChild();
+      var hsDaily = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily : {};
+      var sharedAll = lhGet(lighthouse, "shared", {});
+      var childShared = sharedAll[activeChild] || {};
+      var goals = Array.isArray(childShared.goals) ? childShared.goals : [];
+      var books = Array.isArray(childShared.books) ? childShared.books : [];
+      var schoolAll = lhGet(lighthouse, "school", {});
+      var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
+      var gradesData = (schoolChild.grades && typeof schoolChild.grades === "object") ? schoolChild.grades : {};
+      var gradeMarks = Array.isArray(gradesData.marks) ? gradesData.marks : [];
+      var gradeScores = Array.isArray(gradesData.scores) ? gradesData.scores : [];
+      var gradeNotes = typeof gradesData.notes === "string" ? gradesData.notes : "";
+      var portfolio = Array.isArray(hsChild.portfolio) ? hsChild.portfolio : [];
+      var breakGoals = (schoolData[activeChild] && schoolData[activeChild].breakGoals) || [];
+      var curriculaForPortfolio = Array.isArray(childSchoolHs.curricula) ? childSchoolHs.curricula : [];
+      var lhSubjectsForPortfolio = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
+      var subjectNameListForPortfolio = curriculaForPortfolio.length>0 ? curriculaForPortfolio.map(function(c){ return c.subject; }) : lhSubjectsForPortfolio.slice();
+
+      function lhSaveAdd(field, item) { setLighthouse(function(prev) { return lhAddItem(prev, activeChild, field, item); }); }
+      function lhSaveUpdate(field, id, patch) { setLighthouse(function(prev) { return lhUpdateItem(prev, activeChild, field, id, patch); }); }
+      function lhSaveDel(field, id) { setLighthouse(function(prev) { return lhDeleteItem(prev, activeChild, field, id); }); }
+      function applyHs(patch) { setLighthouse(function(prev) { return lhHsPatch(prev, activeChild, patch); }); }
+      function applySchoolLh(patch) { setLighthouse(function(prev) { return lhSchoolPatch(prev, activeChild, patch); }); }
+      function gradesMutate(patch) { applySchoolLh({ grades: Object.assign({}, gradesData, patch) }); }
+      function saveBreakGoals(list) {
+        setSchoolData(function(prev) {
+          var next = Object.assign({}, prev);
+          var existing = next[activeChild] || defaultSchoolChild();
+          next[activeChild] = Object.assign({}, existing, { breakGoals: list });
+          return next;
+        });
+      }
+      // Attendance writes to BOTH mirrors on every edit so neither can shadow a
+      // fresh edit to the other on the next read (see comment above GrowthArea).
+      function setAttendance(dateIso, status) {
+        setSchoolData(function(prev) {
+          var next = Object.assign({}, prev);
+          var existingChild = next[activeChild] || defaultSchoolChild();
+          var existingHs = existingChild.homeschool || {};
+          var nextAtt = Object.assign({}, existingHs.attendance || {});
+          if (status) nextAtt[dateIso] = status; else delete nextAtt[dateIso];
+          next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { attendance: nextAtt }) });
+          return next;
+        });
+        setLighthouse(function(prev) {
+          var hsAllPrev = lhGet(prev, "homeschool", {});
+          var hsChildPrev = hsAllPrev[activeChild] || defaultLhHsChild();
+          var dailyPrev = (hsChildPrev.daily && typeof hsChildPrev.daily === "object") ? hsChildPrev.daily : {};
+          var nextDaily = Object.assign({}, dailyPrev);
+          var dayPrev = (nextDaily[dateIso] && typeof nextDaily[dateIso] === "object") ? nextDaily[dateIso] : {};
+          nextDaily[dateIso] = Object.assign({}, dayPrev, { attendance: status });
+          return lhHsPatch(prev, activeChild, { daily: nextDaily });
+        });
+      }
+      function getAttendanceStatus(dateIso) {
+        var schVal = schAttendance[dateIso];
+        if (schVal) return schVal;
+        var day = hsDaily[dateIso];
+        if (day && typeof day === "object" && day.attendance) return day.attendance;
+        return null;
+      }
+
+      // ── Attendance Record (both modes) ──────────────────────────────────────
+      function AttendanceSection() {
+        var [monthIso, setMonthIso] = React.useState(function(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01"; });
+        function monthDays(iso) {
+          var d = new Date(iso+"T12:00:00");
+          var year=d.getFullYear(), month=d.getMonth();
+          var firstDow = new Date(year,month,1).getDay();
+          var daysInMonth = new Date(year,month+1,0).getDate();
+          var out = [];
+          for (var i=0;i<firstDow;i++) out.push(null);
+          for (var dd=1; dd<=daysInMonth; dd++) out.push(year+"-"+String(month+1).padStart(2,"0")+"-"+String(dd).padStart(2,"0"));
+          return out;
+        }
+        function shiftMonth(n) { var d=new Date(monthIso+"T12:00:00"); d.setMonth(d.getMonth()+n); setMonthIso(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01"); }
+        var ATT_CYCLE = [null, "present", "half", "absent"];
+        function cycle(dateIso) {
+          var cur = getAttendanceStatus(dateIso);
+          var idx = ATT_CYCLE.indexOf(cur);
+          setAttendance(dateIso, ATT_CYCLE[(idx+1) % ATT_CYCLE.length]);
+        }
+        var monthLabel = new Date(monthIso+"T12:00:00").toLocaleDateString("en-US",{ month:"long", year:"numeric" });
+        var days = monthDays(monthIso);
+        var thisYear = String(new Date().getFullYear());
+        var ytd = (function(){
+          var dates = {};
+          Object.keys(schAttendance).forEach(function(d){ dates[d]=true; });
+          Object.keys(hsDaily).forEach(function(d){ if (hsDaily[d] && hsDaily[d].attendance) dates[d]=true; });
+          var present=0, half=0, absent=0;
+          Object.keys(dates).forEach(function(d){
+            if (d.slice(0,4) !== thisYear) return;
+            var v = getAttendanceStatus(d);
+            if (v==="present") present++; else if (v==="half") half++; else if (v==="absent") absent++;
+          });
+          return { present:present, half:half, absent:absent, total:present+half+absent };
+        })();
+        var STATUS_COLOR = { present:LC.seaglass, half:"#C9A45B", absent:"#C4849A" };
+        var STATUS_LABEL = { present:"P", half:"H", absent:"A" };
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📋 Attendance Record</div>
+            <div style={{ display:"flex", gap:"1.15rem", marginBottom:"0.85rem", flexWrap:"wrap" }}>
+              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.seaglass }}>{ytd.present}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Present</div></div>
+              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:"#C9A45B" }}>{ytd.half}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Half days</div></div>
+              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:"#C4849A" }}>{ytd.absent}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Absent</div></div>
+              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.navy }}>{ytd.total}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Total logged</div></div>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem" }}>
+              <button type="button" onClick={function(){ shiftMonth(-1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>‹</button>
+              <span style={{ flex:1, textAlign:"center", fontWeight:700, color:LC.navy, fontSize:"0.88rem" }}>{monthLabel}</span>
+              <button type="button" onClick={function(){ shiftMonth(1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>›</button>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px", marginBottom:"0.6rem" }}>
+              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d){ return <div key={d} style={{ textAlign:"center", fontSize:"0.6rem", color:"#9a9488", fontWeight:700 }}>{d}</div>; })}
+              {days.map(function(dateIso, i) {
+                if (!dateIso) return <div key={"e"+i}/>;
+                var status = getAttendanceStatus(dateIso);
+                var isToday = dateIso === todayIso;
+                return (
+                  <button type="button" key={dateIso} onClick={function(){ cycle(dateIso); }} style={{
+                    padding:"0.28rem 0", borderRadius:"0.4rem", cursor:"pointer", fontSize:"0.7rem", fontFamily:"inherit",
+                    border: isToday ? "2px solid "+LC.navy : "1px solid "+(status?STATUS_COLOR[status]+"55":"#E7E1D4"),
+                    background: status ? STATUS_COLOR[status]+"22" : "#fff", color: status ? LC.navy : "#7a7568"
+                  }}>
+                    {status ? STATUS_LABEL[status] : new Date(dateIso+"T12:00:00").getDate()}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize:"0.7rem", color:"#9a9488" }}>Tap a day to cycle: Present → Half → Absent → clear</div>
+          </div>
+        );
+      }
+
+      // ── Goals & Challenges (both modes, shared data) ────────────────────────
+      function GoalsSection() {
+        function GoalForm(onSave) {
+          var isChallenge = fv("kind","goal") === "challenge";
+          return formCard(
+            <div>
+              {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{pillToggle("Goal", !isChallenge, function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"goal"}); }); })}{pillToggle("Challenge", isChallenge, function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"challenge"}); }); })}</div>)}
+              {fieldRow("Category *", <input value={fv("cat","")} onChange={fSet("cat")} autoFocus style={inp()}/>)}
+              {fieldRow("Goal *", <textarea value={fv("goal","")} onChange={fSet("goal")} style={inp({ height:60, resize:"vertical" })}/>)}
+              {isChallenge && fieldRow("Target", <input type="number" min="0" value={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
+              {isChallenge && fieldRow("Unit", <input value={fv("unit","books")} onChange={fSet("unit")} style={inp()}/>)}
+              {fieldRow("Why", <textarea value={fv("why","")} onChange={fSet("why")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("Source", <input value={fv("source","parent")} onChange={fSet("source")} style={inp()}/>)}
+              {!isChallenge && fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} style={inp({ height:70, resize:"vertical" })}/>)}
+              {!isChallenge && fieldRow("Progress", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_PROGRESS_GROWTH.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){ setLhForm(function(f){ return Object.assign({},f,{progress:p}); }); }); })}</div>)}
+              {fieldRow("Evidence", <textarea value={fv("evidence","")} onChange={fSet("evidence")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("Reflect", <textarea value={fv("reflect","")} onChange={fSet("reflect")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {formBtns(onSave)}
+            </div>
+          );
+        }
+        function saveGoal() {
+          var goalTxt=(fv("goal","")).trim(); var cat=(fv("cat","")).trim();
+          if (!goalTxt || !cat) return;
+          var kind = fv("kind","goal");
+          var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
+          var item = { id:uid(), cat:cat, goal:goalTxt, kind:kind, why:(fv("why","")).trim(), source:(fv("source","parent")).trim(), steps:stepsRaw.map(function(s){ return {id:uid(),text:s,done:false}; }), progress:fv("progress","Not started"), evidence:(fv("evidence","")).trim(), reflect:(fv("reflect","")).trim() };
+          if (kind==="challenge") { item.target=(fv("target","")).toString().trim(); item.unit=(fv("unit","books")).trim(); item.manualAdjust=0; }
+          lhSaveAdd("goals", item); closeForm();
+        }
+        function updateGoal() {
+          var goalTxt=(fv("goal","")).trim(); var cat=(fv("cat","")).trim();
+          if (!goalTxt || !cat) return;
+          var kind = fv("kind","goal");
+          var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){ return s.trim(); }).filter(Boolean);
+          var patch = { cat:cat, goal:goalTxt, kind:kind, why:(fv("why","")).trim(), source:(fv("source","parent")).trim(), steps:stepsRaw.map(function(s){ return {id:uid(),text:s,done:false}; }), progress:fv("progress","Not started"), evidence:(fv("evidence","")).trim(), reflect:(fv("reflect","")).trim() };
+          if (kind==="challenge") { patch.target=(fv("target","")).toString().trim(); patch.unit=(fv("unit","books")).trim(); }
+          lhSaveUpdate("goals", lhEditId, patch); closeForm();
+        }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>🎯 Goals & Challenges</div>
+            {lhAddMode!=="goal" && <button type="button" onClick={function(){ openAdd("goal",{ progress:"Not started", source:"parent", kind:"goal" }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Goal</button>}
+            {lhAddMode==="goal" && GoalForm(saveGoal)}
+            {goals.length===0 && lhAddMode!=="goal" && <div style={emptyTextStyle}>No goals yet.</div>}
+            {goals.map(function(g) {
+              if (lhEditId === g.id) { return <div key={g.id}>{GoalForm(updateGoal)}</div>; }
+              var isChallenge = g.kind==="challenge";
+              var stepsArr = Array.isArray(g.steps) ? g.steps : [];
+              var doneCount = stepsArr.filter(function(s){ return s.done; }).length;
+              var challengeBlock = null;
+              if (isChallenge) {
+                var autoProgress = g.unit==="books" ? lhChallengeAutoProgress(books) : 0;
+                var manualAdjust = typeof g.manualAdjust==="number" ? g.manualAdjust : 0;
+                var displayProgress = autoProgress + manualAdjust;
+                var targetNum = parseInt(g.target) || 0;
+                var pct = targetNum>0 ? Math.min(1, displayProgress/targetNum) : 0;
+                challengeBlock = (
+                  <div style={{ marginTop:"0.55rem" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.25rem" }}>
+                      <span style={{ fontWeight:700, color:"#3a3a34" }}>{displayProgress}</span>
+                      <span style={{ fontSize:"0.78rem", color:"#8a8578" }}>/ {g.target||"?"} {g.unit||""}</span>
+                      <div style={{ display:"flex", gap:"0.3rem", marginLeft:"auto" }}>
+                        <button type="button" onClick={function(){ lhSaveUpdate("goals",g.id,{manualAdjust:manualAdjust-1}); }} style={adjBtnSt}>−</button>
+                        <button type="button" onClick={function(){ lhSaveUpdate("goals",g.id,{manualAdjust:manualAdjust+1}); }} style={adjBtnSt}>+</button>
+                      </div>
+                    </div>
+                    {targetNum>0 && <div style={{ background:"#F0EBDF", borderRadius:"99px", height:"6px", overflow:"hidden" }}><div style={{ width:(pct*100)+"%", height:"100%", background:LC.seaglass, borderRadius:"99px" }}/></div>}
+                  </div>
+                );
+              }
+              return (
+                <div key={g.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{g.goal}</div>
+                    {g.cat && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{g.cat}</div>}
+                    {!isChallenge && <div style={{ fontSize:"0.72rem", color:LC.seaglass, fontWeight:700, marginTop:"0.3rem" }}>{g.progress||"Not started"}</div>}
+                    {isChallenge && <div style={{ fontSize:"0.72rem", color:LC.seaglass, fontWeight:700, marginTop:"0.3rem" }}>Challenge</div>}
+                    {challengeBlock}
+                    {!isChallenge && stepsArr.length>0 && (
+                      <div style={{ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.3rem" }}>
+                        {doneCount}/{stepsArr.length} steps
+                        {stepsArr.map(function(step) {
+                          return (
+                            <div key={step.id} onClick={function(){ lhSaveUpdate("goals", g.id, { steps: stepsArr.map(function(s){ return s.id===step.id ? Object.assign({},s,{done:!s.done}) : s; }) }); }} style={{ display:"flex", alignItems:"center", gap:"0.35rem", marginTop:"0.15rem", cursor:"pointer" }}>
+                              <span style={{ color:step.done?LC.seaglass:"#D8D2C4" }}>{step.done?"●":"○"}</span>
+                              <span style={{ textDecoration:step.done?"line-through":"none", color:step.done?"#9a9488":"#5a5a50" }}>{step.text}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {g.evidence && <div style={{ fontSize:"0.73rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.3rem" }}>Evidence: {g.evidence}</div>}
+                  </div>
+                  <div style={{ display:"flex", gap:"0.3rem", flexShrink:0 }}>
+                    <button type="button" onClick={function(){ openEdit(g.id, Object.assign({},g,{stepsText:stepsArr.map(function(s){ return s.text; }).join("\n")})); }} style={editBtnStyle}>Edit</button>
+                    <button type="button" onClick={function(){ lhSaveDel("goals", g.id); }} style={delBtnStyle}>✕</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Grades (school mode only) ────────────────────────────────────────────
+      function GradesSection() {
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📊 Grades</div>
+            <div style={subheadStyle}>Subject Marks</div>
+            {lhAddMode!=="grades-mark" && <button type="button" onClick={function(){ openAdd("grades-mark",{mark:""}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Subject</button>}
+            {lhAddMode==="grades-mark" && formCard(
+              <div>
+                {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} autoFocus style={inp()}/>)}
+                {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ setLhForm(function(f){ return Object.assign({},f,{mark:m}); }); }); })}</div>)}
+                {fieldRow("Note", <input value={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
+                {formBtns(function(){
+                  var s=(fv("subject","")).trim(); var m=fv("mark","");
+                  if (!s||!m) return;
+                  gradesMutate({ marks: gradeMarks.concat([{ id:uid(), subject:s, mark:m, comment:fv("comment","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {gradeMarks.length===0 && lhAddMode!=="grades-mark" && <div style={emptyTextStyle}>No subjects yet.</div>}
+            {gradeMarks.map(function(row) {
+              if (lhEditId===row.id) {
+                return formCard(
+                  <div key={row.id}>
+                    {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
+                    {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ setLhForm(function(f){ return Object.assign({},f,{mark:m}); }); }); })}</div>)}
+                    {fieldRow("Note", <input value={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
+                    {formBtns(function(){
+                      var s=(fv("subject","")).trim(); var m=fv("mark","");
+                      if (!s||!m) return;
+                      gradesMutate({ marks: gradeMarks.map(function(r){ return r.id===row.id ? { id:row.id, subject:s, mark:m, comment:fv("comment","") } : r; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              var col = markColor(row.mark);
+              return (
+                <div key={row.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:600, fontSize:"0.86rem", color:"#3a3a34" }}>{row.subject}</div>
+                    {row.comment && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{row.comment}</div>}
+                  </div>
+                  {row.mark && <span style={{ fontSize:"0.7rem", fontWeight:700, color:col, background:col+"22", padding:"0.12rem 0.55rem", borderRadius:"99px", flexShrink:0 }}>{row.mark}</span>}
+                  <button type="button" onClick={function(){ openEdit(row.id, row); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ gradesMutate({ marks: gradeMarks.filter(function(r){ return r.id!==row.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+
+            <div style={Object.assign({},subheadStyle,{ marginTop:"0.85rem" })}>Scores & Assessments</div>
+            {lhAddMode!=="grades-score" && <button type="button" onClick={function(){ openAdd("grades-score",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Score</button>}
+            {lhAddMode==="grades-score" && formCard(
+              <div>
+                {fieldRow("Label *", <input value={fv("label","")} onChange={fSet("label")} autoFocus style={inp()}/>)}
+                {fieldRow("Value *", <input value={fv("value","")} onChange={fSet("value")} style={inp()}/>)}
+                {formBtns(function(){
+                  var l=(fv("label","")).trim(); var v=(fv("value","")).trim();
+                  if (!l||!v) return;
+                  gradesMutate({ scores: gradeScores.concat([{ id:uid(), label:l, value:v }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {gradeScores.length===0 && lhAddMode!=="grades-score" && <div style={emptyTextStyle}>No assessments yet.</div>}
+            {gradeScores.map(function(sc) {
+              if (lhEditId===sc.id) {
+                return formCard(
+                  <div key={sc.id}>
+                    {fieldRow("Label *", <input value={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
+                    {fieldRow("Value *", <input value={fv("value","")} onChange={fSet("value")} style={inp()}/>)}
+                    {formBtns(function(){
+                      var l=(fv("label","")).trim(); var v=(fv("value","")).trim();
+                      if (!l||!v) return;
+                      gradesMutate({ scores: gradeScores.map(function(s){ return s.id===sc.id ? { id:sc.id, label:l, value:v } : s; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <div key={sc.id} style={itemRowStyle}>
+                  <div style={{ flex:1, fontSize:"0.85rem", color:"#5a5a50" }}>{sc.label}</div>
+                  <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{sc.value}</div>
+                  <button type="button" onClick={function(){ openEdit(sc.id, sc); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ gradesMutate({ scores: gradeScores.filter(function(s){ return s.id!==sc.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+
+            <div style={Object.assign({},subheadStyle,{ marginTop:"0.85rem" })}>Growth Notes</div>
+            <textarea defaultValue={gradeNotes} onBlur={function(e){ gradesMutate({ notes: e.target.value }); }} placeholder="What's clicking? What's growing?" style={inp({ height:80, resize:"vertical" })}/>
+          </div>
+        );
+      }
+
+      // ── Portfolio / Progress Notes (homeschool only, new field) ─────────────
+      function PortfolioSection() {
+        var sorted = portfolio.slice().sort(function(a,b){ return (b.date||"") < (a.date||"") ? -1:1; });
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>🗂️ Portfolio / Progress Notes</div>
+            {lhAddMode!=="portfolio" && <button type="button" onClick={function(){ openAdd("portfolio",{ date:todayIso }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Entry</button>}
+            {lhAddMode==="portfolio" && formCard(
+              <div>
+                {fieldRow("Date", <input type="date" value={fv("date",todayIso)} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Subject", subjectNameListForPortfolio.length>0
+                  ? <select value={fv("subject","")} onChange={fSet("subject")} style={inp()}><option value="">—</option>{subjectNameListForPortfolio.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                  : <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                {fieldRow("Note *", <textarea value={fv("note","")} onChange={fSet("note")} autoFocus style={inp({ height:70, resize:"vertical" })}/>)}
+                {fieldRow("Photo URL", <input value={fv("photoUrl","")} onChange={fSet("photoUrl")} placeholder="Optional" style={inp()}/>)}
+                {formBtns(function(){
+                  var n=(fv("note","")).trim(); if(!n) return;
+                  applyHs({ portfolio: portfolio.concat([{ id:uid(), date:fv("date",todayIso), subject:fv("subject",""), note:n, photoUrl:fv("photoUrl","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {portfolio.length===0 && lhAddMode!=="portfolio" && <div style={emptyTextStyle}>No portfolio entries yet.</div>}
+            {sorted.map(function(p) {
+              if (lhEditId===p.id) {
+                return formCard(
+                  <div key={p.id}>
+                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                    {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                    {fieldRow("Note *", <textarea value={fv("note","")} onChange={fSet("note")} autoFocus style={inp({ height:70, resize:"vertical" })}/>)}
+                    {fieldRow("Photo URL", <input value={fv("photoUrl","")} onChange={fSet("photoUrl")} style={inp()}/>)}
+                    {formBtns(function(){
+                      var n=(fv("note","")).trim(); if(!n) return;
+                      applyHs({ portfolio: portfolio.map(function(x){ return x.id===p.id ? { id:p.id, date:fv("date",""), subject:fv("subject",""), note:n, photoUrl:fv("photoUrl","") } : x; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <div key={p.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
+                      {p.date && <span style={{ fontSize:"0.72rem", color:"#8a8578", fontWeight:700 }}>{fmtMonthDay(p.date)}</span>}
+                      {p.subject && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{p.subject}</span>}
+                    </div>
+                    <div style={{ fontSize:"0.83rem", color:"#3a3a34", marginTop:"0.25rem" }}>{p.note}</div>
+                    {p.photoUrl && <a href={p.photoUrl} target="_blank" rel="noreferrer" style={{ fontSize:"0.74rem", color:LC.seaglass }}>📷 view photo</a>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(p.id, p); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ applyHs({ portfolio: portfolio.filter(function(x){ return x.id!==p.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Break Goals (shared, both modes) ────────────────────────────────────
+      function BreakGoalsSection() {
+        var [breakMode, setBreakModeLocal] = React.useState("summer");
+        var currentBreakGoals = breakGoals.filter(function(g){ return g.break===breakMode; });
+        var breakColor = BREAK_COLORS[breakMode];
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>🌟 Break Goals</div>
+            <div style={{ display:"flex", gap:"0.4rem", marginBottom:"0.75rem" }}>
+              {["summer","winter","spring"].map(function(b){
+                var active = breakMode===b;
+                return <button type="button" key={b} onClick={function(){ setBreakModeLocal(b); }} style={{ flex:1, padding:"0.35rem 0.5rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?BREAK_COLORS[b]:"#D8D2C4"), background:active?BREAK_COLORS[b]+"22":"transparent", color:active?BREAK_COLORS[b]:"#7a7568", fontWeight:active?700:400, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit" }}>{BREAK_EMOJIS[b]} {BREAK_LABELS[b]}</button>;
+              })}
+            </div>
+            {lhAddMode!=="breakgoal" && <button type="button" onClick={function(){ openAdd("breakgoal",{ type:"goal" }); }} style={btnP(breakColor,{ fontSize:"0.8rem", marginBottom:"0.65rem", color:"#fff" })}>+ Add Goal</button>}
+            {lhAddMode==="breakgoal" && formCard(
+              <div>
+                {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily"]].map(function(t){ return pillToggle(t[1], fv("type","goal")===t[0], function(){ setLhForm(function(f){ return Object.assign({},f,{type:t[0]}); }); }); })}</div>)}
+                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+                {fieldRow("Target number", <input type="number" value={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
+                {fieldRow("Unit", <input value={fv("unit","")} onChange={fSet("unit")} placeholder="books, days…" style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var t=(fv("title","")).trim(); if(!t) return;
+                  saveBreakGoals(breakGoals.concat([{ id:uid(), title:t, type:fv("type","goal"), target:fv("target",""), unit:fv("unit",""), notes:fv("notes",""), break:breakMode, progress:0 }]));
+                  closeForm();
+                })}
+              </div>
+            )}
+            {currentBreakGoals.length===0 && lhAddMode!=="breakgoal" && <div style={emptyTextStyle}>No goals yet for this break.</div>}
+            {currentBreakGoals.map(function(g) {
+              if (lhEditId===g.id) {
+                return formCard(
+                  <div key={g.id}>
+                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Target number", <input type="number" value={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
+                    {fieldRow("Unit", <input value={fv("unit","")} onChange={fSet("unit")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {formBtns(function(){
+                      var t=(fv("title","")).trim(); if(!t) return;
+                      saveBreakGoals(breakGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{ title:t, target:fv("target",""), unit:fv("unit",""), notes:fv("notes","") }) : x; }));
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              var pct = g.target && g.progress!=null ? Math.min(100, Math.round((g.progress/parseInt(g.target))*100)) : null;
+              return (
+                <div key={g.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{g.title}</div>
+                    {g.target && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{g.progress||0} / {g.target} {g.unit}{pct!=null?" · "+pct+"%":""}</div>}
+                    {g.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{g.notes}</div>}
+                    {g.target && (
+                      <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.3rem" }}>
+                        <button type="button" onClick={function(){ saveBreakGoals(breakGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{progress:Math.max(0,(x.progress||0)-1)}) : x; })); }} style={adjBtnSt}>−</button>
+                        <button type="button" onClick={function(){ saveBreakGoals(breakGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{progress:(x.progress||0)+1}) : x; })); }} style={adjBtnSt}>+</button>
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(g.id, g); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ saveBreakGoals(breakGoals.filter(function(x){ return x.id!==g.id; })); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+          {childMode === "school" ? (
+            <div>
+              <AttendanceSection/>
+              <GradesSection/>
+              <GoalsSection/>
+            </div>
+          ) : (
+            <div>
+              <AttendanceSection/>
+              <GoalsSection/>
+              <PortfolioSection/>
+            </div>
+          )}
+          <BreakGoalsSection/>
+        </div>
+      );
+    }
+
     if (allPeople.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
@@ -15711,9 +16249,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
         {learningSubTab === "plan" && <PlanArea key={activeChild} />}
         {learningSubTab === "records" && <RecordsArea key={activeChild} />}
+        {learningSubTab === "growth" && <GrowthArea key={activeChild} />}
 
-        {/* Placeholder body for Growth/Library — built out in Phases 5-6 */}
-        {learningSubTab !== "overview" && learningSubTab !== "plan" && learningSubTab !== "records" && (
+        {/* Placeholder body for Library — built out in Phase 6 */}
+        {learningSubTab !== "overview" && learningSubTab !== "plan" && learningSubTab !== "records" && learningSubTab !== "growth" && (
           <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
             <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
