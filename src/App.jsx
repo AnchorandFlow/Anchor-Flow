@@ -1876,12 +1876,27 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
   var [sData,setSDataLocal]=useState(function(){
     try{var s=localStorage.getItem("af_schoolData");var parsed=s?JSON.parse(s):{};return parsed&&typeof parsed==="object"?parsed:{};}catch{return {};}
   });
+  // Learning (Phase 2) reads lighthouse.modes[id] as the single source of truth for a
+  // child's learning mode. This picker still writes the richer schoolData[id].type
+  // (Homeschool/Public/Private/Co-op/Online/Other) as before, and now also keeps
+  // lighthouse.modes in sync so Learning's Overview reflects changes made here.
+  // Learning only understands the binary homeschool/school split: "homeschool" maps
+  // straight across, every other type maps to "school", and clearing the type
+  // (re-tapping the selected option) clears the Learning mode too.
+  var [lhDataForSettings,setLhDataForSettings]=useSaved("lighthouse",defaultLighthouse());
   function setKidSchoolType(kidId,type){
     var next=Object.assign({},sData);
     if(!next[kidId]) next[kidId]={type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
     next[kidId]=Object.assign({},next[kidId],{type:type});
     setSDataLocal(next);
     try{localStorage.setItem("af_schoolData",JSON.stringify(next));}catch{}
+    setLhDataForSettings(function(prev){
+      var prevModes=lhGet(prev,"modes",{});
+      var nextModes=Object.assign({},prevModes);
+      if(type){ nextModes[kidId]=type==="homeschool"?"homeschool":"school"; }
+      else { delete nextModes[kidId]; }
+      return Object.assign({},prev,{modes:nextModes});
+    });
   }
 
   var minorKids = people.filter(function(p){return p&&p.name&&personIsMinor(p);});
@@ -14165,24 +14180,42 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       { id:"growth",   label:"Growth",   emoji:"📈" },
       { id:"library",  label:"Library",  emoji:"📚" },
     ];
+    // Learning's own fixed palette (Phase 2) — deliberately independent of the
+    // household's chosen T theme, same precedent as RootErrorBoundary's fixed navy.
+    var LC = { cream:"#F7F3EC", seaglass:"#6ABAAA", navy:"#243A5A" };
+    var todayIso = (function(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })();
+
+    function DashCard(opts) {
+      return (
+        <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap:"0.55rem" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
+            <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
+            <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.85rem" }}>{opts.title}</span>
+          </div>
+          <div style={{ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 }}>{opts.body}</div>
+          {opts.actionLabel && (
+            <button onClick={opts.onAction} style={{ alignSelf:"flex-start", background:"transparent", border:"none", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit", padding:0 }}>
+              {opts.actionLabel} →
+            </button>
+          )}
+        </div>
+      );
+    }
 
     var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
-    var [schoolData] = useSaved("schoolData", {});
+    var [schoolData, setSchoolData] = useSaved("schoolData", {});
     var [activeChild, _setActiveChild] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningActiveChild"); if (s) return s; } catch(_e) {} return null; });
     var [learningSubTab, _setLearningSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningSubTab"); if (s) return s; } catch(_e) {} return "overview"; });
-    var [showAllPeople, setShowAllPeople] = React.useState(false);
     function setActiveChild(id) { _setActiveChild(id); try { if (id) sessionStorage.setItem("af_learningActiveChild", id); else sessionStorage.removeItem("af_learningActiveChild"); } catch(_e) {} }
     function setLearningSubTab(t) { _setLearningSubTab(t); try { sessionStorage.setItem("af_learningSubTab", t); } catch(_e) {} }
 
     var allPeople = people.filter(function(p) { return p && p.name; });
-    var defaultPeople = allPeople.filter(function(p) { return personIsMinor(p); });
-    var displayPeople = (showAllPeople || defaultPeople.length === 0) ? allPeople : defaultPeople;
-    var hasOthers = !showAllPeople && allPeople.length > defaultPeople.length;
+    var learningKids = allPeople.filter(function(p) { return personIsMinor(p); });
 
     React.useEffect(function() {
-      var ids = displayPeople.map(function(p){ return p.id; });
-      if ((!activeChild || ids.indexOf(activeChild) === -1) && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
-    }, [displayPeople.length]);
+      var ids = learningKids.map(function(p){ return p.id; });
+      if ((!activeChild || ids.indexOf(activeChild) === -1) && learningKids.length > 0) { setActiveChild(learningKids[0].id); }
+    }, [learningKids.length]);
 
     // One-time silent migration (rebuild decision #3): lighthouse.modes[id] is the
     // single source of truth for a child's learning mode going forward. If a child
@@ -14194,7 +14227,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     React.useEffect(function() {
       var modes = lhGet(lighthouse, "modes", {});
       var patch = null;
-      displayPeople.forEach(function(p) {
+      learningKids.forEach(function(p) {
         var legacyType = schoolData && schoolData[p.id] && schoolData[p.id].type;
         if (legacyType && !modes[p.id]) {
           if (!patch) patch = {};
@@ -14207,11 +14240,252 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return Object.assign({}, prev, { modes: Object.assign({}, prevModes, patch) });
         });
       }
-    }, [displayPeople.map(function(p){ return p.id; }).join(",")]);
+    }, [learningKids.map(function(p){ return p.id; }).join(",")]);
 
     var modes = lhGet(lighthouse, "modes", {});
-    var childPerson = displayPeople.find(function(p) { return p.id === activeChild; }) || null;
+    var childPerson = learningKids.find(function(p) { return p.id === activeChild; }) || null;
+    var childMode = activeChild ? (modes[activeChild] || null) : null;
     var activeTabMeta = LEARNING_TABS.find(function(t){ return t.id === learningSubTab; }) || LEARNING_TABS[0];
+
+    function setMode(mode) {
+      setLighthouse(function(prev) {
+        var prevModes = lhGet(prev, "modes", {});
+        var nextModes = Object.assign({}, prevModes);
+        nextModes[activeChild] = mode;
+        return Object.assign({}, prev, { modes: nextModes });
+      });
+    }
+
+    // ── Overview tab (Phase 2) ────────────────────────────────────────────────
+    function OverviewArea() {
+      var [showUmbrellaEdit, setShowUmbrellaEdit] = React.useState(false);
+      var [umbrellaForm, setUmbrellaForm] = React.useState({ name:"", contact:"", email:"", daysRequired:"", notes:"" });
+
+      if (!childPerson) return null;
+
+      if (!childMode) {
+        return (
+          <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1.75rem 1.25rem" }}>
+            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.3rem", color:LC.navy, marginBottom:"0.4rem", textAlign:"center" }}>
+              How does {childPerson.name} learn?
+            </div>
+            <div style={{ color:"#7a7568", fontSize:"0.82rem", textAlign:"center", marginBottom:"1.5rem" }}>
+              You can change this anytime.
+            </div>
+            <div style={{ display:"flex", gap:"0.75rem" }}>
+              <button onClick={function(){ setMode("homeschool"); }} style={{ flex:1, background:"#fff", border:"2px solid "+LC.seaglass, borderRadius:"1rem", padding:"1.25rem 0.75rem", cursor:"pointer", textAlign:"center", fontFamily:"inherit" }}>
+                <div style={{ fontSize:"2rem", marginBottom:"0.4rem" }}>🏡</div>
+                <div style={{ fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>Homeschool</div>
+              </button>
+              <button onClick={function(){ setMode("school"); }} style={{ flex:1, background:"#fff", border:"2px solid "+LC.seaglass, borderRadius:"1rem", padding:"1.25rem 0.75rem", cursor:"pointer", textAlign:"center", fontFamily:"inherit" }}>
+                <div style={{ fontSize:"2rem", marginBottom:"0.4rem" }}>🏫</div>
+                <div style={{ fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>School</div>
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // ── Read-time adapter reads across af_schoolData + af_lighthouse ─────────
+      var childSchool = schoolData[activeChild] || {};
+      var hsAll = lhGet(lighthouse, "homeschool", {});
+      var hsChild = hsAll[activeChild] || {};
+      var sharedAll = lhGet(lighthouse, "shared", {});
+      var childShared = sharedAll[activeChild] || {};
+      var schoolAll = lhGet(lighthouse, "school", {});
+      var schoolChild = schoolAll[activeChild] || {};
+
+      var goals = Array.isArray(childShared.goals) ? childShared.goals : [];
+      var books = Array.isArray(childShared.books) ? childShared.books : [];
+      var activeGoals = goals.filter(function(g){ return g.kind !== "challenge" && g.progress !== "Achieved"; });
+      var mostRecentGoal = activeGoals.length > 0 ? activeGoals[activeGoals.length-1] : null;
+      var readingBooks = books.filter(function(b){ return b.status === "reading"; });
+      var currentBook = readingBooks.length > 0 ? readingBooks[readingBooks.length-1] : null;
+
+      var cards = [];
+
+      if (childMode === "homeschool") {
+        // 1. Today's Plan — prefer Lighthouse's daily plan, fall back to School's weekPlan
+        var lhDailyToday = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily[todayIso] : null;
+        var lhTasksToday = [];
+        if (lhDailyToday && typeof lhDailyToday === "object" && lhDailyToday.tasks && typeof lhDailyToday.tasks === "object") {
+          Object.keys(lhDailyToday.tasks).forEach(function(subj){
+            (Array.isArray(lhDailyToday.tasks[subj]) ? lhDailyToday.tasks[subj] : []).forEach(function(t){ lhTasksToday.push(subj+": "+t.text); });
+          });
+        }
+        var schWeekPlan = (childSchool.homeschool && childSchool.homeschool.weekPlan) || {};
+        var schTodayPlan = schWeekPlan[TODAY_NAME] || null;
+        var schSubjectsToday = (schTodayPlan && Array.isArray(schTodayPlan.subjects)) ? schTodayPlan.subjects.map(function(s){ return s.name + (s.title ? ": "+s.title : ""); }) : [];
+        var todayLines = lhTasksToday.length > 0 ? lhTasksToday : schSubjectsToday;
+        cards.push(
+          <DashCard key="plan" emoji="🗓️" title="Today's Plan"
+            muted={todayLines.length===0}
+            body={todayLines.length>0 ? todayLines.slice(0,4).join(" · ") : "Nothing planned for today yet."}
+            actionLabel="Add to today's plan"
+            onAction={function(){ setLearningSubTab("plan"); }} />
+        );
+
+        // 2. Attendance Snapshot — prefer School's grid, fall back to Lighthouse's daily attendance
+        var thisYear = String(new Date().getFullYear());
+        function countPresent(obj, field) {
+          return Object.keys(obj||{}).filter(function(d){
+            if (d.slice(0,4) !== thisYear) return false;
+            var v = field ? (obj[d] && obj[d][field]) : obj[d];
+            return v === "present";
+          }).length;
+        }
+        var schAttendance = (childSchool.homeschool && childSchool.homeschool.attendance) || {};
+        var schPresentCount = countPresent(schAttendance, null);
+        var lhPresentCount = countPresent(hsChild.daily, "attendance");
+        var presentCount = schPresentCount > 0 ? schPresentCount : lhPresentCount;
+        var daysRequired = (childSchool.homeschool && childSchool.homeschool.umbrella && childSchool.homeschool.umbrella.daysRequired) || null;
+        cards.push(
+          <DashCard key="attendance" emoji="📋" title="Attendance Snapshot"
+            muted={presentCount===0}
+            body={presentCount>0 ? (presentCount + " day" + (presentCount===1?"":"s") + " attended this year" + (daysRequired ? " (of "+daysRequired+")" : "")) : "No attendance logged yet."}
+            actionLabel="Mark today"
+            onAction={function(){ setLearningSubTab("growth"); }} />
+        );
+
+        // 3. Current Subjects/Curricula — prefer School's richer curricula records
+        var curricula = (childSchool.homeschool && Array.isArray(childSchool.homeschool.curricula)) ? childSchool.homeschool.curricula : [];
+        var lhSubjects = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
+        var subjectNames = curricula.length > 0 ? curricula.map(function(c){ return c.subject + (c.name?(": "+c.name):""); }) : lhSubjects.slice();
+        cards.push(
+          <DashCard key="subjects" emoji="📚" title="Current Subjects"
+            muted={subjectNames.length===0}
+            body={subjectNames.length>0 ? (subjectNames.length + " subject" + (subjectNames.length===1?"":"s") + " — " + subjectNames.slice(0,4).join(", ")) : "No subjects added yet."}
+            actionLabel="Manage"
+            onAction={function(){ setLearningSubTab("plan"); }} />
+        );
+
+        // 4. Active Goals
+        cards.push(
+          <DashCard key="goals" emoji="🎯" title="Active Goals"
+            muted={activeGoals.length===0}
+            body={activeGoals.length>0 ? (activeGoals.length + " active — “" + mostRecentGoal.goal + "”") : "No goals set yet."}
+            actionLabel="View goals"
+            onAction={function(){ setLearningSubTab("growth"); }} />
+        );
+
+        // 5. Umbrella School
+        var umbrella = (childSchool.homeschool && childSchool.homeschool.umbrella) || {};
+        var hasUmbrella = !!(umbrella.name || umbrella.contact || umbrella.daysRequired);
+        cards.push(
+          <DashCard key="umbrella" emoji="☂️" title="Umbrella School"
+            muted={!hasUmbrella}
+            body={hasUmbrella ? (umbrella.name || "Umbrella school") + (umbrella.daysRequired ? " — " + umbrella.daysRequired + " days/yr" : "") : "No umbrella school on file."}
+            actionLabel="Edit"
+            onAction={function(){ setUmbrellaForm({ name:umbrella.name||"", contact:umbrella.contact||"", email:umbrella.email||"", daysRequired:umbrella.daysRequired||"", notes:umbrella.notes||"" }); setShowUmbrellaEdit(true); }} />
+        );
+
+        // 6. Books & Reading
+        cards.push(
+          <DashCard key="books" emoji="📖" title="Books & Reading"
+            muted={!currentBook}
+            body={currentBook ? ("Reading: " + currentBook.title + (currentBook.author ? " by "+currentBook.author : "")) : "Nothing currently marked as reading."}
+            actionLabel="Add book"
+            onAction={function(){ setLearningSubTab("library"); }} />
+        );
+      } else {
+        // ── School mode cards ────────────────────────────────────────────────
+        var weekEvents = (schoolChild.week && Array.isArray(schoolChild.week.events)) ? schoolChild.week.events : [];
+        var sortedWeekEvents = weekEvents.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1 : 1; });
+        cards.push(
+          <DashCard key="thisweek" emoji="📅" title="This Week"
+            muted={weekEvents.length===0}
+            body={weekEvents.length>0 ? (weekEvents.length + " event" + (weekEvents.length===1?"":"s") + (sortedWeekEvents[0] ? " — next: "+sortedWeekEvents[0].title : "")) : "Nothing on the calendar this week."}
+            actionLabel="View week"
+            onAction={function(){ setLearningSubTab("records"); }} />
+        );
+
+        var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
+        var upcomingHw = homework.filter(function(h){ return h.status !== "Done" && h.status !== "Turned in"; }).sort(function(a,b){ return (a.due||"") < (b.due||"") ? -1:1; });
+        cards.push(
+          <DashCard key="homework" emoji="✏️" title="Homework Due"
+            muted={upcomingHw.length===0}
+            body={upcomingHw.length>0 ? (upcomingHw.length + " assignment" + (upcomingHw.length===1?"":"s") + " due — " + upcomingHw[0].task) : "No homework outstanding."}
+            actionLabel="View homework"
+            onAction={function(){ setLearningSubTab("records"); }} />
+        );
+
+        var teachers = (childSchool.public && Array.isArray(childSchool.public.teachers)) ? childSchool.public.teachers : [];
+        cards.push(
+          <DashCard key="teachers" emoji="👩‍🏫" title="Teacher Contacts"
+            muted={teachers.length===0}
+            body={teachers.length>0 ? (teachers.length + " teacher" + (teachers.length===1?"":"s") + " on file") : "No teacher contacts yet."}
+            actionLabel="View contacts"
+            onAction={function(){ setLearningSubTab("records"); }} />
+        );
+
+        var grades = (schoolChild.grades && typeof schoolChild.grades === "object") ? schoolChild.grades : {};
+        var gradeMarks = Array.isArray(grades.marks) ? grades.marks : [];
+        cards.push(
+          <DashCard key="grades" emoji="📊" title="Grades Snapshot"
+            muted={gradeMarks.length===0}
+            body={gradeMarks.length>0 ? (gradeMarks.length + " subject" + (gradeMarks.length===1?"":"s") + " tracked") : "No grades logged yet."}
+            actionLabel="View grades"
+            onAction={function(){ setLearningSubTab("growth"); }} />
+        );
+
+        var calEvents = (childSchool.public && Array.isArray(childSchool.public.calEvents)) ? childSchool.public.calEvents : [];
+        var upcomingCal = calEvents.filter(function(e){ return e.date && e.date >= todayIso; }).sort(function(a,b){ return a.date < b.date ? -1:1; });
+        cards.push(
+          <DashCard key="events" emoji="🎉" title="Upcoming Events"
+            muted={upcomingCal.length===0}
+            body={upcomingCal.length>0 ? (upcomingCal.length + " upcoming — next: " + upcomingCal[0].title) : "No upcoming events."}
+            actionLabel="View calendar"
+            onAction={function(){ setLearningSubTab("records"); }} />
+        );
+      }
+
+      return (
+        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem", flexWrap:"wrap", gap:"0.5rem" }}>
+            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.2rem", color:LC.navy }}>{childPerson.name}'s Learning</div>
+            <button onClick={function(){ setMode(childMode==="homeschool"?"school":"homeschool"); }} style={{ background:"transparent", border:"1.5px solid "+LC.seaglass, color:LC.seaglass, borderRadius:"99px", padding:"0.35rem 0.85rem", fontSize:"0.76rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+              Switch to {childMode==="homeschool"?"School":"Homeschool"}
+            </button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:"0.85rem" }}>
+            {cards}
+          </div>
+
+          {showUmbrellaEdit && (
+            <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center", padding:"0" }}>
+              <div style={{ background:"#fff", borderRadius:"1.2rem 1.2rem 0 0", padding:"1.5rem", paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
+                <div style={{ fontWeight:700, color:LC.navy, marginBottom:"1rem" }}>Edit Umbrella School</div>
+                {[["name","School Name"],["contact","Contact Person"],["email","Email"],["daysRequired","Required Days / Year"]].map(function(f) {
+                  return (
+                    <div key={f[0]} style={{ marginBottom:"0.65rem" }}>
+                      <label style={lbl}>{f[1]}</label>
+                      <input value={umbrellaForm[f[0]]} onChange={function(e){ var v=e.target.value; var fk=f[0]; setUmbrellaForm(function(p){ var n=Object.assign({},p); n[fk]=v; return n; }); }} style={inp()} />
+                    </div>
+                  );
+                })}
+                <div style={{ marginBottom:"0.85rem" }}>
+                  <label style={lbl}>Notes / Requirements</label>
+                  <textarea value={umbrellaForm.notes} onChange={function(e){ var v=e.target.value; setUmbrellaForm(function(p){ return Object.assign({},p,{notes:v}); }); }} style={Object.assign({}, inp(), { minHeight:"70px", resize:"vertical" })} />
+                </div>
+                <div style={{ display:"flex", gap:"0.5rem" }}>
+                  <button onClick={function(){
+                    setSchoolData(function(prev){
+                      var next = Object.assign({}, prev);
+                      var existingChild = next[activeChild] || { type:null, public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""}, homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}} };
+                      var existingHs = existingChild.homeschool || {};
+                      next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { umbrella: umbrellaForm }) });
+                      return next;
+                    });
+                    setShowUmbrellaEdit(false);
+                  }} style={btnP(LC.seaglass, { flex:1 })}>Save</button>
+                  <button onClick={function(){ setShowUmbrellaEdit(false); }} style={btnS({ flex:1 })}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     if (allPeople.length === 0) {
       return (
@@ -14219,6 +14493,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Learning</div>
           <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add people in Settings to start tracking learning records.</div>
+          <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
+        </div>
+      );
+    }
+
+    if (learningKids.length === 0) {
+      return (
+        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Learning</div>
+          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -14235,9 +14520,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
 
-        {/* Child switcher */}
+        {/* Child switcher — one chip per minor in af_people */}
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.85rem", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
-          {displayPeople.map(function(p) {
+          {learningKids.map(function(p) {
             var isAct = p.id === activeChild;
             var pMode = modes[p.id] || null;
             var dot = { width:8, height:8, borderRadius:"50%", background:p.color||T.blue, display:"inline-block", flexShrink:0 };
@@ -14251,12 +14536,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </button>
             );
           })}
-          {hasOthers && (
-            <button onClick={function(){ setShowAllPeople(true); }} style={{ flexShrink:0, padding:"0.35rem 0.75rem", borderRadius:"99px", border:"1.5px dashed "+T.borderSoft, background:"transparent", cursor:"pointer", fontSize:"0.78rem", color:T.textFaint, fontFamily:"inherit" }}>+ others</button>
-          )}
-          {showAllPeople && defaultPeople.length > 0 && (
-            <button onClick={function(){ setShowAllPeople(false); }} style={{ flexShrink:0, padding:"0.35rem 0.75rem", borderRadius:"99px", border:"1.5px dashed "+T.borderSoft, background:"transparent", cursor:"pointer", fontSize:"0.78rem", color:T.textFaint, fontFamily:"inherit" }}>fewer</button>
-          )}
         </div>
 
         {/* Tab nav */}
@@ -14271,12 +14550,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           })}
         </div>
 
-        {/* Placeholder body — built out tab-by-tab in Phases 2-6 */}
-        <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
-          <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
-          <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
-          <div style={{ fontSize: "0.8rem", marginTop:"0.3rem" }}>Coming soon{childPerson ? " for " + childPerson.name : ""}.</div>
-        </div>
+        {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
+
+        {/* Placeholder body for Plan/Records/Growth/Library — built out in Phases 3-6 */}
+        {learningSubTab !== "overview" && (
+          <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
+            <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
+            <div style={{ fontSize: "0.8rem", marginTop:"0.3rem" }}>Coming soon{childPerson ? " for " + childPerson.name : ""}.</div>
+          </div>
+        )}
       </div>
     );
   }
