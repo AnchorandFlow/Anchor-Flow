@@ -14258,9 +14258,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     // ── Overview tab (Phase 2) ────────────────────────────────────────────────
     function OverviewArea() {
-      var [showUmbrellaEdit, setShowUmbrellaEdit] = React.useState(false);
-      var [umbrellaForm, setUmbrellaForm] = React.useState({ name:"", contact:"", email:"", daysRequired:"", notes:"" });
-
       if (!childPerson) return null;
 
       if (!childMode) {
@@ -14368,7 +14365,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             onAction={function(){ setLearningSubTab("growth"); }} />
         );
 
-        // 5. Umbrella School
+        // 5. Umbrella School — read-only summary; editing lives in Records (Phase 4)
         var umbrella = (childSchool.homeschool && childSchool.homeschool.umbrella) || {};
         var hasUmbrella = !!(umbrella.name || umbrella.contact || umbrella.daysRequired);
         cards.push(
@@ -14376,7 +14373,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             muted={!hasUmbrella}
             body={hasUmbrella ? (umbrella.name || "Umbrella school") + (umbrella.daysRequired ? " — " + umbrella.daysRequired + " days/yr" : "") : "No umbrella school on file."}
             actionLabel="Edit"
-            onAction={function(){ setUmbrellaForm({ name:umbrella.name||"", contact:umbrella.contact||"", email:umbrella.email||"", daysRequired:umbrella.daysRequired||"", notes:umbrella.notes||"" }); setShowUmbrellaEdit(true); }} />
+            onAction={function(){ setLearningSubTab("records"); }} />
         );
 
         // 6. Books & Reading
@@ -14450,39 +14447,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:"0.85rem" }}>
             {cards}
           </div>
-
-          {showUmbrellaEdit && (
-            <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center", padding:"0" }}>
-              <div style={{ background:"#fff", borderRadius:"1.2rem 1.2rem 0 0", padding:"1.5rem", paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", WebkitOverflowScrolling:"touch" }}>
-                <div style={{ fontWeight:700, color:LC.navy, marginBottom:"1rem" }}>Edit Umbrella School</div>
-                {[["name","School Name"],["contact","Contact Person"],["email","Email"],["daysRequired","Required Days / Year"]].map(function(f) {
-                  return (
-                    <div key={f[0]} style={{ marginBottom:"0.65rem" }}>
-                      <label style={lbl}>{f[1]}</label>
-                      <input value={umbrellaForm[f[0]]} onChange={function(e){ var v=e.target.value; var fk=f[0]; setUmbrellaForm(function(p){ var n=Object.assign({},p); n[fk]=v; return n; }); }} style={inp()} />
-                    </div>
-                  );
-                })}
-                <div style={{ marginBottom:"0.85rem" }}>
-                  <label style={lbl}>Notes / Requirements</label>
-                  <textarea value={umbrellaForm.notes} onChange={function(e){ var v=e.target.value; setUmbrellaForm(function(p){ return Object.assign({},p,{notes:v}); }); }} style={Object.assign({}, inp(), { minHeight:"70px", resize:"vertical" })} />
-                </div>
-                <div style={{ display:"flex", gap:"0.5rem" }}>
-                  <button onClick={function(){
-                    setSchoolData(function(prev){
-                      var next = Object.assign({}, prev);
-                      var existingChild = next[activeChild] || { type:null, public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""}, homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}} };
-                      var existingHs = existingChild.homeschool || {};
-                      next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { umbrella: umbrellaForm }) });
-                      return next;
-                    });
-                    setShowUmbrellaEdit(false);
-                  }} style={btnP(LC.seaglass, { flex:1 })}>Save</button>
-                  <button onClick={function(){ setShowUmbrellaEdit(false); }} style={btnS({ flex:1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       );
     }
@@ -15168,6 +15132,519 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Records tab (Phase 4) ─────────────────────────────────────────────────
+    var CAL_EVENT_TYPES = [
+      { id:"event",   label:"School Event" },
+      { id:"holiday", label:"Holiday / No School" },
+      { id:"early",   label:"Early Release" },
+      { id:"field",   label:"Field Trip" },
+      { id:"other",   label:"Other" },
+    ];
+    function defaultSchoolChild() {
+      return { type:null, public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""}, homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}} };
+    }
+
+    function RecordsArea() {
+      var [lhForm, setLhForm] = React.useState({});
+      var [lhAddMode, setLhAddMode] = React.useState(null);
+      var [lhEditId, setLhEditId] = React.useState(null);
+      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
+      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
+      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
+      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fieldRow(label, children) {
+        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+      }
+      function formCard(children) {
+        return (<div style={{ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" }}>{children}</div>);
+      }
+      function formBtns(onSave) {
+        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+      }
+      function pillToggle(label, active, onClick) {
+        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+      }
+
+      var sectionCardStyle = { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" };
+      var sectionTitleStyle = { fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, marginBottom:"0.65rem" };
+      var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
+      var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
+      var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
+      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem", flexShrink:0 };
+      var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
+
+      var childSchool = schoolData[activeChild] || {};
+      var childPublic = childSchool.public || {};
+      var childSchoolHs = childSchool.homeschool || {};
+      var schoolAll = lhGet(lighthouse, "school", {});
+      var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
+      var comms = (schoolChild.comms && typeof schoolChild.comms === "object") ? schoolChild.comms : {};
+      var commsContacts = Array.isArray(comms.contacts) ? comms.contacts : [];
+      var commsLog = Array.isArray(comms.log) ? comms.log : [];
+      var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
+      var teachers = Array.isArray(childPublic.teachers) ? childPublic.teachers : [];
+      var activities = Array.isArray(childSchoolHs.activities) ? childSchoolHs.activities : [];
+      var calEvents = Array.isArray(childPublic.calEvents) ? childPublic.calEvents : [];
+      var spiritDays = Array.isArray(childPublic.spiritDays) ? childPublic.spiritDays : [];
+
+      function savePub(patch) {
+        setSchoolData(function(prev) {
+          var next = Object.assign({}, prev);
+          var existingChild = next[activeChild] || defaultSchoolChild();
+          next[activeChild] = Object.assign({}, existingChild, { public: Object.assign({}, existingChild.public, patch) });
+          return next;
+        });
+      }
+      function saveHs(patch) {
+        setSchoolData(function(prev) {
+          var next = Object.assign({}, prev);
+          var existingChild = next[activeChild] || defaultSchoolChild();
+          next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingChild.homeschool, patch) });
+          return next;
+        });
+      }
+      function applySchoolLh(patch) { setLighthouse(function(prev) { return lhSchoolPatch(prev, activeChild, patch); }); }
+      function commsMutate(patch) { applySchoolLh({ comms: Object.assign({}, comms, patch) }); }
+
+      // ── Umbrella School (homeschool only) ──────────────────────────────────
+      function UmbrellaSection() {
+        var umbrella = childSchoolHs.umbrella || {};
+        var [form, setForm] = React.useState({ name:umbrella.name||"", contact:umbrella.contact||"", email:umbrella.email||"", phone:umbrella.phone||"", daysRequired:umbrella.daysRequired||"", filingDeadlines:umbrella.filingDeadlines||"", notes:umbrella.notes||"" });
+        function fld(k) { return function(e){ var v=e.target.value; setForm(function(p){ var n=Object.assign({},p); n[k]=v; return n; }); }; }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>☂️ Umbrella School</div>
+            {fieldRow("School Name", <input value={form.name} onChange={fld("name")} style={inp()}/>)}
+            {fieldRow("Contact Person", <input value={form.contact} onChange={fld("contact")} style={inp()}/>)}
+            {fieldRow("Email", <input type="email" value={form.email} onChange={fld("email")} style={inp()}/>)}
+            {fieldRow("Phone", <input type="tel" value={form.phone} onChange={fld("phone")} style={inp()}/>)}
+            {fieldRow("Required Days / Year", <input value={form.daysRequired} onChange={fld("daysRequired")} style={inp()}/>)}
+            {fieldRow("Filing Deadlines", <input value={form.filingDeadlines} onChange={fld("filingDeadlines")} placeholder="e.g. Notice of intent due Aug 1" style={inp()}/>)}
+            {fieldRow("Notes / Requirements", <textarea value={form.notes} onChange={fld("notes")} style={inp({ height:70, resize:"vertical" })}/>)}
+            <button type="button" onClick={function(){ saveHs({ umbrella: form }); }} style={btnP(LC.seaglass,{ width:"100%" })}>Save</button>
+          </div>
+        );
+      }
+
+      // ── Teacher / Tutor Contacts (both modes) ───────────────────────────────
+      function TeacherContactsSection() {
+        var appWeek = childPublic.teacherAppWeek || {};
+        var [appWeekIdeas, setAppWeekIdeas] = React.useState(appWeek.ideas || "");
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>👩‍🏫 Teacher / Tutor Contacts</div>
+            {lhAddMode !== "teacher" && <button type="button" onClick={function(){ openAdd("teacher",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Contact</button>}
+            {lhAddMode === "teacher" && formCard(
+              <div>
+                {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
+                {fieldRow("Subject / Role", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var n=(fv("name","")).trim(); if(!n) return;
+                  savePub({ teachers: teachers.concat([{ id:uid(), name:n, subject:fv("subject",""), email:fv("email",""), phone:fv("phone",""), notes:fv("notes","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {teachers.length===0 && lhAddMode!=="teacher" && <div style={emptyTextStyle}>No contacts yet.</div>}
+            {teachers.map(function(t) {
+              if (lhEditId === t.id) {
+                return formCard(
+                  <div key={t.id}>
+                    {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
+                    {fieldRow("Subject / Role", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                    {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                    {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {formBtns(function(){
+                      var n=(fv("name","")).trim(); if(!n) return;
+                      savePub({ teachers: teachers.map(function(x){ return x.id===t.id ? { id:t.id, name:n, subject:fv("subject",""), email:fv("email",""), phone:fv("phone",""), notes:fv("notes","") } : x; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <div key={t.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{t.name}</div>
+                    {t.subject && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{t.subject}</div>}
+                    {(t.email||t.phone) && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[t.email,t.phone].filter(Boolean).join(" · ")}</div>}
+                    {t.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{t.notes}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(t.id, t); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ savePub({ teachers: teachers.filter(function(x){ return x.id!==t.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+
+            <div style={{ marginTop:"0.85rem", paddingTop:"0.75rem", borderTop:"1px solid #F0EBDF" }}>
+              <div style={{ fontSize:"0.78rem", fontWeight:700, color:LC.navy, marginBottom:"0.4rem" }}>🎁 Teacher Appreciation Week</div>
+              {fieldRow("Week of", <input type="date" value={appWeek.start||""} onChange={function(e){ savePub({ teacherAppWeek: Object.assign({}, appWeek, { start: e.target.value }) }); }} style={inp()}/>)}
+              {fieldRow("Gift ideas / plan", <textarea value={appWeekIdeas} onChange={function(e){ setAppWeekIdeas(e.target.value); }} onBlur={function(){ savePub({ teacherAppWeek: Object.assign({}, appWeek, { ideas: appWeekIdeas }) }); }} placeholder="Cards, donations, treats per teacher…" style={inp({ height:56, resize:"vertical" })}/>)}
+            </div>
+          </div>
+        );
+      }
+
+      // ── Activities & Field Trips (homeschool only) ──────────────────────────
+      function ActivitiesSection() {
+        var sorted = activities.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1:1; });
+        var upcoming = sorted.filter(function(a){ return a.date >= todayIso; });
+        var past = sorted.filter(function(a){ return a.date < todayIso; });
+        function renderRow(a) {
+          if (lhEditId === a.id) {
+            return formCard(
+              <div key={a.id}>
+                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Time", <input type="time" value={fv("time","")} onChange={fSet("time")} style={inp()}/>)}
+                {fieldRow("Location", <input value={fv("location","")} onChange={fSet("location")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var t=(fv("title","")).trim(); if(!t) return;
+                  saveHs({ activities: activities.map(function(x){ return x.id===a.id ? { id:a.id, title:t, date:fv("date",""), time:fv("time",""), location:fv("location",""), notes:fv("notes","") } : x; }) });
+                  closeForm();
+                })}
+              </div>
+            );
+          }
+          return (
+            <div key={a.id} style={itemRowStyle}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{a.title}</div>
+                <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[a.date?fmtMonthDay(a.date):"", a.time, a.location].filter(Boolean).join(" · ")}</div>
+                {a.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{a.notes}</div>}
+              </div>
+              <button type="button" onClick={function(){ openEdit(a.id, a); }} style={editBtnStyle}>Edit</button>
+              <button type="button" onClick={function(){ saveHs({ activities: activities.filter(function(x){ return x.id!==a.id; }) }); }} style={delBtnStyle}>✕</button>
+            </div>
+          );
+        }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>🌟 Activities & Field Trips</div>
+            {lhAddMode !== "activity" && <button type="button" onClick={function(){ openAdd("activity",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Activity</button>}
+            {lhAddMode === "activity" && formCard(
+              <div>
+                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Time", <input type="time" value={fv("time","")} onChange={fSet("time")} style={inp()}/>)}
+                {fieldRow("Location", <input value={fv("location","")} onChange={fSet("location")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var t=(fv("title","")).trim(); if(!t) return;
+                  saveHs({ activities: activities.concat([{ id:uid(), title:t, date:fv("date",""), time:fv("time",""), location:fv("location",""), notes:fv("notes","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {activities.length===0 && lhAddMode!=="activity" && <div style={emptyTextStyle}>No activities yet.</div>}
+            {upcoming.length > 0 && <div style={subheadStyle}>Upcoming</div>}
+            {upcoming.map(renderRow)}
+            {past.length > 0 && <div style={Object.assign({},subheadStyle,{marginTop:"0.5rem"})}>Past</div>}
+            {past.map(renderRow)}
+          </div>
+        );
+      }
+
+      // ── School Calendar & Events + Spirit Days (school only) ────────────────
+      function CalendarEventsSection() {
+        var sortedEvents = calEvents.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1:1; });
+        var sortedSpirit = spiritDays.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1:1; });
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📆 School Calendar & Events</div>
+            {lhAddMode !== "cal-event" && <button type="button" onClick={function(){ openAdd("cal-event",{type:"event"}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Calendar Item</button>}
+            {lhAddMode === "cal-event" && formCard(
+              <div>
+                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ setLhForm(function(f){ return Object.assign({},f,{type:t.id}); }); }); })}</div>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var t=(fv("title","")).trim(); if(!t) return;
+                  savePub({ calEvents: calEvents.concat([{ id:uid(), title:t, date:fv("date",""), type:fv("type","event"), notes:fv("notes","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {calEvents.length===0 && lhAddMode!=="cal-event" && <div style={emptyTextStyle}>No calendar items yet.</div>}
+            {sortedEvents.map(function(ev) {
+              if (lhEditId === ev.id) {
+                return formCard(
+                  <div key={ev.id}>
+                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                    {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ setLhForm(function(f){ return Object.assign({},f,{type:t.id}); }); }); })}</div>)}
+                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {formBtns(function(){
+                      var t=(fv("title","")).trim(); if(!t) return;
+                      savePub({ calEvents: calEvents.map(function(x){ return x.id===ev.id ? { id:ev.id, title:t, date:fv("date",""), type:fv("type","event"), notes:fv("notes","") } : x; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              var typeLabel = (CAL_EVENT_TYPES.find(function(t){ return t.id===ev.type; })||CAL_EVENT_TYPES[0]).label;
+              return (
+                <div key={ev.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{ev.title}</div>
+                    <div style={{ fontSize:"0.75rem", color:LC.seaglass, fontWeight:600 }}>{typeLabel}</div>
+                    {ev.date && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(ev.id, ev); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ savePub({ calEvents: calEvents.filter(function(x){ return x.id!==ev.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+
+            <div style={Object.assign({},subheadStyle,{ marginTop:"0.85rem" })}>Spirit Days</div>
+            {lhAddMode !== "spirit" && <button type="button" onClick={function(){ openAdd("spirit",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Spirit Day</button>}
+            {lhAddMode === "spirit" && formCard(
+              <div>
+                {fieldRow("Theme *", <input value={fv("theme","")} onChange={fSet("theme")} autoFocus style={inp()}/>)}
+                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:50, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var t=(fv("theme","")).trim(); if(!t) return;
+                  savePub({ spiritDays: spiritDays.concat([{ id:uid(), theme:t, date:fv("date",""), notes:fv("notes","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {spiritDays.length===0 && lhAddMode!=="spirit" && <div style={emptyTextStyle}>No spirit days yet.</div>}
+            {sortedSpirit.map(function(s) {
+              if (lhEditId === s.id) {
+                return formCard(
+                  <div key={s.id}>
+                    {fieldRow("Theme *", <input value={fv("theme","")} onChange={fSet("theme")} style={inp()} autoFocus/>)}
+                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:50, resize:"vertical" })}/>)}
+                    {formBtns(function(){
+                      var t=(fv("theme","")).trim(); if(!t) return;
+                      savePub({ spiritDays: spiritDays.map(function(x){ return x.id===s.id ? { id:s.id, theme:t, date:fv("date",""), notes:fv("notes","") } : x; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <div key={s.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>🎉 {s.theme}</div>
+                    {s.date && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{fmtMonthDay(s.date)}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(s.id, s); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ savePub({ spiritDays: spiritDays.filter(function(x){ return x.id!==s.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── School Communications (school only) ─────────────────────────────────
+      function CommsSection() {
+        var sortedLog = commsLog.slice().sort(function(a,b){ return (b.date||"") < (a.date||"") ? -1:1; });
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📬 School Communications</div>
+            <div style={subheadStyle}>Contacts</div>
+            {lhAddMode !== "comms-contact" && <button type="button" onClick={function(){ openAdd("comms-contact",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Contact</button>}
+            {lhAddMode === "comms-contact" && formCard(
+              <div>
+                {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
+                {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} style={inp()}/>)}
+                {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                {formBtns(function(){
+                  var n=(fv("name","")).trim(); if(!n) return;
+                  commsMutate({ contacts: commsContacts.concat([{ id:uid(), name:n, role:fv("role",""), phone:fv("phone",""), email:fv("email","") }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {commsContacts.length===0 && lhAddMode!=="comms-contact" && <div style={emptyTextStyle}>No contacts yet.</div>}
+            {commsContacts.map(function(c) {
+              if (lhEditId === c.id) {
+                return formCard(
+                  <div key={c.id}>
+                    {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
+                    {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} style={inp()}/>)}
+                    {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                    {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                    {formBtns(function(){
+                      var n=(fv("name","")).trim(); if(!n) return;
+                      commsMutate({ contacts: commsContacts.map(function(x){ return x.id===c.id ? { id:c.id, name:n, role:fv("role",""), phone:fv("phone",""), email:fv("email","") } : x; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <div key={c.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{c.name}{c.role?" · "+c.role:""}</div>
+                    {(c.phone||c.email) && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[c.phone,c.email].filter(Boolean).join(" · ")}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(c.id, c); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ commsMutate({ contacts: commsContacts.filter(function(x){ return x.id!==c.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+
+            <div style={Object.assign({},subheadStyle,{ marginTop:"0.85rem" })}>Communication Log</div>
+            {lhAddMode !== "comms-log" && <button type="button" onClick={function(){ openAdd("comms-log",{actionDone:false}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Entry</button>}
+            {lhAddMode === "comms-log" && formCard(
+              <div>
+                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                {fieldRow("Contact", <input value={fv("who","")} onChange={fSet("who")} style={inp()}/>)}
+                {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:60, resize:"vertical" })}/>)}
+                {fieldRow("Follow-up needed", <input value={fv("action","")} onChange={fSet("action")} placeholder="Optional" style={inp()}/>)}
+                {formBtns(function(){
+                  var who=(fv("who","")).trim(); var subj=(fv("subject","")).trim();
+                  if (!who && !subj) return;
+                  commsMutate({ log: commsLog.concat([{ id:uid(), date:fv("date",""), who:who, subject:subj, note:fv("note",""), action:fv("action",""), actionDone:false }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {commsLog.length===0 && lhAddMode!=="comms-log" && <div style={emptyTextStyle}>No entries yet.</div>}
+            {sortedLog.map(function(entry) {
+              if (lhEditId === entry.id) {
+                return formCard(
+                  <div key={entry.id}>
+                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                    {fieldRow("Contact", <input value={fv("who","")} onChange={fSet("who")} style={inp()}/>)}
+                    {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:60, resize:"vertical" })}/>)}
+                    {fieldRow("Follow-up needed", <input value={fv("action","")} onChange={fSet("action")} style={inp()}/>)}
+                    {formBtns(function(){
+                      var who=(fv("who","")).trim(); var subj=(fv("subject","")).trim();
+                      if (!who && !subj) return;
+                      commsMutate({ log: commsLog.map(function(x){ return x.id===entry.id ? Object.assign({},x,{ date:fv("date",""), who:who, subject:subj, note:fv("note",""), action:fv("action","") }) : x; }) });
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              var hasAction = entry.action && entry.action.trim() !== "";
+              return (
+                <div key={entry.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.5rem" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
+                    <div style={{ flex:1 }}>
+                      {entry.subject && <div style={{ fontWeight:700, fontSize:"0.85rem", color:"#3a3a34" }}>{entry.subject}</div>}
+                      <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{[entry.who, entry.date?fmtMonthDay(entry.date):""].filter(Boolean).join(" · ")}</div>
+                    </div>
+                    <button type="button" onClick={function(){ openEdit(entry.id, entry); }} style={editBtnStyle}>Edit</button>
+                    <button type="button" onClick={function(){ commsMutate({ log: commsLog.filter(function(x){ return x.id!==entry.id; }) }); }} style={delBtnStyle}>✕</button>
+                  </div>
+                  {entry.note && <div style={{ fontSize:"0.8rem", color:"#5a5a50", marginTop:"0.3rem" }}>{entry.note}</div>}
+                  {hasAction && (
+                    <div onClick={function(){ commsMutate({ log: commsLog.map(function(x){ return x.id===entry.id ? Object.assign({},x,{actionDone:!x.actionDone}) : x; }) }); }} style={{ display:"flex", alignItems:"center", gap:"0.4rem", borderTop:"1px solid #F0EBDF", paddingTop:"0.4rem", marginTop:"0.4rem", cursor:"pointer" }}>
+                      <span style={{ color:entry.actionDone?LC.seaglass:"#9a9488" }}>{entry.actionDone?"●":"○"}</span>
+                      <span style={{ fontSize:"0.78rem", color:entry.actionDone?"#9a9488":"#3a3a34", textDecoration:entry.actionDone?"line-through":"none" }}>{entry.action}</span>
+                      {!entry.actionDone && <span style={{ fontSize:"0.62rem", fontWeight:700, color:"#C4849A", background:"#C4849A22", padding:"1px 6px", borderRadius:"99px", marginLeft:"auto" }}>Follow up</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Homework — full list with filter (school only) ──────────────────────
+      function HomeworkSection() {
+        var [hwFilter, setHwFilter] = React.useState("all");
+        var sevenOut = addDays(todayIso, 7);
+        var filtered = homework.filter(function(h) {
+          var done = h.status==="Done" || h.status==="Turned in";
+          if (hwFilter==="completed") return done;
+          if (done) return false;
+          if (hwFilter==="overdue") return h.due && h.due < todayIso;
+          if (hwFilter==="due soon") return h.due && h.due >= todayIso && h.due <= sevenOut;
+          return true;
+        });
+        var sorted = filtered.slice().sort(function(a,b){ return (a.due||"") < (b.due||"") ? -1:1; });
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>✏️ Homework</div>
+            <div style={{ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" }}>
+              {[["all","All"],["due soon","Due Soon"],["overdue","Overdue"],["completed","Completed"]].map(function(f){
+                return pillToggle(f[1], hwFilter===f[0], function(){ setHwFilter(f[0]); });
+              })}
+            </div>
+            {lhAddMode !== "hw" && <button type="button" onClick={function(){ openAdd("hw",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Assignment</button>}
+            {lhAddMode === "hw" && formCard(
+              <div>
+                {fieldRow("Subject *", <input value={fv("subj","")} onChange={fSet("subj")} autoFocus style={inp()}/>)}
+                {fieldRow("Assignment *", <input value={fv("task","")} onChange={fSet("task")} style={inp()}/>)}
+                {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                {formBtns(function(){
+                  var task=(fv("task","")).trim(); var subj=(fv("subj","")).trim();
+                  if (!task||!subj) return;
+                  applySchoolLh({ homework: homework.concat([{ id:uid(), subj:subj, task:task, due:fv("due",""), status:"Not started", help:false }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            {sorted.length===0 && <div style={emptyTextStyle}>Nothing here.</div>}
+            {sorted.map(function(hw) {
+              var isDone = hw.status==="Done" || hw.status==="Turned in";
+              return (
+                <div key={hw.id} style={itemRowStyle}>
+                  <input type="checkbox" checked={isDone} onChange={function(){ applySchoolLh({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{ status:isDone?"Not started":"Done" }) : h; }) }); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:isDone?"#9a9488":"#3a3a34", textDecoration:isDone?"line-through":"none" }}>{hw.task}</div>
+                    <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{hw.subj}{hw.due ? " · due "+fmtMonthDay(hw.due) : ""}</div>
+                  </div>
+                  <button type="button" onClick={function(){ applySchoolLh({ homework: homework.filter(function(h){ return h.id!==hw.id; }) }); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Notes (both modes) ───────────────────────────────────────────────────
+      function NotesSection() {
+        var [notes, setNotes] = React.useState(childPublic.notes || "");
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📝 Notes</div>
+            <textarea value={notes} onChange={function(e){ setNotes(e.target.value); }} onBlur={function(){ savePub({ notes: notes }); }} placeholder="Anything else worth remembering — allergies, accommodations, logistics…" style={inp({ height:80, resize:"vertical" })}/>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+          {childMode === "school" ? (
+            <div>
+              <TeacherContactsSection/>
+              <CalendarEventsSection/>
+              <CommsSection/>
+              <HomeworkSection/>
+            </div>
+          ) : (
+            <div>
+              <UmbrellaSection/>
+              <ActivitiesSection/>
+              <TeacherContactsSection/>
+            </div>
+          )}
+          <NotesSection/>
+        </div>
+      );
+    }
+
     if (allPeople.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
@@ -15233,9 +15710,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
         {learningSubTab === "plan" && <PlanArea key={activeChild} />}
+        {learningSubTab === "records" && <RecordsArea key={activeChild} />}
 
-        {/* Placeholder body for Records/Growth/Library — built out in Phases 4-6 */}
-        {learningSubTab !== "overview" && learningSubTab !== "plan" && (
+        {/* Placeholder body for Growth/Library — built out in Phases 5-6 */}
+        {learningSubTab !== "overview" && learningSubTab !== "plan" && learningSubTab !== "records" && (
           <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
             <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
