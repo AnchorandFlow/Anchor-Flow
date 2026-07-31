@@ -656,9 +656,9 @@ var _swReloadFired = false;
 //           unpushed edits can push once auth is restored after re-login
 var _afUserInitiatedSignOut = false;
 var SHOPPING_V2 = localStorage.getItem("af_shopping_v2") === "true";
-// Lighthouse opt-in flag (default OFF). useSaved("lighthouse") → af_lighthouse.
-// To enable:  localStorage.setItem("af_lighthouse_v2","true");  location.reload();
-var LIGHTHOUSE_V2 = localStorage.getItem("af_lighthouse_v2") === "true";
+// Lighthouse is default-on for all households now — gated only by the
+// user-facing featureFlags.lighthouseEnabled toggle in Anchor Settings.
+// The old af_lighthouse_v2 opt-in localStorage flag is retired.
 // Safe guard helper for nested lighthouse reads — avoids optional chaining (ES2019).
 function lhGet(o, k, d) { return o && o[k] != null ? o[k] : d; }
 // Default shape for the af_lighthouse blob. All child-keyed layers start empty;
@@ -3614,7 +3614,7 @@ function createLocalBackup() {
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
-  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"&&LIGHTHOUSE_V2){try{sessionStorage.setItem("af_activeTab","lighthouse");}catch{} return "lighthouse";}return s;}}catch{}return "anchor";});
+  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"){try{sessionStorage.setItem("af_activeTab","lighthouse");}catch{} return "lighthouse";}return s;}}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
   React.useEffect(() => {
     function nukeGhosts() { document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} }); }
@@ -14918,7 +14918,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 }}
               /></SectionErrorBoundary>}
                 {t==="school"   && <SectionErrorBoundary label="School"><SchoolTab/></SectionErrorBoundary>}
-                {t==="lighthouse" && LIGHTHOUSE_V2 && <SectionErrorBoundary label="Lighthouse"><LighthouseTab/></SectionErrorBoundary>}
+                {t==="lighthouse" && <SectionErrorBoundary label="Lighthouse"><LighthouseTab/></SectionErrorBoundary>}
                 {t==="career"   && <SectionErrorBoundary label="Career"><CareerTab/></SectionErrorBoundary>}
                 {t==="settings" && <SectionErrorBoundary label="Settings"><SettingsTab
                   people={people} setPeople={setPeople}
@@ -15297,7 +15297,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
       ...(featureFlags.tidePoolEnabled ? [{ id: "tidepool", label: "Tide Pool", emoji: "🏝️" }] : []),
       { id: "school", label: "School", emoji: "🏫" },
-      ...(LIGHTHOUSE_V2 && featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
+      ...(featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       ...(featureFlags.mealsEnabled ? [{ id: "meals", label: "Meals", emoji: "🍽️" }] : []),
