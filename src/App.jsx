@@ -4049,8 +4049,14 @@ function createLocalBackup() {
     if (showWelcomeModal) return;
     if (myPersonId) {
       // Stored id no longer resolves (member removed) — ask again rather than
-      // silently keeping a dangling reference.
+      // silently keeping a dangling reference. The else branch matters: people
+      // can still be mid-hydration right after login (pull not landed yet), so
+      // a stale/incomplete list can transiently not include myPersonId and
+      // wrongly show this modal — nothing else ever hides it again once that
+      // happens, so once people catches up and the id resolves, explicitly
+      // dismiss it rather than leaving it stuck open.
       if (!people.some(function(p){ return p.id===myPersonId; })) setShowWhoAmI(true);
+      else setShowWhoAmI(false);
       return;
     }
     if (people.filter(isAdultLenient).length > 0) setShowWhoAmI(true);
