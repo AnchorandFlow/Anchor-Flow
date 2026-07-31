@@ -1270,12 +1270,11 @@ const TABS = [
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Mind",     emoji:"💭"},
-  {id:"school",      label:"School",      emoji:"🏫"},
-  {id:"lighthouse",  label:"Lighthouse",  emoji:"🔭"},
+  {id:"learning",    label:"Learning",    emoji:"🌱"},
   {id:"settings",    label:"Settings",    emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
-const MORE_TABS    = ["weekly","home","brain","school","lighthouse","tidepool","cove","settings"];
+const MORE_TABS    = ["weekly","home","brain","learning","tidepool","cove","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -2463,16 +2462,17 @@ const _hfComps   = {};
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveTab',
-  'SchoolTab','LighthouseTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
+  'SchoolTab','LighthouseTab','LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
   Object.defineProperty(_hfComps[n], 'name', { value: n });
 });
-// Module-scope alias so LighthouseTab is resolvable from any execution context
-// (HMR stale closure, SW-cached bundle chunk, React speculative render) without
-// depending on HomeFlow's const destructure at line ~4178.
+// Module-scope alias so LighthouseTab/LearningTab are resolvable from any execution
+// context (HMR stale closure, SW-cached bundle chunk, React speculative render)
+// without depending on HomeFlow's const destructure at line ~4178.
 var LighthouseTab = _hfComps.LighthouseTab;
+var LearningTab = _hfComps.LearningTab;
 
 function HomeFlow({ recoveryToken }) {
 
@@ -3614,7 +3614,7 @@ function createLocalBackup() {
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
-  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"){try{sessionStorage.setItem("af_activeTab","lighthouse");}catch{} return "lighthouse";}return s;}}catch{}return "anchor";});
+  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"||s==="lighthouse"){try{sessionStorage.setItem("af_activeTab","learning");}catch{} return "learning";}return s;}}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
   React.useEffect(() => {
     function nukeGhosts() { document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} }); }
@@ -3687,7 +3687,7 @@ function createLocalBackup() {
     }));
   }
   React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
-  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="school"||tab==="lighthouse") ? "Flow"
+  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="learning") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
@@ -5103,7 +5103,7 @@ Respond ONLY with valid JSON array, no markdown:
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveTab,
-          SchoolTab, LighthouseTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
+          SchoolTab, LighthouseTab, LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
@@ -14150,6 +14150,137 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── Learning Tab (unified School + Lighthouse shell) ─────────────────────────
+  // Replaces SchoolTab and LighthouseTab in the nav (Phase 1 of the Lighthouse +
+  // School rebuild). SchoolTab/LighthouseTab above are left fully intact and
+  // unmounted — their bodies are the source material ported into Overview/Plan/
+  // Records/Growth/Library over Phases 2-6. Nothing here reshapes af_schoolData
+  // or af_lighthouse on disk; both stay in their existing shapes (read-time
+  // adapter only, per rebuild decision #1).
+  _hfRenders.LearningTab = function LearningTab() {
+    var LEARNING_TABS = [
+      { id:"overview", label:"Overview", emoji:"✨" },
+      { id:"plan",     label:"Plan",     emoji:"🗓️" },
+      { id:"records",  label:"Records",  emoji:"📋" },
+      { id:"growth",   label:"Growth",   emoji:"📈" },
+      { id:"library",  label:"Library",  emoji:"📚" },
+    ];
+
+    var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
+    var [schoolData] = useSaved("schoolData", {});
+    var [activeChild, _setActiveChild] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningActiveChild"); if (s) return s; } catch(_e) {} return null; });
+    var [learningSubTab, _setLearningSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningSubTab"); if (s) return s; } catch(_e) {} return "overview"; });
+    var [showAllPeople, setShowAllPeople] = React.useState(false);
+    function setActiveChild(id) { _setActiveChild(id); try { if (id) sessionStorage.setItem("af_learningActiveChild", id); else sessionStorage.removeItem("af_learningActiveChild"); } catch(_e) {} }
+    function setLearningSubTab(t) { _setLearningSubTab(t); try { sessionStorage.setItem("af_learningSubTab", t); } catch(_e) {} }
+
+    var allPeople = people.filter(function(p) { return p && p.name; });
+    var defaultPeople = allPeople.filter(function(p) { return personIsMinor(p); });
+    var displayPeople = (showAllPeople || defaultPeople.length === 0) ? allPeople : defaultPeople;
+    var hasOthers = !showAllPeople && allPeople.length > defaultPeople.length;
+
+    React.useEffect(function() {
+      var ids = displayPeople.map(function(p){ return p.id; });
+      if ((!activeChild || ids.indexOf(activeChild) === -1) && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
+    }, [displayPeople.length]);
+
+    // One-time silent migration (rebuild decision #3): lighthouse.modes[id] is the
+    // single source of truth for a child's learning mode going forward. If a child
+    // has a legacy schoolData[id].type but no lighthouse mode yet, copy it over once.
+    // af_schoolData itself is never written — this only ever writes af_lighthouse.
+    // Mapping: "homeschool" -> "homeschool"; every other legacy type (public/private/
+    // co-op/online/other) -> "school", since that's the only other bucket Lighthouse's
+    // mode model has.
+    React.useEffect(function() {
+      var modes = lhGet(lighthouse, "modes", {});
+      var patch = null;
+      displayPeople.forEach(function(p) {
+        var legacyType = schoolData && schoolData[p.id] && schoolData[p.id].type;
+        if (legacyType && !modes[p.id]) {
+          if (!patch) patch = {};
+          patch[p.id] = legacyType === "homeschool" ? "homeschool" : "school";
+        }
+      });
+      if (patch) {
+        setLighthouse(function(prev) {
+          var prevModes = lhGet(prev, "modes", {});
+          return Object.assign({}, prev, { modes: Object.assign({}, prevModes, patch) });
+        });
+      }
+    }, [displayPeople.map(function(p){ return p.id; }).join(",")]);
+
+    var modes = lhGet(lighthouse, "modes", {});
+    var childPerson = displayPeople.find(function(p) { return p.id === activeChild; }) || null;
+    var activeTabMeta = LEARNING_TABS.find(function(t){ return t.id === learningSubTab; }) || LEARNING_TABS[0];
+
+    if (allPeople.length === 0) {
+      return (
+        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Learning</div>
+          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add people in Settings to start tracking learning records.</div>
+          <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ paddingBottom: "4rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
+            <button onClick={function(){ goTab("anchor"); }} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", display:"flex", alignItems:"center", opacity:0.5, flexShrink:0 }}>
+              <span style={{ fontSize:17, color:T.textSoft, lineHeight:1 }}>←</span>
+            </button>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🌱 Learning</div>
+          </div>
+        </div>
+
+        {/* Child switcher */}
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.85rem", overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: "2px" }}>
+          {displayPeople.map(function(p) {
+            var isAct = p.id === activeChild;
+            var pMode = modes[p.id] || null;
+            var dot = { width:8, height:8, borderRadius:"50%", background:p.color||T.blue, display:"inline-block", flexShrink:0 };
+            var pill = { flexShrink:0, display:"flex", alignItems:"center", gap:"0.35rem", padding:"0.35rem 0.75rem", borderRadius:"99px", border:"1.5px solid "+(isAct?(p.color||T.blue):T.borderSoft), background:isAct?(p.color||T.blue)+"22":"transparent", cursor:"pointer", fontSize:"0.82rem", fontWeight:isAct?700:400, color:isAct?T.textDark:T.textMid, fontFamily:"inherit" };
+            return (
+              <button key={p.id} onClick={function(){ setActiveChild(p.id); }} style={pill}>
+                <span style={dot}/>
+                {p.name}
+                {pMode === "homeschool" && <span style={{ fontSize:"0.65rem" }}> 🏡</span>}
+                {pMode === "school" && <span style={{ fontSize:"0.65rem" }}> 🏫</span>}
+              </button>
+            );
+          })}
+          {hasOthers && (
+            <button onClick={function(){ setShowAllPeople(true); }} style={{ flexShrink:0, padding:"0.35rem 0.75rem", borderRadius:"99px", border:"1.5px dashed "+T.borderSoft, background:"transparent", cursor:"pointer", fontSize:"0.78rem", color:T.textFaint, fontFamily:"inherit" }}>+ others</button>
+          )}
+          {showAllPeople && defaultPeople.length > 0 && (
+            <button onClick={function(){ setShowAllPeople(false); }} style={{ flexShrink:0, padding:"0.35rem 0.75rem", borderRadius:"99px", border:"1.5px dashed "+T.borderSoft, background:"transparent", cursor:"pointer", fontSize:"0.78rem", color:T.textFaint, fontFamily:"inherit" }}>fewer</button>
+          )}
+        </div>
+
+        {/* Tab nav */}
+        <div style={{ display: "flex", gap: "0.25rem", overflowX: "auto", paddingBottom: "3px", marginBottom: "0.85rem" }}>
+          {LEARNING_TABS.map(function(t) {
+            var isActive = learningSubTab === t.id;
+            return (
+              <button key={t.id} onClick={function(){ setLearningSubTab(t.id); }} style={{ background:isActive?T.sage:"transparent", color:isActive?"#fff":T.textMid, border:"1.5px solid "+(isActive?T.sage:T.border), borderRadius:"99px", padding:"0.3rem 0.75rem", cursor:"pointer", fontSize:"0.74rem", fontWeight:isActive?700:500, fontFamily:"inherit", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.14s" }}>
+                {t.emoji} {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Placeholder body — built out tab-by-tab in Phases 2-6 */}
+        <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
+          <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
+          <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
+          <div style={{ fontSize: "0.8rem", marginTop:"0.3rem" }}>Coming soon{childPerson ? " for " + childPerson.name : ""}.</div>
+        </div>
+      </div>
+    );
+  }
+
   // Children stay mounted (display:none when closed) so inputs never lose focus.
     // ── Google Calendar Modal ────────────────────────────────────────────────────
   _hfRenders.GoogleCalendarModal = function GoogleCalendarModal({onClose}) {
@@ -15022,7 +15153,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","lighthouse","settings"].map(t=>{
+          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","learning","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -15044,8 +15175,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setExhaleLabels(labels);
                 }}
               /></SectionErrorBoundary>}
-                {t==="school"   && <SectionErrorBoundary label="School"><SchoolTab/></SectionErrorBoundary>}
-                {t==="lighthouse" && <SectionErrorBoundary label="Lighthouse"><LighthouseTab/></SectionErrorBoundary>}
+                {t==="learning" && <SectionErrorBoundary label="Learning"><LearningTab/></SectionErrorBoundary>}
                 {t==="career"   && <SectionErrorBoundary label="Career"><CareerTab/></SectionErrorBoundary>}
                 {t==="settings" && <SectionErrorBoundary label="Settings"><SettingsTab
                   people={people} setPeople={setPeople}
@@ -15423,8 +15553,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
       ...(featureFlags.tidePoolEnabled ? [{ id: "tidepool", label: "Tide Pool", emoji: "🏝️" }] : []),
-      { id: "school", label: "School", emoji: "🏫" },
-      ...(featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
+      ...(featureFlags.lighthouseEnabled ? [{ id: "learning", label: "Learning", emoji: "🌱" }] : []),
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       ...(featureFlags.mealsEnabled ? [{ id: "meals", label: "Meals", emoji: "🍽️" }] : []),
