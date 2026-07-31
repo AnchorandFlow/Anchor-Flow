@@ -923,7 +923,7 @@ function lhUpNext(items) {
   return null;
 }
 function lhChildTabs(modes, childId) {
-  var SHARED = ["overview","books","beyond","trips","goals","summaries"];
+  var SHARED = ["hub","overview","books","beyond","trips","goals","summaries"];
   var mode = (modes && childId) ? (modes[childId] || null) : null;
   if (mode === "homeschool") return SHARED.concat(["plan","loops"]);
   if (mode === "school")     return SHARED.concat(["week","homework","comms","grades"]);
@@ -12013,8 +12013,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // ── Lighthouse Tab ────────────────────────────────────────────────────────────
   _hfRenders.LighthouseTab = function LighthouseTab() {
     var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
+    var [schoolData] = useSaved("schoolData", {});
     var [activeChild, _setActiveChild] = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhActiveChild"); if (s) return s; } catch(_e) {} return null; });
-    var [lhSubTab, _setLhSubTab]       = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhSubTab"); if (s) return s; } catch(_e) {} return "overview"; });
+    var [lhSubTab, _setLhSubTab]       = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhSubTab"); if (s) return s; } catch(_e) {} return "hub"; });
     var [showAllPeople, setShowAllPeople] = React.useState(false);
     var [lhAddMode, setLhAddMode]       = React.useState(null);
     var [lhEditId, setLhEditId]         = React.useState(null);
@@ -12146,6 +12147,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var beyondLabel   = lhGet(LH_LABELS.beyond,    childMode, "Beyond the Transcript");
     var summaryLabel  = lhGet(LH_LABELS.summaries, childMode, "Summaries");
     var LH_TAB_META = {
+      hub:       { label:"Summary",      emoji:"📊" },
       overview:  { label:"Overview",     emoji:"✨" },
       books:     { label:"Books",        emoji:"📚" },
       beyond:    { label:beyondLabel,    emoji:"🌎" },
@@ -13869,6 +13871,124 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Summary Area (household-wide dashboard, reads schoolData + lighthouse
+    //    directly — no data relocation, purely a read/rollup view) ─────────────
+    function SummaryArea() {
+      var thisYear = String(new Date().getFullYear());
+      var sharedAllChildren = lhGet(lighthouse, "shared", {});
+      var schoolChildIds = Object.keys(schoolData || {}).filter(function(id) {
+        return allPeople.some(function(p) { return p.id === id; });
+      });
+
+      var totalDaysLogged = 0;
+      var totalCurricula = 0;
+      schoolChildIds.forEach(function(id) {
+        var hs = (schoolData[id] && schoolData[id].homeschool) || {};
+        var att = hs.attendance || {};
+        Object.keys(att).forEach(function(d) {
+          if (d.slice(0,4) === thisYear && (att[d] === "present" || att[d] === "absent")) totalDaysLogged++;
+        });
+        totalCurricula += (Array.isArray(hs.curricula) ? hs.curricula.length : 0);
+      });
+
+      var totalGoals = 0, achievedGoals = 0;
+      Object.keys(sharedAllChildren).forEach(function(id) {
+        if (!allPeople.some(function(p) { return p.id === id; })) return;
+        var g = Array.isArray(sharedAllChildren[id].goals) ? sharedAllChildren[id].goals : [];
+        var real = g.filter(function(x) { return x.kind !== "challenge"; });
+        totalGoals += real.length;
+        achievedGoals += real.filter(function(x) { return x.progress === "Achieved"; }).length;
+      });
+
+      var householdRows = [];
+      if (totalDaysLogged > 0) householdRows.push({ emoji:"📅", label:"School days logged this year", value: totalDaysLogged });
+      if (totalCurricula > 0) householdRows.push({ emoji:"📚", label:"Active subjects/curricula", value: totalCurricula });
+      if (totalGoals > 0) householdRows.push({ emoji:"🎯", label:"Goals achieved", value: achievedGoals + " of " + totalGoals });
+
+      var childCards = schoolChildIds.map(function(id) {
+        var person = allPeople.find(function(p) { return p.id === id; });
+        if (!person) return null;
+        var hs = (schoolData[id] && schoolData[id].homeschool) || {};
+        var att = hs.attendance || {};
+        var loggedDates = Object.keys(att).filter(function(d) { return att[d] === "present" || att[d] === "absent"; });
+        var yearDates = loggedDates.filter(function(d) { return d.slice(0,4) === thisYear; });
+        var presentThisYear = yearDates.filter(function(d) { return att[d] === "present"; }).length;
+        var rate = yearDates.length > 0 ? Math.round((presentThisYear / yearDates.length) * 100) : null;
+        var curricula = Array.isArray(hs.curricula) ? hs.curricula : [];
+        var lastDate = loggedDates.length > 0 ? loggedDates.slice().sort().slice(-1)[0] : null;
+        var daysSince = lastDate ? Math.floor((new Date() - new Date(lastDate + "T00:00:00")) / 86400000) : null;
+        var childGoals = (sharedAllChildren[id] && Array.isArray(sharedAllChildren[id].goals)) ? sharedAllChildren[id].goals : [];
+        var nextGoal = childGoals.find(function(g) { return g.kind !== "challenge" && g.progress !== "Achieved"; });
+        return { person: person, rate: rate, yearLogged: yearDates.length, curriculaCount: curricula.length, daysSince: daysSince, nextGoal: nextGoal };
+      }).filter(Boolean);
+
+      var statRow = {display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft,fontSize:"0.85rem"};
+
+      return areaWrap(
+        <div>
+          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.2rem",color:T.textDark,marginBottom:"0.75rem"}}>
+            Household Summary
+          </div>
+
+          {householdRows.length === 0 ? (
+            <div style={{...card({marginBottom:"1rem"}), color:T.textFaint, fontSize:"0.85rem", textAlign:"center", padding:"1.5rem 1rem"}}>
+              No school data logged yet — Summary fills in as records are added.
+            </div>
+          ) : (
+            <div style={{...card({marginBottom:"1rem"})}}>
+              {householdRows.map(function(r) {
+                return (
+                  <div key={r.label} style={statRow}>
+                    <span style={{fontSize:"1rem"}}>{r.emoji}</span>
+                    <span style={{flex:1,color:T.textMid}}>{r.label}</span>
+                    <span style={{fontWeight:700,color:T.textDark}}>{r.value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {childCards.length > 0 && (
+            <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.05rem",color:T.textDark,margin:"1rem 0 0.5rem"}}>
+              By Child
+            </div>
+          )}
+          {childCards.map(function(c) {
+            var hasAny = c.rate != null || c.curriculaCount > 0 || c.nextGoal || c.daysSince != null;
+            return (
+              <div key={c.person.id} style={{...card({marginBottom:"0.65rem"})}}>
+                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:hasAny?"0.4rem":0}}>
+                  <span style={{width:26,height:26,borderRadius:"50%",background:(c.person.color||T.blue)+"33",color:T.textDark,fontWeight:700,fontSize:"0.8rem",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    {c.person.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span style={{fontWeight:700,fontSize:"0.92rem",color:T.textDark}}>{c.person.name}</span>
+                </div>
+                {!hasAny && <div style={{color:T.textFaint,fontSize:"0.8rem"}}>No school data logged yet</div>}
+                {c.rate != null && (
+                  <div style={statRow}><span style={{fontSize:"0.95rem"}}>📋</span><span style={{flex:1,color:T.textMid}}>Attendance rate this year</span><span style={{fontWeight:700,color:T.textDark}}>{c.rate}%</span></div>
+                )}
+                {c.curriculaCount > 0 && (
+                  <div style={statRow}><span style={{fontSize:"0.95rem"}}>📚</span><span style={{flex:1,color:T.textMid}}>Active subjects/curricula</span><span style={{fontWeight:700,color:T.textDark}}>{c.curriculaCount}</span></div>
+                )}
+                {c.nextGoal && (
+                  <div style={statRow}><span style={{fontSize:"0.95rem"}}>🎯</span><span style={{flex:1,color:T.textMid}}>Next goal</span><span style={{fontWeight:700,color:T.textDark,textAlign:"right",maxWidth:"55%"}}>{c.nextGoal.goal}</span></div>
+                )}
+                {c.daysSince != null && (
+                  <div style={{...statRow, borderBottom:"none"}}><span style={{fontSize:"0.95rem"}}>🕓</span><span style={{flex:1,color:T.textMid}}>Days since last school day logged</span><span style={{fontWeight:700,color:T.textDark}}>{c.daysSince}</span></div>
+                )}
+              </div>
+            );
+          })}
+
+          {childCards.length === 0 && householdRows.length === 0 && (
+            <div style={{color:T.textFaint,fontSize:"0.82rem",textAlign:"center",padding:"1rem 0"}}>
+              Add schooling records for a child (Overview → Homeschool or School) to see their summary here.
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // ── Overview Area (counts roll-up) ────────────────────────────────────────
     function OverviewArea() {
       var modeLabel = childMode === "homeschool" ? "Homeschool" : childMode === "school" ? "School" : null;
@@ -14001,6 +14121,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               })}
             </div>
             {/* Area content */}
+            {lhSubTab === "hub"       && SummaryArea()}
             {lhSubTab === "overview"  && OverviewArea()}
             {lhSubTab === "books"     && BooksArea()}
             {lhSubTab === "beyond"    && BeyondArea()}
@@ -14013,7 +14134,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhSubTab === "comms"     && SchoolCommsArea()}
             {lhSubTab === "grades"    && GradesArea()}
             {lhSubTab === "summaries" && SummariesArea()}
-            {lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && lhSubTab !== "grades" && lhSubTab !== "summaries" && (
+            {lhSubTab !== "hub" && lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && lhSubTab !== "grades" && lhSubTab !== "summaries" && (
               <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
                 <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
                   {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
