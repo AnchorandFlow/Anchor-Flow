@@ -14487,6 +14487,687 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Plan tab (Phase 3) ────────────────────────────────────────────────────
+    var PLAN_SCHOOL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+    function isoFromDate(d) { return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+    function addDays(iso, n) { var d = new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return isoFromDate(d); }
+    // Week anchor is Sunday, matching the household's existing meals-week convention
+    // (MEALS-1 / getThisSunday) — the 5-day grid below still only shows Mon-Fri
+    // (the actual school days), but "which week is this date in" is always
+    // computed from the Sunday that starts it, not a Monday.
+    function getSundayOf(iso) { var d = new Date(iso+"T12:00:00"); var dow = d.getDay(); d.setDate(d.getDate()-dow); return isoFromDate(d); }
+    function fmtMonthDay(iso) {
+      var d = new Date(iso+"T12:00:00");
+      var MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return MN[d.getMonth()]+" "+d.getDate();
+    }
+    var DAY_TYPES = [
+      { id:"full",     label:"Full day",   color:"#6ABAAA" },
+      { id:"half",     label:"Half day",   color:"#C9A45B" },
+      { id:"holiday",  label:"Holiday",    color:"#C4849A" },
+      { id:"break",    label:"Break",      color:"#8878b8" },
+      { id:"field",    label:"Field trip", color:"#7A95B8" },
+      { id:"flexible", label:"Flexible",   color:"#7a9e8e" },
+      { id:"none",     label:"No school",  color:"#B8B0A0" },
+    ];
+    function dayTypeInfo(id) { return DAY_TYPES.find(function(t){ return t.id===id; }) || null; }
+
+    function PlanArea() {
+      var [planSubTab, _setPlanSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningPlanSubTab"); if (s && (s!=="loops" || childMode==="homeschool") && (s!=="year" || childMode==="homeschool")) return s; } catch(_e) {} return "today"; });
+      function setPlanSubTab(t) { _setPlanSubTab(t); try { sessionStorage.setItem("af_learningPlanSubTab", t); } catch(_e) {} }
+
+      // Shared add/edit form plumbing (mirrors the pattern LighthouseTab's own
+      // areas used) — reused across Today/Week/Year/Loops/Subjects below.
+      var [lhForm, setLhForm] = React.useState({});
+      var [lhAddMode, setLhAddMode] = React.useState(null);
+      var [lhEditId, setLhEditId] = React.useState(null);
+      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
+      function fChk(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.checked; return n; }); }; }
+      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
+      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
+      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fieldRow(label, children) {
+        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+      }
+      function formCard(children) {
+        return (<div style={{ background:"#fff", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" }}>{children}</div>);
+      }
+      function formBtns(onSave) {
+        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+      }
+      function pillToggle(label, active, onClick) {
+        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+      }
+
+      var hsAll = lhGet(lighthouse, "homeschool", {});
+      var hsChild = hsAll[activeChild] || defaultLhHsChild();
+      var hsDaily = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily : {};
+      var lhLoops = Array.isArray(hsChild.loops) ? hsChild.loops : [];
+      var childSchoolHs = (schoolData[activeChild] && schoolData[activeChild].homeschool) || {};
+      var schWeekPlan = childSchoolHs.weekPlan || {};
+
+      function applyHs(patch) { setLighthouse(function(prev) { return lhHsPatch(prev, activeChild, patch); }); }
+      function applyHsLoopUpdate(loopId, loopPatch) { setLighthouse(function(prev) { return lhHsLoopUpdate(prev, activeChild, loopId, loopPatch); }); }
+      function applyHsLoopItemUpdate(loopId, itemId, itemPatch) { setLighthouse(function(prev) { return lhHsLoopItemUpdate(prev, activeChild, loopId, itemId, itemPatch); }); }
+      function patchDay(dateIso, dayPatch) {
+        var next = Object.assign({}, hsDaily);
+        var existing = (next[dateIso] && typeof next[dateIso]==="object") ? next[dateIso] : {};
+        next[dateIso] = Object.assign({}, existing, dayPatch);
+        applyHs({ daily: next });
+      }
+      function getDay(dateIso) {
+        var d = hsDaily[dateIso];
+        return (d && typeof d==="object" && !Array.isArray(d)) ? d : { attendance:null, dayType:null, entries:[] };
+      }
+
+      // ── Subjects — canonical shape going forward is schoolData's richer
+      // {id,subject,name,website,notes} records. Lighthouse's bare subject-name
+      // strings (hsChild.subjects) are read as a fallback only when School has none,
+      // and are displayed as name-only entries until edited. The very first
+      // add/edit/delete for a child whose only subjects live in Lighthouse promotes
+      // those bare names into real curricula records so nothing silently drops out
+      // of view once curricula stops being empty. (Deleting every promoted subject
+      // back down to zero will reveal the original Lighthouse names again on next
+      // read — a narrow, self-correcting edge case, not worth extra state to close.)
+      var curricula = Array.isArray(childSchoolHs.curricula) ? childSchoolHs.curricula : [];
+      var lhSubjectNames = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
+      function effectiveSubjectRecords() {
+        if (curricula.length > 0) return curricula;
+        return lhSubjectNames.map(function(s){ return { id:s, subject:s, name:"", website:"", notes:"" }; });
+      }
+      function saveSubjectRecords(list) {
+        setSchoolData(function(prev) {
+          var next = Object.assign({}, prev);
+          var existingChild = next[activeChild] || { type:null, public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""}, homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}} };
+          var existingHs = existingChild.homeschool || {};
+          next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { curricula: list }) });
+          return next;
+        });
+      }
+      var subjectRecords = effectiveSubjectRecords();
+      var subjectNameList = subjectRecords.map(function(r){ return r.subject; });
+
+      // ── Today ─────────────────────────────────────────────────────────────
+      function dayEntriesFor(dateIso) {
+        var day = getDay(dateIso);
+        if (Array.isArray(day.entries) && day.entries.length > 0) return day.entries;
+        // Legacy fallback for display: old Lighthouse daily.tasks (subject-keyed
+        // arrays of {id,text,done}) or School's weekPlan subjects for that weekday.
+        var out = [];
+        if (day.tasks && typeof day.tasks==="object") {
+          Object.keys(day.tasks).forEach(function(subj){
+            (Array.isArray(day.tasks[subj]) ? day.tasks[subj] : []).forEach(function(t){ out.push({ id:t.id||uid(), subject:subj, title:t.text||"", done:!!t.done, notes:"" }); });
+          });
+        }
+        if (out.length === 0) {
+          var dn = DAY_NAMES[new Date(dateIso+"T12:00:00").getDay()];
+          var wp = schWeekPlan[dn];
+          if (wp && Array.isArray(wp.subjects)) {
+            wp.subjects.forEach(function(s){ out.push({ id:s.id||uid(), subject:s.name||"", title:s.title||"", done:!!s.done, notes:s.notes||s.todo||"" }); });
+          }
+        }
+        return out;
+      }
+      function saveEntriesFor(dateIso, entries) { patchDay(dateIso, { entries: entries }); }
+
+      function PlanToday() {
+        var entries = dayEntriesFor(todayIso);
+        var day = getDay(todayIso);
+        var att = day.attendance || null;
+
+        if (childMode === "school") {
+          var schoolAll = lhGet(lighthouse, "school", {});
+          var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
+          var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
+          var dueTodayOrOverdue = homework.filter(function(h){ return h.due && h.due <= todayIso && h.status !== "Done" && h.status !== "Turned in"; })
+            .sort(function(a,b){ return (a.due||"") < (b.due||"") ? -1:1; });
+          function applySchool(patch) { setLighthouse(function(prev){ return lhSchoolPatch(prev, activeChild, patch); }); }
+          function saveHw() {
+            var task=(fv("task","")).trim(); var subj=(fv("subj","")).trim();
+            if (!task || !subj) return;
+            applySchool({ homework: homework.concat([{ id:uid(), subj:subj, task:task, due:(fv("due",todayIso)), status:"Not started", help:false }]) });
+            closeForm();
+          }
+          return (
+            <div>
+              {lhAddMode !== "hw" && <button type="button" onClick={function(){ openAdd("hw",{ due:todayIso }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", marginBottom:"0.85rem" })}>+ Add Homework</button>}
+              {lhAddMode === "hw" && formCard(
+                <div>
+                  {fieldRow("Subject *", <input value={fv("subj","")} onChange={fSet("subj")} placeholder="Math, English, Science…" style={inp()} autoFocus/>)}
+                  {fieldRow("Assignment *", <input value={fv("task","")} onChange={fSet("task")} placeholder="What's the assignment?" style={inp()}/>)}
+                  {fieldRow("Due", <input type="date" value={fv("due",todayIso)} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                  {formBtns(saveHw)}
+                </div>
+              )}
+              {dueTodayOrOverdue.length === 0 && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing due today.</div>}
+              {dueTodayOrOverdue.map(function(hw) {
+                var overdue = hw.due && hw.due < todayIso;
+                return (
+                  <div key={hw.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                    <input type="checkbox" checked={hw.status==="Done"} onChange={function(){ applySchool({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{status:h.status==="Done"?"Not started":"Done"}) : h; }) }); }} style={{ cursor:"pointer", flexShrink:0 }}/>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{hw.task}</div>
+                      <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{hw.subj}{hw.due ? " · due "+fmtMonthDay(hw.due) : ""}{overdue ? " · overdue" : ""}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        }
+
+        function toggleAtt(v) { patchDay(todayIso, { attendance: att===v ? null : v }); }
+        function saveEntry() {
+          var subj=(fv("subject","")).trim(); if (!subj) return;
+          var item = { id:uid(), subject:subj, title:(fv("title","")).trim(), notes:(fv("notes","")).trim(), done:false };
+          saveEntriesFor(todayIso, entries.concat([item]));
+          closeForm();
+        }
+        function copyFromYesterday() {
+          var y = addDays(todayIso, -1);
+          var yEntries = dayEntriesFor(y).map(function(e){ return { id:uid(), subject:e.subject, title:e.title, notes:e.notes, done:false }; });
+          if (yEntries.length > 0) saveEntriesFor(todayIso, entries.concat(yEntries));
+        }
+        return (
+          <div>
+            <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem 1rem", marginBottom:"0.85rem" }}>
+              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.5rem" }}>Attendance today</div>
+              <div style={{ display:"flex", gap:"0.4rem" }}>
+                {[["present","Present"],["half","Half day"],["absent","Absent"]].map(function(o){
+                  var active = att===o[0];
+                  return <button type="button" key={o[0]} onClick={function(){ toggleAtt(o[0]); }} style={{ flex:1, padding:"0.4rem 0.3rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" }}>{o[1]}</button>;
+                })}
+              </div>
+            </div>
+
+            <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
+              {lhAddMode !== "today-entry" && <button type="button" onClick={function(){ openAdd("today-entry", { subject: subjectNameList[0]||"" }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem" })}>+ Add subject</button>}
+              <button type="button" onClick={copyFromYesterday} style={btnS({ fontSize:"0.82rem" })}>Copy from yesterday</button>
+            </div>
+
+            {lhAddMode === "today-entry" && formCard(
+              <div>
+                {fieldRow("Subject *", subjectNameList.length>0
+                  ? <select value={fv("subject","")} onChange={fSet("subject")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                  : <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
+                {fieldRow("Title", <input value={fv("title","")} onChange={fSet("title")} placeholder="Lesson or unit title" style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} placeholder="Optional" style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(saveEntry)}
+              </div>
+            )}
+
+            {entries.length === 0 && lhAddMode !== "today-entry" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing planned for today yet.</div>}
+            {entries.map(function(e) {
+              return (
+                <div key={e.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
+                    <input type="checkbox" checked={!!e.done} onChange={function(){ saveEntriesFor(todayIso, entries.map(function(x){ return x.id===e.id ? Object.assign({},x,{done:!x.done}) : x; })); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
+                        <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{e.subject}</span>
+                        {e.title && <span style={{ fontSize:"0.84rem", fontWeight:600, color:e.done?"#9a9488":"#3a3a34", textDecoration:e.done?"line-through":"none" }}>{e.title}</span>}
+                      </div>
+                      {e.notes && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{e.notes}</div>}
+                    </div>
+                    <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Week ──────────────────────────────────────────────────────────────
+      function getDayPlan(dayName) { return schWeekPlan[dayName] || { subjects:[], dayNotes:"" }; }
+      function saveDayPlan(dayName, patch) {
+        var next = Object.assign({}, schWeekPlan);
+        next[dayName] = Object.assign({}, getDayPlan(dayName), patch);
+        setSchoolData(function(prev) {
+          var nextAll = Object.assign({}, prev);
+          var existingChild = nextAll[activeChild] || { type:null, public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""}, homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}} };
+          var existingHs = existingChild.homeschool || {};
+          nextAll[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { weekPlan: next }) });
+          return nextAll;
+        });
+      }
+      function clearWeek() {
+        var next = {};
+        PLAN_SCHOOL_DAYS.forEach(function(d){ next[d] = { subjects:[], dayNotes:"" }; });
+        setSchoolData(function(prev) {
+          var nextAll = Object.assign({}, prev);
+          var existingChild = nextAll[activeChild] || {};
+          var existingHs = existingChild.homeschool || {};
+          nextAll[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { weekPlan: next }) });
+          return nextAll;
+        });
+      }
+      function copyDay(sourceDay) {
+        var source = getDayPlan(sourceDay);
+        var next = Object.assign({}, schWeekPlan);
+        PLAN_SCHOOL_DAYS.forEach(function(d) {
+          if (d !== sourceDay) next[d] = { subjects: source.subjects.map(function(s){ return Object.assign({}, s, { id:uid(), done:false }); }), dayNotes:"" };
+        });
+        setSchoolData(function(prev) {
+          var nextAll = Object.assign({}, prev);
+          var existingChild = nextAll[activeChild] || {};
+          var existingHs = existingChild.homeschool || {};
+          nextAll[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { weekPlan: next }) });
+          return nextAll;
+        });
+      }
+
+      function PlanWeek() {
+        if (childMode === "school") {
+          var schoolAll = lhGet(lighthouse, "school", {});
+          var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
+          var weekData = (schoolChild.week && typeof schoolChild.week==="object") ? schoolChild.week : {};
+          var events = Array.isArray(weekData.events) ? weekData.events : [];
+          var forms = Array.isArray(weekData.forms) ? weekData.forms : [];
+          var pack = Array.isArray(weekData.pack) ? weekData.pack : [];
+          function applySchool(patch) { setLighthouse(function(prev){ return lhSchoolPatch(prev, activeChild, patch); }); }
+          function weekMutate(p) { applySchool({ week: Object.assign({}, weekData, p) }); }
+          return (
+            <div>
+              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" }}>Events</div>
+              {lhAddMode !== "week-event" && <button type="button" onClick={function(){ openAdd("week-event",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Event</button>}
+              {lhAddMode === "week-event" && formCard(
+                <div>
+                  {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                  {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                  {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ events: events.concat([{ id:uid(), title:t, date:fv("date","") }]) }); closeForm(); })}
+                </div>
+              )}
+              {events.map(function(ev){ return (
+                <div key={ev.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                  <div style={{ flex:1, fontSize:"0.85rem", color:"#3a3a34" }}>{ev.title}</div>
+                  {ev.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</span>}
+                  <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
+                </div>
+              ); })}
+
+              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", margin:"0.85rem 0 0.4rem" }}>Forms</div>
+              {lhAddMode !== "week-form" && <button type="button" onClick={function(){ openAdd("week-form",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Form</button>}
+              {lhAddMode === "week-form" && formCard(
+                <div>
+                  {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                  {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                  {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ forms: forms.concat([{ id:uid(), title:t, due:fv("due",""), done:false }]) }); closeForm(); })}
+                </div>
+              )}
+              {forms.map(function(fm){ return (
+                <div key={fm.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                  <input type="checkbox" checked={!!fm.done} onChange={function(){ weekMutate({ forms: forms.map(function(f){ return f.id===fm.id ? Object.assign({},f,{done:!f.done}) : f; }) }); }} style={{ cursor:"pointer" }}/>
+                  <div style={{ flex:1, fontSize:"0.85rem", color:fm.done?"#9a9488":"#3a3a34", textDecoration:fm.done?"line-through":"none" }}>{fm.title}</div>
+                  {fm.due && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(fm.due)}</span>}
+                  <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
+                </div>
+              ); })}
+
+              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", margin:"0.85rem 0 0.4rem" }}>Packing list</div>
+              {lhAddMode !== "week-pack" && <button type="button" onClick={function(){ openAdd("week-pack",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Item</button>}
+              {lhAddMode === "week-pack" && formCard(
+                <div>
+                  {fieldRow("Item *", <input value={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
+                  {formBtns(function(){ var l=(fv("label","")).trim(); if(!l) return; weekMutate({ pack: pack.concat([{ id:uid(), label:l, checked:false }]) }); closeForm(); })}
+                </div>
+              )}
+              {pack.map(function(pk){ return (
+                <div key={pk.id} onClick={function(){ weekMutate({ pack: pack.map(function(p){ return p.id===pk.id ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" }}>
+                  <span style={{ color:pk.checked?LC.seaglass:"#D8D2C4" }}>{pk.checked?"●":"○"}</span>
+                  <div style={{ flex:1, fontSize:"0.85rem", color:pk.checked?"#9a9488":"#3a3a34", textDecoration:pk.checked?"line-through":"none" }}>{pk.label}</div>
+                </div>
+              ); })}
+            </div>
+          );
+        }
+
+        return (
+          <div>
+            <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
+              <button type="button" onClick={function(){ setShowCopyPicker(true); }} style={btnS({ fontSize:"0.79rem" })}>📋 Copy Day</button>
+              <button type="button" onClick={clearWeek} style={btnS({ fontSize:"0.79rem", color:"#C4849A" })}>🗑 Clear Week</button>
+            </div>
+            {PLAN_SCHOOL_DAYS.map(function(day) {
+              var plan = getDayPlan(day);
+              var subjects = plan.subjects || [];
+              var isAdding = lhAddMode === "week-subj-"+day;
+              return (
+                <div key={day} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem", marginBottom:"0.65rem" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"0.5rem" }}>
+                    <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>{day}</span>
+                    <button type="button" onClick={function(){ openAdd("week-subj-"+day, { name: subjectNameList[0]||"" }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontSize:"0.75rem", fontWeight:700 }}>+ Subject</button>
+                  </div>
+                  {subjects.length === 0 && !isAdding && <div style={{ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" }}>No subjects planned</div>}
+                  {subjects.map(function(s, idx) {
+                    return (
+                      <div key={s.id||idx} style={{ display:"flex", alignItems:"center", gap:"0.4rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
+                        <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer" }}/>
+                        <span style={{ flex:1, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none" }}>{s.name}{s.title?": "+s.title:""}</span>
+                        <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
+                      </div>
+                    );
+                  })}
+                  {isAdding && formCard(
+                    <div>
+                      {fieldRow("Subject", subjectNameList.length>0
+                        ? <select value={fv("name","")} onChange={fSet("name")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                        : <input value={fv("name","")} onChange={fSet("name")} placeholder="Math, Reading…" style={inp()} autoFocus/>)}
+                      {fieldRow("Lesson title", <input value={fv("title","")} onChange={fSet("title")} style={inp()}/>)}
+                      {formBtns(function(){
+                        var n=(fv("name","")).trim(); if(!n) return;
+                        saveDayPlan(day, { subjects: subjects.concat([{ id:uid(), name:n, title:(fv("title","")).trim(), todo:"", notes:"", done:false }]) });
+                        closeForm();
+                      })}
+                    </div>
+                  )}
+                  <textarea
+                    defaultValue={plan.dayNotes||""}
+                    onBlur={function(e){ saveDayPlan(day, { dayNotes: e.target.value }); }}
+                    placeholder="Day notes…"
+                    style={inp({ marginTop:"0.5rem", fontSize:"0.78rem", minHeight:"40px", resize:"vertical" })}
+                  />
+                </div>
+              );
+            })}
+            {showCopyPicker && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
+                <div style={{ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(320px,100%)" }}>
+                  <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>Copy day to all others</div>
+                  {PLAN_SCHOOL_DAYS.map(function(d){ return <button type="button" key={d} onClick={function(){ copyDay(d); setShowCopyPicker(false); }} style={{ display:"block", width:"100%", textAlign:"left", background:"none", border:"none", borderBottom:"1px solid #F0EBDF", padding:"0.5rem 0", cursor:"pointer", fontSize:"0.85rem", color:"#3a3a34", fontFamily:"inherit" }}>{d}</button>; })}
+                  <button type="button" onClick={function(){ setShowCopyPicker(false); }} style={btnS({ marginTop:"0.75rem", width:"100%" })}>Cancel</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+      var [showCopyPicker, setShowCopyPicker] = React.useState(false);
+
+      // ── Year ──────────────────────────────────────────────────────────────
+      function PlanYear() {
+        var [monthIso, setMonthIso] = React.useState(function(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01"; });
+        var [pickerDate, setPickerDate] = React.useState(null);
+        var [showBulk, setShowBulk] = React.useState(false);
+        var schAttendance = childSchoolHs.attendance || {};
+
+        function monthDays(iso) {
+          var d = new Date(iso+"T12:00:00");
+          var year=d.getFullYear(), month=d.getMonth();
+          var firstDow = new Date(year,month,1).getDay();
+          var daysInMonth = new Date(year,month+1,0).getDate();
+          var out = [];
+          for (var i=0;i<firstDow;i++) out.push(null);
+          for (var dd=1; dd<=daysInMonth; dd++) out.push(year+"-"+String(month+1).padStart(2,"0")+"-"+String(dd).padStart(2,"0"));
+          return out;
+        }
+        function shiftMonth(n) { var d=new Date(monthIso+"T12:00:00"); d.setMonth(d.getMonth()+n); setMonthIso(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01"); }
+        function setDayType(dateIso, typeId) { patchDay(dateIso, { dayType: getDay(dateIso).dayType===typeId ? null : typeId }); }
+
+        var monthLabel = new Date(monthIso+"T12:00:00").toLocaleDateString("en-US",{ month:"long", year:"numeric" });
+        var days = monthDays(monthIso);
+
+        return (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.75rem" }}>
+              <button type="button" onClick={function(){ shiftMonth(-1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>‹</button>
+              <span style={{ flex:1, textAlign:"center", fontWeight:700, color:LC.navy }}>{monthLabel}</span>
+              <button type="button" onClick={function(){ shiftMonth(1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>›</button>
+            </div>
+            <button type="button" onClick={function(){ setShowBulk(true); }} style={btnS({ fontSize:"0.78rem", marginBottom:"0.75rem" })}>+ Add day type (bulk)</button>
+
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"3px", marginBottom:"0.75rem" }}>
+              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d){ return <div key={d} style={{ textAlign:"center", fontSize:"0.62rem", color:"#9a9488", fontWeight:700 }}>{d}</div>; })}
+              {days.map(function(dateIso, i) {
+                if (!dateIso) return <div key={"e"+i}/>;
+                var day = getDay(dateIso);
+                var dt = dayTypeInfo(day.dayType);
+                var logged = schAttendance[dateIso];
+                var isToday = dateIso === todayIso;
+                return (
+                  <button type="button" key={dateIso} onClick={function(){ setPickerDate(dateIso); }} style={{
+                    padding:"0.3rem 0", borderRadius:"0.4rem", cursor:"pointer", fontSize:"0.72rem", fontFamily:"inherit",
+                    border: isToday ? "2px solid "+LC.navy : "1px solid "+(dt?dt.color+"55":"#E7E1D4"),
+                    background: dt ? dt.color+"22" : "#fff", color: dt ? LC.navy : "#7a7568", position:"relative"
+                  }}>
+                    {new Date(dateIso+"T12:00:00").getDate()}
+                    {logged && <span style={{ position:"absolute", bottom:2, right:3, width:4, height:4, borderRadius:"50%", background: logged==="present"?LC.seaglass:"#C4849A" }}/>}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>
+              {DAY_TYPES.map(function(t){ return <span key={t.id} style={{ fontSize:"0.68rem", color:"#7a7568", display:"flex", alignItems:"center", gap:"0.25rem" }}><span style={{ width:8, height:8, borderRadius:"50%", background:t.color, display:"inline-block" }}/>{t.label}</span>; })}
+            </div>
+
+            {pickerDate && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={function(){ setPickerDate(null); }}>
+                <div onClick={function(e){ e.stopPropagation(); }} style={{ background:"#fff", borderRadius:"1.2rem 1.2rem 0 0", padding:"1.25rem", width:"min(420px,100%)" }}>
+                  <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>{fmtMonthDay(pickerDate)}</div>
+                  {DAY_TYPES.map(function(t){
+                    var active = getDay(pickerDate).dayType === t.id;
+                    return (
+                      <button type="button" key={t.id} onClick={function(){ setDayType(pickerDate, t.id); setPickerDate(null); }} style={{ display:"flex", alignItems:"center", gap:"0.5rem", width:"100%", textAlign:"left", background:active?t.color+"22":"none", border:"none", borderRadius:"0.5rem", padding:"0.5rem 0.6rem", cursor:"pointer", fontFamily:"inherit", fontSize:"0.85rem", color:LC.navy, marginBottom:"2px" }}>
+                        <span style={{ width:10, height:10, borderRadius:"50%", background:t.color, display:"inline-block" }}/>
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                  <button type="button" onClick={function(){ setPickerDate(null); }} style={btnS({ width:"100%", marginTop:"0.5rem" })}>Close</button>
+                </div>
+              </div>
+            )}
+
+            {showBulk && (
+              <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
+                <div style={{ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(360px,100%)" }}>
+                  <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>Bulk-set day type</div>
+                  {fieldRow("Start", <input type="date" value={fv("bulkStart","")} onChange={fSet("bulkStart")} style={inp()}/>)}
+                  {fieldRow("End", <input type="date" value={fv("bulkEnd","")} onChange={fSet("bulkEnd")} style={inp()}/>)}
+                  {fieldRow("Day type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{DAY_TYPES.map(function(t){ return pillToggle(t.label, fv("bulkType","")===t.id, function(){ setLhForm(function(f){ return Object.assign({},f,{bulkType:t.id}); }); }); })}</div>)}
+                  <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.8rem", color:"#7a7568", marginBottom:"0.75rem", cursor:"pointer" }}>
+                    <input type="checkbox" checked={!!fv("bulkWeekdaysOnly",true)} onChange={fChk("bulkWeekdaysOnly")} style={{ cursor:"pointer" }}/>
+                    Weekdays only
+                  </label>
+                  <div style={{ display:"flex", gap:"0.5rem" }}>
+                    <button type="button" onClick={function(){
+                      var start=fv("bulkStart",""), end=fv("bulkEnd",""), type=fv("bulkType",""), weekdaysOnly=fv("bulkWeekdaysOnly",true);
+                      if (!start || !end || !type) return;
+                      var patchAll = Object.assign({}, hsDaily);
+                      var cur = start;
+                      var guard = 0;
+                      while (cur <= end && guard < 400) {
+                        var dow = new Date(cur+"T12:00:00").getDay();
+                        if (!weekdaysOnly || (dow!==0 && dow!==6)) {
+                          var existing = (patchAll[cur] && typeof patchAll[cur]==="object") ? patchAll[cur] : {};
+                          patchAll[cur] = Object.assign({}, existing, { dayType:type });
+                        }
+                        cur = addDays(cur,1); guard++;
+                      }
+                      applyHs({ daily: patchAll });
+                      setShowBulk(false); closeForm();
+                    }} style={btnP(LC.seaglass,{ flex:1 })}>Apply</button>
+                    <button type="button" onClick={function(){ setShowBulk(false); closeForm(); }} style={btnS({ flex:1 })}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // ── Loops — ported from the original LighthouseTab's LoopsArea, unchanged ──
+      var LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
+      function lhUpNextLocal(items) {
+        if (!Array.isArray(items)) return null;
+        for (var i=0;i<items.length;i++) { if (items[i].status==="todo"||items[i].status==="later") return items[i]; }
+        return null;
+      }
+      function lhSetStatusLocal(current, target) { return current===target ? "todo" : target; }
+      function PlanLoops() {
+        var loopTints = [LC.seaglass, "#7A95B8", "#C9A45B", "#C4849A", "#8878b8"];
+        function AddLoopForm() {
+          var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",LOOP_ICONS[0]); var selTint=fv("tint",loopTints[0]);
+          return formCard(
+            <div>
+              {fieldRow("Loop name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="e.g. Morning Loop" style={inp()} autoFocus/>)}
+              {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{icon:ic}); }); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
+              {fieldRow("Colour", <div style={{ display:"flex", gap:"0.4rem" }}>{loopTints.map(function(tint){ return <button type="button" key={tint} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{tint:tint}); }); }} style={{ width:24, height:24, borderRadius:"50%", background:tint, border:selTint===tint?"3px solid "+LC.navy:"2px solid transparent", cursor:"pointer" }}/>; })}</div>)}
+              {formBtns(function(){ if(!nameTrim) return; applyHs({ loops: lhLoops.concat([{ id:uid(), name:nameTrim, icon:selIcon, tint:selTint, items:[] }]) }); closeForm(); })}
+            </div>
+          );
+        }
+        return (
+          <div>
+            {lhAddMode !== "loop" && <button type="button" onClick={function(){ openAdd("loop",{ icon:LOOP_ICONS[0], tint:loopTints[0] }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", marginBottom:"0.85rem" })}>+ Add Loop</button>}
+            {lhAddMode === "loop" && AddLoopForm()}
+            {lhLoops.length === 0 && lhAddMode !== "loop" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>No loops yet — create your first rotation!</div>}
+            {lhLoops.map(function(loop) {
+              var items = Array.isArray(loop.items) ? loop.items : [];
+              var upNext = lhUpNextLocal(items);
+              var tint = loop.tint || LC.seaglass;
+              var isEditing = lhEditId === loop.id && lhAddMode === "edit-loop";
+              return (
+                <div key={loop.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem", marginBottom:"0.75rem" }}>
+                  {isEditing ? (
+                    (function(){
+                      var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",loop.icon||LOOP_ICONS[0]); var selTint=fv("tint",loop.tint||loopTints[0]);
+                      return formCard(
+                        <div>
+                          {fieldRow("Name", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
+                          {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{icon:ic}); }); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
+                          {formBtns(function(){ if(!nameTrim) return; applyHsLoopUpdate(loop.id, { name:nameTrim, icon:selIcon, tint:selTint }); closeForm(); })}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem" }}>
+                      <span style={{ fontSize:"1.2rem" }}>{loop.icon||"🔁"}</span>
+                      <span style={{ flex:1, fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>{loop.name}</span>
+                      <button type="button" onClick={function(){ openEdit(loop.id,{ name:loop.name, icon:loop.icon, tint:loop.tint }); setLhAddMode("edit-loop"); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
+                      <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                    </div>
+                  )}
+                  {!isEditing && items.map(function(item) {
+                    var isUpNext = upNext && upNext.id===item.id;
+                    var statusColor = item.status==="done"?tint:item.status==="skip"?"#9a9488":item.status==="later"?"#C9A45B":"#D8D2C4";
+                    return (
+                      <div key={item.id} style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
+                        <span style={{ color:statusColor, fontSize:"0.9rem", marginTop:"2px" }}>{item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○"}</span>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:"0.85rem", color:item.status==="done"||item.status==="skip"?"#9a9488":"#3a3a34", textDecoration:item.status==="done"||item.status==="skip"?"line-through":"none" }}>
+                            {item.text} {isUpNext && <span style={{ fontSize:"0.62rem", fontWeight:700, color:tint, background:tint+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"0.3rem" }}>Up Next</span>}
+                          </div>
+                          <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.2rem" }}>
+                            {["done","skip","later"].map(function(act){
+                              var isAct = item.status===act; var actColor = act==="done"?tint:act==="skip"?"#9a9488":"#C9A45B";
+                              return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id,item.id,{status:lhSetStatusLocal(item.status,act)}); }} style={{ fontSize:"0.66rem", padding:"0.1rem 0.45rem", borderRadius:"99px", border:"1.5px solid "+(isAct?actColor:"#D8D2C4"), background:isAct?actColor+"22":"transparent", color:isAct?actColor:"#9a9488", fontWeight:isAct?700:400, cursor:"pointer", fontFamily:"inherit" }}>{act==="done"?"Done":act==="skip"?"Skip":"Later"}</button>;
+                            })}
+                          </div>
+                        </div>
+                        <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
+                      </div>
+                    );
+                  })}
+                  {!isEditing && (
+                    <AddLoopItemRow loop={loop} items={items} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+      function AddLoopItemRow({ loop, items }) {
+        var [adding, setAdding] = React.useState(false);
+        var [text, setText] = React.useState("");
+        if (!adding) return <button type="button" onClick={function(){ setAdding(true); }} style={{ marginTop:"0.5rem", background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" }}>+ Add item</button>;
+        return (
+          <div style={{ display:"flex", gap:"0.4rem", marginTop:"0.5rem" }}>
+            <input value={text} onChange={function(e){ setText(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter" && text.trim()){ applyHsLoopUpdate(loop.id,{ items: items.concat([{ id:uid(), text:text.trim(), status:"todo", note:"" }]) }); setText(""); } }} placeholder="New item…" style={inp({ flex:1, fontSize:"0.82rem" })} autoFocus/>
+            <button type="button" onClick={function(){ if(text.trim()){ applyHsLoopUpdate(loop.id,{ items: items.concat([{ id:uid(), text:text.trim(), status:"todo", note:"" }]) }); setText(""); } }} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Add</button>
+            <button type="button" onClick={function(){ setAdding(false); setText(""); }} style={btnS({ fontSize:"0.78rem" })}>Done</button>
+          </div>
+        );
+      }
+
+      // ── Subjects/Curricula — always visible ─────────────────────────────────
+      function SubjectsSection() {
+        return (
+          <div style={{ marginTop:"1rem", paddingTop:"1rem", borderTop:"1px solid #E7E1D4" }}>
+            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.1rem", color:LC.navy, marginBottom:"0.6rem" }}>Subjects</div>
+            {lhAddMode !== "subject" && <button type="button" onClick={function(){ openAdd("subject",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Subject</button>}
+            {lhAddMode === "subject" && formCard(
+              <div>
+                {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
+                {fieldRow("Curriculum / program", <input value={fv("name","")} onChange={fSet("name")} placeholder="Saxon Math, All About Reading…" style={inp()}/>)}
+                {fieldRow("Website", <input value={fv("website","")} onChange={fSet("website")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {formBtns(function(){
+                  var s=(fv("subject","")).trim(); if(!s) return;
+                  saveSubjectRecords(subjectRecords.concat([{ id:uid(), subject:s, name:fv("name",""), website:fv("website",""), notes:fv("notes","") }]));
+                  closeForm();
+                })}
+              </div>
+            )}
+            {subjectRecords.length === 0 && lhAddMode !== "subject" && <div style={{ color:"#9a9488", fontSize:"0.82rem" }}>No subjects added yet.</div>}
+            {subjectRecords.map(function(r) {
+              if (lhEditId === r.id) {
+                return formCard(
+                  <div key={r.id}>
+                    {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
+                    {fieldRow("Curriculum / program", <input value={fv("name","")} onChange={fSet("name")} style={inp()}/>)}
+                    {fieldRow("Website", <input value={fv("website","")} onChange={fSet("website")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {formBtns(function(){
+                      var s=(fv("subject","")).trim(); if(!s) return;
+                      saveSubjectRecords(subjectRecords.map(function(x){ return x.id===r.id ? { id:r.id, subject:s, name:fv("name",""), website:fv("website",""), notes:fv("notes","") } : x; }));
+                      closeForm();
+                    })}
+                  </div>
+                );
+              }
+              return (
+                <div key={r.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.subject}</div>
+                    {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
+                    {r.website && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{r.website}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(r.id, r); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
+                  <button type="button" onClick={function(){ saveSubjectRecords(subjectRecords.filter(function(x){ return x.id!==r.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      var PLAN_PILLS = [
+        { id:"today", label:"Today" },
+        { id:"week",  label:"Week" },
+      ].concat(childMode==="homeschool" ? [{ id:"year", label:"Year" },{ id:"loops", label:"Loops" }] : []);
+
+      return (
+        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+          <div style={{ display:"flex", gap:"0.3rem", marginBottom:"1rem" }}>
+            {PLAN_PILLS.map(function(p){
+              var active = planSubTab === p.id;
+              return <button type="button" key={p.id} onClick={function(){ setPlanSubTab(p.id); closeForm(); }} style={{ padding:"0.3rem 0.85rem", borderRadius:"99px", border:"none", background:active?LC.seaglass:"transparent", color:active?"#fff":"#7a7568", fontWeight:active?700:500, fontSize:"0.8rem", cursor:"pointer", fontFamily:"inherit" }}>{p.label}</button>;
+            })}
+          </div>
+
+          {planSubTab === "today" && <PlanToday/>}
+          {planSubTab === "week"  && <PlanWeek/>}
+          {planSubTab === "year"  && childMode==="homeschool" && <PlanYear/>}
+          {planSubTab === "loops" && childMode==="homeschool" && <PlanLoops/>}
+
+          <SubjectsSection/>
+        </div>
+      );
+    }
+
     if (allPeople.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
@@ -14551,9 +15232,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
+        {learningSubTab === "plan" && <PlanArea key={activeChild} />}
 
-        {/* Placeholder body for Plan/Records/Growth/Library — built out in Phases 3-6 */}
-        {learningSubTab !== "overview" && (
+        {/* Placeholder body for Records/Growth/Library — built out in Phases 4-6 */}
+        {learningSubTab !== "overview" && learningSubTab !== "plan" && (
           <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
             <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
