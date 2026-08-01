@@ -159,6 +159,108 @@ function eventsInWindow(state, fromDays, toDays) {
   }).slice(0, 30);
 }
 
+// Compass Phase 1 Fix 3 — shared context additions ──────────────────────────
+
+var DAY_NAMES_C = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function todayThemeFromRhythm(state) {
+  var rhythm = state.rhythm || {};
+  var todayName = DAY_NAMES_C[new Date().getDay()];
+  var r = rhythm[todayName] || {};
+  return r.theme ? { day: todayName, theme: r.theme } : null;
+}
+
+// af_celebrations stores recurring {month, day} (no year commitment for most
+// entries), not a flat date — mirrors AnchorVault's own daysUntil(month, day)
+// annual-wrap math so "next 30 days" means the next real occurrence, not a
+// one-time-only check against this year.
+function slimCelebrationsUpcoming(state) {
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  return asArray(state.celebrations).map(function (c) {
+    var month = parseInt(c && c.month, 10), day = parseInt(c && c.day, 10);
+    if (!month || !day) return null;
+    var next = new Date(now.getFullYear(), month - 1, day);
+    if (next < now) next.setFullYear(next.getFullYear() + 1);
+    var daysAway = Math.round((next - now) / 86400000);
+    return { name: pick(c, ["name"], "Celebration"), daysAway: daysAway };
+  }).filter(function (c) { return c && c.daysAway >= 0 && c.daysAway <= 30; })
+    .sort(function (a, b) { return a.daysAway - b.daysAway; })
+    .slice(0, 15);
+}
+
+function slimTripsUpcoming(state) {
+  return asArray(state.trips).map(function (t) {
+    return {
+      name: pick(t, ["name"], "Trip"),
+      destination: pick(t, ["destination"], null),
+      startDate: pick(t, ["startDate"], null)
+    };
+  }).filter(function (t) {
+    var d = daysFromNow(t.startDate);
+    return d !== null && d >= 0 && d <= 60;
+  }).sort(function (a, b) { return (a.startDate || "") < (b.startDate || "") ? -1 : 1; })
+    .slice(0, 10);
+}
+
+// Only "active" goals: plain goals not yet Achieved, plus all challenges
+// (challenges have no simple done flag on the raw item — completion is a
+// computed value elsewhere — so they're always surfaced while they exist).
+function slimLighthouseGoals(state) {
+  var lh = state.lighthouse || {};
+  var shared = lh.shared || {};
+  var people = asArray(state.people);
+  var out = [];
+  Object.keys(shared).forEach(function (childId) {
+    var child = shared[childId] || {};
+    var goals = asArray(child.goals);
+    var person = people.find(function (p) { return p.id === childId; });
+    var childName = person ? slimPerson(person).name : "Child";
+    goals.filter(function (g) { return g && (g.kind === "challenge" || g.progress !== "Achieved"); })
+      .forEach(function (g) {
+        out.push({ child: childName, goal: pick(g, ["goal"], "Goal") });
+      });
+  });
+  return out.slice(0, 20);
+}
+
+function slimWorkSchedules(state) {
+  var people = asArray(state.people);
+  var ws = state.work_schedules || {};
+  var out = [];
+  Object.keys(ws).forEach(function (pid) {
+    var s = ws[pid] || {};
+    if (!Array.isArray(s.days) || !s.days.length) return;
+    var person = people.find(function (p) { return p.id === pid; });
+    var name = person ? slimPerson(person).name : "Someone";
+    out.push({ name: name, days: s.days, type: s.type || null });
+  });
+  return out.slice(0, 12);
+}
+
+// Fix 5 — behavioral signals summary. Signals live in af_aiMemory.signals
+// (see App.jsx recordSignal()); this just turns the raw rolling window into
+// a compact per-category read on what gets acted on vs ignored.
+function summarizeSignals(signals) {
+  if (!Array.isArray(signals) || signals.length < 5) return null;
+  var byCat = {};
+  signals.forEach(function (s) {
+    if (!s || !s.category) return;
+    var cat = s.category;
+    if (!byCat[cat]) byCat[cat] = { completed: 0, acted: 0, dismissed: 0 };
+    if (s.type === "completed") byCat[cat].completed++;
+    else if (s.type === "acted") byCat[cat].acted++;
+    else if (s.type === "dismissed") byCat[cat].dismissed++;
+  });
+  var parts = Object.keys(byCat).map(function (cat) {
+    var c = byCat[cat], bits = [];
+    if (c.completed) bits.push(c.completed + " completed");
+    if (c.acted) bits.push(c.acted + " acted on");
+    if (c.dismissed) bits.push(c.dismissed + " dismissed");
+    return cat + ": " + bits.join(", ");
+  }).filter(Boolean);
+  return parts.length ? parts.join("; ") : null;
+}
+
 // ── context builder ───────────────────────────────────────────────────────────
 // scope: "today" | "week" | "prep" | "ask"
 export function buildCompassContext(state, scope, extra) {
@@ -181,15 +283,19 @@ export function buildCompassContext(state, scope, extra) {
     _includeMemory = _wordCount > 8 || _hasQuestionMark || _hasKeyword;
   }
   console.log("[COMPASS] context: " + (_includeMemory ? "full" : "minimal"));
+  var _signals = (state.aiMemory && Array.isArray(state.aiMemory.signals)) ? state.aiMemory.signals : [];
+  var _patternsSummary = summarizeSignals(_signals);
   var ctx = {
     now: new Date().toString(),
     family: asArray(state.people).map(slimPerson).slice(0, 12),
     preferred_name: (_me && _me.name && _me.name.trim()) || state.preferredName || null,
     ai_memory: _includeMemory ? (state.aiMemory || null) : null // answers from the onboarding questions
   };
+  if (_patternsSummary) ctx.recent_patterns = "Recent patterns: " + _patternsSummary;
 
   if (scope === "today") {
     ctx.flow_mode = state.flowMode || null;
+    ctx.day_theme = todayThemeFromRhythm(state);
     ctx.events_today_tomorrow = eventsInWindow(state, 0, 1);
     var _todaySlim = eventsInWindow(state, 0, 0);
     // F-97: person-linked mine/partner split, replacing the hardcoded "L"
@@ -202,6 +308,10 @@ export function buildCompassContext(state, scope, extra) {
     ctx.shopping_open_count = asArray(state.shoppingItems).filter(function (i) { return !pick(i, ["checked", "done"], false); }).length;
     ctx.school = asArray(state.schoolData && state.schoolData.items || state.schoolData).slice(0, 10);
     ctx.recent_moments_count = asArray(state.moments).length;
+    ctx.celebrations_upcoming = slimCelebrationsUpcoming(state);
+    ctx.trips_upcoming = slimTripsUpcoming(state);
+    ctx.lighthouse_goals = slimLighthouseGoals(state);
+    ctx.work_schedules = slimWorkSchedules(state);
   }
 
   if (scope === "week") {
@@ -215,6 +325,10 @@ export function buildCompassContext(state, scope, extra) {
       return { title: pick(m, ["title", "text", "note"], ""), date: pick(m, ["date", "createdAt"], null) };
     });
     ctx.ripples_count = asArray(state.ripples).length;
+    ctx.celebrations_upcoming = slimCelebrationsUpcoming(state);
+    ctx.trips_upcoming = slimTripsUpcoming(state);
+    ctx.lighthouse_goals = slimLighthouseGoals(state);
+    ctx.work_schedules = slimWorkSchedules(state);
   }
 
   if (scope === "prep" && extra && extra.event) {
@@ -235,13 +349,18 @@ export function buildCompassContext(state, scope, extra) {
       .map(function (i) { return pick(i, ["text", "name"], ""); }).slice(0, 30);
     ctx.chores = asArray(state.choreData && state.choreData.chores || state.chores).slice(0, 20);
     ctx.school = asArray(state.schoolData && state.schoolData.items || state.schoolData).slice(0, 10);
+    ctx.celebrations_upcoming = slimCelebrationsUpcoming(state);
+    ctx.trips_upcoming = slimTripsUpcoming(state);
+    ctx.lighthouse_goals = slimLighthouseGoals(state);
+    ctx.work_schedules = slimWorkSchedules(state);
   }
 
   // Hard cap ~12k chars — drop whole low-priority fields rather than slicing
   // mid-JSON (F-15/F-57: the raw slice cut mid-key/value, sending Compass a
   // malformed context for large households). Output is always valid JSON;
   // ctx._trimmed records what was dropped so the model knows the view is partial.
-  var DROP_ORDER = ["recent_moments_count","moments_logged","packing_templates",
+  var DROP_ORDER = ["work_schedules","lighthouse_goals","trips_upcoming","celebrations_upcoming",
+    "day_theme","recent_patterns","recent_moments_count","moments_logged","packing_templates",
     "pets","school","chores","shopping_open","shopping_open_count",
     "meals_this_week","events_today_partner","tasks_completed_count","ripples_count"];
   var json = JSON.stringify(ctx);

@@ -3,6 +3,12 @@ import { useState, useEffect } from "react";
 import { getDailyNudge } from "../compass/compassEngine";
 import { readHouseholdState, TK } from "./shellKit";
 
+// Fix 4 — same first-6-words dedupe key used across insights/tasks, applied
+// locally here since shell components stay self-contained (no App.jsx import).
+function nudgeDedupeKey(text) {
+  return String(text||"").trim().toLowerCase().split(/\s+/).slice(0,6).join(" ");
+}
+
 export default function NudgeStrip(props) {
   const [nudge, setNudge] = useState(null);
   const [hidden, setHidden] = useState(false);
@@ -16,7 +22,11 @@ export default function NudgeStrip(props) {
       .catch(function () {});
   }, []); // eslint-disable-line
 
-  if (hidden || !nudge) return null;
+  var nudgeKey = nudge && nudge.nudge ? nudgeDedupeKey(nudge.nudge) : null;
+  var isDupe = !!(nudgeKey && Array.isArray(props.existingTexts) && props.existingTexts.some(function (t) { return nudgeDedupeKey(t) === nudgeKey; }));
+  if (isDupe) { console.log("[COMPASS] deduped: "+nudge.nudge); }
+
+  if (hidden || !nudge || isDupe) return null;
 
   return (
     <div style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "rgba(200,169,122,.1)", border: "1px solid rgba(200,169,122,.35)", borderRadius: "1rem", padding: ".75rem 1rem", marginBottom: ".85rem", fontFamily: TK.sans }}>

@@ -1,7 +1,7 @@
 const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import ExhaleSection from './components/ExhaleSection.jsx';
-import { askFamily, ageBracket, isPersonMinor } from "./compass/compassEngine";
+import { askFamily, ageBracket, isPersonMinor, buildCompassContext } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
 import NudgeStrip from "./shell/NudgeStrip";
@@ -2427,6 +2427,29 @@ function readFeatureFlags() {
   return out;
 }
 
+// Compass Phase 1 Fix 4 — dedupe AI suggestions at the render layer. Two
+// suggestions are "the same" if their first 6 words match once lowercased —
+// cheap enough to run on every render, catches near-duplicate phrasing
+// across tiers/systems without needing embeddings.
+function suggestionDedupeKey(text) {
+  return String(text||"").trim().toLowerCase().split(/\s+/).slice(0,6).join(" ");
+}
+function dedupeByText(list, textFn) {
+  var seen = [];
+  var kept = [];
+  list.forEach(function(item) {
+    var text = textFn(item) || "";
+    var key = suggestionDedupeKey(text);
+    if (key && seen.indexOf(key) !== -1) {
+      console.log("[COMPASS] deduped: "+text);
+      return;
+    }
+    if (key) seen.push(key);
+    kept.push(item);
+  });
+  return kept;
+}
+
 function useSaved(key, fallback) {
   const [val, setVal] = useState(() => {
     try {
@@ -3904,6 +3927,18 @@ function createLocalBackup() {
   function setCompassEnabled(v){ try{ localStorage.setItem("af_compassEnabled", JSON.stringify(v)); }catch(e){} _setCompassEnabled(v); dispatchFeaturesChanged(); }
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
+  // Compass Phase 1 Fix 5 — behavioral signals live under af_aiMemory.signals
+  // rather than a new SYNC_KEYS entry, since af_aiMemory already syncs.
+  // Rolling window of the last 30; buildCompassContext() summarizes these
+  // into ctx.recent_patterns once at least 5 exist.
+  function recordSignal(entry) {
+    setAiMemory(function(prev){
+      var signals = Array.isArray(prev && prev.signals) ? prev.signals.slice() : [];
+      signals.push(entry);
+      if (signals.length > 30) signals = signals.slice(signals.length-30);
+      return Object.assign({}, prev, {signals: signals});
+    });
+  }
   const [preferredName,setPreferredName]       = useSaved("preferredName","");
   const [flowGreetingTone,setFlowGreetingTone] = useSaved("flowGreetingTone","warm");
   const [dailySummaryScheduled,setDailySummaryScheduled] = useSaved("dailySummaryScheduled",null);
@@ -4511,10 +4546,15 @@ function createLocalBackup() {
     };
     const themeKeyBrief = (dayRhythm.theme||"").toLowerCase();
     const matchedCatIds = Object.entries(THEME_TO_CATS_BRIEF).find(([k])=>themeKeyBrief.includes(k))?.[1] || [];
-    const ctx = [
-      "Family: "+(familyProfile?JSON.stringify((({parentNames,kidNames,...rest})=>rest)(familyProfile)):"not set"),
+    // Compass Phase 1 Fix 3 — shared context builder is the foundation; only
+    // append what buildCompassContext() doesn't cover (brain dump matching,
+    // tomorrow's specifics, greeting tone — this system's unique logic).
+    const _bcState = readHouseholdState();
+    _bcState.flowMode = flowMode;
+    _bcState.myPersonId = myPersonId;
+    const sharedCtx = buildCompassContext(_bcState, "today");
+    const ctx = "SHARED FAMILY CONTEXT:\n"+sharedCtx+"\n\nTODAY'S PLANNING DETAILS:\n"+[
       "Work situation: "+(familyProfile?.workSituation||"not set"),
-      "Household members: "+people.filter(function(p){return p&&p.name;}).map(function(p){var minor=isPersonMinor(p);var nm=minor?String(p.name).split(" ")[0]:p.name;var br=ageBracket(p);return nm+(p.role?" ("+p.role+")":"")+(br?" ["+br+"]":"");}).join(", "),
       "Today: "+TODAY_NAME+", theme: "+(dayRhythm.theme||"none"),
       "Events today: "+(todayEvts.map(e=>(e.time||"all day")+" "+e.title).join(", ")||"none"),
       "Upcoming events next 7 days: "+(upcomingEvts7.map(function(e){var d=new Date(e.date+"T12:00:00");var dn=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dn+" "+e.date+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"),
@@ -4524,10 +4564,7 @@ function createLocalBackup() {
       "Brain dump relevant to today's theme: "+(matchedCatIds.length?brainPending.filter(b=>matchedCatIds.includes(b.cat)).map(b=>b.text).join(", "):"none"),
       "Full brain dump (undone): "+brainPending.slice(0,12).map(b=>b.text).join(", ")||"none",
       "Tomorrow: "+tmrName+", theme="+(tmrRhythm.theme||"none")+", events: "+(tmrEvts.map(e=>e.title).join(", ")||"none")+", meal: "+(tmrMeal.dinner||"not planned"),
-      "Flow mode: "+flowMode,
-      "Preferred name (use in greeting): "+(myDisplayName(people,myPersonId,preferredName,authUser)||familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||""),
       "Greeting tone: "+(flowGreetingTone||"warm"),
-      "What I know about this family: "+(Object.keys(aiMemory).length?Object.entries(aiMemory).slice(-12).map(([q,a])=>q+": "+a).join("; "):"nothing yet"),
     ].join(". ");
     const sysPrompt = `You are Compass, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
     try {
@@ -4627,14 +4664,19 @@ const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","�
         shopByCat[store].push(i.text);
       });
 
-      // ── Patterns from aiMemory ─────────────────────────────────────────────
-      const patternCtx = Object.entries(aiMemory).slice(-12).map(([q,a])=>`• ${q}: ${a}`).join("\n");
+      // Compass Phase 1 Fix 3 — shared context builder is the foundation
+      // (family, ai_memory, recent_patterns, celebrations/trips/goals/work
+      // schedules, 14 days of events already come from it — the block below
+      // only adds this system's unique formatting: calendar/meal/brain/
+      // shopping summaries tuned for its insight-generation prompt).
+      const _bcState = readHouseholdState();
+      _bcState.flowMode = flowMode;
+      _bcState.myPersonId = myPersonId;
+      const sharedCtx = buildCompassContext(_bcState, "week");
 
-
-      const ctx = [
+      const ctx = "SHARED FAMILY CONTEXT:\n"+sharedCtx+"\n\nINSIGHT DETAILS:\n"+[
         `Today: ${TODAY_NAME}, ${todayDateStr}`,
         `Flow mode: ${flowMode}`,
-        familyProfile ? `Family: ${familyProfile.parentNames}, ${familyProfile.numKids} kids (ages ${familyProfile.kidAges}), challenge: ${familyProfile.biggestChallenge}` : "No family profile set",
         `\nCALENDAR (next 14 days):\n${upcomingCal.join("\n")||"No events"}`,
 
 
@@ -4648,10 +4690,6 @@ const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","�
 
 
         `\nSHOPPING LIST (pending):\n${Object.entries(shopByCat).map(([s,items])=>s+": "+items.slice(0,6).join(", ")).join("\n")||"Empty"}`,
-
-
-
-        patternCtx ? `\nKNOWN PATTERNS:\n${patternCtx}` : "",
 
 
       ].filter(Boolean).join("\n");
@@ -6121,9 +6159,12 @@ Respond ONLY with valid JSON array, no markdown:
     });
     const tmrMeal2 = meals[tmrName2]||{};
 
-    const top3Raw = allToday.filter(t=>t.tier==="top3"||(t.aiG&&!t.tier));
-    const next3Raw= allToday.filter(t=>t.tier==="next3");
-    const moreRaw = allToday.filter(t=>t.tier==="more");
+    // Fix 4 — dedupe AI-generated tasks across tiers before they ever reach
+    // render; manually-added (non-aiG) tasks are never touched.
+    const _aiTodayIds = new Set(dedupeByText(allToday.filter(t=>t.aiG), function(t){return t.text||t.title||"";}).map(t=>t.id));
+    const top3Raw = allToday.filter(t=>(t.tier==="top3"||(t.aiG&&!t.tier))&&(!t.aiG||_aiTodayIds.has(t.id)));
+    const next3Raw= allToday.filter(t=>t.tier==="next3"&&(!t.aiG||_aiTodayIds.has(t.id)));
+    const moreRaw = allToday.filter(t=>t.tier==="more"&&(!t.aiG||_aiTodayIds.has(t.id)));
     const allTaskTiers = [...top3Raw, ...next3Raw, ...moreRaw];
     const filteredTaskTiers = personFilter==="all" ? allTaskTiers : allTaskTiers.filter(function(t){return !t.person||t.person===personFilter;});
 
@@ -6206,7 +6247,14 @@ Respond ONLY with valid JSON array, no markdown:
         ...brainRelatedToEvents,
       ])].slice(0,6);
 
-      const ctx = [
+      // Compass Phase 1 Fix 3 — shared context builder is the foundation;
+      // only append what it doesn't cover (theme/event-matched brain items,
+      // per-category brain grouping — this system's unique logic).
+      const _bcState = readHouseholdState();
+      _bcState.flowMode = flowMode;
+      _bcState.myPersonId = myPersonId;
+      const sharedCtx = buildCompassContext(_bcState, "today");
+      const ctx = "SHARED FAMILY CONTEXT:\n"+sharedCtx+"\n\nSUGGESTION DETAILS:\n"+[
         `Today: ${TODAY_NAME}${dayRhythm.theme?" — "+dayRhythm.theme+" day":""}`,
         `Today's calendar events: ${todayEvents.map(e=>(e.time||"all day")+" — "+e.title).join(", ")||"none"}`,
         `Upcoming events next 7 days: ${upcomingEvts.map(function(e){var d=new Date(e.date+"T12:00:00");var dayName=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];return dayName+" "+e.date.slice(5)+" "+(e.time||"")+" "+e.title;}).join(", ")||"none"}`,
@@ -6215,9 +6263,6 @@ Respond ONLY with valid JSON array, no markdown:
         `Tasks already on today's list: ${allTaskTiers.map(t=>t.text).join(", ")||"none"}`,
         `Priority brain items (theme + event-related): ${priorityBrain.map(b=>b.text).join(" | ")||"none"}`,
         `All brain dump items by category: ${Object.entries(brainByCategory).map(([k,v])=>k+": "+v.join(", ")).join(" || ")||"empty"}`,
-        `Family: ${familyProfile?`${familyProfile.parentNames||""}, ${familyProfile.numKids||""} kids (ages: ${familyProfile.kidAges||""})`:"not set"}`,
-        `Flow mode: ${flowMode}`,
-        `What I know about this family: ${Object.keys(aiMemory).length?Object.entries(aiMemory).slice(-12).map(([q,a])=>q+": "+a).join(" | "):"nothing yet"}`,
       ].join("\n");
 
       try {
@@ -6279,9 +6324,10 @@ Respond ONLY in valid JSON:
       pattern:  {emoji:"💡", color:T.rose,    bgColor:T.rosePale||T.surface, label:"Heads Up"},
     };
 
-    const visibleInsights = (insights||[]).filter(ins=>!dismissedInsights.includes(ins.title));
+    const visibleInsights = dedupeByText((insights||[]).filter(ins=>!dismissedInsights.includes(ins.title)), function(ins){return ins.title||ins.body||"";});
 
     function handleInsightAction(ins) {
+      recordSignal({type:"acted",category:ins.category||"pattern",actionType:ins.actionType||null,ts:Date.now()});
       if(ins.actionType==="addTask"&&ins.actionPayload){
         addQuickTask(ins.actionPayload,"next3");
         setDismissedInsights(p=>[...p,ins.title]);
@@ -6420,9 +6466,9 @@ Respond ONLY in valid JSON:
                       <div style={{display:"flex",alignItems:"flex-start",gap:"0.6rem",marginBottom:"0.5rem"}}>
                         <div style={{width:28,height:28,borderRadius:"50%",background:cat.color+"20",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:"0.9rem"}}>{cat.icon}</span></div>
                         <div style={{flex:1}}><div style={{fontSize:"0.85rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>{ins.title}</div><div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55}}>{ins.body}</div></div>
-                        <button onClick={()=>setInsights(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",padding:"0 0.25rem",flexShrink:0}}>x</button>
+                        <button onClick={()=>{recordSignal({type:"dismissed",category:ins.category||"pattern",ts:Date.now()});setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",padding:"0 0.25rem",flexShrink:0}}>x</button>
                       </div>
-                      {ins.action&&(<div style={{display:"flex",gap:"0.4rem"}}><button onClick={()=>setInsights(p=>p.filter((_,i)=>i!==idx))} style={{flex:1,background:"none",border:"1px solid "+T.border,borderRadius:"0.55rem",padding:"0.35rem",fontSize:"0.72rem",cursor:"pointer",color:T.textMid,fontFamily:"inherit"}}>Not Now</button><button onClick={()=>{ins.action.fn&&ins.action.fn();setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{flex:2,...btnP(cat.color,{fontSize:"0.72rem",padding:"0.35rem 0.75rem",borderRadius:"0.55rem"})}}>{ins.action.label}</button></div>)}
+                      {ins.actionType&&ins.actionType!=="none"&&(<div style={{display:"flex",gap:"0.4rem"}}><button onClick={()=>{recordSignal({type:"dismissed",category:ins.category||"pattern",ts:Date.now()});setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{flex:1,background:"none",border:"1px solid "+T.border,borderRadius:"0.55rem",padding:"0.35rem",fontSize:"0.72rem",cursor:"pointer",color:T.textMid,fontFamily:"inherit"}}>Not Now</button><button onClick={()=>{handleInsightAction(ins);setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{flex:2,...btnP(cat.color,{fontSize:"0.72rem",padding:"0.35rem 0.75rem",borderRadius:"0.55rem"})}}>{ins.actionLabel||"Do it"}</button></div>)}
                     </div>
                   );
                 })}
@@ -6496,8 +6542,8 @@ Respond ONLY in valid JSON:
                       ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No tasks yet — add one or tap ✨ Plan</div>
                       : <div style={{fontSize:"0.8rem",color:T.sageDark,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",padding:"0.15rem 0.5rem 0.35rem"}}>🌿 All done for today</div>)
                   : (<>
-                      {top3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.blue} badge="TOP" entityTitle={t.text} dest="anchor"/>);})}
-                      {next3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}} color={T.sage} entityTitle={t.text} dest="anchor"/>);})}
+                      {top3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});if(t.aiG)recordSignal({type:"completed",category:"task",dayTheme:dayRhythm.theme||null,ts:Date.now()});}} color={T.blue} badge="TOP" entityTitle={t.text} dest="anchor"/>);})}
+                      {next3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});if(t.aiG)recordSignal({type:"completed",category:"task",dayTheme:dayRhythm.theme||null,ts:Date.now()});}} color={T.sage} entityTitle={t.text} dest="anchor"/>);})}
                     </>)
                 }
                 {allTaskTiers.some(function(t){return t.done;})&&(
@@ -6635,7 +6681,7 @@ Respond ONLY in valid JSON:
           {forLaterOpen&&(
           <div style={{padding:"0 0.35rem 0.4rem"}}>
             <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={myDisplayName(people,myPersonId,preferredName,authUser)}/>
-            <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache}/>
+            <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache} existingTexts={[...visibleInsights.map(function(i){return i.title||i.body||"";}), ...allTaskTiers.map(function(t){return t.text||t.title||"";})]}/>
             <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
             <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
           </div>
