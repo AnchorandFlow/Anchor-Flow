@@ -1798,8 +1798,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled}){
-  const [compassEnabled,setCompassEnabled] = useSaved("compassEnabled",true);
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -2416,7 +2415,7 @@ function markKeyDirty(key) {
 // setters (below, in HomeFlow) dispatch "af-features-changed" after every
 // write; FlowWrapper listens for it (and the native storage event, for
 // cross-tab) and re-reads via this same helper.
-var FEATURE_FLAG_KEYS = ["tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled"];
+var FEATURE_FLAG_KEYS = ["tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","compassEnabled"];
 function readFeatureFlags() {
   var out = {};
   FEATURE_FLAG_KEYS.forEach(function(k) {
@@ -3884,6 +3883,7 @@ function createLocalBackup() {
   const [mealsEnabled,_setMealsEnabled]               = useSaved("mealsEnabled",true);
   const [careerEnabled,_setCareerEnabled]             = useSaved("careerEnabled",true);
   const [safeHarborEnabled,_setSafeHarborEnabled]     = useSaved("safeHarborEnabled",true);
+  const [compassEnabled,_setCompassEnabled]           = useSaved("compassEnabled",true);
   // Writes localStorage directly and synchronously BEFORE dispatching —
   // same ordering as the working chooseMyPersonId/af-myPersonId-changed
   // precedent (~3934-3937). useSaved's own setter (_setX below) also writes
@@ -3901,6 +3901,7 @@ function createLocalBackup() {
   function setMealsEnabled(v){ try{ localStorage.setItem("af_mealsEnabled", JSON.stringify(v)); }catch(e){} _setMealsEnabled(v); dispatchFeaturesChanged(); }
   function setCareerEnabled(v){ try{ localStorage.setItem("af_careerEnabled", JSON.stringify(v)); }catch(e){} _setCareerEnabled(v); dispatchFeaturesChanged(); }
   function setSafeHarborEnabled(v){ try{ localStorage.setItem("af_safeHarborEnabled", JSON.stringify(v)); }catch(e){} _setSafeHarborEnabled(v); dispatchFeaturesChanged(); }
+  function setCompassEnabled(v){ try{ localStorage.setItem("af_compassEnabled", JSON.stringify(v)); }catch(e){} _setCompassEnabled(v); dispatchFeaturesChanged(); }
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
   const [preferredName,setPreferredName]       = useSaved("preferredName","");
@@ -4488,6 +4489,11 @@ function createLocalBackup() {
       const d=new Date(TODAY); d.setDate(d.getDate()+1);
       return ed.getDate()===d.getDate()&&ed.getMonth()===d.getMonth()&&ed.getFullYear()===d.getFullYear();
     });
+    if (compassEnabled === false) {
+      setDayBriefing({greeting:"Compass is off.",top3:[],next3:[],more:[],prepItems:[],tomorrowNote:"",message:"Turn Compass back on in Settings to get an AI-built plan.",todayEvts,tmrEvts,todayMealObj,tmrMeal,dayRhythm,tmrRhythm,tmrName});
+      setBriefingLoading(false);
+      return;
+    }
     const brainPending = brainItems.filter(b=>!b.done&&!b.scheduledDay);
     const next7 = Array.from({length:7},function(_,i){var d=new Date(TODAY);d.setDate(d.getDate()+i+1);return d.toISOString().split("T")[0];});
     const upcomingEvts7 = calEvents.filter(e=>next7.includes(e.date)).slice(0,6);
@@ -4521,6 +4527,7 @@ function createLocalBackup() {
       "Flow mode: "+flowMode,
       "Preferred name (use in greeting): "+(myDisplayName(people,myPersonId,preferredName,authUser)||familyProfile?.parentNames?.split(/[&,]/)[0]?.trim()||""),
       "Greeting tone: "+(flowGreetingTone||"warm"),
+      "What I know about this family: "+(Object.keys(aiMemory).length?Object.entries(aiMemory).slice(-12).map(([q,a])=>q+": "+a).join("; "):"nothing yet"),
     ].join(". ");
     const sysPrompt = `You are Compass, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
     try {
@@ -4573,6 +4580,7 @@ function createLocalBackup() {
   // ── Ripple Insights — proactive AI suggestions feed ───────────────────────────
   async function buildInsights() {
     if (insightsBuilt === todayDateStr && insights) return;
+    if (compassEnabled === false) { setInsightsBuilt(todayDateStr); setInsights(null); return; }
     setInsightsLoading(true);
     try {
       // ── Calendar: next 14 days ─────────────────────────────────────────────
@@ -6134,6 +6142,7 @@ Respond ONLY with valid JSON array, no markdown:
 
     async function loadAiSuggestions() {
       if (aiSuggestions || aiLoading) return;
+      if (compassEnabled === false) return;
       try {
         var _asc = JSON.parse(localStorage.getItem("af_aiSuggestions"));
         if (_asc && _asc.d === TODAY.toDateString()) { setAiSuggestions(_asc.s); return; }
@@ -6208,6 +6217,7 @@ Respond ONLY with valid JSON array, no markdown:
         `All brain dump items by category: ${Object.entries(brainByCategory).map(([k,v])=>k+": "+v.join(", ")).join(" || ")||"empty"}`,
         `Family: ${familyProfile?`${familyProfile.parentNames||""}, ${familyProfile.numKids||""} kids (ages: ${familyProfile.kidAges||""})`:"not set"}`,
         `Flow mode: ${flowMode}`,
+        `What I know about this family: ${Object.keys(aiMemory).length?Object.entries(aiMemory).slice(-12).map(([q,a])=>q+": "+a).join(" | "):"nothing yet"}`,
       ].join("\n");
 
       try {
@@ -14377,6 +14387,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   mealsEnabled={mealsEnabled} setMealsEnabled={setMealsEnabled}
                   careerEnabled={careerEnabled} setCareerEnabled={setCareerEnabled}
                   safeHarborEnabled={safeHarborEnabled} setSafeHarborEnabled={setSafeHarborEnabled}
+                  compassEnabled={compassEnabled} setCompassEnabled={setCompassEnabled}
                 /></SectionErrorBoundary>}
                 {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
