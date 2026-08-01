@@ -10908,15 +10908,59 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var LC = { cream:"#F7F3EC", seaglass:"#6ABAAA", navy:"#243A5A" };
     var todayIso = (function(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })();
 
-    function DashCard(opts) {
+    // Collapsible-section state, shared by every card/section across all 5 tabs.
+    // sessionStorage (not useSaved/localStorage) — this is UI open/closed state,
+    // not household data, so it never touches SYNC_KEYS and resets per session.
+    function useSectionOpen(tabName, sectionName, defaultOpen) {
+      var key = "lh_section_" + tabName + "_" + sectionName;
+      var [open, setOpen] = React.useState(function(){
+        try { var s = sessionStorage.getItem(key); if (s !== null) return s === "1"; } catch(_e) {}
+        return !!defaultOpen;
+      });
+      function toggle() {
+        setOpen(function(prev) {
+          var next = !prev;
+          try { sessionStorage.setItem(key, next ? "1" : "0"); } catch(_e) {}
+          return next;
+        });
+      }
+      return [open, toggle];
+    }
+    // Chevron used by both DashCard and SectionShell — same rotate-180° pattern
+    // already established elsewhere in the app (Flow page / Today tab cards).
+    function Chevron(open) {
+      return <span style={{ color:"#9a9488", fontSize:"0.7rem", display:"inline-block", transform:open?"rotate(180deg)":"none", transition:"transform .15s", flexShrink:0 }}>▾</span>;
+    }
+    // Big section-card shell used by Plan/Records/Growth/Library. tabName+sectionName
+    // form the sessionStorage key; defaultOpen seeds first-visit state.
+    function SectionShell(opts) {
+      var pair = useSectionOpen(opts.tabName, opts.sectionName, opts.defaultOpen);
+      var open = pair[0], toggle = pair[1];
       return (
-        <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap:"0.55rem" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
+        <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", marginBottom:"0.85rem", overflow:"hidden" }}>
+          <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"1rem", cursor:"pointer" }}>
             <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
-            <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.85rem" }}>{opts.title}</span>
+            <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, flex:1 }}>{opts.title}</span>
+            {opts.right}
+            {Chevron(open)}
           </div>
-          <div style={{ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 }}>{opts.body}</div>
-          {opts.actionLabel && (
+          {open && <div style={{ padding:"0 1rem 1rem" }}>{opts.children}</div>}
+        </div>
+      );
+    }
+
+    function DashCard(opts) {
+      var pair = useSectionOpen("overview", opts.sectionKey, opts.defaultOpen);
+      var open = pair[0], toggle = pair[1];
+      return (
+        <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }}>
+          <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.4rem", cursor:"pointer" }}>
+            <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
+            <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.85rem", flex:1 }}>{opts.title}</span>
+            {Chevron(open)}
+          </div>
+          {open && <div style={{ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 }}>{opts.body}</div>}
+          {open && opts.actionLabel && (
             <button onClick={opts.onAction} style={{ alignSelf:"flex-start", background:"transparent", border:"none", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", cursor:"pointer", fontFamily:"inherit", padding:0 }}>
               {opts.actionLabel} →
             </button>
@@ -11037,7 +11081,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var schSubjectsToday = (schTodayPlan && Array.isArray(schTodayPlan.subjects)) ? schTodayPlan.subjects.map(function(s){ return s.name + (s.title ? ": "+s.title : ""); }) : [];
         var todayLines = lhTasksToday.length > 0 ? lhTasksToday : schSubjectsToday;
         cards.push(
-          <DashCard key="plan" emoji="🗓️" title="Today's Plan"
+          <DashCard key="plan" sectionKey="plan" defaultOpen={true} emoji="🗓️" title="Today's Plan"
             muted={todayLines.length===0}
             body={todayLines.length>0 ? todayLines.slice(0,4).join(" · ") : "Nothing planned for today yet."}
             actionLabel="Add to today's plan"
@@ -11059,7 +11103,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var presentCount = schPresentCount > 0 ? schPresentCount : lhPresentCount;
         var daysRequired = (childSchool.homeschool && childSchool.homeschool.umbrella && childSchool.homeschool.umbrella.daysRequired) || null;
         cards.push(
-          <DashCard key="attendance" emoji="📋" title="Attendance Snapshot"
+          <DashCard key="attendance" sectionKey="attendance" defaultOpen={false} emoji="📋" title="Attendance Snapshot"
             muted={presentCount===0}
             body={presentCount>0 ? (presentCount + " day" + (presentCount===1?"":"s") + " attended this year" + (daysRequired ? " (of "+daysRequired+")" : "")) : "No attendance logged yet."}
             actionLabel="Mark today"
@@ -11071,7 +11115,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var lhSubjects = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
         var subjectNames = curricula.length > 0 ? curricula.map(function(c){ return c.subject + (c.name?(": "+c.name):""); }) : lhSubjects.slice();
         cards.push(
-          <DashCard key="subjects" emoji="📚" title="Current Subjects"
+          <DashCard key="subjects" sectionKey="subjects" defaultOpen={false} emoji="📚" title="Current Subjects"
             muted={subjectNames.length===0}
             body={subjectNames.length>0 ? (subjectNames.length + " subject" + (subjectNames.length===1?"":"s") + " — " + subjectNames.slice(0,4).join(", ")) : "No subjects added yet."}
             actionLabel="Manage"
@@ -11080,7 +11124,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         // 4. Active Goals
         cards.push(
-          <DashCard key="goals" emoji="🎯" title="Active Goals"
+          <DashCard key="goals" sectionKey="goals" defaultOpen={false} emoji="🎯" title="Active Goals"
             muted={activeGoals.length===0}
             body={activeGoals.length>0 ? (activeGoals.length + " active — “" + mostRecentGoal.goal + "”") : "No goals set yet."}
             actionLabel="View goals"
@@ -11091,7 +11135,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var umbrella = (childSchool.homeschool && childSchool.homeschool.umbrella) || {};
         var hasUmbrella = !!(umbrella.name || umbrella.contact || umbrella.daysRequired);
         cards.push(
-          <DashCard key="umbrella" emoji="☂️" title="Umbrella School"
+          <DashCard key="umbrella" sectionKey="umbrella" defaultOpen={false} emoji="☂️" title="Umbrella School"
             muted={!hasUmbrella}
             body={hasUmbrella ? (umbrella.name || "Umbrella school") + (umbrella.daysRequired ? " — " + umbrella.daysRequired + " days/yr" : "") : "No umbrella school on file."}
             actionLabel="Edit"
@@ -11100,7 +11144,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         // 6. Books & Reading
         cards.push(
-          <DashCard key="books" emoji="📖" title="Books & Reading"
+          <DashCard key="books" sectionKey="books" defaultOpen={false} emoji="📖" title="Books & Reading"
             muted={!currentBook}
             body={currentBook ? ("Reading: " + currentBook.title + (currentBook.author ? " by "+currentBook.author : "")) : "Nothing currently marked as reading."}
             actionLabel="Add book"
@@ -11111,7 +11155,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var weekEvents = (schoolChild.week && Array.isArray(schoolChild.week.events)) ? schoolChild.week.events : [];
         var sortedWeekEvents = weekEvents.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1 : 1; });
         cards.push(
-          <DashCard key="thisweek" emoji="📅" title="This Week"
+          <DashCard key="thisweek" sectionKey="thisweek" defaultOpen={false} emoji="📅" title="This Week"
             muted={weekEvents.length===0}
             body={weekEvents.length>0 ? (weekEvents.length + " event" + (weekEvents.length===1?"":"s") + (sortedWeekEvents[0] ? " — next: "+sortedWeekEvents[0].title : "")) : "Nothing on the calendar this week."}
             actionLabel="View week"
@@ -11121,7 +11165,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
         var upcomingHw = homework.filter(function(h){ return h.status !== "Done" && h.status !== "Turned in"; }).sort(function(a,b){ return (a.due||"") < (b.due||"") ? -1:1; });
         cards.push(
-          <DashCard key="homework" emoji="✏️" title="Homework Due"
+          <DashCard key="homework" sectionKey="homework" defaultOpen={false} emoji="✏️" title="Homework Due"
             muted={upcomingHw.length===0}
             body={upcomingHw.length>0 ? (upcomingHw.length + " assignment" + (upcomingHw.length===1?"":"s") + " due — " + upcomingHw[0].task) : "No homework outstanding."}
             actionLabel="View homework"
@@ -11130,7 +11174,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         var teachers = (childSchool.public && Array.isArray(childSchool.public.teachers)) ? childSchool.public.teachers : [];
         cards.push(
-          <DashCard key="teachers" emoji="👩‍🏫" title="Teacher Contacts"
+          <DashCard key="teachers" sectionKey="teachers" defaultOpen={false} emoji="👩‍🏫" title="Teacher Contacts"
             muted={teachers.length===0}
             body={teachers.length>0 ? (teachers.length + " teacher" + (teachers.length===1?"":"s") + " on file") : "No teacher contacts yet."}
             actionLabel="View contacts"
@@ -11140,7 +11184,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var grades = (schoolChild.grades && typeof schoolChild.grades === "object") ? schoolChild.grades : {};
         var gradeMarks = Array.isArray(grades.marks) ? grades.marks : [];
         cards.push(
-          <DashCard key="grades" emoji="📊" title="Grades Snapshot"
+          <DashCard key="grades" sectionKey="grades" defaultOpen={false} emoji="📊" title="Grades Snapshot"
             muted={gradeMarks.length===0}
             body={gradeMarks.length>0 ? (gradeMarks.length + " subject" + (gradeMarks.length===1?"":"s") + " tracked") : "No grades logged yet."}
             actionLabel="View grades"
@@ -11150,7 +11194,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var calEvents = (childSchool.public && Array.isArray(childSchool.public.calEvents)) ? childSchool.public.calEvents : [];
         var upcomingCal = calEvents.filter(function(e){ return e.date && e.date >= todayIso; }).sort(function(a,b){ return a.date < b.date ? -1:1; });
         cards.push(
-          <DashCard key="events" emoji="🎉" title="Upcoming Events"
+          <DashCard key="events" sectionKey="events" defaultOpen={false} emoji="🎉" title="Upcoming Events"
             muted={upcomingCal.length===0}
             body={upcomingCal.length>0 ? (upcomingCal.length + " upcoming — next: " + upcomingCal[0].title) : "No upcoming events."}
             actionLabel="View calendar"
@@ -11316,7 +11360,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             closeForm();
           }
           return (
-            <div>
+            <SectionShell tabName="plan-today" sectionName="homework" emoji="✏️" title="Homework Due Today" defaultOpen={true}>
               {lhAddMode !== "hw" && <button type="button" onClick={function(){ openAdd("hw",{ due:todayIso }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", marginBottom:"0.85rem" })}>+ Add Homework</button>}
               {lhAddMode === "hw" && formCard(
                 <div>
@@ -11339,7 +11383,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </div>
                 );
               })}
-            </div>
+            </SectionShell>
           );
         }
 
@@ -11357,50 +11401,51 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         }
         return (
           <div>
-            <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem 1rem", marginBottom:"0.85rem" }}>
-              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.5rem" }}>Attendance today</div>
+            <SectionShell tabName="plan-today" sectionName="attendance" emoji="📋" title="Attendance Today" defaultOpen={true}>
               <div style={{ display:"flex", gap:"0.4rem" }}>
                 {[["present","Present"],["half","Half day"],["absent","Absent"]].map(function(o){
                   var active = att===o[0];
                   return <button type="button" key={o[0]} onClick={function(){ toggleAtt(o[0]); }} style={{ flex:1, padding:"0.4rem 0.3rem", borderRadius:"0.6rem", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" }}>{o[1]}</button>;
                 })}
               </div>
-            </div>
+            </SectionShell>
 
-            <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
-              {lhAddMode !== "today-entry" && <button type="button" onClick={function(){ openAdd("today-entry", { subject: subjectNameList[0]||"" }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem" })}>+ Add subject</button>}
-              <button type="button" onClick={copyFromYesterday} style={btnS({ fontSize:"0.82rem" })}>Copy from yesterday</button>
-            </div>
-
-            {lhAddMode === "today-entry" && formCard(
-              <div>
-                {fieldRow("Subject *", subjectNameList.length>0
-                  ? <select value={fv("subject","")} onChange={fSet("subject")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
-                  : <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
-                {fieldRow("Title", <input value={fv("title","")} onChange={fSet("title")} placeholder="Lesson or unit title" style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} placeholder="Optional" style={inp({ height:56, resize:"vertical" })}/>)}
-                {formBtns(saveEntry)}
+            <SectionShell tabName="plan-today" sectionName="subjects" emoji="🗓️" title="Today's Subjects" defaultOpen={true}>
+              <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
+                {lhAddMode !== "today-entry" && <button type="button" onClick={function(){ openAdd("today-entry", { subject: subjectNameList[0]||"" }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem" })}>+ Add subject</button>}
+                <button type="button" onClick={copyFromYesterday} style={btnS({ fontSize:"0.82rem" })}>Copy from yesterday</button>
               </div>
-            )}
 
-            {entries.length === 0 && lhAddMode !== "today-entry" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing planned for today yet.</div>}
-            {entries.map(function(e) {
-              return (
-                <div key={e.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem" }}>
-                  <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
-                    <input type="checkbox" checked={!!e.done} onChange={function(){ saveEntriesFor(todayIso, entries.map(function(x){ return x.id===e.id ? Object.assign({},x,{done:!x.done}) : x; })); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
-                    <div style={{ flex:1 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
-                        <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{e.subject}</span>
-                        {e.title && <span style={{ fontSize:"0.84rem", fontWeight:600, color:e.done?"#9a9488":"#3a3a34", textDecoration:e.done?"line-through":"none" }}>{e.title}</span>}
-                      </div>
-                      {e.notes && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{e.notes}</div>}
-                    </div>
-                    <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
-                  </div>
+              {lhAddMode === "today-entry" && formCard(
+                <div>
+                  {fieldRow("Subject *", subjectNameList.length>0
+                    ? <select value={fv("subject","")} onChange={fSet("subject")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                    : <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
+                  {fieldRow("Title", <input value={fv("title","")} onChange={fSet("title")} placeholder="Lesson or unit title" style={inp()}/>)}
+                  {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} placeholder="Optional" style={inp({ height:56, resize:"vertical" })}/>)}
+                  {formBtns(saveEntry)}
                 </div>
-              );
-            })}
+              )}
+
+              {entries.length === 0 && lhAddMode !== "today-entry" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing planned for today yet.</div>}
+              {entries.map(function(e) {
+                return (
+                  <div key={e.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem" }}>
+                    <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
+                      <input type="checkbox" checked={!!e.done} onChange={function(){ saveEntriesFor(todayIso, entries.map(function(x){ return x.id===e.id ? Object.assign({},x,{done:!x.done}) : x; })); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
+                      <div style={{ flex:1 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
+                          <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{e.subject}</span>
+                          {e.title && <span style={{ fontSize:"0.84rem", fontWeight:600, color:e.done?"#9a9488":"#3a3a34", textDecoration:e.done?"line-through":"none" }}>{e.title}</span>}
+                        </div>
+                        {e.notes && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{e.notes}</div>}
+                      </div>
+                      <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </SectionShell>
           </div>
         );
       }
@@ -11444,6 +11489,52 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         });
       }
 
+      // Each weekday is its own collapsible section — a plain .map() can't call
+      // useSectionOpen per-iteration (rules of hooks), so this is a real component.
+      function WeekDayCard(props) {
+        var day = props.day;
+        var plan = getDayPlan(day);
+        var subjects = plan.subjects || [];
+        var isAdding = lhAddMode === "week-subj-"+day;
+        return (
+          <SectionShell tabName="plan-week" sectionName={day} emoji="🗓️" title={day} defaultOpen={false}
+            right={subjects.length>0 ? <span style={{ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 }}>{subjects.filter(function(s){return s.done;}).length}/{subjects.length}</span> : null}>
+            <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:"0.5rem" }}>
+              <button type="button" onClick={function(){ openAdd("week-subj-"+day, { name: subjectNameList[0]||"" }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontSize:"0.75rem", fontWeight:700 }}>+ Subject</button>
+            </div>
+            {subjects.length === 0 && !isAdding && <div style={{ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" }}>No subjects planned</div>}
+            {subjects.map(function(s, idx) {
+              return (
+                <div key={s.id||idx} style={{ display:"flex", alignItems:"center", gap:"0.4rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
+                  <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer" }}/>
+                  <span style={{ flex:1, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none" }}>{s.name}{s.title?": "+s.title:""}</span>
+                  <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
+                </div>
+              );
+            })}
+            {isAdding && formCard(
+              <div>
+                {fieldRow("Subject", subjectNameList.length>0
+                  ? <select value={fv("name","")} onChange={fSet("name")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                  : <input value={fv("name","")} onChange={fSet("name")} placeholder="Math, Reading…" style={inp()} autoFocus/>)}
+                {fieldRow("Lesson title", <input value={fv("title","")} onChange={fSet("title")} style={inp()}/>)}
+                {formBtns(function(){
+                  var n=(fv("name","")).trim(); if(!n) return;
+                  saveDayPlan(day, { subjects: subjects.concat([{ id:uid(), name:n, title:(fv("title","")).trim(), todo:"", notes:"", done:false }]) });
+                  closeForm();
+                })}
+              </div>
+            )}
+            <textarea
+              defaultValue={plan.dayNotes||""}
+              onBlur={function(e){ saveDayPlan(day, { dayNotes: e.target.value }); }}
+              placeholder="Day notes…"
+              style={inp({ marginTop:"0.5rem", fontSize:"0.78rem", minHeight:"40px", resize:"vertical" })}
+            />
+          </SectionShell>
+        );
+      }
+
       function PlanWeek() {
         if (childMode === "school") {
           var schoolAll = lhGet(lighthouse, "school", {});
@@ -11456,55 +11547,58 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           function weekMutate(p) { applySchool({ week: Object.assign({}, weekData, p) }); }
           return (
             <div>
-              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" }}>Events</div>
-              {lhAddMode !== "week-event" && <button type="button" onClick={function(){ openAdd("week-event",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Event</button>}
-              {lhAddMode === "week-event" && formCard(
-                <div>
-                  {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                  {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
-                  {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ events: events.concat([{ id:uid(), title:t, date:fv("date","") }]) }); closeForm(); })}
-                </div>
-              )}
-              {events.map(function(ev){ return (
-                <div key={ev.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
-                  <div style={{ flex:1, fontSize:"0.85rem", color:"#3a3a34" }}>{ev.title}</div>
-                  {ev.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</span>}
-                  <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
-                </div>
-              ); })}
+              <SectionShell tabName="plan-week" sectionName="events" emoji="📅" title="Events" defaultOpen={false}>
+                {lhAddMode !== "week-event" && <button type="button" onClick={function(){ openAdd("week-event",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Event</button>}
+                {lhAddMode === "week-event" && formCard(
+                  <div>
+                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                    {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ events: events.concat([{ id:uid(), title:t, date:fv("date","") }]) }); closeForm(); })}
+                  </div>
+                )}
+                {events.map(function(ev){ return (
+                  <div key={ev.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                    <div style={{ flex:1, fontSize:"0.85rem", color:"#3a3a34" }}>{ev.title}</div>
+                    {ev.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</span>}
+                    <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
+                  </div>
+                ); })}
+              </SectionShell>
 
-              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", margin:"0.85rem 0 0.4rem" }}>Forms</div>
-              {lhAddMode !== "week-form" && <button type="button" onClick={function(){ openAdd("week-form",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Form</button>}
-              {lhAddMode === "week-form" && formCard(
-                <div>
-                  {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                  {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
-                  {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ forms: forms.concat([{ id:uid(), title:t, due:fv("due",""), done:false }]) }); closeForm(); })}
-                </div>
-              )}
-              {forms.map(function(fm){ return (
-                <div key={fm.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
-                  <input type="checkbox" checked={!!fm.done} onChange={function(){ weekMutate({ forms: forms.map(function(f){ return f.id===fm.id ? Object.assign({},f,{done:!f.done}) : f; }) }); }} style={{ cursor:"pointer" }}/>
-                  <div style={{ flex:1, fontSize:"0.85rem", color:fm.done?"#9a9488":"#3a3a34", textDecoration:fm.done?"line-through":"none" }}>{fm.title}</div>
-                  {fm.due && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(fm.due)}</span>}
-                  <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
-                </div>
-              ); })}
+              <SectionShell tabName="plan-week" sectionName="forms" emoji="📄" title="Forms" defaultOpen={false}>
+                {lhAddMode !== "week-form" && <button type="button" onClick={function(){ openAdd("week-form",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Form</button>}
+                {lhAddMode === "week-form" && formCard(
+                  <div>
+                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                    {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ forms: forms.concat([{ id:uid(), title:t, due:fv("due",""), done:false }]) }); closeForm(); })}
+                  </div>
+                )}
+                {forms.map(function(fm){ return (
+                  <div key={fm.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                    <input type="checkbox" checked={!!fm.done} onChange={function(){ weekMutate({ forms: forms.map(function(f){ return f.id===fm.id ? Object.assign({},f,{done:!f.done}) : f; }) }); }} style={{ cursor:"pointer" }}/>
+                    <div style={{ flex:1, fontSize:"0.85rem", color:fm.done?"#9a9488":"#3a3a34", textDecoration:fm.done?"line-through":"none" }}>{fm.title}</div>
+                    {fm.due && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(fm.due)}</span>}
+                    <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
+                  </div>
+                ); })}
+              </SectionShell>
 
-              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", margin:"0.85rem 0 0.4rem" }}>Packing list</div>
-              {lhAddMode !== "week-pack" && <button type="button" onClick={function(){ openAdd("week-pack",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Item</button>}
-              {lhAddMode === "week-pack" && formCard(
-                <div>
-                  {fieldRow("Item *", <input value={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
-                  {formBtns(function(){ var l=(fv("label","")).trim(); if(!l) return; weekMutate({ pack: pack.concat([{ id:uid(), label:l, checked:false }]) }); closeForm(); })}
-                </div>
-              )}
-              {pack.map(function(pk){ return (
-                <div key={pk.id} onClick={function(){ weekMutate({ pack: pack.map(function(p){ return p.id===pk.id ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" }}>
-                  <span style={{ color:pk.checked?LC.seaglass:"#D8D2C4" }}>{pk.checked?"●":"○"}</span>
-                  <div style={{ flex:1, fontSize:"0.85rem", color:pk.checked?"#9a9488":"#3a3a34", textDecoration:pk.checked?"line-through":"none" }}>{pk.label}</div>
-                </div>
-              ); })}
+              <SectionShell tabName="plan-week" sectionName="pack" emoji="🎒" title="Packing List" defaultOpen={false}>
+                {lhAddMode !== "week-pack" && <button type="button" onClick={function(){ openAdd("week-pack",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Item</button>}
+                {lhAddMode === "week-pack" && formCard(
+                  <div>
+                    {fieldRow("Item *", <input value={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
+                    {formBtns(function(){ var l=(fv("label","")).trim(); if(!l) return; weekMutate({ pack: pack.concat([{ id:uid(), label:l, checked:false }]) }); closeForm(); })}
+                  </div>
+                )}
+                {pack.map(function(pk){ return (
+                  <div key={pk.id} onClick={function(){ weekMutate({ pack: pack.map(function(p){ return p.id===pk.id ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" }}>
+                    <span style={{ color:pk.checked?LC.seaglass:"#D8D2C4" }}>{pk.checked?"●":"○"}</span>
+                    <div style={{ flex:1, fontSize:"0.85rem", color:pk.checked?"#9a9488":"#3a3a34", textDecoration:pk.checked?"line-through":"none" }}>{pk.label}</div>
+                  </div>
+                ); })}
+              </SectionShell>
             </div>
           );
         }
@@ -11515,48 +11609,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <button type="button" onClick={function(){ setShowCopyPicker(true); }} style={btnS({ fontSize:"0.79rem" })}>📋 Copy Day</button>
               <button type="button" onClick={clearWeek} style={btnS({ fontSize:"0.79rem", color:"#C4849A" })}>🗑 Clear Week</button>
             </div>
-            {PLAN_SCHOOL_DAYS.map(function(day) {
-              var plan = getDayPlan(day);
-              var subjects = plan.subjects || [];
-              var isAdding = lhAddMode === "week-subj-"+day;
-              return (
-                <div key={day} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem", marginBottom:"0.65rem" }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"0.5rem" }}>
-                    <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>{day}</span>
-                    <button type="button" onClick={function(){ openAdd("week-subj-"+day, { name: subjectNameList[0]||"" }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontSize:"0.75rem", fontWeight:700 }}>+ Subject</button>
-                  </div>
-                  {subjects.length === 0 && !isAdding && <div style={{ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" }}>No subjects planned</div>}
-                  {subjects.map(function(s, idx) {
-                    return (
-                      <div key={s.id||idx} style={{ display:"flex", alignItems:"center", gap:"0.4rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
-                        <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer" }}/>
-                        <span style={{ flex:1, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none" }}>{s.name}{s.title?": "+s.title:""}</span>
-                        <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
-                      </div>
-                    );
-                  })}
-                  {isAdding && formCard(
-                    <div>
-                      {fieldRow("Subject", subjectNameList.length>0
-                        ? <select value={fv("name","")} onChange={fSet("name")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
-                        : <input value={fv("name","")} onChange={fSet("name")} placeholder="Math, Reading…" style={inp()} autoFocus/>)}
-                      {fieldRow("Lesson title", <input value={fv("title","")} onChange={fSet("title")} style={inp()}/>)}
-                      {formBtns(function(){
-                        var n=(fv("name","")).trim(); if(!n) return;
-                        saveDayPlan(day, { subjects: subjects.concat([{ id:uid(), name:n, title:(fv("title","")).trim(), todo:"", notes:"", done:false }]) });
-                        closeForm();
-                      })}
-                    </div>
-                  )}
-                  <textarea
-                    defaultValue={plan.dayNotes||""}
-                    onBlur={function(e){ saveDayPlan(day, { dayNotes: e.target.value }); }}
-                    placeholder="Day notes…"
-                    style={inp({ marginTop:"0.5rem", fontSize:"0.78rem", minHeight:"40px", resize:"vertical" })}
-                  />
-                </div>
-              );
-            })}
+            {PLAN_SCHOOL_DAYS.map(function(day) { return <WeekDayCard key={day} day={day}/>; })}
             {showCopyPicker && (
               <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
                 <div style={{ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(320px,100%)" }}>
@@ -11595,7 +11648,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var days = monthDays(monthIso);
 
         return (
-          <div>
+          <SectionShell tabName="plan-year" sectionName="calendar" emoji="📅" title="Year Calendar" defaultOpen={false}>
             <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.75rem" }}>
               <button type="button" onClick={function(){ shiftMonth(-1); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", color:"#7a7568" }}>‹</button>
               <span style={{ flex:1, textAlign:"center", fontWeight:700, color:LC.navy }}>{monthLabel}</span>
@@ -11679,7 +11732,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               </div>
             )}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -11709,60 +11762,64 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "loop" && <button type="button" onClick={function(){ openAdd("loop",{ icon:LOOP_ICONS[0], tint:loopTints[0] }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", marginBottom:"0.85rem" })}>+ Add Loop</button>}
             {lhAddMode === "loop" && AddLoopForm()}
             {lhLoops.length === 0 && lhAddMode !== "loop" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>No loops yet — create your first rotation!</div>}
-            {lhLoops.map(function(loop) {
-              var items = Array.isArray(loop.items) ? loop.items : [];
-              var upNext = lhUpNextLocal(items);
-              var tint = loop.tint || LC.seaglass;
-              var isEditing = lhEditId === loop.id && lhAddMode === "edit-loop";
+            {lhLoops.map(function(loop) { return <LoopCard key={loop.id} loop={loop} loopTints={loopTints}/>; })}
+          </div>
+        );
+      }
+      // Each loop is its own collapsible section — a plain .map() can't call
+      // useSectionOpen per-iteration (rules of hooks), so this is a real component.
+      function LoopCard(props) {
+        var loop = props.loop, loopTints = props.loopTints;
+        var items = Array.isArray(loop.items) ? loop.items : [];
+        var upNext = lhUpNextLocal(items);
+        var tint = loop.tint || LC.seaglass;
+        var isEditing = lhEditId === loop.id && lhAddMode === "edit-loop";
+        var doneCount = items.filter(function(it){ return it.status==="done"; }).length;
+        return (
+          <SectionShell tabName="plan-loops" sectionName={loop.id} emoji={loop.icon||"🔁"} title={loop.name} defaultOpen={false}
+            right={items.length>0 ? <span style={{ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 }}>{doneCount}/{items.length}</span> : null}>
+            {isEditing ? (
+              (function(){
+                var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",loop.icon||LOOP_ICONS[0]); var selTint=fv("tint",loop.tint||loopTints[0]);
+                return formCard(
+                  <div>
+                    {fieldRow("Name", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
+                    {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{icon:ic}); }); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
+                    {formBtns(function(){ if(!nameTrim) return; applyHsLoopUpdate(loop.id, { name:nameTrim, icon:selIcon, tint:selTint }); closeForm(); })}
+                  </div>
+                );
+              })()
+            ) : (
+              <div style={{ display:"flex", justifyContent:"flex-end", gap:"0.5rem", marginBottom:"0.5rem" }}>
+                <button type="button" onClick={function(){ openEdit(loop.id,{ name:loop.name, icon:loop.icon, tint:loop.tint }); setLhAddMode("edit-loop"); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
+                <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+              </div>
+            )}
+            {!isEditing && items.map(function(item) {
+              var isUpNext = upNext && upNext.id===item.id;
+              var statusColor = item.status==="done"?tint:item.status==="skip"?"#9a9488":item.status==="later"?"#C9A45B":"#D8D2C4";
               return (
-                <div key={loop.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem", marginBottom:"0.75rem" }}>
-                  {isEditing ? (
-                    (function(){
-                      var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",loop.icon||LOOP_ICONS[0]); var selTint=fv("tint",loop.tint||loopTints[0]);
-                      return formCard(
-                        <div>
-                          {fieldRow("Name", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
-                          {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{icon:ic}); }); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
-                          {formBtns(function(){ if(!nameTrim) return; applyHsLoopUpdate(loop.id, { name:nameTrim, icon:selIcon, tint:selTint }); closeForm(); })}
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem" }}>
-                      <span style={{ fontSize:"1.2rem" }}>{loop.icon||"🔁"}</span>
-                      <span style={{ flex:1, fontWeight:700, color:LC.navy, fontSize:"0.9rem" }}>{loop.name}</span>
-                      <button type="button" onClick={function(){ openEdit(loop.id,{ name:loop.name, icon:loop.icon, tint:loop.tint }); setLhAddMode("edit-loop"); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
-                      <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                <div key={item.id} style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
+                  <span style={{ color:statusColor, fontSize:"0.9rem", marginTop:"2px" }}>{item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○"}</span>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:"0.85rem", color:item.status==="done"||item.status==="skip"?"#9a9488":"#3a3a34", textDecoration:item.status==="done"||item.status==="skip"?"line-through":"none" }}>
+                      {item.text} {isUpNext && <span style={{ fontSize:"0.62rem", fontWeight:700, color:tint, background:tint+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"0.3rem" }}>Up Next</span>}
                     </div>
-                  )}
-                  {!isEditing && items.map(function(item) {
-                    var isUpNext = upNext && upNext.id===item.id;
-                    var statusColor = item.status==="done"?tint:item.status==="skip"?"#9a9488":item.status==="later"?"#C9A45B":"#D8D2C4";
-                    return (
-                      <div key={item.id} style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
-                        <span style={{ color:statusColor, fontSize:"0.9rem", marginTop:"2px" }}>{item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○"}</span>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontSize:"0.85rem", color:item.status==="done"||item.status==="skip"?"#9a9488":"#3a3a34", textDecoration:item.status==="done"||item.status==="skip"?"line-through":"none" }}>
-                            {item.text} {isUpNext && <span style={{ fontSize:"0.62rem", fontWeight:700, color:tint, background:tint+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"0.3rem" }}>Up Next</span>}
-                          </div>
-                          <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.2rem" }}>
-                            {["done","skip","later"].map(function(act){
-                              var isAct = item.status===act; var actColor = act==="done"?tint:act==="skip"?"#9a9488":"#C9A45B";
-                              return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id,item.id,{status:lhSetStatusLocal(item.status,act)}); }} style={{ fontSize:"0.66rem", padding:"0.1rem 0.45rem", borderRadius:"99px", border:"1.5px solid "+(isAct?actColor:"#D8D2C4"), background:isAct?actColor+"22":"transparent", color:isAct?actColor:"#9a9488", fontWeight:isAct?700:400, cursor:"pointer", fontFamily:"inherit" }}>{act==="done"?"Done":act==="skip"?"Skip":"Later"}</button>;
-                            })}
-                          </div>
-                        </div>
-                        <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
-                      </div>
-                    );
-                  })}
-                  {!isEditing && (
-                    <AddLoopItemRow loop={loop} items={items} />
-                  )}
+                    <div style={{ display:"flex", gap:"0.3rem", marginTop:"0.2rem" }}>
+                      {["done","skip","later"].map(function(act){
+                        var isAct = item.status===act; var actColor = act==="done"?tint:act==="skip"?"#9a9488":"#C9A45B";
+                        return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id,item.id,{status:lhSetStatusLocal(item.status,act)}); }} style={{ fontSize:"0.66rem", padding:"0.1rem 0.45rem", borderRadius:"99px", border:"1.5px solid "+(isAct?actColor:"#D8D2C4"), background:isAct?actColor+"22":"transparent", color:isAct?actColor:"#9a9488", fontWeight:isAct?700:400, cursor:"pointer", fontFamily:"inherit" }}>{act==="done"?"Done":act==="skip"?"Skip":"Later"}</button>;
+                      })}
+                    </div>
+                  </div>
+                  <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
                 </div>
               );
             })}
-          </div>
+            {!isEditing && (
+              <AddLoopItemRow loop={loop} items={items} />
+            )}
+          </SectionShell>
         );
       }
       function AddLoopItemRow({ loop, items }) {
@@ -11782,7 +11839,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function SubjectsSection() {
         return (
           <div style={{ marginTop:"1rem", paddingTop:"1rem", borderTop:"1px solid #E7E1D4" }}>
-            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.1rem", color:LC.navy, marginBottom:"0.6rem" }}>Subjects</div>
+          <SectionShell tabName="plan" sectionName="subjects" emoji="📚" title="Subjects" defaultOpen={false}>
             {lhAddMode !== "subject" && <button type="button" onClick={function(){ openAdd("subject",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Subject</button>}
             {lhAddMode === "subject" && formCard(
               <div>
@@ -11826,6 +11883,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
+          </SectionShell>
           </div>
         );
       }
@@ -11888,8 +11946,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
       }
 
-      var sectionCardStyle = { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" };
-      var sectionTitleStyle = { fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, marginBottom:"0.65rem" };
       var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
       var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
       var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
@@ -11935,8 +11991,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var [form, setForm] = React.useState({ name:umbrella.name||"", contact:umbrella.contact||"", email:umbrella.email||"", phone:umbrella.phone||"", daysRequired:umbrella.daysRequired||"", filingDeadlines:umbrella.filingDeadlines||"", notes:umbrella.notes||"" });
         function fld(k) { return function(e){ var v=e.target.value; setForm(function(p){ var n=Object.assign({},p); n[k]=v; return n; }); }; }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>☂️ Umbrella School</div>
+          <SectionShell tabName="records" sectionName="umbrella" emoji="☂️" title="Umbrella School" defaultOpen={false}>
             {fieldRow("School Name", <input value={form.name} onChange={fld("name")} style={inp()}/>)}
             {fieldRow("Contact Person", <input value={form.contact} onChange={fld("contact")} style={inp()}/>)}
             {fieldRow("Email", <input type="email" value={form.email} onChange={fld("email")} style={inp()}/>)}
@@ -11945,7 +12000,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {fieldRow("Filing Deadlines", <input value={form.filingDeadlines} onChange={fld("filingDeadlines")} placeholder="e.g. Notice of intent due Aug 1" style={inp()}/>)}
             {fieldRow("Notes / Requirements", <textarea value={form.notes} onChange={fld("notes")} style={inp({ height:70, resize:"vertical" })}/>)}
             <button type="button" onClick={function(){ saveHs({ umbrella: form }); }} style={btnP(LC.seaglass,{ width:"100%" })}>Save</button>
-          </div>
+          </SectionShell>
         );
       }
 
@@ -11954,8 +12009,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var appWeek = childPublic.teacherAppWeek || {};
         var [appWeekIdeas, setAppWeekIdeas] = React.useState(appWeek.ideas || "");
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>👩‍🏫 Teacher / Tutor Contacts</div>
+          <SectionShell tabName="records" sectionName="teachers" emoji="👩‍🏫" title="Teacher / Tutor Contacts" defaultOpen={false}>
             {lhAddMode !== "teacher" && <button type="button" onClick={function(){ openAdd("teacher",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Contact</button>}
             {lhAddMode === "teacher" && formCard(
               <div>
@@ -12008,7 +12062,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {fieldRow("Week of", <input type="date" value={appWeek.start||""} onChange={function(e){ savePub({ teacherAppWeek: Object.assign({}, appWeek, { start: e.target.value }) }); }} style={inp()}/>)}
               {fieldRow("Gift ideas / plan", <textarea value={appWeekIdeas} onChange={function(e){ setAppWeekIdeas(e.target.value); }} onBlur={function(){ savePub({ teacherAppWeek: Object.assign({}, appWeek, { ideas: appWeekIdeas }) }); }} placeholder="Cards, donations, treats per teacher…" style={inp({ height:56, resize:"vertical" })}/>)}
             </div>
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12047,8 +12101,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>🌟 Activities & Field Trips</div>
+          <SectionShell tabName="records" sectionName="activities" emoji="🌟" title="Activities & Field Trips" defaultOpen={false}>
             {lhAddMode !== "activity" && <button type="button" onClick={function(){ openAdd("activity",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Activity</button>}
             {lhAddMode === "activity" && formCard(
               <div>
@@ -12069,7 +12122,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {upcoming.map(renderRow)}
             {past.length > 0 && <div style={Object.assign({},subheadStyle,{marginTop:"0.5rem"})}>Past</div>}
             {past.map(renderRow)}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12078,8 +12131,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var sortedEvents = calEvents.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1:1; });
         var sortedSpirit = spiritDays.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1:1; });
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📆 School Calendar & Events</div>
+          <SectionShell tabName="records" sectionName="calendar" emoji="📆" title="School Calendar & Events" defaultOpen={false}>
             {lhAddMode !== "cal-event" && <button type="button" onClick={function(){ openAdd("cal-event",{type:"event"}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Calendar Item</button>}
             {lhAddMode === "cal-event" && formCard(
               <div>
@@ -12166,7 +12218,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12174,8 +12226,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function CommsSection() {
         var sortedLog = commsLog.slice().sort(function(a,b){ return (b.date||"") < (a.date||"") ? -1:1; });
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📬 School Communications</div>
+          <SectionShell tabName="records" sectionName="comms" emoji="📬" title="School Communications" defaultOpen={false}>
             <div style={subheadStyle}>Contacts</div>
             {lhAddMode !== "comms-contact" && <button type="button" onClick={function(){ openAdd("comms-contact",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Contact</button>}
             {lhAddMode === "comms-contact" && formCard(
@@ -12278,7 +12329,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12296,8 +12347,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         });
         var sorted = filtered.slice().sort(function(a,b){ return (a.due||"") < (b.due||"") ? -1:1; });
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>✏️ Homework</div>
+          <SectionShell tabName="records" sectionName="homework" emoji="✏️" title="Homework" defaultOpen={false}>
             <div style={{ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" }}>
               {[["all","All"],["due soon","Due Soon"],["overdue","Overdue"],["completed","Completed"]].map(function(f){
                 return pillToggle(f[1], hwFilter===f[0], function(){ setHwFilter(f[0]); });
@@ -12331,7 +12381,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12339,10 +12389,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function NotesSection() {
         var [notes, setNotes] = React.useState(childPublic.notes || "");
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📝 Notes</div>
+          <SectionShell tabName="records" sectionName="notes" emoji="📝" title="Notes" defaultOpen={false}>
             <textarea value={notes} onChange={function(e){ setNotes(e.target.value); }} onBlur={function(){ savePub({ notes: notes }); }} placeholder="Anything else worth remembering — allergies, accommodations, logistics…" style={inp({ height:80, resize:"vertical" })}/>
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12409,8 +12458,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
       }
 
-      var sectionCardStyle = { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" };
-      var sectionTitleStyle = { fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, marginBottom:"0.65rem" };
       var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
       var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
       var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
@@ -12521,8 +12568,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var STATUS_COLOR = { present:LC.seaglass, half:"#C9A45B", absent:"#C4849A" };
         var STATUS_LABEL = { present:"P", half:"H", absent:"A" };
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📋 Attendance Record</div>
+          <SectionShell tabName="growth" sectionName="attendance" emoji="📋" title="Attendance Record" defaultOpen={false}>
             <div style={{ display:"flex", gap:"1.15rem", marginBottom:"0.85rem", flexWrap:"wrap" }}>
               <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.seaglass }}>{ytd.present}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Present</div></div>
               <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:"#C9A45B" }}>{ytd.half}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Half days</div></div>
@@ -12552,7 +12598,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               })}
             </div>
             <div style={{ fontSize:"0.7rem", color:"#9a9488" }}>Tap a day to cycle: Present → Half → Absent → clear</div>
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12596,8 +12642,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           lhSaveUpdate("goals", lhEditId, patch); closeForm();
         }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>🎯 Goals & Challenges</div>
+          <SectionShell tabName="growth" sectionName="goals" emoji="🎯" title="Goals & Challenges" defaultOpen={false}>
             {lhAddMode!=="goal" && <button type="button" onClick={function(){ openAdd("goal",{ progress:"Not started", source:"parent", kind:"goal" }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Goal</button>}
             {lhAddMode==="goal" && GoalForm(saveGoal)}
             {goals.length===0 && lhAddMode!=="goal" && <div style={emptyTextStyle}>No goals yet.</div>}
@@ -12657,15 +12702,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
       // ── Grades (school mode only) ────────────────────────────────────────────
       function GradesSection() {
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📊 Grades</div>
+          <SectionShell tabName="growth" sectionName="grades" emoji="📊" title="Grades" defaultOpen={false}>
             <div style={subheadStyle}>Subject Marks</div>
             {lhAddMode!=="grades-mark" && <button type="button" onClick={function(){ openAdd("grades-mark",{mark:""}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Subject</button>}
             {lhAddMode==="grades-mark" && formCard(
@@ -12754,7 +12798,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
             <div style={Object.assign({},subheadStyle,{ marginTop:"0.85rem" })}>Growth Notes</div>
             <textarea defaultValue={gradeNotes} onBlur={function(e){ gradesMutate({ notes: e.target.value }); }} placeholder="What's clicking? What's growing?" style={inp({ height:80, resize:"vertical" })}/>
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12762,8 +12806,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function PortfolioSection() {
         var sorted = portfolio.slice().sort(function(a,b){ return (b.date||"") < (a.date||"") ? -1:1; });
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>🗂️ Portfolio / Progress Notes</div>
+          <SectionShell tabName="growth" sectionName="portfolio" emoji="🗂️" title="Portfolio / Progress Notes" defaultOpen={false}>
             {lhAddMode!=="portfolio" && <button type="button" onClick={function(){ openAdd("portfolio",{ date:todayIso }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Entry</button>}
             {lhAddMode==="portfolio" && formCard(
               <div>
@@ -12812,7 +12855,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12822,8 +12865,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var currentBreakGoals = breakGoals.filter(function(g){ return g.break===breakMode; });
         var breakColor = BREAK_COLORS[breakMode];
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>🌟 Break Goals</div>
+          <SectionShell tabName="growth" sectionName="breakgoals" emoji="🌟" title="Break Goals" defaultOpen={false}>
             <div style={{ display:"flex", gap:"0.4rem", marginBottom:"0.75rem" }}>
               {["summer","winter","spring"].map(function(b){
                 var active = breakMode===b;
@@ -12881,7 +12923,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -12935,8 +12977,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
       }
 
-      var sectionCardStyle = { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" };
-      var sectionTitleStyle = { fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, marginBottom:"0.65rem" };
       var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
       var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
       var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
@@ -13040,8 +13080,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📚 Books</div>
+          <SectionShell tabName="library" sectionName="books" emoji="📚" title="Books" defaultOpen={false}>
             {currentlyReading.length > 0 && (
               <div style={{ marginBottom:"0.85rem" }}>
                 <div style={subheadStyle}>Currently Reading</div>
@@ -13060,7 +13099,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             })}
             {filtered.length===0 && lhAddMode!=="book" && <div style={emptyTextStyle}>No books yet.</div>}
             {filtered.map(renderBookRow)}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -13083,8 +13122,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>🌎 {beyondLabel}</div>
+          <SectionShell tabName="library" sectionName="beyond" emoji="🌎" title={beyondLabel} defaultOpen={false}>
             {lhAddMode!=="beyond" && <button type="button" onClick={function(){ openAdd("beyond",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Entry</button>}
             {lhAddMode==="beyond" && BeyondForm(function(){
               var what=(fv("what","")).trim(); if(!what) return;
@@ -13116,7 +13154,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
@@ -13143,8 +13181,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>✈️ Field Trips</div>
+          <SectionShell tabName="library" sectionName="trips" emoji="✈️" title="Field Trips" defaultOpen={false}>
             {lhAddMode!=="trip" && <button type="button" onClick={function(){ openAdd("trip",{ subj:[] }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Trip</button>}
             {lhAddMode==="trip" && TripForm(function(){
               var place=(fv("place","")).trim(); if(!place) return;
@@ -13176,15 +13213,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-          </div>
+          </SectionShell>
         );
       }
 
       // ── Learning Resources — read-only; editable in Plan → Subjects ─────────
       function ResourcesSection() {
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>🔗 Learning Resources</div>
+          <SectionShell tabName="library" sectionName="resources" emoji="🔗" title="Learning Resources" defaultOpen={false}>
             {resourceRecords.length===0 && <div style={emptyTextStyle}>No resources added yet. Add subjects in Plan to see them here.</div>}
             {resourceRecords.map(function(r) {
               return (
@@ -13199,7 +13235,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })}
             <button type="button" onClick={function(){ setLearningSubTab("plan"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.4rem" }}>Manage in Plan →</button>
-          </div>
+          </SectionShell>
         );
       }
 
@@ -13229,8 +13265,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           setHouseholdText(lhBuildHouseholdSummary(children));
         }
         return (
-          <div style={sectionCardStyle}>
-            <div style={sectionTitleStyle}>📄 {summaryLabel}</div>
+          <SectionShell tabName="library" sectionName="keepsakes" emoji="📄" title={summaryLabel} defaultOpen={false}>
             <div style={{ fontSize:"0.82rem", color:"#5a5a50", lineHeight:1.55, marginBottom:"0.75rem" }}>
               {childMode==="school" ? "A keepsake record of everything "+(childPerson?childPerson.name:"they")+" experienced and learned." : "Pull together everything "+(childPerson?childPerson.name:"they")+" has done."}
             </div>
@@ -13254,7 +13289,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 )}
               </div>
             )}
-          </div>
+          </SectionShell>
         );
       }
 
