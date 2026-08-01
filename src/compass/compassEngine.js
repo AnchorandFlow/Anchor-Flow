@@ -419,8 +419,30 @@ export async function runCompass(mode, state, opts) {
   }
   var data = await r.json();
   var text = (data.content || []).map(function (b) { return b.text || ""; }).join("");
+  return parseCompassResponse(text, mode);
+}
+
+// The system prompts all demand "Respond ONLY in valid JSON," but nothing
+// on the client enforces that — a model that drifts into prose/markdown
+// (e.g. opens with "# This Week...") used to throw a raw SyntaxError
+// straight up to the UI (CompassFab shows e.message verbatim). Salvage an
+// embedded {...} object first; for "ask" specifically, fall back to using
+// the raw text as the answer, since prose is still a valid reply to a
+// question even when it isn't JSON-wrapped.
+function parseCompassResponse(text, mode) {
   var clean = text.replace(/```json|```/g, "").trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch (e) {
+    var first = clean.indexOf("{"), last = clean.lastIndexOf("}");
+    if (first !== -1 && last > first) {
+      try { return JSON.parse(clean.slice(first, last + 1)); } catch (e2) {}
+    }
+    if (mode === "ask") {
+      return { answer: clean.slice(0, 800), details: [], not_found: false };
+    }
+    throw new Error("Compass couldn't format a response just now.");
+  }
 }
 
 // ── cached features ───────────────────────────────────────────────────────────
