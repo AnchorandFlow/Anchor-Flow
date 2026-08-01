@@ -804,72 +804,6 @@ describe("LH-4-rev-B — lhSetStatus direct-action (loop revision)", function() 
   });
 });
 
-// ─── LH-2 fix — LIGHTHOUSE tab routing ──────────────────────────────────────
-// These tests mirror the PILLARS nav-id logic and the render-array gate that
-// were the source of the routing bug (flag on → school tab id → SchoolTab).
-
-describe("LH-2-fix — Lighthouse nav routing (flag gate)", function() {
-  // Mirror of the PILLARS entry selection logic from FlowWrapper
-  function pillarSchoolEntry(lighthouseV2) {
-    return lighthouseV2
-      ? { id: "lighthouse", label: "Lighthouse", emoji: "🏮" }
-      : { id: "school",     label: "School",     emoji: "🏫" };
-  }
-
-  // Mirror of the render-array + flag check from HomeFlow
-  var RENDER_TABS = ["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","school","lighthouse","settings","ai"];
-  function tabRendersLighthouse(tabId, lighthouseV2) {
-    return RENDER_TABS.indexOf(tabId) !== -1 && tabId === "lighthouse" && lighthouseV2;
-  }
-  function tabRendersSchool(tabId) {
-    return RENDER_TABS.indexOf(tabId) !== -1 && tabId === "school";
-  }
-
-  it("LH-2-fix-1: flag ON → PILLARS entry uses id 'lighthouse'", function() {
-    expect(pillarSchoolEntry(true).id).toBe("lighthouse");
-  });
-
-  it("LH-2-fix-2: flag OFF → PILLARS entry uses id 'school'", function() {
-    expect(pillarSchoolEntry(false).id).toBe("school");
-  });
-
-  it("LH-2-fix-3: flag ON → nav click dispatches 'lighthouse' tab id, not 'school'", function() {
-    var entry = pillarSchoolEntry(true);
-    // _setActiveTab receives entry.id — it must be "lighthouse", not "school"
-    expect(entry.id).not.toBe("school");
-    expect(entry.id).toBe("lighthouse");
-  });
-
-  it("LH-2-fix-4: 'lighthouse' is in the render tab array (was missing, causing dead-code bug)", function() {
-    expect(RENDER_TABS.indexOf("lighthouse")).not.toBe(-1);
-  });
-
-  it("LH-2-fix-5: flag ON + tab=lighthouse → renders LighthouseTab (not SchoolTab)", function() {
-    expect(tabRendersLighthouse("lighthouse", true)).toBe(true);
-    expect(tabRendersSchool("lighthouse")).toBe(false);
-  });
-
-  it("LH-2-fix-6: flag OFF + tab=school → renders SchoolTab (legacy behavior unchanged)", function() {
-    expect(tabRendersSchool("school")).toBe(true);
-    expect(tabRendersLighthouse("school", false)).toBe(false);
-  });
-
-  it("LH-2-fix-7: flag ON + tab=school → SchoolTab still renders if somehow navigated to (no collision)", function() {
-    // With flag on, the nav emits 'lighthouse' so 'school' is unreachable via PILLARS,
-    // but the render array still handles it gracefully (SchoolTab renders for 'school').
-    expect(tabRendersSchool("school")).toBe(true);
-    expect(tabRendersLighthouse("school", true)).toBe(false);
-  });
-
-  it("LH-2-fix-8: flag OFF → PILLARS label is 'School', not 'Lighthouse'", function() {
-    expect(pillarSchoolEntry(false).label).toBe("School");
-  });
-
-  it("LH-2-fix-9: flag ON → PILLARS label is 'Lighthouse'", function() {
-    expect(pillarSchoolEntry(true).label).toBe("Lighthouse");
-  });
-});
-
 // ─── LH-2 fix-2 — _hfComps registration completeness guard ─────────────────
 // Catches the class of bug where a component is added to the _hfComps forEach
 // registration list but never destructured into HomeFlow's local scope, making
@@ -912,26 +846,29 @@ describe("LH-2-fix-2 — _hfComps forEach list matches destructure (no undefined
     expect(missing).toEqual([]);
   });
 
-  it("LH-2-fix-2-lighthouse: LighthouseTab specifically is in forEach list", function() {
-    expect(registeredNames).toContain("LighthouseTab");
+  // School/Lighthouse rebuild: SchoolTab and LighthouseTab were retired and
+  // deleted once the unified Learning tab (Phases 1-6) fully replaced them —
+  // these guards now cover LearningTab, their successor in the same registry.
+  it("LH-2-fix-2-learning: LearningTab specifically is in forEach list", function() {
+    expect(registeredNames).toContain("LearningTab");
   });
 
-  it("LH-2-fix-2-lighthouse: LighthouseTab specifically is in the destructure", function() {
-    expect(destructuredSet.has("LighthouseTab")).toBe(true);
+  it("LH-2-fix-2-learning: LearningTab specifically is in the destructure", function() {
+    expect(destructuredSet.has("LearningTab")).toBe(true);
   });
 
-  it("LH-2-fix-2-school: SchoolTab is in both (regression guard for existing tabs)", function() {
-    expect(registeredNames).toContain("SchoolTab");
-    expect(destructuredSet.has("SchoolTab")).toBe(true);
+  it("LH-2-fix-2-retired: SchoolTab and LighthouseTab are no longer registered (deleted, not just unmounted)", function() {
+    expect(registeredNames).not.toContain("SchoolTab");
+    expect(registeredNames).not.toContain("LighthouseTab");
   });
 
-  // Module-scope alias guard: LighthouseTab must also be declared at module scope
-  // as a var alias of _hfComps.LighthouseTab. This makes the name resolvable even
+  // Module-scope alias guard: LearningTab must also be declared at module scope
+  // as a var alias of _hfComps.LearningTab. This makes the name resolvable even
   // in stale HMR closures or SW-cached bundles that predate the HomeFlow destructure fix.
-  it("LH-2-fix-2-module-alias: var LighthouseTab = _hfComps.LighthouseTab exists at module scope (before HomeFlow)", function() {
+  it("LH-2-fix-2-module-alias: var LearningTab = _hfComps.LearningTab exists at module scope (before HomeFlow)", function() {
     var homFlowIdx = src.indexOf("function HomeFlow()");
     var preamble = homFlowIdx > -1 ? src.slice(0, homFlowIdx) : src;
-    expect(preamble).toMatch(/var\s+LighthouseTab\s*=\s*_hfComps\.LighthouseTab\s*;/);
+    expect(preamble).toMatch(/var\s+LearningTab\s*=\s*_hfComps\.LearningTab\s*;/);
   });
 });
 

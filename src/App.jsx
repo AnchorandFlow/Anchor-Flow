@@ -1872,7 +1872,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
 
 
   // ── school type per kid state ──
-  // schoolData already persisted from SchoolTab — we read/write it here too
+  // af_schoolData is also read/written by the Learning tab (Records/Plan) — same key
   var [sData,setSDataLocal]=useState(function(){
     try{var s=localStorage.getItem("af_schoolData");var parsed=s?JSON.parse(s):{};return parsed&&typeof parsed==="object"?parsed:{};}catch{return {};}
   });
@@ -2477,16 +2477,15 @@ const _hfComps   = {};
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveTab',
-  'SchoolTab','LighthouseTab','LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
+  'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
   Object.defineProperty(_hfComps[n], 'name', { value: n });
 });
-// Module-scope alias so LighthouseTab/LearningTab are resolvable from any execution
-// context (HMR stale closure, SW-cached bundle chunk, React speculative render)
-// without depending on HomeFlow's const destructure at line ~4178.
-var LighthouseTab = _hfComps.LighthouseTab;
+// Module-scope alias so LearningTab is resolvable from any execution context
+// (HMR stale closure, SW-cached bundle chunk, React speculative render) without
+// depending on HomeFlow's const destructure at line ~4178.
 var LearningTab = _hfComps.LearningTab;
 
 function HomeFlow({ recoveryToken }) {
@@ -5118,7 +5117,7 @@ Respond ONLY with valid JSON array, no markdown:
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveTab,
-          SchoolTab, LighthouseTab, LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
+          LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
@@ -10889,3289 +10888,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
     );
   }
-  _hfRenders.SchoolTab = function SchoolTab() {
-    var [schoolData, setSchoolData] = useSaved("schoolData", {});
-    var [activeChild, setActiveChild] = React.useState(null);
-    var [subTab, setSubTab] = React.useState("overview");
-    var [showTeacherModal, setShowTeacherModal] = React.useState(false);
-    var [editingTeacher, setEditingTeacher] = React.useState(null);
-    var [showEventModal, setShowEventModal] = React.useState(false);
-    var [editingEvent, setEditingEvent] = React.useState(null);
-    var [showCurriculumModal, setShowCurriculumModal] = React.useState(false);
-    var [editingCurriculum, setEditingCurriculum] = React.useState(null);
-    var [showLessonModal, setShowLessonModal] = React.useState(false);
-    var [editingLesson, setEditingLesson] = React.useState(null);
-    var [showActivityModal, setShowActivityModal] = React.useState(false);
-    var [editingActivity, setEditingActivity] = React.useState(null);
-    var [showSpiritModal, setShowSpiritModal] = React.useState(false);
-    var [editingSpirit, setEditingSpirit] = React.useState(null);
-    var [showTypeModal, setShowTypeModal] = React.useState(false);
-    var [breakMode, setBreakMode] = React.useState(null); // null | "summer" | "winter" | "spring"
-    var [showBreakGoalModal, setShowBreakGoalModal] = React.useState(false);
-    var [breakGoalForm, setBreakGoalForm] = React.useState({ title: "", type: "goal", target: "", unit: "", notes: "" });
-    var [editingBreakGoal, setEditingBreakGoal] = React.useState(null);
-    var [teacherForm, setTeacherForm] = React.useState({ name: "", subject: "", email: "", phone: "", notes: "" });
-    var [eventForm, setEventForm] = React.useState({ title: "", date: "", type: "event", notes: "" });
-    var [curriculumForm, setCurriculumForm] = React.useState({ subject: "", name: "", website: "", notes: "" });
-    var [lessonForm, setLessonForm] = React.useState({ date: "", subject: "", title: "", description: "", resources: "", duration: "" });
-    var [activityForm, setActivityForm] = React.useState({ title: "", date: "", time: "", location: "", notes: "" });
-    var [spiritForm, setSpiritForm] = React.useState({ date: "", theme: "", notes: "" });
-
-    var schoolKids = people.filter(function(p) { return p && p.name && personIsMinor(p); });
-
-    React.useEffect(function() {
-      if (schoolKids.length === 0) return;
-      var ids = schoolKids.map(function(k){ return k.id; });
-      // Pick the first child if none selected OR the selected child is no longer a
-      // valid minor (aged out / removed). Depending on the id set — not just length —
-      // means a same-length roster change still corrects a stale activeChild (F-08).
-      if (!activeChild || ids.indexOf(activeChild) === -1) { setActiveChild(schoolKids[0].id); }
-    }, [schoolKids.map(function(k){ return k.id; }).join(",")]);
-
-    var child = schoolKids.find(function(p) { return p.id === activeChild; });
-    var childData = (activeChild && schoolData[activeChild]) || { type: null, public: { teachers: [], calEvents: [], spiritDays: [], teacherAppWeek: {}, schedule: "", notes: "" }, homeschool: { umbrella: {}, curricula: [], lessons: [], activities: [], attendance: {} } };
-
-    function saveChildData(patch) {
-      setSchoolData(function(prev) {
-        var existing = prev[activeChild] || { type: null, public: { teachers: [], calEvents: [], spiritDays: [], teacherAppWeek: {}, schedule: "", notes: "" }, homeschool: { umbrella: {}, curricula: [], lessons: [], activities: [], attendance: {} } };
-        var next = Object.assign({}, prev);
-        next[activeChild] = Object.assign({}, existing, patch);
-        return next;
-      });
-    }
-    function savePub(patch) { saveChildData({ public: Object.assign({}, childData.public, patch) }); }
-    function saveHS(patch)  { saveChildData({ homeschool: Object.assign({}, childData.homeschool, patch) }); }
-    function suid() { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
-
-    var isPublic = childData.type === "public";
-    var isHomeschool = childData.type === "homeschool";
-    var todayISO = new Date().toISOString().slice(0, 10);
-    var attendance = childData.homeschool.attendance || {};
-    var totalPresent = Object.values(attendance).filter(function(v) { return v === "present"; }).length;
-    var totalAbsent  = Object.values(attendance).filter(function(v) { return v === "absent"; }).length;
-
-    function toggleAttendance(dateStr) {
-      var current = attendance[dateStr];
-      var next = Object.assign({}, attendance);
-      if (!current) next[dateStr] = "present";
-      else if (current === "present") next[dateStr] = "absent";
-      else delete next[dateStr];
-      saveHS({ attendance: next });
-    }
-
-    function getCalendarDays() {
-      var now = new Date();
-      var year = now.getFullYear();
-      var month = now.getMonth();
-      var firstDay = new Date(year, month, 1).getDay();
-      var daysInMonth = new Date(year, month + 1, 0).getDate();
-      var days = [];
-      for (var i = 0; i < firstDay; i++) days.push(null);
-      for (var d = 1; d <= daysInMonth; d++) {
-        var iso = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
-        days.push({ day: d, iso: iso });
-      }
-      return days;
-    }
-
-    var PUB_TABS = [
-      { id: "overview", label: "Overview",  emoji: "🏫" },
-      { id: "teachers", label: "Teachers",  emoji: "👩‍🏫" },
-      { id: "schedule", label: "Schedule",  emoji: "⏰" },
-      { id: "calendar", label: "Calendar",  emoji: "📆" },
-      { id: "spirit",   label: "Spirit",    emoji: "🎉" },
-    ];
-    var HS_TABS = [
-      { id: "overview",   label: "Overview",   emoji: "🏡" },
-      { id: "umbrella",   label: "Umbrella",   emoji: "☂️" },
-      { id: "curricula",  label: "Curricula",  emoji: "📚" },
-      { id: "lessons",    label: "Lessons",    emoji: "✏️" },
-      { id: "attendance", label: "Attendance", emoji: "📋" },
-      { id: "activities", label: "Activities", emoji: "🌟" },
-    ];
-    var activeTabs = isPublic ? PUB_TABS : isHomeschool ? HS_TABS : [];
-
-    if (schoolKids.length === 0) {
-      return (
-        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🏫</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>School</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
-          <button onClick={function() { goTab("settings"); }} style={btnP(T.blue)}>Go to Settings</button>
-        </div>
-      );
-    }
-
-    function TypePicker() {
-      return (
-        <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-          <div style={{ background: T.surface, borderRadius: "1.2rem", padding: "2rem", width: "min(360px,100%)", boxShadow: "0 8px 40px rgba(0,0,0,0.18)", maxHeight: "calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)", overflowY: "auto" }}>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.4rem", textAlign: "center" }}>
-              School type for {child ? child.name : ""}?
-            </div>
-            <div style={{ color: T.textMid, fontSize: "0.82rem", textAlign: "center", marginBottom: "1.5rem" }}>You can change this anytime.</div>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <button onClick={function() { saveChildData({ type: "public" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: T.bluePale, border: "2px solid " + T.blue, borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
-                <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🏫</div>
-                <div style={{ fontWeight: 700, color: T.blue, fontSize: "0.88rem" }}>Public / Private</div>
-                <div style={{ color: T.textMid, fontSize: "0.75rem", marginTop: "0.25rem" }}>Teachers, calendar, schedule</div>
-              </button>
-              <button onClick={function() { saveChildData({ type: "homeschool" }); setSubTab("overview"); setShowTypeModal(false); }} style={{ flex: 1, background: T.sagePale, border: "2px solid " + T.sage, borderRadius: "1rem", padding: "1.25rem 0.75rem", cursor: "pointer", textAlign: "center" }}>
-                <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🏡</div>
-                <div style={{ fontWeight: 700, color: T.sage, fontSize: "0.88rem" }}>Homeschool</div>
-                <div style={{ color: T.textMid, fontSize: "0.75rem", marginTop: "0.25rem" }}>Curricula, lessons, attendance</div>
-              </button>
-            </div>
-            <button onClick={function() { setShowTypeModal(false); }} style={Object.assign({}, btnS(), { width: "100%", marginTop: "1rem" })}>Cancel</button>
-          </div>
-        </div>
-      );
-    }
-
-    function PublicOverview() {
-      var [notes, setNotes] = React.useState(childData.public.notes || "");
-      return (
-        <div>
-          <div style={card()}>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>📝 Important Notes</div>
-            <textarea value={notes} onChange={function(e) { setNotes(e.target.value); }} onBlur={function() { savePub({ notes: notes }); }} placeholder="Allergies, accommodations, drop-off details, nurse info..." style={Object.assign({}, inp(), { minHeight: "90px", resize: "vertical" })} />
-          </div>
-          <div style={card({ background: T.bluePale, border: "1.5px solid " + T.blue + "40" })}>
-            <div style={{ fontWeight: 700, color: T.blue, marginBottom: "0.5rem" }}>👩‍🏫 Teacher Appreciation Week</div>
-            <div style={{ marginBottom: "0.5rem" }}>
-              <label style={lbl}>Week of</label>
-              <input type="date" value={childData.public.teacherAppWeek ? childData.public.teacherAppWeek.start || "" : ""} onChange={function(e) { var v = e.target.value; savePub({ teacherAppWeek: Object.assign({}, childData.public.teacherAppWeek, { start: v }) }); }} style={inp()} />
-            </div>
-            <label style={lbl}>Gift ideas / plan</label>
-            <textarea value={childData.public.teacherAppWeek ? childData.public.teacherAppWeek.ideas || "" : ""} onChange={function(e) { var v = e.target.value; savePub({ teacherAppWeek: Object.assign({}, childData.public.teacherAppWeek, { ideas: v }) }); }} placeholder="Cards, donations, treats per teacher..." style={Object.assign({}, inp(), { minHeight: "60px", resize: "vertical" })} />
-          </div>
-          <button onClick={function() { setShowTypeModal(true); }} style={Object.assign({}, btnS(), { width: "100%", fontSize: "0.78rem" })}>🔄 Change school type</button>
-        </div>
-      );
-    }
-
-    function PublicTeachers() {
-      var teachers = childData.public.teachers || [];
-      return (
-        <div>
-          <button onClick={function() { setTeacherForm({ name: "", subject: "", email: "", phone: "", notes: "" }); setEditingTeacher(null); setShowTeacherModal(true); }} style={Object.assign({}, btnP(T.blue), { width: "100%", marginBottom: "0.85rem" })}>+ Add Teacher</button>
-          {teachers.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No teachers added yet</div>}
-          {teachers.map(function(t) {
-            return (
-              <div key={t.id} style={card()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.95rem" }}>{t.name}</div>
-                    {t.subject && <div style={{ color: T.blue, fontSize: "0.78rem", fontWeight: 600, marginTop: "0.1rem" }}>{t.subject}</div>}
-                  </div>
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button onClick={function() { setTeacherForm({ name: t.name, subject: t.subject, email: t.email, phone: t.phone, notes: t.notes }); setEditingTeacher(t.id); setShowTeacherModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { savePub({ teachers: teachers.filter(function(x) { return x.id !== t.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
-                  </div>
-                </div>
-                {t.email && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.4rem" }}>✉️ {t.email}</div>}
-                {t.phone && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📞 {t.phone}</div>}
-                {t.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{t.notes}</div>}
-              </div>
-            );
-          })}
-          {showTeacherModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(85dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingTeacher ? "Edit Teacher" : "Add Teacher"}</div>
-                {[["name","Name","text"],["subject","Subject / Class","text"],["email","Email","email"],["phone","Phone","tel"]].map(function(f) {
-                  return (
-                    <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
-                      <label style={lbl}>{f[1]}</label>
-                      <input type={f[2]} key={f[0]+"_"+(editingTeacher?editingTeacher.id:"new")} defaultValue={teacherForm[f[0]]} onBlur={function(e) { var v = e.target.value; var fk = f[0]; setTeacherForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
-                    </div>
-                  );
-                })}
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes</label>
-                  <textarea defaultValue={teacherForm.notes} onBlur={function(e) { var v = e.target.value; setTeacherForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "60px" })} />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() {
-                    if (!teacherForm.name.trim()) return;
-                    var current = childData.public.teachers || [];
-                    if (editingTeacher) {
-                      savePub({ teachers: current.map(function(t) { return t.id === editingTeacher ? Object.assign({}, teacherForm, { id: t.id }) : t; }) });
-                    } else {
-                      savePub({ teachers: current.concat([Object.assign({}, teacherForm, { id: suid() })]) });
-                    }
-                    setShowTeacherModal(false);
-                  }} style={btnP(T.blue, { flex: 1 })}>Save</button>
-                  <button onClick={function() { setShowTeacherModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    function PublicSchedule() {
-      var [localSched, setLocalSched] = React.useState(childData.public.schedule || "");
-      return (
-        <div style={card()}>
-          <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.75rem" }}>⏰ Weekly Schedule</div>
-          <textarea value={localSched} onChange={function(e) { setLocalSched(e.target.value); }} onBlur={function() { savePub({ schedule: localSched }); }} placeholder={"7:45 — Drop-off\n8:00 — Math\n11:30 — Lunch\n2:45 — Pick-up"} style={Object.assign({}, inp(), { minHeight: "200px", resize: "vertical", fontFamily: "monospace", fontSize: "0.82rem", lineHeight: 1.7 })} />
-          <div style={{ textAlign: "right", marginTop: "0.5rem" }}>
-            <button onClick={function() { savePub({ schedule: localSched }); }} style={btnP(T.blue, { fontSize: "0.78rem", padding: "0.4rem 0.9rem" })}>Save</button>
-          </div>
-        </div>
-      );
-    }
-
-    function PublicCalendar() {
-      var events = (childData.public.calEvents || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
-      var EVENT_TYPES = [
-        { id: "event",   label: "School Event",        color: T.blue },
-        { id: "holiday", label: "Holiday / No School",  color: T.sage },
-        { id: "early",   label: "Early Release",        color: T.sand },
-        { id: "field",   label: "Field Trip",           color: T.rose },
-        { id: "other",   label: "Other",                color: T.lavender },
-      ];
-      return (
-        <div>
-          <button onClick={function() { setEventForm({ title: "", date: "", type: "event", notes: "" }); setEditingEvent(null); setShowEventModal(true); }} style={Object.assign({}, btnP(T.blue), { width: "100%", marginBottom: "0.85rem" })}>+ Add Calendar Item</button>
-          {events.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No calendar items yet</div>}
-          {events.map(function(ev) {
-            var typeInfo = EVENT_TYPES.find(function(t) { return t.id === ev.type; }) || EVENT_TYPES[0];
-            return (
-              <div key={ev.id} style={card({ borderLeft: "3px solid " + typeInfo.color })}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{ev.title}</div>
-                    <div style={{ color: typeInfo.color, fontSize: "0.72rem", fontWeight: 600, marginTop: "0.15rem" }}>{typeInfo.label}</div>
-                    {ev.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(ev.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
-                  </div>
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button onClick={function() { setEventForm({ title: ev.title, date: ev.date, type: ev.type, notes: ev.notes }); setEditingEvent(ev.id); setShowEventModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { savePub({ calEvents: events.filter(function(x) { return x.id !== ev.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
-                  </div>
-                </div>
-                {ev.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{ev.notes}</div>}
-              </div>
-            );
-          })}
-          {showEventModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingEvent ? "Edit Item" : "Add Calendar Item"}</div>
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Title</label>
-                  <input defaultValue={eventForm.title} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Spring Concert, Picture Day..." />
-                </div>
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Date</label>
-                  <input type="date" defaultValue={eventForm.date} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
-                </div>
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Type</label>
-                  <select value={eventForm.type} onChange={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { type: v }); }); }} style={inp()}>
-                    {[["event","School Event"],["holiday","Holiday / No School"],["early","Early Release"],["field","Field Trip"],["other","Other"]].map(function(o) { return <option key={o[0]} value={o[0]}>{o[1]}</option>; })}
-                  </select>
-                </div>
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes</label>
-                  <textarea defaultValue={eventForm.notes} onBlur={function(e) { var v = e.target.value; setEventForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() {
-                    if (!eventForm.title.trim()) return;
-                    var current = childData.public.calEvents || [];
-                    if (editingEvent) {
-                      savePub({ calEvents: current.map(function(e) { return e.id === editingEvent ? Object.assign({}, eventForm, { id: e.id }) : e; }) });
-                    } else {
-                      savePub({ calEvents: current.concat([Object.assign({}, eventForm, { id: suid() })]) });
-                    }
-                    setShowEventModal(false);
-                  }} style={btnP(T.blue, { flex: 1 })}>Save</button>
-                  <button onClick={function() { setShowEventModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    function SpiritDays() {
-      var spiritDays = (childData.public.spiritDays || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
-      return (
-        <div>
-          <button onClick={function() { setSpiritForm({ date: "", theme: "", notes: "" }); setEditingSpirit(null); setShowSpiritModal(true); }} style={Object.assign({}, btnP(T.rose), { width: "100%", marginBottom: "0.85rem" })}>+ Add Spirit Day</button>
-          {spiritDays.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No spirit days added yet</div>}
-          {spiritDays.map(function(s) {
-            return (
-              <div key={s.id} style={card({ background: T.rosePale, borderColor: T.rose + "40" })}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>🎉 {s.theme}</div>
-                    {s.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(s.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>}
-                  </div>
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button onClick={function() { setSpiritForm({ date: s.date, theme: s.theme, notes: s.notes }); setEditingSpirit(s.id); setShowSpiritModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { savePub({ spiritDays: spiritDays.filter(function(x) { return x.id !== s.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
-                  </div>
-                </div>
-                {s.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{s.notes}</div>}
-              </div>
-            );
-          })}
-          {showSpiritModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingSpirit ? "Edit Spirit Day" : "Add Spirit Day"}</div>
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Theme</label>
-                  <input defaultValue={spiritForm.theme} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { theme: v }); }); }} style={inp()} placeholder="Pajama Day, Decade Day, Color Wars..." />
-                </div>
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Date</label>
-                  <input type="date" defaultValue={spiritForm.date} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { date: v }); }); }} style={inp()} />
-                </div>
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes</label>
-                  <textarea defaultValue={spiritForm.notes} onBlur={function(e) { var v = e.target.value; setSpiritForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "50px" })} placeholder="What to wear, items to bring..." />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() {
-                    if (!spiritForm.theme.trim()) return;
-                    var current = childData.public.spiritDays || [];
-                    if (editingSpirit) {
-                      savePub({ spiritDays: current.map(function(s) { return s.id === editingSpirit ? Object.assign({}, spiritForm, { id: s.id }) : s; }) });
-                    } else {
-                      savePub({ spiritDays: current.concat([Object.assign({}, spiritForm, { id: suid() })]) });
-                    }
-                    setShowSpiritModal(false);
-                  }} style={btnP(T.rose, { flex: 1 })}>Save</button>
-                  <button onClick={function() { setShowSpiritModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    function HSOverview() {
-      return (
-        <div>
-          <div style={card({ background: T.sagePale, borderColor: T.sage + "40" })}>
-            <div style={{ fontWeight: 700, color: T.sage, fontSize: "1rem", marginBottom: "0.75rem" }}>📊 Attendance This Year</div>
-            <div style={{ display: "flex", gap: "1.5rem" }}>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.sage }}>{totalPresent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Present</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.rose }}>{totalAbsent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Absent</div></div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: "2rem", fontWeight: 800, color: T.blue }}>{totalPresent + totalAbsent}</div><div style={{ fontSize: "0.72rem", color: T.textMid, fontWeight: 600 }}>Total Logged</div></div>
-            </div>
-          </div>
-          <div style={card()}>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>📚 Active Curricula</div>
-            {(childData.homeschool.curricula || []).length === 0
-              ? <div style={{ color: T.textFaint, fontSize: "0.82rem" }}>No curricula added yet</div>
-              : (childData.homeschool.curricula || []).map(function(c) { return <div key={c.id} style={{ display: "flex", justifyContent: "space-between", padding: "0.35rem 0", borderBottom: "1px solid " + T.borderSoft, fontSize: "0.84rem", color: T.textDark }}><span>{c.subject}</span><span style={{ color: T.textMid }}>{c.name}</span></div>; })
-            }
-          </div>
-          <div style={card()}>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>✏️ Recent Lessons</div>
-            {(childData.homeschool.lessons || []).length === 0
-              ? <div style={{ color: T.textFaint, fontSize: "0.82rem" }}>No lessons yet</div>
-              : (childData.homeschool.lessons || []).slice(-3).reverse().map(function(l) {
-                  return <div key={l.id} style={{ padding: "0.35rem 0", borderBottom: "1px solid " + T.borderSoft }}><div style={{ fontSize: "0.84rem", color: T.textDark, fontWeight: 600 }}>{l.title}</div><div style={{ fontSize: "0.72rem", color: T.textMid }}>{l.subject} · {l.date}</div></div>;
-                })
-            }
-          </div>
-          <button onClick={function() { setShowTypeModal(true); }} style={Object.assign({}, btnS(), { width: "100%", fontSize: "0.78rem" })}>🔄 Change school type</button>
-        </div>
-      );
-    }
-
-    function HSUmbrella() {
-      var umbrella = childData.homeschool.umbrella || {};
-      var [form, setForm] = React.useState({ name: umbrella.name || "", contact: umbrella.contact || "", email: umbrella.email || "", daysRequired: umbrella.daysRequired || "", notes: umbrella.notes || "" });
-      return (
-        <div style={card()}>
-          <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.85rem" }}>☂️ Umbrella School Info</div>
-          {[["name","School Name"],["contact","Contact Person"],["email","Email"],["daysRequired","Required Days / Year"]].map(function(f) {
-            return (
-              <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
-                <label style={lbl}>{f[1]}</label>
-                <input value={form[f[0]]} onChange={function(e) { var v = e.target.value; var fk = f[0]; setForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
-              </div>
-            );
-          })}
-          <div style={{ marginBottom: "0.85rem" }}>
-            <label style={lbl}>Notes / Requirements</label>
-            <textarea value={form.notes} onChange={function(e) { var v = e.target.value; setForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} />
-          </div>
-          <button onClick={function() { saveHS({ umbrella: form }); }} style={btnP(T.sage, { width: "100%" })}>Save</button>
-        </div>
-      );
-    }
-
-    function HSCurricula() {
-      var curricula = childData.homeschool.curricula || [];
-      return (
-        <div>
-          <button onClick={function() { setCurriculumForm({ subject: "", name: "", website: "", notes: "" }); setEditingCurriculum(null); setShowCurriculumModal(true); }} style={Object.assign({}, btnP(T.sage), { width: "100%", marginBottom: "0.85rem" })}>+ Add Curriculum</button>
-          {curricula.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No curricula added yet</div>}
-          {curricula.map(function(c) {
-            return (
-              <div key={c.id} style={card()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{c.subject}</div>
-                    <div style={{ color: T.sage, fontSize: "0.78rem", fontWeight: 600 }}>{c.name}</div>
-                    {c.website && <a href={c.website.startsWith("http") ? c.website : "https://" + c.website} target="_blank" rel="noreferrer" style={{ color: T.blue, fontSize: "0.75rem", display: "block", marginTop: "0.2rem" }}>🔗 {c.website}</a>}
-                  </div>
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button onClick={function() { setCurriculumForm({ subject: c.subject, name: c.name, website: c.website, notes: c.notes }); setEditingCurriculum(c.id); setShowCurriculumModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                    <button onClick={function() { saveHS({ curricula: curricula.filter(function(x) { return x.id !== c.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
-                  </div>
-                </div>
-                {c.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{c.notes}</div>}
-              </div>
-            );
-          })}
-          {showCurriculumModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingCurriculum ? "Edit Curriculum" : "Add Curriculum"}</div>
-                {[["subject","Subject","text"],["name","Curriculum Name","text"],["website","Website","url"]].map(function(f) {
-                  return (
-                    <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
-                      <label style={lbl}>{f[1]}</label>
-                      <input type={f[2]} key={f[0]+"_"+(editingCurriculum?editingCurriculum.id:"new")} defaultValue={curriculumForm[f[0]]} onBlur={function(e) { var v = e.target.value; var fk = f[0]; setCurriculumForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
-                    </div>
-                  );
-                })}
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes</label>
-                  <textarea defaultValue={curriculumForm.notes} onBlur={function(e) { var v = e.target.value; setCurriculumForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() {
-                    if (!curriculumForm.subject.trim()) return;
-                    var current = childData.homeschool.curricula || [];
-                    if (editingCurriculum) {
-                      saveHS({ curricula: current.map(function(c) { return c.id === editingCurriculum ? Object.assign({}, curriculumForm, { id: c.id }) : c; }) });
-                    } else {
-                      saveHS({ curricula: current.concat([Object.assign({}, curriculumForm, { id: suid() })]) });
-                    }
-                    setShowCurriculumModal(false);
-                  }} style={btnP(T.sage, { flex: 1 })}>Save</button>
-                  <button onClick={function() { setShowCurriculumModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    function HSLessons() {
-      // ── Week plan structure: { Monday: { subjects: [{id,name,title,todo,notes,done}], dayNotes: "" }, ... }
-      var weekPlan = childData.homeschool.weekPlan || {};
-      var curricula = childData.homeschool.curricula || [];
-      var SCHOOL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
-      var [lessonSubTab, setLessonSubTab] = React.useState("week");
-      var [editingDay, setEditingDay] = React.useState(null);    // day name being edited
-      var [editingSubjectIdx, setEditingSubjectIdx] = React.useState(null); // index in subjects array
-      var [subjectModal, setSubjectModal] = React.useState(false);
-      var [subjectForm, setSubjectForm] = React.useState({ name: "", title: "", todo: "", notes: "" });
-      var [expandedDays, setExpandedDays] = React.useState({});
-      var [copySourceDay, setCopySourceDay] = React.useState("");
-      var [showCopyModal, setShowCopyModal] = React.useState(false);
-
-      function getDayPlan(day) {
-        return weekPlan[day] || { subjects: [], dayNotes: "" };
-      }
-
-      function saveDayPlan(day, patch) {
-        var current = getDayPlan(day);
-        var next = Object.assign({}, weekPlan);
-        next[day] = Object.assign({}, current, patch);
-        saveHS({ weekPlan: next });
-      }
-
-      function openAddSubject(day) {
-        setEditingDay(day);
-        setEditingSubjectIdx(null);
-        setSubjectForm({ name: curricula.length > 0 ? curricula[0].subject : "", title: "", todo: "", notes: "" });
-        setSubjectModal(true);
-      }
-
-      function openEditSubject(day, idx) {
-        var s = getDayPlan(day).subjects[idx];
-        setEditingDay(day);
-        setEditingSubjectIdx(idx);
-        setSubjectForm({ name: s.name || "", title: s.title || "", todo: s.todo || "", notes: s.notes || "" });
-        setSubjectModal(true);
-      }
-
-      function saveSubject() {
-        if (!subjectForm.name.trim()) return;
-        var plan = getDayPlan(editingDay);
-        var subjects = (plan.subjects || []).slice();
-        if (editingSubjectIdx !== null) {
-          subjects[editingSubjectIdx] = Object.assign({}, subjects[editingSubjectIdx], subjectForm);
-        } else {
-          subjects.push(Object.assign({}, subjectForm, { id: suid(), done: false }));
-        }
-        saveDayPlan(editingDay, { subjects: subjects });
-        setSubjectModal(false);
-      }
-
-      function deleteSubject(day, idx) {
-        var plan = getDayPlan(day);
-        var subjects = (plan.subjects || []).filter(function(_, i) { return i !== idx; });
-        saveDayPlan(day, { subjects: subjects });
-      }
-
-      function toggleSubjectDone(day, idx) {
-        var plan = getDayPlan(day);
-        var subjects = (plan.subjects || []).slice();
-        subjects[idx] = Object.assign({}, subjects[idx], { done: !subjects[idx].done });
-        saveDayPlan(day, { subjects: subjects });
-      }
-
-      function clearWeek() {
-        var next = {};
-        SCHOOL_DAYS.forEach(function(d) { next[d] = { subjects: [], dayNotes: "" }; });
-        saveHS({ weekPlan: next });
-      }
-
-      function copyDayToAll(sourceDay) {
-        var source = getDayPlan(sourceDay);
-        var next = Object.assign({}, weekPlan);
-        SCHOOL_DAYS.forEach(function(d) {
-          if (d !== sourceDay) {
-            next[d] = { subjects: source.subjects.map(function(s) { return Object.assign({}, s, { id: suid(), done: false }); }), dayNotes: "" };
-          }
-        });
-        saveHS({ weekPlan: next });
-        setShowCopyModal(false);
-      }
-
-      // Summary counts
-      var totalSubjects = SCHOOL_DAYS.reduce(function(acc, d) { return acc + (getDayPlan(d).subjects || []).length; }, 0);
-      var totalDone = SCHOOL_DAYS.reduce(function(acc, d) { return acc + (getDayPlan(d).subjects || []).filter(function(s) { return s.done; }).length; }, 0);
-
-      var LESSON_TABS = [
-        { id: "week",    label: "This Week", emoji: "📆" },
-        { id: "history", label: "Past Plans", emoji: "🗂️" },
-      ];
-
-      return (
-        <div>
-          {/* Sub-tab bar */}
-          <ScrollTabs style={{ marginBottom: "0.85rem", background: T.bgAlt, borderRadius: "0.8rem", padding: "0.28rem", border: "1px solid " + T.border }}>
-            {LESSON_TABS.map(function(st) {
-              return (
-                <button key={st.id} onClick={function() { setLessonSubTab(st.id); }} style={{ flexShrink: 0, background: lessonSubTab === st.id ? T.sage : "transparent", color: lessonSubTab === st.id ? "#fff" : T.textMid, border: "none", borderRadius: "0.55rem", padding: "0.4rem 0.7rem", cursor: "pointer", fontSize: "0.73rem", fontWeight: 700, fontFamily: "inherit", transition: "all 0.15s", whiteSpace: "nowrap" }}>
-                  {st.emoji} {st.label}
-                </button>
-              );
-            })}
-          </ScrollTabs>
-
-          {lessonSubTab === "week" && (
-            <div>
-              {/* Week summary bar */}
-              <div style={card({ background: T.sagePale, border: "1.5px solid " + T.sage + "40", padding: "0.85rem 1rem", marginBottom: "0.85rem" })}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                  <div style={{ display: "flex", gap: "1.5rem" }}>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.sage }}>{totalSubjects}</div>
-                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Planned</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.sageDark }}>{totalDone}</div>
-                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Done</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 800, color: T.blue }}>{totalSubjects - totalDone}</div>
-                      <div style={{ fontSize: "0.65rem", color: T.textMid, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Left</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button onClick={function() { setShowCopyModal(true); }} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem" })}>📋 Copy Day</button>
-                    <button onClick={clearWeek} style={btnS({ fontSize: "0.72rem", padding: "0.3rem 0.65rem", color: T.rose })}>🗑 Clear Week</button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Day cards */}
-              {SCHOOL_DAYS.map(function(day) {
-                var plan = getDayPlan(day);
-                var subjects = plan.subjects || [];
-                var isToday = day === TODAY_NAME;
-                var expanded = expandedDays[day] !== false; // default expanded
-                var doneCount = subjects.filter(function(s) { return s.done; }).length;
-                return (
-                  <div key={day} style={card({ borderLeft: "4px solid " + (isToday ? T.sage : T.borderSoft), background: isToday ? "linear-gradient(to right," + T.sagePale + "," + T.surface + ")" : T.surface, marginBottom: "0.75rem" })}>
-                    {/* Day header */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: expanded ? "0.75rem" : 0 }}>
-                      <button onClick={function() { setExpandedDays(function(p) { var n = Object.assign({}, p); n[day] = !expanded; return n; }); }} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", padding: 0, fontFamily: "inherit" }}>
-                        <span style={{ fontWeight: 700, color: isToday ? T.sageDark : T.textDark, fontSize: "0.95rem" }}>{day}</span>
-                        {isToday && <span style={{ background: T.sage, color: "#fff", fontSize: "0.58rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.06em" }}>Today</span>}
-                        {subjects.length > 0 && <span style={{ color: T.textFaint, fontSize: "0.72rem" }}>{doneCount}/{subjects.length}</span>}
-                        <span style={{ color: T.textFaint, fontSize: "0.7rem" }}>{expanded ? "▾" : "▸"}</span>
-                      </button>
-                      <button onClick={function() { openAddSubject(day); }} style={btnS({ fontSize: "0.72rem", padding: "0.28rem 0.65rem", display: "flex", alignItems: "center", gap: "0.25rem" })}>
-                        + Subject
-                      </button>
-                    </div>
-
-                    {expanded && (
-                      <div>
-                        {/* Subject rows */}
-                        {subjects.length === 0 && (
-                          <div style={{ color: T.textFaint, fontSize: "0.8rem", textAlign: "center", padding: "0.75rem 0", fontStyle: "italic" }}>No subjects planned — tap + Subject to add</div>
-                        )}
-                        {subjects.map(function(s, idx) {
-                          return (
-                            <div key={s.id || idx} style={{ background: s.done ? T.bgAlt : T.white, border: "1.5px solid " + (s.done ? T.border : T.borderSoft), borderRadius: "0.65rem", padding: "0.6rem 0.75rem", marginBottom: "0.45rem", opacity: s.done ? 0.65 : 1, transition: "all 0.15s" }}>
-                              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-                                {/* Done checkbox */}
-                                <button onClick={function() { toggleSubjectDone(day, idx); }} style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "0.35rem", border: "2px solid " + (s.done ? T.sage : T.border), background: s.done ? T.sage : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: "1px", transition: "all 0.15s" }}>
-                                  {s.done && <span style={{ color: "#fff", fontSize: "0.65rem", fontWeight: 900 }}>✓</span>}
-                                </button>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  {/* Subject name badge + title */}
-                                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", marginBottom: s.todo || s.notes ? "0.3rem" : 0 }}>
-                                    <span style={{ background: T.sagePale, color: T.sageDark, fontSize: "0.65rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 8px", border: "1px solid " + T.sage + "30", flexShrink: 0, textDecoration: s.done ? "line-through" : "none" }}>{s.name}</span>
-                                    {s.title && <span style={{ color: s.done ? T.textFaint : T.textDark, fontSize: "0.82rem", fontWeight: 600, textDecoration: s.done ? "line-through" : "none" }}>{s.title}</span>}
-                                  </div>
-                                  {/* To-do */}
-                                  {s.todo && <div style={{ color: T.textMid, fontSize: "0.76rem", marginBottom: "0.15rem", lineHeight: 1.45 }}>📌 {s.todo}</div>}
-                                  {/* Notes */}
-                                  {s.notes && <div style={{ color: T.textSoft, fontSize: "0.73rem", fontStyle: "italic" }}>💬 {s.notes}</div>}
-                                </div>
-                                {/* Edit / delete */}
-                                <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
-                                  <button onClick={function() { openEditSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.textFaint, fontSize: "0.72rem" }}>✏️</button>
-                                  <button onClick={function() { deleteSubject(day, idx); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: T.rose, fontSize: "0.72rem" }}>✕</button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {/* Day notes */}
-                        <div style={{ marginTop: "0.5rem" }}>
-                          <textarea
-                            key={day+"_notes"}
-                            defaultValue={plan.dayNotes || ""}
-                            onBlur={function(e) { var v = e.target.value; saveDayPlan(day, { dayNotes: v }); }}
-                            placeholder="Day notes — field trips, appointments, special plans..."
-                            style={Object.assign({}, inp({ fontSize: "0.76rem", padding: "0.45rem 0.65rem" }), { minHeight: "44px", resize: "none", color: T.textMid })}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {lessonSubTab === "history" && (
-            <div>
-              <div style={card()}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.5rem" }}>🗂️ Past Lesson Plans</div>
-                <div style={{ color: T.textMid, fontSize: "0.82rem", lineHeight: 1.6 }}>
-                  Past plans are saved automatically each week when you clear or plan a new week. This feature is coming soon — for now your current week plan persists until you clear it.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Subject add/edit modal */}
-          {subjectModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem", fontSize: "1rem" }}>
-                  {editingSubjectIdx !== null ? "Edit Subject" : "Add Subject"} — {editingDay}
-                </div>
-                {/* Subject / curriculum picker */}
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Subject</label>
-                  {curricula.length > 0
-                    ? <select defaultValue={subjectForm.name} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { name: v }); }); }} style={inp()}>
-                        <option value="">Select subject...</option>
-                        {curricula.map(function(c) { return <option key={c.id} value={c.subject}>{c.subject}</option>; })}
-                        <option value="Other">Other</option>
-                      </select>
-                    : <input value={subjectForm.name} onChange={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { name: v }); }); }} style={inp()} placeholder="Math, Reading, Science..." />
-                  }
-                </div>
-                {/* Lesson / unit title */}
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Lesson / Unit Title</label>
-                  <input defaultValue={subjectForm.title} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder="Chapter 4: Fractions, Timeline of WWI..." />
-                </div>
-                {/* What to do */}
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>What to do / pages / objectives</label>
-                  <textarea defaultValue={subjectForm.todo} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { todo: v }); }); }} style={Object.assign({}, inp(), { minHeight: "70px", resize: "vertical" })} placeholder="Workbook pp. 42-45, watch Khan Academy video, complete worksheet 3..." />
-                </div>
-                {/* Notes */}
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes / Resources</label>
-                  <input defaultValue={subjectForm.notes} onBlur={function(e) { var v = e.target.value; setSubjectForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={inp()} placeholder="Manipulatives needed, print pages 8-9, video link..." />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={saveSubject} style={btnP(T.sage, { flex: 1 })}>Save</button>
-                  <button onClick={function() { setSubjectModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Copy day modal */}
-          {showCopyModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem", padding: "1.5rem", width: "min(340px,100%)", maxHeight: "calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)", overflowY: "auto" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.4rem" }}>📋 Copy Day to All Days</div>
-                <div style={{ color: T.textMid, fontSize: "0.82rem", marginBottom: "1rem" }}>Pick a day to copy its subjects to all other school days.</div>
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Copy from</label>
-                  <select value={copySourceDay} onChange={function(e) { setCopySourceDay(e.target.value); }} style={inp()}>
-                    <option value="">Select a day...</option>
-                    {SCHOOL_DAYS.map(function(d) { return <option key={d} value={d}>{d}</option>; })}
-                  </select>
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() { if (copySourceDay) copyDayToAll(copySourceDay); }} style={btnP(T.sage, { flex: 1 })} disabled={!copySourceDay}>Copy</button>
-                  <button onClick={function() { setShowCopyModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    function HSAttendance() {
-      var now = new Date();
-      var calDays = getCalendarDays();
-      var monthName = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-      return (
-        <div>
-          <div style={card()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-              <div style={{ fontWeight: 700, color: T.textDark }}>{monthName}</div>
-              <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.72rem" }}>
-                <span style={{ color: T.sage, fontWeight: 700 }}>✓ {Object.values(attendance).filter(function(v) { return v === "present"; }).length} present</span>
-                <span style={{ color: T.rose, fontWeight: 700 }}>✗ {Object.values(attendance).filter(function(v) { return v === "absent"; }).length} absent</span>
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px", marginBottom: "0.5rem" }}>
-              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(function(d) {
-                return <div key={d} style={{ textAlign: "center", fontSize: "0.62rem", color: T.textFaint, fontWeight: 700, padding: "0.2rem 0" }}>{d}</div>;
-              })}
-              {calDays.map(function(dayObj, i) {
-                if (!dayObj) return <div key={"e" + i} />;
-                var status = attendance[dayObj.iso];
-                var isToday = dayObj.iso === todayISO;
-                var dow = new Date(dayObj.iso + "T12:00:00").getDay();
-                var isWeekend = dow === 0 || dow === 6;
-                return (
-                  <button key={dayObj.iso} onClick={function() { if (!isWeekend) toggleAttendance(dayObj.iso); }} style={{ padding: "0.22rem 0", border: isToday ? "2px solid " + T.blue : "1.5px solid " + (status ? "transparent" : T.borderSoft), borderRadius: "0.4rem", cursor: isWeekend ? "default" : "pointer", background: status === "present" ? T.sage : status === "absent" ? T.rose : isWeekend ? T.bgAlt : T.surface, color: status ? "#fff" : isWeekend ? T.textFaint : T.textDark, fontSize: "0.7rem", fontWeight: isToday ? 800 : 500, fontFamily: "inherit", transition: "all 0.12s" }}>
-                    {status === "present" ? "✓" : status === "absent" ? "✗" : dayObj.day}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: "0.72rem", color: T.textFaint, textAlign: "center" }}>Tap a weekday to cycle: unmarked → present → absent → clear</div>
-          </div>
-          <div style={card({ background: T.sagePale, borderColor: T.sage + "40" })}>
-            <div style={{ fontWeight: 700, color: T.sage, marginBottom: "0.5rem" }}>📊 Year-to-Date</div>
-            <div style={{ display: "flex", gap: "2rem" }}>
-              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.sage }}>{totalPresent}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Present</div></div>
-              <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.rose }}>{totalAbsent}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Absent</div></div>
-              {childData.homeschool.umbrella && childData.homeschool.umbrella.daysRequired && (
-                <div><span style={{ fontSize: "1.6rem", fontWeight: 800, color: T.blue }}>{Math.max(0, parseInt(childData.homeschool.umbrella.daysRequired) - totalPresent)}</span><div style={{ fontSize: "0.7rem", color: T.textMid }}>Days left to goal</div></div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function HSActivities() {
-      var activities = (childData.homeschool.activities || []).sort(function(a, b) { return a.date < b.date ? -1 : 1; });
-      var upcoming = activities.filter(function(a) { return a.date >= todayISO; });
-      var past = activities.filter(function(a) { return a.date < todayISO; });
-      return (
-        <div>
-          <button onClick={function() { setActivityForm({ title: "", date: "", time: "", location: "", notes: "" }); setEditingActivity(null); setShowActivityModal(true); }} style={Object.assign({}, btnP(T.lavender), { width: "100%", marginBottom: "0.85rem" })}>+ Add Activity</button>
-          {upcoming.length > 0 && (
-            <div style={{ marginBottom: "0.5rem" }}>
-              <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Upcoming</div>
-              {upcoming.map(function(a) {
-                return (
-                  <div key={a.id} style={card({ borderLeft: "3px solid " + T.lavender })}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{a.title}</div>
-                        {a.date && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}{a.time ? " · " + a.time : ""}</div>}
-                        {a.location && <div style={{ color: T.textMid, fontSize: "0.75rem" }}>📍 {a.location}</div>}
-                      </div>
-                      <div style={{ display: "flex", gap: "0.4rem" }}>
-                        <button onClick={function() { setActivityForm({ title: a.title, date: a.date, time: a.time, location: a.location, notes: a.notes }); setEditingActivity(a.id); setShowActivityModal(true); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem" })}>Edit</button>
-                        <button onClick={function() { saveHS({ activities: activities.filter(function(x) { return x.id !== a.id; }) }); }} style={btnS({ padding: "0.3rem 0.65rem", fontSize: "0.72rem", color: T.rose })}>✕</button>
-                      </div>
-                    </div>
-                    {a.notes && <div style={{ color: T.textSoft, fontSize: "0.76rem", marginTop: "0.4rem", fontStyle: "italic" }}>{a.notes}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {past.length > 0 && (
-            <div>
-              <div style={{ fontSize: "0.72rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>Past</div>
-              {past.slice(-5).reverse().map(function(a) {
-                return (
-                  <div key={a.id} style={card({ opacity: 0.65 })}>
-                    <div style={{ fontWeight: 600, color: T.textMid, fontSize: "0.88rem" }}>{a.title}</div>
-                    {a.date && <div style={{ color: T.textFaint, fontSize: "0.75rem" }}>📅 {new Date(a.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {activities.length === 0 && <div style={{ color: T.textFaint, textAlign: "center", padding: "2rem 0", fontSize: "0.85rem" }}>No activities yet — add field trips, co-ops, classes</div>}
-          {showActivityModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(90dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingActivity ? "Edit Activity" : "Add Activity"}</div>
-                {[["title","Title","text"],["date","Date","date"],["time","Time","time"],["location","Location","text"]].map(function(f) {
-                  return (
-                    <div key={f[0]} style={{ marginBottom: "0.65rem" }}>
-                      <label style={lbl}>{f[1]}</label>
-                      <input type={f[2]} key={f[0]+"_"+(editingActivity?editingActivity.id:"new")} defaultValue={activityForm[f[0]]} onBlur={function(e) { var v = e.target.value; var fk = f[0]; setActivityForm(function(p) { var n = Object.assign({}, p); n[fk] = v; return n; }); }} style={inp()} />
-                    </div>
-                  );
-                })}
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes</label>
-                  <textarea defaultValue={activityForm.notes} onBlur={function(e) { var v = e.target.value; setActivityForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} />
-                </div>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() {
-                    if (!activityForm.title.trim()) return;
-                    var current = childData.homeschool.activities || [];
-                    if (editingActivity) {
-                      saveHS({ activities: current.map(function(a) { return a.id === editingActivity ? Object.assign({}, activityForm, { id: a.id }) : a; }) });
-                    } else {
-                      saveHS({ activities: current.concat([Object.assign({}, activityForm, { id: suid() })]) });
-                    }
-                    setShowActivityModal(false);
-                  }} style={btnP(T.lavender, { flex: 1 })}>Save</button>
-                  <button onClick={function() { setShowActivityModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ── Break mode data helpers ────────────────────────────────────────────────
-    var breakGoals = (activeChild && schoolData[activeChild] && schoolData[activeChild].breakGoals) || [];
-
-    function saveBreakGoals(list) {
-      setSchoolData(function(prev) {
-        var next = Object.assign({}, prev);
-        var existing = prev[activeChild] || {};
-        next[activeChild] = Object.assign({}, existing, { breakGoals: list });
-        return next;
-      });
-    }
-
-    var BREAK_COLORS = { summer: "#e8a84c", winter: "#6ba3c4", spring: "#7db87a" };
-    var BREAK_EMOJIS = { summer: "☀️", winter: "❄️", spring: "🌸" };
-    var BREAK_LABELS = { summer: "Summer Break", winter: "Winter Break", spring: "Spring Break" };
-
-    function BreakModePanel() {
-      var currentBreakGoals = breakGoals.filter(function(g) { return g.break === breakMode; });
-      var breakColor = BREAK_COLORS[breakMode] || T.sand;
-      var breakEmoji = BREAK_EMOJIS[breakMode] || "🌟";
-      var breakLabel = BREAK_LABELS[breakMode] || "Break";
-
-      return (
-        <div>
-          {/* Break header banner */}
-          <div style={{ background: "linear-gradient(135deg, " + breakColor + "22, " + breakColor + "08)", border: "1.5px solid " + breakColor + "55", borderRadius: "1rem", padding: "1rem 1.1rem", marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <span style={{ fontSize: "1.8rem" }}>{breakEmoji}</span>
-              <div>
-                <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.2rem", fontWeight: 700, color: breakColor }}>{breakLabel}</div>
-                <div style={{ fontSize: "0.72rem", color: T.textMid }}>Goals, challenges & reading targets</div>
-              </div>
-            </div>
-            <button onClick={function() { setBreakMode(null); }} style={{ background: "none", border: "1px solid " + T.border, borderRadius: "2rem", padding: "0.3rem 0.75rem", fontSize: "0.72rem", color: T.textMid, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
-          </div>
-
-          {/* Add goal button */}
-          <button onClick={function() {
-            setBreakGoalForm({ title: "", type: "goal", target: "", unit: "", notes: "" });
-            setEditingBreakGoal(null);
-            setShowBreakGoalModal(true);
-          }} style={Object.assign({}, btnP(breakColor), { width: "100%", marginBottom: "0.85rem", color: "#fff" })}>+ Add Goal or Challenge</button>
-
-          {/* Goal list */}
-          {currentBreakGoals.length === 0 && (
-            <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: T.textFaint, fontSize: "0.85rem" }}>
-              <div style={{ fontSize: "2.5rem", marginBottom: "0.6rem" }}>{breakEmoji}</div>
-              No goals yet — add reading targets, challenges, or activities!
-            </div>
-          )}
-          {currentBreakGoals.map(function(g) {
-            var pct = g.target && g.progress != null ? Math.min(100, Math.round((g.progress / parseInt(g.target)) * 100)) : null;
-            return (
-              <div key={g.id} style={card({ borderLeft: "3px solid " + breakColor })}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.25rem" }}>
-                      <span style={{ background: breakColor + "22", color: breakColor, fontSize: "0.62rem", fontWeight: 800, borderRadius: "2rem", padding: "1px 8px", border: "1px solid " + breakColor + "40", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                        {g.type === "reading" ? "📚 Reading" : g.type === "daily" ? "📆 Daily" : "🎯 Goal"}
-                      </span>
-                    </div>
-                    <div style={{ fontWeight: 700, color: T.textDark, fontSize: "0.92rem" }}>{g.title}</div>
-                    {g.target && <div style={{ color: T.textMid, fontSize: "0.78rem", marginTop: "0.2rem" }}>Target: {g.progress != null ? g.progress : 0} / {g.target} {g.unit}</div>}
-                    {g.notes && <div style={{ color: T.textSoft, fontSize: "0.75rem", fontStyle: "italic", marginTop: "0.2rem" }}>{g.notes}</div>}
-                  </div>
-                  <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
-                    <button onClick={function() {
-                      setBreakGoalForm({ title: g.title, type: g.type, target: g.target || "", unit: g.unit || "", notes: g.notes || "" });
-                      setEditingBreakGoal(g.id);
-                      setShowBreakGoalModal(true);
-                    }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem" })}>Edit</button>
-                    <button onClick={function() {
-                      saveBreakGoals(breakGoals.filter(function(x) { return x.id !== g.id; }));
-                    }} style={btnS({ padding: "0.3rem 0.6rem", fontSize: "0.7rem", color: T.rose })}>✕</button>
-                  </div>
-                </div>
-                {/* Progress bar */}
-                {g.target && (
-                  <div style={{ marginTop: "0.75rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
-                      <span style={{ fontSize: "0.7rem", color: T.textFaint }}>{pct}% complete</span>
-                      <div style={{ display: "flex", gap: "0.3rem" }}>
-                        <button onClick={function() {
-                          var curProg = g.progress || 0;
-                          if (curProg > 0) saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: curProg - 1 }) : x; }));
-                        }} style={{ background: T.bgAlt, border: "1px solid " + T.border, borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                        <button onClick={function() {
-                          var curProg = g.progress || 0;
-                          var newProg = curProg + 1;
-                          saveBreakGoals(breakGoals.map(function(x) { return x.id === g.id ? Object.assign({}, x, { progress: newProg }) : x; }));
-                          var tgt = parseInt(g.target);
-                          if (g.target && tgt > 0 && curProg < tgt && newProg >= tgt) {
-                            window.dispatchEvent(new CustomEvent("af-celebrate", { detail: { heading: "Goal reached!", title: g.title, who: (child && child.name) ? child.name : "" } }));
-                          }
-                        }} style={{ background: breakColor + "22", border: "1px solid " + breakColor + "55", borderRadius: "0.4rem", width: "26px", height: "26px", cursor: "pointer", fontSize: "0.85rem", color: breakColor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>+</button>
-                      </div>
-                    </div>
-                    <div style={{ background: T.bgAlt, borderRadius: "2rem", height: "6px", overflow: "hidden" }}>
-                      <div style={{ background: breakColor, width: pct + "%", height: "100%", borderRadius: "2rem", transition: "width 0.3s" }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Add/Edit modal */}
-          {showBreakGoalModal && (
-            <div style={{ position: "fixed", inset: 0, background: T.modalOverlay, zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0" }}>
-              <div style={{ background: T.surface, borderRadius: "1.2rem 1.2rem 0 0", padding: "1.5rem", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom,0px))", width: "min(480px,100%)", maxHeight: "calc(88dvh - env(safe-area-inset-top,0px))", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "1rem" }}>{editingBreakGoal ? "Edit Goal" : "Add Goal"}</div>
-
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Type</label>
-                  <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.65rem" }}>
-                    {[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily habit"]].map(function(t) {
-                      return <button key={t[0]} onClick={function() { setBreakGoalForm(function(p) { return Object.assign({}, p, { type: t[0] }); }); }} style={{ flex: 1, background: breakGoalForm.type === t[0] ? breakColor + "22" : T.bgAlt, border: "1.5px solid " + (breakGoalForm.type === t[0] ? breakColor + "88" : T.border), borderRadius: "0.65rem", padding: "0.55rem 0.3rem", fontSize: "0.72rem", color: breakGoalForm.type === t[0] ? breakColor : T.textMid, cursor: "pointer", fontFamily: "inherit", fontWeight: breakGoalForm.type === t[0] ? 700 : 400 }}>{t[1]}</button>;
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "0.65rem" }}>
-                  <label style={lbl}>Title</label>
-                  <input defaultValue={breakGoalForm.title} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { title: v }); }); }} style={inp()} placeholder={breakGoalForm.type === "reading" ? "Read 30 books this summer" : breakGoalForm.type === "daily" ? "15 min reading every day" : "Learn to ride a bike"} />
-                </div>
-
-                <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.65rem" }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={lbl}>Target number</label>
-                    <input type="number" defaultValue={breakGoalForm.target} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { target: v }); }); }} style={inp()} placeholder="30" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={lbl}>Unit</label>
-                    <input defaultValue={breakGoalForm.unit} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { unit: v }); }); }} style={inp()} placeholder="books, days, hours..." />
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: "0.85rem" }}>
-                  <label style={lbl}>Notes</label>
-                  <textarea defaultValue={breakGoalForm.notes} onBlur={function(e) { var v = e.target.value; setBreakGoalForm(function(p) { return Object.assign({}, p, { notes: v }); }); }} style={Object.assign({}, inp(), { minHeight: "55px" })} placeholder="Details, rewards, ideas..." />
-                </div>
-
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button onClick={function() {
-                    if (!breakGoalForm.title.trim()) return;
-                    if (editingBreakGoal) {
-                      saveBreakGoals(breakGoals.map(function(g) { return g.id === editingBreakGoal ? Object.assign({}, g, breakGoalForm) : g; }));
-                    } else {
-                      saveBreakGoals(breakGoals.concat([Object.assign({}, breakGoalForm, { id: suid(), break: breakMode, progress: 0 })]));
-                    }
-                    setShowBreakGoalModal(false);
-                  }} style={btnP(breakColor, { flex: 1, color: "#fff" })}>Save</button>
-                  <button onClick={function() { setShowBreakGoalModal(false); }} style={btnS({ flex: 1 })}>Cancel</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ paddingBottom: "4rem" }}>
-        {showTypeModal && <TypePicker />}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-          <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-            <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
-              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
-            </button>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🏫 School</div>
-          </div>
-        </div>
-        {schoolKids.length > 1 && (
-          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", overflowX: "auto", paddingBottom: "2px" }}>
-            {schoolKids.map(function(k) {
-              var isActive = k.id === activeChild;
-              return (
-                <button key={k.id} onClick={function() { setActiveChild(k.id); setSubTab("overview"); }} style={{ background: isActive ? (k.color || T.blue) : "transparent", color: isActive ? "#fff" : T.textMid, border: "1.5px solid " + (isActive ? (k.color || T.blue) : T.border), borderRadius: "2rem", padding: "0.3rem 0.9rem", cursor: "pointer", fontSize: "0.8rem", fontWeight: isActive ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
-                  {k.name}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {!childData.type && (
-          <div style={card({ textAlign: "center", padding: "2.5rem 1rem" })}>
-            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>👋</div>
-            <div style={{ fontWeight: 700, color: T.textDark, marginBottom: "0.4rem", fontSize: "1rem" }}>Set up school for {child ? child.name : ""}</div>
-            <div style={{ color: T.textMid, fontSize: "0.84rem", marginBottom: "1.25rem" }}>Choose the type of school to see the right tools.</div>
-            <button onClick={function() { setShowTypeModal(true); }} style={btnP(T.blue, { margin: "0 auto" })}>Get Started</button>
-          </div>
-        )}
-        {childData.type && activeTabs.length > 0 && (
-          <div style={{ display: "flex", gap: "0.25rem", overflowX: "auto", paddingBottom: "3px", marginBottom: "0.85rem" }}>
-            {activeTabs.map(function(t) {
-              var isActive = subTab === t.id;
-              return (
-                <button key={t.id} onClick={function() { setSubTab(t.id); setBreakMode(null); }} style={{ background: isActive && !breakMode ? T.blue : "transparent", color: isActive && !breakMode ? "#fff" : T.textMid, border: "1.5px solid " + (isActive && !breakMode ? T.blue : T.border), borderRadius: "2rem", padding: "0.3rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive && !breakMode ? 700 : 500, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
-                  {t.emoji} {t.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {/* Break mode selector */}
-        {childData.type && (
-          <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.85rem", overflowX: "auto", paddingBottom: "2px" }}>
-            <span style={{ fontSize: "0.7rem", color: T.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", alignSelf: "center", flexShrink: 0, marginRight: "0.1rem" }}>Break:</span>
-            {[["summer","☀️ Summer","#e8a84c"],["winter","❄️ Winter","#6ba3c4"],["spring","🌸 Spring","#7db87a"]].map(function(b) {
-              var isActive = breakMode === b[0];
-              return (
-                <button key={b[0]} onClick={function() { setBreakMode(isActive ? null : b[0]); }} style={{ background: isActive ? b[2] + "22" : "transparent", color: isActive ? b[2] : T.textMid, border: "1.5px solid " + (isActive ? b[2] + "88" : T.border), borderRadius: "2rem", padding: "0.28rem 0.75rem", cursor: "pointer", fontSize: "0.74rem", fontWeight: isActive ? 700 : 400, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.14s" }}>
-                  {b[1]}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {breakMode && childData.type && <BreakModePanel />}
-        {!breakMode && childData.type === "public" && (
-          <React.Fragment>
-            {subTab === "overview" && <PublicOverview />}
-            {subTab === "teachers" && <PublicTeachers />}
-            {subTab === "schedule" && <PublicSchedule />}
-            {subTab === "calendar" && <PublicCalendar />}
-            {subTab === "spirit"   && <SpiritDays />}
-          </React.Fragment>
-        )}
-        {!breakMode && childData.type === "homeschool" && (
-          <React.Fragment>
-            {subTab === "overview"   && <HSOverview />}
-            {subTab === "umbrella"   && <HSUmbrella />}
-            {subTab === "curricula"  && <HSCurricula />}
-            {subTab === "lessons"    && <HSLessons />}
-            {subTab === "attendance" && <HSAttendance />}
-            {subTab === "activities" && <HSActivities />}
-          </React.Fragment>
-        )}
-      </div>
-    );
-  }
-
-  // ── Lighthouse Tab ────────────────────────────────────────────────────────────
-  _hfRenders.LighthouseTab = function LighthouseTab() {
-    var [lighthouse, setLighthouse] = useSaved("lighthouse", defaultLighthouse());
-    var [schoolData] = useSaved("schoolData", {});
-    var [activeChild, _setActiveChild] = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhActiveChild"); if (s) return s; } catch(_e) {} return null; });
-    var [lhSubTab, _setLhSubTab]       = React.useState(function(){ try { var s = sessionStorage.getItem("af_lhSubTab"); if (s) return s; } catch(_e) {} return "hub"; });
-    var [showAllPeople, setShowAllPeople] = React.useState(false);
-    var [lhAddMode, setLhAddMode]       = React.useState(null);
-    var [lhEditId, setLhEditId]         = React.useState(null);
-    var [lhForm, setLhForm]             = React.useState({});
-    var [lhPlanSubTab, setLhPlanSubTab] = React.useState("daily");
-    var [lhAddItemLoopId, setLhAddItemLoopId] = React.useState(null);
-    var [lhNewItemText, setLhNewItemText]     = React.useState("");
-    var [lhSummaryText, setLhSummaryText]         = React.useState("");
-    var [lhSummaryChildId, setLhSummaryChildId]   = React.useState(null);
-    var [lhHouseholdText, setLhHouseholdText]     = React.useState("");
-    var [lhPlanDate, setLhPlanDate]               = React.useState(function(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); });
-    var [lhTaskSubject, setLhTaskSubject]         = React.useState(null);
-    var [lhTaskText, setLhTaskText]               = React.useState("");
-    function setActiveChild(id) { _setActiveChild(id); try { if (id) sessionStorage.setItem("af_lhActiveChild", id); else sessionStorage.removeItem("af_lhActiveChild"); } catch(_e) {} }
-    function setLhSubTab(tab) { _setLhSubTab(tab); try { sessionStorage.setItem("af_lhSubTab", tab); } catch(_e) {} }
-
-    var allPeople = people.filter(function(p) { return p && p.name; });
-    var defaultPeople = allPeople.filter(function(p) {
-      return p.role === "Kid" || p.role === "Teen" || personIsMinor(p);
-    });
-    var displayPeople = (showAllPeople || defaultPeople.length === 0) ? allPeople : defaultPeople;
-    var hasOthers = !showAllPeople && allPeople.length > defaultPeople.length;
-
-    React.useEffect(function() {
-      var ids = displayPeople.map(function(p){ return p.id; });
-      if ((!activeChild || ids.indexOf(activeChild) === -1) && displayPeople.length > 0) { setActiveChild(displayPeople[0].id); }
-    }, [displayPeople.length]);
-
-    React.useEffect(function() {
-      setLhAddMode(null); setLhEditId(null); setLhForm({});
-      setLhTaskSubject(null); setLhTaskText("");
-    }, [lhSubTab, activeChild]);
-
-    var modes       = lhGet(lighthouse, "modes", {});
-    var childMode   = activeChild ? (modes[activeChild] || null) : null;
-    var childPerson = allPeople.find(function(p) { return p.id === activeChild; }) || null;
-
-    // Shared data for active child
-    var sharedAll  = lhGet(lighthouse, "shared", {});
-    var childShared = sharedAll[activeChild] || { books:[], beyond:[], trips:[], goals:[] };
-    var books   = Array.isArray(childShared.books)  ? childShared.books  : [];
-    var beyonds = Array.isArray(childShared.beyond) ? childShared.beyond : [];
-    var trips   = Array.isArray(childShared.trips)  ? childShared.trips  : [];
-    var goals   = Array.isArray(childShared.goals)  ? childShared.goals  : [];
-
-    function applyLh(next) { setLighthouse(next); }
-    function lhSaveAdd(field, item) {
-      applyLh(lhAddItem(lighthouse, activeChild, field, item));
-    }
-    function lhSaveUpdate(field, id, patch) {
-      applyLh(lhUpdateItem(lighthouse, activeChild, field, id, patch));
-    }
-    function lhSaveDel(field, id) {
-      applyLh(lhDeleteItem(lighthouse, activeChild, field, id));
-    }
-
-    function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
-    function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
-    function fChk(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.checked; return n; }); }; }
-    function fNum(k) { return function(v) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=v; return n; }); }; }
-
-    function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
-    function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
-    function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
-
-    // Homeschool layer for active child
-    var hsAll   = lhGet(lighthouse, "homeschool", {});
-    var hsChild = hsAll[activeChild] || defaultLhHsChild();
-    var hsDaily  = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily : { Mon:"", Tue:"", Wed:"", Thu:"", Fri:"" };
-    var hsWeekly = Array.isArray(hsChild.weekly) ? hsChild.weekly : [];
-    var hsMonthly = typeof hsChild.monthly === "string" ? hsChild.monthly : "";
-    var lhLoops    = Array.isArray(hsChild.loops) ? hsChild.loops : [];
-    var hsSubjects = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
-    var hsWeekPlan = (hsChild.weekPlan && typeof hsChild.weekPlan === "object") ? hsChild.weekPlan : {};
-
-    function applyHs(patch) { applyLh(lhHsPatch(lighthouse, activeChild, patch)); }
-    function applyHsDayField(day, field, val) {
-      var nextDaily = Object.assign({}, hsDaily);
-      var raw = nextDaily[day];
-      var dayObj = (raw && typeof raw === "object") ? Object.assign({}, raw) : { attendance: null, core: "", notes: typeof raw === "string" ? raw : "" };
-      dayObj[field] = val;
-      nextDaily[day] = dayObj;
-      applyHs({ daily: nextDaily });
-    }
-    function applyHsLoopUpdate(loopId, loopPatch) {
-      applyLh(lhHsLoopUpdate(lighthouse, activeChild, loopId, loopPatch));
-    }
-    function applyHsLoopItemUpdate(loopId, itemId, itemPatch) {
-      applyLh(lhHsLoopItemUpdate(lighthouse, activeChild, loopId, itemId, itemPatch));
-    }
-
-    // School layer for active child
-    var schoolAll  = lhGet(lighthouse, "school", {});
-    var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
-    var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
-
-    function applySchool(patch) { applyLh(lhSchoolPatch(lighthouse, activeChild, patch)); }
-    function hwSaveAdd(item) { applySchool({ homework: homework.concat([item]) }); closeForm(); }
-    function hwSaveUpdate(id, p) { applySchool({ homework: homework.map(function(h){ return h.id===id ? Object.assign({},h,p) : h; }) }); }
-    function hwSaveDel(id) { applySchool({ homework: homework.filter(function(h){ return h.id!==id; }) }); }
-
-    // This Week data for active child
-    var weekData   = (schoolChild.week && typeof schoolChild.week === "object") ? schoolChild.week : {};
-    var weekEvents = Array.isArray(weekData.events) ? weekData.events : [];
-    var weekForms  = Array.isArray(weekData.forms)  ? weekData.forms  : [];
-    var weekPack   = Array.isArray(weekData.pack)   ? weekData.pack   : [];
-    function weekMutate(p) { applySchool({ week: Object.assign({}, weekData, p) }); }
-
-    // School comms data for active child
-    var commsData     = (schoolChild.comms && typeof schoolChild.comms === "object") ? schoolChild.comms : {};
-    var commsContacts = Array.isArray(commsData.contacts) ? commsData.contacts : [];
-    var commsLog      = Array.isArray(commsData.log)      ? commsData.log      : [];
-    function commsMutate(p) { applySchool({ comms: Object.assign({}, commsData, p) }); }
-
-    // Grades & Growth data for active child
-    var gradesData  = (schoolChild.grades && typeof schoolChild.grades === "object") ? schoolChild.grades : {};
-    var gradeMarks  = Array.isArray(gradesData.marks)  ? gradesData.marks  : [];
-    var gradeScores = Array.isArray(gradesData.scores) ? gradesData.scores : [];
-    var gradeNotes  = typeof gradesData.notes === "string" ? gradesData.notes : "";
-    function gradesMutate(p) { applySchool({ grades: Object.assign({}, gradesData, p) }); }
-
-    function setMode(childId, mode) {
-      var nm = Object.assign({}, modes); nm[childId] = mode;
-      setLighthouse(Object.assign({}, lighthouse, { modes: nm }));
-      setLhSubTab("overview");
-    }
-
-    var childTabIds = lhChildTabs(modes, activeChild);
-    var beyondLabel   = lhGet(LH_LABELS.beyond,    childMode, "Beyond the Transcript");
-    var summaryLabel  = lhGet(LH_LABELS.summaries, childMode, "Summaries");
-    var LH_TAB_META = {
-      hub:       { label:"Summary",      emoji:"📊" },
-      overview:  { label:"Overview",     emoji:"✨" },
-      books:     { label:"Books",        emoji:"📚" },
-      beyond:    { label:beyondLabel,    emoji:"🌎" },
-      trips:     { label:"Trips",        emoji:"✈️" },
-      goals:     { label:"Goals",        emoji:"🎯" },
-      summaries: { label:summaryLabel,   emoji:"📄" },
-      plan:      { label:"Plan",         emoji:"🗓️" },
-      loops:     { label:"Loops",        emoji:"🔁" },
-      week:      { label:"This Week",    emoji:"📅" },
-      homework:  { label:"Homework",     emoji:"✏️" },
-      comms:     { label:"School Comms", emoji:"📬" },
-      grades:    { label:"Grades",       emoji:"📊" },
-    };
-
-    // ── Shared UI primitives (no hooks) ──────────────────────────────────────
-    var LH_BEYOND_CATS = ["Field Trip","Museum","Park","Sport","Art","Volunteer","Other"];
-    var LH_TRIP_SUBJ   = ["History","Science","Art","Literature","Geography","Other"];
-    var LH_BOOK_FMTS   = ["Physical","Audio","eBook"];
-    var LH_PROGRESS    = ["Not started","In progress","Achieved"];
-
-    function starRow(ratingKey) {
-      var cur = fv(ratingKey, 0);
-      var stars = [];
-      for (var s = 1; s <= 5; s++) {
-        var filled = cur >= s;
-        var sVal = s;
-        var stSt = {background:"none",border:"none",cursor:"pointer",fontSize:"1.1rem",padding:"0 1px",color:filled?"#f59e0b":"#d1d5db"};
-        stars.push(
-          <button type="button" key={s} onClick={fNum(ratingKey).bind(null, sVal)} style={stSt}>
-            {filled ? "★" : "☆"}
-          </button>
-        );
-      }
-      return <div style={{display:"flex",alignItems:"center",gap:0}}>{stars}</div>;
-    }
-
-    function starDisplay(rating) {
-      var out = [];
-      for (var s = 1; s <= 5; s++) {
-        out.push(<span key={s} style={{color:rating>=s?"#f59e0b":"#d1d5db",fontSize:"0.8rem"}}>{rating>=s?"★":"☆"}</span>);
-      }
-      return <span>{out}</span>;
-    }
-
-    function pillToggle(label, active, onClick) {
-      var pSt = {padding:"0.22rem 0.65rem",borderRadius:"99px",border:"1.5px solid "+(active?T.blue:T.borderSoft),background:active?T.blue+"22":"transparent",color:active?T.blue:T.textMid,fontSize:"0.76rem",fontWeight:active?700:400,cursor:"pointer",fontFamily:"inherit"};
-      return <button type="button" key={label} onClick={onClick} style={pSt}>{label}</button>;
-    }
-
-    function includeRow(key) {
-      var chkStyle = {display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",fontSize:"0.78rem",color:T.textMid};
-      return (
-        <label style={chkStyle}>
-          <input type="checkbox" checked={!!fv(key, false)} onChange={fChk(key)} style={{cursor:"pointer"}}/>
-          Include in summaries
-        </label>
-      );
-    }
-
-    function areaWrap(children) {
-      return <div style={{padding:"0.75rem 1rem 2rem"}}>{children}</div>;
-    }
-
-    function formCard(children) {
-      var fc = card({marginBottom:"1rem",background:T.inputBg,border:"1.5px solid "+T.border});
-      return <div style={fc}>{children}</div>;
-    }
-
-    function fieldRow(label, children) {
-      return (
-        <div style={{marginBottom:"0.7rem"}}>
-          <div style={{fontSize:"0.73rem",fontWeight:600,color:T.textMid,marginBottom:"0.2rem",textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</div>
-          {children}
-        </div>
-      );
-    }
-
-    function formBtns(onSave) {
-      return (
-        <div style={{display:"flex",gap:"0.5rem",marginTop:"0.85rem"}}>
-          <button type="button" onClick={onSave} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.45rem 1rem"})}>Save</button>
-          <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.45rem 1rem"})}>Cancel</button>
-        </div>
-      );
-    }
-
-    function itemHeader(title, subtitle, onEdit, onDel) {
-      return (
-        <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem"}}>
-          <div style={{flex:1}}>
-            <div style={{fontWeight:700,fontSize:"0.9rem",color:T.textDark,lineHeight:1.3}}>{title}</div>
-            {subtitle && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.15rem"}}>{subtitle}</div>}
-          </div>
-          <button type="button" onClick={onEdit} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-          <button type="button" onClick={onDel}  style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
-        </div>
-      );
-    }
-
-    function badge(label, color) {
-      var bc = {display:"inline-block",fontSize:"0.68rem",fontWeight:700,padding:"0.1rem 0.5rem",borderRadius:"99px",background:(color||T.blue)+"22",color:color||T.blue,letterSpacing:"0.02em"};
-      return <span style={bc}>{label}</span>;
-    }
-
-    // ── Books Area ────────────────────────────────────────────────────────────
-    function BooksArea() {
-      function saveBook() {
-        var title = (fv("title","")).trim();
-        if (!title) return;
-        var item = {
-          id: uid(), title: title, author: (fv("author","")).trim(),
-          who: activeChild, status: fv("status","reading"),
-          fmt: fv("fmt",""), subj: (fv("subj","")).trim(),
-          start: fv("start",""), finish: fv("finish",""),
-          rating: fv("rating",0), note: (fv("note","")).trim(),
-          quote: (fv("quote","")).trim(), includeSummary: !!fv("includeSummary",false)
-        };
-        lhSaveAdd("books", item); closeForm();
-      }
-      function updateBook() {
-        var title = (fv("title","")).trim(); if (!title) return;
-        lhSaveUpdate("books", lhEditId, {
-          title: title, author: (fv("author","")).trim(),
-          who: activeChild,
-          status: fv("status","reading"), fmt: fv("fmt",""),
-          subj: (fv("subj","")).trim(), start: fv("start",""), finish: fv("finish",""),
-          rating: fv("rating",0), note: (fv("note","")).trim(),
-          quote: (fv("quote","")).trim(), includeSummary: !!fv("includeSummary",false)
-        });
-        closeForm();
-      }
-      function BookForm(onSave) {
-        return formCard(
-          <div>
-            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Book title" style={inp()} autoFocus/>)}
-            {fieldRow("Author", <input value={fv("author","")} onChange={fSet("author")} placeholder="Author name" style={inp()}/>)}
-            {fieldRow("Status",
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                {pillToggle("Reading",   fv("status","reading")==="reading",   function(){setLhForm(function(f){return Object.assign({},f,{status:"reading"});}); })}
-                {pillToggle("Finished",  fv("status","reading")==="finished",  function(){setLhForm(function(f){return Object.assign({},f,{status:"finished"});}); })}
-              </div>
-            )}
-            {fieldRow("Format",
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                {LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")=== fmt, function(){setLhForm(function(f){return Object.assign({},f,{fmt:fmt});}); }); })}
-              </div>
-            )}
-            {fieldRow("Subject", <input value={fv("subj","")} onChange={fSet("subj")} placeholder="e.g. Nature, History" style={inp()}/>)}
-            <div style={{display:"flex",gap:"0.75rem",marginBottom:"0.7rem"}}>
-              <div style={{flex:1}}>{fieldRow("Start", <input type="date" value={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
-              <div style={{flex:1}}>{fieldRow("Finish", <input type="date" value={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
-            </div>
-            {fieldRow("Rating", starRow("rating"))}
-            {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} placeholder="Thoughts, reactions…" style={inp({height:62,resize:"vertical"})}/>)}
-            {fieldRow("Favourite Quote", <textarea value={fv("quote","")} onChange={fSet("quote")} placeholder="A line that stood out…" style={inp({height:50,resize:"vertical"})}/>)}
-            <div style={{marginBottom:"0.7rem"}}>{includeRow("includeSummary")}</div>
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
-      return areaWrap(
-        <div>
-          {lhAddMode !== "book" && (
-            <button type="button" onClick={function(){ openAdd("book",{status:"reading",rating:0}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Book</button>
-          )}
-          {lhAddMode === "book" && BookForm(saveBook)}
-          {books.length === 0 && lhAddMode !== "book" && (
-            <div style={emptyCard}>📚 No books yet — add your first!</div>
-          )}
-          {books.map(function(b) {
-            if (lhEditId === b.id) {
-              return <div key={b.id}>{BookForm(updateBook)}</div>;
-            }
-            var statusColor = b.status === "finished" ? T.sage : T.blue;
-            var bc = card({marginBottom:"0.65rem"});
-            return (
-              <div key={b.id} style={bc}>
-                {itemHeader(b.title, b.author || null,
-                  function(){ openEdit(b.id, b); },
-                  function(){ if(window.confirm("Remove "+b.title+"?")) lhSaveDel("books", b.id); }
-                )}
-                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
-                  {badge(b.status==="finished"?"Finished":"Reading", statusColor)}
-                  {b.fmt && badge(b.fmt, T.textFaint)}
-                  {b.subj && <span style={{fontSize:"0.75rem",color:T.textMid}}>{b.subj}</span>}
-                </div>
-                {b.rating > 0 && <div style={{marginTop:"0.3rem"}}>{starDisplay(b.rating)}</div>}
-                {b.note && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.3rem",lineHeight:1.4}}>{b.note}</div>}
-                {b.quote && <div style={{fontSize:"0.76rem",color:T.textFaint,marginTop:"0.25rem",fontStyle:"italic",borderLeft:"2px solid "+T.borderSoft,paddingLeft:"0.5rem"}}>"{b.quote}"</div>}
-                <div style={{marginTop:"0.4rem"}}>
-                  <label style={{display:"flex",alignItems:"center",gap:"0.35rem",cursor:"pointer",fontSize:"0.75rem",color:T.textMid}}>
-                    <input type="checkbox" checked={!!b.includeSummary} onChange={function(e){ lhSaveUpdate("books", b.id, {includeSummary: e.target.checked}); }} style={{cursor:"pointer"}}/>
-                    Include in summaries
-                  </label>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // ── Beyond Area ───────────────────────────────────────────────────────────
-    function BeyondArea() {
-      function saveBeyond() {
-        var what = (fv("what","")).trim(); if (!what) return;
-        var item = {
-          id: uid(), what: what, who: activeChild,
-          cat: fv("cat",""), date: fv("date",""),
-          skill: (fv("skill","")).trim(), note: (fv("note","")).trim(),
-          includeSummary: !!fv("includeSummary",false)
-        };
-        lhSaveAdd("beyond", item); closeForm();
-      }
-      function updateBeyond() {
-        var what = (fv("what","")).trim(); if (!what) return;
-        lhSaveUpdate("beyond", lhEditId, {
-          what: what, cat: fv("cat",""), date: fv("date",""),
-          skill: (fv("skill","")).trim(), note: (fv("note","")).trim(),
-          includeSummary: !!fv("includeSummary",false)
-        });
-        closeForm();
-      }
-      function BeyondForm(onSave) {
-        return formCard(
-          <div>
-            {fieldRow("What *", <input value={fv("what","")} onChange={fSet("what")} placeholder="What did they do or experience?" style={inp()} autoFocus/>)}
-            {fieldRow("Category",
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                {LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){setLhForm(function(f){return Object.assign({},f,{cat:c});}); }); })}
-              </div>
-            )}
-            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-            {fieldRow("Skill or theme", <input value={fv("skill","")} onChange={fSet("skill")} placeholder="e.g. critical thinking, empathy" style={inp()}/>)}
-            {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} placeholder="What stood out?" style={inp({height:62,resize:"vertical"})}/>)}
-            <div style={{marginBottom:"0.7rem"}}>{includeRow("includeSummary")}</div>
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
-      var areaLabel = beyondLabel;
-      return areaWrap(
-        <div>
-          {lhAddMode !== "beyond" && (
-            <button type="button" onClick={function(){ openAdd("beyond",{}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Entry</button>
-          )}
-          {lhAddMode === "beyond" && BeyondForm(saveBeyond)}
-          {beyonds.length === 0 && lhAddMode !== "beyond" && (
-            <div style={emptyCard}>🌎 No {areaLabel} entries yet — start adding!</div>
-          )}
-          {beyonds.map(function(bx) {
-            if (lhEditId === bx.id) {
-              return <div key={bx.id}>{BeyondForm(updateBeyond)}</div>;
-            }
-            var bc = card({marginBottom:"0.65rem"});
-            return (
-              <div key={bx.id} style={bc}>
-                {itemHeader(bx.what, bx.date || null,
-                  function(){ openEdit(bx.id, bx); },
-                  function(){ if(window.confirm("Remove this entry?")) lhSaveDel("beyond", bx.id); }
-                )}
-                <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
-                  {bx.cat && badge(bx.cat, T.sage)}
-                  {bx.skill && <span style={{fontSize:"0.75rem",color:T.textMid}}>Skill: {bx.skill}</span>}
-                </div>
-                {bx.note && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.3rem",lineHeight:1.4}}>{bx.note}</div>}
-                <div style={{marginTop:"0.4rem"}}>
-                  <label style={{display:"flex",alignItems:"center",gap:"0.35rem",cursor:"pointer",fontSize:"0.75rem",color:T.textMid}}>
-                    <input type="checkbox" checked={!!bx.includeSummary} onChange={function(e){ lhSaveUpdate("beyond", bx.id, {includeSummary: e.target.checked}); }} style={{cursor:"pointer"}}/>
-                    Include in summaries
-                  </label>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // ── Trips Area ────────────────────────────────────────────────────────────
-    function TripsArea() {
-      function toggleSubj(val) {
-        var cur = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
-        var next = cur.indexOf(val) >= 0 ? cur.filter(function(x){return x!==val;}) : cur.concat([val]);
-        setLhForm(function(f){ return Object.assign({},f,{subj:next}); });
-      }
-      function saveTrip() {
-        var place = (fv("place","")).trim(); if (!place) return;
-        var item = {
-          id: uid(), place: place, date: fv("date",""),
-          who: [activeChild], subj: fv("subj",[]),
-          saw: (fv("saw","")).trim(), learned: (fv("learned","")).trim(),
-          moment: (fv("moment","")).trim(), followup: (fv("followup","")).trim()
-        };
-        lhSaveAdd("trips", item); closeForm();
-      }
-      function updateTrip() {
-        var place = (fv("place","")).trim(); if (!place) return;
-        lhSaveUpdate("trips", lhEditId, {
-          place: place, date: fv("date",""), subj: fv("subj",[]),
-          saw: (fv("saw","")).trim(), learned: (fv("learned","")).trim(),
-          moment: (fv("moment","")).trim(), followup: (fv("followup","")).trim()
-        });
-        closeForm();
-      }
-      function TripForm(onSave) {
-        var curSubj = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
-        return formCard(
-          <div>
-            {fieldRow("Place *", <input value={fv("place","")} onChange={fSet("place")} placeholder="Where did you go?" style={inp()} autoFocus/>)}
-            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-            {fieldRow("Subjects",
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                {LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){toggleSubj(s);}); })}
-              </div>
-            )}
-            {fieldRow("What we saw", <textarea value={fv("saw","")} onChange={fSet("saw")} placeholder="Sights, exhibits, landscapes…" style={inp({height:56,resize:"vertical"})}/>)}
-            {fieldRow("What we learned", <textarea value={fv("learned","")} onChange={fSet("learned")} placeholder="Key ideas or discoveries…" style={inp({height:56,resize:"vertical"})}/>)}
-            {fieldRow("A moment", <textarea value={fv("moment","")} onChange={fSet("moment")} placeholder="A memorable detail…" style={inp({height:50,resize:"vertical"})}/>)}
-            {fieldRow("Follow-up ideas", <textarea value={fv("followup","")} onChange={fSet("followup")} placeholder="Books to read, topics to explore…" style={inp({height:50,resize:"vertical"})}/>)}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
-      return areaWrap(
-        <div>
-          {lhAddMode !== "trip" && (
-            <button type="button" onClick={function(){ openAdd("trip",{subj:[]}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Trip</button>
-          )}
-          {lhAddMode === "trip" && TripForm(saveTrip)}
-          {trips.length === 0 && lhAddMode !== "trip" && (
-            <div style={emptyCard}>✈️ No trips yet — add your first adventure!</div>
-          )}
-          {trips.map(function(tr) {
-            if (lhEditId === tr.id) {
-              return <div key={tr.id}>{TripForm(updateTrip)}</div>;
-            }
-            var subj = Array.isArray(tr.subj) ? tr.subj : [];
-            var bc = card({marginBottom:"0.65rem"});
-            return (
-              <div key={tr.id} style={bc}>
-                {itemHeader(tr.place, tr.date || null,
-                  function(){ openEdit(tr.id, tr); },
-                  function(){ if(window.confirm("Remove trip to "+tr.place+"?")) lhSaveDel("trips", tr.id); }
-                )}
-                {subj.length > 0 && (
-                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem"}}>
-                    {subj.map(function(s){ return badge(s, T.blue); })}
-                  </div>
-                )}
-                {tr.saw     && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.3rem"}}><strong>Saw:</strong> {tr.saw}</div>}
-                {tr.learned && <div style={{fontSize:"0.78rem",color:T.textMid,marginTop:"0.15rem"}}><strong>Learned:</strong> {tr.learned}</div>}
-                {tr.moment  && <div style={{fontSize:"0.76rem",color:T.textFaint,marginTop:"0.2rem",fontStyle:"italic"}}>{tr.moment}</div>}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // ── Goals Area ────────────────────────────────────────────────────────────
-    function GoalsArea() {
-      function saveGoal() {
-        var goalTxt = (fv("goal","")).trim();
-        var cat     = (fv("cat","")).trim();
-        if (!goalTxt || !cat) return;
-        var kind = fv("kind","goal");
-        var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){return s.trim();}).filter(Boolean);
-        var item = {
-          id: uid(), cat: cat, goal: goalTxt, kind: kind,
-          why: (fv("why","")).trim(), source: (fv("source","parent")).trim(),
-          steps: stepsRaw.map(function(s){ return {id:uid(),text:s,done:false}; }),
-          progress: fv("progress","Not started"),
-          evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
-        };
-        if (kind === "challenge") {
-          item.target       = (fv("target","")).toString().trim();
-          item.unit         = (fv("unit","books")).trim();
-          item.manualAdjust = 0;
-        }
-        lhSaveAdd("goals", item); closeForm();
-      }
-      function updateGoal() {
-        var goalTxt = (fv("goal","")).trim();
-        var cat     = (fv("cat","")).trim();
-        if (!goalTxt || !cat) return;
-        var kind = fv("kind","goal");
-        var stepsRaw = (fv("stepsText","")).split("\n").map(function(s){return s.trim();}).filter(Boolean);
-        var patch = {
-          cat: cat, goal: goalTxt, kind: kind,
-          why: (fv("why","")).trim(), source: (fv("source","parent")).trim(),
-          steps: stepsRaw.map(function(s){ return {id:uid(),text:s,done:false}; }),
-          progress: fv("progress","Not started"),
-          evidence: (fv("evidence","")).trim(), reflect: (fv("reflect","")).trim()
-        };
-        if (kind === "challenge") {
-          patch.target = (fv("target","")).toString().trim();
-          patch.unit   = (fv("unit","books")).trim();
-          // manualAdjust is adjusted via +/− on the card, not via the form
-        }
-        lhSaveUpdate("goals", lhEditId, patch);
-        closeForm();
-      }
-      function GoalForm(onSave) {
-        var isChallenge = fv("kind","goal") === "challenge";
-        var adjBtnSt = {background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"50%",width:"22px",height:"22px",cursor:"pointer",fontSize:"0.9rem",color:T.textMid,padding:0,lineHeight:1,fontFamily:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center"};
-        return formCard(
-          <div>
-            {fieldRow("Type",
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                {pillToggle("Goal",      !isChallenge, function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"goal"}); }); })}
-                {pillToggle("Challenge", isChallenge,  function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"challenge"}); }); })}
-              </div>
-            )}
-            {fieldRow("Category *", <input value={fv("cat","")} onChange={fSet("cat")} placeholder="e.g. Math, Reading, Character" style={inp()} autoFocus/>)}
-            {fieldRow("Goal *", <textarea value={fv("goal","")} onChange={fSet("goal")} placeholder="What does success look like?" style={inp({height:62,resize:"vertical"})}/>)}
-            {isChallenge && fieldRow("Target", <input type="number" min="0" value={fv("target","")} onChange={fSet("target")} placeholder="e.g. 30" style={inp({width:"140px"})}/>)}
-            {isChallenge && fieldRow("Unit", <input value={fv("unit","books")} onChange={fSet("unit")} placeholder="books, days, hours…" style={inp()}/>)}
-            {fieldRow("Why", <textarea value={fv("why","")} onChange={fSet("why")} placeholder="Why does this matter?" style={inp({height:50,resize:"vertical"})}/>)}
-            {fieldRow("Source", <input value={fv("source","parent")} onChange={fSet("source")} placeholder="parent, or teacher name" style={inp()}/>)}
-            {!isChallenge && fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} placeholder={"Master multiplication facts\nPractice word problems"} style={inp({height:72,resize:"vertical"})}/>)}
-            {!isChallenge && fieldRow("Progress",
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                {LH_PROGRESS.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){setLhForm(function(f){return Object.assign({},f,{progress:p});}); }); })}
-              </div>
-            )}
-            {fieldRow("Evidence", <textarea value={fv("evidence","")} onChange={fSet("evidence")} placeholder="What shows they've met this goal?" style={inp({height:56,resize:"vertical"})}/>)}
-            {fieldRow("Reflect", <textarea value={fv("reflect","")} onChange={fSet("reflect")} placeholder="What went well? What was hard?" style={inp({height:56,resize:"vertical"})}/>)}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
-      var adjBtnSt = {background:"none",border:"1.5px solid "+T.borderSoft,borderRadius:"50%",width:"22px",height:"22px",cursor:"pointer",fontSize:"0.9rem",color:T.textMid,padding:0,lineHeight:1,fontFamily:"inherit",display:"inline-flex",alignItems:"center",justifyContent:"center"};
-      return areaWrap(
-        <div>
-          {lhAddMode !== "goal" && (
-            <button type="button" onClick={function(){ openAdd("goal",{progress:"Not started",source:"parent",kind:"goal"}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Goal</button>
-          )}
-          {lhAddMode === "goal" && GoalForm(saveGoal)}
-          {goals.length === 0 && lhAddMode !== "goal" && (
-            <div style={emptyCard}>🎯 No goals yet — set your first!</div>
-          )}
-          {goals.map(function(g) {
-            if (lhEditId === g.id) {
-              return <div key={g.id}>{GoalForm(updateGoal)}</div>;
-            }
-            var isChallenge = g.kind === "challenge";
-            var progColor = g.progress==="Achieved"?T.sage:g.progress==="In progress"?T.blue:T.textFaint;
-            var stepsArr = Array.isArray(g.steps) ? g.steps : [];
-            var doneCount = stepsArr.filter(function(s){return s.done;}).length;
-            var bc = card({marginBottom:"0.65rem"});
-            // Challenge progress display
-            var challengeBlock = null;
-            if (isChallenge) {
-              var autoProgress = g.unit === "books" ? lhChallengeAutoProgress(books) : 0;
-              var manualAdjust = typeof g.manualAdjust === "number" ? g.manualAdjust : 0;
-              var displayProgress = autoProgress + manualAdjust;
-              var targetNum = parseInt(g.target) || 0;
-              var pct = targetNum > 0 ? Math.min(1, displayProgress / targetNum) : 0;
-              var breakdownLabel = null;
-              if (g.unit === "books") {
-                if (manualAdjust > 0)      breakdownLabel = autoProgress + " from Books log, +" + manualAdjust + " added";
-                else if (manualAdjust < 0) breakdownLabel = autoProgress + " from Books log, −" + Math.abs(manualAdjust) + " removed";
-                else                       breakdownLabel = autoProgress + " from Books log";
-              }
-              var gId = g.id;
-              challengeBlock = (
-                <div style={{marginTop:"0.65rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.28rem"}}>
-                    <span style={{fontSize:"0.9rem",fontWeight:700,color:T.textDark}}>{displayProgress}</span>
-                    <span style={{fontSize:"0.78rem",color:T.textMid}}>/ {g.target || "?"} {g.unit || ""}</span>
-                    <div style={{display:"flex",gap:"0.28rem",marginLeft:"auto"}}>
-                      <button type="button" style={adjBtnSt} onClick={function(){ lhSaveUpdate("goals",gId,{manualAdjust:manualAdjust-1}); }}>−</button>
-                      <button type="button" style={adjBtnSt} onClick={function(){ lhSaveUpdate("goals",gId,{manualAdjust:manualAdjust+1}); }}>+</button>
-                    </div>
-                  </div>
-                  {targetNum > 0 && (
-                    <div style={{background:T.borderSoft,borderRadius:"99px",height:"6px",overflow:"hidden",marginBottom:"0.22rem"}}>
-                      <div style={{width:(pct*100)+"%",height:"100%",background:T.blue,borderRadius:"99px",transition:"width 0.3s"}}></div>
-                    </div>
-                  )}
-                  {breakdownLabel && <div style={{fontSize:"0.72rem",color:T.textFaint}}>{breakdownLabel}</div>}
-                </div>
-              );
-            }
-            return (
-              <div key={g.id} style={bc}>
-                {itemHeader(g.goal, g.cat || null,
-                  function(){ openEdit(g.id, Object.assign({},g,{stepsText:stepsArr.map(function(s){return s.text;}).join("\n")})); },
-                  function(){ if(window.confirm("Remove this goal?")) lhSaveDel("goals", g.id); }
-                )}
-                {!isChallenge && (
-                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.45rem",alignItems:"center"}}>
-                    {badge(g.progress||"Not started", progColor)}
-                    {g.source && g.source !== "parent" && <span style={{fontSize:"0.75rem",color:T.textMid}}>{g.source}</span>}
-                  </div>
-                )}
-                {isChallenge && badge("Challenge", T.blue)}
-                {challengeBlock}
-                {!isChallenge && stepsArr.length > 0 && (
-                  <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.3rem"}}>
-                    {doneCount}/{stepsArr.length} steps complete
-                    <div style={{marginTop:"0.25rem"}}>
-                      {stepsArr.map(function(step) {
-                        var stepSt = {display:"flex",alignItems:"center",gap:"0.35rem",marginBottom:"0.15rem",cursor:"pointer"};
-                        return (
-                          <div key={step.id} style={stepSt} onClick={function(){
-                            var updated = stepsArr.map(function(s){ return s.id===step.id ? Object.assign({},s,{done:!s.done}) : s; });
-                            lhSaveUpdate("goals", g.id, {steps:updated});
-                          }}>
-                            <span style={{color:step.done?T.sage:T.borderSoft,fontSize:"0.85rem"}}>{step.done?"●":"○"}</span>
-                            <span style={{textDecoration:step.done?"line-through":"none",color:step.done?T.textFaint:T.textMid}}>{step.text}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {g.evidence && <div style={{fontSize:"0.76rem",color:T.textFaint,marginTop:"0.25rem",fontStyle:"italic"}}>Evidence: {g.evidence}</div>}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // ── Homework Area ─────────────────────────────────────────────────────────
-    var HW_STATUSES = ["Not started","In progress","Done","Turned in"];
-    var HW_STATUS_COLOR = {
-      "Not started": "",        // uses textFaint
-      "In progress": "blue",
-      "Done":        "sage",
-      "Turned in":   "sand"
-    };
-    function hwStatusColor(s) {
-      var key = HW_STATUS_COLOR[s];
-      return key ? T[key] : T.textFaint;
-    }
-    function HomeworkArea() {
-      function saveHw() {
-        var task = (fv("task","")).trim();
-        var subj = (fv("subj","")).trim();
-        if (!task || !subj) return;
-        var item = {
-          id: uid(), subj: subj, task: task,
-          due: (fv("due","")).trim(),
-          status: fv("status","Not started"),
-          help: !!fv("help", false)
-        };
-        hwSaveAdd(item);
-      }
-      function updateHw() {
-        var task = (fv("task","")).trim();
-        var subj = (fv("subj","")).trim();
-        if (!task || !subj) return;
-        hwSaveUpdate(lhEditId, {
-          subj: subj, task: task,
-          due: (fv("due","")).trim(),
-          status: fv("status","Not started"),
-          help: !!fv("help", false)
-        });
-        closeForm();
-      }
-      function HwForm(onSave) {
-        return formCard(
-          <div>
-            {fieldRow("Subject *", <input value={fv("subj","")} onChange={fSet("subj")} placeholder="Math, English, Science…" style={inp()} autoFocus/>)}
-            {fieldRow("Assignment *", <input value={fv("task","")} onChange={fSet("task")} placeholder="What's the assignment?" style={inp()}/>)}
-            {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({width:"180px"})}/>)}
-            {fieldRow("Status",
-              <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
-                {HW_STATUSES.map(function(s) {
-                  var isAct = fv("status","Not started") === s;
-                  var col   = hwStatusColor(s);
-                  var pSt   = {padding:"0.2rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(isAct?col:T.borderSoft),background:isAct?col+"22":"transparent",color:isAct?col:T.textMid,fontSize:"0.75rem",fontWeight:isAct?700:400,cursor:"pointer",fontFamily:"inherit"};
-                  return <button type="button" key={s} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{status:s}); }); }} style={pSt}>{s}</button>;
-                })}
-              </div>
-            )}
-            {fieldRow("",
-              <label style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",color:T.textMid,cursor:"pointer"}}>
-                <input type="checkbox" checked={!!fv("help",false)} onChange={fChk("help")} style={{cursor:"pointer"}}/>
-                Needs help
-              </label>
-            )}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
-      return areaWrap(
-        <div>
-          {lhAddMode !== "hw" && (
-            <button type="button" onClick={function(){ openAdd("hw",{status:"Not started",help:false}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Assignment</button>
-          )}
-          {lhAddMode === "hw" && HwForm(saveHw)}
-          {homework.length === 0 && lhAddMode !== "hw" && (
-            <div style={emptyCard}>✏️ No assignments yet</div>
-          )}
-          {homework.map(function(hw) {
-            if (lhEditId === hw.id) {
-              return <div key={hw.id}>{HwForm(updateHw)}</div>;
-            }
-            var col  = hwStatusColor(hw.status);
-            var isDone = hw.status === "Done" || hw.status === "Turned in";
-            var bc = card({marginBottom:"0.65rem"});
-            return (
-              <div key={hw.id} style={bc}>
-                <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:700,fontSize:"0.88rem",color:isDone?T.textFaint:T.textDark,textDecoration:isDone?"line-through":"none",lineHeight:1.3}}>{hw.task}</div>
-                    <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.12rem"}}>
-                      {hw.subj}
-                      {hw.due && <span style={{marginLeft:"0.5rem",color:T.textFaint}}>due {hw.due}</span>}
-                    </div>
-                  </div>
-                  {hw.help && <span style={{fontSize:"0.7rem",fontWeight:700,color:T.rose,background:T.rose+"18",padding:"0.1rem 0.45rem",borderRadius:"99px",flexShrink:0}}>Needs help</span>}
-                  <button type="button" onClick={function(){ openEdit(hw.id, Object.assign({},hw)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                  <button type="button" onClick={function(){ if(window.confirm("Remove this assignment?")) hwSaveDel(hw.id); }} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
-                </div>
-                <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginTop:"0.55rem"}}>
-                  {HW_STATUSES.map(function(s) {
-                    var isAct = hw.status === s;
-                    var c     = hwStatusColor(s);
-                    var bSt   = {fontSize:"0.7rem",padding:"0.15rem 0.55rem",borderRadius:"99px",fontFamily:"inherit",border:"1.5px solid "+(isAct?c:T.borderSoft),background:isAct?c+"22":"transparent",color:isAct?c:T.textFaint,fontWeight:isAct?700:400,cursor:"pointer"};
-                    var hwId  = hw.id;
-                    return <button type="button" key={s} style={bSt} onClick={function(){ hwSaveUpdate(hwId, {status: hw.status===s?"Not started":s}); }}>{s}</button>;
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // ── This Week Area ────────────────────────────────────────────────────────
-    function ThisWeekArea() {
-      function secHead(label) {
-        return <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1.1rem",marginBottom:"0.4rem"}}>{label}</div>;
-      }
-      function dateBadge(dateStr) {
-        if (!dateStr) return null;
-        return <span style={{fontSize:"0.68rem",color:T.textMid,background:T.sand+"33",padding:"0.1rem 0.45rem",borderRadius:"99px",marginLeft:"0.4rem",flexShrink:0}}>{dateStr}</span>;
-      }
-      function delBtn(onDel) {
-        return <button type="button" onClick={onDel} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>;
-      }
-      function sortByDate(arr, key) {
-        return arr.slice().sort(function(a,b){
-          var da = a[key]; var db = b[key];
-          if (!da && !db) return 0;
-          if (!da) return 1;
-          if (!db) return -1;
-          return da < db ? -1 : da > db ? 1 : 0;
-        });
-      }
-
-      var isAddEvt  = lhAddMode === "week-event";
-      var isAddFrm  = lhAddMode === "week-form";
-      var isAddPack = lhAddMode === "week-pack";
-
-      // ── Events ──────────────────────────────────────────────────────────────
-      function EventAddForm() {
-        function save() {
-          var t = (fv("title","")).trim();
-          if (!t) return;
-          weekMutate({ events: weekEvents.concat([{ id:uid(), title:t, date:(fv("date","")).trim() }]) });
-          closeForm();
-        }
-        return formCard(
-          <div>
-            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Picture day, Math test, Spirit day…" style={inp()} autoFocus/>)}
-            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({width:"180px"})}/>)}
-            {formBtns(save)}
-          </div>
-        );
-      }
-      function EventEditForm(evId) {
-        function save() {
-          var t = (fv("title","")).trim();
-          if (!t) return;
-          weekMutate({ events: weekEvents.map(function(e){ return e.id===evId ? Object.assign({},e,{title:t,date:(fv("date","")).trim()}) : e; }) });
-          closeForm();
-        }
-        return formCard(
-          <div>
-            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Picture day, Math test, Spirit day…" style={inp()} autoFocus/>)}
-            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({width:"180px"})}/>)}
-            {formBtns(save)}
-          </div>
-        );
-      }
-
-      // ── Forms ───────────────────────────────────────────────────────────────
-      function FormAddForm() {
-        function save() {
-          var t = (fv("title","")).trim();
-          if (!t) return;
-          weekMutate({ forms: weekForms.concat([{ id:uid(), title:t, due:(fv("due","")).trim(), done:false }]) });
-          closeForm();
-        }
-        return formCard(
-          <div>
-            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Permission slip, lunch form, RSVP…" style={inp()} autoFocus/>)}
-            {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({width:"180px"})}/>)}
-            {formBtns(save)}
-          </div>
-        );
-      }
-      function FormEditForm(fmId) {
-        function save() {
-          var t = (fv("title","")).trim();
-          if (!t) return;
-          weekMutate({ forms: weekForms.map(function(f){ return f.id===fmId ? Object.assign({},f,{title:t,due:(fv("due","")).trim()}) : f; }) });
-          closeForm();
-        }
-        return formCard(
-          <div>
-            {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} placeholder="Permission slip, lunch form, RSVP…" style={inp()} autoFocus/>)}
-            {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({width:"180px"})}/>)}
-            {formBtns(save)}
-          </div>
-        );
-      }
-
-      // ── Pack ────────────────────────────────────────────────────────────────
-      function PackAddForm() {
-        function save() {
-          var l = (fv("label","")).trim();
-          if (!l) return;
-          weekMutate({ pack: weekPack.concat([{ id:uid(), label:l, checked:false }]) });
-          closeForm();
-        }
-        return formCard(
-          <div>
-            {fieldRow("Item *", <input value={fv("label","")} onChange={fSet("label")} placeholder="Signed permission slip, PE clothes…" style={inp()} autoFocus/>)}
-            {formBtns(save)}
-          </div>
-        );
-      }
-
-      var emptyTxt = {fontSize:"0.8rem",color:T.textFaint,padding:"0.4rem 0"};
-      var addBtnSt = btnP(T.sand,{fontSize:"0.79rem",marginBottom:"0.4rem"});
-      var evSorted = sortByDate(weekEvents, "date");
-      var fmSorted = sortByDate(weekForms, "due");
-
-      return areaWrap(
-        <div>
-
-          {secHead("Events & Due Dates")}
-          {!isAddEvt && <button type="button" onClick={function(){ openAdd("week-event",{}); }} style={addBtnSt}>+ Add Event</button>}
-          {isAddEvt && EventAddForm()}
-          {evSorted.map(function(ev) {
-            if (lhEditId === ev.id) { return <div key={ev.id}>{EventEditForm(ev.id)}</div>; }
-            var evId = ev.id;
-            var evSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.4rem"});
-            return (
-              <div key={evId} style={evSt}>
-                <div style={{flex:1,fontSize:"0.86rem",color:T.textDark,lineHeight:1.3}}>{ev.title}</div>
-                {dateBadge(ev.date)}
-                <button type="button" onClick={function(){ openEdit(evId, Object.assign({},ev)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                {delBtn(function(){ weekMutate({ events: weekEvents.filter(function(e){ return e.id!==evId; }) }); })}
-              </div>
-            );
-          })}
-          {weekEvents.length === 0 && !isAddEvt && <div style={emptyTxt}>Nothing on the calendar yet.</div>}
-
-          {secHead("Forms & Permission Slips")}
-          {!isAddFrm && <button type="button" onClick={function(){ openAdd("week-form",{done:false}); }} style={addBtnSt}>+ Add Form</button>}
-          {isAddFrm && FormAddForm()}
-          {fmSorted.map(function(fm) {
-            if (lhEditId === fm.id) { return <div key={fm.id}>{FormEditForm(fm.id)}</div>; }
-            var fmId = fm.id;
-            var isDone = !!fm.done;
-            var fmSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
-            return (
-              <div key={fmId} style={fmSt}>
-                <input type="checkbox" checked={isDone}
-                  onChange={function(){ weekMutate({ forms: weekForms.map(function(f){ return f.id===fmId ? Object.assign({},f,{done:!f.done}) : f; }) }); }}
-                  style={{cursor:"pointer",flexShrink:0}}/>
-                <div style={{flex:1,fontSize:"0.86rem",color:isDone?T.textFaint:T.textDark,textDecoration:isDone?"line-through":"none",lineHeight:1.3}}>{fm.title}</div>
-                {dateBadge(fm.due)}
-                <button type="button" onClick={function(){ openEdit(fmId, Object.assign({},fm)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                {delBtn(function(){ weekMutate({ forms: weekForms.filter(function(f){ return f.id!==fmId; }) }); })}
-              </div>
-            );
-          })}
-          {weekForms.length === 0 && !isAddFrm && <div style={emptyTxt}>No forms or slips.</div>}
-
-          {secHead("What to Pack")}
-          {!isAddPack && <button type="button" onClick={function(){ openAdd("week-pack",{}); }} style={addBtnSt}>+ Add Item</button>}
-          {isAddPack && PackAddForm()}
-          {weekPack.map(function(pk) {
-            var pkId = pk.id;
-            var isChk = !!pk.checked;
-            var pkSt = Object.assign({}, card({marginBottom:"0.35rem",padding:"0.5rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"});
-            return (
-              <div key={pkId} style={pkSt}
-                onClick={function(){ weekMutate({ pack: weekPack.map(function(p){ return p.id===pkId ? Object.assign({},p,{checked:!p.checked}) : p; }) }); }}>
-                <span style={{fontSize:"1rem",flexShrink:0,userSelect:"none",color:isChk?T.sage:T.borderSoft}}>{isChk?"●":"○"}</span>
-                <div style={{flex:1,fontSize:"0.86rem",color:isChk?T.textFaint:T.textDark,textDecoration:isChk?"line-through":"none"}}>{pk.label}</div>
-                <button type="button"
-                  onClick={function(e){ e.stopPropagation(); weekMutate({ pack: weekPack.filter(function(p){ return p.id!==pkId; }) }); }}
-                  style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>
-              </div>
-            );
-          })}
-          {weekPack.length === 0 && !isAddPack && <div style={emptyTxt}>Nothing to pack yet.</div>}
-
-        </div>
-      );
-    }
-
-    // ── School Comms Area ─────────────────────────────────────────────────────
-    function SchoolCommsArea() {
-      function secHead(label) {
-        return <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1.1rem",marginBottom:"0.4rem"}}>{label}</div>;
-      }
-      function delBtn(onDel) {
-        return <button type="button" onClick={onDel} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>;
-      }
-      function sortedLog() {
-        return commsLog.slice().sort(function(a,b){
-          var da = a.date; var db = b.date;
-          if (!da && !db) return 0;
-          if (!da) return -1;
-          if (!db) return 1;
-          return da > db ? -1 : da < db ? 1 : 0;
-        });
-      }
-
-      var isAddContact = lhAddMode === "comms-contact";
-      var isAddLog     = lhAddMode === "comms-log";
-
-      function ContactForm(onSave) {
-        return formCard(
-          <div>
-            {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="Ms. Johnson, Mr. Garcia…" style={inp()} autoFocus/>)}
-            {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} placeholder="Teacher, Nurse, Office, Coach…" style={inp()}/>)}
-            {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} placeholder="(optional)" style={inp()}/>)}
-            {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} placeholder="(optional)" style={inp()}/>)}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      function saveContact() {
-        var n = (fv("name","")).trim();
-        if (!n) return;
-        commsMutate({ contacts: commsContacts.concat([{ id:uid(), name:n, role:(fv("role","")).trim(), phone:(fv("phone","")).trim(), email:(fv("email","")).trim() }]) });
-        closeForm();
-      }
-      function updateContact() {
-        var n = (fv("name","")).trim();
-        if (!n) return;
-        commsMutate({ contacts: commsContacts.map(function(c){ return c.id===lhEditId ? Object.assign({},c,{name:n,role:(fv("role","")).trim(),phone:(fv("phone","")).trim(),email:(fv("email","")).trim()}) : c; }) });
-        closeForm();
-      }
-
-      function LogForm(onSave) {
-        var hasAction = (fv("action","")).trim() !== "";
-        return formCard(
-          <div>
-            {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({width:"180px"})}/>)}
-            {fieldRow("Who", <input value={fv("who","")} onChange={fSet("who")} placeholder="Who did you speak with?" style={inp()}/>)}
-            {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="What was it about?" style={inp()}/>)}
-            {fieldRow("Notes", <textarea value={fv("note","")} onChange={fSet("note")} placeholder="What was said?" style={inp({height:72,resize:"vertical"})}/>)}
-            {fieldRow("Action item", <input value={fv("action","")} onChange={fSet("action")} placeholder="Any follow-up needed? (optional)" style={inp()}/>)}
-            {hasAction && fieldRow("",
-              <label style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",color:T.textMid,cursor:"pointer"}}>
-                <input type="checkbox" checked={!!fv("actionDone",false)} onChange={fChk("actionDone")} style={{cursor:"pointer"}}/>
-                Action done
-              </label>
-            )}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      function saveLog() {
-        var who = (fv("who","")).trim(); var subj = (fv("subject","")).trim();
-        if (!who && !subj) return;
-        commsMutate({ log: commsLog.concat([{
-          id:uid(), date:(fv("date","")).trim(), who:who, subject:subj,
-          note:(fv("note","")).trim(), action:(fv("action","")).trim(), actionDone:!!fv("actionDone",false)
-        }]) });
-        closeForm();
-      }
-      function updateLog() {
-        var who = (fv("who","")).trim(); var subj = (fv("subject","")).trim();
-        if (!who && !subj) return;
-        commsMutate({ log: commsLog.map(function(e){ return e.id===lhEditId ? Object.assign({},e,{
-          date:(fv("date","")).trim(), who:who, subject:subj,
-          note:(fv("note","")).trim(), action:(fv("action","")).trim(), actionDone:!!fv("actionDone",false)
-        }) : e; }) });
-        closeForm();
-      }
-
-      var emptyTxt = {fontSize:"0.8rem",color:T.textFaint,padding:"0.4rem 0"};
-      var addBtnSt = btnP(T.sand,{fontSize:"0.79rem",marginBottom:"0.4rem"});
-
-      return areaWrap(
-        <div>
-          {secHead("Contacts")}
-          {!isAddContact && <button type="button" onClick={function(){ openAdd("comms-contact",{}); }} style={addBtnSt}>+ Add Contact</button>}
-          {isAddContact && ContactForm(saveContact)}
-          {commsContacts.map(function(ct) {
-            if (lhEditId === ct.id) { return <div key={ct.id}>{ContactForm(updateContact)}</div>; }
-            var ctId = ct.id;
-            var ctSt = card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"});
-            var linkSt = {fontSize:"0.76rem",color:T.blue,textDecoration:"none"};
-            return (
-              <div key={ctId} style={ctSt}>
-                <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem"}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:"0.25rem 0.45rem"}}>
-                      <span style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark}}>{ct.name}</span>
-                      {ct.role && <span style={{fontSize:"0.72rem",color:T.textMid,background:T.sand+"33",padding:"0.1rem 0.45rem",borderRadius:"99px"}}>{ct.role}</span>}
-                    </div>
-                    {(ct.phone || ct.email) && (
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.2rem 0.85rem",marginTop:"0.25rem"}}>
-                        {ct.phone && <a href={"tel:"+ct.phone} style={linkSt}>{ct.phone}</a>}
-                        {ct.email && <a href={"mailto:"+ct.email} style={linkSt}>{ct.email}</a>}
-                      </div>
-                    )}
-                  </div>
-                  <button type="button" onClick={function(){ openEdit(ctId, Object.assign({},ct)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>Edit</button>
-                  {delBtn(function(){ commsMutate({ contacts: commsContacts.filter(function(c){ return c.id!==ctId; }) }); })}
-                </div>
-              </div>
-            );
-          })}
-          {commsContacts.length === 0 && !isAddContact && <div style={emptyTxt}>No contacts yet.</div>}
-
-          {secHead("Communication Log")}
-          {!isAddLog && <button type="button" onClick={function(){ openAdd("comms-log",{actionDone:false}); }} style={addBtnSt}>+ Add Entry</button>}
-          {isAddLog && LogForm(saveLog)}
-          {sortedLog().map(function(entry) {
-            if (lhEditId === entry.id) { return <div key={entry.id}>{LogForm(updateLog)}</div>; }
-            var eId = entry.id;
-            var hasAction = entry.action && (entry.action).trim() !== "";
-            var eSt = card({marginBottom:"0.65rem"});
-            return (
-              <div key={eId} style={eSt}>
-                <div style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",marginBottom:"0.3rem"}}>
-                  <div style={{flex:1}}>
-                    {entry.subject && <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,lineHeight:1.3}}>{entry.subject}</div>}
-                    <div style={{fontSize:"0.75rem",color:T.textMid,marginTop:"0.1rem"}}>
-                      {entry.who && <span>{entry.who}</span>}
-                      {entry.who && entry.date && <span style={{margin:"0 0.3rem"}}>·</span>}
-                      {entry.date && <span>{entry.date}</span>}
-                    </div>
-                  </div>
-                  <button type="button" onClick={function(){ openEdit(eId, Object.assign({},entry)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>Edit</button>
-                  {delBtn(function(){ commsMutate({ log: commsLog.filter(function(e){ return e.id!==eId; }) }); })}
-                </div>
-                {entry.note && <div style={{fontSize:"0.82rem",color:T.textMid,lineHeight:1.45,marginBottom:hasAction?"0.45rem":"0"}}>{entry.note}</div>}
-                {hasAction && (
-                  <div style={{display:"flex",alignItems:"center",gap:"0.4rem",borderTop:"1px solid "+T.borderSoft,paddingTop:"0.4rem",marginTop:"0.1rem",cursor:"pointer"}}
-                    onClick={function(){ commsMutate({ log: commsLog.map(function(e){ return e.id===eId ? Object.assign({},e,{actionDone:!e.actionDone}) : e; }) }); }}>
-                    <span style={{fontSize:"0.95rem",color:entry.actionDone?T.sage:T.textFaint,flexShrink:0,userSelect:"none"}}>{entry.actionDone?"●":"○"}</span>
-                    <span style={{fontSize:"0.8rem",color:entry.actionDone?T.textFaint:T.textDark,textDecoration:entry.actionDone?"line-through":"none"}}>{entry.action}</span>
-                    {!entry.actionDone && <span style={{fontSize:"0.65rem",fontWeight:700,color:T.rose,background:T.rose+"18",padding:"0.08rem 0.4rem",borderRadius:"99px",flexShrink:0,marginLeft:"auto"}}>Follow up</span>}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {commsLog.length === 0 && !isAddLog && <div style={emptyTxt}>No entries yet.</div>}
-        </div>
-      );
-    }
-
-    // ── Grades & Growth Area ──────────────────────────────────────────────────
-    var MARK_OPTIONS = ["Exceeding","Meeting","Approaching","Strength"];
-    function markColor(m) {
-      if (m === "Exceeding")   return T.sage;
-      if (m === "Meeting")     return T.blue;
-      if (m === "Approaching") return "#f59e0b";
-      if (m === "Strength")    return T.rose;
-      return T.textMid;
-    }
-    function GradesArea() {
-      function secHead(label) {
-        return <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:"1.1rem",marginBottom:"0.4rem"}}>{label}</div>;
-      }
-      function delBtn(onDel) {
-        return <button type="button" onClick={onDel} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px",flexShrink:0}}>✕</button>;
-      }
-
-      var isAddMark  = lhAddMode === "grades-mark";
-      var isAddScore = lhAddMode === "grades-score";
-      var emptyTxt   = {fontSize:"0.8rem",color:T.textFaint,padding:"0.4rem 0"};
-      var addBtnSt   = btnP(T.sand,{fontSize:"0.79rem",marginBottom:"0.4rem"});
-
-      // ── Mark form ──────────────────────────────────────────────────────────
-      function MarkForm(onSave) {
-        var curMark = fv("mark","");
-        return formCard(
-          <div>
-            {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
-            {fieldRow("Mark",
-              <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
-                {MARK_OPTIONS.map(function(m) {
-                  var isAct = curMark === m;
-                  var col   = markColor(m);
-                  var pSt   = {padding:"0.2rem 0.6rem",borderRadius:"99px",border:"1.5px solid "+(isAct?col:T.borderSoft),background:isAct?col+"22":"transparent",color:isAct?col:T.textMid,fontSize:"0.75rem",fontWeight:isAct?700:400,cursor:"pointer",fontFamily:"inherit"};
-                  return <button type="button" key={m} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{mark:m}); }); }} style={pSt}>{m}</button>;
-                })}
-              </div>
-            )}
-            {fieldRow("Note", <input value={fv("comment","")} onChange={fSet("comment")} placeholder="Optional — anything to remember" style={inp()}/>)}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      function saveMark() {
-        var s = (fv("subject","")).trim(); var m = fv("mark","");
-        if (!s || !m) return;
-        gradesMutate({ marks: gradeMarks.concat([{ id:uid(), subject:s, mark:m, comment:(fv("comment","")).trim() }]) });
-        closeForm();
-      }
-      function updateMark() {
-        var s = (fv("subject","")).trim(); var m = fv("mark","");
-        if (!s || !m) return;
-        gradesMutate({ marks: gradeMarks.map(function(r){ return r.id===lhEditId ? Object.assign({},r,{subject:s,mark:m,comment:(fv("comment","")).trim()}) : r; }) });
-        closeForm();
-      }
-
-      // ── Score form ─────────────────────────────────────────────────────────
-      function ScoreForm(onSave) {
-        return formCard(
-          <div>
-            {fieldRow("Label *", <input value={fv("label","")} onChange={fSet("label")} placeholder="Reading level, Spelling, Fluency…" style={inp()} autoFocus/>)}
-            {fieldRow("Value *", <input value={fv("value","")} onChange={fSet("value")} placeholder="R, 18/20, 95 wpm…" style={inp()}/>)}
-            {formBtns(onSave)}
-          </div>
-        );
-      }
-      function saveScore() {
-        var l = (fv("label","")).trim(); var v = (fv("value","")).trim();
-        if (!l || !v) return;
-        gradesMutate({ scores: gradeScores.concat([{ id:uid(), label:l, value:v }]) });
-        closeForm();
-      }
-      function updateScore() {
-        var l = (fv("label","")).trim(); var v = (fv("value","")).trim();
-        if (!l || !v) return;
-        gradesMutate({ scores: gradeScores.map(function(s){ return s.id===lhEditId ? Object.assign({},s,{label:l,value:v}) : s; }) });
-        closeForm();
-      }
-
-      return areaWrap(
-        <div>
-
-          {secHead("Subject Marks")}
-          {!isAddMark && <button type="button" onClick={function(){ openAdd("grades-mark",{mark:""}); }} style={addBtnSt}>+ Add Subject</button>}
-          {isAddMark && MarkForm(saveMark)}
-          {gradeMarks.map(function(row) {
-            if (lhEditId === row.id) { return <div key={row.id}>{MarkForm(updateMark)}</div>; }
-            var rId  = row.id;
-            var col  = markColor(row.mark);
-            var rSt  = card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"});
-            return (
-              <div key={rId} style={rSt}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                  <div style={{flex:1,fontWeight:600,fontSize:"0.88rem",color:T.textDark}}>{row.subject}</div>
-                  {row.mark && <span style={{fontSize:"0.72rem",fontWeight:700,color:col,background:col+"22",padding:"0.12rem 0.55rem",borderRadius:"99px",flexShrink:0}}>{row.mark}</span>}
-                  <button type="button" onClick={function(){ openEdit(rId, Object.assign({},row)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                  {delBtn(function(){ gradesMutate({ marks: gradeMarks.filter(function(r){ return r.id!==rId; }) }); })}
-                </div>
-                {row.comment && <div style={{fontSize:"0.79rem",color:T.textMid,marginTop:"0.3rem",lineHeight:1.4}}>{row.comment}</div>}
-              </div>
-            );
-          })}
-          {gradeMarks.length === 0 && !isAddMark && <div style={emptyTxt}>No subjects yet.</div>}
-
-          {secHead("Scores & Assessments")}
-          {!isAddScore && <button type="button" onClick={function(){ openAdd("grades-score",{}); }} style={addBtnSt}>+ Add Score</button>}
-          {isAddScore && ScoreForm(saveScore)}
-          {gradeScores.map(function(sc) {
-            if (lhEditId === sc.id) { return <div key={sc.id}>{ScoreForm(updateScore)}</div>; }
-            var scId = sc.id;
-            var scSt = Object.assign({}, card({marginBottom:"0.45rem",padding:"0.6rem 0.9rem"}), {display:"flex",alignItems:"center",gap:"0.5rem"});
-            return (
-              <div key={scId} style={scSt}>
-                <div style={{flex:1,fontSize:"0.86rem",color:T.textMid}}>{sc.label}</div>
-                <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,flexShrink:0}}>{sc.value}</div>
-                <button type="button" onClick={function(){ openEdit(scId, Object.assign({},sc)); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                {delBtn(function(){ gradesMutate({ scores: gradeScores.filter(function(s){ return s.id!==scId; }) }); })}
-              </div>
-            );
-          })}
-          {gradeScores.length === 0 && !isAddScore && <div style={emptyTxt}>No assessments yet.</div>}
-
-          {secHead("Growth Notes")}
-          <textarea
-            value={gradeNotes}
-            onChange={function(e){ gradesMutate({ notes: e.target.value }); }}
-            placeholder="What are you noticing? What's clicking? What's growing?"
-            style={inp({height:100,resize:"vertical",fontSize:"0.86rem"})}
-          />
-
-        </div>
-      );
-    }
-
-    // ── Summaries / Keepsakes Area ───────────────────────────────────────────
-    function SummariesArea() {
-      var summaryIsForCurrent = lhSummaryChildId === activeChild;
-      var childName = (childPerson && childPerson.name) ? childPerson.name : "your child";
-
-      function copyText(text) {
-        try {
-          var ta = document.createElement("textarea");
-          ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-          document.body.appendChild(ta); ta.select();
-          document.execCommand("copy"); document.body.removeChild(ta);
-        } catch(e) {}
-      }
-
-      function handleGenerate() {
-        var text = lhBuildSummary({
-          name:       childName,
-          mode:       childMode,
-          books:      books,
-          beyond:     beyonds,
-          trips:      trips,
-          goals:      goals,
-          homework:   homework,
-          gradeMarks: gradeMarks,
-          gradeNotes: gradeNotes
-        });
-        setLhSummaryText(text);
-        setLhSummaryChildId(activeChild);
-      }
-
-      function handleHousehold() {
-        var children = displayPeople.map(function(p) {
-          var sc = lhGet(lhGet(lighthouse, "shared", {}), p.id, {});
-          return {
-            name:   p.name || "Child",
-            books:  Array.isArray(sc.books)  ? sc.books  : [],
-            beyond: Array.isArray(sc.beyond) ? sc.beyond : [],
-            trips:  Array.isArray(sc.trips)  ? sc.trips  : [],
-            goals:  Array.isArray(sc.goals)  ? sc.goals  : []
-          };
-        });
-        setLhHouseholdText(lhBuildHouseholdSummary(children));
-      }
-
-      var genLabel = summaryIsForCurrent ? "Regenerate " + summaryLabel : "Generate " + summaryLabel;
-
-      return areaWrap(
-        <div>
-          <div style={{fontSize:"0.82rem",color:T.textMid,lineHeight:1.55,marginBottom:"0.9rem"}}>
-            {childMode === "school"
-              ? "A keepsake record of everything " + childName + " experienced and learned."
-              : "Pull together everything " + childName + " has done — ready for documentation or sharing."}
-          </div>
-          <button type="button" onClick={handleGenerate} style={btnP(T.sand,{fontSize:"0.83rem"})}>
-            {genLabel}
-          </button>
-          {summaryIsForCurrent && (
-            <div style={{marginTop:"0.75rem"}}>
-              <textarea
-                value={lhSummaryText}
-                onChange={function(e) { setLhSummaryText(e.target.value); }}
-                style={inp({height:200,resize:"vertical",fontSize:"0.86rem",lineHeight:1.6})}
-              />
-              <button type="button" onClick={function() { copyText(lhSummaryText); }} style={btnS({marginTop:"0.4rem",fontSize:"0.8rem"})}>
-                Copy text
-              </button>
-            </div>
-          )}
-          {displayPeople.length > 1 && (
-            <div style={{borderTop:"1px solid "+T.borderSoft,marginTop:"1.5rem",paddingTop:"1.25rem"}}>
-              <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Household Overview</div>
-              <div style={{fontSize:"0.78rem",color:T.textFaint,marginBottom:"0.6rem"}}>A quick snapshot of what everyone has been up to.</div>
-              <button type="button" onClick={handleHousehold} style={btnP(T.sand,{fontSize:"0.78rem"})}>Generate overview</button>
-              {lhHouseholdText && (
-                <div style={{marginTop:"0.65rem"}}>
-                  <textarea
-                    value={lhHouseholdText}
-                    onChange={function(e) { setLhHouseholdText(e.target.value); }}
-                    style={inp({height:80,resize:"vertical",fontSize:"0.82rem",lineHeight:1.5})}
-                  />
-                  <button type="button" onClick={function() { copyText(lhHouseholdText); }} style={btnS({marginTop:"0.35rem",fontSize:"0.78rem"})}>
-                    Copy
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ── Plan Area (daily / weekly / monthly) ─────────────────────────────────
-    var LH_PLAN_DAYS  = ["Mon","Tue","Wed","Thu","Fri"];
-    var LH_LOOP_ICONS = ["📚","📖","✏️","📐","🔬","🗺️","🎨","🎵","🏃","🌿","📝","⭐","🧩","💬","🔤","🧮"];
-    var LH_PLAN_TABS  = [{id:"daily",label:"Daily"},{id:"weekly",label:"Weekly"},{id:"monthly",label:"Monthly"}];
-
-    function PlanArea() {
-      // ── pure date helpers (no hooks) ──────────────────────────────────────
-      function isoFromDate(d) {
-        return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      }
-      function addDays(iso, n) {
-        var d = new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return isoFromDate(d);
-      }
-      function nextSchoolDay(iso) {
-        var nxt=addDays(iso,1); var dow=new Date(nxt+"T12:00:00").getDay();
-        if(dow===6) return addDays(iso,3); if(dow===0) return addDays(iso,2); return nxt;
-      }
-      function getMondayOf(iso) {
-        var d=new Date(iso+"T12:00:00"); var dow=d.getDay();
-        d.setDate(d.getDate()-(dow===0?6:dow-1)); return isoFromDate(d);
-      }
-      function weekDates(mondayIso) {
-        var r=[]; for(var i=0;i<5;i++) r.push(addDays(mondayIso,i)); return r;
-      }
-      function fmtDate(iso) {
-        var d=new Date(iso+"T12:00:00");
-        var DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-        var MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        return DN[d.getDay()]+", "+MN[d.getMonth()]+" "+d.getDate();
-      }
-      var todayIso = isoFromDate(TODAY);
-      var isToday  = lhPlanDate === todayIso;
-
-      // ── day-data helpers (migration-safe: old "Mon" keys silently ignored) ─
-      function getDayObj(date) {
-        var raw = hsDaily[date];
-        if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw;
-        return { attendance:null, notes:"", tasks:{} };
-      }
-      function getSubjTasks(date, subj) {
-        var d=getDayObj(date); var ts=(d.tasks&&typeof d.tasks==="object")?d.tasks:{};
-        return Array.isArray(ts[subj])?ts[subj]:[];
-      }
-      function patchDay(date, dayPatch) {
-        var nd=Object.assign({},hsDaily);
-        var raw=nd[date];
-        var old=(raw&&typeof raw==="object"&&!Array.isArray(raw))?Object.assign({},raw):{attendance:null,notes:"",tasks:{}};
-        nd[date]=Object.assign({},old,dayPatch); applyHs({daily:nd});
-      }
-      function patchSubjTasks(date, subj, newTasks) {
-        var d=getDayObj(date); var ts=(d.tasks&&typeof d.tasks==="object")?Object.assign({},d.tasks):{};
-        ts[subj]=newTasks; patchDay(date,{tasks:ts});
-      }
-      // Roll a task to the next school day under the same subject — one applyHs call.
-      function rollOver(date, subj, taskId) {
-        var nxt=nextSchoolDay(date);
-        var curTasks=getSubjTasks(date,subj); var nxtTasks=getSubjTasks(nxt,subj);
-        var moved=null;
-        var remaining=curTasks.filter(function(t){if(t.id===taskId){moved=t;return false;}return true;});
-        if(!moved) return;
-        var nd=Object.assign({},hsDaily);
-        // remove from current day
-        var rawC=nd[date]; var dC=(rawC&&typeof rawC==="object"&&!Array.isArray(rawC))?Object.assign({},rawC):{attendance:null,notes:"",tasks:{}};
-        var tsC=(dC.tasks&&typeof dC.tasks==="object")?Object.assign({},dC.tasks):{};
-        tsC[subj]=remaining; dC.tasks=tsC; nd[date]=dC;
-        // add to next day
-        var rawN=nd[nxt]; var dN=(rawN&&typeof rawN==="object"&&!Array.isArray(rawN))?Object.assign({},rawN):{attendance:null,notes:"",tasks:{}};
-        var tsN=(dN.tasks&&typeof dN.tasks==="object")?Object.assign({},dN.tasks):{};
-        tsN[subj]=nxtTasks.concat([Object.assign({},moved,{id:uid(),done:false})]); dN.tasks=tsN; nd[nxt]=dN;
-        applyHs({daily:nd});
-      }
-
-      var att=getDayObj(lhPlanDate).attendance||null;
-
-      // ── compact loop strip (same data as LoopsArea) ───────────────────────
-      function LoopStrip() {
-        if(lhLoops.length===0) return <div style={{fontSize:"0.78rem",color:T.textFaint,padding:"0.4rem 0"}}>No loops yet — add one in the Loops tab.</div>;
-        return (
-          <div>
-            {lhLoops.map(function(loop){
-              var items=Array.isArray(loop.items)?loop.items:[]; var upNext=lhUpNext(items); var tint=loop.tint||T.sage;
-              return (
-                <div key={loop.id} style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                  <span style={{fontSize:"1rem",flexShrink:0,lineHeight:1,marginTop:"0.12rem"}}>{loop.icon||"🔁"}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:"0.12rem"}}>{loop.name}</div>
-                    {items.length===0 && <div style={{fontSize:"0.77rem",color:T.textFaint,fontStyle:"italic"}}>No items</div>}
-                    {items.length>0&&!upNext && <div style={{fontSize:"0.77rem",color:tint,fontStyle:"italic"}}>All done ✓</div>}
-                    {upNext && (
-                      <div>
-                        <div style={{fontSize:"0.84rem",color:T.textDark,marginBottom:"0.22rem",lineHeight:1.3}}>{upNext.text}</div>
-                        <div style={{display:"flex",gap:"0.28rem"}}>
-                          {["done","skip","later"].map(function(act){
-                            var isAct=upNext.status===act; var actColor=act==="done"?tint:act==="skip"?T.textFaint:"#f59e0b";
-                            var actLabel=act==="done"?"Done":act==="skip"?"Skip":"Later";
-                            var actSt={fontSize:"0.67rem",padding:"0.1rem 0.42rem",borderRadius:"99px",fontFamily:"inherit",border:"1.5px solid "+(isAct?actColor:T.borderSoft),background:isAct?actColor+"22":"transparent",color:isAct?actColor:T.textFaint,fontWeight:isAct?700:400,cursor:"pointer"};
-                            return <button type="button" key={act} onClick={function(){applyHsLoopItemUpdate(loop.id,upNext.id,{status:lhSetStatus(upNext.status,act)});}} style={actSt}>{actLabel}</button>;
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      }
-
-      var secHd={fontSize:"0.67rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:"0.5rem"};
-      var navBtn={background:"none",border:"none",cursor:"pointer",fontSize:"1.15rem",color:T.textMid,padding:"0.1rem 0.35rem",lineHeight:1,fontFamily:"inherit"};
-      var ptSt=function(active){return{padding:"0.28rem 0.75rem",borderRadius:"99px",border:"none",background:active?T.sand:"transparent",color:active?T.textDark:T.textMid,fontWeight:active?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};};
-
-      return areaWrap(
-        <div>
-          {/* Plan sub-tabs */}
-          <div style={{display:"flex",gap:"0.25rem",marginBottom:"1rem"}}>
-            {LH_PLAN_TABS.map(function(pt){return <button type="button" key={pt.id} onClick={function(){setLhPlanSubTab(pt.id);}} style={ptSt(pt.id===lhPlanSubTab)}>{pt.label}</button>;})}
-          </div>
-
-          {/* ── DAILY ───────────────────────────────────────────────────────── */}
-          {lhPlanSubTab==="daily" && (
-            <div>
-              {/* Date navigation */}
-              <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"1rem"}}>
-                <button type="button" style={navBtn} onClick={function(){setLhPlanDate(addDays(lhPlanDate,-1));setLhTaskSubject(null);setLhTaskText("");}}>‹</button>
-                <span style={{flex:1,textAlign:"center",fontWeight:700,fontSize:"0.9rem",color:T.textDark}}>{fmtDate(lhPlanDate)}</span>
-                <button type="button" style={navBtn} onClick={function(){setLhPlanDate(addDays(lhPlanDate,1));setLhTaskSubject(null);setLhTaskText("");}}>›</button>
-                {!isToday && <button type="button" onClick={function(){setLhPlanDate(todayIso);setLhTaskSubject(null);setLhTaskText("");}} style={{fontSize:"0.7rem",padding:"0.16rem 0.55rem",borderRadius:"99px",border:"1.5px solid "+T.borderSoft,background:"transparent",color:T.textMid,cursor:"pointer",fontFamily:"inherit"}}>Today</button>}
-              </div>
-
-              {/* Attendance */}
-              <div style={card({marginBottom:"0.65rem"})}>
-                <div style={secHd}>Attendance</div>
-                <div style={{display:"flex",gap:"0.45rem"}}>
-                  <button type="button" onClick={function(){patchDay(lhPlanDate,{attendance:att==="present"?null:"present"});}} style={{padding:"0.2rem 0.7rem",borderRadius:"99px",border:"1.5px solid "+(att==="present"?T.sage:T.borderSoft),background:att==="present"?T.sage+"22":"transparent",color:att==="present"?T.sage:T.textFaint,fontSize:"0.77rem",fontWeight:att==="present"?700:400,cursor:"pointer",fontFamily:"inherit"}}>Present</button>
-                  <button type="button" onClick={function(){patchDay(lhPlanDate,{attendance:att==="away"?null:"away"});}} style={{padding:"0.2rem 0.7rem",borderRadius:"99px",border:"1.5px solid "+(att==="away"?T.rose:T.borderSoft),background:att==="away"?T.rose+"22":"transparent",color:att==="away"?T.rose:T.textFaint,fontSize:"0.77rem",fontWeight:att==="away"?700:400,cursor:"pointer",fontFamily:"inherit"}}>Away</button>
-                </div>
-              </div>
-
-              {/* Subjects & Tasks */}
-              <div style={card({marginBottom:"0.65rem"})}>
-                <div style={secHd}>{"Subjects & Tasks"}</div>
-                {hsSubjects.length===0&&lhAddMode!=="plan-subjects"&&(
-                  <div style={{fontSize:"0.8rem",color:T.textFaint,marginBottom:"0.5rem"}}>Add subjects below to get started.</div>
-                )}
-                {hsSubjects.map(function(subj){
-                  var tasks=getSubjTasks(lhPlanDate,subj); var isAdding=lhTaskSubject===subj;
-                  return (
-                    <div key={subj} style={{marginBottom:"0.65rem"}}>
-                      <div style={{fontSize:"0.77rem",fontWeight:700,color:T.textDark,paddingBottom:"0.18rem",marginBottom:"0.22rem",borderBottom:"1px solid "+T.borderSoft}}>{subj}</div>
-                      {tasks.map(function(task){
-                        return (
-                          <div key={task.id} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.18rem 0"}}>
-                            <input type="checkbox" checked={task.done||false} onChange={function(){patchSubjTasks(lhPlanDate,subj,tasks.map(function(t){return t.id===task.id?Object.assign({},t,{done:!t.done}):t;}));}} style={{flexShrink:0,cursor:"pointer",margin:0}}/>
-                            <span style={{flex:1,fontSize:"0.83rem",color:task.done?T.textFaint:T.textDark,textDecoration:task.done?"line-through":"none"}}>{task.text}</span>
-                            <button type="button" title="Roll to next day" onClick={function(){rollOver(lhPlanDate,subj,task.id);}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.82rem",padding:"2px 3px",lineHeight:1,flexShrink:0}}>↩</button>
-                            <button type="button" onClick={function(){patchSubjTasks(lhPlanDate,subj,tasks.filter(function(t){return t.id!==task.id;}));}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.73rem",padding:"2px 3px",lineHeight:1,flexShrink:0}}>✕</button>
-                          </div>
-                        );
-                      })}
-                      {isAdding?(
-                        <div style={{display:"flex",gap:"0.3rem",alignItems:"center",marginTop:"0.2rem"}}>
-                          <div style={{flex:1}}>
-                            <input value={lhTaskText} onChange={function(e){setLhTaskText(e.target.value);}}
-                              onKeyDown={function(e){
-                                if(e.key==="Enter"){var txt=lhTaskText.trim();if(txt){patchSubjTasks(lhPlanDate,subj,tasks.concat([{id:uid(),text:txt,done:false}]));}setLhTaskText("");setLhTaskSubject(null);}
-                                if(e.key==="Escape"){setLhTaskSubject(null);setLhTaskText("");}
-                              }}
-                              placeholder={"Task for "+subj+"…"} style={inp({fontSize:"0.8rem",padding:"0.25rem 0.5rem"})} autoFocus/>
-                          </div>
-                          <button type="button" onClick={function(){var txt=lhTaskText.trim();if(txt){patchSubjTasks(lhPlanDate,subj,tasks.concat([{id:uid(),text:txt,done:false}]));}setLhTaskText("");setLhTaskSubject(null);}} style={btnP(T.sand,{fontSize:"0.75rem",padding:"0.25rem 0.6rem"})}>Add</button>
-                          <button type="button" onClick={function(){setLhTaskSubject(null);setLhTaskText("");}} style={btnS({fontSize:"0.75rem",padding:"0.25rem 0.5rem"})}>✕</button>
-                        </div>
-                      ):(
-                        <button type="button" onClick={function(){setLhTaskSubject(subj);setLhTaskText("");closeForm();}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.74rem",fontFamily:"inherit",padding:"0.1rem 0",marginTop:"0.1rem"}}>+ add task</button>
-                      )}
-                    </div>
-                  );
-                })}
-                {/* Manage subjects */}
-                {lhAddMode==="plan-subjects"?(
-                  <div style={{borderTop:"1px solid "+T.borderSoft,marginTop:"0.5rem",paddingTop:"0.6rem"}}>
-                    <div style={{fontSize:"0.68rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Manage Subjects</div>
-                    {hsSubjects.map(function(subj){
-                      return (
-                        <div key={subj} style={{display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.15rem 0"}}>
-                          <span style={{flex:1,fontSize:"0.82rem",color:T.textDark}}>{subj}</span>
-                          <button type="button" onClick={function(){applyHs({subjects:hsSubjects.filter(function(s){return s!==subj;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.73rem",padding:"2px 4px"}}>✕</button>
-                        </div>
-                      );
-                    })}
-                    <div style={{display:"flex",gap:"0.3rem",alignItems:"center",marginTop:"0.4rem"}}>
-                      <div style={{flex:1}}>
-                        <input value={fv("newSubj","")} onChange={fSet("newSubj")}
-                          placeholder="New subject name…"
-                          onKeyDown={function(e){if(e.key==="Enter"){var s=(fv("newSubj","")).trim();if(s&&hsSubjects.indexOf(s)<0){applyHs({subjects:hsSubjects.concat([s])});setLhForm(function(f){return Object.assign({},f,{newSubj:""}); }); }}}}
-                          style={inp({fontSize:"0.8rem",padding:"0.25rem 0.5rem"})} autoFocus/>
-                      </div>
-                      <button type="button" onClick={function(){var s=(fv("newSubj","")).trim();if(s&&hsSubjects.indexOf(s)<0){applyHs({subjects:hsSubjects.concat([s])});setLhForm(function(f){return Object.assign({},f,{newSubj:""});});}}} style={btnP(T.sand,{fontSize:"0.75rem",padding:"0.25rem 0.6rem"})}>Add</button>
-                      <button type="button" onClick={closeForm} style={btnS({fontSize:"0.75rem",padding:"0.25rem 0.5rem"})}>Done</button>
-                    </div>
-                  </div>
-                ):(
-                  <button type="button" onClick={function(){openAdd("plan-subjects",{});setLhTaskSubject(null);setLhTaskText("");}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.71rem",fontFamily:"inherit",padding:0,marginTop:"0.3rem"}}>⚙ Manage subjects</button>
-                )}
-              </div>
-
-              {/* Loops strip — same data as Loops tab */}
-              <div style={card({})}>
-                <div style={secHd}>Loops</div>
-                {LoopStrip()}
-              </div>
-            </div>
-          )}
-
-          {/* ── WEEKLY ──────────────────────────────────────────────────────── */}
-          {lhPlanSubTab==="weekly" && (function(){
-            var mondayIso=getMondayOf(lhPlanDate); var wDates=weekDates(mondayIso);
-            var wpRaw=hsWeekPlan[mondayIso];
-            var wp=(wpRaw&&typeof wpRaw==="object")?wpRaw:{goals:"",events:[]};
-            var wGoals=typeof wp.goals==="string"?wp.goals:"";
-            var wEvents=Array.isArray(wp.events)?wp.events:[];
-            function setWp(patch){var nxt=Object.assign({},hsWeekPlan);nxt[mondayIso]=Object.assign({},wp,patch);applyHs({weekPlan:nxt});}
-            var DN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-            return (
-              <div>
-                <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textMid,marginBottom:"0.85rem"}}>{"Week of "+fmtDate(mondayIso)}</div>
-
-                {/* Read-only task summary */}
-                <div style={card({marginBottom:"0.65rem"})}>
-                  <div style={secHd}>Tasks This Week</div>
-                  {(function(){
-                    var hasAny=false;
-                    var rows=wDates.map(function(dt){
-                      var raw=hsDaily[dt]; var day=(raw&&typeof raw==="object"&&!Array.isArray(raw))?raw:{};
-                      var ts=(day.tasks&&typeof day.tasks==="object")?day.tasks:{};
-                      var allKeys=Object.keys(ts).filter(function(k){return Array.isArray(ts[k])&&ts[k].length>0;});
-                      var ordered=hsSubjects.filter(function(s){return allKeys.indexOf(s)>=0;});
-                      allKeys.forEach(function(k){if(ordered.indexOf(k)<0)ordered.push(k);});
-                      if(ordered.length>0) hasAny=true;
-                      return {dt:dt,ts:ts,ordered:ordered};
-                    });
-                    if(!hasAny) return <div style={{fontSize:"0.8rem",color:T.textFaint}}>No tasks recorded yet for this week.</div>;
-                    return rows.filter(function(r){return r.ordered.length>0;}).map(function(r){
-                      var d=new Date(r.dt+"T12:00:00");
-                      return (
-                        <div key={r.dt} style={{marginBottom:"0.55rem"}}>
-                          <div style={{fontSize:"0.72rem",fontWeight:700,color:T.textMid,textTransform:"uppercase",marginBottom:"0.18rem"}}>{DN[d.getDay()]+" · "+d.getDate()}</div>
-                          {r.ordered.map(function(subj){
-                            var tasks=Array.isArray(r.ts[subj])?r.ts[subj]:[];
-                            return (
-                              <div key={subj} style={{paddingLeft:"0.5rem",marginBottom:"0.15rem"}}>
-                                <span style={{fontSize:"0.72rem",fontWeight:600,color:T.textDark}}>{subj+": "}</span>
-                                {tasks.map(function(t,i){return <span key={t.id} style={{fontSize:"0.78rem",color:t.done?T.textFaint:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text+(i<tasks.length-1?", ":"")}</span>;})}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-
-                {/* Editable: weekly goals */}
-                <div style={card({marginBottom:"0.65rem"})}>
-                  <div style={secHd}>Weekly Goals</div>
-                  <textarea value={wGoals} onChange={function(e){setWp({goals:e.target.value});}} placeholder={"e.g.\n• Finish chapter 4\n• Practice multiplication\n• Co-op project"} style={inp({height:90,resize:"vertical",fontSize:"0.84rem",lineHeight:1.55})}/>
-                </div>
-
-                {/* Editable: special events */}
-                <div style={card({})}>
-                  <div style={secHd}>Special Events</div>
-                  {wEvents.map(function(ev){
-                    return (
-                      <div key={ev.id} style={{display:"flex",alignItems:"flex-start",gap:"0.5rem",padding:"0.28rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:"0.84rem",fontWeight:600,color:T.textDark}}>{ev.title}</div>
-                          {ev.note&&<div style={{fontSize:"0.76rem",color:T.textMid,marginTop:"0.1rem"}}>{ev.note}</div>}
-                        </div>
-                        <button type="button" onClick={function(){setWp({events:wEvents.filter(function(x){return x.id!==ev.id;})});}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.73rem",padding:"2px 4px",flexShrink:0}}>✕</button>
-                      </div>
-                    );
-                  })}
-                  {lhAddMode==="plan-week-event"?(
-                    <div style={{marginTop:"0.45rem"}}>
-                      <input value={fv("evTitle","")} onChange={fSet("evTitle")} placeholder="Event (e.g. Co-op, Field trip)" style={inp({fontSize:"0.8rem",marginBottom:"0.3rem"})} autoFocus/>
-                      <input value={fv("evNote","")}  onChange={fSet("evNote")}  placeholder="Note (optional)" style={inp({fontSize:"0.8rem",marginBottom:"0.4rem"})}/>
-                      <div style={{display:"flex",gap:"0.45rem"}}>
-                        <button type="button" onClick={function(){var t=(fv("evTitle","")).trim();if(!t)return;setWp({events:wEvents.concat([{id:uid(),title:t,note:(fv("evNote","")).trim()}])});closeForm();}} style={btnP(T.sand,{fontSize:"0.8rem",padding:"0.3rem 0.75rem"})}>Add</button>
-                        <button type="button" onClick={closeForm} style={btnS({fontSize:"0.8rem",padding:"0.3rem 0.7rem"})}>Cancel</button>
-                      </div>
-                    </div>
-                  ):(
-                    <button type="button" onClick={function(){openAdd("plan-week-event",{});}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.77rem",fontFamily:"inherit",padding:"0.22rem 0",marginTop:"0.2rem"}}>+ Add event</button>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* ── MONTHLY ─────────────────────────────────────────────────────── */}
-          {lhPlanSubTab==="monthly" && (
-            <div>
-              <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.75rem"}}>What are the big goals or focus areas this month?</div>
-              <textarea
-                value={hsMonthly}
-                onChange={function(e){ applyHs({monthly:e.target.value}); }}
-                placeholder={"e.g.\n• Finish Singapore Math 3A\n• Read three nature books\n• Begin cursive practice"}
-                style={inp({height:160,resize:"vertical",fontSize:"0.85rem",lineHeight:1.6})}
-              />
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ── Loops Area ────────────────────────────────────────────────────────────
-    function LoopsArea() {
-      var loopTints = [T.sage, T.blue, T.sand, T.rose, T.lavender];
-
-      function AddLoopForm() {
-        var nameTrim = (fv("name","")).trim();
-        var selIcon  = fv("icon", LH_LOOP_ICONS[0]);
-        var selTint  = fv("tint", loopTints[0]);
-        return (
-          <div style={card({marginBottom:"1rem",background:T.inputBg,border:"1.5px solid "+T.border})}>
-            {fieldRow("Loop name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="e.g. Morning Loop, Reading Time" style={inp()} autoFocus/>)}
-            {fieldRow("Icon",
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                {LH_LOOP_ICONS.map(function(ic) {
-                  var icSt = {background:selIcon===ic?T.sand:"transparent",border:"1.5px solid "+(selIcon===ic?T.sand:T.borderSoft),borderRadius:"0.5rem",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1rem"};
-                  return <button type="button" key={ic} onClick={function(){setLhForm(function(f){return Object.assign({},f,{icon:ic});});}} style={icSt}>{ic}</button>;
-                })}
-              </div>
-            )}
-            {fieldRow("Colour",
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                {loopTints.map(function(tint) {
-                  var tSt = {width:24,height:24,borderRadius:"50%",background:tint,border:selTint===tint?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer"};
-                  return <button type="button" key={tint} onClick={function(){setLhForm(function(f){return Object.assign({},f,{tint:tint});});}} style={tSt}/>;
-                })}
-              </div>
-            )}
-            <div style={{display:"flex",gap:"0.5rem",marginTop:"0.75rem"}}>
-              <button type="button" onClick={function(){
-                if (!nameTrim) return;
-                var newLoop = { id:uid(), name:nameTrim, icon:selIcon, tint:selTint, items:[] };
-                applyHs({loops: lhLoops.concat([newLoop])}); closeForm();
-              }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Add Loop</button>
-              <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
-            </div>
-          </div>
-        );
-      }
-
-      function EditLoopForm(loop) {
-        var nameTrim = (fv("name","")).trim();
-        var selIcon  = fv("icon", loop.icon || LH_LOOP_ICONS[0]);
-        var selTint  = fv("tint", loop.tint || loopTints[0]);
-        return (
-          <div style={card({marginBottom:"0.5rem",background:T.inputBg,border:"1.5px solid "+T.border})}>
-            {fieldRow("Name", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
-            {fieldRow("Icon",
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                {LH_LOOP_ICONS.map(function(ic) {
-                  var icSt = {background:selIcon===ic?T.sand:"transparent",border:"1.5px solid "+(selIcon===ic?T.sand:T.borderSoft),borderRadius:"0.5rem",width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1rem"};
-                  return <button type="button" key={ic} onClick={function(){setLhForm(function(f){return Object.assign({},f,{icon:ic});});}} style={icSt}>{ic}</button>;
-                })}
-              </div>
-            )}
-            {fieldRow("Colour",
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                {loopTints.map(function(tint) {
-                  var tSt = {width:24,height:24,borderRadius:"50%",background:tint,border:selTint===tint?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer"};
-                  return <button type="button" key={tint} onClick={function(){setLhForm(function(f){return Object.assign({},f,{tint:tint});});}} style={tSt}/>;
-                })}
-              </div>
-            )}
-            <div style={{display:"flex",gap:"0.5rem",marginTop:"0.75rem"}}>
-              <button type="button" onClick={function(){
-                if (!nameTrim) return;
-                applyHsLoopUpdate(loop.id, {name:nameTrim, icon:selIcon, tint:selTint}); closeForm();
-              }} style={btnP(T.sand,{fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Save</button>
-              <button type="button" onClick={closeForm} style={btnS({fontSize:"0.82rem",padding:"0.38rem 0.85rem"})}>Cancel</button>
-            </div>
-          </div>
-        );
-      }
-
-      var emptyCard = card({textAlign:"center",color:T.textFaint,padding:"1.5rem"});
-      return areaWrap(
-        <div>
-          {lhAddMode !== "loop" && (
-            <button type="button" onClick={function(){ openAdd("loop",{icon:LH_LOOP_ICONS[0],tint:loopTints[0]}); }} style={btnP(T.sand,{fontSize:"0.82rem",marginBottom:"0.85rem"})}>+ Add Loop</button>
-          )}
-          {lhAddMode === "loop" && AddLoopForm()}
-          {lhLoops.length === 0 && lhAddMode !== "loop" && (
-            <div style={emptyCard}>🔁 No loops yet — create your first rotation!</div>
-          )}
-          {lhLoops.map(function(loop) {
-            var items    = Array.isArray(loop.items) ? loop.items : [];
-            var upNext   = lhUpNext(items);
-            var tint     = loop.tint || T.sage;
-            var isEditing = lhEditId === loop.id && lhAddMode === "edit-loop";
-            var loopCard = card({marginBottom:"1rem"});
-
-            return (
-              <div key={loop.id} style={loopCard}>
-                {/* Loop header */}
-                {isEditing ? EditLoopForm(loop) : (
-                  <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
-                    <span style={{fontSize:"1.25rem"}}>{loop.icon || "🔁"}</span>
-                    <span style={{flex:1,fontWeight:700,fontSize:"0.92rem",color:T.textDark}}>{loop.name}</span>
-                    <button type="button" onClick={function(){ openEdit(loop.id, {name:loop.name,icon:loop.icon,tint:loop.tint}); setLhAddMode("edit-loop"); }} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.75rem",padding:"2px 4px"}}>Edit</button>
-                    <button type="button"
-                      onClick={function(){ if(window.confirm("Remove loop "+loop.name+" and all its items?")) applyHs({loops:lhLoops.filter(function(l){return l.id!==loop.id;})}); }}
-                      style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.75rem",padding:"2px 4px"}}>✕</button>
-                    <button type="button"
-                      onClick={function(){ if(window.confirm("Reset all items in "+loop.name+" to todo?")) applyHsLoopUpdate(loop.id, {items:items.map(function(it){return Object.assign({},it,{status:"todo"});})}); }}
-                      style={{fontSize:"0.72rem",padding:"0.2rem 0.55rem",borderRadius:"99px",border:"1.5px solid "+T.borderSoft,background:"transparent",cursor:"pointer",color:T.textFaint,fontFamily:"inherit"}}>Reset</button>
-                  </div>
-                )}
-
-                {/* Progress bar */}
-                {!isEditing && items.length > 0 && (
-                  <div style={{display:"flex",gap:3,marginBottom:"0.65rem"}}>
-                    {items.map(function(it) {
-                      var segColor = it.status==="done"?tint:it.status==="skip"?"#d1d5db":it.status==="later"?"#fbbf24":"#e5e7eb";
-                      var segSt = {flex:1,height:4,borderRadius:2,background:segColor};
-                      return <div key={it.id} style={segSt}/>;
-                    })}
-                  </div>
-                )}
-
-                {/* Items */}
-                {!isEditing && items.map(function(item) {
-                  var isUpNext = upNext && upNext.id === item.id;
-                  var isExpandedNote = lhAddItemLoopId === ("note:"+loop.id+":"+item.id);
-                  var statusIcon = item.status==="done"?"●":item.status==="skip"?"⊘":item.status==="later"?"◔":"○";
-                  var statusColor = item.status==="done"?tint:item.status==="skip"?T.textFaint:item.status==="later"?"#f59e0b":T.borderSoft;
-                  var textDec = item.status==="done"||item.status==="skip" ? "line-through" : "none";
-                  var textColor = item.status==="done"||item.status==="skip" ? T.textFaint : T.textDark;
-                  var itemRow = {display:"flex",alignItems:"flex-start",gap:"0.5rem",padding:"0.3rem 0",borderBottom:"1px solid "+T.borderSoft};
-
-                  return (
-                    <div key={item.id} style={itemRow}>
-                      <span style={{color:statusColor,fontSize:"0.95rem",flexShrink:0,lineHeight:1,marginTop:"0.18rem",userSelect:"none"}}>{statusIcon}</span>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.25rem"}}>
-                          <span style={{fontSize:"0.85rem",textDecoration:textDec,color:textColor}}>{item.text}</span>
-                          {isUpNext && <span style={{fontSize:"0.63rem",fontWeight:700,color:tint,background:tint+"22",padding:"0.1rem 0.4rem",borderRadius:"99px"}}>Up Next</span>}
-                        </div>
-                        <div style={{display:"flex",gap:"0.3rem"}}>
-                          {["done","skip","later"].map(function(act) {
-                            var isAct = item.status === act;
-                            var actColor = act==="done"?tint:act==="skip"?T.textFaint:"#f59e0b";
-                            var actSt = {fontSize:"0.68rem",padding:"0.12rem 0.48rem",borderRadius:"99px",fontFamily:"inherit",border:"1.5px solid "+(isAct?actColor:T.borderSoft),background:isAct?actColor+"22":"transparent",color:isAct?actColor:T.textFaint,fontWeight:isAct?700:400,cursor:"pointer"};
-                            var actLabel = act==="done"?"Done":act==="skip"?"Skip":"Later";
-                            return <button type="button" key={act} onClick={function(){ applyHsLoopItemUpdate(loop.id, item.id, {status:lhSetStatus(item.status,act)}); }} style={actSt}>{actLabel}</button>;
-                          })}
-                        </div>
-                        {isExpandedNote && (
-                          <textarea
-                            value={item.note || ""}
-                            onChange={function(e){ applyHsLoopItemUpdate(loop.id, item.id, {note:e.target.value}); }}
-                            placeholder="Add a note…"
-                            style={inp({height:50,fontSize:"0.78rem",marginTop:"0.3rem",resize:"vertical"})}
-                            autoFocus
-                          />
-                        )}
-                      </div>
-                      <button type="button"
-                        onClick={function(){ var key="note:"+loop.id+":"+item.id; setLhAddItemLoopId(lhAddItemLoopId===key?null:key); }}
-                        style={{background:"none",border:"none",cursor:"pointer",color:item.note?T.blue:T.textFaint,fontSize:"0.7rem",padding:"2px 3px",lineHeight:1,flexShrink:0,marginTop:"0.15rem"}}
-                        title={item.note?"Has note — tap to edit":"Add note"}>
-                        {item.note ? "📝" : "✎"}
-                      </button>
-                      <button type="button"
-                        onClick={function(){ applyHsLoopUpdate(loop.id, {items:items.filter(function(it){return it.id!==item.id;})}); }}
-                        style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.72rem",padding:"2px 3px",lineHeight:1,flexShrink:0,marginTop:"0.15rem"}}>✕</button>
-                    </div>
-                  );
-                })}
-
-                {/* Add item */}
-                {!isEditing && lhAddItemLoopId === loop.id && (
-                  <div style={{display:"flex",gap:"0.5rem",marginTop:"0.6rem",alignItems:"center"}}>
-                    <input
-                      value={lhNewItemText}
-                      onChange={function(e){setLhNewItemText(e.target.value);}}
-                      onKeyDown={function(e){
-                        if (e.key==="Enter" && lhNewItemText.trim()) {
-                          var newItem = {id:uid(),text:lhNewItemText.trim(),status:"todo",note:""};
-                          applyHsLoopUpdate(loop.id, {items:items.concat([newItem])});
-                          setLhNewItemText("");
-                        }
-                        if (e.key==="Escape") { setLhAddItemLoopId(null); setLhNewItemText(""); }
-                      }}
-                      placeholder="New item… (Enter to add)"
-                      style={inp({flex:1,fontSize:"0.83rem",padding:"0.38rem 0.7rem"})}
-                      autoFocus
-                    />
-                    <button type="button" onClick={function(){
-                      if (!lhNewItemText.trim()) { setLhAddItemLoopId(null); return; }
-                      var newItem = {id:uid(),text:lhNewItemText.trim(),status:"todo",note:""};
-                      applyHsLoopUpdate(loop.id, {items:items.concat([newItem])});
-                      setLhNewItemText("");
-                    }} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.38rem 0.7rem"})}>Add</button>
-                    <button type="button" onClick={function(){setLhAddItemLoopId(null);setLhNewItemText("");}} style={btnS({fontSize:"0.78rem",padding:"0.38rem 0.7rem"})}>Done</button>
-                  </div>
-                )}
-                {!isEditing && lhAddItemLoopId !== loop.id && (
-                  <button type="button" onClick={function(){setLhAddItemLoopId(loop.id);setLhNewItemText("");}} style={{marginTop:"0.55rem",background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.78rem",padding:0,fontFamily:"inherit"}}>+ Add item</button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // ── Summary Area (household-wide dashboard, reads schoolData + lighthouse
-    //    directly — no data relocation, purely a read/rollup view) ─────────────
-    function SummaryArea() {
-      var thisYear = String(new Date().getFullYear());
-      var sharedAllChildren = lhGet(lighthouse, "shared", {});
-      var schoolChildIds = Object.keys(schoolData || {}).filter(function(id) {
-        return allPeople.some(function(p) { return p.id === id; });
-      });
-
-      var totalDaysLogged = 0;
-      var totalCurricula = 0;
-      schoolChildIds.forEach(function(id) {
-        var hs = (schoolData[id] && schoolData[id].homeschool) || {};
-        var att = hs.attendance || {};
-        Object.keys(att).forEach(function(d) {
-          if (d.slice(0,4) === thisYear && (att[d] === "present" || att[d] === "absent")) totalDaysLogged++;
-        });
-        totalCurricula += (Array.isArray(hs.curricula) ? hs.curricula.length : 0);
-      });
-
-      var totalGoals = 0, achievedGoals = 0;
-      Object.keys(sharedAllChildren).forEach(function(id) {
-        if (!allPeople.some(function(p) { return p.id === id; })) return;
-        var g = Array.isArray(sharedAllChildren[id].goals) ? sharedAllChildren[id].goals : [];
-        var real = g.filter(function(x) { return x.kind !== "challenge"; });
-        totalGoals += real.length;
-        achievedGoals += real.filter(function(x) { return x.progress === "Achieved"; }).length;
-      });
-
-      var householdRows = [];
-      if (totalDaysLogged > 0) householdRows.push({ emoji:"📅", label:"School days logged this year", value: totalDaysLogged });
-      if (totalCurricula > 0) householdRows.push({ emoji:"📚", label:"Active subjects/curricula", value: totalCurricula });
-      if (totalGoals > 0) householdRows.push({ emoji:"🎯", label:"Goals achieved", value: achievedGoals + " of " + totalGoals });
-
-      var childCards = schoolChildIds.map(function(id) {
-        var person = allPeople.find(function(p) { return p.id === id; });
-        if (!person) return null;
-        var hs = (schoolData[id] && schoolData[id].homeschool) || {};
-        var att = hs.attendance || {};
-        var loggedDates = Object.keys(att).filter(function(d) { return att[d] === "present" || att[d] === "absent"; });
-        var yearDates = loggedDates.filter(function(d) { return d.slice(0,4) === thisYear; });
-        var presentThisYear = yearDates.filter(function(d) { return att[d] === "present"; }).length;
-        var rate = yearDates.length > 0 ? Math.round((presentThisYear / yearDates.length) * 100) : null;
-        var curricula = Array.isArray(hs.curricula) ? hs.curricula : [];
-        var lastDate = loggedDates.length > 0 ? loggedDates.slice().sort().slice(-1)[0] : null;
-        var daysSince = lastDate ? Math.floor((new Date() - new Date(lastDate + "T00:00:00")) / 86400000) : null;
-        var childGoals = (sharedAllChildren[id] && Array.isArray(sharedAllChildren[id].goals)) ? sharedAllChildren[id].goals : [];
-        var nextGoal = childGoals.find(function(g) { return g.kind !== "challenge" && g.progress !== "Achieved"; });
-        return { person: person, rate: rate, yearLogged: yearDates.length, curriculaCount: curricula.length, daysSince: daysSince, nextGoal: nextGoal };
-      }).filter(Boolean);
-
-      var statRow = {display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft,fontSize:"0.85rem"};
-
-      return areaWrap(
-        <div>
-          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.2rem",color:T.textDark,marginBottom:"0.75rem"}}>
-            Household Summary
-          </div>
-
-          {householdRows.length === 0 ? (
-            <div style={{...card({marginBottom:"1rem"}), color:T.textFaint, fontSize:"0.85rem", textAlign:"center", padding:"1.5rem 1rem"}}>
-              No school data logged yet — Summary fills in as records are added.
-            </div>
-          ) : (
-            <div style={{...card({marginBottom:"1rem"})}}>
-              {householdRows.map(function(r) {
-                return (
-                  <div key={r.label} style={statRow}>
-                    <span style={{fontSize:"1rem"}}>{r.emoji}</span>
-                    <span style={{flex:1,color:T.textMid}}>{r.label}</span>
-                    <span style={{fontWeight:700,color:T.textDark}}>{r.value}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {childCards.length > 0 && (
-            <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.05rem",color:T.textDark,margin:"1rem 0 0.5rem"}}>
-              By Child
-            </div>
-          )}
-          {childCards.map(function(c) {
-            var hasAny = c.rate != null || c.curriculaCount > 0 || c.nextGoal || c.daysSince != null;
-            return (
-              <div key={c.person.id} style={{...card({marginBottom:"0.65rem"})}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:hasAny?"0.4rem":0}}>
-                  <span style={{width:26,height:26,borderRadius:"50%",background:(c.person.color||T.blue)+"33",color:T.textDark,fontWeight:700,fontSize:"0.8rem",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    {c.person.name.charAt(0).toUpperCase()}
-                  </span>
-                  <span style={{fontWeight:700,fontSize:"0.92rem",color:T.textDark}}>{c.person.name}</span>
-                </div>
-                {!hasAny && <div style={{color:T.textFaint,fontSize:"0.8rem"}}>No school data logged yet</div>}
-                {c.rate != null && (
-                  <div style={statRow}><span style={{fontSize:"0.95rem"}}>📋</span><span style={{flex:1,color:T.textMid}}>Attendance rate this year</span><span style={{fontWeight:700,color:T.textDark}}>{c.rate}%</span></div>
-                )}
-                {c.curriculaCount > 0 && (
-                  <div style={statRow}><span style={{fontSize:"0.95rem"}}>📚</span><span style={{flex:1,color:T.textMid}}>Active subjects/curricula</span><span style={{fontWeight:700,color:T.textDark}}>{c.curriculaCount}</span></div>
-                )}
-                {c.nextGoal && (
-                  <div style={statRow}><span style={{fontSize:"0.95rem"}}>🎯</span><span style={{flex:1,color:T.textMid}}>Next goal</span><span style={{fontWeight:700,color:T.textDark,textAlign:"right",maxWidth:"55%"}}>{c.nextGoal.goal}</span></div>
-                )}
-                {c.daysSince != null && (
-                  <div style={{...statRow, borderBottom:"none"}}><span style={{fontSize:"0.95rem"}}>🕓</span><span style={{flex:1,color:T.textMid}}>Days since last school day logged</span><span style={{fontWeight:700,color:T.textDark}}>{c.daysSince}</span></div>
-                )}
-              </div>
-            );
-          })}
-
-          {childCards.length === 0 && householdRows.length === 0 && (
-            <div style={{color:T.textFaint,fontSize:"0.82rem",textAlign:"center",padding:"1rem 0"}}>
-              Add schooling records for a child (Overview → Homeschool or School) to see their summary here.
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ── Overview Area (counts roll-up) ────────────────────────────────────────
-    function OverviewArea() {
-      var modeLabel = childMode === "homeschool" ? "Homeschool" : childMode === "school" ? "School" : null;
-      var rows = [
-        { emoji:"📚", label:"Books",  count:books.length,   tab:"books"   },
-        { emoji:"🌎", label:beyondLabel, count:beyonds.length, tab:"beyond" },
-        { emoji:"✈️", label:"Trips",  count:trips.length,   tab:"trips"   },
-        { emoji:"🎯", label:"Goals",  count:goals.length,   tab:"goals"   },
-      ];
-      var ov = card({marginBottom:"0.85rem"});
-      return areaWrap(
-        <div>
-          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.2rem",color:T.textDark,marginBottom:"0.75rem"}}>
-            {childPerson ? childPerson.name : ""}
-            {modeLabel && <span style={{fontSize:"0.78rem",color:T.textMid,marginLeft:"0.5rem",fontFamily:"inherit"}}>· {modeLabel}</span>}
-          </div>
-          <div style={ov}>
-            {rows.map(function(r) {
-              var rSt = {display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft,cursor:"pointer"};
-              return (
-                <div key={r.tab} style={rSt} onClick={function(){ setLhSubTab(r.tab); }}>
-                  <span style={{fontSize:"1rem"}}>{r.emoji}</span>
-                  <span style={{flex:1,fontSize:"0.87rem",color:T.textMid}}>{r.label}</span>
-                  <span style={{fontSize:"0.82rem",fontWeight:700,color:r.count>0?T.textDark:T.textFaint}}>{r.count || "—"}</span>
-                  <span style={{fontSize:"0.7rem",color:T.textFaint}}>›</span>
-                </div>
-              );
-            })}
-          </div>
-          {modeLabel && (
-            <button type="button"
-              onClick={function(){ if(window.confirm("Change learning mode for "+childPerson.name+"? Shared data (books, trips, goals) is preserved.")) setMode(activeChild, childMode==="homeschool"?"school":"homeschool"); }}
-              style={btnS({fontSize:"0.78rem",padding:"0.38rem 0.85rem"})}>
-              Switch to {childMode==="homeschool"?"School":"Homeschool"} mode
-            </button>
-          )}
-        </div>
-      );
-    }
-
-    // ── Mode picker (no hooks, direct call) ───────────────────────────────────
-    function ModePickerView() {
-      if (!childPerson) return null;
-      return (
-        <div style={{padding:"1.5rem 1rem"}}>
-          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.3rem",color:T.textDark,marginBottom:"0.4rem",textAlign:"center"}}>
-            How does {childPerson.name} learn?
-          </div>
-          <div style={{color:T.textMid,fontSize:"0.82rem",textAlign:"center",marginBottom:"1.5rem"}}>
-            You can change this anytime from their Overview.
-          </div>
-          <div style={{display:"flex",gap:"0.75rem"}}>
-            <button type="button" onClick={function(){setMode(childPerson.id,"homeschool");}}
-              style={{flex:1,background:T.sagePale,border:"2px solid "+T.sage,borderRadius:"1rem",padding:"1.25rem 0.75rem",cursor:"pointer",textAlign:"center",fontFamily:"inherit"}}>
-              <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🏡</div>
-              <div style={{fontWeight:700,color:T.sage,fontSize:"0.88rem"}}>Homeschool</div>
-              <div style={{color:T.textMid,fontSize:"0.75rem",marginTop:"0.25rem"}}>Plan, loops, summaries</div>
-            </button>
-            <button type="button" onClick={function(){setMode(childPerson.id,"school");}}
-              style={{flex:1,background:T.bluePale,border:"2px solid "+T.blue,borderRadius:"1rem",padding:"1.25rem 0.75rem",cursor:"pointer",textAlign:"center",fontFamily:"inherit"}}>
-              <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🏫</div>
-              <div style={{fontWeight:700,color:T.blue,fontSize:"0.88rem"}}>School</div>
-              <div style={{color:T.textMid,fontSize:"0.75rem",marginTop:"0.25rem"}}>Homework, comms, keepsakes</div>
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // ── Empty state (no people) ───────────────────────────────────────────────
-    if (allPeople.length === 0) {
-      return (
-        <div style={{padding:"2rem 1rem",textAlign:"center"}}>
-          <div style={{fontSize:"2.5rem",marginBottom:"0.75rem"}}>🔭</div>
-          <div style={{fontFamily:"Cormorant Garamond, serif",fontSize:"1.4rem",color:T.textDark,marginBottom:"0.5rem"}}>Lighthouse</div>
-          <div style={{color:T.textMid,fontSize:"0.88rem",lineHeight:1.6,marginBottom:"1.25rem"}}>
-            Add people in Settings to start tracking learning records.
-          </div>
-          <button type="button" onClick={function(){goTab("settings");}} style={btnP(T.sand)}>Go to Settings</button>
-        </div>
-      );
-    }
-
-    return (
-      <div>
-        {/* Child switcher */}
-        <div style={{padding:"0.75rem 1rem 0",display:"flex",gap:"0.5rem",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
-          {displayPeople.map(function(p) {
-            var isAct = p.id === activeChild;
-            var pMode = modes[p.id] || null;
-            var dot   = {width:8,height:8,borderRadius:"50%",background:p.color||T.blue,display:"inline-block",flexShrink:0};
-            var pill  = {flexShrink:0,display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px solid "+(isAct?p.color||T.blue:T.borderSoft),background:isAct?(p.color||T.blue)+"22":"transparent",cursor:"pointer",fontSize:"0.82rem",fontWeight:isAct?700:400,color:isAct?T.textDark:T.textMid,fontFamily:"inherit"};
-            return (
-              <button type="button" key={p.id} onClick={function(){setActiveChild(p.id);setLhSubTab("overview");}} style={pill}>
-                <span style={dot}/>
-                {p.name}
-                {pMode === "homeschool" && <span style={{fontSize:"0.65rem"}}> 🏡</span>}
-                {pMode === "school"     && <span style={{fontSize:"0.65rem"}}> 🏫</span>}
-              </button>
-            );
-          })}
-          {hasOthers && (
-            <button type="button" onClick={function(){setShowAllPeople(true);}}
-              style={{flexShrink:0,padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px dashed "+T.borderSoft,background:"transparent",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit"}}>
-              + others
-            </button>
-          )}
-          {showAllPeople && defaultPeople.length > 0 && (
-            <button type="button" onClick={function(){setShowAllPeople(false);}}
-              style={{flexShrink:0,padding:"0.35rem 0.75rem",borderRadius:"99px",border:"1.5px dashed "+T.borderSoft,background:"transparent",cursor:"pointer",fontSize:"0.78rem",color:T.textFaint,fontFamily:"inherit"}}>
-              fewer
-            </button>
-          )}
-        </div>
-
-        {activeChild && !childMode && ModePickerView()}
-        {activeChild && childMode && (
-          <div>
-            {/* Sub-tab nav */}
-            <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",padding:"0.75rem 1rem 0",display:"flex",gap:"0.25rem"}}>
-              {childTabIds.map(function(tabId) {
-                var meta  = LH_TAB_META[tabId] || {label:tabId,emoji:"•"};
-                var isAct = tabId === lhSubTab;
-                var tbSt  = {flexShrink:0,padding:"0.3rem 0.7rem",borderRadius:"99px",border:"none",background:isAct?T.sand:"transparent",color:isAct?T.textDark:T.textMid,fontWeight:isAct?700:400,fontSize:"0.8rem",cursor:"pointer",fontFamily:"inherit"};
-                return (
-                  <button type="button" key={tabId} onClick={function(){setLhSubTab(tabId);closeForm();}} style={tbSt}>
-                    {meta.label}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Area content */}
-            {lhSubTab === "hub"       && SummaryArea()}
-            {lhSubTab === "overview"  && OverviewArea()}
-            {lhSubTab === "books"     && BooksArea()}
-            {lhSubTab === "beyond"    && BeyondArea()}
-            {lhSubTab === "trips"     && TripsArea()}
-            {lhSubTab === "goals"     && GoalsArea()}
-            {lhSubTab === "plan"      && PlanArea()}
-            {lhSubTab === "loops"     && LoopsArea()}
-            {lhSubTab === "homework"  && HomeworkArea()}
-            {lhSubTab === "week"      && ThisWeekArea()}
-            {lhSubTab === "comms"     && SchoolCommsArea()}
-            {lhSubTab === "grades"    && GradesArea()}
-            {lhSubTab === "summaries" && SummariesArea()}
-            {lhSubTab !== "hub" && lhSubTab !== "overview" && lhSubTab !== "books" && lhSubTab !== "beyond" && lhSubTab !== "trips" && lhSubTab !== "goals" && lhSubTab !== "plan" && lhSubTab !== "loops" && lhSubTab !== "homework" && lhSubTab !== "week" && lhSubTab !== "comms" && lhSubTab !== "grades" && lhSubTab !== "summaries" && (
-              <div style={{padding:"2rem 1rem",textAlign:"center",color:T.textFaint}}>
-                <div style={{fontSize:"1.5rem",marginBottom:"0.5rem"}}>
-                  {(LH_TAB_META[lhSubTab]||{emoji:"✨"}).emoji}
-                </div>
-                <div style={{fontSize:"0.88rem"}}>
-                  {(LH_TAB_META[lhSubTab]||{label:lhSubTab}).label} — coming soon
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // ── Learning Tab (unified School + Lighthouse shell) ─────────────────────────
-  // Replaces SchoolTab and LighthouseTab in the nav (Phase 1 of the Lighthouse +
-  // School rebuild). SchoolTab/LighthouseTab above are left fully intact and
-  // unmounted — their bodies are the source material ported into Overview/Plan/
-  // Records/Growth/Library over Phases 2-6. Nothing here reshapes af_schoolData
-  // or af_lighthouse on disk; both stay in their existing shapes (read-time
-  // adapter only, per rebuild decision #1).
+  // Replaces SchoolTab and LighthouseTab in the nav. Their bodies were the source
+  // material ported into Overview/Plan/Records/Growth/Library across Phases 1-6
+  // and were deleted once every piece of their functionality had a new home here
+  // (Phase 6) — see git history for the originals. Nothing here reshapes
+  // af_schoolData or af_lighthouse on disk; both stay in their existing shapes
+  // (read-time adapter only, per rebuild decision #1).
   _hfRenders.LearningTab = function LearningTab() {
     var LEARNING_TABS = [
       { id:"overview", label:"Overview", emoji:"✨" },
@@ -14245,7 +10968,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var modes = lhGet(lighthouse, "modes", {});
     var childPerson = learningKids.find(function(p) { return p.id === activeChild; }) || null;
     var childMode = activeChild ? (modes[activeChild] || null) : null;
-    var activeTabMeta = LEARNING_TABS.find(function(t){ return t.id === learningSubTab; }) || LEARNING_TABS[0];
 
     function setMode(mode) {
       setLighthouse(function(prev) {
@@ -14393,7 +11115,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             muted={weekEvents.length===0}
             body={weekEvents.length>0 ? (weekEvents.length + " event" + (weekEvents.length===1?"":"s") + (sortedWeekEvents[0] ? " — next: "+sortedWeekEvents[0].title : "")) : "Nothing on the calendar this week."}
             actionLabel="View week"
-            onAction={function(){ setLearningSubTab("records"); }} />
+            onAction={function(){ setLearningSubTab("plan"); }} />
         );
 
         var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
@@ -16183,6 +12905,370 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // ── Library tab (Phase 6, final phase) ────────────────────────────────────
+    var LH_BOOK_FMTS = ["Physical","Audio","eBook"];
+    var BOOK_STATUSES = [["reading","Reading"],["finished","Finished"],["want","Want to Read"]];
+    var LH_BEYOND_CATS = ["Field Trip","Museum","Park","Sport","Art","Volunteer","Other"];
+    var LH_TRIP_SUBJ = ["History","Science","Art","Literature","Geography","Other"];
+
+    function LibraryArea() {
+      var [lhForm, setLhForm] = React.useState({});
+      var [lhAddMode, setLhAddMode] = React.useState(null);
+      var [lhEditId, setLhEditId] = React.useState(null);
+      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
+      function fChk(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.checked; return n; }); }; }
+      function fNum(k) { return function(v) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=v; return n; }); }; }
+      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
+      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
+      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fieldRow(label, children) {
+        return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
+      }
+      function formCard(children) {
+        return (<div style={{ background:"#FBF9F4", border:"1.5px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.65rem" }}>{children}</div>);
+      }
+      function formBtns(onSave) {
+        return (<div style={{ display:"flex", gap:"0.5rem", marginTop:"0.6rem" }}><button type="button" onClick={onSave} style={btnP(LC.seaglass,{ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Save</button><button type="button" onClick={closeForm} style={btnS({ fontSize:"0.82rem", padding:"0.45rem 1rem" })}>Cancel</button></div>);
+      }
+      function pillToggle(label, active, onClick) {
+        return (<button type="button" key={label} onClick={onClick} style={{ padding:"0.22rem 0.65rem", borderRadius:"99px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:400, cursor:"pointer", fontFamily:"inherit" }}>{label}</button>);
+      }
+
+      var sectionCardStyle = { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", marginBottom:"0.85rem" };
+      var sectionTitleStyle = { fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, marginBottom:"0.65rem" };
+      var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
+      var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
+      var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
+      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem", flexShrink:0 };
+      var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
+
+      var sharedAll = lhGet(lighthouse, "shared", {});
+      var childShared = sharedAll[activeChild] || {};
+      var books = Array.isArray(childShared.books) ? childShared.books : [];
+      var beyonds = Array.isArray(childShared.beyond) ? childShared.beyond : [];
+      var trips = Array.isArray(childShared.trips) ? childShared.trips : [];
+      var goals = Array.isArray(childShared.goals) ? childShared.goals : [];
+      var schoolAll = lhGet(lighthouse, "school", {});
+      var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
+      var homework = Array.isArray(schoolChild.homework) ? schoolChild.homework : [];
+      var gradesData = (schoolChild.grades && typeof schoolChild.grades === "object") ? schoolChild.grades : {};
+      var gradeMarks = Array.isArray(gradesData.marks) ? gradesData.marks : [];
+      var gradeNotes = typeof gradesData.notes === "string" ? gradesData.notes : "";
+      var childSchoolHs = (schoolData[activeChild] && schoolData[activeChild].homeschool) || {};
+      var curricula = Array.isArray(childSchoolHs.curricula) ? childSchoolHs.curricula : [];
+      var hsAll = lhGet(lighthouse, "homeschool", {});
+      var hsChild = hsAll[activeChild] || defaultLhHsChild();
+      var lhSubjects = Array.isArray(hsChild.subjects) ? hsChild.subjects : [];
+      var resourceRecords = curricula.length > 0 ? curricula : lhSubjects.map(function(s){ return { id:s, subject:s, name:"", website:"", notes:"" }; });
+      var beyondLabel = childMode==="homeschool" ? "Beyond the Transcript" : "Beyond the Classroom";
+      var summaryLabel = childMode==="school" ? "Keepsakes" : "Summaries";
+
+      function lhSaveAdd(field, item) { setLighthouse(function(prev) { return lhAddItem(prev, activeChild, field, item); }); }
+      function lhSaveUpdate(field, id, patch) { setLighthouse(function(prev) { return lhUpdateItem(prev, activeChild, field, id, patch); }); }
+      function lhSaveDel(field, id) { setLighthouse(function(prev) { return lhDeleteItem(prev, activeChild, field, id); }); }
+
+      // ── Books ─────────────────────────────────────────────────────────────
+      function BooksSection() {
+        var [bookFilter, setBookFilter] = React.useState("all");
+        var currentlyReading = books.filter(function(b){ return b.status==="reading"; });
+        var filtered = bookFilter==="all" ? books : books.filter(function(b){ return b.status===bookFilter; });
+
+        function starRow(ratingKey) {
+          var cur = fv(ratingKey, 0);
+          var stars = [];
+          for (var s=1; s<=5; s++) {
+            var filled = cur>=s; var sVal=s;
+            stars.push(<button type="button" key={s} onClick={fNum(ratingKey).bind(null,sVal)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:"1.1rem", padding:"0 1px", color:filled?"#f59e0b":"#d1d5db" }}>{filled?"★":"☆"}</button>);
+          }
+          return <div style={{ display:"flex", alignItems:"center" }}>{stars}</div>;
+        }
+        function starDisplay(rating) {
+          var out=[];
+          for (var s=1; s<=5; s++) out.push(<span key={s} style={{ color:rating>=s?"#f59e0b":"#d1d5db", fontSize:"0.8rem" }}>{rating>=s?"★":"☆"}</span>);
+          return <span>{out}</span>;
+        }
+        function BookForm(onSave) {
+          return formCard(
+            <div>
+              {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+              {fieldRow("Author", <input value={fv("author","")} onChange={fSet("author")} style={inp()}/>)}
+              {fieldRow("Status", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{BOOK_STATUSES.map(function(o){ return pillToggle(o[1], fv("status","reading")===o[0], function(){ setLhForm(function(f){ return Object.assign({},f,{status:o[0]}); }); }); })}</div>)}
+              {fieldRow("Format", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")===fmt, function(){ setLhForm(function(f){ return Object.assign({},f,{fmt:fmt}); }); }); })}</div>)}
+              {fieldRow("Subject", <input value={fv("subj","")} onChange={fSet("subj")} style={inp()}/>)}
+              <div style={{ display:"flex", gap:"0.6rem" }}>
+                <div style={{ flex:1 }}>{fieldRow("Start", <input type="date" value={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
+                <div style={{ flex:1 }}>{fieldRow("Finish", <input type="date" value={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
+              </div>
+              {fieldRow("Rating", starRow("rating"))}
+              {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
+              {fieldRow("Favourite Quote", <textarea value={fv("quote","")} onChange={fSet("quote")} style={inp({ height:44, resize:"vertical" })}/>)}
+              <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
+                <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
+                Include in summaries
+              </label>
+              {formBtns(onSave)}
+            </div>
+          );
+        }
+        function renderBookRow(b) {
+          if (lhEditId === b.id) {
+            return <div key={b.id}>{BookForm(function(){
+              var title=(fv("title","")).trim(); if(!title) return;
+              lhSaveUpdate("books", b.id, { title:title, author:(fv("author","")).trim(), status:fv("status","reading"), fmt:fv("fmt",""), subj:(fv("subj","")).trim(), start:fv("start",""), finish:fv("finish",""), rating:fv("rating",0), note:(fv("note","")).trim(), quote:(fv("quote","")).trim(), includeSummary:!!fv("includeSummary",false) });
+              closeForm();
+            })}</div>;
+          }
+          var statusLabel = (BOOK_STATUSES.find(function(o){ return o[0]===b.status; })||BOOK_STATUSES[0])[1];
+          return (
+            <div key={b.id} style={itemRowStyle}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{b.title}</div>
+                {b.author && <div style={{ fontSize:"0.78rem", color:"#8a8578" }}>{b.author}</div>}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem", alignItems:"center" }}>
+                  <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{statusLabel}</span>
+                  {b.fmt && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{b.fmt}</span>}
+                  {b.subj && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{b.subj}</span>}
+                </div>
+                {b.rating>0 && <div style={{ marginTop:"0.25rem" }}>{starDisplay(b.rating)}</div>}
+                {b.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{b.note}</div>}
+                {b.quote && <div style={{ fontSize:"0.75rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem", borderLeft:"2px solid #E7E1D4", paddingLeft:"0.5rem" }}>"{b.quote}"</div>}
+              </div>
+              <button type="button" onClick={function(){ openEdit(b.id, b); }} style={editBtnStyle}>Edit</button>
+              <button type="button" onClick={function(){ lhSaveDel("books", b.id); }} style={delBtnStyle}>✕</button>
+            </div>
+          );
+        }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📚 Books</div>
+            {currentlyReading.length > 0 && (
+              <div style={{ marginBottom:"0.85rem" }}>
+                <div style={subheadStyle}>Currently Reading</div>
+                {currentlyReading.map(renderBookRow)}
+              </div>
+            )}
+            <div style={{ display:"flex", gap:"0.3rem", flexWrap:"wrap", marginBottom:"0.65rem" }}>
+              {pillToggle("All", bookFilter==="all", function(){ setBookFilter("all"); })}
+              {BOOK_STATUSES.map(function(f){ return pillToggle(f[1], bookFilter===f[0], function(){ setBookFilter(f[0]); }); })}
+            </div>
+            {lhAddMode!=="book" && <button type="button" onClick={function(){ openAdd("book",{ status:"reading", rating:0 }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Book</button>}
+            {lhAddMode==="book" && BookForm(function(){
+              var title=(fv("title","")).trim(); if(!title) return;
+              lhSaveAdd("books", { id:uid(), title:title, author:(fv("author","")).trim(), status:fv("status","reading"), fmt:fv("fmt",""), subj:(fv("subj","")).trim(), start:fv("start",""), finish:fv("finish",""), rating:fv("rating",0), note:(fv("note","")).trim(), quote:(fv("quote","")).trim(), includeSummary:!!fv("includeSummary",false) });
+              closeForm();
+            })}
+            {filtered.length===0 && lhAddMode!=="book" && <div style={emptyTextStyle}>No books yet.</div>}
+            {filtered.map(renderBookRow)}
+          </div>
+        );
+      }
+
+      // ── Beyond the Transcript / Classroom ────────────────────────────────────
+      function BeyondSection() {
+        function BeyondForm(onSave) {
+          return formCard(
+            <div>
+              {fieldRow("What *", <input value={fv("what","")} onChange={fSet("what")} autoFocus style={inp()}/>)}
+              {fieldRow("Category", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){ setLhForm(function(f){ return Object.assign({},f,{cat:c}); }); }); })}</div>)}
+              {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+              {fieldRow("Skill or theme", <input value={fv("skill","")} onChange={fSet("skill")} style={inp()}/>)}
+              {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
+              <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
+                <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
+                Include in summaries
+              </label>
+              {formBtns(onSave)}
+            </div>
+          );
+        }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>🌎 {beyondLabel}</div>
+            {lhAddMode!=="beyond" && <button type="button" onClick={function(){ openAdd("beyond",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Entry</button>}
+            {lhAddMode==="beyond" && BeyondForm(function(){
+              var what=(fv("what","")).trim(); if(!what) return;
+              lhSaveAdd("beyond", { id:uid(), what:what, cat:fv("cat",""), date:fv("date",""), skill:(fv("skill","")).trim(), note:(fv("note","")).trim(), includeSummary:!!fv("includeSummary",false) });
+              closeForm();
+            })}
+            {beyonds.length===0 && lhAddMode!=="beyond" && <div style={emptyTextStyle}>No entries yet.</div>}
+            {beyonds.map(function(bx) {
+              if (lhEditId === bx.id) {
+                return <div key={bx.id}>{BeyondForm(function(){
+                  var what=(fv("what","")).trim(); if(!what) return;
+                  lhSaveUpdate("beyond", bx.id, { what:what, cat:fv("cat",""), date:fv("date",""), skill:(fv("skill","")).trim(), note:(fv("note","")).trim(), includeSummary:!!fv("includeSummary",false) });
+                  closeForm();
+                })}</div>;
+              }
+              return (
+                <div key={bx.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{bx.what}</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" }}>
+                      {bx.cat && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{bx.cat}</span>}
+                      {bx.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(bx.date)}</span>}
+                    </div>
+                    {bx.skill && <div style={{ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.2rem" }}>Skill: {bx.skill}</div>}
+                    {bx.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{bx.note}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(bx.id, bx); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ lhSaveDel("beyond", bx.id); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Field Trips ───────────────────────────────────────────────────────
+      function TripsSection() {
+        function toggleSubj(val) {
+          var cur = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
+          var next = cur.indexOf(val)>=0 ? cur.filter(function(x){ return x!==val; }) : cur.concat([val]);
+          setLhForm(function(f){ return Object.assign({},f,{subj:next}); });
+        }
+        function TripForm(onSave) {
+          var curSubj = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
+          return formCard(
+            <div>
+              {fieldRow("Place *", <input value={fv("place","")} onChange={fSet("place")} autoFocus style={inp()}/>)}
+              {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+              {fieldRow("Subjects", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){ toggleSubj(s); }); })}</div>)}
+              {fieldRow("What we saw", <textarea value={fv("saw","")} onChange={fSet("saw")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("What we learned", <textarea value={fv("learned","")} onChange={fSet("learned")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("A moment", <textarea value={fv("moment","")} onChange={fSet("moment")} style={inp({ height:44, resize:"vertical" })}/>)}
+              {fieldRow("Follow-up ideas", <textarea value={fv("followup","")} onChange={fSet("followup")} style={inp({ height:44, resize:"vertical" })}/>)}
+              {formBtns(onSave)}
+            </div>
+          );
+        }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>✈️ Field Trips</div>
+            {lhAddMode!=="trip" && <button type="button" onClick={function(){ openAdd("trip",{ subj:[] }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Trip</button>}
+            {lhAddMode==="trip" && TripForm(function(){
+              var place=(fv("place","")).trim(); if(!place) return;
+              lhSaveAdd("trips", { id:uid(), place:place, date:fv("date",""), who:[activeChild], subj:fv("subj",[]), saw:(fv("saw","")).trim(), learned:(fv("learned","")).trim(), moment:(fv("moment","")).trim(), followup:(fv("followup","")).trim() });
+              closeForm();
+            })}
+            {trips.length===0 && lhAddMode!=="trip" && <div style={emptyTextStyle}>No trips yet.</div>}
+            {trips.map(function(tr) {
+              if (lhEditId === tr.id) {
+                return <div key={tr.id}>{TripForm(function(){
+                  var place=(fv("place","")).trim(); if(!place) return;
+                  lhSaveUpdate("trips", tr.id, { place:place, date:fv("date",""), subj:fv("subj",[]), saw:(fv("saw","")).trim(), learned:(fv("learned","")).trim(), moment:(fv("moment","")).trim(), followup:(fv("followup","")).trim() });
+                  closeForm();
+                })}</div>;
+              }
+              var subj = Array.isArray(tr.subj) ? tr.subj : [];
+              return (
+                <div key={tr.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{tr.place}</div>
+                    {tr.date && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{fmtMonthDay(tr.date)}</div>}
+                    {subj.length>0 && <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.3rem" }}>{subj.map(function(s){ return <span key={s} style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.63rem", fontWeight:700, borderRadius:"2rem", padding:"1px 7px" }}>{s}</span>; })}</div>}
+                    {tr.saw && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.3rem" }}><strong>Saw:</strong> {tr.saw}</div>}
+                    {tr.learned && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.15rem" }}><strong>Learned:</strong> {tr.learned}</div>}
+                    {tr.moment && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{tr.moment}</div>}
+                  </div>
+                  <button type="button" onClick={function(){ openEdit(tr.id, tr); }} style={editBtnStyle}>Edit</button>
+                  <button type="button" onClick={function(){ lhSaveDel("trips", tr.id); }} style={delBtnStyle}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+
+      // ── Learning Resources — read-only; editable in Plan → Subjects ─────────
+      function ResourcesSection() {
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>🔗 Learning Resources</div>
+            {resourceRecords.length===0 && <div style={emptyTextStyle}>No resources added yet. Add subjects in Plan to see them here.</div>}
+            {resourceRecords.map(function(r) {
+              return (
+                <div key={r.id} style={itemRowStyle}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.subject}</div>
+                    {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
+                    {r.website && <a href={r.website.indexOf("http")===0?r.website:"https://"+r.website} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.website}</a>}
+                    {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
+                  </div>
+                </div>
+              );
+            })}
+            <button type="button" onClick={function(){ setLearningSubTab("plan"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.4rem" }}>Manage in Plan →</button>
+          </div>
+        );
+      }
+
+      // ── Keepsakes & Summaries ─────────────────────────────────────────────
+      function KeepsakesSection() {
+        var [summaryText, setSummaryText] = React.useState("");
+        var [generated, setGenerated] = React.useState(false);
+        var [householdText, setHouseholdText] = React.useState("");
+        function copyText(text) {
+          try {
+            var ta = document.createElement("textarea");
+            ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+            document.body.appendChild(ta); ta.select();
+            document.execCommand("copy"); document.body.removeChild(ta);
+          } catch(e) {}
+        }
+        function handleGenerate() {
+          var text = lhBuildSummary({ name: childPerson?childPerson.name:"your child", mode: childMode, books:books, beyond:beyonds, trips:trips, goals:goals, homework:homework, gradeMarks:gradeMarks, gradeNotes:gradeNotes });
+          setSummaryText(text); setGenerated(true);
+        }
+        function handleHousehold() {
+          var sharedAllChildren = lhGet(lighthouse, "shared", {});
+          var children = learningKids.map(function(p) {
+            var sc = sharedAllChildren[p.id] || {};
+            return { name:p.name||"Child", books:Array.isArray(sc.books)?sc.books:[], beyond:Array.isArray(sc.beyond)?sc.beyond:[], trips:Array.isArray(sc.trips)?sc.trips:[], goals:Array.isArray(sc.goals)?sc.goals:[] };
+          });
+          setHouseholdText(lhBuildHouseholdSummary(children));
+        }
+        return (
+          <div style={sectionCardStyle}>
+            <div style={sectionTitleStyle}>📄 {summaryLabel}</div>
+            <div style={{ fontSize:"0.82rem", color:"#5a5a50", lineHeight:1.55, marginBottom:"0.75rem" }}>
+              {childMode==="school" ? "A keepsake record of everything "+(childPerson?childPerson.name:"they")+" experienced and learned." : "Pull together everything "+(childPerson?childPerson.name:"they")+" has done."}
+            </div>
+            <button type="button" onClick={handleGenerate} style={btnP(LC.seaglass,{ fontSize:"0.82rem" })}>{generated?"Regenerate "+summaryLabel:"Generate "+summaryLabel}</button>
+            {generated && (
+              <div style={{ marginTop:"0.65rem" }}>
+                <textarea value={summaryText} onChange={function(e){ setSummaryText(e.target.value); }} style={inp({ height:180, resize:"vertical", fontSize:"0.85rem", lineHeight:1.6 })}/>
+                <button type="button" onClick={function(){ copyText(summaryText); }} style={btnS({ marginTop:"0.4rem", fontSize:"0.8rem" })}>Copy text</button>
+              </div>
+            )}
+            {learningKids.length>1 && (
+              <div style={{ borderTop:"1px solid #F0EBDF", marginTop:"1.25rem", paddingTop:"1rem" }}>
+                <div style={subheadStyle}>Household Overview</div>
+                <div style={{ fontSize:"0.78rem", color:"#8a8578", marginBottom:"0.55rem" }}>A quick snapshot of what everyone has been up to.</div>
+                <button type="button" onClick={handleHousehold} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Generate overview</button>
+                {householdText && (
+                  <div style={{ marginTop:"0.6rem" }}>
+                    <textarea value={householdText} onChange={function(e){ setHouseholdText(e.target.value); }} style={inp({ height:80, resize:"vertical", fontSize:"0.82rem", lineHeight:1.5 })}/>
+                    <button type="button" onClick={function(){ copyText(householdText); }} style={btnS({ marginTop:"0.35rem", fontSize:"0.78rem" })}>Copy</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
+          <BooksSection/>
+          <BeyondSection/>
+          <TripsSection/>
+          <ResourcesSection/>
+          <KeepsakesSection/>
+        </div>
+      );
+    }
+
     if (allPeople.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
@@ -16250,15 +13336,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {learningSubTab === "plan" && <PlanArea key={activeChild} />}
         {learningSubTab === "records" && <RecordsArea key={activeChild} />}
         {learningSubTab === "growth" && <GrowthArea key={activeChild} />}
-
-        {/* Placeholder body for Library — built out in Phase 6 */}
-        {learningSubTab !== "overview" && learningSubTab !== "plan" && learningSubTab !== "records" && learningSubTab !== "growth" && (
-          <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: T.textFaint }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.6rem" }}>{activeTabMeta.emoji}</div>
-            <div style={{ fontSize: "0.92rem", fontWeight: 600, color: T.textMid }}>{activeTabMeta.label}</div>
-            <div style={{ fontSize: "0.8rem", marginTop:"0.3rem" }}>Coming soon{childPerson ? " for " + childPerson.name : ""}.</div>
-          </div>
-        )}
+        {learningSubTab === "library" && <LibraryArea key={activeChild} />}
       </div>
     );
   }
