@@ -7469,7 +7469,7 @@ Respond ONLY in valid JSON:
             {/* Add task */}
             <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55"})}}>
               <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap"}}>
-                <input value={newTaskText} onChange={function(e){setNewTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
+                <input value={newTaskText} onChange={function(e){setNewTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setNewTaskText("");}}} placeholder="Add a task…" style={{...inp({flex:1,minWidth:120})}}/>
                 <select value={taskDay} onChange={function(e){setTaskDay(e.target.value);}} style={{...inp({width:"auto",flex:"none"})}}>
                   {[...MEAL_DAYS,"Daily"].map(function(d){return <option key={d} value={d}>{d}</option>;})}
                 </select>
@@ -7477,7 +7477,7 @@ Respond ONLY in valid JSON:
                   <option value="">Anyone</option>
                   {people.map(function(p){return <option key={p.id} value={p.name}>{p.name}</option>;})}
                 </select>
-                <button onClick={function(){if(newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setBrainItems(function(p){return[...p,{id:uid(),text:newTaskText.trim(),cat:"uncategorized",done:false,scheduledDay:taskDay,assignedTo:taskPerson||null,linkedTaskId:nid}];});setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
+                <button onClick={function(){if(newTaskText.trim()){var nid=uid();setTasks(function(p){return[...p,{id:nid,text:newTaskText.trim(),day:taskDay,done:false,person:taskPerson,fromBoard:true}];});setNewTaskText("");}}} style={btnP(T.blue)}>Add</button>
               </div>
               {cdDraggingId&&<div style={{marginTop:"0.5rem",fontSize:"0.72rem",color:T.blue,fontWeight:600,display:"flex",alignItems:"center",gap:"0.4rem"}}><span>↕</span> Drag to a different day to move it there</div>}
             </div>
@@ -11399,6 +11399,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var yEntries = dayEntriesFor(y).map(function(e){ return { id:uid(), subject:e.subject, title:e.title, notes:e.notes, done:false }; });
           if (yEntries.length > 0) saveEntriesFor(todayIso, entries.concat(yEntries));
         }
+        var monthlyFocus = typeof hsChild.monthly === "string" ? hsChild.monthly : "";
         return (
           <div>
             <SectionShell tabName="plan-today" sectionName="attendance" emoji="📋" title="Attendance Today" defaultOpen={true}>
@@ -11409,6 +11410,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 })}
               </div>
             </SectionShell>
+
+            <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"0.85rem 1rem", marginBottom:"0.85rem" }}>
+              <div style={{ fontSize:"0.73rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.5rem" }}>🎯 This month's focus</div>
+              <textarea
+                defaultValue={monthlyFocus}
+                onBlur={function(e){ applyHs({ monthly: e.target.value }); }}
+                placeholder="What are the big goals or focus areas this month?"
+                style={inp({ minHeight:"56px", resize:"vertical", fontSize:"0.85rem" })}
+              />
+            </div>
 
             <SectionShell tabName="plan-today" sectionName="subjects" emoji="🗓️" title="Today's Subjects" defaultOpen={true}>
               <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
