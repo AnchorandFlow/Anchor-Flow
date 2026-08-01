@@ -10,6 +10,20 @@ import { useState, useRef, useEffect } from "react";
 import { askFamily } from "../compass/compassEngine";
 import { readHouseholdState, TK } from "./shellKit";
 
+// Lightweight markdown for chat bubbles — the model sometimes answers with
+// **bold**/## headers despite the system prompt asking it not to. No
+// markdown library needed, and no dangerouslySetInnerHTML on model output:
+// headers are stripped to plain text, **bold** becomes real <strong> nodes
+// via string splitting, so React still owns every node it renders.
+function renderCompassText(text) {
+  var stripped = String(text || "").replace(/^#{1,6}\s+/gm, "");
+  var parts = stripped.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map(function (part, i) {
+    var m = part.match(/^\*\*([^*]+)\*\*$/);
+    return m ? <strong key={i}>{m[1]}</strong> : part;
+  });
+}
+
 export default function CompassFab() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -110,13 +124,13 @@ export default function CompassFab() {
                       </div>
                     ) : (
                       <div style={{ alignSelf: "flex-start", maxWidth: "90%", background: TK.card, border: "1px solid " + TK.border, borderRadius: "12px 12px 12px 3px", padding: "11px 14px" }}>
-                        <div style={{ fontFamily: TK.serif, fontSize: ".95rem", color: TK.cream, lineHeight: 1.5 }}>{m.a}</div>
+                        <div style={{ fontFamily: TK.serif, fontSize: ".95rem", color: TK.cream, lineHeight: 1.5 }}>{renderCompassText(m.a)}</div>
                         {Array.isArray(m.details) && m.details.length > 0 && (
                           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
                             {m.details.map(function (d, j) {
                               return (
                                 <div key={j} style={{ display: "flex", gap: 8, fontSize: ".73rem", color: TK.t2, lineHeight: 1.45 }}>
-                                  <span style={{ color: TK.gold }}>·</span>{d}
+                                  <span style={{ color: TK.gold }}>·</span>{renderCompassText(d)}
                                 </div>
                               );
                             })}
