@@ -1443,10 +1443,34 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     try { localStorage.setItem("af_celebrations", JSON.stringify(updated)) } catch {}
   }
 
+  // COUNTDOWN-1: every celebration with a date gets a matching af_countdowns
+  // entry, tagged showOn:["Celebrations"] — the same tag celebMatchedCountdowns
+  // (above) filters on, so it surfaces on this celebration's own detail view
+  // without any extra step from the user. `countdowns` above is a mount-time
+  // snapshot (see its comment) — this writes straight to localStorage +
+  // afVaultChanged, matching every other af_* write in this file, and doesn't
+  // bother updating the local snapshot since this view remounts fresh on
+  // next visit anyway (same reasoning as af_recipeBook/af_countdowns reads).
+  function addMatchingCountdown(c) {
+    try {
+      var next = new Date(year, c.month - 1, c.day)
+      if (next < now) next.setFullYear(next.getFullYear() + 1)
+      var targetDate = next.getFullYear() + "-" + String(next.getMonth() + 1).padStart(2, "0") + "-" + String(next.getDate()).padStart(2, "0")
+      var typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPE_OTHER
+      var existing = JSON.parse(localStorage.getItem("af_countdowns") || "[]")
+      if (!Array.isArray(existing)) existing = []
+      var entry = { id: "cd-" + c.id, title: c.name, targetDate: targetDate, emoji: (typeInfo && typeInfo.emoji) || "⭐", color: null, showOn: ["Celebrations"] }
+      localStorage.setItem("af_countdowns", JSON.stringify(existing.concat([entry])))
+      afVaultChanged("countdowns")
+    } catch (e) {}
+  }
+
   function addCelebration() {
     if (!form.name.trim() || !form.month || !form.day) return
     var newId = Date.now().toString()
-    save([...celebrations, { id: newId, type: celebType, name: form.name.trim(), month: parseInt(form.month), day: parseInt(form.day), year: form.year ? parseInt(form.year) : null, notes: form.notes.trim() }])
+    var newCeleb = { id: newId, type: celebType, name: form.name.trim(), month: parseInt(form.month), day: parseInt(form.day), year: form.year ? parseInt(form.year) : null, notes: form.notes.trim() }
+    save([...celebrations, newCeleb])
+    addMatchingCountdown(newCeleb)
     setForm({ name: "", month: "", day: "", year: "", notes: "" })
     setAdding(false)
     openCelebDetail(newId) // jump straight into the new celebration's detail view

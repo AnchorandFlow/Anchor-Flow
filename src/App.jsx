@@ -1824,6 +1824,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
     });
   }
 
+
   // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
   // Pass settingsOpen + toggleSetting down explicitly.
   function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting,T})); }
@@ -2303,6 +2304,17 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
           </div>
         </Sec>
       )}
+
+      <Sec id="feedback" emoji="💬" title="Feedback" sub="Tell us what's working — or what isn't">
+        <div style={{paddingTop:"0.75rem"}}>
+          <Row label="Send feedback" sub="Bug report, feature request, question, or anything else" tight>
+            <button onClick={function(){try{window.dispatchEvent(new CustomEvent("af-open-feedback"));}catch{}}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.85rem"})}>Send feedback</button>
+          </Row>
+          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"0.65rem"}}>
+            Email us directly: <a href="mailto:support@anchorandflowapp.com" style={{color:T.blue,fontWeight:600}}>support@anchorandflowapp.com</a>
+          </div>
+        </div>
+      </Sec>
 
       <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
         <AnchorLogo size={44} color={T.blue}/>
@@ -4088,6 +4100,35 @@ function createLocalBackup() {
     window.addEventListener("af-open-whoami", h);
     return function(){ window.removeEventListener("af-open-whoami", h); };
   }, []);
+  // BETA-1: in-app feedback — mailto only, no backend for beta. Lives in
+  // HomeFlow (always mounted) rather than SettingsTab, same reasoning as
+  // showWhoAmI above: the sidebar's 💬 button needs to open this from any
+  // tab, not just while Settings happens to be mounted.
+  const FEEDBACK_TYPES = ["Bug report","Feature request","Question","Other"];
+  const [showFeedback,setShowFeedback] = useState(false);
+  const [feedbackType,setFeedbackType] = useState(FEEDBACK_TYPES[0]);
+  const [feedbackText,setFeedbackText] = useState("");
+  React.useEffect(function(){
+    var h = function(){ setShowFeedback(true); };
+    window.addEventListener("af-open-feedback", h);
+    return function(){ window.removeEventListener("af-open-feedback", h); };
+  }, []);
+  function submitFeedback(){
+    if (feedbackText.trim().length < 10) return;
+    var subject = encodeURIComponent("Anchor & Flow feedback: "+feedbackType);
+    var body = encodeURIComponent(feedbackText.trim());
+    window.location.href = "mailto:support@anchorandflowapp.com?subject="+subject+"&body="+body;
+    setShowFeedback(false);
+    setFeedbackText("");
+    setFeedbackType(FEEDBACK_TYPES[0]);
+  }
+  // PRIVACY-3: tasks marked private are hidden from other household members
+  // at render time only — every setTasks(...) write still operates on the
+  // full `tasks` array (never this), so a private task syncs and round-trips
+  // normally; this only controls what's shown on screen. A task with no
+  // createdBy predates this feature and stays visible to everyone, matching
+  // behavior before this change.
+  const visibleTasks = tasks.filter(function(t){ return !t.private || !t.createdBy || t.createdBy===myPersonId; });
   const [appCelebrate,setAppCelebrate]            = useState(null);
   React.useEffect(function(){ var h = function(e){ setAppCelebrate((e && e.detail) ? e.detail : {}); }; window.addEventListener("af-celebrate", h); return function(){ window.removeEventListener("af-celebrate", h); }; }, []);
   const _dayClosedKey = "dayClosed_"+TODAY_NAME+"_"+(authUser?.id||"shared");
@@ -4434,8 +4475,8 @@ function createLocalBackup() {
     const tmrMeal  = meals[tmrName]||{};
     const dayRhythm= rhythm[TODAY_NAME]||{};
     const tmrRhythm= rhythm[tmrName]||{};
-    const carried  = tasks.filter(t=>t.carried&&t.carriedTo===TODAY_NAME&&!t.archived);
-    const existing = tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);
+    const carried  = visibleTasks.filter(t=>t.carried&&t.carriedTo===TODAY_NAME&&!t.archived);
+    const existing = visibleTasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily")&&!t.archived);
     const todayEvts= calEvents.filter(e=>{
       if(!e.date)return false;
       const ed=new Date(e.date+"T00:00:00");
@@ -4672,7 +4713,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   // ── Yesterday carry-over ────────────────────────────────────────────────────
   const yesterdayName = (() => { const d=new Date(TODAY); d.setDate(d.getDate()-1); return DAY_NAMES[d.getDay()]; })();
-  const incompletePrevTasks = tasks.filter(t => !t.done && t.day===yesterdayName && !t.carried && !t.archived);
+  const incompletePrevTasks = visibleTasks.filter(t => !t.done && t.day===yesterdayName && !t.carried && !t.archived);
 
   function carryTasksOver() {
     setTasks(p => p.map(t =>
@@ -4793,7 +4834,7 @@ Respond ONLY with valid JSON array, no markdown:
     localStorage.setItem(sessionKey, "1");
     setDailySummaryScheduled(TODAY.toDateString());
 
-    const todayTasks  = tasks.filter(t => (t.day===TODAY_NAME||t.day==="Daily") && !t.archived);
+    const todayTasks  = visibleTasks.filter(t => (t.day===TODAY_NAME||t.day==="Daily") && !t.archived);
     const doneTasks   = todayTasks.filter(t => t.done);
     const pendingTasks= todayTasks.filter(t => !t.done);
     const todayMeal   = (meals[TODAY_NAME]||{}).dinner;
@@ -5039,7 +5080,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   // ── Share text ──────────────────────────────────────────────────────────────
   function shareText() {
-    const todayTasks = tasks.filter(t=>t.day===TODAY_NAME||t.day==="Daily");
+    const todayTasks = visibleTasks.filter(t=>t.day===TODAY_NAME||t.day==="Daily");
     const tm = meals[TODAY_NAME]||{};
     const mealLines = MEALS_TO_SHOW.map(m=>`${m}: ${tm[m]||"—"}`);
     return `⚓️ Anchor & Flow — ${FORMAT_DATE(TODAY)}\nA steadier home, in every season\n\nFlow Mode: ${flowMode} ${fm.emoji}\n\nToday's Tasks:\n${todayTasks.map(t=>`• ${t.text}${t.carried?" ↩":""}`).join("\n")||"No tasks."}\n\nMeals:\n${mealLines.join("\n")}\n\nHave a beautiful day 🌿`;
@@ -5312,7 +5353,7 @@ Respond ONLY with valid JSON array, no markdown:
     );
   }
 
-  _hfRenders.TaskRow = function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay}) {
+  _hfRenders.TaskRow = function TaskRow({t, onToggle, onDelete, onSave, accent, showNotifFor, setShowNotifFor, onMoveDay, allDays, currentDay, onTogglePrivate}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(t.text);
     const [notifDate, setNotifDate] = useState("");
@@ -5344,6 +5385,7 @@ Respond ONLY with valid JSON array, no markdown:
               </span>
               {t.person&&<Pill label={t.person} color={people.find(function(p){return p.name===t.person;})?.color||T.textSoft} tiny/>}
               {hasNotif&&<span style={{fontSize:"0.7rem"}}>🔔</span>}
+              {onTogglePrivate&&<button onClick={function(){onTogglePrivate(t.id);}} title={t.private?"Private — tap to make visible to everyone":"Make private (only visible to you)"} aria-label={t.private?"Make task visible to everyone":"Make task private"} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:t.private?1:0.3,fontSize:"0.7rem"}}>🔒</button>}
               {onMoveDay&&allDays&&(
                 <div style={{position:"relative"}}>
                   <button onClick={function(){setShowDayPicker(function(v){return !v;});}} title="Move to another day" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",opacity:0.5,fontSize:"0.7rem"}}>📅</button>
@@ -5819,7 +5861,7 @@ Respond ONLY with valid JSON array, no markdown:
   // ── Daily Briefing Modal ─────────────────────────────────────────────────────
   _hfRenders.DailyBriefingModal = function DailyBriefingModal({onClose}) {
     const b = dayBriefing;
-    const allT = tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived);
+    const allT = visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived);
     const top3T = allT.filter(t=>t.tier==="top3");
     const next3T= allT.filter(t=>t.tier==="next3");
     const moreT = allT.filter(t=>t.tier==="more");
@@ -5889,7 +5931,7 @@ Respond ONLY with valid JSON array, no markdown:
     const tmrEvts = calEvents.filter(e=>{ if(!e.date)return false; const ed=new Date(e.date+"T00:00:00"); const d=new Date(TODAY); d.setDate(d.getDate()+1); return ed.getDate()===d.getDate()&&ed.getMonth()===d.getMonth()&&ed.getFullYear()===d.getFullYear(); });
     const tmrRhythm = rhythm[tmrName]||{};
     const tmrMeal = meals[tmrName]||{};
-    const allT = tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived);
+    const allT = visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived);
     const done = allT.filter(t=>t.done);
     const undone = allT.filter(t=>!t.done);
     const rhythmTasks = (tmrRhythm.tasks||[]).length>0 ? tmrRhythm.tasks : ["Tidy kitchen","Set out tomorrow's things","Quick 10-min reset"];
@@ -6030,7 +6072,7 @@ Respond ONLY with valid JSON array, no markdown:
     const dayOpen = anchorDayOpen;
     const setDayOpen = setAnchorDayOpen;
 
-    const allToday   = tasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily"||t.carriedTo===TODAY_NAME)&&!t.archived);
+    const allToday   = visibleTasks.filter(t=>(t.day===TODAY_NAME||t.day==="Daily"||t.carriedTo===TODAY_NAME)&&!t.archived);
     const todayMeal  = meals[TODAY_NAME]||{};
     const dayRhythm  = rhythm[TODAY_NAME]||{};
     const hour       = new Date().getHours();
@@ -6329,7 +6371,7 @@ Respond ONLY in valid JSON:
                 <span style={{fontSize:"1.2rem"}}>🌙</span>
                 <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{myDisplayName(people,myPersonId,preferredName,authUser)?", "+myDisplayName(people,myPersonId,preferredName,authUser):""}</div>
               </div>
-              <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+tasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
+              <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{visibleTasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+visibleTasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
               <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"rgba(122,158,142,0.15)",border:"1.5px solid rgba(122,158,142,0.35)",borderRadius:"0.8rem",padding:"0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",color:"#4a7a68"}}>🌙 Wind down my day</button>
             </div>
           )}
@@ -6607,16 +6649,16 @@ Respond ONLY in valid JSON:
                   <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.75rem"}}>
                     <span style={{fontSize:"1.1rem"}}>📋</span>
                     <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.1rem",fontWeight:700,color:T.sageDark}}>Tasks</span>
-                    {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).length>0&&<span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.sage,fontWeight:600}}>✓ {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).length} done</span>}
+                    {visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).length>0&&<span style={{marginLeft:"auto",fontSize:"0.7rem",color:T.sage,fontWeight:600}}>✓ {visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).length} done</span>}
                   </div>
-                  {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived).length===0?(
+                  {visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived).length===0?(
                     <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600}}>✓ All clear — nothing to review!</div>
                   ):(
                     <div style={{display:"flex",flexDirection:"column",gap:"0.3rem"}}>
-                      {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).map(t=>(
+                      {visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done).map(t=>(
                         <div key={t.id} style={{padding:"0.4rem 0.65rem",background:T.sagePale,borderRadius:"0.55rem",fontSize:"0.8rem",color:T.sageDark,fontWeight:600}}>✓ {t.text}</div>
                       ))}
-                      {tasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&!t.done).map(t=>(
+                      {visibleTasks.filter(t=>(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&!t.done).map(t=>(
                         <div key={t.id} style={{padding:"0.5rem 0.65rem",background:T.surface,borderRadius:"0.65rem",border:"1px solid "+T.borderSoft}}>
                           <div style={{fontSize:"0.83rem",color:T.textDark,fontWeight:600,marginBottom:"0.3rem"}}>{t.text}</div>
                           <div style={{display:"flex",gap:"0.3rem"}}>
@@ -7416,7 +7458,7 @@ Respond ONLY in valid JSON:
       var dateStr=dayDate.getFullYear()+"-"+String(dayDate.getMonth()+1).padStart(2,"0")+"-"+String(dayDate.getDate()).padStart(2,"0");
       var dayEvents=calEvents.filter(function(e){return e.date===dateStr&&!e._birthday;});
       var dinner=(meals[day]||{}).dinner||"";
-      var dayTasks=tasks.filter(function(t){return(t.day===day||t.day==="Daily")&&!t.archived&&!t.done;});
+      var dayTasks=visibleTasks.filter(function(t){return(t.day===day||t.day==="Daily")&&!t.archived&&!t.done;});
       var isBusy=dayEvents.length>=2;
       var noMeal=!dinner;
       var isToday=day===TODAY_NAME;
@@ -7484,7 +7526,7 @@ Respond ONLY in valid JSON:
 
             {/* Day columns */}
             {[...MEAL_DAYS,"Daily"].map(function(day,di){
-              var dayTasks=tasks.filter(function(t){return t.day===day&&!t.archived;});
+              var dayTasks=visibleTasks.filter(function(t){return t.day===day&&!t.archived;});
               var dr=rhythm[day];var accent=DAY_COLORS[di%DAY_COLORS.length];
               var isDayDropTarget=cdOverDay===day&&!cdOverId;
               var linkedTaskIds=dayTasks.filter(function(t){return t.fromBrain||t.brainId;}).map(function(t){return t.brainId||t.linkedTaskId;});
@@ -7515,6 +7557,7 @@ Respond ONLY in valid JSON:
                           onToggle={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});}}
                           onDelete={function(id){setTasks(function(p){return p.filter(function(x){return x.id!==id;});});}}
                           onSave={function(id,val){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,text:val}:x;});});}}
+                          onTogglePrivate={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,private:!x.private,createdBy:x.createdBy||myPersonId}:x;});});}}
                           onMoveDay={function(id,newDay){
                             setTasks(function(p){return p.map(function(x){return x.id===id?{...x,day:newDay}:x;});});
                             setBrainItems(function(p){return p.map(function(b){return b.linkedTaskId===id?{...b,scheduledDay:newDay}:b;});});
@@ -7566,7 +7609,7 @@ Respond ONLY in valid JSON:
         )}
         {weekSubTab==="rhythm"&&MEAL_DAYS.map(function(day,di){
           var dr=rhythm[day]||{};var accent=DAY_COLORS[di%DAY_COLORS.length];
-          var dayTaskCount=tasks.filter(function(t){return t.day===day&&!t.done&&!t.archived;}).length;
+          var dayTaskCount=visibleTasks.filter(function(t){return t.day===day&&!t.done&&!t.archived;}).length;
           var dayBrainCount=brainItems.filter(function(b){return b.scheduledDay===day&&!b.done;}).length;
           var isToday=day===TODAY_NAME;
           return(
@@ -10178,11 +10221,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var activeSections = activeListId ? (coveSectionsMap[activeListId] || []) : [];
 
     // ── Notes helpers ─────────────────────────────────────────────────────────
-    var activeNote = coveNotes.find(function(n){ return n.id === activeNoteId; }) || null;
+    // PRIVACY-3: private notes are hidden from other household members at
+    // render time only — updateNote/deleteNote still operate on the full
+    // setCoveNotes state (never this), so a private note syncs normally.
+    // A note with no createdBy predates this feature and stays visible to
+    // everyone. activeNote is looked up in the filtered list too, as a
+    // defense-in-depth backstop against ever rendering someone else's
+    // private note body even if activeNoteId were somehow set to one.
+    var visibleCoveNotes = coveNotes.filter(function(n){ return !n.private || !n.createdBy || n.createdBy===myPersonId; });
+    var activeNote = activeNoteId ? visibleCoveNotes.find(function(n){ return n.id === activeNoteId; }) || null : null;
 
     function newNote() {
       var id = uid2();
-      var note = { id:id, title:"Untitled", body:"", createdAt:Date.now(), updatedAt:Date.now() };
+      var note = { id:id, title:"Untitled", body:"", createdAt:Date.now(), updatedAt:Date.now(), private:false, createdBy:myPersonId };
       setCoveNotes(function(prev){ return [note].concat(prev); });
       setActiveNoteId(id);
       setCoveTab("notes");
@@ -10220,6 +10271,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 style={{flex:1,fontSize:"1rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0}}
               />
               <span style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{fmtNoteDate(activeNote.updatedAt)}</span>
+              <button onClick={function(){ updateNote(activeNote.id,{private:!activeNote.private}); }}
+                title={activeNote.private?"Private — tap to make visible to everyone":"Make private (only visible to you)"}
+                aria-label={activeNote.private?"Make note visible to everyone":"Make note private"}
+                style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",opacity:activeNote.private?1:0.3,flexShrink:0,fontSize:"0.8rem"}}>
+                🔒
+              </button>
               {/* Delete — tucked away, requires deliberate tap */}
               <button onClick={function(){ deleteNote(activeNote.id); }}
                 style={{background:"none",border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:"3px 7px",display:"flex",alignItems:"center",gap:3,opacity:0.4,flexShrink:0}}
@@ -10266,13 +10323,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
                   style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                   {t.label}
-                  {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
+                  {t.id==="notes"&&visibleCoveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{visibleCoveNotes.length}</span>}
                 </button>
               );
             })}
           </div>
           <div style={{padding:"14px 16px"}}>
-            {coveNotes.length===0?(
+            {visibleCoveNotes.length===0?(
               <div style={{textAlign:"center",padding:"2.5rem 0"}}>
                 <div style={{fontSize:"2rem",marginBottom:8}}>📝</div>
                 <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>No notes yet.</div>
@@ -10281,8 +10338,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {coveNotes.length>1&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:2}}><button onClick={function(){setCoveNotesAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveNotesAZ?"A–Z ✓":"A–Z"}</button></div>}
-                {(coveNotesAZ?coveNotes.slice().sort(function(a,b){return (a.title||a.body||"").localeCompare(b.title||b.body||"");}):coveNotes).map(function(note){
+                {visibleCoveNotes.length>1&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:2}}><button onClick={function(){setCoveNotesAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveNotesAZ?"A–Z ✓":"A–Z"}</button></div>}
+                {(coveNotesAZ?visibleCoveNotes.slice().sort(function(a,b){return (a.title||a.body||"").localeCompare(b.title||b.body||"");}):visibleCoveNotes).map(function(note){
                   var preview=(note.body||"").replace(/\n/g," ").trim().slice(0,90);
                   return(
                     <div key={note.id} onClick={function(){setActiveNoteId(note.id);}}
@@ -10291,6 +10348,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                           {note.title==="Untitled"?<span style={{color:T.textFaint,fontStyle:"italic"}}>Untitled</span>:note.title}
                         </div>
+                        {note.private&&<span style={{fontSize:"0.65rem",flexShrink:0}}>🔒</span>}
                         <div style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{fmtNoteDate(note.updatedAt)}</div>
                       </div>
                       {preview&&<div style={{fontSize:"0.76rem",color:T.textSoft,lineHeight:1.5}}>{preview}{(note.body||"").length>90?"…":""}</div>}
@@ -10722,7 +10780,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
                 style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                 {t.label}
-                {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
+                {t.id==="notes"&&visibleCoveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{visibleCoveNotes.length}</span>}
               </button>
             );
           })}
@@ -14400,6 +14458,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)}/>}
       {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
       {showWhoAmI&&<WhoAmIModal/>}
+      {showFeedback&&(
+        <ModalBox title="Send feedback" onClose={function(){setShowFeedback(false);}}>
+          <div style={{marginBottom:"0.85rem"}}>
+            <label style={lbl}>Type</label>
+            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginTop:"0.3rem"}}>
+              {FEEDBACK_TYPES.map(function(ft){
+                var active=feedbackType===ft;
+                return <button key={ft} onClick={function(){setFeedbackType(ft);}} style={{padding:"0.3rem 0.7rem",borderRadius:"99px",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue+"18":"transparent",color:active?T.blue:T.textMid,fontSize:"0.78rem",fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit"}}>{ft}</button>;
+              })}
+            </div>
+          </div>
+          <div style={{marginBottom:"0.5rem"}}>
+            <label style={lbl}>Message</label>
+            <textarea value={feedbackText} onChange={function(e){setFeedbackText(e.target.value);}} placeholder="What's on your mind? (at least 10 characters)" style={{...inp(),minHeight:"110px",resize:"vertical",marginTop:"0.3rem"}}/>
+          </div>
+          {feedbackText.trim().length>0&&feedbackText.trim().length<10&&(
+            <div style={{fontSize:"0.74rem",color:T.rose,marginBottom:"0.5rem"}}>A few more words would help — {10-feedbackText.trim().length} to go.</div>
+          )}
+          <button onClick={submitFeedback} disabled={feedbackText.trim().length<10} style={btnP(T.blue,{width:"100%",opacity:feedbackText.trim().length<10?0.5:1,cursor:feedbackText.trim().length<10?"default":"pointer"})}>Open email to send</button>
+          <div style={{fontSize:"0.76rem",color:T.textSoft,marginTop:"0.85rem",textAlign:"center"}}>
+            Email us directly: <a href="mailto:support@anchorandflowapp.com" style={{color:T.blue,fontWeight:600}}>support@anchorandflowapp.com</a>
+          </div>
+        </ModalBox>
+      )}
       {appCelebrate && <Celebration data={appCelebrate} onClose={function(){ setAppCelebrate(null); }} />}
       {showBriefing&&<DailyBriefingModal onClose={()=>setShowBriefing(false)}/>}
       {showSetPassword&&resetToken&&<SetPasswordModal/>
@@ -14745,6 +14827,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
           <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" aria-label="Sunset — end of day reset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
           <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" aria-label="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "16px", opacity: 0.82 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
+          <button onClick={function(){ try{window.dispatchEvent(new CustomEvent("af-open-feedback"));}catch{} }} title="Send feedback" aria-label="Send feedback" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "14px", opacity: 0.6 }}>💬</span></button>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
         </div>
       </div>

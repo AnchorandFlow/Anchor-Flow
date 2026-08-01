@@ -144,6 +144,14 @@ function slimPerson(p) {
   };
 }
 
+// PRIVACY-3: Compass must never see another household member's private
+// tasks — this runs before slimTask() strips the private/createdBy fields
+// it needs to check. A task with no createdBy predates this feature and
+// stays included, matching the render-side filter's same fallback.
+function excludePrivateTasks(list, myPersonId) {
+  return asArray(list).filter(function (t) { return !t.private || !t.createdBy || t.createdBy === myPersonId; });
+}
+
 function eventsInWindow(state, fromDays, toDays) {
   return asArray(state.calEvents).map(slimEvent).filter(function (e) {
     var d = daysFromNow(e.date);
@@ -189,7 +197,7 @@ export function buildCompassContext(state, scope, extra) {
     // empty rather than guessing — an honest empty "mine" beats a wrong guess.
     ctx.events_today_mine = state.myPersonId ? _todaySlim.filter(function(e) { return resolveResponsibleParent(e.responsibleParent) === state.myPersonId; }) : [];
     ctx.events_today_partner = state.myPersonId ? _todaySlim.filter(function(e) { var rp = resolveResponsibleParent(e.responsibleParent); return rp && rp !== state.myPersonId; }) : [];
-    ctx.tasks_open = asArray(state.tasks).map(slimTask).filter(function (t) { return !t.done; }).slice(0, 25);
+    ctx.tasks_open = excludePrivateTasks(state.tasks, state.myPersonId).map(slimTask).filter(function (t) { return !t.done; }).slice(0, 25);
     ctx.meals_this_week = asArray(state.meals).map(slimMeal).slice(0, 14);
     ctx.shopping_open_count = asArray(state.shoppingItems).filter(function (i) { return !pick(i, ["checked", "done"], false); }).length;
     ctx.school = asArray(state.schoolData && state.schoolData.items || state.schoolData).slice(0, 10);
@@ -197,7 +205,7 @@ export function buildCompassContext(state, scope, extra) {
   }
 
   if (scope === "week") {
-    var tasks = asArray(state.tasks).map(slimTask);
+    var tasks = excludePrivateTasks(state.tasks, state.myPersonId).map(slimTask);
     ctx.tasks_completed_count = tasks.filter(function (t) { return t.done; }).length;
     ctx.tasks_open = tasks.filter(function (t) { return !t.done; }).slice(0, 25);
     ctx.events_next_7_days = eventsInWindow(state, 0, 7);
