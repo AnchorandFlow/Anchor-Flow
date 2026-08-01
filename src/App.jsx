@@ -1270,11 +1270,11 @@ const TABS = [
   {id:"weekly",   label:"Weekly",   emoji:"📅"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Mind",     emoji:"💭"},
-  {id:"learning",    label:"Learning",    emoji:"🌱"},
+  {id:"lighthouse",    label:"Lighthouse",    emoji:"🌱"},
   {id:"settings",    label:"Settings",    emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
-const MORE_TABS    = ["weekly","home","brain","learning","tidepool","cove","settings"];
+const MORE_TABS    = ["weekly","home","brain","lighthouse","tidepool","cove","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -3640,7 +3640,7 @@ function createLocalBackup() {
   }
 
   // ── All state ───────────────────────────────────────────────────────────────
-  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"||s==="lighthouse"){try{sessionStorage.setItem("af_activeTab","learning");}catch{} return "learning";}return s;}}catch{}return "anchor";});
+  const [tab,setTab] = useState(()=>{try{const s=sessionStorage.getItem("af_activeTab");if(s){if(s==="school"||s==="learning"){try{sessionStorage.setItem("af_activeTab","lighthouse");}catch{} return "lighthouse";}return s;}}catch{}return "anchor";});
   React.useEffect(() => { const h = (e) => goTab(e.detail); window.addEventListener("af-set-tab", h); return () => window.removeEventListener("af-set-tab", h); }, []);
   React.useEffect(() => {
     function nukeGhosts() { document.querySelectorAll("[data-drag-clone]").forEach(function(el){ try{el.remove();}catch{} }); }
@@ -3713,7 +3713,7 @@ function createLocalBackup() {
     }));
   }
   React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
-  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="learning") ? "Flow"
+  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="lighthouse") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
@@ -11263,7 +11263,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1rem", flexWrap:"wrap", gap:"0.5rem" }}>
-            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.2rem", color:LC.navy }}>{childPerson.name}'s Learning</div>
+            <div style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.2rem", color:LC.navy }}>{childPerson.name}'s Lighthouse</div>
             <button onClick={function(){ setMode(childMode==="homeschool"?"school":"homeschool"); }} style={{ background:"transparent", border:"1.5px solid "+LC.seaglass, color:LC.seaglass, borderRadius:"99px", padding:"0.35rem 0.85rem", fontSize:"0.76rem", fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
               Switch to {childMode==="homeschool"?"School":"Homeschool"}
             </button>
@@ -13377,7 +13377,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Learning</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
           <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add people in Settings to start tracking learning records.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
@@ -13388,7 +13388,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
-          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Learning</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
           <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
@@ -13402,7 +13402,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={function(){ goTab("anchor"); }} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", display:"flex", alignItems:"center", opacity:0.5, flexShrink:0 }}>
               <span style={{ fontSize:17, color:T.textSoft, lineHeight:1 }}>←</span>
             </button>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🌱 Learning</div>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🌱 Lighthouse</div>
           </div>
         </div>
 
@@ -14317,7 +14317,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","learning","settings"].map(t=>{
+          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","lighthouse","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -14339,7 +14339,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setExhaleLabels(labels);
                 }}
               /></SectionErrorBoundary>}
-                {t==="learning" && <SectionErrorBoundary label="Learning"><LearningTab/></SectionErrorBoundary>}
+                {t==="lighthouse" && <SectionErrorBoundary label="Lighthouse"><LearningTab/></SectionErrorBoundary>}
                 {t==="career"   && <SectionErrorBoundary label="Career"><CareerTab/></SectionErrorBoundary>}
                 {t==="settings" && <SectionErrorBoundary label="Settings"><SettingsTab
                   people={people} setPeople={setPeople}
@@ -14741,7 +14741,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "weekly",   label: "Weekly Rhythm", emoji: "📅" },
       ...(featureFlags.tidePoolEnabled ? [{ id: "tidepool", label: "Tide Pool", emoji: "🏝️" }] : []),
-      ...(featureFlags.lighthouseEnabled ? [{ id: "learning", label: "Learning", emoji: "🌱" }] : []),
+      ...(featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       ...(featureFlags.mealsEnabled ? [{ id: "meals", label: "Meals", emoji: "🍽️" }] : []),
