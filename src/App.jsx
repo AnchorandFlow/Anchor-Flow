@@ -3939,6 +3939,22 @@ function createLocalBackup() {
       return Object.assign({}, prev, {signals: signals});
     });
   }
+  // Compass Phase 2 Item 3 — suggestion freshness. af_aiMemory.recentSuggestions
+  // is a rolling 7-day window (time-based, not count-based like signals above)
+  // of simplified suggestion titles, so buildCompassContext() can tell Compass
+  // not to repeat itself (e.g. "Plan tonight's dinner" every single day).
+  // Stores the same first-6-words dedupe key used for render-layer dedup —
+  // simplified, not the raw text.
+  function recordSuggestions(titles) {
+    var now = Date.now();
+    var cutoff = now - 7*86400000;
+    setAiMemory(function(prev){
+      var existing = Array.isArray(prev && prev.recentSuggestions) ? prev.recentSuggestions : [];
+      var fresh = existing.filter(function(e){ return e && e.ts >= cutoff; });
+      var added = (titles||[]).filter(Boolean).map(function(t){ return {title: suggestionDedupeKey(t), ts: now}; }).filter(function(e){ return e.title; });
+      return Object.assign({}, prev, {recentSuggestions: fresh.concat(added)});
+    });
+  }
   const [preferredName,setPreferredName]       = useSaved("preferredName","");
   const [flowGreetingTone,setFlowGreetingTone] = useSaved("flowGreetingTone","warm");
   const [dailySummaryScheduled,setDailySummaryScheduled] = useSaved("dailySummaryScheduled",null);
@@ -4598,6 +4614,7 @@ function createLocalBackup() {
       setDayBriefing({...p,todayEvts,tmrEvts,todayMealObj,tmrMeal,dayRhythm,tmrRhythm,tmrName});
       setBriefingBuilt(todayDateStr);
       setLastSeenDate(todayDateStr);
+      recordSuggestions([...(p.top3||[]),...(p.next3||[]),...(p.more||[])]);
     } catch(err) {
       setTasks(prev=>{
         const hasAiToday = prev.some(t=>t.aiG&&(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME));
@@ -6298,6 +6315,7 @@ Respond ONLY in valid JSON:
         const p = JSON.parse(txt.replace(/```json|```/g,"").trim());
         setAiSuggestions(p);
         try { localStorage.setItem("af_aiSuggestions", JSON.stringify({d: TODAY.toDateString(), s: p})); } catch(e) {}
+        recordSuggestions([...(p.todos||[]),...(p.brain_items||[]).map(b=>b.text),...(p.upcoming||[])]);
       } catch {
         setAiSuggestions({
           brain_items: priorityBrain.slice(0,2).map(b=>({text:b.text,reason:"on your radar for today"})),

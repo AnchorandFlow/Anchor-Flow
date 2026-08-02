@@ -237,28 +237,133 @@ function slimWorkSchedules(state) {
   return out.slice(0, 12);
 }
 
-// Fix 5 — behavioral signals summary. Signals live in af_aiMemory.signals
-// (see App.jsx recordSignal()); this just turns the raw rolling window into
-// a compact per-category read on what gets acted on vs ignored.
+// Phase 2 Item 5 — shared time-of-day bucketing, reused by the "best acted
+// on" line below and by the always-on current_time context field.
+function timeBucket(hour) {
+  if (hour >= 5 && hour < 8) return "early morning";
+  if (hour >= 8 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 21) return "evening";
+  return "night";
+}
+
+// Fix 5 / Phase 2 Item 1 — behavioral signals summary. Signals live in
+// af_aiMemory.signals (see App.jsx recordSignal()). Phase 1 just described
+// what happened ("task: 8 completed"); this tells the model what to DO
+// about it — lead with what gets completed/acted on, deprioritize what
+// gets dismissed, and note the time of day this family actually engages.
 function summarizeSignals(signals) {
   if (!Array.isArray(signals) || signals.length < 5) return null;
-  var byCat = {};
+  var completes = {}, ignores = {}, completedHours = [];
   signals.forEach(function (s) {
     if (!s || !s.category) return;
-    var cat = s.category;
-    if (!byCat[cat]) byCat[cat] = { completed: 0, acted: 0, dismissed: 0 };
-    if (s.type === "completed") byCat[cat].completed++;
-    else if (s.type === "acted") byCat[cat].acted++;
-    else if (s.type === "dismissed") byCat[cat].dismissed++;
+    if (s.type === "completed" || s.type === "acted") {
+      completes[s.category] = (completes[s.category] || 0) + 1;
+      if (s.type === "completed" && s.ts) completedHours.push(new Date(s.ts).getHours());
+    } else if (s.type === "dismissed") {
+      ignores[s.category] = (ignores[s.category] || 0) + 1;
+    }
   });
-  var parts = Object.keys(byCat).map(function (cat) {
-    var c = byCat[cat], bits = [];
-    if (c.completed) bits.push(c.completed + " completed");
-    if (c.acted) bits.push(c.acted + " acted on");
-    if (c.dismissed) bits.push(c.dismissed + " dismissed");
-    return cat + ": " + bits.join(", ");
-  }).filter(Boolean);
-  return parts.length ? parts.join("; ") : null;
+  function topEntries(obj) {
+    return Object.keys(obj).map(function (k) { return { cat: k, n: obj[k] }; })
+      .sort(function (a, b) { return b.n - a.n; })
+      .map(function (e) { return e.cat + " (" + e.n + "x)"; });
+  }
+  var completesList = topEntries(completes);
+  var ignoresList = topEntries(ignores);
+  if (!completesList.length && !ignoresList.length) return null;
+
+  var lines = ["Behavioral patterns (adjust suggestions accordingly):"];
+  if (completesList.length) lines.push("- Completes: " + completesList.join(", "));
+  if (ignoresList.length) lines.push("- Ignores: " + ignoresList.join(", "));
+  if (completedHours.length >= 3) {
+    var bucketCounts = {};
+    completedHours.forEach(function (h) { var b = timeBucket(h); bucketCounts[b] = (bucketCounts[b] || 0) + 1; });
+    var bestBucket = Object.keys(bucketCounts).sort(function (a, b) { return bucketCounts[b] - bucketCounts[a]; })[0];
+    lines.push("- Best acted on: " + bestBucket + " (based on completion timestamps)");
+  }
+  lines.push("- Lead with what this family acts on. Deprioritize what they ignore.");
+  return lines.join("\n");
+}
+
+// Phase 2 Item 2 — day-of-week completion pattern. Needs real spread across
+// the week to mean anything, hence the higher 14-signal floor (vs 5 above).
+function dayOfWeekPatterns(signals) {
+  if (!Array.isArray(signals) || signals.length < 14) return null;
+  var completions = signals.filter(function (s) { return s && s.type === "completed" && s.ts; });
+  if (completions.length < 5) return null;
+  var counts = [0, 0, 0, 0, 0, 0, 0];
+  completions.forEach(function (s) { counts[new Date(s.ts).getDay()]++; });
+  var avg = completions.length / 7;
+  var strong = [], light = [];
+  counts.forEach(function (n, i) {
+    if (n >= avg + 3) strong.push(DAY_NAMES_C[i] + "s");
+    else if (n <= avg - 3) light.push(DAY_NAMES_C[i] + "s");
+  });
+  if (!strong.length && !light.length) return null;
+  var parts = [];
+  if (strong.length) parts.push(strong.join(" and ") + " tend to be high-completion days.");
+  if (light.length) parts.push(light.join(" and ") + " tend to be lighter.");
+  parts.push("Adjust task load accordingly.");
+  return "Day patterns: " + parts.join(" ");
+}
+
+// Phase 2 Item 4 — tone adaptation from recent engagement rate.
+function toneGuidance(signals) {
+  if (!Array.isArray(signals) || signals.length < 5) return null;
+  var recent = signals.slice(-14);
+  var engaged = recent.filter(function (s) { return s && (s.type === "completed" || s.type === "acted"); }).length;
+  var pct = recent.length ? Math.round((engaged / recent.length) * 100) : 0;
+  var tone = pct > 60 ? "encouraging" : pct < 20 ? "gentle" : "balanced";
+  return "Tone guidance: " + tone + " — completion rate is " + pct + "% recently.";
+}
+
+// Phase 2 Item 5 — always-on time-of-day line (not gated on signal history).
+function timeOfDayContext() {
+  var now = new Date();
+  var bucket = timeBucket(now.getHours());
+  var timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return "Current time: " + timeStr + " (" + bucket + "). Suggest tasks appropriate for " + bucket +
+    ". Morning = planning and focus tasks. Afternoon = errands and active tasks. Evening = light tasks and prep for tomorrow.";
+}
+
+// Phase 2 Item 6 — instructional layer on top of the existing day_theme
+// field (todayThemeFromRhythm, above): a short intent hint per theme,
+// mirroring the THEME_TO_CATS keyword map App.jsx already uses to match
+// brain-dump items to the day's theme, so the two stay conceptually aligned.
+var THEME_INTENT = {
+  "reset": "lighter admin and household reset tasks — catching back up",
+  "errands": "running errands and placing orders",
+  "admin": "admin work — calls, paperwork, orders",
+  "clean": "household cleaning and tidying",
+  "prep": "getting ahead — household prep and errands",
+  "family": "family time, plus light errands and household tasks",
+  "rest": "rest and lower-pressure, someday-style tasks",
+  "finance": "financial admin and bills",
+  "fitness": "movement and errands",
+  "batch cook": "meal prep and batch cooking"
+};
+function themeGuidance(state) {
+  var dt = todayThemeFromRhythm(state);
+  if (!dt || !dt.theme) return null;
+  var key = String(dt.theme).toLowerCase();
+  var matchedKey = Object.keys(THEME_INTENT).find(function (k) { return key.indexOf(k) !== -1; });
+  var intent = matchedKey ? THEME_INTENT[matchedKey] : "whatever fits the day — stay flexible";
+  return "Today's theme: " + dt.theme + ". Lean into this theme when suggesting tasks — " + intent + ".";
+}
+
+// Phase 2 Item 3 — suggestion freshness. af_aiMemory.recentSuggestions is a
+// rolling 7-day store (written by App.jsx recordSuggestions()); this reads
+// only the last 3 days into context so Compass doesn't repeat itself day
+// after day (e.g. suggesting "Plan tonight's dinner" every single time).
+function recentSuggestionTitles(state) {
+  var list = (state.aiMemory && Array.isArray(state.aiMemory.recentSuggestions)) ? state.aiMemory.recentSuggestions : [];
+  var cutoff = Date.now() - 3 * 86400000;
+  var seen = [];
+  list.forEach(function (e) {
+    if (e && e.ts >= cutoff && e.title && seen.indexOf(e.title) === -1) seen.push(e.title);
+  });
+  return seen.slice(0, 20);
 }
 
 // ── context builder ───────────────────────────────────────────────────────────
@@ -285,17 +390,26 @@ export function buildCompassContext(state, scope, extra) {
   console.log("[COMPASS] context: " + (_includeMemory ? "full" : "minimal"));
   var _signals = (state.aiMemory && Array.isArray(state.aiMemory.signals)) ? state.aiMemory.signals : [];
   var _patternsSummary = summarizeSignals(_signals);
+  var _dayPatterns = dayOfWeekPatterns(_signals);
+  var _toneGuidance = toneGuidance(_signals);
   var ctx = {
     now: new Date().toString(),
+    current_time: timeOfDayContext(),
     family: asArray(state.people).map(slimPerson).slice(0, 12),
     preferred_name: (_me && _me.name && _me.name.trim()) || state.preferredName || null,
     ai_memory: _includeMemory ? (state.aiMemory || null) : null // answers from the onboarding questions
   };
-  if (_patternsSummary) ctx.recent_patterns = "Recent patterns: " + _patternsSummary;
+  if (_patternsSummary) ctx.recent_patterns = _patternsSummary;
+  if (_dayPatterns) ctx.day_patterns = _dayPatterns;
+  if (_toneGuidance) ctx.tone_guidance = _toneGuidance;
 
   if (scope === "today") {
     ctx.flow_mode = state.flowMode || null;
     ctx.day_theme = todayThemeFromRhythm(state);
+    var _themeGuidance = themeGuidance(state);
+    if (_themeGuidance) ctx.theme_guidance = _themeGuidance;
+    var _recentSugg = recentSuggestionTitles(state);
+    if (_recentSugg.length) ctx.recently_suggested = "Recently suggested (don't repeat unless urgent): " + _recentSugg.join(", ");
     ctx.events_today_tomorrow = eventsInWindow(state, 0, 1);
     var _todaySlim = eventsInWindow(state, 0, 0);
     // F-97: person-linked mine/partner split, replacing the hardcoded "L"
@@ -315,6 +429,8 @@ export function buildCompassContext(state, scope, extra) {
   }
 
   if (scope === "week") {
+    var _recentSuggWeek = recentSuggestionTitles(state);
+    if (_recentSuggWeek.length) ctx.recently_suggested = "Recently suggested (don't repeat unless urgent): " + _recentSuggWeek.join(", ");
     var tasks = excludePrivateTasks(state.tasks, state.myPersonId).map(slimTask);
     ctx.tasks_completed_count = tasks.filter(function (t) { return t.done; }).length;
     ctx.tasks_open = tasks.filter(function (t) { return !t.done; }).slice(0, 25);
@@ -359,7 +475,8 @@ export function buildCompassContext(state, scope, extra) {
   // mid-JSON (F-15/F-57: the raw slice cut mid-key/value, sending Compass a
   // malformed context for large households). Output is always valid JSON;
   // ctx._trimmed records what was dropped so the model knows the view is partial.
-  var DROP_ORDER = ["work_schedules","lighthouse_goals","trips_upcoming","celebrations_upcoming",
+  var DROP_ORDER = ["day_patterns","recently_suggested","theme_guidance","tone_guidance",
+    "work_schedules","lighthouse_goals","trips_upcoming","celebrations_upcoming",
     "day_theme","recent_patterns","recent_moments_count","moments_logged","packing_templates",
     "pets","school","chores","shopping_open","shopping_open_count",
     "meals_this_week","events_today_partner","tasks_completed_count","ripples_count"];
