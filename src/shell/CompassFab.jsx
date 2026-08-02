@@ -43,7 +43,16 @@ export default function CompassFab() {
     if (!q || busy) return;
     setInput("");
     setBusy(true);
-    askFamily(readHouseholdState(), q)
+    // Phase 3 Item 4 — last 6 Q&A pairs as multi-turn history, so follow-ups
+    // like "What about Saturday?" resolve against the prior exchange. Only
+    // successful past turns count (an error turn has no real assistant
+    // reply to replay back as history).
+    var history = [];
+    thread.filter(function (t) { return !t.error; }).slice(-6).forEach(function (t) {
+      history.push({ role: "user", content: t.q });
+      history.push({ role: "assistant", content: JSON.stringify({ answer: t.a, details: t.details || [], not_found: false }) });
+    });
+    askFamily(readHouseholdState(), q, history)
       .then(function (r) {
         setThread(function (p) { return p.concat([{ q: q, a: r.answer, details: r.details || [] }]); });
         setBusy(false);

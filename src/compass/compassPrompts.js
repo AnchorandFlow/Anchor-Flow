@@ -105,12 +105,20 @@ RESPONSIBLE PARENT: The context may include events_today_mine (things you person
 
 TASK: Write the Sunday-evening family review: celebrate the week behind, preview the week ahead.
 
+Ground it in real data, not generic praise. Specifically pull from:
+- tasks_completed_count and ai_tasks_completed_count for the week's actual productivity
+  (if ai_tasks_completed_count is notable, it's fair to note Compass's suggestions landed)
+- lighthouse_goals for learning/growth wins — name the child and the goal
+- celebrations_this_week for anything the family celebrated this week
+- events_next_7_days, celebrations_upcoming, and trips_upcoming for next week's preview —
+  named specifically, not "a busy week ahead"
+
 Schema:
 {
   "headline": "one warm sentence summarizing the week",
-  "wins": [2-4 short strings, EACH beginning with one fitting emoji (e.g. 🏊 for swim, 📸 for moments, 🍝 for meals — pick what fits the content) — completed counts, streaks, moments logged, meals at home],
+  "wins": [2-4 short strings, EACH beginning with one fitting emoji (e.g. 🏊 for swim, 📸 for moments, 🍝 for meals, 🎓 for learning — pick what fits the content) — completed counts, streaks, moments logged, meals at home, goals advanced],
   "slipped": [0-2 short strings — gently noted, only if clearly visible in data],
-  "next_week": [2-4 short strings, EACH beginning with one fitting emoji (✈️ trips, 📝 deadlines, 🩺 appointments, 🏊 activities) — notable upcoming events, heavier-than-usual days],
+  "next_week": [2-4 short strings, EACH beginning with one fitting emoji (✈️ trips, 📝 deadlines, 🩺 appointments, 🏊 activities, 🎉 celebrations) — notable upcoming events, heavier-than-usual days],
   "load_note": "one sentence comparing next week's load to typical, with one practical suggestion"
 }
 
@@ -126,6 +134,14 @@ Tone for "slipped": never shame. "The pantry check kept sliding — want it on a
 TASK: An upcoming event is provided in the context as PREP_EVENT. Help the family
 get ahead of it. Consider the event type, who's going, season, and anything in the
 context (pets needing care, kids' ages, existing packing templates).
+
+The context also includes celebrations_prep, trips_prep, and school_events_prep —
+everything else coming up soon, each with its own real status (guest list/food/
+gifts for celebrations, packing progress for trips). Reason across ALL of it, not
+just PREP_EVENT: if one of these is more time-sensitive or already has unfinished
+prep, weave it in too — e.g. note "Mimi's birthday is only 3 days out and the guest
+list isn't started yet" alongside the main event's plan. Never invent status that
+isn't in the data.
 
 Schema:
 {
@@ -149,6 +165,14 @@ TASK: Find ONE small way to lighten this family's load today. Combinable errands
 a task worth moving to a quieter day, a meal that needs no shopping trip, prep
 that saves tomorrow. One suggestion only — the best one. If nothing genuinely
 helps, say so honestly.
+
+RULES:
+- Must reference something SPECIFIC from today's context — a real event, task,
+  meal, or name. Never generic filler like "stay organized today."
+- This is a small extra thing, not a recap — don't repeat what's already the
+  day's main plan (today/pinch_points/suggested_focus if present in context).
+- One sentence. No more.
+- Use first names naturally when it fits — don't force it.
 
 Schema:
 {

@@ -3,7 +3,58 @@ import { useState } from "react";
 import { getPrepPlanCached } from "../compass/compassEngine";
 import { readHouseholdState, TK } from "./shellKit";
 
+// Phase 3 Item 1 — regex is now just ONE of four candidate sources, kept
+// only for generic calEvents (which have no structural "this is a big deal"
+// signal). Celebrations/trips/school events are inherently curated records,
+// so they need no keyword guessing at all.
 var BIG = /trip|camp|vacation|visit|party|birthday|holiday|wedding|recital|tournament|move|travel/i;
+
+function isoDate(y, m, d) { return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0"); }
+
+function gatherCandidates(s) {
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var out = [];
+
+  (s.calEvents || []).forEach(function (e) {
+    if (!e || !e.date || !BIG.test(e.title || "")) return;
+    var d = new Date(e.date + "T00:00:00");
+    var days = isNaN(d) ? null : Math.round((d - now) / 86400000);
+    if (days !== null && days >= 2 && days <= 14) out.push({ title: e.title, date: e.date, days: days });
+  });
+
+  (s.celebrations || []).forEach(function (c) {
+    var month = parseInt(c && c.month, 10), day = parseInt(c && c.day, 10);
+    if (!month || !day) return;
+    var next = new Date(now.getFullYear(), month - 1, day);
+    if (next < now) next.setFullYear(next.getFullYear() + 1);
+    var days = Math.round((next - now) / 86400000);
+    if (days >= 2 && days <= 14) out.push({ title: (c.name || "Celebration"), date: isoDate(next.getFullYear(), month, day), days: days });
+  });
+
+  (s.trips || []).forEach(function (t) {
+    if (!t || !t.startDate) return;
+    var d = new Date(t.startDate + "T00:00:00");
+    var days = isNaN(d) ? null : Math.round((d - now) / 86400000);
+    if (days !== null && days >= 2 && days <= 30) out.push({ title: (t.name || "Trip"), date: t.startDate, days: days });
+  });
+
+  var people = s.people || [];
+  Object.keys(s.schoolData || {}).forEach(function (cid) {
+    var cd = (s.schoolData || {})[cid] || {};
+    var events = (cd.public && Array.isArray(cd.public.calEvents)) ? cd.public.calEvents : [];
+    events.forEach(function (it) {
+      if (!it || !it.date) return;
+      var d = new Date(it.date + "T00:00:00");
+      var days = isNaN(d) ? null : Math.round((d - now) / 86400000);
+      if (days === null || days < 2 || days > 14) return;
+      var kid = people.find(function (p) { return p.id === cid; });
+      out.push({ title: (it.title || it.subject || "School item") + (kid && kid.name ? " (" + kid.name.split(" ")[0] + ")" : ""), date: it.date, days: days });
+    });
+  });
+
+  out.sort(function (a, b) { return a.days - b.days; });
+  return out;
+}
 
 export default function PrepCard(props) {
   const [plan, setPlan] = useState(null);
@@ -12,18 +63,10 @@ export default function PrepCard(props) {
   const [s] = useState(readHouseholdState);
   if (s.compassEnabled === false) return null;
 
-  var now = new Date(); now.setHours(0, 0, 0, 0);
-  var target = (s.calEvents || []).map(function (e) {
-    var d = new Date((e.date || "") + "T00:00:00");
-    var days = isNaN(d) ? null : Math.round((d - now) / 86400000);
-    return { e: e, days: days };
-  }).filter(function (x) {
-    return x.days !== null && x.days >= 2 && x.days <= 14 && BIG.test(x.e.title || "");
-  }).sort(function (a, b) { return a.days - b.days; })[0];
-
+  var target = gatherCandidates(s)[0];
   if (!target) return null;
 
-  var ev = target.e;
+  var ev = { title: target.title, date: target.date };
   var wd = new Date(ev.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" });
 
   function generate() {

@@ -4582,7 +4582,15 @@ function createLocalBackup() {
       "Tomorrow: "+tmrName+", theme="+(tmrRhythm.theme||"none")+", events: "+(tmrEvts.map(e=>e.title).join(", ")||"none")+", meal: "+(tmrMeal.dinner||"not planned"),
       "Greeting tone: "+(flowGreetingTone||"warm"),
     ].join(". ");
-    const sysPrompt = `You are Compass, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner). Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. top3 must include appointments. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
+    const sysPrompt = `You are Compass, the Anchor & Flow AI. Build a smart family daily anchor. Use the brain dump items to pull relevant tasks into today — especially ones matching the day theme. For upcoming events, suggest prep tasks (e.g. "Wash soccer jersey" for a soccer game, "Confirm reservation" for a dinner).
+
+GREETING: Make it specific, never generic. Check SHARED FAMILY CONTEXT's celebrations_upcoming — if one has daysAway <= 3, mention it by name. Else check trips_upcoming — if one has daysAway <= 7, mention it by name. Else reference today's theme (day_theme) or a specific task already in the list. Never a bare "Good morning" with no specific.
+
+TOP3: Must include appointments. If celebrations_upcoming has one with daysAway <= 3, or trips_upcoming has one with daysAway <= 7, top3 must include at least one specific prep task for it (e.g. "Finish guest list for Mimi's birthday", "Start packing for the Maryland trip").
+
+TOMORROW NOTE: Must reference something real happening tomorrow — a calendar event, a celebration or trip landing around daysAway 1, or tomorrow's meal/theme from the "Tomorrow" line below. Never a generic sentence like "Tomorrow is a fresh start."
+
+Respond ONLY in valid JSON: {"greeting":"warm personal sentence","top3":["task","task","task"],"next3":["task","task","task"],"more":["task"],"prepItems":["meal prep step if needed"],"tomorrowNote":"one sentence about tomorrow","message":"closing encouragement"}. Pull from brain dump where relevant — use EXACT brain dump text. Keep tasks under 55 chars.`;
     try {
       const res = await fetch("/api/claude",{
         method:"POST",
@@ -5652,7 +5660,7 @@ Respond ONLY with valid JSON array, no markdown:
         const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
           model:"claude-sonnet-4-6", max_tokens:1000,
           system:`Today is ${new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}. You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses.\n${profileCtx}\n${memoryCtx?`What I know from past chats: ${memoryCtx}`:""}\n${appCtx}`,
-          messages:msgs.map(m=>({role:m.role,content:m.text}))
+          messages:msgs.slice(-12).map(m=>({role:m.role,content:m.text}))
         })});
         if (!r.ok) throw new Error("Chat request failed: " + r.status);
         const d = await r.json();
