@@ -6404,8 +6404,11 @@ Respond ONLY in valid JSON:
             var mode=entry[0]; var m=entry[1];
             var modeLabel=mode==="Smooth"?"Calm":mode;
             var active=flowMode===mode;
+            // Mode-impact: the active Busy/Survival button glows in its own
+            // color so the mode is felt at a glance, not just labeled.
+            var glow=active&&mode!=="Smooth"?("0 0 0 3px "+m.color+"30, 0 3px 14px "+m.color+"60"):"none";
             return(
-              <button key={mode} onClick={function(){setFlowMode(mode);}} style={{flex:1,background:active?m.color:T.surface,color:active?"#fff":T.textMid,border:"1.5px solid "+(active?m.color:T.border),borderRadius:"2rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {modeLabel}</button>
+              <button key={mode} onClick={function(){setFlowMode(mode);}} style={{flex:1,background:active?m.color:T.surface,color:active?"#fff":T.textMid,border:"1.5px solid "+(active?m.color:T.border),borderRadius:"2rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",boxShadow:glow}}>{m.emoji} {modeLabel}</button>
             );
           })}
         </div>
@@ -6478,10 +6481,15 @@ Respond ONLY in valid JSON:
             </button>
           )}
         </div>
-        {/* ── Survival mode banner (Bug 2 — make the mode change felt, not just labeled) ── */}
+        {/* ── Mode banners — full-width, prominent, felt not just labeled ── */}
+        {flowMode==="Busy"&&(
+          <div style={{background:"linear-gradient(135deg,rgba(228,181,89,0.22),rgba(228,181,89,0.1))",border:"2px solid rgba(228,181,89,0.5)",borderRadius:"1.1rem",padding:"0.9rem 1.1rem",marginBottom:"0.85rem",textAlign:"center",fontSize:"0.98rem",fontWeight:700,color:T.textDark,boxShadow:"0 3px 16px rgba(228,181,89,0.25)"}}>
+            Busy day — here's what matters most 🌊
+          </div>
+        )}
         {flowMode==="Survival"&&(
-          <div style={{background:"linear-gradient(135deg,"+T.rosePale+","+T.sandPale+")",border:"1.5px solid "+T.rose+"35",borderRadius:"1rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",textAlign:"center",fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>
-            Survival mode — just the essentials today 🌊
+          <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:"2px solid "+T.sage+"55",borderRadius:"1.1rem",padding:"1.1rem 1.2rem",marginBottom:"0.85rem",textAlign:"center",fontSize:"1.02rem",fontWeight:700,color:T.textDark,boxShadow:"0 3px 16px "+T.sage+"30"}}>
+            One step at a time. You've got this. 🌊
           </div>
         )}
         {/* ── Ripple notification banner ── */}
@@ -6490,7 +6498,7 @@ Respond ONLY in valid JSON:
         </div>
         {/* ── Ripple Insights ── */}
         <CompassFab/>
-        {(insightsLoading||visibleInsights.length>0)&&(
+        {flowMode!=="Survival"&&(insightsLoading||visibleInsights.length>0)&&(
           <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
             <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
@@ -6529,6 +6537,11 @@ Respond ONLY in valid JSON:
           <div style={{display:"flex",flexDirection:"column",gap:flowMode==="Busy"?"0.5rem":"0.75rem"}}>
 
             {/* ══════════ Today at a Glance — one unified card ══════════ */}
+            {/* Mode-impact: hidden entirely in Survival ("nothing else" — see
+                the Survival-only replacement block below). In Busy, only
+                Schedule/Dinner/Tasks render — the sub-sections below each
+                carry their own flowMode!=="Busy" guard. */}
+            {flowMode!=="Survival"&&(
             <div style={{background:flowMode==="Busy"?"rgba(228,181,89,0.08)":"rgba(106,186,170,0.07)",border:"1.5px solid "+(flowMode==="Busy"?"rgba(228,181,89,0.35)":T.borderSoft),borderTop:"1px solid "+(flowMode==="Busy"?"rgba(228,181,89,0.45)":"rgba(106,186,170,0.2)"),borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
               <div onClick={function(){setGlanceOpen(!glanceOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.65rem 0.1rem 0.15rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1rem"}}>⚓️</span>
@@ -6537,7 +6550,7 @@ Respond ONLY in valid JSON:
               </div>
 
               {glanceOpen&&(<>
-              {incompletePrevTasks.length>0&&(
+              {flowMode!=="Busy"&&incompletePrevTasks.length>0&&(
                 <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.1rem",borderTop:"1px solid "+T.borderSoft,marginTop:"0.35rem"}}>
                   <span style={{fontSize:"0.85rem"}}>↩</span>
                   <span style={{flex:1,fontSize:"0.8rem",color:T.textSoft}}>{incompletePrevTasks.length} unfinished from yesterday</span>
@@ -6615,7 +6628,7 @@ Respond ONLY in valid JSON:
               </div>
 
               {/* Household heads-up / reminders — only if present */}
-              {(function(){
+              {flowMode!=="Busy"&&(function(){
                 var todayStr=TODAY.toISOString().split("T")[0];
                 var rem=notifications.filter(function(n){return !n.fired&&n.date===todayStr;});
                 if(rem.length===0) return null;
@@ -6634,7 +6647,7 @@ Respond ONLY in valid JSON:
               })()}
 
               {/* School / Lighthouse due — only when something today or soon */}
-              {schoolDueSoon.length>0&&(
+              {flowMode!=="Busy"&&schoolDueSoon.length>0&&(
                 <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>📖 School</div>
                   {schoolDueSoon.map(function(s,i){return(
@@ -6648,7 +6661,7 @@ Respond ONLY in valid JSON:
               )}
 
               {/* Personal anchors — only if present, no colored box */}
-              {personalAnchors.length>0&&(
+              {flowMode!=="Busy"&&personalAnchors.length>0&&(
                 <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
                   <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🌿 My Anchors</div>
                   {personalAnchors.map(function(a){return(
@@ -6658,14 +6671,14 @@ Respond ONLY in valid JSON:
               )}
               </>)}
 
-            </div>{/* ══ end Today at a Glance card ══ */}
+            </div>)}{/* ══ end Today at a Glance card ══ */}
 
             {/* ══════════ Survival burnout OR real-data Top 3 ══════════ */}
             {flowMode==="Survival"
               ? (<div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
                   <div style={{background:"linear-gradient(135deg,"+T.rosePale+","+T.sandPale+")",border:"1.5px solid "+T.rose+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem",textAlign:"center"}}>
                     <div style={{fontSize:"1.6rem",marginBottom:"0.2rem"}}>🛟</div>
-                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark}}>Only what truly matters</div>
+                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark}}>Just these 3 things today</div>
                     <p style={{color:T.textSoft,fontSize:"0.8rem",margin:"0.2rem 0 0",fontStyle:"italic"}}>Three things. That's the whole day.</p>
                   </div>
                   {BURNOUT_TASKS.map(function(t){var checked=burnoutChecked.includes(t.id);return(
@@ -6675,6 +6688,16 @@ Respond ONLY in valid JSON:
                       <div style={{width:24,height:24,borderRadius:"50%",border:"2.5px solid "+(checked?T.sage:T.border),background:checked?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{checked&&<Icon name="check" size={12} color="#fff"/>}</div>
                     </button>
                   );})}
+                  {/* Standalone Tonight's Dinner card — Survival shows nothing
+                      else from "Today at a Glance" (hidden entirely above),
+                      so dinner gets its own minimal card instead. */}
+                  <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1rem",padding:"0.85rem 1rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🍽️ Tonight's dinner</div>
+                    {noMealPlanned
+                      ? <div onClick={function(){goTab("meals");}} style={{fontSize:"0.85rem",color:T.textSoft,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",cursor:"pointer"}}>Nothing planned yet — keep it easy tonight</div>
+                      : <div style={{fontSize:"0.9rem",color:T.textDark,fontWeight:600}}>{todayMeal.dinner||"—"}</div>
+                    }
+                  </div>
                   <button onClick={function(){setFlowMode("Smooth");}} style={{background:"none",border:"1.5px solid "+T.border,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.72rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600,alignSelf:"center"}}>✨ Back to a full day when ready</button>
                 </div>)
               : (function(){
@@ -6688,11 +6711,12 @@ Respond ONLY in valid JSON:
                   schoolDueSoon.forEach(function(s){ real.push({emoji:"📖", text:s.title+(s.who?" · "+s.who:""), k:"s_"+s.date+s.title}); });
                   var picks=real.slice(0,3);
                   if(picks.length<3&&aiSuggestions&&aiSuggestions.todos){ for(var i=0;i<aiSuggestions.todos.length&&picks.length<3;i++){ var tv=aiSuggestions.todos[i]; picks.push({emoji:"💭", text:typeof tv==="string"?tv:tv.text, k:"c_"+i, compass:true}); } }
+                  var top3Title = flowMode==="Busy" ? "Focus on these 3 things" : "Top 3 — focus here first";
                   return(
                     <div style={{background:"rgba(106,186,170,0.06)",border:"1.5px solid "+T.blue+"35",borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.2rem",padding:"0.85rem 1rem"}}>
                       <div onClick={function(){setTop3Open(!top3Open);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:top3Open?"0.5rem":0,cursor:"pointer"}}>
                         <span style={{fontSize:"0.9rem"}}>⭐</span>
-                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Top 3 — focus here first</span>
+                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{top3Title}</span>
                         <span style={{marginLeft:"auto",color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:top3Open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
                       </div>
                       {top3Open&&(picks.length===0
@@ -6709,12 +6733,15 @@ Respond ONLY in valid JSON:
                 })()
             }
 
-            {React.createElement(_hfRenders.Countdowns)}
+            {flowMode!=="Survival"&&React.createElement(_hfRenders.Countdowns)}
 
           </div>
         )}
 
         {/* ── For later · Compass notes (collapsed) ── */}
+        {/* Mode-impact: hidden entirely (not just collapsed) in Busy and
+            Survival — both explicitly want this section gone, not just closed. */}
+        {flowMode==="Smooth"&&(
         <div style={{background:"rgba(106,186,170,0.05)",border:"1.5px solid "+T.blue+"40",borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.2rem",marginBottom:"0.75rem"}}>
           <div onClick={function(){setForLaterOpen(!forLaterOpen);}} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.85rem 1rem"}}>
             <span style={{fontSize:"1.05rem"}}>🧭</span>
@@ -6734,6 +6761,7 @@ Respond ONLY in valid JSON:
           </div>
           )}
         </div>
+        )}
 
         {/* ── Evening wind-down panel ── */}
         {dayOpen&&isEvening&&(
@@ -14964,18 +14992,19 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             var navDim = navFlowMode === "Survival";
             function rowBtn(it, active, onClick, col, dim){
               col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
-              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} aria-label={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: dim?0.5:1, transition: "opacity .15s" }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
+              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} aria-label={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: dim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span>{!dim && <span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span>}</button>);
             }
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today"), false); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples"), navDim); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: (navDim && !_isFlowPillar)?0.5:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
             if (!isOpen) return header;
+            var _kidsDim = navDim && !_navExempt;
             var kids = pill.items.map(function(it){
-              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label), navDim); }
+              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label), _kidsDim); }
               var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
               if (hidden) return null;
-              var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), navDim);
+              var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), _kidsDim);
             });
             return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })

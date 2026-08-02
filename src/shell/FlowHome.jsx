@@ -102,13 +102,11 @@ export default function FlowHome(props) {
   var [brain, setBrain] = useState(function () { return rd("brainItems", []); });
   var [upNextOpen, setUpNextOpen] = useState(true);
   var [alsoTodayOpen, setAlsoTodayOpen] = useState(true);
-  // Bug 2 — mode-impact. Mount-time read is enough here (no live listener):
-  // the mode toggle lives on the Today tab, so a user reaches this page
-  // either already in that mode or navigates here after switching — the
-  // one edge case not covered (toggling mode while already parked on this
-  // exact page) isn't worth a cross-component event bridge for a cosmetic
-  // feature. flowMode itself is a plain useSaved scalar (af_flowMode).
-  var [flowMode] = useState(function () { return rd("flowMode", "Smooth"); });
+  // Mode-impact: now live-reactive via the same af-flowmode-changed bridge
+  // FlowWrapper's sidebar already uses (dispatched from HomeFlow's flowMode
+  // effect), instead of the earlier one-time mount read — so switching modes
+  // while already parked on this page updates it immediately too.
+  var [flowMode, setFlowMode] = useState(function () { return rd("flowMode", "Smooth"); });
 
   useEffect(function () {
     function refresh(e) {
@@ -117,6 +115,16 @@ export default function FlowHome(props) {
     }
     window.addEventListener("af-data-changed", refresh);
     return function () { window.removeEventListener("af-data-changed", refresh); };
+  }, []);
+
+  useEffect(function () {
+    function onFlowModeChanged(e) {
+      if (e && e.type === "storage" && e.key !== "af_flowMode") return;
+      setFlowMode(rd("flowMode", "Smooth"));
+    }
+    window.addEventListener("storage", onFlowModeChanged);
+    window.addEventListener("af-flowmode-changed", onFlowModeChanged);
+    return function () { window.removeEventListener("storage", onFlowModeChanged); window.removeEventListener("af-flowmode-changed", onFlowModeChanged); };
   }, []);
 
   // Survival auto-collapses "Also today" (the secondary zone) on arrival —
@@ -204,11 +212,16 @@ export default function FlowHome(props) {
         {todayRhythm && <div style={{ padding: "7px 16px", background: C.mist, borderRadius: 20, fontSize: ".76rem", color: C.sea, fontWeight: 600 }}>{todayRhythm.emoji} {todayRhythm.theme}</div>}
       </div>
 
-      {/* Survival mode banner — same message as the Today tab's, for a
-          consistent signal across both surfaces. */}
+      {/* Mode banners — same messages as the Today tab's, for a consistent
+          signal across both surfaces. */}
+      {flowMode === "Busy" && (
+        <div style={{ background: "linear-gradient(135deg,rgba(228,181,89,0.22),rgba(228,181,89,0.1))", border: "2px solid rgba(228,181,89,0.5)", borderRadius: 14, padding: "14px 16px", marginBottom: 18, textAlign: "center", fontSize: ".98rem", fontWeight: 700, color: C.t1, boxShadow: "0 3px 16px rgba(228,181,89,0.25)" }}>
+          Busy day — here's what matters most 🌊
+        </div>
+      )}
       {flowMode === "Survival" && (
-        <div style={{ background: "linear-gradient(135deg,#FBEEF0,#FDF3E7)", border: "1.5px solid rgba(200,122,138,.35)", borderRadius: 12, padding: "10px 16px", marginBottom: 16, textAlign: "center", fontSize: ".85rem", fontWeight: 600, color: C.t1 }}>
-          Survival mode — just the essentials today 🌊
+        <div style={{ background: "linear-gradient(135deg,#EAF5F0,#DDEBEC)", border: "2px solid rgba(94,143,160,.4)", borderRadius: 14, padding: "16px 18px", marginBottom: 18, textAlign: "center", fontSize: "1.02rem", fontWeight: 700, color: C.t1, boxShadow: "0 3px 16px rgba(94,143,160,0.2)" }}>
+          One step at a time. You've got this. 🌊
         </div>
       )}
 
@@ -236,9 +249,29 @@ export default function FlowHome(props) {
         </div>
       )}
 
-      {/* Primary anchors — tasks, dinner, calendar. Work schedule has no
-          data source wired into this file yet (flagged, not built) — the
-          right column's second slot is intentionally left open for it. */}
+      {/* Mode-impact: Survival shows ONLY Up Next (above) + Today's Tasks —
+          Calendar/Dinner/Work and the 2-col grid itself don't render at all.
+          Smooth/Busy keep the full grid; Busy just tightens spacing. */}
+      {flowMode === "Survival" ? (
+        <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <div style={{ flex: 1, height: 8, background: C.mist, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ width: pct + "%", height: "100%", background: C.sea, transition: "width .3s" }} />
+            </div>
+            <div style={{ fontSize: ".68rem", color: C.t3, whiteSpace: "nowrap" }}>{doneCount} of {todayTasks.length}</div>
+          </div>
+          {todayTasks.length === 0 ? (
+            <div style={{ fontSize: ".82rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF, padding: "10px 0" }}>No tasks today — enjoy the open water.</div>
+          ) : todayTasks.slice(0, 10).map(function (t) {
+            return (
+              <div key={t.id} onClick={function () { toggleTask(t.id); }} style={{ display: "flex", alignItems: "center", gap: 11, padding: "8px 0", borderBottom: "1px solid " + C.cream, cursor: "pointer" }}>
+                <div style={{ width: 19, height: 19, borderRadius: "50%", border: "1.5px solid " + (t.done ? C.green : "#c4ccd4"), background: t.done ? C.green : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".6rem", flexShrink: 0 }}>{t.done ? "✓" : ""}</div>
+                <div style={{ flex: 1, fontSize: ".84rem", color: t.done ? C.t3 : C.t1, textDecoration: t.done ? "line-through" : "none" }}>{t.text || t.title}</div>
+              </div>
+            );
+          })}
+        </Card>
+      ) : (
       <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: flowMode === "Busy" ? 10 : 16, alignItems: "start", marginBottom: flowMode === "Busy" ? 14 : 20 }}>
         {/* LEFT column */}
         <div style={{ display: "flex", flexDirection: "column", gap: flowMode === "Busy" ? 10 : 16 }}>
@@ -305,10 +338,14 @@ export default function FlowHome(props) {
           </Card>
         </div>
       </div>
+      )}
 
       {/* Also today — lighter secondary zone: reflective/low-urgency content
           demoted below the anchors, set off by a thin label instead of a
-          full Card header so it visually reads as "less than" the row above. */}
+          full Card header so it visually reads as "less than" the row above.
+          Mode-impact: hidden entirely (header row included, not just its
+          content) in both Busy and Survival — Smooth only. */}
+      {flowMode === "Smooth" && (<>
       <div onClick={function () { setAlsoTodayOpen(!alsoTodayOpen); }} style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 16px", cursor: "pointer" }}>
         <span style={{ fontSize: ".62rem", letterSpacing: ".14em", textTransform: "uppercase", color: C.t3, fontWeight: 600, whiteSpace: "nowrap" }}>Also today</span>
         <div style={{ flex: 1, height: 1, background: C.cardBorder }} />
@@ -345,6 +382,7 @@ export default function FlowHome(props) {
           <NextTripCard />
         </div>
       )}
+      </>)}
     </div>
   );
 }
