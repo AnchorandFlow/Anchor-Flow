@@ -55,6 +55,9 @@ export const SYNC_KEYS = [
   "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled",
   // Exhale standalone keys (ExhaleSection.jsx uses af_exhale_* keys)
   "exhale_groups","exhale_color_labels","exhale_people","exhale_labels",
+  // exhale_columns: user-managed column config [{id,label,color,emoji}],
+  // superseding exhale_labels as the source of truth for column identity.
+  "exhale_columns",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
@@ -180,6 +183,9 @@ const _SANITIZE_HANDLED = new Set([
   // countdowns: reusable named countdowns (COUNTDOWN-1). Same array-guard
   // class as celebrations/trips.
   "countdowns",
+  // exhale_columns: user-managed Exhale board columns. Same array-guard
+  // class as countdowns.
+  "exhale_columns",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // gifts: object map { personId: [gift, ...] } (Phase 3) — moved off the
@@ -236,7 +242,11 @@ export function sanitizeHouseholdData(data) {
      "recipeBook",
      // countdowns: array of { id, title, targetDate, emoji, color, showOn }.
      // Only the top-level array and null entries are guarded here.
-     "countdowns"
+     "countdowns",
+     // exhale_columns: array of { id, label, color, emoji }, user-managed
+     // Exhale board columns. Same guard class as countdowns — top-level
+     // array + null entries only, sub-field shapes unvalidated.
+     "exhale_columns"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);

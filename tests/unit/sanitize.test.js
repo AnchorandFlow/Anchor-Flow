@@ -94,6 +94,7 @@ const PLAUSIBLE = {
   exhale_color_labels:{ g1:"#ff0000" },
   exhale_people:      [{ id:"ep1", name:"Alice" }],
   exhale_labels:      { g1:"Work" },
+  exhale_columns:     [{ id:"inbox", label:"On My Mind", color:"seafoam", emoji:"🌊" }],
   cal_markers:        { "2026-07-04":["⭐"] },
   cal_marker_types:   [{ id:"cm1", emoji:"⭐", label:"Star" }],
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],
