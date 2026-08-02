@@ -10383,6 +10383,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [saving, setSaving] = useState(false);
     var [aiLoading, setAiLoading] = useState(false);
     var [rippleSuggestion, setRippleSuggestion] = useState(null); // F-21: inline AI response (was alert)
+    // ── Drag state for items ──────────────────────────────────────────────────
+    // Moved above the coveTab==="notes" early return (Fix: Cove hooks-order
+    // violation) — these were previously declared after that return, so they
+    // were skipped whenever Notes rendered but called whenever Lists rendered,
+    // changing the hook count between renders and crashing React (#300-class
+    // invariant violation) on tab switch. Hooks must fire unconditionally,
+    // every render, regardless of which tab is active — no logic changed here,
+    // only position.
+    var dragItem = useRef({from:null, fromSec:null, toSec:null, toIdx:null, clone:null});
+    var [dragFromId, setDragFromId] = useState(null);
+    var [dragOverId, setDragOverId] = useState(null);
 
     var activeList = coveLists.find(function(l){ return l.id === activeListId; }) || null;
     var activeItems = activeListId ? (coveItemsMap[activeListId] || []) : [];
@@ -10656,11 +10667,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var totalItems = activeItems.length;
     var checkedCount = activeItems.filter(function(i){ return i.checked; }).length;
     var pct = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0;
-
-    // ── Drag state for items ──────────────────────────────────────────────────
-    var dragItem = useRef({from:null, fromSec:null, toSec:null, toIdx:null, clone:null});
-    var [dragFromId, setDragFromId] = useState(null);
-    var [dragOverId, setDragOverId] = useState(null);
 
     function itemPointerDown(e, item) {
       if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
