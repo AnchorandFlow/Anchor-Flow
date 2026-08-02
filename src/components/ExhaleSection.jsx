@@ -12,10 +12,6 @@ var CARD_COLORS = [
 
 var EMOJIS = ["⭐","🌟","❤️","🔴","💙","🟡","🟢","📌","⚡","🎯","💡","🔔"];
 
-// Exhale columns — user-managed (af_exhale_columns). COLS/DEFAULT_LABELS
-// below are now only the SEED for a first-run migration, not the live
-// column list — every runtime read goes through the `columns` state
-// (an array of {id,label,color,emoji}), never these two directly.
 var COLS = ["inbox","decide","do","waiting","someday"];
 
 var DEFAULT_LABELS = {
@@ -26,14 +22,6 @@ var DEFAULT_LABELS = {
   someday: "🌱 Maybe Later",
 };
 
-var DEFAULT_LABEL_TEXT = { inbox: "On My Mind", decide: "Needs a Decision", do: "Ready for Action", waiting: "Waiting on Others", someday: "Maybe Later" };
-var DEFAULT_EMOJI = { inbox: "🌊", decide: "🤔", do: "✅", waiting: "⏳", someday: "🌱" };
-// Column color cycles through the same 6-swatch palette already used for
-// card colors (CARD_COLORS) — there is no separate column-color palette,
-// this reuses the one that already exists.
-var DEFAULT_COLUMN_COLOR_IDS = ["seafoam","aqua","sage","cobalt","amber"];
-var MAX_COLUMNS = 8;
-
 // F-39: was hardcoded to the developer's own family names. ExhaleSection is
 // self-contained (own af_exhale_people key, no people[] prop from App.jsx) — a
 // new household starting with zero preset assignee tags is correct behavior,
@@ -42,33 +30,11 @@ var DEFAULT_PEOPLE = [];
 
 var NAVY = "#1B2E4F";
 var _nid = Date.now();
-var LS_G    = "af_exhale_groups";
-var LS_L    = "af_exhale_labels";
-var LS_CL   = "af_exhale_color_labels";
-var LS_P    = "af_exhale_people";
-var LS_COLS = "af_exhale_columns";
+var LS_G  = "af_exhale_groups";
+var LS_L  = "af_exhale_labels";
+var LS_CL = "af_exhale_color_labels";
+var LS_P  = "af_exhale_people";
 var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false";
-
-// First-run seed: migrates any existing af_exhale_labels customization
-// (or the initialLabels prop) onto the new {id,label,color,emoji} shape,
-// so a household that already renamed a column doesn't lose that rename.
-// A stored label that still matches the OLD baked-in "emoji + text" default
-// is treated as never-customized and gets the clean split; anything else
-// is preserved verbatim as the label (paired with the default emoji for
-// that column, since a custom string's own emoji intent can't be inferred).
-function seedDefaultColumns(existingLabels) {
-  existingLabels = existingLabels || {};
-  return COLS.map(function(id, i) {
-    var stored = existingLabels[id];
-    var customized = stored !== undefined && stored !== DEFAULT_LABELS[id];
-    return {
-      id: id,
-      label: customized ? stored : DEFAULT_LABEL_TEXT[id],
-      emoji: DEFAULT_EMOJI[id],
-      color: DEFAULT_COLUMN_COLOR_IDS[i]
-    };
-  });
-}
 
 // Guaranteed-valid UUID v4, for values written to Postgres uuid columns.
 // crypto.randomUUID() is unavailable pre-Safari 15.4 and outside secure
@@ -130,11 +96,8 @@ function lsSet(key, val, opId) {
   } catch(e3) {}
 }
 
-// columns: array of {id,label,color,emoji} — the live column set. Building
-// from `columns` (not from whatever `g` already has) ensures a newly added
-// or renamed-but-not-yet-reflected column always gets a bucket.
-function emptyGroups(columns) {
-  return Object.fromEntries(columns.map(function(c) { return [c.id, []]; }));
+function emptyGroups() {
+  return { inbox: [], decide: [], do: [], waiting: [], someday: [] };
 }
 
 // effPos: treats stored 0 as "unset" (all inserts default to 0) — uses idx*1000 as virtual.
@@ -158,32 +121,30 @@ function computeNewPosition(colCards, movedIdx) {
 
 // On load, assign real positions (1000, 2000, ...) to any card still at position=0.
 // Mutates g in place. Called once at mount so all dragged positions compute correctly.
-function bootstrapPositions(g, columns) {
-  columns.forEach(function(c) {
-    var col = g[c.id];
-    if (!col) return;
+function bootstrapPositions(g) {
+  for (var i = 0; i < COLS.length; i++) {
+    var col = g[COLS[i]];
+    if (!col) continue;
     for (var j = 0; j < col.length; j++) {
       if (!col[j].position || col[j].position === 0) {
         col[j] = Object.assign({}, col[j], { position: (j + 1) * 1000 });
       }
     }
-  });
+  }
   return g;
 }
 
-function groupItems(raw, columns) {
-  var g = emptyGroups(columns);
-  var colIds = columns.map(function(c) { return c.id; });
-  var fallback = colIds[0] || "inbox";
+function groupItems(raw) {
+  var g = emptyGroups();
   if (!raw || !Array.isArray(raw)) return g;
   for (var i = 0; i < raw.length; i++) {
     var item = raw[i];
     var cat, entry;
     if (typeof item === "string") {
-      cat   = fallback;
-      entry = { id: "lg-" + i, text: item, notes: "", color: CARD_COLORS[i % CARD_COLORS.length].id, category: cat, createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
+      cat   = "inbox";
+      entry = { id: "lg-" + i, text: item, notes: "", color: CARD_COLORS[i % CARD_COLORS.length].id, category: "inbox", createdAt: Date.now(), emoji: null, dueDate: null, assignedTo: null };
     } else {
-      cat   = (item.category && g[item.category]) ? item.category : fallback;
+      cat   = (item.category && g[item.category]) ? item.category : "inbox";
       entry = { id: item.id || ("e-" + i), text: item.text || "", notes: item.notes || "", color: item.color || CARD_COLORS[i % CARD_COLORS.length].id, category: cat, createdAt: item.createdAt || Date.now(), emoji: item.emoji || null, dueDate: item.dueDate || null, assignedTo: item.assignedTo || null };
     }
     g[cat].push(entry);
@@ -191,35 +152,28 @@ function groupItems(raw, columns) {
   return g;
 }
 
-// Unused in this file currently (kept for parity/reference) — Object.keys(g)
-// based rather than columns-based, since it only needs to mirror whatever
-// `g` already contains, same reasoning as clone()/findIn() below.
 function flattenGroups(g) {
   var out = [];
-  Object.keys(g).forEach(function(col) {
-    (g[col] || []).forEach(function(c) {
+  for (var i = 0; i < COLS.length; i++) {
+    var col = COLS[i];
+    for (var j = 0; j < g[col].length; j++) {
+      var c = g[col][j];
       out.push({ id: c.id, text: c.text, notes: c.notes, color: c.color, category: col, createdAt: c.createdAt, emoji: c.emoji || null, dueDate: c.dueDate || null, assignedTo: c.assignedTo || null });
-    });
-  });
+    }
+  }
   return out;
 }
 
-// Structural — mirrors whatever keys `g` already has, no `columns` param
-// needed. (A stale/missing key relative to the live `columns` array is a
-// non-issue here: every mutation that can change the column set keeps
-// `groups`'s own keys in sync at the same time — see addColumn/deleteColumn.)
 function clone(g) {
   var n = {};
-  Object.keys(g).forEach(function(k) { n[k] = (g[k] || []).slice(); });
+  for (var i = 0; i < COLS.length; i++) n[COLS[i]] = g[COLS[i]].slice();
   return n;
 }
 
 function findIn(g, id) {
-  var keys = Object.keys(g);
-  for (var i = 0; i < keys.length; i++) {
-    var arr = g[keys[i]] || [];
-    for (var j = 0; j < arr.length; j++) {
-      if (arr[j].id === id) return { col: keys[i], card: arr[j] };
+  for (var i = 0; i < COLS.length; i++) {
+    for (var j = 0; j < g[COLS[i]].length; j++) {
+      if (g[COLS[i]][j].id === id) return { col: COLS[i], card: g[COLS[i]][j] };
     }
   }
   return null;
@@ -270,16 +224,15 @@ export default function ExhaleSection(props) {
   var initialLabels = props.initialLabels || {};
   var householdId   = props.householdId   || null;
 
-  // columns must be seeded before groups — groups' own initializer needs it.
-  var [columns,     setColumns]     = useState(function() { return lsGet(LS_COLS, null) || seedDefaultColumns(lsGet(LS_L, null) || initialLabels); });
   var [groups,      setGroups]      = useState(function() {
-    var g = lsGet(LS_G, null) || groupItems(initialItems, columns);
+    var g = lsGet(LS_G, null) || groupItems(initialItems);
     if (EXHALE_V2) {
-      bootstrapPositions(g, columns);
+      bootstrapPositions(g);
       lsSet(LS_G, g);
     }
     return g;
   });
+  var [colLabels,   setColLabels]   = useState(function() { return Object.assign({}, DEFAULT_LABELS, lsGet(LS_L, null) || initialLabels); });
   var [colorLabels, setColorLabels] = useState(function() { return lsGet(LS_CL, {}); });
   var [people,      setPeople]      = useState(function() { return lsGet(LS_P, null) || DEFAULT_PEOPLE; });
   var [filters,     setFilters]     = useState({ color: null, emoji: null, person: null, date: null });
@@ -292,8 +245,6 @@ export default function ExhaleSection(props) {
   var [newPerson,   setNewPerson]   = useState("");
   var [drag,        setDrag]        = useState(null);
   var [dropOver,    setDropOver]    = useState(null);
-  var [showColPanel,setShowColPanel]= useState(false);
-  var [colDrag,     setColDrag]     = useState(null); // index of the column row being dragged in the panel
   // V2: track per-card server confirmation state. "saving"|"saved"|"failed"
   var [cardSaveState, setCardSaveState] = useState({});
   // Tracks in-flight RPC ops so own Realtime echoes are ignored.
@@ -399,16 +350,11 @@ export default function ExhaleSection(props) {
         }
         if (!result.data || !result.data.length) return;
         var newGroups = {};
-        // Null/unknown category → the first live column (a real, visible one).
-        // The old "brain" default predates F-62 and wasn't a member of COLS at
-        // the time, so clone()/flattenGroups (COLS-only then) silently dropped
-        // those cards on the next mutation — legacy/uncategorized cards vanished.
-        // Now validated against the LIVE column set (not the static seed list),
-        // so a card orphaned by a since-deleted/renamed column still lands
-        // somewhere visible instead of becoming an invisible ghost.
-        var loadColIds = columns.map(function(c) { return c.id; });
         result.data.forEach(function(row) {
-          var col = (row.category && loadColIds.indexOf(row.category) !== -1) ? row.category : (loadColIds[0] || "inbox");
+          // Null/unknown category → inbox (a real, visible column). The old "brain"
+          // default was not one of COLS, so clone()/flattenGroups silently dropped those
+          // cards on the next mutation — losing legacy/uncategorized cards on load.
+          var col = (row.category && COLS.indexOf(row.category) !== -1) ? row.category : "inbox";
           if (!newGroups[col]) newGroups[col] = [];
           newGroups[col].push({
             id:         row.id,
@@ -485,7 +431,9 @@ export default function ExhaleSection(props) {
           var row = payload.new;
           setGroups(function(prev) {
             var ng = clone(prev);
-            Object.keys(ng).forEach(function(k) { ng[k] = ng[k].filter(function(c) { return c.id !== row.id; }); });
+            for (var i = 0; i < COLS.length; i++) {
+              ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== row.id; });
+            }
             var card = {
               id:         row.id,
               text:       row.text        || "",
@@ -514,7 +462,9 @@ export default function ExhaleSection(props) {
           if (!deletedId) return;
           setGroups(function(prev) {
             var ng = clone(prev);
-            Object.keys(ng).forEach(function(k) { ng[k] = ng[k].filter(function(c) { return c.id !== deletedId; }); });
+            for (var i = 0; i < COLS.length; i++) {
+              ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== deletedId; });
+            }
             // SERVER-origin (dedup guard above rules out own echo) — do NOT lsSet, would echo-push back. See F-61.
             try { localStorage.setItem(LS_G, JSON.stringify(ng)); } catch(e) {}
             return ng;
@@ -526,7 +476,7 @@ export default function ExhaleSection(props) {
     return function() { supabase.removeChannel(channel); };
   }, [householdId]);
 
-  function persist(ng, ncols, ncl, np, opId) {
+  function persist(ng, nl, ncl, np, opId) {
     if (EXHALE_V2) {
       // Cards (ng) also go to the exhale_cards realtime table, but the local mirror
       // (af_exhale_groups) MUST be marked dirty on every local write. It is a SYNC_KEY,
@@ -536,23 +486,24 @@ export default function ExhaleSection(props) {
       // pull — cards vanished on refresh. lsSet marks it dirty (so F-16's dirty-skip
       // protects it from being overwritten) and pushes the current blob so it stays
       // in sync. The mount fetch from exhale_cards remains the final source of truth.
-      if (ng    !== undefined) lsSet(LS_G, ng, opId);
-      // Columns, color labels, people: no realtime table — still in the households blob
+      if (ng  !== undefined) lsSet(LS_G, ng, opId);
+      // Labels, color labels, people: no realtime table — still in the households blob
       // (SYNC_KEYS). Must mark dirty and dispatch af-data-changed so the blob push
       // carries them to other devices. Bug fix: V2 was skipping dirty marking for these
       // keys, leaving label renames permanently local.
-      if (ncols !== undefined) lsSet(LS_COLS, ncols, opId);
-      if (ncl   !== undefined) lsSet(LS_CL,   ncl,   opId);
-      if (np    !== undefined) lsSet(LS_P,    np,    opId);
+      if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
+      if (ncl !== undefined) lsSet(LS_CL, ncl, opId);
+      if (np  !== undefined) lsSet(LS_P,  np,  opId);
     } else {
-      if (ng    !== undefined) lsSet(LS_G,    ng,    opId);
-      if (ncols !== undefined) lsSet(LS_COLS, ncols, opId);
-      if (ncl   !== undefined) lsSet(LS_CL,   ncl,   opId);
-      if (np    !== undefined) lsSet(LS_P,    np,    opId);
+      if (ng  !== undefined) lsSet(LS_G,  ng,  opId);
+      if (nl  !== undefined) lsSet(LS_L,  nl,  opId);
+      if (ncl !== undefined) lsSet(LS_CL, ncl, opId);
+      if (np  !== undefined) lsSet(LS_P,  np,  opId);
     }
   }
 
-  var total = columns.reduce(function(sum, c) { return sum + (groups[c.id] || []).length; }, 0);
+  var total = 0;
+  for (var ci = 0; ci < COLS.length; ci++) total += groups[COLS[ci]].length;
   var sel = selectedId ? findIn(groups, selectedId) : null;
   var nFilters = countFilters(filters);
 
@@ -561,16 +512,15 @@ export default function ExhaleSection(props) {
     var prevGroups = groups;
     var ng = clone(groups);
     var updatedCard = null;
-    var pcKeys = Object.keys(ng);
-    for (var i = 0; i < pcKeys.length && !updatedCard; i++) {
-      var pcCol = ng[pcKeys[i]];
-      for (var j = 0; j < pcCol.length; j++) {
-        if (pcCol[j].id === id) {
-          pcCol[j] = Object.assign({}, pcCol[j], patch);
-          updatedCard = pcCol[j];
+    for (var i = 0; i < COLS.length; i++) {
+      for (var j = 0; j < ng[COLS[i]].length; j++) {
+        if (ng[COLS[i]][j].id === id) {
+          ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], patch);
+          updatedCard = ng[COLS[i]][j];
           break;
         }
       }
+      if (updatedCard) break;
     }
     setGroups(ng); persist(ng);
 
@@ -658,16 +608,15 @@ export default function ExhaleSection(props) {
       var prevGroups = groups;
       var ng = clone(groups);
       var updatedCard = null;
-      var hdKeys = Object.keys(ng);
-      for (var i = 0; i < hdKeys.length && !updatedCard; i++) {
-        var hdCol = ng[hdKeys[i]];
-        for (var j = 0; j < hdCol.length; j++) {
-          if (hdCol[j].id === selectedId) {
-            hdCol[j] = Object.assign({}, hdCol[j], { notes: noteText });
-            updatedCard = hdCol[j];
+      for (var i = 0; i < COLS.length; i++) {
+        for (var j = 0; j < ng[COLS[i]].length; j++) {
+          if (ng[COLS[i]][j].id === selectedId) {
+            ng[COLS[i]][j] = Object.assign({}, ng[COLS[i]][j], { notes: noteText });
+            updatedCard = ng[COLS[i]][j];
             break;
           }
         }
+        if (updatedCard) break;
       }
       setGroups(ng); persist(ng);
 
@@ -701,7 +650,7 @@ export default function ExhaleSection(props) {
   function handleDelete(id) {
     var prevGroups = groups;
     var ng = clone(groups);
-    Object.keys(ng).forEach(function(k) { ng[k] = ng[k].filter(function(c) { return c.id !== id; }); });
+    for (var i = 0; i < COLS.length; i++) ng[COLS[i]] = ng[COLS[i]].filter(function(c) { return c.id !== id; });
     setGroups(ng); setSelectedId(null); persist(ng);
 
     if (EXHALE_V2) {
@@ -722,11 +671,9 @@ export default function ExhaleSection(props) {
   function handleMoveToCol(id, toCol) {
     var prevGroups = groups;
     var ng = clone(groups), moved = null;
-    var mtKeys = Object.keys(ng);
-    for (var i = 0; i < mtKeys.length; i++) {
-      var mtCol = ng[mtKeys[i]];
-      for (var j = 0; j < mtCol.length; j++) {
-        if (mtCol[j].id === id) { moved = mtCol.splice(j, 1)[0]; break; }
+    for (var i = 0; i < COLS.length; i++) {
+      for (var j = 0; j < ng[COLS[i]].length; j++) {
+        if (ng[COLS[i]][j].id === id) { moved = ng[COLS[i]].splice(j, 1)[0]; break; }
       }
       if (moved) break;
     }
@@ -755,63 +702,9 @@ export default function ExhaleSection(props) {
     }
   }
 
-  function handleLabelSave(colId, val) {
-    var ncols = columns.map(function(c) { return c.id === colId ? Object.assign({}, c, { label: val }) : c; });
-    setColumns(ncols); setEditingCol(null); persist(undefined, ncols);
-  }
-
-  // ── column management ──────────────────────────────────────────────────────
-  function cycleColumnColor(colId) {
-    var ncols = columns.map(function(c) {
-      if (c.id !== colId) return c;
-      var idx = CARD_COLORS.findIndex(function(cc) { return cc.id === c.color; });
-      var next = CARD_COLORS[(idx + 1) % CARD_COLORS.length];
-      return Object.assign({}, c, { color: next.id });
-    });
-    setColumns(ncols); persist(undefined, ncols);
-  }
-
-  function addColumn() {
-    if (columns.length >= MAX_COLUMNS) return;
-    var newCol = { id: uuidv4(), label: "New column", color: CARD_COLORS[columns.length % CARD_COLORS.length].id, emoji: "✨" };
-    var ncols = columns.concat([newCol]);
-    setColumns(ncols);
-    setGroups(function(prev) { var ng = Object.assign({}, prev); ng[newCol.id] = []; return ng; });
-    persist(undefined, ncols);
-  }
-
-  // Deletion is only ever allowed for an empty column — never silently drops
-  // cards, so there's no "what happens to the cards" migration to design.
-  function deleteColumn(colId) {
-    if ((groups[colId] || []).length > 0) return;
-    var ncols = columns.filter(function(c) { return c.id !== colId; });
-    setColumns(ncols);
-    setGroups(function(prev) {
-      var ng = Object.assign({}, prev);
-      delete ng[colId];
-      return ng;
-    });
-    persist(undefined, ncols);
-  }
-
-  function reorderColumns(fromIdx, toIdx) {
-    if (fromIdx === toIdx) return;
-    var ncols = columns.slice();
-    var moved = ncols.splice(fromIdx, 1)[0];
-    ncols.splice(toIdx, 0, moved);
-    setColumns(ncols); persist(undefined, ncols);
-  }
-
-  // Reuses the same native HTML5 drag-and-drop idiom the cards themselves
-  // already use in this file (handleDragStart/handleCardDragOver/handleCardDrop
-  // below) rather than introducing a second drag paradigm just for this panel.
-  function handleColRowDragStart(idx) { setColDrag(idx); }
-  function handleColRowDragOver(e) { e.preventDefault(); }
-  function handleColRowDrop(e, idx) {
-    e.preventDefault();
-    if (colDrag === null || colDrag === idx) { setColDrag(null); return; }
-    reorderColumns(colDrag, idx);
-    setColDrag(null);
+  function handleLabelSave(col, val) {
+    var nl = Object.assign({}, colLabels, { [col]: val });
+    setColLabels(nl); setEditingCol(null); persist(undefined, nl);
   }
 
   function handleColorLabelSave(colorId, val) {
@@ -1031,11 +924,11 @@ export default function ExhaleSection(props) {
         <div style={{ padding: "0 14px 12px" }}>
           <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Move to</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {columns.map(function(c) {
-              var isHere = c.id === sel.col;
-              return <button key={c.id} onClick={() => handleMoveToCol(card.id, c.id)}
+            {COLS.map(function(col) {
+              var isHere = col === sel.col;
+              return <button key={col} onClick={() => handleMoveToCol(card.id, col)}
                 style={{ textAlign: "left", padding: "6px 10px", borderRadius: 7, border: br, background: isHere ? NAVY : bgS, color: isHere ? "white" : txP, fontSize: 12, cursor: isHere ? "default" : "pointer", fontWeight: isHere ? 500 : 400 }}>
-                {c.emoji ? c.emoji + " " : ""}{c.label}
+                {colLabels[col]}
               </button>;
             })}
           </div>
@@ -1064,7 +957,7 @@ export default function ExhaleSection(props) {
         @media (max-width: 640px) {
           .af-exhale-board {
             grid-auto-flow: column;
-            grid-template-columns: repeat(${columns.length}, minmax(150px, 1fr));
+            grid-template-columns: repeat(5, minmax(150px, 1fr));
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
           }
@@ -1076,54 +969,7 @@ export default function ExhaleSection(props) {
         <span>💨</span>
         <span style={{ color: "#E8C76A" }}>Exhale</span>
         <span style={{ marginLeft: "auto", fontSize: 10 }}>{total} items</span>
-        <button onClick={() => setShowColPanel(true)} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 10, color: "rgba(255,255,255,0.8)", cursor: "pointer" }}>⚙ Columns</button>
       </div>
-
-      {/* Column management panel */}
-      {showColPanel && (
-        <div onClick={() => setShowColPanel(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: bgP, borderRadius: "14px 14px 0 0", padding: "14px 14px calc(14px + env(safe-area-inset-bottom,0px))", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: txP }}>Columns</span>
-              <button onClick={() => setShowColPanel(false)} style={{ marginLeft: "auto", background: NAVY, color: "white", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>Done</button>
-            </div>
-            {columns.map(function(c, idx) {
-              var hasCards = (groups[c.id] || []).length > 0;
-              var cc = getColor(c.color);
-              var isRowDrop = colDrag !== null && colDrag !== idx;
-              return (
-                <div key={c.id}
-                  draggable
-                  onDragStart={() => handleColRowDragStart(idx)}
-                  onDragOver={handleColRowDragOver}
-                  onDrop={(e) => handleColRowDrop(e, idx)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 4px", borderBottom: br, opacity: colDrag === idx ? 0.4 : 1, background: isRowDrop ? "rgba(27,46,79,0.04)" : "transparent" }}>
-                  <span style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0 }}>⠿</span>
-                  {editingCol === c.id ? (
-                    <input autoFocus defaultValue={c.label}
-                      onBlur={(e) => handleLabelSave(c.id, e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") handleLabelSave(c.id, e.target.value); }}
-                      style={{ flex: 1, fontSize: 13, border: "none", borderBottom: "1.5px solid " + NAVY, background: "transparent", color: txP, outline: "none", padding: "2px 0", fontFamily: "inherit" }} />
-                  ) : (
-                    <span onClick={() => setEditingCol(c.id)} style={{ flex: 1, fontSize: 13, color: txP, cursor: "text" }}>{c.emoji ? c.emoji + " " : ""}{c.label}</span>
-                  )}
-                  <div onClick={() => cycleColumnColor(c.id)} title="Tap to change color"
-                    style={{ width: 20, height: 20, borderRadius: "50%", background: cc.bg, border: "2px solid " + cc.bd, cursor: "pointer", flexShrink: 0 }} />
-                  {hasCards ? (
-                    <span style={{ fontSize: 10, color: txS, fontStyle: "italic", flexShrink: 0, whiteSpace: "nowrap" }}>has cards</span>
-                  ) : (
-                    <button onClick={() => deleteColumn(c.id)} style={{ background: "none", border: "none", color: "#8B0000", fontSize: 14, cursor: "pointer", flexShrink: 0, padding: "0 2px" }}>✕</button>
-                  )}
-                </div>
-              );
-            })}
-            <button onClick={addColumn} disabled={columns.length >= MAX_COLUMNS}
-              style={{ width: "100%", marginTop: 10, padding: 9, borderRadius: 8, border: br, background: columns.length >= MAX_COLUMNS ? bgS : "transparent", color: columns.length >= MAX_COLUMNS ? txS : NAVY, fontSize: 12, fontWeight: 600, cursor: columns.length >= MAX_COLUMNS ? "default" : "pointer" }}>
-              {columns.length >= MAX_COLUMNS ? "Max 8 columns" : "＋ Add column"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Filter toggle */}
       <div style={{ padding: "6px 12px", borderBottom: br, background: bgS, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -1200,33 +1046,32 @@ export default function ExhaleSection(props) {
       </div>
 
       {/* Kanban */}
-      <div className="af-exhale-board" style={{ display: "grid", gridTemplateColumns: "repeat(" + columns.length + ",minmax(0,1fr))", minHeight: 200, overflowX: columns.length > 6 ? "auto" : undefined }}>
-        {columns.map(function(cMeta, ci) {
-          var col = cMeta.id;
+      <div className="af-exhale-board" style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", minHeight: 200 }}>
+        {COLS.map(function(col, ci) {
           var isColTarget = dropOver && dropOver.type === "col" && dropOver.col === col;
-          var colCards = groups[col] || [];
-          var visibleCards = colCards.filter(function(c) { return cardMatchesFilters(c, filters); });
+          var visibleCards = groups[col].filter(function(c) { return cardMatchesFilters(c, filters); });
 
           return (
             <div key={col}
               onDragOver={(e) => handleColDragOver(e, col)}
               onDrop={(e) => handleColDrop(e, col)}
               onDragLeave={() => setDropOver(null)}
-              style={{ padding: "10px 6px", borderRight: ci < columns.length - 1 ? br : "none", background: isColTarget ? "rgba(27,46,79,0.04)" : "transparent", minWidth: columns.length > 6 ? 150 : undefined }}>
+              style={{ padding: "10px 6px", borderRight: ci < 4 ? br : "none", background: isColTarget ? "rgba(27,46,79,0.04)" : "transparent" }}>
 
               {/* Column header */}
               <div style={{ marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 3 }}>
                 {editingCol === col ? (
-                  <input autoFocus defaultValue={cMeta.label}
+                  <input autoFocus value={colLabels[col]}
+                    onChange={(e) => setColLabels(function(p) { return Object.assign({}, p, { [col]: e.target.value }); })}
                     onBlur={(e) => handleLabelSave(col, e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") handleLabelSave(col, e.target.value); }}
                     style={{ flex: 1, fontSize: 10, fontWeight: 500, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + NAVY, padding: "0 0 1px 0", fontFamily: "inherit" }} />
                 ) : (
                   <span onClick={() => setEditingCol(col)} title="Click to rename"
-                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: txS, cursor: "text", lineHeight: 1.3 }}>{cMeta.emoji ? cMeta.emoji + " " : ""}{cMeta.label}</span>
+                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: txS, cursor: "text", lineHeight: 1.3 }}>{colLabels[col]}</span>
                 )}
                 <span style={{ background: bgS, borderRadius: 8, padding: "1px 4px", fontSize: 9, color: "var(--color-text-tertiary,#aaa)", flexShrink: 0 }}>
-                  {nFilters > 0 ? visibleCards.length + "/" + colCards.length : colCards.length}
+                  {nFilters > 0 ? visibleCards.length + "/" + groups[col].length : groups[col].length}
                 </span>
               </div>
 
@@ -1270,9 +1115,9 @@ export default function ExhaleSection(props) {
               })}
 
               {/* Show hidden count when filtering */}
-              {nFilters > 0 && colCards.length > visibleCards.length && (
+              {nFilters > 0 && groups[col].length > visibleCards.length && (
                 <div style={{ fontSize: 9, color: txS, textAlign: "center", padding: "4px 0", opacity: 0.6 }}>
-                  {colCards.length - visibleCards.length} hidden by filter
+                  {groups[col].length - visibleCards.length} hidden by filter
                 </div>
               )}
             </div>
