@@ -4209,21 +4209,6 @@ function createLocalBackup() {
   const [expandedInsightReason,setExpandedInsightReason] = useState(null);
   const [showRippleFeed,setShowRippleFeed]         = useState(false);
 
-  // Bug 2 — mode-impact: Survival/Busy auto-collapse the secondary Compass
-  // sections (Ripple Insights feed + "For later" Compass cards) so switching
-  // modes is visually felt, not just a label swap. Fires once per mode
-  // transition (mount counts as one, via the [flowMode] dep) rather than on
-  // every render, so a user who manually reopens one mid-mode isn't fought.
-  // Also bridges flowMode to FlowWrapper (a sibling component — useSaved
-  // alone can't reach it), same pattern as dispatchFeaturesChanged() above.
-  useEffect(function(){
-    if (flowMode === "Survival" || flowMode === "Busy") {
-      setShowRippleFeed(false);
-      setForLaterOpen(false);
-    }
-    try { window.dispatchEvent(new CustomEvent("af-flowmode-changed", {detail:flowMode})); } catch(e) {}
-  }, [flowMode]);
-
 
   // ── Handle password reset redirect from email link ───────────────────────
   // F-95: recoveryToken is a prop, lifted from App()'s onAuthStateChange (the only
@@ -6478,12 +6463,6 @@ Respond ONLY in valid JSON:
             </button>
           )}
         </div>
-        {/* ── Survival mode banner (Bug 2 — make the mode change felt, not just labeled) ── */}
-        {flowMode==="Survival"&&(
-          <div style={{background:"linear-gradient(135deg,"+T.rosePale+","+T.sandPale+")",border:"1.5px solid "+T.rose+"35",borderRadius:"1rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",textAlign:"center",fontSize:"0.85rem",fontWeight:600,color:T.textDark}}>
-            Survival mode — just the essentials today 🌊
-          </div>
-        )}
         {/* ── Ripple notification banner ── */}
         <div ref={function(el){if(el)window._rippleBannerEl=el;}}>
           <RippleNotificationBanner />
@@ -6526,10 +6505,10 @@ Respond ONLY in valid JSON:
 
         {/* ── Today glance (always shown, day or evening) ── */}
         {(
-          <div style={{display:"flex",flexDirection:"column",gap:flowMode==="Busy"?"0.5rem":"0.75rem"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
 
             {/* ══════════ Today at a Glance — one unified card ══════════ */}
-            <div style={{background:flowMode==="Busy"?"rgba(228,181,89,0.08)":"rgba(106,186,170,0.07)",border:"1.5px solid "+(flowMode==="Busy"?"rgba(228,181,89,0.35)":T.borderSoft),borderTop:"1px solid "+(flowMode==="Busy"?"rgba(228,181,89,0.45)":"rgba(106,186,170,0.2)"),borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
+            <div style={{background:"rgba(106,186,170,0.07)",border:"1.5px solid "+T.borderSoft,borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
               <div onClick={function(){setGlanceOpen(!glanceOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.65rem 0.1rem 0.15rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1rem"}}>⚓️</span>
                 <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.25rem",color:T.textDark}}>Today at a Glance</span>
@@ -10237,17 +10216,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [coveLists, setCoveLists] = useSaved("cove_lists_v1", []);
     var [coveItemsMap, setCoveItemsMap] = useSaved("cove_items_v1", {});
     var [coveSectionsMap, setCoveSectionsMap] = useSaved("cove_sections_v1", {});
-    var [coveNotesRaw, setCoveNotes] = useSaved("cove_notes_v1", []);
-    // Defensive null-guard: sanitizeHouseholdData strips null array entries
-    // on receive, but a value already sitting in localStorage before that
-    // ever ran (or written by a since-fixed bug) wouldn't be retroactively
-    // cleaned — and this file has a well-documented recurring bug class of
-    // stray nulls surviving into synced arrays. An unguarded n.private read
-    // below would throw on one, and since CoveTab is wrapped in
-    // SectionErrorBoundary, that throw silently swaps in the fallback UI for
-    // the whole Cove tab (Lists included) — looks exactly like "Cove is empty
-    // / not working." Filtering here protects every downstream read.
-    var coveNotes = coveNotesRaw.filter(function(n){ return n != null; });
+    var [coveNotes, setCoveNotes] = useSaved("cove_notes_v1", []);
     // Restore Cove lists whose sections were wiped by the cove_sections_v1
     // sanitizer misclassification (fixed in sync-core.js — but data already
     // wiped before that fix landed isn't retroactively repaired by it alone).
@@ -10341,7 +10310,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // everyone. activeNote is looked up in the filtered list too, as a
     // defense-in-depth backstop against ever rendering someone else's
     // private note body even if activeNoteId were somehow set to one.
-    var visibleCoveNotes = coveNotes.filter(function(n){ return n && (!n.private || !n.createdBy || n.createdBy===myPersonId); });
+    var visibleCoveNotes = coveNotes.filter(function(n){ return !n.private || !n.createdBy || n.createdBy===myPersonId; });
     var activeNote = activeNoteId ? visibleCoveNotes.find(function(n){ return n.id === activeNoteId; }) || null : null;
 
     function newNote() {
@@ -10353,12 +10322,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
     function updateNote(id, patch) {
       setCoveNotes(function(prev){ return prev.map(function(n){
-        return n && n.id===id ? Object.assign({},n,patch,{updatedAt:Date.now()}) : n;
+        return n.id===id ? Object.assign({},n,patch,{updatedAt:Date.now()}) : n;
       }); });
     }
     async function deleteNote(id) {
       if (!(await afConfirm("Delete this note? This can't be undone.", { confirmText: "Delete", danger: true }))) return;
-      setCoveNotes(function(prev){ return prev.filter(function(n){ return n && n.id!==id; }); });
+      setCoveNotes(function(prev){ return prev.filter(function(n){ return n.id!==id; }); });
       setActiveNoteId(null);
     }
     function fmtNoteDate(ts) {
@@ -10445,8 +10414,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {visibleCoveNotes.length===0?(
               <div style={{textAlign:"center",padding:"2.5rem 0"}}>
                 <div style={{fontSize:"2rem",marginBottom:8}}>📝</div>
-                <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>No notes yet — tap + to add your first note.</div>
-                <div style={{fontSize:"0.75rem",color:T.textFaint,marginBottom:16}}>Ideas, plans, thoughts — jot down anything.</div>
+                <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>No notes yet.</div>
+                <div style={{fontSize:"0.75rem",color:T.textFaint,marginBottom:16}}>Tap + to jot down anything — ideas, plans, thoughts.</div>
                 <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 1rem"})}}>+ New note</button>
               </div>
             ):(
@@ -14812,22 +14781,6 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     window.addEventListener("af-features-changed", onFeaturesChanged)
     return () => { window.removeEventListener("storage", onFeaturesChanged); window.removeEventListener("af-features-changed", onFeaturesChanged); }
   }, [])
-  // Bug 2 — flowMode bridge, same cross-component pattern as featureFlags
-  // above (HomeFlow and FlowWrapper are siblings; useSaved alone can't
-  // reach across). Written side: the useEffect keyed on [flowMode] in
-  // HomeFlow, near showRippleFeed's declaration.
-  const [navFlowMode, setNavFlowMode] = React.useState(function() {
-    try { return JSON.parse(localStorage.getItem("af_flowMode") || '"Smooth"'); } catch { return "Smooth"; }
-  })
-  React.useEffect(() => {
-    const onFlowModeChanged = (e) => {
-      if (e && e.type === "storage" && e.key !== "af_flowMode") return;
-      try { setNavFlowMode(JSON.parse(localStorage.getItem("af_flowMode") || '"Smooth"')); } catch {}
-    }
-    window.addEventListener("storage", onFlowModeChanged)
-    window.addEventListener("af-flowmode-changed", onFlowModeChanged)
-    return () => { window.removeEventListener("storage", onFlowModeChanged); window.removeEventListener("af-flowmode-changed", onFlowModeChanged); }
-  }, [])
   const [showAnchor, setShowAnchor] = React.useState(function() {
     try { return sessionStorage.getItem("af_showAnchor") === "1"; } catch { return false; }
   });
@@ -14936,26 +14889,20 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
         {(
           /* ── Four-pillar accordion ── */
           PILLARS.map(function(pill){
-            // Bug 2 — Survival mode mutes non-essential nav items (opacity
-            // 0.5) so the mode change is felt in the nav, not just the
-            // content area. "Today"/"Flow"/"Settings" stay full-strength —
-            // Settings is handled at its own button below, this only needs
-            // to know about Today (the "tab" pillar) and Flow (the header).
-            var navDim = navFlowMode === "Survival";
-            function rowBtn(it, active, onClick, col, dim){
+            function rowBtn(it, active, onClick, col){
               col = col || { accent: "#c8a97a", glow: "rgba(200,169,122,0.16)" };
-              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} aria-label={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: dim?0.5:1, transition: "opacity .15s" }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
+              return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} aria-label={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span><span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span></button>);
             }
-            if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today"), false); }
-            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples"), navDim); }
+            if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today")); }
+            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples")); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: (navDim && !_isFlowPillar)?0.5:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
+            var _isFlowPillar = pill.label === "Flow"; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0 }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span><span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span></button>);
             if (!isOpen) return header;
             var kids = pill.items.map(function(it){
-              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label), navDim); }
+              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label)); }
               var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
               if (hidden) return null;
-              var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), navDim);
+              var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label));
             });
             return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })

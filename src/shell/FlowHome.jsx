@@ -102,13 +102,6 @@ export default function FlowHome(props) {
   var [brain, setBrain] = useState(function () { return rd("brainItems", []); });
   var [upNextOpen, setUpNextOpen] = useState(true);
   var [alsoTodayOpen, setAlsoTodayOpen] = useState(true);
-  // Bug 2 — mode-impact. Mount-time read is enough here (no live listener):
-  // the mode toggle lives on the Today tab, so a user reaches this page
-  // either already in that mode or navigates here after switching — the
-  // one edge case not covered (toggling mode while already parked on this
-  // exact page) isn't worth a cross-component event bridge for a cosmetic
-  // feature. flowMode itself is a plain useSaved scalar (af_flowMode).
-  var [flowMode] = useState(function () { return rd("flowMode", "Smooth"); });
 
   useEffect(function () {
     function refresh(e) {
@@ -118,13 +111,6 @@ export default function FlowHome(props) {
     window.addEventListener("af-data-changed", refresh);
     return function () { window.removeEventListener("af-data-changed", refresh); };
   }, []);
-
-  // Survival auto-collapses "Also today" (the secondary zone) on arrival —
-  // matches the same "collapse once on mode entry, don't fight a manual
-  // reopen" behavior as the Today tab's Compass sections.
-  useEffect(function () {
-    if (flowMode === "Survival") setAlsoTodayOpen(false);
-  }, [flowMode]);
 
   var now = new Date();
   var todayName = DAYS[now.getDay()];
@@ -189,9 +175,8 @@ export default function FlowHome(props) {
           .af-flow-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
-      {/* Header — Busy gets a subtle amber tint, matching the Today tab's
-          own "Today at a Glance" card treatment for the same mode. */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid " + (flowMode === "Busy" ? "rgba(228,181,89,0.4)" : C.cardBorder), background: flowMode === "Busy" ? "rgba(228,181,89,0.06)" : "transparent" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid " + C.cardBorder }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
           <button onClick={function() { go("anchor"); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 4px 0 0", display: "flex", alignItems: "center", opacity: 0.5, flexShrink: 0, marginTop: 8 }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={C.t3} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -203,14 +188,6 @@ export default function FlowHome(props) {
         </div>
         {todayRhythm && <div style={{ padding: "7px 16px", background: C.mist, borderRadius: 20, fontSize: ".76rem", color: C.sea, fontWeight: 600 }}>{todayRhythm.emoji} {todayRhythm.theme}</div>}
       </div>
-
-      {/* Survival mode banner — same message as the Today tab's, for a
-          consistent signal across both surfaces. */}
-      {flowMode === "Survival" && (
-        <div style={{ background: "linear-gradient(135deg,#FBEEF0,#FDF3E7)", border: "1.5px solid rgba(200,122,138,.35)", borderRadius: 12, padding: "10px 16px", marginBottom: 16, textAlign: "center", fontSize: ".85rem", fontWeight: 600, color: C.t1 }}>
-          Survival mode — just the essentials today 🌊
-        </div>
-      )}
 
       {/* Up Next focus — full width */}
       {upNext && (
@@ -239,9 +216,9 @@ export default function FlowHome(props) {
       {/* Primary anchors — tasks, dinner, calendar. Work schedule has no
           data source wired into this file yet (flagged, not built) — the
           right column's second slot is intentionally left open for it. */}
-      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: flowMode === "Busy" ? 10 : 16, alignItems: "start", marginBottom: flowMode === "Busy" ? 14 : 20 }}>
+      <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 20 }}>
         {/* LEFT column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: flowMode === "Busy" ? 10 : 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
               <div style={{ flex: 1, height: 8, background: C.mist, borderRadius: 4, overflow: "hidden" }}>
@@ -277,7 +254,7 @@ export default function FlowHome(props) {
         </div>
 
         {/* RIGHT column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: flowMode === "Busy" ? 10 : 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="Tonight's Dinner · from Anchor" title={dinner || "Not planned yet"} link={{ label: "Edit →", onClick: function () { go("meals"); } }}>
             {dinner ? (
               <div style={{ fontSize: ".8rem", color: C.t2, lineHeight: 1.5 }}>
