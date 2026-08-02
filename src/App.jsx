@@ -2510,7 +2510,7 @@ const _hfComps   = {};
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab',
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab',
-  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveTab',
+  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
@@ -5243,7 +5243,7 @@ Respond ONLY with valid JSON array, no markdown:
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab,
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab,
-          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveTab,
+          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
 
@@ -9985,6 +9985,65 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── CoveNoteDetail — lifted outside CoveTab for the same reason as ItemRow
+  // above (its own hooks, rendered conditionally inside CoveTab — needs a
+  // stable component identity). key={note.id} on the call site resets the
+  // local draft when switching notes. Title/body are local drafts that only
+  // commit via onSave on blur, not on every keystroke.
+  _hfRenders.CoveNoteDetail = function CoveNoteDetail(props) {
+    var note = props.note;
+    var T = props.T;
+    var [title, setTitle] = useState(note.title === "Untitled" ? "" : note.title);
+    var [body, setBody] = useState(note.body || "");
+
+    function growTextarea(el) {
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    }
+
+    return (
+      <div style={{paddingBottom:"2rem",minHeight:"100vh"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px 10px",borderBottom:"1px solid "+T.borderSoft}}>
+          <button onClick={props.onBack} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",alignItems:"center",gap:4,flexShrink:0,color:T.textSoft,fontSize:"0.8rem",fontWeight:600,fontFamily:"inherit"}}>
+            ← Notes
+          </button>
+          <span style={{flex:1}}/>
+          <span style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{props.fmtDate(note.updatedAt)}</span>
+          <button onClick={props.onDelete} style={{background:"none",border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:"3px 7px",display:"flex",alignItems:"center",gap:3,opacity:0.45,flexShrink:0}} title="Delete note">
+            <Icon name="trash" size={11} color={T.rose}/>
+          </button>
+        </div>
+        <div style={{padding:"12px 16px 0"}}>
+          <input
+            value={title}
+            onChange={function(e){ setTitle(e.target.value); }}
+            onBlur={function(){ props.onSave({ title: title.trim() || "Untitled" }); }}
+            onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
+            placeholder="Note title"
+            style={{width:"100%",fontSize:"1.15rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0,marginBottom:12,boxSizing:"border-box"}}
+          />
+          <div style={{display:"flex",gap:7,marginBottom:14}}>
+            {props.colors.map(function(c){
+              var sel = (note.color||props.colors[0])===c;
+              return <div key={c} onClick={function(){ props.onSave({color:c}); }} title={c}
+                style={{width:19,height:19,borderRadius:"50%",background:c,cursor:"pointer",border:sel?"2px solid "+T.textDark:"2px solid transparent",boxShadow:sel?"0 0 0 2px "+T.bgAlt:"none",flexShrink:0}}/>;
+            })}
+          </div>
+        </div>
+        <textarea
+          ref={growTextarea}
+          value={body}
+          onChange={function(e){ setBody(e.target.value); growTextarea(e.target); }}
+          onBlur={function(){ props.onSave({ body: body }); }}
+          autoFocus={body===""}
+          placeholder="Start writing…"
+          style={{width:"100%",minHeight:"40vh",padding:"0 16px 14px",fontSize:"0.92rem",lineHeight:1.8,color:T.textDark,background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",boxSizing:"border-box",overflow:"hidden",display:"block"}}
+        />
+      </div>
+    );
+  }
+
   // ── Cove grid2col section body — items in 2 columns, reuses ItemRow/toggleItem as-is ──
   _hfRenders.CoveGridSectionBody = function CoveGridSectionBody(props) {
     var sec = props.sec;
@@ -10237,16 +10296,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [coveLists, setCoveLists] = useSaved("cove_lists_v1", []);
     var [coveItemsMap, setCoveItemsMap] = useSaved("cove_items_v1", {});
     var [coveSectionsMap, setCoveSectionsMap] = useSaved("cove_sections_v1", {});
+    // Notes rebuild — simple {id,title,body,color,createdAt,updatedAt} shape,
+    // no private/createdBy. Null-guard kept: a stray null entry (this file's
+    // well-documented recurring bug class for synced arrays) would otherwise
+    // throw on the first .filter/.find below and take down the whole Cove
+    // tab via SectionErrorBoundary, not just Notes.
     var [coveNotesRaw, setCoveNotes] = useSaved("cove_notes_v1", []);
-    // Defensive null-guard: sanitizeHouseholdData strips null array entries
-    // on receive, but a value already sitting in localStorage before that
-    // ever ran (or written by a since-fixed bug) wouldn't be retroactively
-    // cleaned — and this file has a well-documented recurring bug class of
-    // stray nulls surviving into synced arrays. An unguarded n.private read
-    // below would throw on one, and since CoveTab is wrapped in
-    // SectionErrorBoundary, that throw silently swaps in the fallback UI for
-    // the whole Cove tab (Lists included) — looks exactly like "Cove is empty
-    // / not working." Filtering here protects every downstream read.
     var coveNotes = coveNotesRaw.filter(function(n){ return n != null; });
     // Restore Cove lists whose sections were wiped by the cove_sections_v1
     // sanitizer misclassification (fixed in sync-core.js — but data already
@@ -10334,19 +10389,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var activeSections = activeListId ? (coveSectionsMap[activeListId] || []) : [];
 
     // ── Notes helpers ─────────────────────────────────────────────────────────
-    // PRIVACY-3: private notes are hidden from other household members at
-    // render time only — updateNote/deleteNote still operate on the full
-    // setCoveNotes state (never this), so a private note syncs normally.
-    // A note with no createdBy predates this feature and stays visible to
-    // everyone. activeNote is looked up in the filtered list too, as a
-    // defense-in-depth backstop against ever rendering someone else's
-    // private note body even if activeNoteId were somehow set to one.
-    var visibleCoveNotes = coveNotes.filter(function(n){ return n && (!n.private || !n.createdBy || n.createdBy===myPersonId); });
-    var activeNote = activeNoteId ? visibleCoveNotes.find(function(n){ return n.id === activeNoteId; }) || null : null;
+    var activeNote = activeNoteId ? coveNotes.find(function(n){ return n.id === activeNoteId; }) || null : null;
 
     function newNote() {
       var id = uid2();
-      var note = { id:id, title:"Untitled", body:"", createdAt:Date.now(), updatedAt:Date.now(), private:false, createdBy:myPersonId };
+      var note = { id:id, title:"Untitled", body:"", color:COVE_ACCENT_COLORS[0], createdAt:Date.now(), updatedAt:Date.now() };
       setCoveNotes(function(prev){ return [note].concat(prev); });
       setActiveNoteId(id);
       setCoveTab("notes");
@@ -10356,8 +10403,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return n && n.id===id ? Object.assign({},n,patch,{updatedAt:Date.now()}) : n;
       }); });
     }
-    async function deleteNote(id) {
-      if (!(await afConfirm("Delete this note? This can't be undone.", { confirmText: "Delete", danger: true }))) return;
+    function deleteNote(id) {
+      if (!window.confirm("Delete this note? This can't be undone.")) return;
       setCoveNotes(function(prev){ return prev.filter(function(n){ return n && n.id!==id; }); });
       setActiveNoteId(null);
     }
@@ -10368,50 +10415,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     // ── Notes view ────────────────────────────────────────────────────────────
     if (coveTab === "notes") {
-      // Note detail
+      // Note detail — own stable component, see CoveNoteDetail above.
       if (activeNoteId && activeNote) {
         return (
-          <div style={{paddingBottom:"2rem",minHeight:"100vh"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px 10px",borderBottom:"1px solid "+T.borderSoft}}>
-              <button onClick={function(){ setActiveNoteId(null); }} style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",flexShrink:0}}>
-                <span style={{fontSize:18,color:T.textSoft,lineHeight:1}}>←</span>
-              </button>
-              <input
-                value={activeNote.title==="Untitled"?"":activeNote.title}
-                onChange={function(e){ updateNote(activeNote.id,{title:e.target.value||"Untitled"}); }}
-                onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
-                placeholder="Note title"
-                style={{flex:1,fontSize:"1rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0}}
-              />
-              <span style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{fmtNoteDate(activeNote.updatedAt)}</span>
-              <button onClick={function(){ updateNote(activeNote.id,{private:!activeNote.private}); }}
-                title={activeNote.private?"Private — tap to make visible to everyone":"Make private (only visible to you)"}
-                aria-label={activeNote.private?"Make note visible to everyone":"Make note private"}
-                style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"flex",opacity:activeNote.private?1:0.3,flexShrink:0,fontSize:"0.8rem"}}>
-                🔒
-              </button>
-              {/* Delete — tucked away, requires deliberate tap */}
-              <button onClick={function(){ deleteNote(activeNote.id); }}
-                style={{background:"none",border:"1px solid "+T.border,borderRadius:6,cursor:"pointer",padding:"3px 7px",display:"flex",alignItems:"center",gap:3,opacity:0.4,flexShrink:0}}
-                title="Delete note">
-                <Icon name="trash" size={11} color={T.rose}/>
-              </button>
-            </div>
-            <textarea
-              value={activeNote.body}
-              onChange={function(e){ updateNote(activeNote.id,{body:e.target.value}); }}
-              onKeyDown={function(e){
-                // Ctrl/Cmd+Enter saves and goes back
-                if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){ setActiveNoteId(null); }
-              }}
-              autoFocus={activeNote.body===""}
-              placeholder={"Start writing…\n\n(⌘+Enter to save and go back)"}
-              style={{width:"100%",minHeight:"72vh",padding:"14px 16px",fontSize:"0.92rem",lineHeight:1.8,color:T.textDark,background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",boxSizing:"border-box"}}
-            />
-          </div>
+          <CoveNoteDetail key={activeNote.id} note={activeNote} T={T} colors={COVE_ACCENT_COLORS}
+            fmtDate={fmtNoteDate}
+            onBack={function(){ setActiveNoteId(null); }}
+            onSave={function(patch){ updateNote(activeNote.id, patch); }}
+            onDelete={function(){ deleteNote(activeNote.id); }}/>
         );
       }
-      // Notes list
+      // Notes list — 2-column grid
+      var sortedNotes = coveNotesAZ ? coveNotes.slice().sort(function(a,b){return (a.title||a.body||"").localeCompare(b.title||b.body||"");}) : coveNotes;
       return (
         <div style={{paddingBottom:"2rem"}}>
           <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
@@ -10436,38 +10451,37 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
                   style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                   {t.label}
-                  {t.id==="notes"&&visibleCoveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{visibleCoveNotes.length}</span>}
+                  {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
                 </button>
               );
             })}
           </div>
           <div style={{padding:"14px 16px"}}>
-            {visibleCoveNotes.length===0?(
+            {coveNotes.length===0?(
               <div style={{textAlign:"center",padding:"2.5rem 0"}}>
                 <div style={{fontSize:"2rem",marginBottom:8}}>📝</div>
-                <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:4}}>No notes yet — tap + to add your first note.</div>
-                <div style={{fontSize:"0.75rem",color:T.textFaint,marginBottom:16}}>Ideas, plans, thoughts — jot down anything.</div>
+                <div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:16}}>No notes yet — tap ＋ to capture a thought.</div>
                 <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 1rem"})}}>+ New note</button>
               </div>
             ):(
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {visibleCoveNotes.length>1&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:2}}><button onClick={function(){setCoveNotesAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveNotesAZ?"A–Z ✓":"A–Z"}</button></div>}
-                {(coveNotesAZ?visibleCoveNotes.slice().sort(function(a,b){return (a.title||a.body||"").localeCompare(b.title||b.body||"");}):visibleCoveNotes).map(function(note){
-                  var preview=(note.body||"").replace(/\n/g," ").trim().slice(0,90);
-                  return(
-                    <div key={note.id} onClick={function(){setActiveNoteId(note.id);}}
-                      style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:10,padding:"0.85rem 1rem",cursor:"pointer",transition:"all 0.12s"}}>
-                      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:preview?4:0,gap:8}}>
-                        <div style={{fontWeight:700,fontSize:"0.88rem",color:T.textDark,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              <div>
+                {coveNotes.length>1&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}><button onClick={function(){setCoveNotesAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveNotesAZ?"A–Z ✓":"A–Z"}</button></div>}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {sortedNotes.map(function(note){
+                    var nc = note.color || COVE_ACCENT_COLORS[0];
+                    var preview = (note.body||"").replace(/\n/g," ").trim();
+                    return(
+                      <div key={note.id} onClick={function(){setActiveNoteId(note.id);}}
+                        style={{background:nc+"18",border:"1.5px solid "+nc+"40",borderRadius:10,padding:"0.75rem 0.85rem",cursor:"pointer",minHeight:92,display:"flex",flexDirection:"column",transition:"all 0.12s"}}>
+                        <div style={{fontWeight:700,fontSize:"0.85rem",color:T.textDark,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                           {note.title==="Untitled"?<span style={{color:T.textFaint,fontStyle:"italic"}}>Untitled</span>:note.title}
                         </div>
-                        {note.private&&<span style={{fontSize:"0.65rem",flexShrink:0}}>🔒</span>}
-                        <div style={{fontSize:"0.65rem",color:T.textFaint,flexShrink:0}}>{fmtNoteDate(note.updatedAt)}</div>
+                        {preview&&<div style={{fontSize:"0.74rem",color:T.textSoft,lineHeight:1.4,flex:1,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{preview}</div>}
+                        <div style={{fontSize:"0.62rem",color:T.textFaint,marginTop:6}}>{fmtNoteDate(note.updatedAt)}</div>
                       </div>
-                      {preview&&<div style={{fontSize:"0.76rem",color:T.textSoft,lineHeight:1.5}}>{preview}{(note.body||"").length>90?"…":""}</div>}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -10893,7 +10907,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
                 style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                 {t.label}
-                {t.id==="notes"&&visibleCoveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{visibleCoveNotes.length}</span>}
+                {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
               </button>
             );
           })}
