@@ -334,7 +334,7 @@ export function sanitizeHouseholdData(data) {
       });
       out.gifts = safeGifts;
     }
-    // work_schedules: object map { personId: {days:[], type, color, notes} }
+    // work_schedules: object map { personId: {days:[], type, color, notes, dates:[], startTime, endTime} }
     // (WORK-1). Same validation shape as gifts — map itself must be an
     // object (not array), and each person's entry must be an object with
     // days actually an array (nulls filtered); a malformed per-person entry
@@ -349,6 +349,11 @@ export function sanitizeHouseholdData(data) {
             type: typeof s.type === "string" ? s.type : "regular",
             color: typeof s.color === "string" ? s.color : "",
             notes: typeof s.notes === "string" ? s.notes : "",
+            // WORK-1: irregular-shift dates and overnight start/end times —
+            // dropped silently by this whitelist before this fix (Batch 3).
+            dates: Array.isArray(s.dates) ? s.dates.filter(d => d != null) : [],
+            startTime: typeof s.startTime === "string" ? s.startTime : "",
+            endTime: typeof s.endTime === "string" ? s.endTime : "",
           };
         }
       });
