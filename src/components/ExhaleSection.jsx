@@ -56,8 +56,13 @@ var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false";
 // this is a new, separate key that the new UI reads/writes exclusively.
 var LS_B = "af_exhale_buckets";
 var EXHALE_BUCKETS_MIGRATED_FLAG = "af_exhale_buckets_migrated";
-var DEFAULT_BUCKET_NAMES = ["Here", "Today", "Tomorrow", "Someday"];
-var BUCKET_COLORS = ["#C47A7A", "#6ABAAA", "#7AB3D4", "#A99AC4"];
+// v2: added "This Weekend" as a 5th bucket, renamed "Here" → "Exhaled".
+// Separate flag from EXHALE_BUCKETS_MIGRATED_FLAG above so a household that
+// already has real 4-bucket data (from before this change) gets upgraded
+// in place exactly once, without re-running the columns→buckets migration.
+var EXHALE_BUCKETS_V2_MIGRATED_FLAG = "af_exhale_buckets_v2_migrated";
+var DEFAULT_BUCKET_NAMES = ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"];
+var BUCKET_COLORS = ["#4A9E8E", "#6ABAAA", "#7AB3D4", "#8BAF8B", "#A99AC4"];
 function defaultBuckets() { return { bucketNames: DEFAULT_BUCKET_NAMES.slice(), items: [] }; }
 
 // First-run seed: migrates any existing af_exhale_labels customization
@@ -325,13 +330,18 @@ export default function ExhaleSection(props) {
     return defaultBuckets();
   });
   var [activeExhaleTab, setActiveExhaleTab] = useState("exhale"); // "exhale" | "waves"
-  var [openBuckets, setOpenBuckets] = useState({ 0: true, 1: true, 2: false, 3: false });
+  var [openBuckets, setOpenBuckets] = useState({ 0: true, 1: true, 2: false, 3: false, 4: false });
   var [expandedItemId, setExpandedItemId] = useState(null);
   var [editingBucketIdx, setEditingBucketIdx] = useState(null);
   var [bucketInputText, setBucketInputText] = useState("");
   var [bucketInputTarget, setBucketInputTarget] = useState(0);
   var [bucketAddOpenFor, setBucketAddOpenFor] = useState(null);
   var [bucketAddText, setBucketAddText] = useState("");
+  // Pointer-based drag between/within buckets — same idiom as Cove's
+  // itemPointerDown (App.jsx CoveTab), not native HTML5 drag-and-drop.
+  var [dragFromId, setDragFromId] = useState(null);
+  var [dragOverId, setDragOverId] = useState(null);
+  var bucketDragItem = useRef({ from: null, fromBucket: null, toBucket: null, toIdx: null, clone: null });
 
   function persistBuckets(nb) { setBuckets(nb); lsSet(LS_B, nb); }
 
@@ -351,7 +361,10 @@ export default function ExhaleSection(props) {
     var colIds = columns.map(function(c) { return c.id; });
     var migrated = [];
     colIds.forEach(function(colId, idx) {
-      var bucketIdx = idx === 0 ? 0 : idx === 1 ? 1 : idx === 2 ? 2 : 3;
+      // Column 0 → Exhaled(0), 1 → Today(1), 2 → Tomorrow(2), anything
+      // else → Someday(4). "This Weekend"(3) is new and has no column
+      // equivalent, so migration never populates it.
+      var bucketIdx = idx === 0 ? 0 : idx === 1 ? 1 : idx === 2 ? 2 : 4;
       (g[colId] || []).forEach(function(card) {
         if (!card) return;
         migrated.push({
@@ -366,11 +379,41 @@ export default function ExhaleSection(props) {
     });
     if (migrated.length === 0) { localStorage.setItem(EXHALE_BUCKETS_MIGRATED_FLAG, "1"); return; }
     var nb = {
-      bucketNames: (existing && Array.isArray(existing.bucketNames) && existing.bucketNames.length === 4) ? existing.bucketNames : DEFAULT_BUCKET_NAMES.slice(),
+      bucketNames: (existing && Array.isArray(existing.bucketNames) && existing.bucketNames.length === 5) ? existing.bucketNames : DEFAULT_BUCKET_NAMES.slice(),
       items: migrated,
     };
     persistBuckets(nb);
     localStorage.setItem(EXHALE_BUCKETS_MIGRATED_FLAG, "1");
+  }, []); // one-time on mount — deliberately no deps
+
+  // One-time upgrade: households that already ran the migration above before
+  // "This Weekend" existed have real 4-bucket data (bucketIndex 0-3). Inserts
+  // "This Weekend" as the new bucket 3 and shifts old bucket 3 (Someday) to
+  // 4. Reads localStorage directly (not the `buckets` state closure) so it
+  // sees the OTHER migration's result correctly even when both run in the
+  // same mount — see the comment on EXHALE_BUCKETS_V2_MIGRATED_FLAG.
+  useEffect(function() {
+    if (localStorage.getItem(EXHALE_BUCKETS_V2_MIGRATED_FLAG)) return;
+    var current = lsGet(LS_B, null);
+    if (!current || !Array.isArray(current.bucketNames) || current.bucketNames.length !== 4) {
+      localStorage.setItem(EXHALE_BUCKETS_V2_MIGRATED_FLAG, "1");
+      return;
+    }
+    var oldNames = current.bucketNames;
+    var newNames = [
+      oldNames[0] === "Here" ? "Exhaled" : oldNames[0],
+      oldNames[1],
+      oldNames[2],
+      "This Weekend",
+      oldNames[3],
+    ];
+    var newItems = (Array.isArray(current.items) ? current.items : []).map(function(it) {
+      if (!it) return it;
+      return it.bucketIndex === 3 ? Object.assign({}, it, { bucketIndex: 4 }) : it;
+    });
+    var nb = { bucketNames: newNames, items: newItems };
+    persistBuckets(nb);
+    localStorage.setItem(EXHALE_BUCKETS_V2_MIGRATED_FLAG, "1");
   }, []); // one-time on mount — deliberately no deps
 
   function visibleBucketItems(idx) {
@@ -427,6 +470,71 @@ export default function ExhaleSection(props) {
 
   function toggleBucketOpen(idx) {
     setOpenBuckets(function(prev) { return Object.assign({}, prev, { [idx]: !prev[idx] }); });
+  }
+
+  // Pointer-based drag for bucket items — same idiom as Cove's
+  // itemPointerDown (App.jsx CoveTab): clone the row, follow the pointer,
+  // hit-test with document.elementFromPoint against data-bucketitemid (drop
+  // onto a specific item) and data-bucketidx (drop onto a bucket's header/
+  // body with no specific item target — appended to the end of that bucket).
+  function bucketItemPointerDown(e, item) {
+    bucketDragItem.current.from = item.id;
+    bucketDragItem.current.fromBucket = item.bucketIndex;
+    bucketDragItem.current.toBucket = item.bucketIndex;
+    bucketDragItem.current.toIdx = null;
+    setDragFromId(item.id);
+
+    var rowEl = e.currentTarget.closest("[data-bucketitemid]") || e.currentTarget;
+    var clone = rowEl.cloneNode(true);
+    clone.setAttribute("data-bucket-drag-clone", "1");
+    clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:" + rowEl.offsetWidth + "px;background:" + bgP + ";border:1.5px solid " + (item.color || "#888") + ";border-radius:8px;padding:8px 10px;box-shadow:0 4px 18px rgba(0,0,0,0.15);transition:none;";
+    clone.style.left = (e.clientX - 20) + "px";
+    clone.style.top  = (e.clientY - 16) + "px";
+    document.body.appendChild(clone);
+    bucketDragItem.current.clone = clone;
+
+    function onMove(ev) {
+      clone.style.left = (ev.clientX - 20) + "px";
+      clone.style.top  = (ev.clientY - 16) + "px";
+      clone.style.display = "none";
+      var el = document.elementFromPoint(ev.clientX, ev.clientY);
+      clone.style.display = "";
+      var row = el && el.closest("[data-bucketitemid]");
+      var bucketEl = el && el.closest("[data-bucketidx]");
+      bucketDragItem.current.toBucket = bucketEl ? parseInt(bucketEl.getAttribute("data-bucketidx"), 10) : bucketDragItem.current.fromBucket;
+      if (row) {
+        var rid = row.getAttribute("data-bucketitemid");
+        if (rid !== bucketDragItem.current.from) { bucketDragItem.current.toIdx = rid; setDragOverId(rid); }
+      } else { bucketDragItem.current.toIdx = null; setDragOverId(null); }
+    }
+    function cleanup() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", cleanup);
+      document.querySelectorAll("[data-bucket-drag-clone]").forEach(function(el) { try { el.remove(); } catch(e) {} });
+      bucketDragItem.current.clone = null;
+      setDragFromId(null); setDragOverId(null);
+    }
+    function onUp() {
+      var fromId = bucketDragItem.current.from;
+      var toBucket = bucketDragItem.current.toBucket;
+      var toId = bucketDragItem.current.toIdx;
+      bucketDragItem.current.from = bucketDragItem.current.toIdx = null;
+      cleanup();
+      if (!fromId) return;
+      var arr = buckets.items.slice();
+      var fromIdx = arr.findIndex(function(i) { return i.id === fromId; });
+      if (fromIdx === -1) return;
+      var moved = Object.assign({}, arr[fromIdx], { bucketIndex: toBucket });
+      arr.splice(fromIdx, 1);
+      var toIdx2 = toId ? arr.findIndex(function(i) { return i.id === toId; }) : -1;
+      if (toIdx2 === -1) arr.push(moved); else arr.splice(toIdx2, 0, moved);
+      persistBuckets(Object.assign({}, buckets, { items: arr }));
+    }
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { once: true });
+    window.addEventListener("pointercancel", cleanup, { once: true });
+    e.preventDefault();
   }
 
   // V2 first-run migration: contribute this device's local cards to exhale_cards.
@@ -1069,6 +1177,93 @@ export default function ExhaleSection(props) {
   // it's just no longer read by anything below this line.
   var totalVisible = buckets.items.filter(function(it) { return it && !it.archived; }).length;
 
+  function renderBucketCard(idx) {
+    var bucketName = buckets.bucketNames[idx];
+    var bItems = visibleBucketItems(idx);
+    var isOpen = !!openBuckets[idx];
+    var accent = BUCKET_COLORS[idx % BUCKET_COLORS.length];
+    var nextIdx = (idx + 1) % buckets.bucketNames.length;
+    var nextName = buckets.bucketNames[nextIdx];
+    var isDropTarget = dragOverId === null && bucketDragItem.current.from && bucketDragItem.current.toBucket === idx;
+    return (
+      <div key={idx} data-bucketidx={idx}
+        style={{ borderRadius: 12, border: br, borderTop: "3px solid " + accent, background: bgP, overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}
+          onClick={() => toggleBucketOpen(idx)}>
+          {editingBucketIdx === idx ? (
+            <input autoFocus defaultValue={bucketName} onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => renameBucket(idx, e.target.value.trim() || bucketName)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") e.target.blur(); }}
+              style={{ flex: 1, fontSize: 14, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
+          ) : (
+            <span onClick={(e) => { e.stopPropagation(); setEditingBucketIdx(idx); }} title="Tap to rename"
+              style={{ flex: 1, fontSize: 14, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
+          )}
+          <span style={{ fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
+          <button onClick={(e) => { e.stopPropagation(); setBucketAddOpenFor(bucketAddOpenFor === idx ? null : idx); setOpenBuckets(function(p) { return Object.assign({}, p, { [idx]: true }); }); }}
+            style={{ background: accent, color: "white", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>+ Add</button>
+          <span style={{ fontSize: 11, color: txS, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
+        </div>
+
+        {isOpen && (
+          <div style={{ padding: "0 12px 10px", minHeight: 8, background: isDropTarget ? "rgba(27,46,79,0.04)" : "transparent" }}>
+            {bucketAddOpenFor === idx && (
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                <input autoFocus value={bucketAddText} onChange={(e) => setBucketAddText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { addBucketItem(bucketAddText, idx); setBucketAddText(""); setBucketAddOpenFor(null); } if (e.key === "Escape") { setBucketAddText(""); setBucketAddOpenFor(null); } }}
+                  placeholder={"Add to " + bucketName + "..."}
+                  style={{ flex: 1, padding: "6px 9px", fontSize: 12, border: br, borderRadius: 7, background: bgP, color: txP }} />
+                <button onClick={() => { addBucketItem(bucketAddText, idx); setBucketAddText(""); setBucketAddOpenFor(null); }}
+                  style={{ background: accent, color: "white", border: "none", borderRadius: 7, padding: "6px 11px", fontSize: 11, cursor: "pointer" }}>Add</button>
+              </div>
+            )}
+
+            {bItems.length === 0 && (
+              <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "6px 0" }}>Nothing here yet.</div>
+            )}
+
+            {bItems.map(function(item) {
+              var isExpanded = expandedItemId === item.id;
+              var isBeingDragged = dragFromId === item.id;
+              var isDragOverThis = dragOverId === item.id;
+              return (
+                <div key={item.id} data-bucketitemid={item.id}
+                  style={{ borderRadius: 8, border: br, padding: "8px 10px", marginBottom: 6, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
+                    <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
+                      style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, marginTop: 2, touchAction: "none" }}>⠿</span>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || accent, marginTop: 5, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setExpandedItemId(isExpanded ? null : item.id)}>
+                      <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
+                      {!isExpanded && item.notes && (
+                        <div style={{ fontSize: 10.5, marginTop: 2, opacity: 0.7, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.notes}</div>
+                      )}
+                    </div>
+                    <span onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                      style={{ fontSize: 11, color: txS, cursor: "pointer", flexShrink: 0, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>⌄</span>
+                  </div>
+                  {isExpanded && (
+                    <div style={{ marginTop: 8 }}>
+                      <textarea value={item.notes || ""} onChange={(e) => updateBucketItem(item.id, { notes: e.target.value })}
+                        placeholder="Notes..." rows={2}
+                        style={{ width: "100%", border: br, borderRadius: 6, padding: "6px 8px", fontSize: 11.5, resize: "none", background: bgP, color: txP, fontFamily: "inherit", marginBottom: 6 }} />
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button onClick={() => moveBucketItemForward(item.id)} style={{ ...chip, background: bgP }}>→ {nextName}</button>
+                        <button onClick={() => archiveBucketItem(item.id)} style={{ ...chip, background: bgP }}>Archive</button>
+                        <button onClick={() => deleteBucketItem(item.id, item.text)} style={{ ...chip, background: bgP, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>Delete</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 13 }}>
       {/* App bar */}
@@ -1123,84 +1318,15 @@ export default function ExhaleSection(props) {
             </div>
           </div>
 
-          {/* Bucket cards */}
+          {/* Bucket cards — Exhaled full-width, then a 2×2 grid for the rest */}
           <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {buckets.bucketNames.map(function(bucketName, idx) {
-              var bItems = visibleBucketItems(idx);
-              var isOpen = !!openBuckets[idx];
-              var accent = BUCKET_COLORS[idx % BUCKET_COLORS.length];
-              var nextIdx = (idx + 1) % buckets.bucketNames.length;
-              var nextName = buckets.bucketNames[nextIdx];
-              return (
-                <div key={idx} style={{ borderRadius: 12, border: br, borderTop: "3px solid " + accent, background: bgP, overflow: "hidden" }}>
-                  {/* Header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}
-                    onClick={() => toggleBucketOpen(idx)}>
-                    {editingBucketIdx === idx ? (
-                      <input autoFocus defaultValue={bucketName} onClick={(e) => e.stopPropagation()}
-                        onBlur={(e) => renameBucket(idx, e.target.value.trim() || bucketName)}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") e.target.blur(); }}
-                        style={{ flex: 1, fontSize: 14, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
-                    ) : (
-                      <span onClick={(e) => { e.stopPropagation(); setEditingBucketIdx(idx); }} title="Tap to rename"
-                        style={{ flex: 1, fontSize: 14, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
-                    )}
-                    <span style={{ fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
-                    <button onClick={(e) => { e.stopPropagation(); setBucketAddOpenFor(bucketAddOpenFor === idx ? null : idx); setOpenBuckets(function(p) { return Object.assign({}, p, { [idx]: true }); }); }}
-                      style={{ background: accent, color: "white", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>+ Add</button>
-                    <span style={{ fontSize: 11, color: txS, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
-                  </div>
-
-                  {isOpen && (
-                    <div style={{ padding: "0 12px 10px" }}>
-                      {bucketAddOpenFor === idx && (
-                        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                          <input autoFocus value={bucketAddText} onChange={(e) => setBucketAddText(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") { addBucketItem(bucketAddText, idx); setBucketAddText(""); setBucketAddOpenFor(null); } if (e.key === "Escape") { setBucketAddText(""); setBucketAddOpenFor(null); } }}
-                            placeholder={"Add to " + bucketName + "..."}
-                            style={{ flex: 1, padding: "6px 9px", fontSize: 12, border: br, borderRadius: 7, background: bgP, color: txP }} />
-                          <button onClick={() => { addBucketItem(bucketAddText, idx); setBucketAddText(""); setBucketAddOpenFor(null); }}
-                            style={{ background: accent, color: "white", border: "none", borderRadius: 7, padding: "6px 11px", fontSize: 11, cursor: "pointer" }}>Add</button>
-                        </div>
-                      )}
-
-                      {bItems.length === 0 && (
-                        <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "6px 0" }}>Nothing here yet.</div>
-                      )}
-
-                      {bItems.map(function(item) {
-                        var isExpanded = expandedItemId === item.id;
-                        return (
-                          <div key={item.id} style={{ borderRadius: 8, border: br, padding: "8px 10px", marginBottom: 6, background: bgS }}>
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || accent, marginTop: 5, flexShrink: 0 }} />
-                              <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setExpandedItemId(isExpanded ? null : item.id)}>
-                                <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
-                                {!isExpanded && item.notes && (
-                                  <div style={{ fontSize: 10.5, marginTop: 2, opacity: 0.7, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.notes}</div>
-                                )}
-                              </div>
-                            </div>
-                            {isExpanded && (
-                              <div style={{ marginTop: 8 }}>
-                                <textarea value={item.notes || ""} onChange={(e) => updateBucketItem(item.id, { notes: e.target.value })}
-                                  placeholder="Notes..." rows={2}
-                                  style={{ width: "100%", border: br, borderRadius: 6, padding: "6px 8px", fontSize: 11.5, resize: "none", background: bgP, color: txP, fontFamily: "inherit", marginBottom: 6 }} />
-                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                  <button onClick={() => moveBucketItemForward(item.id)} style={{ ...chip, background: bgP }}>→ {nextName}</button>
-                                  <button onClick={() => archiveBucketItem(item.id)} style={{ ...chip, background: bgP }}>Archive</button>
-                                  <button onClick={() => deleteBucketItem(item.id, item.text)} style={{ ...chip, background: bgP, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>Delete</button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {renderBucketCard(0)}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {renderBucketCard(1)}
+              {renderBucketCard(2)}
+              {renderBucketCard(3)}
+              {renderBucketCard(4)}
+            </div>
           </div>
         </div>
       )}
