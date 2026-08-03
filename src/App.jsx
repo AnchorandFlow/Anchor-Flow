@@ -1267,14 +1267,14 @@ const TABS = [
   // PRIMARY_TABS below once it's real.
   {id:"tidepool", label:"Tide Pool", emoji:"🏝️"},
   {id:"cove",     label:"Cove",      emoji:"🪸"},
-  {id:"weekly",   label:"Weekly",   emoji:"📅"},
+  {id:"waves",    label:"Waves",    emoji:"〰️"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Mind",     emoji:"💭"},
   {id:"lighthouse",    label:"Lighthouse",    emoji:"🌱"},
   {id:"settings",    label:"Settings",    emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
-const MORE_TABS    = ["weekly","home","brain","lighthouse","tidepool","cove","settings"];
+const MORE_TABS    = ["waves","home","brain","lighthouse","tidepool","cove","settings"];
 
 const CAL_SOURCES = [
   {id:"google",  label:"Google Calendar", color:"#4285F4", icon:"G"},
@@ -3772,7 +3772,7 @@ function createLocalBackup() {
     }));
   }
   React.useLayoutEffect(() => { homeFlowRef.tab = tab; homeFlowRef.goTab = goTab; });
-  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="weekly"||tab==="tidepool"||tab==="lighthouse") ? "Flow"
+  var __roomKey = (tab==="flowhome"||tab==="calendar"||tab==="brain"||tab==="waves"||tab==="tidepool"||tab==="lighthouse") ? "Flow"
     : (tab==="meals"||tab==="shop"||tab==="cove"||tab==="home") ? "Anchor"
     : (tab==="settings") ? null : "Today";
   var __ROOM = __roomKey ? ({
@@ -8030,7 +8030,7 @@ Respond ONLY in valid JSON:
 
     return (
       <div>
-        <SecHead emoji="🌊" title="Waves" sub="Routines that repeat — daily, weekly, seasonal" onBack={function(){goTab("anchor");}}/>
+        <SecHead emoji="〰️" title="Waves" sub="Routines that repeat — daily, weekly, seasonal" onBack={function(){goTab("anchor");}}/>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[["daily","🌊 Daily Waves"],["weekly","🌊 Weekly Waves"],["seasonal","🌊 Seasonal Waves"],["custom","🌊 Custom Waves"]].map(function(pair) {
             var type = pair[0], label = pair[1];
@@ -14877,7 +14877,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","weekly","meals","shop","tidepool","cove","home","brain","lighthouse","settings"].map(t=>{
+          {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","brain","lighthouse","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -15317,7 +15317,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     { label: "Flow", emoji: "🌊", kind: "group", items: [
       { id: "calendar", label: "Calendar",      emoji: "📆" },
       { id: "brain",    label: "Exhale",        emoji: "💭" },
-      { id: "waves",    label: "Waves", emoji: "🌊" },
+      { id: "waves",    label: "Waves", emoji: "〰️" },
       ...(featureFlags.tidePoolEnabled ? [{ id: "tidepool", label: "Tide Pool", emoji: "🏝️" }] : []),
       ...(featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
     ]},
