@@ -28,3 +28,4 @@ safe-harbor-code-map.md
 SYNC_RELOAD_INVENTORY.md
 SYNC_APPLY_DESIGN.md
 UPDATE-TESTING.md
+.env
