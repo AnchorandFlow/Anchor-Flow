@@ -5683,11 +5683,15 @@ Respond ONLY with valid JSON array, no markdown:
     const memoryCtx = Object.entries(aiMemory).slice(-8).map(([q,a])=>`Q: ${q} A: ${a}`).join(" | ");
     const appCtx = `Today: ${TODAY_NAME}, flow mode: ${flowMode}, dietary filters: ${dietaryFilters.join(", ")||"none"}.`;
 
+    // Today redesign — the generic "Hi! ⚓️ What can I help with today?"
+    // greeting duplicated the Today tab's own greeting/wave card, so it's
+    // removed; the daily get-to-know-you question is a real, distinct
+    // prompt (not a greeting), so it's kept, just without the "Hi!" preamble.
     const openingMsg = todayQuestion
-      ? `Hi! ⚓️ Quick question to help me know your family better:\n\n"${todayQuestion}"\n\nNo pressure — answer whenever, or just ask me anything!`
-      : `Hi! ⚓️ ${familyProfile?`Good to see you, ${familyProfile.parentNames?.split(" ")[0]||"friend"}!`:""} What can I help with today?`;
+      ? `Quick question to help me know your family better:\n\n"${todayQuestion}"\n\nNo pressure — answer whenever, or just ask me anything!`
+      : null;
 
-    const [messages, setMessages] = useState([{role:"assistant",text:openingMsg}]);
+    const [messages, setMessages] = useState(openingMsg ? [{role:"assistant",text:openingMsg}] : []);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [awaitingGTK, setAwaitingGTK] = useState(!!todayQuestion);
@@ -6393,6 +6397,158 @@ Respond ONLY in valid JSON:
     const greeting = hour < 12 ? "Good morning" : isEvening ? "Good evening" : "Good afternoon";
     const greetingEmoji = hour < 12 ? "🌿" : isEvening ? "🌙" : "☀️";
 
+    // ── Today redesign — waves (read-only; af_exhale_waves has no data layer
+    // yet, Waves Tab 2 is still a placeholder, so this defensively reads an
+    // empty structure until that ships) ──────────────────────────────────────
+    var exhaleWaves = (function(){
+      try {
+        var w = JSON.parse(localStorage.getItem("af_exhale_waves")||"null");
+        if (w && typeof w==="object" && !Array.isArray(w)) return { daily:w.daily||[], weekly:w.weekly||[], seasonal:w.seasonal||[], custom:w.custom||[] };
+      } catch(e) {}
+      return { daily:[], weekly:[], seasonal:[], custom:[] };
+    })();
+    var todaysDailyWaves = exhaleWaves.daily.filter(function(w){ return w && Array.isArray(w.tasks); });
+    var todaysWeeklyWaves = exhaleWaves.weekly.filter(function(w){ return w && w.dayOfWeek===TODAY_NAME && Array.isArray(w.tasks); });
+    var homeFocusWave = todaysDailyWaves[0] || todaysWeeklyWaves[0] || null;
+
+    // ── Today redesign — Exhale "Today" bucket (bucketIndex 1, positional —
+    // buckets are a fixed 5-slot layout, so this is stable even if the
+    // household renamed the bucket) ───────────────────────────────────────────
+    var exhaleBuckets = (function(){
+      try {
+        var b = JSON.parse(localStorage.getItem("af_exhale_buckets")||"null");
+        if (b && Array.isArray(b.items)) return b;
+      } catch(e) {}
+      return { bucketNames:[], items:[] };
+    })();
+    function writeExhaleBucketItemDone(id, doneVal) {
+      try {
+        var raw = localStorage.getItem("af_exhale_buckets");
+        var eb = raw ? JSON.parse(raw) : null;
+        if (!eb || !Array.isArray(eb.items)) return;
+        eb.items = eb.items.map(function(it){ return (it && it.id===id) ? Object.assign({}, it, { done: doneVal }) : it; });
+        localStorage.setItem("af_exhale_buckets", JSON.stringify(eb));
+        var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys")||"[]");
+        if (dirty.indexOf("exhale_buckets")===-1) { dirty.push("exhale_buckets"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
+        window.dispatchEvent(new CustomEvent("af-data-changed"));
+      } catch(e) {}
+    }
+
+    // ── Today redesign — pinned Focus tasks. Device-local only, never a
+    // SYNC_KEY (per spec) — plain localStorage, not useSaved. ─────────────────
+    var [pinnedTaskIds, setPinnedTaskIds] = useState(function(){
+      try { var v = JSON.parse(localStorage.getItem("af_pinnedTasks")||"[]"); return Array.isArray(v)?v:[]; } catch(e) { return []; }
+    });
+    function persistPinned(ids) {
+      setPinnedTaskIds(ids);
+      try { localStorage.setItem("af_pinnedTasks", JSON.stringify(ids)); } catch(e) {}
+    }
+    function pinTask(id) {
+      if (pinnedTaskIds.includes(id) || pinnedTaskIds.length>=3) return;
+      persistPinned(pinnedTaskIds.concat([id]));
+    }
+    function unpinTask(id) { persistPinned(pinnedTaskIds.filter(function(x){ return x!==id; })); }
+
+    // ── Today redesign — wave task "done" state. Waves reset daily, so this
+    // is sessionStorage (not persisted across days), keyed by today's date. ──
+    var waveDoneKey = "af_waveTasksDone_" + TODAY.toDateString();
+    var [waveTasksDone, setWaveTasksDone] = useState(function(){
+      try { var v = JSON.parse(sessionStorage.getItem(waveDoneKey)||"[]"); return Array.isArray(v)?v:[]; } catch(e) { return []; }
+    });
+    function toggleWaveTaskDone(id) {
+      setWaveTasksDone(function(prev){
+        var has = prev.includes(id);
+        var next = has ? prev.filter(function(x){ return x!==id; }) : prev.concat([id]);
+        try { sessionStorage.setItem(waveDoneKey, JSON.stringify(next)); } catch(e) {}
+        return next;
+      });
+    }
+
+    // ── Today redesign — "Not now" dismissals for Compass Suggests. Session
+    // only, matching the spec's "dismisses for session (sessionStorage)". ────
+    var [dismissedSuggestions, setDismissedSuggestions] = useState(function(){
+      try { var v = JSON.parse(sessionStorage.getItem("af_dismissedSuggestions")||"[]"); return Array.isArray(v)?v:[]; } catch(e) { return []; }
+    });
+    function dismissSuggestion(text) {
+      setDismissedSuggestions(function(prev){
+        var next = prev.concat([text]);
+        try { sessionStorage.setItem("af_dismissedSuggestions", JSON.stringify(next)); } catch(e) {}
+        return next;
+      });
+    }
+
+    // ── Today redesign — merged task list from all 4 sources, deduped by id.
+    var mergedTodayTasks = (function(){
+      var out = []; var seen = {};
+      (visibleTasks||[]).filter(function(t){ return t && !t.archived && (t.day===TODAY_NAME || !t.day); }).forEach(function(t){
+        if (seen[t.id]) return; seen[t.id]=1;
+        out.push({ id:t.id, text:t.text, done:!!t.done, source:"task" });
+      });
+      exhaleBuckets.items.filter(function(it){ return it && !it.archived && it.bucketIndex===1; }).forEach(function(it){
+        if (seen[it.id]) return; seen[it.id]=1;
+        out.push({ id:it.id, text:it.text, done:!!it.done, source:"exhale" });
+      });
+      todaysDailyWaves.concat(todaysWeeklyWaves).forEach(function(w){
+        (w.tasks||[]).forEach(function(wt){
+          if (!wt || seen[wt.id]) return; seen[wt.id]=1;
+          out.push({ id:wt.id, text:wt.text, done:waveTasksDone.includes(wt.id), source:"wave" });
+        });
+      });
+      return out;
+    })();
+    function toggleMergedTaskDone(t) {
+      if (t.source==="task") setTasks(function(p){ return p.map(function(x){ return x.id===t.id?{...x,done:!x.done}:x; }); });
+      else if (t.source==="exhale") writeExhaleBucketItemDone(t.id, !t.done);
+      else if (t.source==="wave") toggleWaveTaskDone(t.id);
+    }
+    var pinnedTodayTasks = mergedTodayTasks.filter(function(t){ return pinnedTaskIds.includes(t.id); });
+    var mainTodayTasks   = mergedTodayTasks.filter(function(t){ return !pinnedTaskIds.includes(t.id); });
+
+    // Pointer-drag: drag a main-list task row (grip) up into the Focus zone
+    // to pin it. Same idiom as Cove/Exhale — not native HTML5 drag.
+    var focusDragRef = useRef({ id: null });
+    function focusPinPointerDown(e, taskId) {
+      focusDragRef.current.id = taskId;
+      function onMove(ev) {
+        var el = document.elementFromPoint(ev.clientX, ev.clientY);
+        var zone = el && el.closest("[data-focuszone]");
+        focusDragRef.current.overZone = !!zone;
+      }
+      function cleanup() {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointercancel", cleanup);
+      }
+      function onUp() {
+        var id = focusDragRef.current.id;
+        var overZone = focusDragRef.current.overZone;
+        focusDragRef.current.id = null;
+        cleanup();
+        if (id && overZone) pinTask(id);
+      }
+      window.addEventListener("pointermove", onMove, {passive:true});
+      window.addEventListener("pointerup", onUp, {once:true});
+      window.addEventListener("pointercancel", cleanup, {once:true});
+      e.preventDefault();
+    }
+
+    // ── Today redesign — new collapsible card state (existing hooks like
+    // glanceOpen/top3Open/forLaterOpen/dayOpen are kept, not deleted, per
+    // process rules — glanceOpen is reused below for Schedule since both
+    // default open). Dinner/Tasks/Compass Suggests are new cards with no
+    // prior equivalent, so they get their own state, all closed by default.
+    var [dinnerCardOpen, setDinnerCardOpen] = useState(false);
+    var [tasksCardOpen, setTasksCardOpen] = useState(false);
+    var [compassSuggestOpen, setCompassSuggestOpen] = useState(false);
+    // Busy mode behavior: auto-collapse Compass Suggests on mode transition
+    // (not fought if the user manually reopens it mid-mode) — same "on
+    // transition, not every render" reasoning as the outer showRippleFeed/
+    // forLaterOpen auto-collapse effect in HomeFlow, just scoped locally
+    // since compassSuggestOpen lives in this component, not HomeFlow.
+    useEffect(function(){ if (flowMode==="Busy") setCompassSuggestOpen(false); }, [flowMode]);
+    var [addingMergedTask, setAddingMergedTask] = useState(false);
+    var [newMergedTaskText, setNewMergedTaskText] = useState("");
+
     // Category config for insight cards
     const CAT_CONFIG = {
       calendar: {emoji:"📅", color:T.blue,    bgColor:T.bluePale,   label:"Calendar"},
@@ -6419,6 +6575,30 @@ Respond ONLY in valid JSON:
       }
     }
 
+    // ── Today redesign — Compass strip text: first sentence of the existing
+    // daily briefing/AI-suggestion data already loaded in this scope, or
+    // nothing if there's no AI data yet (per spec — no placeholder).
+    var compassStripText = (function(){
+      if (visibleInsights && visibleInsights.length>0) {
+        var first = visibleInsights[0];
+        var t = (first.body || first.title || "").trim();
+        if (t) { var m = t.match(/^[^.!?]*[.!?]/); return m ? m[0].trim() : t; }
+      }
+      if (aiSuggestions && Array.isArray(aiSuggestions.todos) && aiSuggestions.todos.length>0) return aiSuggestions.todos[0];
+      return null;
+    })();
+
+    // ── Today redesign — Compass Suggests: existing AI todos + theme-matched
+    // brain items (both already loaded via loadAiSuggestions/aiSuggestions).
+    var compassSuggestions = (function(){
+      var out = [];
+      if (aiSuggestions) {
+        (aiSuggestions.brain_items||[]).forEach(function(b){ if (b && b.text) out.push({ text:b.text, reason:b.reason||null }); });
+        (aiSuggestions.todos||[]).forEach(function(t){ if (t) out.push({ text:t, reason:null }); });
+      }
+      return out.filter(function(s){ return dismissedSuggestions.indexOf(s.text)===-1; });
+    })();
+
     return (
       <div>
         {/* ── Good morning banner (date · weather · greeting) ── */}
@@ -6432,7 +6612,12 @@ Respond ONLY in valid JSON:
               return null;
             })()}
           </div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+            {homeFocusWave&&homeFocusWave.name&&(
+              <span style={{fontSize:"0.72rem",fontWeight:700,color:"#1C3A2E",background:"#EBF5F3",border:"1px solid #6ABAAA55",borderRadius:"2rem",padding:"0.2rem 0.7rem"}}>🏠 {homeFocusWave.name}</span>
+            )}
+          </div>
           {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.78rem",fontWeight:500,marginTop:"0.15rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
         </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
@@ -6449,356 +6634,187 @@ Respond ONLY in valid JSON:
             );
           })}
         </div>
-        {/* ── Hero greeting card ── */}
-        <div style={{display:"none",background:"linear-gradient(150deg,#1a2744,#253660 80%)",border:"none",borderRadius:"1.5rem",padding:"1.6rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 4px 24px rgba(26,39,68,0.35)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.4rem"}}>
-                <div style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.85)",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</div>
-                {weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];})?
-                  <div style={{display:"flex",alignItems:"center",gap:"0.3rem",background:"rgba(255,255,255,0.1)",borderRadius:"50px",padding:"2px 8px"}}>
-                    <span style={{fontSize:"0.85rem"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).emoji}</span>
-                    <span style={{fontSize:"0.65rem",fontWeight:700,color:"rgba(250,248,244,0.85)"}}>{weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];}).high}°</span>
-                  </div>
-                :!weatherLocation&&<button onClick={requestWeatherLocation} style={{fontSize:"0.62rem",color:"rgba(200,169,122,0.8)",background:"none",border:"1px solid rgba(200,169,122,0.3)",borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>}
-              </div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2rem",fontWeight:700,color:"#faf8f4",lineHeight:1.05}}>
-                {greeting}{myDisplayName(people,myPersonId,preferredName,authUser)?", "+myDisplayName(people,myPersonId,preferredName,authUser):""} {greetingEmoji}
-              </div>
-              {dayRhythm.theme&&<div style={{color:"rgba(250,248,244,0.65)",fontSize:"0.8rem",fontWeight:500,marginTop:"0.3rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
-              {flowMode==="Survival"&&<div style={{color:"#f4a0a0",fontSize:"0.8rem",fontWeight:600,marginTop:"0.4rem",fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif"}}>🛟 You don't have to do everything. Just enough.</div>}
+        {/* ── Wave card (mode-adaptive) — replaces the old two-mode banners ── */}
+        {(function(){
+          var waveCard = flowMode==="Busy"
+            ? { bg:"#FBF8F2", bd:"#C8A97A", text:"🌊 Some waves today", sub:"You've got this — focus on what matters most." }
+            : flowMode==="Survival"
+            ? { bg:"#FBF2F2", bd:"#C47A7A", text:"🌊 Survival mode", sub:"One thing at a time. You've got this." }
+            : { bg:"#EBF5F3", bd:"#6ABAAA", text:"🌊 Calm seas today", sub:"Enjoy the slower pace — a good day to be present." };
+          return (
+            <div style={{background:waveCard.bg,border:"1.5px solid "+waveCard.bd,borderRadius:"1.1rem",padding:"0.85rem 1rem",marginBottom:"0.85rem"}}>
+              <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>{waveCard.text}</div>
+              <div style={{fontSize:"0.8rem",color:T.textSoft,marginTop:"0.15rem"}}>{waveCard.sub}</div>
             </div>
-            <button onClick={()=>setModal("share")} style={{background:"none",border:"none",cursor:"pointer",opacity:0.45,display:"flex",marginTop:"0.2rem",flexShrink:0}}><Icon name="share" size={14} color="#faf8f4"/></button>
-          </div>
-
-          {/* Flow mode chips */}
-          <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-            {Object.entries(FM).map(([mode,m])=>(
-              <button key={mode} onClick={()=>setFlowMode(mode)} style={{background:flowMode===mode?m.color:"transparent",color:flowMode===mode?"#fff":"rgba(250,248,244,0.7)",border:"2px solid "+(flowMode===mode?m.color:"rgba(250,248,244,0.2)"),borderRadius:"2rem",padding:"0.28rem 0.8rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{m.emoji} {mode}</button>
-            ))}
-          </div>
-          {flowMode!=="Survival"
-            ?<div style={{fontSize:"0.7rem",color:"rgba(250,248,244,0.45)",marginBottom:"0.75rem",paddingLeft:"0.2rem",fontStyle:"italic"}}>Hard day? Tap 🛟 Survival — it's okay.</div>
-            :<div style={{marginBottom:"0.75rem"}}/>
-          }
-          {flowMode==="Busy"&&(
-            <div style={{background:"rgba(200,169,122,0.12)",border:"1.5px solid rgba(200,169,122,0.3)",borderRadius:"0.9rem",padding:"0.7rem 0.9rem",marginBottom:"0.65rem",display:"flex",gap:"0.55rem",alignItems:"flex-start"}}>
-              <span style={{fontSize:"1.1rem",flexShrink:0}}>⚡</span>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:700,fontSize:"0.82rem",color:"#c8a97a",marginBottom:"0.2rem"}}>Let's lighten the load</div>
-                <div style={{fontSize:"0.76rem",color:"rgba(250,248,244,0.65)",lineHeight:1.5}}>Pick just 1–2 things that actually matter today. Dinner can be simple. The rest can wait.</div>
-                <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginTop:"0.5rem"}}>
-                  {["Order takeout tonight","Dinner from the freezer","Ask for help with one task","Say no to one thing today"].map(function(s){return(
-                    <button key={s} onClick={function(){setTasks(function(p){return[...p,{id:uid(),text:s,day:TODAY_NAME,done:false,tier:"top3"}];});}} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(200,169,122,0.4)",borderRadius:"2rem",padding:"0.18rem 0.6rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit",color:"#c8a97a",transition:"all 0.12s"}}>{"+ "+s}</button>
-                  );})}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Primary CTA */}
-          {!isEvening&&!dayOpen&&(
-            <button onClick={()=>{ setDayOpen(true); loadAiSuggestions(); }} style={{width:"100%",background:flowMode==="Survival"?`linear-gradient(135deg,${T.rose},${T.roseDark})`:"linear-gradient(135deg,"+T.sage+","+T.sageDark+")",color:"#fff",border:"none",borderRadius:"1.1rem",padding:"1rem",cursor:"pointer",fontWeight:700,fontSize:"1rem",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.55rem",boxShadow:"0 5px 22px "+(flowMode==="Survival"?T.rose:T.sage)+"40",letterSpacing:"0.01em"}}>
-              {flowMode==="Survival"?"🛟 See my 3 things for today":"⚓️ See what matters today"}
-            </button>
-          )}
-          {isEvening&&!dayOpen&&(
-            <div style={{background:"linear-gradient(135deg,#e8f0ec,#eef3f7)",border:"1.5px solid rgba(122,158,142,0.3)",borderRadius:"1.2rem",padding:"1rem 1.2rem"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.3rem"}}>
-                <span style={{fontSize:"1.2rem"}}>🌙</span>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#3a5a50"}}>{greeting}{myDisplayName(people,myPersonId,preferredName,authUser)?", "+myDisplayName(people,myPersonId,preferredName,authUser):""}</div>
-              </div>
-              <div style={{fontSize:"0.8rem",color:"#5a7a70",lineHeight:1.55,marginBottom:"0.75rem"}}>{visibleTasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length>0?"You did "+visibleTasks.filter(function(t){return(t.day===TODAY_NAME||t.carriedTo===TODAY_NAME)&&!t.archived&&t.done;}).length+" things today. Rest well — tomorrow is a fresh start.":"Rest well tonight. Every day you show up is enough."}</div>
-              <button onClick={()=>setDayOpen(true)} style={{width:"100%",background:"rgba(122,158,142,0.15)",border:"1.5px solid rgba(122,158,142,0.35)",borderRadius:"0.8rem",padding:"0.7rem",cursor:"pointer",fontWeight:700,fontSize:"0.88rem",fontFamily:"inherit",color:"#4a7a68"}}>🌙 Wind down my day</button>
-            </div>
-          )}
-          {dayOpen&&(
-            <button onClick={()=>setDayOpen(false)} style={{width:"100%",background:T.bgAlt,color:T.textSoft,border:"1.5px solid "+T.border,borderRadius:"1.1rem",padding:"0.75rem",cursor:"pointer",fontWeight:600,fontSize:"0.84rem",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.4rem"}}>
-              ↑ Collapse
-            </button>
-          )}
-        </div>
-        {/* ── Mode banners — full-width, prominent, felt not just labeled ── */}
-        {flowMode==="Busy"&&(
-          <div style={{background:"linear-gradient(135deg,rgba(228,181,89,0.22),rgba(228,181,89,0.1))",border:"2px solid rgba(228,181,89,0.5)",borderRadius:"1.1rem",padding:"0.9rem 1.1rem",marginBottom:"0.85rem",textAlign:"center",fontSize:"0.98rem",fontWeight:700,color:T.textDark,boxShadow:"0 3px 16px rgba(228,181,89,0.25)"}}>
-            Busy day — here's what matters most 🌊
+          );
+        })()}
+        {/* ── Status strip — neutral, real counts ── */}
+        {flowMode!=="Survival"&&(
+          <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1rem",padding:"0.6rem 0.9rem",marginBottom:"0.85rem",fontSize:"0.78rem",color:T.textMid,display:"flex",flexWrap:"wrap",gap:"0.3rem 0.5rem"}}>
+            <span>📅 {todayEvents.length} event{todayEvents.length!==1?"s":""}</span>
+            <span>·</span>
+            <span>✓ {mergedTodayTasks.filter(function(t){return !t.done;}).length} task{mergedTodayTasks.filter(function(t){return !t.done;}).length!==1?"s":""}</span>
+            <span>·</span>
+            <span>🍽 {(!noMealPlanned&&todayMeal.dinner)?"Dinner planned":"Dinner not planned"}</span>
+            {homeFocusWave&&homeFocusWave.name&&(<><span>·</span><span>🏠 {homeFocusWave.name}</span></>)}
           </div>
         )}
-        {flowMode==="Survival"&&(
-          <div style={{background:"linear-gradient(135deg,"+T.sagePale+","+T.bluePale+")",border:"2px solid "+T.sage+"55",borderRadius:"1.1rem",padding:"1.1rem 1.2rem",marginBottom:"0.85rem",textAlign:"center",fontSize:"1.02rem",fontWeight:700,color:T.textDark,boxShadow:"0 3px 16px "+T.sage+"30"}}>
-            One step at a time. You've got this. 🌊
+        {/* ── Compass strip — quiet, not collapsible ── */}
+        {flowMode!=="Survival"&&compassStripText&&(
+          <div style={{borderLeft:"3px solid #6ABAAA",background:"var(--color-background-secondary,#f4f7f6)",borderRadius:"0 0.6rem 0.6rem 0",padding:"0.55rem 0.85rem",marginBottom:"0.85rem"}}>
+            <div style={{fontSize:"0.62rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"#6ABAAA",marginBottom:"0.15rem"}}>Compass</div>
+            <div style={{fontSize:"0.82rem",color:T.textMid,lineHeight:1.5}}>{compassStripText}</div>
           </div>
         )}
         {/* ── Ripple notification banner ── */}
         <div ref={function(el){if(el)window._rippleBannerEl=el;}}>
           <RippleNotificationBanner />
         </div>
-        {/* ── Ripple Insights ── */}
         <CompassFab/>
-        {flowMode!=="Survival"&&(insightsLoading||visibleInsights.length>0)&&(
-          <div style={{marginBottom:"0.9rem",background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1.2rem",overflow:"hidden"}}>
-            <div onClick={()=>setShowRippleFeed(p=>!p)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0.85rem 1rem",cursor:"pointer"}}>
-              <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-                <span style={{fontSize:"0.85rem"}}>✦</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1rem",fontWeight:700,color:T.textDark}}>Compass</span>
-                {!insightsLoading&&<span style={{fontSize:"0.7rem",color:T.textFaint,marginLeft:"0.2rem"}}>({visibleInsights.length})</span>}
+
+        {/* ── Schedule / Dinner / Tasks / Compass Suggests — mode-adaptive ── */}
+        <div style={{display:"flex",flexDirection:"column",gap:flowMode==="Busy"?"0.5rem":"0.75rem"}}>
+
+          {/* Schedule card — hidden entirely in Survival */}
+          {flowMode!=="Survival"&&(
+            <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderTop:"3px solid #6ABAAA",borderRadius:"1.1rem",padding:"0.5rem 0.95rem 0.75rem"}}>
+              <div onClick={function(){setGlanceOpen(!glanceOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.4rem 0.1rem 0.15rem",cursor:"pointer"}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:T.textDark}}>Schedule</span>
+                <button onClick={function(e){e.stopPropagation();goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Full →</button>
+                <span style={{color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:glanceOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                {!insightsLoading&&<button onClick={(e)=>{e.stopPropagation();setInsights(null);setInsightsBuilt(null);buildInsights();}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.textFaint,fontFamily:"inherit"}}>refresh</button>}
-                <span style={{fontSize:"0.72rem",color:T.textFaint}}>{showRippleFeed?"▲":"▼"}</span>
-              </div>
+              {glanceOpen&&(function(){
+                var nowMin=new Date().getHours()*60+new Date().getMinutes();
+                function em(e){ if(!e.time) return null; var pp=e.time.split(":"); return (parseInt(pp[0],10)||0)*60+(parseInt(pp[1],10)||0); }
+                var next=todayEvents.filter(function(e){ var mn=em(e); return mn===null||(mn>=nowMin&&mn-nowMin<=240); });
+                var later=todayEvents.filter(function(e){ var mn=em(e); return mn!==null&&(mn<nowMin||mn-nowMin>240); });
+                if(todayEvents.length===0) return <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.3rem 0.1rem"}}>Nothing scheduled — open week 🌿</div>;
+                function row(e){
+                  var _rp=e.responsibleParent?resolveResponsibleParent(e.responsibleParent):null;
+                  var who=_rp?(function(){var p=people.find(function(pp){return pp.id===_rp;});return p?p.name:null;})():null;
+                  return (
+                    <div key={e.id} onClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.1rem",cursor:"pointer"}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:e.color||T.blue,flexShrink:0}}/>
+                      <span style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,flexShrink:0,minWidth:44}}>{e.time?fmtTime(e.time):"all day"}</span>
+                      <span style={{flex:1,fontSize:"0.85rem",color:T.textDark}}>{e.title}</span>
+                      {who&&<span style={{fontSize:"0.68rem",color:T.textFaint}}>{who}</span>}
+                    </div>
+                  );
+                }
+                return (<>
+                  {next.length>0&&(<div style={{marginTop:"0.2rem"}}>
+                    <div style={{fontSize:"0.62rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.3rem 0 0.1rem"}}>Next</div>
+                    {next.map(row)}
+                  </div>)}
+                  {later.length>0&&(<div style={{marginTop:"0.2rem"}}>
+                    <div style={{fontSize:"0.62rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.3rem 0 0.1rem"}}>Later</div>
+                    {later.map(row)}
+                  </div>)}
+                  {next.length===0&&later.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.3rem 0.1rem"}}>Nothing scheduled — open week 🌿</div>}
+                </>);
+              })()}
             </div>
-            {showRippleFeed&&(
-              <div style={{padding:"0 0.75rem 0.75rem"}}>
-                {insightsLoading&&<div style={{fontSize:"0.75rem",color:T.textSoft,fontStyle:"italic",padding:"0.5rem",textAlign:"center"}}>Compass is looking at your week…</div>}
-                {!insightsLoading&&visibleInsights.map((ins,idx)=>{
-                  const cat=CAT_CONFIG[ins.category]||CAT_CONFIG.pattern;
-                  return(
-                    <div key={idx} style={{background:cat.pale,border:"1.5px solid "+cat.color+"40",borderRadius:"0.9rem",padding:"0.85rem 1rem",marginBottom:"0.5rem"}}>
-                      <div style={{display:"flex",alignItems:"flex-start",gap:"0.6rem",marginBottom:"0.5rem"}}>
-                        <div style={{width:28,height:28,borderRadius:"50%",background:cat.color+"20",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:"0.9rem"}}>{cat.icon}</span></div>
-                        <div style={{flex:1}}><div style={{fontSize:"0.85rem",fontWeight:700,color:T.textDark,marginBottom:"0.2rem"}}>{ins.title}</div><div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55}}>{ins.body}</div></div>
-                        <button onClick={()=>{recordSignal({type:"dismissed",category:ins.category||"pattern",ts:Date.now()});setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"1rem",padding:"0 0.25rem",flexShrink:0}}>x</button>
+          )}
+
+          {/* Dinner card — force-open in Survival, closed-by-default otherwise */}
+          <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderTop:"3px solid #C8A97A",borderRadius:"1.1rem",padding:"0.5rem 0.95rem 0.75rem"}}>
+            <div onClick={function(){if(flowMode!=="Survival")setDinnerCardOpen(!dinnerCardOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.4rem 0.1rem 0.15rem",cursor:flowMode==="Survival"?"default":"pointer"}}>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:T.textDark}}>Dinner</span>
+              <button onClick={function(e){e.stopPropagation();goTab("meals");}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Edit</button>
+              {flowMode!=="Survival"&&<span style={{color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:dinnerCardOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>}
+            </div>
+            {(flowMode==="Survival"||dinnerCardOpen)&&(function(){
+              if(noMealPlanned||!todayMeal.dinner) return (
+                <div style={{padding:"0.15rem 0.1rem 0.2rem"}}>
+                  <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",marginBottom:"0.4rem"}}>Nothing planned — keep it easy tonight</div>
+                  <button onClick={function(){goTab("meals");}} style={btnS({fontSize:"0.72rem",padding:"0.3rem 0.7rem"})}>Need ideas?</button>
+                </div>
+              );
+              var dinnerLower=(todayMeal.dinner||"").toLowerCase();
+              var nudge = /chicken|beef|pork|meat/.test(dinnerLower) ? "Did you defrost the meat?"
+                : /slow cooker|crockpot/.test(dinnerLower) ? "Did you start the slow cooker?"
+                : null;
+              return (
+                <div style={{padding:"0.1rem 0.1rem 0.2rem"}}>
+                  <div style={{fontSize:"1.05rem",fontWeight:700,color:T.textDark,marginBottom:nudge?"0.3rem":"0.5rem"}}>{todayMeal.dinner}</div>
+                  {nudge&&<div style={{fontSize:"0.78rem",color:T.sandDark,fontWeight:600,marginBottom:"0.5rem"}}>💡 {nudge}</div>}
+                  <button onClick={function(){goTab("meals");}} style={btnS({fontSize:"0.72rem",padding:"0.3rem 0.7rem"})}>Need ideas?</button>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Tasks card — Focus zone force-open in Survival/Busy, main list only Smooth */}
+          <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderTop:"3px solid #243A5A",borderRadius:"1.1rem",padding:"0.5rem 0.95rem 0.75rem"}}>
+            <div onClick={function(){if(flowMode!=="Survival")setTasksCardOpen(!tasksCardOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.4rem 0.1rem 0.15rem",cursor:flowMode==="Survival"?"default":"pointer"}}>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.1rem",color:T.textDark}}>Tasks</span>
+              <button onClick={function(e){e.stopPropagation();setTasksCardOpen(true);setAddingMergedTask(true);}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>+ Add</button>
+              {flowMode!=="Survival"&&<span style={{color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:tasksCardOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>}
+            </div>
+            {(flowMode==="Survival"||tasksCardOpen)&&(<div>
+              {flowMode==="Busy"&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",margin:"0.1rem 0 0.4rem"}}>Busy day — essentials only</div>}
+              {/* Focus zone — drop target for pin-by-drag */}
+              <div data-focuszone="1" style={{background:"#E6F1FB",border:"1.5px solid #7AB3D4",borderRadius:"0.9rem",padding:"0.55rem 0.7rem",marginBottom:"0.5rem"}}>
+                <div style={{fontSize:"0.68rem",fontWeight:800,letterSpacing:"0.05em",color:"#2C5B7A",marginBottom:"0.3rem"}}>⭐ Today's Focus</div>
+                {pinnedTodayTasks.length===0
+                  ? <div style={{fontSize:"0.74rem",color:"#5C7C94",fontStyle:"italic",opacity:0.75}}>Drag a task here to pin it</div>
+                  : pinnedTodayTasks.map(function(t){return(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.1rem"}}>
+                        <span style={{color:"#5C7C94",fontSize:"0.85rem",flexShrink:0}}>⠿</span>
+                        <div onClick={function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?"#5E8FA0":"#7AB3D4"),background:t.done?"#5E8FA0":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                        <button onClick={function(){unpinTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"#5C7C94",fontSize:"0.8rem"}}>×</button>
                       </div>
-                      {ins.actionType&&ins.actionType!=="none"&&(<div style={{display:"flex",gap:"0.4rem"}}><button onClick={()=>{recordSignal({type:"dismissed",category:ins.category||"pattern",ts:Date.now()});setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{flex:1,background:"none",border:"1px solid "+T.border,borderRadius:"0.55rem",padding:"0.35rem",fontSize:"0.72rem",cursor:"pointer",color:T.textMid,fontFamily:"inherit"}}>Not Now</button><button onClick={()=>{handleInsightAction(ins);setInsights(p=>p.filter((_,i)=>i!==idx));}} style={{flex:2,...btnP(cat.color,{fontSize:"0.72rem",padding:"0.35rem 0.75rem",borderRadius:"0.55rem"})}}>{ins.actionLabel||"Do it"}</button></div>)}
+                    );})
+                }
+              </div>
+              {/* Main list — hidden in Busy/Survival (pinned only) */}
+              {flowMode==="Smooth"&&(<div>
+                {mainTodayTasks.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0.1rem"}}>Nothing else on the list</div>}
+                {mainTodayTasks.map(function(t){
+                  var tag = t.source==="exhale" ? {label:"Exhale",bg:"#EBF5F3",tx:"#1C3A2E"} : t.source==="wave" ? {label:"Wave",bg:"#D9EFEC",tx:"#12463D"} : null;
+                  return (
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0.1rem"}}>
+                      <span onPointerDown={function(e){focusPinPointerDown(e,t.id);}} style={{color:T.textFaint,fontSize:"0.85rem",flexShrink:0,cursor:"grab",touchAction:"none"}}>⠿</span>
+                      <div onClick={function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                      <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                      {tag&&<span style={{fontSize:"0.62rem",fontWeight:700,color:tag.tx,background:tag.bg,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{tag.label}</span>}
                     </div>
                   );
                 })}
-              </div>
-            )}
+              </div>)}
+              {flowMode==="Smooth"&&(addingMergedTask
+                ? <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
+                    <input value={newMergedTaskText} onChange={function(e){setNewMergedTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"&&newMergedTaskText.trim()){addQuickTask(newMergedTaskText.trim(),"top3");setNewMergedTaskText("");setAddingMergedTask(false);}if(e.key==="Escape"){setNewMergedTaskText("");setAddingMergedTask(false);}}} placeholder="Add a task…" style={inp({flex:1,fontSize:"0.85rem",padding:"0.5rem 0.75rem"})} autoFocus/>
+                    <button onClick={function(){if(newMergedTaskText.trim()){addQuickTask(newMergedTaskText.trim(),"top3");setNewMergedTaskText("");setAddingMergedTask(false);}}} style={btnP(T.blue,{padding:"0.45rem 0.75rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={14} color="#fff"/></button>
+                  </div>
+                : <div style={{marginTop:"0.35rem"}}><button onClick={function(){setAddingMergedTask(true);}} style={btnS({fontSize:"0.7rem",padding:"0.28rem 0.65rem"})}>+ Add task</button></div>
+              )}
+            </div>)}
           </div>
-        )}
 
-        {/* ── Today glance (always shown, day or evening) ── */}
-        {(
-          <div style={{display:"flex",flexDirection:"column",gap:flowMode==="Busy"?"0.5rem":"0.75rem"}}>
-
-            {/* ══════════ Today at a Glance — one unified card ══════════ */}
-            {/* Mode-impact: hidden entirely in Survival ("nothing else" — see
-                the Survival-only replacement block below). In Busy, only
-                Schedule/Dinner/Tasks render — the sub-sections below each
-                carry their own flowMode!=="Busy" guard. */}
-            {flowMode!=="Survival"&&(
-            <div style={{background:flowMode==="Busy"?"rgba(228,181,89,0.08)":"rgba(106,186,170,0.07)",border:"1.5px solid "+(flowMode==="Busy"?"rgba(228,181,89,0.35)":T.borderSoft),borderTop:"1px solid "+(flowMode==="Busy"?"rgba(228,181,89,0.45)":"rgba(106,186,170,0.2)"),borderRadius:"1.3rem",padding:"0.4rem 0.95rem 0.75rem",boxShadow:"0 2px 14px rgba(24,43,69,0.05)"}}>
-              <div onClick={function(){setGlanceOpen(!glanceOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.65rem 0.1rem 0.15rem",cursor:"pointer"}}>
-                <span style={{fontSize:"1rem"}}>⚓️</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.25rem",color:T.textDark}}>Today at a Glance</span>
-                <span style={{marginLeft:"auto",color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:glanceOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
+          {/* Compass Suggests card — hidden entirely in Survival */}
+          {flowMode!=="Survival"&&compassSuggestions.length>0&&(
+            <div style={{background:"#EBF5F3",border:"1px solid #6ABAAA",borderRadius:"1.1rem",padding:"0.5rem 0.95rem 0.75rem"}}>
+              <div onClick={function(){setCompassSuggestOpen(!compassSuggestOpen);}} style={{display:"flex",alignItems:"center",gap:"0.45rem",padding:"0.4rem 0.1rem 0.15rem",cursor:"pointer"}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:"#1C3A2E"}}>✨ Compass suggests</span>
+                <span style={{marginLeft:"auto",color:"#4A9E8E",fontSize:"0.68rem",display:"inline-block",transform:compassSuggestOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
               </div>
-
-              {glanceOpen&&(<>
-              {flowMode!=="Busy"&&incompletePrevTasks.length>0&&(
-                <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.1rem",borderTop:"1px solid "+T.borderSoft,marginTop:"0.35rem"}}>
-                  <span style={{fontSize:"0.85rem"}}>↩</span>
-                  <span style={{flex:1,fontSize:"0.8rem",color:T.textSoft}}>{incompletePrevTasks.length} unfinished from yesterday</span>
-                  <button onClick={carryTasksOver} style={btnS({fontSize:"0.68rem",padding:"0.2rem 0.55rem"})}>Bring forward</button>
-                </div>
-              )}
-
-              {/* Schedule */}
-              <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>📅 Schedule
-                  <button onClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.68rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:0,textTransform:"none"}}>Open ›</button>
-                </div>
-                {(function(){
-                  var nowMin=new Date().getHours()*60+new Date().getMinutes(); var GRACE=60;
-                  function em(e){ if(!e.time) return null; var pp=e.time.split(":"); return (parseInt(pp[0],10)||0)*60+(parseInt(pp[1],10)||0); }
-                  var up=todayEvents.filter(function(e){ if(checkedCalEvents.includes(e.id)) return true; var mn=em(e); return mn===null||mn+GRACE>nowMin; });
-                  var earlier=todayEvents.filter(function(e){ if(checkedCalEvents.includes(e.id)) return false; var mn=em(e); return mn!==null&&mn+GRACE<=nowMin; });
-                  if(todayEvents.length===0) return <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No events today — open space 🌿</div>;
-                  return(<>
-                    {up.map(function(e){return(
-                      <AnchorCheckItem key={e.id} id={e.id} text={e.title} checked={checkedCalEvents.includes(e.id)} onCheck={function(id){setCheckedCalEvents(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={e.color} badge={e.time?fmtTime(e.time):"all day"} entityTitle={e.title} onTitleClick={function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}} dest="calendar"/>
-                    );})}
-                    {up.length===0&&earlier.length>0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem"}}>Nothing left on the clock 🌙</div>}
-                    {earlier.length>0&&(<details style={{marginTop:"0.15rem"}}><summary style={{listStyle:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.72rem",fontWeight:600,padding:"0.25rem 0.1rem"}}>🕓 Earlier today · {earlier.length}</summary><div>{earlier.map(function(e){return(<div key={e.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0.5rem",opacity:0.5}}><div style={{width:7,height:7,borderRadius:"50%",background:e.color||T.blue,flexShrink:0}}/><span style={{fontSize:"0.78rem",flex:1}}>{e.title}</span><span style={{fontSize:"0.66rem",color:T.textFaint,fontWeight:700}}>{e.time?fmtTime(e.time):"all day"}</span></div>);})}</div></details>)}
-                  </>);
-                })()}
-              </div>
-
-              {/* Dinner */}
-              <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🍽️ Dinner
-                  <button onClick={function(){goTab("meals");}} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.68rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:0,textTransform:"none"}}>Plan ›</button>
-                </div>
-                {noMealPlanned
-                  ?<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>🌙 Nothing planned yet — keep it easy tonight</div>
-                  :MEALS_TO_SHOW.map(function(m){return todayMeal[m]?(
-                    <AnchorCheckItem key={m} id={"meal_"+m+"_"+TODAY_NAME} text={todayMeal[m]} checked={checkedMealItems.includes("meal_"+m+"_"+TODAY_NAME)} onCheck={function(id){setCheckedMealItems(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sage} badge={m} entityTitle={todayMeal[m]} dest="meals"/>
-                  ):null;})
-                }
-              </div>
-
-              {/* Today's tasks */}
-              <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>⚓️ Today's tasks {allTaskTiers.length>0&&<span style={{color:T.textFaint,fontWeight:700}}>· {allTaskTiers.filter(function(t){return t.done;}).length}/{allTaskTiers.length}</span>}
-                  <button onClick={function(){buildDailyBriefing();}} disabled={briefingLoading} style={{marginLeft:"auto",background:"none",border:"none",color:T.textFaint,fontSize:"0.68rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,letterSpacing:0,textTransform:"none",opacity:briefingLoading?0.6:1}}>✨ Plan</button>
-                </div>
-                {allTaskTiers.filter(function(t){return !t.done;}).length===0
-                  ? (allTaskTiers.length===0
-                      ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.15rem 0.5rem 0.35rem"}}>No tasks yet — add one or tap ✨ Plan</div>
-                      : <div style={{fontSize:"0.8rem",color:T.sageDark,fontFamily:"'Cormorant Garamond',serif",fontStyle:"italic",padding:"0.15rem 0.5rem 0.35rem"}}>🌿 All done for today</div>)
-                  : (<>
-                      {top3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});if(t.aiG)recordSignal({type:"completed",category:"task",dayTheme:dayRhythm.theme||null,ts:Date.now()});}} color={T.blue} badge="TOP" entityTitle={t.text} dest="anchor"/>);})}
-                      {next3Raw.filter(function(t){return !t.done;}).map(function(t){return(<AnchorCheckItem key={t.id} id={t.id} text={t.text} checked={t.done} onCheck={function(id){setTasks(function(p){return p.map(function(x){return x.id===id?{...x,done:!x.done}:x;});});if(t.aiG)recordSignal({type:"completed",category:"task",dayTheme:dayRhythm.theme||null,ts:Date.now()});}} color={T.sage} entityTitle={t.text} dest="anchor"/>);})}
-                    </>)
-                }
-                {allTaskTiers.some(function(t){return t.done;})&&(
-                  <details style={{marginTop:"0.15rem"}}>
-                    <summary style={{listStyle:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.72rem",fontWeight:600,padding:"0.25rem 0.1rem"}}>✓ Done today · {allTaskTiers.filter(function(t){return t.done;}).length}</summary>
-                    <div>{allTaskTiers.filter(function(t){return t.done;}).map(function(t){return(
-                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0.5rem",opacity:0.55}}>
-                        <div style={{width:16,height:16,borderRadius:"50%",background:T.sage,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><Icon name="check" size={8} color="#fff"/></div>
-                        <span style={{fontSize:"0.78rem",flex:1,textDecoration:"line-through"}}>{t.text}</span>
-                        <button onClick={function(){setTasks(function(p){return p.map(function(x){return x.id===t.id?{...x,done:false}:x;});});}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.64rem",color:T.textFaint,fontFamily:"inherit"}}>undo</button>
-                      </div>
-                    );})}</div>
-                  </details>
-                )}
-                {addingTask
-                  ?<div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
-                    <input value={newTask} onChange={function(e){setNewTask(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter"){addQuickTask(newTask,addingTask||"top3",newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}if(e.key==="Escape"){setNewTask("");setNewTaskPerson("");setAddingTask(null);}}} placeholder="Add a task…" style={inp({flex:1,fontSize:"0.85rem",padding:"0.5rem 0.75rem"})} autoFocus/>
-                    <button onClick={function(){addQuickTask(newTask,addingTask||"top3",newTaskPerson);setNewTask("");setNewTaskPerson("");setAddingTask(null);}} style={btnP(T.blue,{padding:"0.45rem 0.75rem",display:"flex",alignItems:"center"})}><Icon name="plus" size={14} color="#fff"/></button>
+              {compassSuggestOpen&&compassSuggestions.map(function(s,i){return(
+                <div key={i} style={{background:T.surface,borderRadius:"0.8rem",padding:"0.55rem 0.7rem",marginBottom:"0.35rem"}}>
+                  <div style={{fontSize:"0.85rem",color:T.textDark,marginBottom:s.reason?"0.15rem":"0.3rem"}}>{s.text}</div>
+                  {s.reason&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.3rem"}}>{s.reason}</div>}
+                  <div style={{display:"flex",gap:"0.4rem"}}>
+                    <button onClick={function(){dismissSuggestion(s.text);}} style={{flex:1,background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",padding:"0.3rem",fontSize:"0.7rem",cursor:"pointer",color:T.textMid,fontFamily:"inherit"}}>Not now</button>
+                    <button onClick={function(){addQuickTask(s.text,"top3");dismissSuggestion(s.text);}} style={{flex:2,...btnP("#6ABAAA",{fontSize:"0.7rem",padding:"0.3rem 0.6rem",borderRadius:"0.5rem"})}}>+ Add to today</button>
                   </div>
-                  :<div style={{marginTop:"0.35rem"}}><button onClick={function(){setAddingTask("top3");}} style={btnS({fontSize:"0.7rem",padding:"0.28rem 0.65rem"})}>＋ Add task</button></div>
-                }
-              </div>
-
-              {/* Household heads-up / reminders — only if present */}
-              {flowMode!=="Busy"&&(function(){
-                var todayStr=TODAY.toISOString().split("T")[0];
-                var rem=notifications.filter(function(n){return !n.fired&&n.date===todayStr;});
-                if(rem.length===0) return null;
-                return(
-                  <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🔔 Heads-up</div>
-                    {rem.map(function(n){return(
-                      <div key={n.id} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.32rem 0.5rem"}}>
-                        <span style={{fontSize:"0.8rem",flexShrink:0}}>📌</span>
-                        <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{n.entityTitle}</span>
-                        {n.time&&<span style={{fontSize:"0.68rem",color:T.sandDark,fontWeight:700,flexShrink:0}}>{fmtTime(n.time)}</span>}
-                      </div>
-                    );})}
-                  </div>
-                );
-              })()}
-
-              {/* School / Lighthouse due — only when something today or soon */}
-              {flowMode!=="Busy"&&schoolDueSoon.length>0&&(
-                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>📖 School</div>
-                  {schoolDueSoon.map(function(s,i){return(
-                    <div key={"sch_"+i} style={{display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.32rem 0.5rem"}}>
-                      <span style={{fontSize:"0.8rem",flexShrink:0}}>📖</span>
-                      <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.title}{s.who?" · "+s.who:""}</span>
-                      <span style={{fontSize:"0.68rem",color:T.blueDark,fontWeight:700,flexShrink:0}}>{s.today?"today":"soon"}</span>
-                    </div>
-                  );})}
                 </div>
-              )}
-
-              {/* Personal anchors — only if present, no colored box */}
-              {flowMode!=="Busy"&&personalAnchors.length>0&&(
-                <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"0.5rem",marginTop:"0.4rem"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🌿 My Anchors</div>
-                  {personalAnchors.map(function(a){return(
-                    <AnchorCheckItem key={a.id} id={a.id} text={a.text} checked={checkedPersonalAnchors.includes(a.id)} onCheck={function(id){setCheckedPersonalAnchors(function(p){return p.includes(id)?p.filter(function(x){return x!==id;}):[...p,id];});}} color={T.sand} entityTitle={a.text} dest="anchor"/>
-                  );})}
-                </div>
-              )}
-              </>)}
-
-            </div>)}{/* ══ end Today at a Glance card ══ */}
-
-            {/* ══════════ Survival burnout OR real-data Top 3 ══════════ */}
-            {flowMode==="Survival"
-              ? (<div style={{display:"flex",flexDirection:"column",gap:"0.55rem"}}>
-                  <div style={{background:"linear-gradient(135deg,"+T.rosePale+","+T.sandPale+")",border:"1.5px solid "+T.rose+"45",borderRadius:"1.2rem",padding:"1rem 1.1rem",textAlign:"center"}}>
-                    <div style={{fontSize:"1.6rem",marginBottom:"0.2rem"}}>🛟</div>
-                    <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark}}>Just these 3 things today</div>
-                    <p style={{color:T.textSoft,fontSize:"0.8rem",margin:"0.2rem 0 0",fontStyle:"italic"}}>Three things. That's the whole day.</p>
-                  </div>
-                  {BURNOUT_TASKS.map(function(t){var checked=burnoutChecked.includes(t.id);return(
-                    <button key={t.id} onClick={function(){setBurnoutChecked(function(p){return p.includes(t.id)?p.filter(function(x){return x!==t.id;}):[...p,t.id];});}} style={{background:checked?T.sagePale:T.surface,border:"2px solid "+(checked?T.sage:T.borderSoft),borderRadius:"1rem",padding:"0.85rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.8rem",width:"100%",textAlign:"left",fontFamily:"inherit"}}>
-                      <span style={{fontSize:"1.3rem"}}>{t.emoji}</span>
-                      <span style={{flex:1,fontWeight:700,color:checked?T.sageDark:T.textDark,fontSize:"0.92rem",textDecoration:checked?"line-through":"none"}}>{t.label}</span>
-                      <div style={{width:24,height:24,borderRadius:"50%",border:"2.5px solid "+(checked?T.sage:T.border),background:checked?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{checked&&<Icon name="check" size={12} color="#fff"/>}</div>
-                    </button>
-                  );})}
-                  {/* Standalone Tonight's Dinner card — Survival shows nothing
-                      else from "Today at a Glance" (hidden entirely above),
-                      so dinner gets its own minimal card instead. */}
-                  <div style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:"1rem",padding:"0.85rem 1rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.35rem",fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>🍽️ Tonight's dinner</div>
-                    {noMealPlanned
-                      ? <div onClick={function(){goTab("meals");}} style={{fontSize:"0.85rem",color:T.textSoft,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",cursor:"pointer"}}>Nothing planned yet — keep it easy tonight</div>
-                      : <div style={{fontSize:"0.9rem",color:T.textDark,fontWeight:600}}>{todayMeal.dinner||"—"}</div>
-                    }
-                  </div>
-                  <button onClick={function(){setFlowMode("Smooth");}} style={{background:"none",border:"1.5px solid "+T.border,borderRadius:"2rem",padding:"0.3rem 1rem",cursor:"pointer",fontSize:"0.72rem",color:T.textSoft,fontFamily:"inherit",fontWeight:600,alignSelf:"center"}}>✨ Back to a full day when ready</button>
-                </div>)
-              : (function(){
-                  var real=[];
-                  todayEvents.forEach(function(e){ if(checkedCalEvents.includes(e.id)) return; real.push({emoji:"📅", text:(e.time?fmtTime(e.time)+" · ":"")+e.title, k:"e_"+e.id, onClick:function(){goTab("calendar");setCalView("day");setCalViewDate(new Date(TODAY));}}); });
-                  top3Raw.concat(next3Raw).forEach(function(t){ if(t.done) return; real.push({emoji:"⚓️", text:t.text, k:"t_"+t.id}); });
-                  if(!noMealPlanned&&todayMeal.dinner){ real.push({emoji:"🍽️", text:"Dinner: "+todayMeal.dinner, k:"dinner", onClick:function(){goTab("meals");}}); }
-                  else if(noMealPlanned){ real.push({emoji:"🍽️", text:"Plan tonight's dinner", k:"dinner", onClick:function(){goTab("meals");}}); }
-                  var todayStr2=TODAY.toISOString().split("T")[0];
-                  notifications.filter(function(n){return !n.fired&&n.date===todayStr2;}).forEach(function(n){ real.push({emoji:"🔔", text:n.entityTitle, k:"n_"+n.id}); });
-                  schoolDueSoon.forEach(function(s){ real.push({emoji:"📖", text:s.title+(s.who?" · "+s.who:""), k:"s_"+s.date+s.title}); });
-                  var picks=real.slice(0,3);
-                  if(picks.length<3&&aiSuggestions&&aiSuggestions.todos){ for(var i=0;i<aiSuggestions.todos.length&&picks.length<3;i++){ var tv=aiSuggestions.todos[i]; picks.push({emoji:"💭", text:typeof tv==="string"?tv:tv.text, k:"c_"+i, compass:true}); } }
-                  var top3Title = flowMode==="Busy" ? "Focus on these 3 things" : "Top 3 — focus here first";
-                  return(
-                    <div style={{background:"rgba(106,186,170,0.06)",border:"1.5px solid "+T.blue+"35",borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.2rem",padding:"0.85rem 1rem"}}>
-                      <div onClick={function(){setTop3Open(!top3Open);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:top3Open?"0.5rem":0,cursor:"pointer"}}>
-                        <span style={{fontSize:"0.9rem"}}>⭐</span>
-                        <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{top3Title}</span>
-                        <span style={{marginLeft:"auto",color:T.textFaint,fontSize:"0.68rem",display:"inline-block",transform:top3Open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
-                      </div>
-                      {top3Open&&(picks.length===0
-                        ?<div style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",fontFamily:"'Cormorant Garamond',serif",padding:"0.2rem 0.4rem"}}>Nothing urgent — enjoy the space 🌿</div>
-                        :picks.map(function(p){return(
-                          <div key={p.k} onClick={p.onClick?p.onClick:undefined} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.5rem 0.65rem",background:(T.bluePale||"#dceef0"),borderRadius:"0.8rem",marginBottom:"0.3rem",cursor:p.onClick?"pointer":"default"}}>
-                            <span style={{fontSize:"0.95rem",flexShrink:0}}>{p.emoji}</span>
-                            <span style={{flex:1,fontSize:"0.88rem",fontWeight:600,color:T.textDark,lineHeight:1.3}}>{p.text}</span>
-                            {p.compass&&<span style={{fontSize:"0.62rem",color:T.textFaint,fontWeight:600,fontStyle:"italic",flexShrink:0}}>idea</span>}
-                          </div>
-                        );}))}
-                    </div>
-                  );
-                })()
-            }
-
-            {flowMode!=="Survival"&&React.createElement(_hfRenders.Countdowns)}
-
-          </div>
-        )}
-
-        {/* ── For later · Compass notes (collapsed) ── */}
-        {/* Mode-impact: hidden entirely (not just collapsed) in Busy and
-            Survival — both explicitly want this section gone, not just closed. */}
-        {flowMode==="Smooth"&&(
-        <div style={{background:"rgba(106,186,170,0.05)",border:"1.5px solid "+T.blue+"40",borderTop:"1px solid rgba(106,186,170,0.2)",borderRadius:"1.2rem",marginBottom:"0.75rem"}}>
-          <div onClick={function(){setForLaterOpen(!forLaterOpen);}} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:"0.55rem",padding:"0.85rem 1rem"}}>
-            <span style={{fontSize:"1.05rem"}}>🧭</span>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:"0.66rem",letterSpacing:"0.1em",textTransform:"uppercase",color:T.blueDark||T.blue,fontWeight:800}}>For later</div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>Compass</div>
-              <div style={{fontSize:"0.75rem",color:T.textSoft,marginTop:"0.05rem"}}>Reflections & your week — open when you have a moment</div>
+              );})}
             </div>
-            <span style={{color:T.textFaint,fontSize:"0.68rem",flexShrink:0,display:"inline-block",transform:forLaterOpen?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>
-          </div>
-          {forLaterOpen&&(
-          <div style={{padding:"0 0.35rem 0.4rem"}}>
-            <TodayBriefing compassCache={compassCache} setCompassCache={setCompassCache} flowMode={flowMode} setFlowMode={setFlowMode} userName={myDisplayName(people,myPersonId,preferredName,authUser)}/>
-            <NudgeStrip compassCache={compassCache} setCompassCache={setCompassCache} existingTexts={[...visibleInsights.map(function(i){return i.title||i.body||"";}), ...allTaskTiers.map(function(t){return t.text||t.title||"";})]}/>
-            <PrepCard compassCache={compassCache} setCompassCache={setCompassCache}/>
-            <WeeklyReviewCard compassCache={compassCache} setCompassCache={setCompassCache}/>
-          </div>
           )}
+
         </div>
-        )}
+
 
         {/* ── Evening wind-down panel ── */}
         {dayOpen&&isEvening&&(
