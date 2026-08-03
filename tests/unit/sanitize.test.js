@@ -95,6 +95,9 @@ const PLAUSIBLE = {
   exhale_people:      [{ id:"ep1", name:"Alice" }],
   exhale_labels:      { g1:"Work" },
   exhale_columns:     [{ id:"inbox", label:"On My Mind", color:"seafoam", emoji:"🌊" }],
+  // exhale_buckets: Exhale Phase 1 bucket-card redesign — object with its
+  // own array fields, same shape class as gifts/work_schedules/safe_harbor.
+  exhale_buckets:     { bucketNames:["Here","Today","Tomorrow","Someday"], items:[{ id:"eb1", text:"Call the vet", notes:"", bucketIndex:0, createdAt:1753900800000, color:"#C47A7A" }] },
   cal_markers:        { "2026-07-04":["⭐"] },
   cal_marker_types:   [{ id:"cm1", emoji:"⭐", label:"Star" }],
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],

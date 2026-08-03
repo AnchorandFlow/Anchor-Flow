@@ -58,6 +58,11 @@ export const SYNC_KEYS = [
   // exhale_columns: user-managed column config [{id,label,color,emoji}],
   // superseding exhale_labels as the source of truth for column identity.
   "exhale_columns",
+  // exhale_buckets: Exhale Phase 1 bucket-card redesign — { bucketNames:[],
+  // items:[{id,text,notes,bucketIndex,createdAt,color}] }. Separate key from
+  // exhale_groups (kept registered, no longer written to) so existing sync
+  // isn't disturbed.
+  "exhale_buckets",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
@@ -186,6 +191,10 @@ const _SANITIZE_HANDLED = new Set([
   // exhale_columns: user-managed Exhale board columns. Same array-guard
   // class as countdowns.
   "exhale_columns",
+  // exhale_buckets: object { bucketNames:[], items:[] } (Exhale Phase 1).
+  // Own guard for the same reason as gifts/work_schedules below — an object
+  // misclassified by the array-guard mechanism silently vanishes every sync.
+  "exhale_buckets",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // gifts: object map { personId: [gift, ...] } (Phase 3) — moved off the
@@ -358,6 +367,17 @@ export function sanitizeHouseholdData(data) {
         }
       });
       out.work_schedules = safeSchedules;
+    }
+    // exhale_buckets: { bucketNames:[string,...], items:[{id,text,notes,
+    // bucketIndex,createdAt,color}] } (Exhale Phase 1). Validated per-field
+    // rather than trusted wholesale, same reasoning as work_schedules above.
+    if (data["exhale_buckets"] !== undefined && data["exhale_buckets"] !== null &&
+        typeof data["exhale_buckets"] === "object" && !Array.isArray(data["exhale_buckets"])) {
+      var eb = data["exhale_buckets"];
+      out["exhale_buckets"] = {
+        bucketNames: Array.isArray(eb.bucketNames) ? eb.bucketNames.filter(n => typeof n === "string") : [],
+        items: Array.isArray(eb.items) ? eb.items.filter(it => it && typeof it === "object" && !Array.isArray(it)) : [],
+      };
     }
     // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey
     if (data["safe_harbor"] !== undefined && data["safe_harbor"] !== null &&

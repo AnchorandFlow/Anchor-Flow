@@ -49,6 +49,17 @@ var LS_P    = "af_exhale_people";
 var LS_COLS = "af_exhale_columns";
 var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false";
 
+// Exhale Phase 1 — bucket cards replace the column Kanban board as the
+// primary UI. af_exhale_groups (LS_G above) stays registered in SYNC_KEYS
+// and its Supabase realtime/migration effects below keep running untouched
+// (so existing sync isn't broken and a later phase could still read it) —
+// this is a new, separate key that the new UI reads/writes exclusively.
+var LS_B = "af_exhale_buckets";
+var EXHALE_BUCKETS_MIGRATED_FLAG = "af_exhale_buckets_migrated";
+var DEFAULT_BUCKET_NAMES = ["Here", "Today", "Tomorrow", "Someday"];
+var BUCKET_COLORS = ["#C47A7A", "#6ABAAA", "#7AB3D4", "#A99AC4"];
+function defaultBuckets() { return { bucketNames: DEFAULT_BUCKET_NAMES.slice(), items: [] }; }
+
 // First-run seed: migrates any existing af_exhale_labels customization
 // (or the initialLabels prop) onto the new {id,label,color,emoji} shape,
 // so a household that already renamed a column doesn't lose that rename.
@@ -305,6 +316,118 @@ export default function ExhaleSection(props) {
     var f = findIn(groups, selectedId);
     setNoteText(f ? f.card.notes : "");
   }, [selectedId]);
+
+  // ── Exhale Phase 1 — bucket state ──────────────────────────────────────────
+  var myPersonId = props.myPersonId || null;
+  var [buckets, setBuckets] = useState(function() {
+    var b = lsGet(LS_B, null);
+    if (b && typeof b === "object" && Array.isArray(b.bucketNames) && Array.isArray(b.items)) return b;
+    return defaultBuckets();
+  });
+  var [activeExhaleTab, setActiveExhaleTab] = useState("exhale"); // "exhale" | "waves"
+  var [openBuckets, setOpenBuckets] = useState({ 0: true, 1: true, 2: false, 3: false });
+  var [expandedItemId, setExpandedItemId] = useState(null);
+  var [editingBucketIdx, setEditingBucketIdx] = useState(null);
+  var [bucketInputText, setBucketInputText] = useState("");
+  var [bucketInputTarget, setBucketInputTarget] = useState(0);
+  var [bucketAddOpenFor, setBucketAddOpenFor] = useState(null);
+  var [bucketAddText, setBucketAddText] = useState("");
+
+  function persistBuckets(nb) { setBuckets(nb); lsSet(LS_B, nb); }
+
+  // One-time migration: af_exhale_groups (column data) → af_exhale_buckets.
+  // Flag-gated (not just "buckets.items.length===0") so a household that
+  // later archives/deletes every bucket item never re-migrates and silently
+  // resurrects old column cards. Never overwrites existing bucket data.
+  useEffect(function() {
+    if (localStorage.getItem(EXHALE_BUCKETS_MIGRATED_FLAG)) return;
+    var existing = lsGet(LS_B, null);
+    if (existing && Array.isArray(existing.items) && existing.items.length > 0) {
+      localStorage.setItem(EXHALE_BUCKETS_MIGRATED_FLAG, "1");
+      return;
+    }
+    var g = lsGet(LS_G, null);
+    if (!g || typeof g !== "object") { localStorage.setItem(EXHALE_BUCKETS_MIGRATED_FLAG, "1"); return; }
+    var colIds = columns.map(function(c) { return c.id; });
+    var migrated = [];
+    colIds.forEach(function(colId, idx) {
+      var bucketIdx = idx === 0 ? 0 : idx === 1 ? 1 : idx === 2 ? 2 : 3;
+      (g[colId] || []).forEach(function(card) {
+        if (!card) return;
+        migrated.push({
+          id: card.id || uuidv4(),
+          text: card.text || "",
+          notes: card.notes || "",
+          bucketIndex: bucketIdx,
+          createdAt: card.createdAt || Date.now(),
+          color: card.color || CARD_COLORS[0].id,
+        });
+      });
+    });
+    if (migrated.length === 0) { localStorage.setItem(EXHALE_BUCKETS_MIGRATED_FLAG, "1"); return; }
+    var nb = {
+      bucketNames: (existing && Array.isArray(existing.bucketNames) && existing.bucketNames.length === 4) ? existing.bucketNames : DEFAULT_BUCKET_NAMES.slice(),
+      items: migrated,
+    };
+    persistBuckets(nb);
+    localStorage.setItem(EXHALE_BUCKETS_MIGRATED_FLAG, "1");
+  }, []); // one-time on mount — deliberately no deps
+
+  function visibleBucketItems(idx) {
+    return buckets.items.filter(function(it) {
+      if (!it || it.archived) return false;
+      if (it.bucketIndex !== idx) return false;
+      // Defensive private-item filter — nothing in this UI sets `private`
+      // today, but if a future capture path (or migrated data) does, this
+      // keeps the same createdBy/myPersonId contract Cove Notes uses.
+      if (it.private && it.createdBy && myPersonId && it.createdBy !== myPersonId) return false;
+      return true;
+    });
+  }
+
+  function addBucketItem(text, bucketIndex) {
+    var txt = (text || "").trim();
+    if (!txt) return;
+    var item = { id: uuidv4(), text: txt, notes: "", bucketIndex: bucketIndex, createdAt: Date.now(), color: BUCKET_COLORS[bucketIndex % BUCKET_COLORS.length] };
+    var nb = Object.assign({}, buckets, { items: [item].concat(buckets.items) });
+    persistBuckets(nb);
+  }
+
+  function updateBucketItem(id, patch) {
+    var nb = Object.assign({}, buckets, {
+      items: buckets.items.map(function(it) { return it.id === id ? Object.assign({}, it, patch) : it; })
+    });
+    persistBuckets(nb);
+  }
+
+  function archiveBucketItem(id) { updateBucketItem(id, { archived: true }); }
+
+  function deleteBucketItem(id, text) {
+    if (!window.confirm("Delete \"" + (text || "this item") + "\"?")) return;
+    var nb = Object.assign({}, buckets, { items: buckets.items.filter(function(it) { return it.id !== id; }) });
+    persistBuckets(nb);
+    if (expandedItemId === id) setExpandedItemId(null);
+  }
+
+  function moveBucketItemForward(id) {
+    var n = buckets.bucketNames.length;
+    updateBucketItem(id, { bucketIndex: function() {
+      var it = buckets.items.find(function(x) { return x.id === id; });
+      return it ? (it.bucketIndex + 1) % n : 0;
+    }() });
+  }
+
+  function renameBucket(idx, name) {
+    var nb = Object.assign({}, buckets, {
+      bucketNames: buckets.bucketNames.map(function(n, i) { return i === idx ? name : n; })
+    });
+    persistBuckets(nb);
+    setEditingBucketIdx(null);
+  }
+
+  function toggleBucketOpen(idx) {
+    setOpenBuckets(function(prev) { return Object.assign({}, prev, { [idx]: !prev[idx] }); });
+  }
 
   // V2 first-run migration: contribute this device's local cards to exhale_cards.
   // Per-device flag (af_exhale_migrated_<householdId>) so every device runs once,
@@ -939,346 +1062,148 @@ export default function ExhaleSection(props) {
 
   var chip = { fontSize: 10, padding: "2px 7px", borderRadius: 20, border: br, background: bgS, cursor: "pointer", color: txP, whiteSpace: "nowrap" };
 
-  // ── DETAIL VIEW ─────────────────────────────────────────────────────────────
-  if (sel) {
-    var card = sel.card;
-    var cc = getColor(card.color);
-    var dueMeta = getDueMeta(card.dueDate);
-    var today = getToday(), tomorrow = getTomorrow();
+  // ── EXHALE PHASE 1 RENDER — bucket cards + tab switcher ────────────────────
+  // The old Kanban board (columns/groups/drag/filter UI) and its detail view
+  // are gone from here; the data layer above (columns/groups/Supabase
+  // realtime/drag handlers) is untouched and keeps af_exhale_groups syncing,
+  // it's just no longer read by anything below this line.
+  var totalVisible = buckets.items.filter(function(it) { return it && !it.archived; }).length;
 
-    return (
-      <div style={{ fontFamily: "var(--font-sans,sans-serif)" }}>
-        {/* Header */}
-        <div style={{ background: cc.bg, borderBottom: "0.5px solid " + cc.bd, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={handleDone} style={{ background: "rgba(0,0,0,0.1)", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 12, cursor: "pointer", color: cc.tx }}>← Back</button>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: cc.tx, lineHeight: 1.3 }}>{card.text}</span>
-        </div>
-
-        {/* Notes */}
-        <div style={{ padding: "12px 14px 10px" }}>
-          <div style={{ fontSize: 11, color: txS, marginBottom: 5 }}>Notes</div>
-          <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="Context, deadline, links..." rows={3}
-            style={{ width: "100%", border: br, borderRadius: 8, padding: "8px 10px", fontSize: 13, resize: "none", background: bgP, color: txP, lineHeight: 1.5, fontFamily: "inherit" }} />
-        </div>
-
-        {/* Color + label */}
-        <div style={{ padding: "0 14px 12px" }}>
-          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Color</div>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
-            {CARD_COLORS.map(function(cl) {
-              return <div key={cl.id} onClick={() => patchCard(card.id, { color: cl.id })}
-                title={colorLabels[cl.id] || cl.id}
-                style={{ width: 24, height: 24, borderRadius: "50%", background: cl.bg, border: "2px solid " + (cl.id === card.color ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0.12)"), cursor: "pointer", flexShrink: 0 }} />;
-            })}
-          </div>
-          <input value={colorLabels[card.color] || ""} onChange={(e) => handleColorLabelSave(card.color, e.target.value)}
-            placeholder={"Label this color (e.g. Urgent, Work, Kids)"}
-            style={{ marginTop: 7, width: "100%", border: br, borderRadius: 6, padding: "5px 9px", fontSize: 11, background: bgP, color: txP }} />
-        </div>
-
-        {/* Emoji */}
-        <div style={{ padding: "0 14px 12px" }}>
-          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Emoji marker</div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {EMOJIS.map(function(em) {
-              var isActive = card.emoji === em;
-              return <button key={em} onClick={() => patchCard(card.id, { emoji: isActive ? null : em })}
-                style={{ fontSize: 16, padding: "3px 5px", border: isActive ? ("2px solid " + NAVY) : br, borderRadius: 6, background: isActive ? "rgba(27,46,79,0.07)" : bgS, cursor: "pointer" }}>{em}</button>;
-            })}
-            {card.emoji && <button onClick={() => patchCard(card.id, { emoji: null })} style={{ ...chip, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>✕ Clear</button>}
-          </div>
-        </div>
-
-        {/* Due date */}
-        <div style={{ padding: "0 14px 12px" }}>
-          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Due date</div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-            <button onClick={() => patchCard(card.id, { dueDate: card.dueDate === today ? null : today })}
-              style={{ ...chip, background: card.dueDate === today ? "#E8D8A8" : bgS, borderColor: card.dueDate === today ? "#C4A860" : undefined, fontWeight: card.dueDate === today ? 600 : 400 }}>Today</button>
-            <button onClick={() => patchCard(card.id, { dueDate: card.dueDate === tomorrow ? null : tomorrow })}
-              style={{ ...chip, background: card.dueDate === tomorrow ? "#C4D8B8" : bgS, borderColor: card.dueDate === tomorrow ? "#8AB878" : undefined, fontWeight: card.dueDate === tomorrow ? 600 : 400 }}>Tomorrow</button>
-            <input type="date" value={card.dueDate && card.dueDate !== today && card.dueDate !== tomorrow ? card.dueDate : ""}
-              onChange={(e) => patchCard(card.id, { dueDate: e.target.value || null })}
-              style={{ fontSize: 11, border: br, borderRadius: 6, padding: "3px 7px", background: bgP, color: txP }} />
-            {card.dueDate && <button onClick={() => patchCard(card.id, { dueDate: null })} style={{ ...chip, color: "#8B0000" }}>✕</button>}
-          </div>
-          {dueMeta && <div style={{ marginTop: 5, fontSize: 11, color: dueMeta.color, fontWeight: 500 }}>{dueMeta.label}</div>}
-        </div>
-
-        {/* Assign to */}
-        <div style={{ padding: "0 14px 12px" }}>
-          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Assign to</div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-            {people.map(function(p) {
-              var isActive = card.assignedTo === p;
-              return <button key={p} onClick={() => patchCard(card.id, { assignedTo: isActive ? null : p })}
-                style={{ ...chip, background: isActive ? NAVY : bgS, color: isActive ? "white" : txP, fontWeight: isActive ? 500 : 400 }}>{p}</button>;
-            })}
-            {!addingPerson ? (
-              <button onClick={() => setAddingPerson(true)} style={{ ...chip, color: txS }}>+ Add</button>
-            ) : (
-              <span style={{ display: "flex", gap: 4 }}>
-                <input autoFocus value={newPerson} onChange={(e) => setNewPerson(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAddPerson(); if (e.key === "Escape") { setAddingPerson(false); setNewPerson(""); } }}
-                  placeholder="Name" style={{ fontSize: 11, border: br, borderRadius: 6, padding: "3px 7px", width: 80, background: bgP, color: txP }} />
-                <button onClick={handleAddPerson} style={{ ...chip, background: NAVY, color: "white", border: "none" }}>Add</button>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Move to */}
-        <div style={{ padding: "0 14px 12px" }}>
-          <div style={{ fontSize: 11, color: txS, marginBottom: 7 }}>Move to</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {columns.map(function(c) {
-              var isHere = c.id === sel.col;
-              return <button key={c.id} onClick={() => handleMoveToCol(card.id, c.id)}
-                style={{ textAlign: "left", padding: "6px 10px", borderRadius: 7, border: br, background: isHere ? NAVY : bgS, color: isHere ? "white" : txP, fontSize: 12, cursor: isHere ? "default" : "pointer", fontWeight: isHere ? 500 : 400 }}>
-                {c.emoji ? c.emoji + " " : ""}{c.label}
-              </button>;
-            })}
-          </div>
-        </div>
-
-        {/* Delete */}
-        <div style={{ padding: "0 14px 14px", borderTop: br, paddingTop: 10 }}>
-          <button onClick={() => handleDelete(card.id)}
-            style={{ width: "100%", padding: 8, borderRadius: 7, border: "0.5px solid rgba(180,0,0,0.3)", background: "rgba(180,0,0,0.06)", color: "#8B0000", fontSize: 12, cursor: "pointer" }}>
-            ✕ Delete this card
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── KANBAN VIEW ─────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 13 }}>
-      {/* Mobile-fit: this component is inline-style-only (no className
-          convention anywhere in the file), so a scoped <style> block is the
-          pragmatic equivalent of the CSS-@media convention used elsewhere
-          (App.jsx's own <style>{`...`}</style> blocks) — a real className
-          would be inert without a stylesheet to attach a media query to. */}
-      <style>{`
-        @media (max-width: 640px) {
-          .af-exhale-board {
-            grid-auto-flow: column;
-            grid-template-columns: repeat(${columns.length}, minmax(150px, 1fr));
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-        }
-      `}</style>
-
       {/* App bar */}
       <div style={{ background: NAVY, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
         <span>💨</span>
         <span style={{ color: "#E8C76A" }}>Exhale</span>
-        <span style={{ marginLeft: "auto", fontSize: 10 }}>{total} items</span>
-        <button onClick={() => setShowColPanel(true)} style={{ background: "rgba(255,255,255,0.12)", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 10, color: "rgba(255,255,255,0.8)", cursor: "pointer" }}>⚙ Columns</button>
+        <span style={{ marginLeft: "auto", fontSize: 10 }}>{totalVisible} items</span>
       </div>
 
-      {/* Column management panel */}
-      {showColPanel && (
-        <div onClick={() => setShowColPanel(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: bgP, borderRadius: "14px 14px 0 0", padding: "14px 14px calc(14px + env(safe-area-inset-bottom,0px))", width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: txP }}>Columns</span>
-              <button onClick={() => setShowColPanel(false)} style={{ marginLeft: "auto", background: NAVY, color: "white", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>Done</button>
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: br, background: bgP }}>
+        <button onClick={() => setActiveExhaleTab("exhale")}
+          style={{ flex: 1, padding: "9px 0", border: "none", background: "none", borderBottom: activeExhaleTab === "exhale" ? "2.5px solid " + NAVY : "2.5px solid transparent", color: activeExhaleTab === "exhale" ? NAVY : txS, fontWeight: activeExhaleTab === "exhale" ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
+          Exhale
+        </button>
+        <button onClick={() => setActiveExhaleTab("waves")}
+          style={{ flex: 1, padding: "9px 0", border: "none", background: "none", borderBottom: activeExhaleTab === "waves" ? "2.5px solid #2E9B8F" : "2.5px solid transparent", color: activeExhaleTab === "waves" ? "#2E9B8F" : txS, fontWeight: activeExhaleTab === "waves" ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
+          🌊 Waves
+        </button>
+      </div>
+
+      {activeExhaleTab === "waves" ? (
+        <div style={{ padding: "40px 20px", textAlign: "center", color: txS }}>
+          <div style={{ fontSize: 32, marginBottom: 10 }}>🌊</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: txP, marginBottom: 4 }}>Waves is coming soon</div>
+          <div style={{ fontSize: 12 }}>Daily, weekly, seasonal, and custom routines — built in the next phase.</div>
+        </div>
+      ) : (
+        <div>
+          {/* Quick capture */}
+          <div style={{ padding: "10px 12px", borderBottom: br, background: bgP }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={bucketInputText} onChange={(e) => setBucketInputText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { addBucketItem(bucketInputText, bucketInputTarget); setBucketInputText(""); } }}
+                placeholder="+ Exhale a thought"
+                style={{ flex: 1, padding: "8px 11px", fontSize: 13, border: br, borderRadius: 8, background: bgP, color: txP }} />
+              <button onClick={() => { addBucketItem(bucketInputText, bucketInputTarget); setBucketInputText(""); }}
+                style={{ background: NAVY, color: "white", border: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12, cursor: "pointer" }}>+ Add</button>
             </div>
-            {columns.map(function(c, idx) {
-              var hasCards = (groups[c.id] || []).length > 0;
-              var cc = getColor(c.color);
-              var isRowDrop = colDrag !== null && colDrag !== idx;
+            <div style={{ display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: txS }}>Add to:</span>
+              {buckets.bucketNames.map(function(name, idx) {
+                var isActive = bucketInputTarget === idx;
+                var bc = BUCKET_COLORS[idx % BUCKET_COLORS.length];
+                return (
+                  <button key={idx} onClick={() => setBucketInputTarget(idx)}
+                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, border: isActive ? "1.5px solid " + bc : br, background: isActive ? bc + "22" : bgS, color: isActive ? bc : txS, fontWeight: isActive ? 700 : 400, cursor: "pointer" }}>
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bucket cards */}
+          <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {buckets.bucketNames.map(function(bucketName, idx) {
+              var bItems = visibleBucketItems(idx);
+              var isOpen = !!openBuckets[idx];
+              var accent = BUCKET_COLORS[idx % BUCKET_COLORS.length];
+              var nextIdx = (idx + 1) % buckets.bucketNames.length;
+              var nextName = buckets.bucketNames[nextIdx];
               return (
-                <div key={c.id}
-                  draggable
-                  onDragStart={() => handleColRowDragStart(idx)}
-                  onDragOver={handleColRowDragOver}
-                  onDrop={(e) => handleColRowDrop(e, idx)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 4px", borderBottom: br, opacity: colDrag === idx ? 0.4 : 1, background: isRowDrop ? "rgba(27,46,79,0.04)" : "transparent" }}>
-                  <span style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0 }}>⠿</span>
-                  {editingCol === c.id ? (
-                    <input autoFocus defaultValue={c.label}
-                      onBlur={(e) => handleLabelSave(c.id, e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") handleLabelSave(c.id, e.target.value); }}
-                      style={{ flex: 1, fontSize: 13, border: "none", borderBottom: "1.5px solid " + NAVY, background: "transparent", color: txP, outline: "none", padding: "2px 0", fontFamily: "inherit" }} />
-                  ) : (
-                    <span onClick={() => setEditingCol(c.id)} style={{ flex: 1, fontSize: 13, color: txP, cursor: "text" }}>{c.emoji ? c.emoji + " " : ""}{c.label}</span>
-                  )}
-                  <div onClick={() => cycleColumnColor(c.id)} title="Tap to change color"
-                    style={{ width: 20, height: 20, borderRadius: "50%", background: cc.bg, border: "2px solid " + cc.bd, cursor: "pointer", flexShrink: 0 }} />
-                  {hasCards ? (
-                    <span style={{ fontSize: 10, color: txS, fontStyle: "italic", flexShrink: 0, whiteSpace: "nowrap" }}>has cards</span>
-                  ) : (
-                    <button onClick={() => deleteColumn(c.id)} style={{ background: "none", border: "none", color: "#8B0000", fontSize: 14, cursor: "pointer", flexShrink: 0, padding: "0 2px" }}>✕</button>
+                <div key={idx} style={{ borderRadius: 12, border: br, borderTop: "3px solid " + accent, background: bgP, overflow: "hidden" }}>
+                  {/* Header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}
+                    onClick={() => toggleBucketOpen(idx)}>
+                    {editingBucketIdx === idx ? (
+                      <input autoFocus defaultValue={bucketName} onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => renameBucket(idx, e.target.value.trim() || bucketName)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") e.target.blur(); }}
+                        style={{ flex: 1, fontSize: 14, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
+                    ) : (
+                      <span onClick={(e) => { e.stopPropagation(); setEditingBucketIdx(idx); }} title="Tap to rename"
+                        style={{ flex: 1, fontSize: 14, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
+                    )}
+                    <span style={{ fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
+                    <button onClick={(e) => { e.stopPropagation(); setBucketAddOpenFor(bucketAddOpenFor === idx ? null : idx); setOpenBuckets(function(p) { return Object.assign({}, p, { [idx]: true }); }); }}
+                      style={{ background: accent, color: "white", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>+ Add</button>
+                    <span style={{ fontSize: 11, color: txS, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
+                  </div>
+
+                  {isOpen && (
+                    <div style={{ padding: "0 12px 10px" }}>
+                      {bucketAddOpenFor === idx && (
+                        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                          <input autoFocus value={bucketAddText} onChange={(e) => setBucketAddText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { addBucketItem(bucketAddText, idx); setBucketAddText(""); setBucketAddOpenFor(null); } if (e.key === "Escape") { setBucketAddText(""); setBucketAddOpenFor(null); } }}
+                            placeholder={"Add to " + bucketName + "..."}
+                            style={{ flex: 1, padding: "6px 9px", fontSize: 12, border: br, borderRadius: 7, background: bgP, color: txP }} />
+                          <button onClick={() => { addBucketItem(bucketAddText, idx); setBucketAddText(""); setBucketAddOpenFor(null); }}
+                            style={{ background: accent, color: "white", border: "none", borderRadius: 7, padding: "6px 11px", fontSize: 11, cursor: "pointer" }}>Add</button>
+                        </div>
+                      )}
+
+                      {bItems.length === 0 && (
+                        <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "6px 0" }}>Nothing here yet.</div>
+                      )}
+
+                      {bItems.map(function(item) {
+                        var isExpanded = expandedItemId === item.id;
+                        return (
+                          <div key={item.id} style={{ borderRadius: 8, border: br, padding: "8px 10px", marginBottom: 6, background: bgS }}>
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || accent, marginTop: 5, flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setExpandedItemId(isExpanded ? null : item.id)}>
+                                <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
+                                {!isExpanded && item.notes && (
+                                  <div style={{ fontSize: 10.5, marginTop: 2, opacity: 0.7, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.notes}</div>
+                                )}
+                              </div>
+                            </div>
+                            {isExpanded && (
+                              <div style={{ marginTop: 8 }}>
+                                <textarea value={item.notes || ""} onChange={(e) => updateBucketItem(item.id, { notes: e.target.value })}
+                                  placeholder="Notes..." rows={2}
+                                  style={{ width: "100%", border: br, borderRadius: 6, padding: "6px 8px", fontSize: 11.5, resize: "none", background: bgP, color: txP, fontFamily: "inherit", marginBottom: 6 }} />
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  <button onClick={() => moveBucketItemForward(item.id)} style={{ ...chip, background: bgP }}>→ {nextName}</button>
+                                  <button onClick={() => archiveBucketItem(item.id)} style={{ ...chip, background: bgP }}>Archive</button>
+                                  <button onClick={() => deleteBucketItem(item.id, item.text)} style={{ ...chip, background: bgP, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>Delete</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               );
             })}
-            <button onClick={addColumn} disabled={columns.length >= MAX_COLUMNS}
-              style={{ width: "100%", marginTop: 10, padding: 9, borderRadius: 8, border: br, background: columns.length >= MAX_COLUMNS ? bgS : "transparent", color: columns.length >= MAX_COLUMNS ? txS : NAVY, fontSize: 12, fontWeight: 600, cursor: columns.length >= MAX_COLUMNS ? "default" : "pointer" }}>
-              {columns.length >= MAX_COLUMNS ? "Max 8 columns" : "＋ Add column"}
-            </button>
           </div>
         </div>
       )}
-
-      {/* Filter toggle */}
-      <div style={{ padding: "6px 12px", borderBottom: br, background: bgS, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <button onClick={() => setShowFilters(function(p) { return !p; })}
-          style={{ ...chip, background: nFilters > 0 ? NAVY : bgS, color: nFilters > 0 ? "white" : txS, border: nFilters > 0 ? "none" : br }}>
-          🔍 {nFilters > 0 ? nFilters + " filter" + (nFilters > 1 ? "s" : "") + " active" : "Filter"} {showFilters ? "▲" : "▼"}
-        </button>
-        {nFilters > 0 && <button onClick={clearFilters} style={{ ...chip, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>✕ Clear all</button>}
-      </div>
-
-      {/* Filter panel */}
-      {showFilters && (
-        <div style={{ padding: "10px 12px", borderBottom: br, background: bgS }}>
-
-          {/* Color filter */}
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Color</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {CARD_COLORS.map(function(cl) {
-                var isActive = filters.color === cl.id;
-                var label = colorLabels[cl.id] || cl.id;
-                return <button key={cl.id} onClick={() => toggleFilter("color", cl.id)}
-                  style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: cl.bg, border: isActive ? ("2px solid " + NAVY) : ("0.5px solid " + cl.bd), cursor: "pointer", color: cl.tx, fontWeight: isActive ? 600 : 400 }}>
-                  {label}
-                </button>;
-              })}
-            </div>
-          </div>
-
-          {/* Emoji filter */}
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Emoji</div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {EMOJIS.map(function(em) {
-                var isActive = filters.emoji === em;
-                return <button key={em} onClick={() => toggleFilter("emoji", em)}
-                  style={{ fontSize: 14, padding: "2px 4px", border: isActive ? ("2px solid " + NAVY) : br, borderRadius: 5, background: isActive ? "rgba(27,46,79,0.08)" : bgP, cursor: "pointer" }}>{em}</button>;
-              })}
-            </div>
-          </div>
-
-          {/* Person filter */}
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Person</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {people.map(function(p) {
-                var isActive = filters.person === p;
-                return <button key={p} onClick={() => toggleFilter("person", p)}
-                  style={{ ...chip, background: isActive ? NAVY : bgS, color: isActive ? "white" : txP, fontWeight: isActive ? 500 : 400 }}>{p}</button>;
-              })}
-            </div>
-          </div>
-
-          {/* Date filter */}
-          <div>
-            <div style={{ fontSize: 10, color: txS, marginBottom: 5, fontWeight: 500 }}>Date</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {[["today","Today"],["tomorrow","Tomorrow"],["overdue","Overdue"],["upcoming","Upcoming"]].map(function(pair) {
-                var isActive = filters.date === pair[0];
-                return <button key={pair[0]} onClick={() => toggleFilter("date", pair[0])}
-                  style={{ ...chip, background: isActive ? NAVY : bgS, color: isActive ? "white" : txP, fontWeight: isActive ? 500 : 400 }}>{pair[1]}</button>;
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Capture */}
-      <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderBottom: br, background: bgP }}>
-        <input value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleInputKeyDown}
-          placeholder="What's on your mind? Drop it here."
-          style={{ flex: 1, padding: "8px 11px", fontSize: 13, border: br, borderRadius: 8, background: bgP, color: txP }} />
-        <button onClick={handleAdd} style={{ background: NAVY, color: "white", border: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12, cursor: "pointer" }}>+ Add</button>
-      </div>
-
-      {/* Kanban */}
-      <div className="af-exhale-board" style={{ display: "grid", gridTemplateColumns: "repeat(" + columns.length + ",minmax(0,1fr))", minHeight: 200, overflowX: columns.length > 6 ? "auto" : undefined }}>
-        {columns.map(function(cMeta, ci) {
-          var col = cMeta.id;
-          var isColTarget = dropOver && dropOver.type === "col" && dropOver.col === col;
-          var colCards = groups[col] || [];
-          var visibleCards = colCards.filter(function(c) { return cardMatchesFilters(c, filters); });
-
-          return (
-            <div key={col}
-              onDragOver={(e) => handleColDragOver(e, col)}
-              onDrop={(e) => handleColDrop(e, col)}
-              onDragLeave={() => setDropOver(null)}
-              style={{ padding: "10px 6px", borderRight: ci < columns.length - 1 ? br : "none", background: isColTarget ? "rgba(27,46,79,0.04)" : "transparent", minWidth: columns.length > 6 ? 150 : undefined }}>
-
-              {/* Column header */}
-              <div style={{ marginBottom: 8, display: "flex", alignItems: "flex-start", gap: 3 }}>
-                {editingCol === col ? (
-                  <input autoFocus defaultValue={cMeta.label}
-                    onBlur={(e) => handleLabelSave(col, e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") handleLabelSave(col, e.target.value); }}
-                    style={{ flex: 1, fontSize: 10, fontWeight: 500, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + NAVY, padding: "0 0 1px 0", fontFamily: "inherit" }} />
-                ) : (
-                  <span onClick={() => setEditingCol(col)} title="Click to rename"
-                    style={{ flex: 1, fontSize: 10, fontWeight: 500, color: txS, cursor: "text", lineHeight: 1.3 }}>{cMeta.emoji ? cMeta.emoji + " " : ""}{cMeta.label}</span>
-                )}
-                <span style={{ background: bgS, borderRadius: 8, padding: "1px 4px", fontSize: 9, color: "var(--color-text-tertiary,#aaa)", flexShrink: 0 }}>
-                  {nFilters > 0 ? visibleCards.length + "/" + colCards.length : colCards.length}
-                </span>
-              </div>
-
-              {/* Cards */}
-              {visibleCards.map(function(card) {
-                var c = getColor(card.color);
-                var isDrag  = drag && drag.id === card.id;
-                var isAbove = dropOver && dropOver.type === "card" && dropOver.id === card.id && dropOver.above;
-                var isBelow = dropOver && dropOver.type === "card" && dropOver.id === card.id && !dropOver.above;
-                var dm = getDueMeta(card.dueDate);
-                var cs = { borderRadius: 7, padding: "7px 8px", marginBottom: 5, fontSize: 11.5, lineHeight: 1.4, cursor: "pointer", borderWidth: "0.5px", borderStyle: "solid", background: c.bg, borderColor: c.bd, color: c.tx, opacity: isDrag ? 0.25 : 1 };
-                if (isAbove) cs.borderTop    = "2.5px solid " + NAVY;
-                if (isBelow) cs.borderBottom = "2.5px solid " + NAVY;
-
-                return (
-                  <div key={card.id} draggable
-                    onDragStart={(e) => handleDragStart(e, card.id, col)}
-                    onDragEnd={handleDragEnd}
-                    onDragOver={(e) => handleCardDragOver(e, card.id)}
-                    onDrop={(e) => handleCardDrop(e, card.id, col)}
-                    onClick={() => setSelectedId(card.id)}
-                    style={cs}>
-                    <div style={{ fontSize: 11.5, lineHeight: 1.4 }}>{card.text}</div>
-                    {/* Badges row */}
-                    {(card.emoji || card.assignedTo || card.dueDate) && (
-                      <div style={{ display: "flex", gap: 3, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                        {card.emoji && <span style={{ fontSize: 10 }}>{card.emoji}</span>}
-                        {card.assignedTo && (
-                          <span style={{ fontSize: 9, background: "rgba(0,0,0,0.12)", borderRadius: 8, padding: "1px 4px" }}>{initials(card.assignedTo)}</span>
-                        )}
-                        {dm && (
-                          <span style={{ fontSize: 9, color: dm.color, fontWeight: 500 }}>{dm.label}</span>
-                        )}
-                      </div>
-                    )}
-                    {card.notes && (
-                      <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7, fontStyle: "italic", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.3 }}>{card.notes}</div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Show hidden count when filtering */}
-              {nFilters > 0 && colCards.length > visibleCards.length && (
-                <div style={{ fontSize: 9, color: txS, textAlign: "center", padding: "4px 0", opacity: 0.6 }}>
-                  {colCards.length - visibleCards.length} hidden by filter
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
