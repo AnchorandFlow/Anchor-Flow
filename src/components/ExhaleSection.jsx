@@ -65,6 +65,29 @@ var DEFAULT_BUCKET_NAMES = ["Exhaled", "Today", "Tomorrow", "This Weekend", "Som
 var BUCKET_COLORS = ["#4A9E8E", "#6ABAAA", "#7AB3D4", "#8BAF8B", "#A99AC4"];
 function defaultBuckets() { return { bucketNames: DEFAULT_BUCKET_NAMES.slice(), items: [] }; }
 
+// Exhale Phase 2 — Waves tab. daily/weekly/seasonal/custom arrays of wave
+// cards, each holding its own tasks. Separate SYNC_KEY from both
+// af_exhale_groups and af_exhale_buckets — Today.jsx already reads this key
+// defensively (empty structure if absent), this is where it gets populated.
+var LS_W = "af_exhale_waves";
+var WAVE_LAST_RESET_KEY = "af_exhale_wave_last_reset";
+var WAVE_DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+var WAVE_MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function emptyWaves() { return { daily: [], weekly: [], seasonal: [], custom: [] }; }
+// Seed example — only used when af_exhale_waves is genuinely empty (never
+// overwrites real data, same "never wipe existing data" rule as the bucket
+// migrations above).
+function seedWaves() {
+  return {
+    daily: [{ id: uuidv4(), name: "Morning basics", tasks: [
+      { id: uuidv4(), text: "Check school folders", estimatedMinutes: null, done: false },
+      { id: uuidv4(), text: "Wipe kitchen counters", estimatedMinutes: null, done: false },
+      { id: uuidv4(), text: "Start a load of laundry", estimatedMinutes: null, done: false },
+    ]}],
+    weekly: [], seasonal: [], custom: [],
+  };
+}
+
 // First-run seed: migrates any existing af_exhale_labels customization
 // (or the initialLabels prop) onto the new {id,label,color,emoji} shape,
 // so a household that already renamed a column doesn't lose that rename.
@@ -470,6 +493,127 @@ export default function ExhaleSection(props) {
 
   function toggleBucketOpen(idx) {
     setOpenBuckets(function(prev) { return Object.assign({}, prev, { [idx]: !prev[idx] }); });
+  }
+
+  // ── Exhale Phase 2 — Waves state ───────────────────────────────────────────
+  var [waves, setWaves] = useState(function() {
+    var w = lsGet(LS_W, null);
+    if (w && typeof w==="object" && !Array.isArray(w) && Array.isArray(w.daily) && Array.isArray(w.weekly) && Array.isArray(w.seasonal) && Array.isArray(w.custom)) return w;
+    return null; // seeded by the effect below, once, only if truly empty
+  });
+  var [waveSectionOpen, setWaveSectionOpen] = useState({ daily:true, weekly:true, seasonal:true, custom:true });
+  var [expandedWaveId, setExpandedWaveId] = useState(null);
+  var [editingWaveId, setEditingWaveId] = useState(null);
+  var [addWaveOpenFor, setAddWaveOpenFor] = useState(null); // wave type or null
+  var [newWaveName, setNewWaveName] = useState("");
+  var [newWaveDay, setNewWaveDay] = useState(0);
+  var [newWaveMonth, setNewWaveMonth] = useState(1);
+  var [waveTaskInputFor, setWaveTaskInputFor] = useState(null); // waveId or null
+  var [waveTaskText, setWaveTaskText] = useState("");
+
+  function persistWaves(nw) { setWaves(nw); lsSet(LS_W, nw); }
+
+  // Seed-once (only if af_exhale_waves has never been written) + daily
+  // midnight auto-reset (flag-gated by date, not a fixed timer, so it's
+  // correct whenever the tab is next opened, not just if left running).
+  useEffect(function() {
+    var existing = lsGet(LS_W, null);
+    if (!existing || typeof existing!=="object" || Array.isArray(existing)) {
+      persistWaves(seedWaves());
+      try { localStorage.setItem(WAVE_LAST_RESET_KEY, getToday()); } catch(e) {}
+      return;
+    }
+    var todayStr = getToday();
+    var lastReset = null;
+    try { lastReset = localStorage.getItem(WAVE_LAST_RESET_KEY); } catch(e) {}
+    if (lastReset !== todayStr) {
+      var nw = Object.assign({}, existing, {
+        daily: (existing.daily||[]).map(function(w) {
+          return Object.assign({}, w, { tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
+        })
+      });
+      persistWaves(nw);
+      try { localStorage.setItem(WAVE_LAST_RESET_KEY, todayStr); } catch(e) {}
+    }
+  }, []); // one-time on mount — deliberately no deps
+
+  function wavesList() { return waves || emptyWaves(); }
+
+  function addWave(type, name, extra) {
+    var txt = (name||"").trim();
+    if (!txt) return;
+    var w = Object.assign({ id: uuidv4(), name: txt, tasks: [] }, extra||{});
+    var cur = wavesList();
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).concat([w]) });
+    persistWaves(nw);
+    setAddWaveOpenFor(null); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1);
+  }
+
+  function renameWave(type, id, name) {
+    var cur = wavesList();
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) { return w.id===id ? Object.assign({}, w, { name:name }) : w; }) });
+    persistWaves(nw);
+    setEditingWaveId(null);
+  }
+
+  function deleteWave(type, id) {
+    var cur = wavesList();
+    var w = (cur[type]||[]).find(function(x) { return x.id===id; });
+    if (!w) return;
+    if ((w.tasks||[]).length>0 && !window.confirm("Delete \""+w.name+"\" and all its tasks?")) return;
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).filter(function(x) { return x.id!==id; }) });
+    persistWaves(nw);
+    if (expandedWaveId===id) setExpandedWaveId(null);
+  }
+
+  function addWaveTask(type, waveId, text) {
+    var txt = (text||"").trim();
+    if (!txt) return;
+    var cur = wavesList();
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
+      if (w.id!==waveId) return w;
+      return Object.assign({}, w, { tasks: (w.tasks||[]).concat([{ id: uuidv4(), text: txt, estimatedMinutes: null, done: false }]) });
+    })});
+    persistWaves(nw);
+    setWaveTaskText(""); setWaveTaskInputFor(null);
+  }
+
+  function updateWaveTask(type, waveId, taskId, patch) {
+    var cur = wavesList();
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
+      if (w.id!==waveId) return w;
+      return Object.assign({}, w, { tasks: (w.tasks||[]).map(function(t) { return t.id===taskId ? Object.assign({}, t, patch) : t; }) });
+    })});
+    persistWaves(nw);
+  }
+
+  function deleteWaveTask(type, waveId, taskId, text) {
+    if (!window.confirm("Delete \""+(text||"this task")+"\"?")) return;
+    var cur = wavesList();
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
+      if (w.id!==waveId) return w;
+      return Object.assign({}, w, { tasks: (w.tasks||[]).filter(function(t) { return t.id!==taskId; }) });
+    })});
+    persistWaves(nw);
+  }
+
+  function resetWave(type, waveId) {
+    var cur = wavesList();
+    var nw = Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
+      if (w.id!==waveId) return w;
+      return Object.assign({}, w, { tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
+    })});
+    persistWaves(nw);
+  }
+
+  function toggleWaveSection(type) {
+    setWaveSectionOpen(function(prev) { return Object.assign({}, prev, { [type]: !prev[type] }); });
+  }
+
+  function waveEstMinutes(w) {
+    var withEst = (w.tasks||[]).filter(function(t) { return typeof t.estimatedMinutes==="number" && t.estimatedMinutes>0; });
+    if (withEst.length===0) return null;
+    return withEst.reduce(function(sum,t) { return sum+t.estimatedMinutes; }, 0);
   }
 
   // Pointer-based drag for bucket items — same idiom as Cove's
@@ -1286,10 +1430,106 @@ export default function ExhaleSection(props) {
       </div>
 
       {activeExhaleTab === "waves" ? (
-        <div style={{ padding: "40px 20px", textAlign: "center", color: txS }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🌊</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: txP, marginBottom: 4 }}>Waves is coming soon</div>
-          <div style={{ fontSize: 12 }}>Daily, weekly, seasonal, and custom routines — built in the next phase.</div>
+        <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {[["daily","🌊 Daily Waves"],["weekly","🌊 Weekly Waves"],["seasonal","🌊 Seasonal Waves"],["custom","🌊 Custom Waves"]].map(function(pair) {
+            var type = pair[0], label = pair[1];
+            var list = wavesList()[type] || [];
+            var isSectionOpen = !!waveSectionOpen[type];
+            return (
+              <div key={type} style={{ borderRadius: 12, border: br, background: bgP, overflow: "hidden" }}>
+                <div onClick={() => toggleWaveSection(type)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer", background: bgS }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: txP, flex: 1 }}>{label}</span>
+                  <span style={{ fontSize: 11, color: txS }}>{list.length}</span>
+                  <span style={{ fontSize: 11, color: txS, transform: isSectionOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
+                </div>
+                {isSectionOpen && (
+                  <div style={{ padding: "8px 10px" }}>
+                    {list.length===0 && <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "4px 2px 8px" }}>No {label.replace("🌊 ","").toLowerCase()} yet.</div>}
+                    {list.map(function(w) {
+                      var isExpanded = expandedWaveId===w.id;
+                      var est = waveEstMinutes(w);
+                      var subtitle = (w.tasks||[]).length + " task" + ((w.tasks||[]).length!==1?"s":"") + (est ? " · Est. "+est+" min" : "");
+                      return (
+                        <div key={w.id} style={{ borderRadius: 10, border: "1px solid "+"#2E9B8F55", borderTop: "3px solid #2E9B8F", marginBottom: 8, overflow: "hidden" }}>
+                          <div onClick={() => setExpandedWaveId(isExpanded?null:w.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", cursor: "pointer" }}>
+                            <span style={{ fontSize: 15, flexShrink: 0 }}>🌊</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              {editingWaveId===w.id ? (
+                                <input autoFocus defaultValue={w.name} onClick={(e) => e.stopPropagation()}
+                                  onBlur={(e) => renameWave(type, w.id, e.target.value.trim()||w.name)}
+                                  onKeyDown={(e) => { if (e.key==="Enter"||e.key==="Escape") e.target.blur(); }}
+                                  style={{ fontSize: 13, fontWeight: 700, border: "none", borderBottom: "1.5px solid #2E9B8F", background: "transparent", color: txP, outline: "none", fontFamily: "inherit", width: "100%" }} />
+                              ) : (
+                                <span onClick={(e) => { e.stopPropagation(); setEditingWaveId(w.id); }} title="Tap to rename" style={{ fontSize: 13, fontWeight: 700, color: txP, cursor: "text" }}>{w.name}</span>
+                              )}
+                              <div style={{ fontSize: 10.5, color: txS, marginTop: 1 }}>{subtitle}{type==="weekly"&&typeof w.dayOfWeek==="number"?" · "+WAVE_DAY_LABELS[w.dayOfWeek]:""}{type==="seasonal"&&typeof w.month==="number"?" · "+WAVE_MONTH_LABELS[w.month-1]:""}</div>
+                            </div>
+                            <button onClick={(e) => { e.stopPropagation(); deleteWave(type, w.id); }} style={{ background: "none", border: "none", color: "#8B0000", fontSize: 14, cursor: "pointer", flexShrink: 0, padding: "0 2px" }}>✕</button>
+                            <span style={{ fontSize: 11, color: txS, flexShrink: 0, transform: isExpanded?"rotate(180deg)":"none", transition: "transform .15s", display: "inline-block" }}>▾</span>
+                          </div>
+                          {isExpanded && (
+                            <div style={{ padding: "0 10px 10px" }}>
+                              {(w.tasks||[]).map(function(t) {
+                                return (
+                                  <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 2px" }}>
+                                    <div onClick={() => updateWaveTask(type, w.id, t.id, { done: !t.done })} style={{ width: 17, height: 17, borderRadius: "50%", border: "2px solid "+(t.done?"#2E9B8F":"#aaa"), background: t.done?"#2E9B8F":"transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{t.done && <span style={{ color:"#fff", fontSize: 9 }}>✓</span>}</div>
+                                    <input value={t.text} onChange={(e) => updateWaveTask(type, w.id, t.id, { text: e.target.value })}
+                                      style={{ flex: 1, fontSize: 12.5, color: txP, textDecoration: t.done?"line-through":"none", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", minWidth: 0 }} />
+                                    <input value={t.estimatedMinutes||""} onChange={(e) => { var v=e.target.value.replace(/[^0-9]/g,""); updateWaveTask(type, w.id, t.id, { estimatedMinutes: v?parseInt(v,10):null }); }}
+                                      placeholder="min" style={{ width: 40, fontSize: 11, border: br, borderRadius: 5, padding: "2px 4px", background: bgP, color: txP, flexShrink: 0 }} />
+                                    <button onClick={() => deleteWaveTask(type, w.id, t.id, t.text)} style={{ background: "none", border: "none", color: txS, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                                  </div>
+                                );
+                              })}
+                              {waveTaskInputFor===w.id ? (
+                                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                  <input autoFocus value={waveTaskText} onChange={(e) => setWaveTaskText(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key==="Enter") addWaveTask(type, w.id, waveTaskText); if (e.key==="Escape") { setWaveTaskText(""); setWaveTaskInputFor(null); } }}
+                                    placeholder="Add task…" style={{ flex: 1, fontSize: 12, padding: "5px 8px", border: br, borderRadius: 7, background: bgP, color: txP }} />
+                                  <button onClick={() => addWaveTask(type, w.id, waveTaskText)} style={{ background: "#2E9B8F", color: "#fff", border: "none", borderRadius: 7, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>Add</button>
+                                </div>
+                              ) : (
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button onClick={() => setWaveTaskInputFor(w.id)} style={{ background: "none", border: br, borderRadius: 7, padding: "4px 9px", fontSize: 11, color: txP, cursor: "pointer" }}>+ Add task</button>
+                                  {(w.tasks||[]).some(function(t){return t.done;}) && <button onClick={() => resetWave(type, w.id)} style={{ background: "none", border: br, borderRadius: 7, padding: "4px 9px", fontSize: 11, color: txS, cursor: "pointer" }}>↺ Reset wave</button>}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {addWaveOpenFor===type ? (
+                      <div style={{ background: bgS, borderRadius: 9, padding: 8, marginTop: 4 }}>
+                        <input autoFocus value={newWaveName} onChange={(e) => setNewWaveName(e.target.value)} placeholder="Wave name…"
+                          style={{ width: "100%", fontSize: 12.5, padding: "6px 8px", border: br, borderRadius: 7, background: bgP, color: txP, marginBottom: 6, boxSizing: "border-box" }} />
+                        {type==="weekly" && (
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                            {WAVE_DAY_LABELS.map(function(d, i) { return (
+                              <button key={i} onClick={() => setNewWaveDay(i)} style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 20, border: newWaveDay===i?"1.5px solid #2E9B8F":br, background: newWaveDay===i?"#2E9B8F22":bgP, color: newWaveDay===i?"#2E9B8F":txP, cursor: "pointer" }}>{d}</button>
+                            );})}
+                          </div>
+                        )}
+                        {type==="seasonal" && (
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 6 }}>
+                            {WAVE_MONTH_LABELS.map(function(m, i) { return (
+                              <button key={i} onClick={() => setNewWaveMonth(i+1)} style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 20, border: newWaveMonth===(i+1)?"1.5px solid #2E9B8F":br, background: newWaveMonth===(i+1)?"#2E9B8F22":bgP, color: newWaveMonth===(i+1)?"#2E9B8F":txP, cursor: "pointer" }}>{m}</button>
+                            );})}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => setAddWaveOpenFor(null)} style={{ flex: 1, background: "none", border: br, borderRadius: 7, padding: "6px", fontSize: 11.5, color: txS, cursor: "pointer" }}>Cancel</button>
+                          <button onClick={() => addWave(type, newWaveName, type==="weekly"?{dayOfWeek:newWaveDay}:type==="seasonal"?{month:newWaveMonth}:{})} style={{ flex: 2, background: "#2E9B8F", color: "#fff", border: "none", borderRadius: 7, padding: "6px", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Create</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setAddWaveOpenFor(type); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); }} style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 8, border: br, background: "transparent", color: NAVY, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Add wave</button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div>

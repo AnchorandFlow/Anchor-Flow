@@ -98,6 +98,9 @@ const PLAUSIBLE = {
   // exhale_buckets: Exhale Phase 1 bucket-card redesign — object with its
   // own array fields, same shape class as gifts/work_schedules/safe_harbor.
   exhale_buckets:     { bucketNames:["Here","Today","Tomorrow","Someday"], items:[{ id:"eb1", text:"Call the vet", notes:"", bucketIndex:0, createdAt:1753900800000, color:"#C47A7A" }] },
+  // exhale_waves: Exhale Phase 2 — daily/weekly/seasonal/custom wave cards,
+  // same object-with-array-fields shape class as exhale_buckets.
+  exhale_waves:       { daily:[{ id:"ew1", name:"Morning basics", tasks:[{ id:"ewt1", text:"Check school folders", estimatedMinutes:null, done:false }] }], weekly:[{ id:"ew2", name:"Trash day", dayOfWeek:2, tasks:[] }], seasonal:[{ id:"ew3", name:"Gutter cleaning", month:10, tasks:[] }], custom:[] },
   cal_markers:        { "2026-07-04":["⭐"] },
   cal_marker_types:   [{ id:"cm1", emoji:"⭐", label:"Star" }],
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],

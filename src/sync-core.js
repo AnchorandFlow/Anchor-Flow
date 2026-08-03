@@ -63,6 +63,10 @@ export const SYNC_KEYS = [
   // exhale_groups (kept registered, no longer written to) so existing sync
   // isn't disturbed.
   "exhale_buckets",
+  // exhale_waves: Exhale Phase 2 — { daily:[], weekly:[], seasonal:[],
+  // custom:[] }, each an array of wave cards with their own tasks. Today.jsx
+  // already reads this key defensively; this is where it gets populated.
+  "exhale_waves",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
@@ -195,6 +199,9 @@ const _SANITIZE_HANDLED = new Set([
   // Own guard for the same reason as gifts/work_schedules below — an object
   // misclassified by the array-guard mechanism silently vanishes every sync.
   "exhale_buckets",
+  // exhale_waves: object { daily:[], weekly:[], seasonal:[], custom:[] }
+  // (Exhale Phase 2). Same shape class as exhale_buckets above.
+  "exhale_waves",
   // Specially structured
   "people","meals","nextWeekMeals","mealsWeekOf","rhythm",
   // gifts: object map { personId: [gift, ...] } (Phase 3) — moved off the
@@ -377,6 +384,36 @@ export function sanitizeHouseholdData(data) {
       out["exhale_buckets"] = {
         bucketNames: Array.isArray(eb.bucketNames) ? eb.bucketNames.filter(n => typeof n === "string") : [],
         items: Array.isArray(eb.items) ? eb.items.filter(it => it && typeof it === "object" && !Array.isArray(it)) : [],
+      };
+    }
+    // exhale_waves: { daily:[], weekly:[], seasonal:[], custom:[] } (Exhale
+    // Phase 2), each entry a wave card { id, name, tasks:[{id,text,
+    // estimatedMinutes,done}], plus dayOfWeek (weekly, 0-6) or month
+    // (seasonal, 1-12) }. Validated per-field, same reasoning as
+    // exhale_buckets above.
+    if (data["exhale_waves"] !== undefined && data["exhale_waves"] !== null &&
+        typeof data["exhale_waves"] === "object" && !Array.isArray(data["exhale_waves"])) {
+      var ew = data["exhale_waves"];
+      var sanitizeWaveTasks = function(tasks) {
+        return Array.isArray(tasks) ? tasks.filter(t => t && typeof t === "object" && !Array.isArray(t)).map(t => ({
+          id: typeof t.id === "string" ? t.id : undefined,
+          text: typeof t.text === "string" ? t.text : "",
+          estimatedMinutes: typeof t.estimatedMinutes === "number" ? t.estimatedMinutes : null,
+          done: typeof t.done === "boolean" ? t.done : false,
+        })) : [];
+      };
+      var sanitizeWaveList = function(list, extraFields) {
+        return Array.isArray(list) ? list.filter(w => w && typeof w === "object" && !Array.isArray(w)).map(w => {
+          var out2 = { id: w.id, name: typeof w.name === "string" ? w.name : "", tasks: sanitizeWaveTasks(w.tasks) };
+          (extraFields||[]).forEach(f => { if (typeof w[f] === "number") out2[f] = w[f]; });
+          return out2;
+        }) : [];
+      };
+      out["exhale_waves"] = {
+        daily: sanitizeWaveList(ew.daily),
+        weekly: sanitizeWaveList(ew.weekly, ["dayOfWeek"]),
+        seasonal: sanitizeWaveList(ew.seasonal, ["month"]),
+        custom: sanitizeWaveList(ew.custom),
       };
     }
     // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey

@@ -6397,9 +6397,8 @@ Respond ONLY in valid JSON:
     const greeting = hour < 12 ? "Good morning" : isEvening ? "Good evening" : "Good afternoon";
     const greetingEmoji = hour < 12 ? "🌿" : isEvening ? "🌙" : "☀️";
 
-    // ── Today redesign — waves (read-only; af_exhale_waves has no data layer
-    // yet, Waves Tab 2 is still a placeholder, so this defensively reads an
-    // empty structure until that ships) ──────────────────────────────────────
+    // ── Today redesign — waves (Exhale Phase 2 shipped this data; read-only
+    // pull here, done state is written back to af_exhale_waves below) ────────
     var exhaleWaves = (function(){
       try {
         var w = JSON.parse(localStorage.getItem("af_exhale_waves")||"null");
@@ -6408,7 +6407,9 @@ Respond ONLY in valid JSON:
       return { daily:[], weekly:[], seasonal:[], custom:[] };
     })();
     var todaysDailyWaves = exhaleWaves.daily.filter(function(w){ return w && Array.isArray(w.tasks); });
-    var todaysWeeklyWaves = exhaleWaves.weekly.filter(function(w){ return w && w.dayOfWeek===TODAY_NAME && Array.isArray(w.tasks); });
+    // dayOfWeek is numeric (0=Sun...6=Sat, same as Date#getDay()) per the
+    // Exhale Phase 2 data shape — TODAY.getDay(), not TODAY_NAME (a string).
+    var todaysWeeklyWaves = exhaleWaves.weekly.filter(function(w){ return w && w.dayOfWeek===TODAY.getDay() && Array.isArray(w.tasks); });
     var homeFocusWave = todaysDailyWaves[0] || todaysWeeklyWaves[0] || null;
 
     // ── Today redesign — Exhale "Today" bucket (bucketIndex 1, positional —
@@ -6449,19 +6450,31 @@ Respond ONLY in valid JSON:
     }
     function unpinTask(id) { persistPinned(pinnedTaskIds.filter(function(x){ return x!==id; })); }
 
-    // ── Today redesign — wave task "done" state. Waves reset daily, so this
-    // is sessionStorage (not persisted across days), keyed by today's date. ──
-    var waveDoneKey = "af_waveTasksDone_" + TODAY.toDateString();
-    var [waveTasksDone, setWaveTasksDone] = useState(function(){
-      try { var v = JSON.parse(sessionStorage.getItem(waveDoneKey)||"[]"); return Array.isArray(v)?v:[]; } catch(e) { return []; }
-    });
-    function toggleWaveTaskDone(id) {
-      setWaveTasksDone(function(prev){
-        var has = prev.includes(id);
-        var next = has ? prev.filter(function(x){ return x!==id; }) : prev.concat([id]);
-        try { sessionStorage.setItem(waveDoneKey, JSON.stringify(next)); } catch(e) {}
-        return next;
-      });
+    // ── Today redesign — wave task "done" state. Exhale Phase 2 gave wave
+    // tasks a real `done` field, so this now writes through to
+    // af_exhale_waves (same dirty-marking pattern as writeExhaleBucketItemDone
+    // above) instead of the sessionStorage stand-in used before that shipped.
+    // Waves' own daily-midnight reset (ExhaleSection.jsx) handles "resets
+    // daily" — nothing extra needed here.
+    function toggleWaveTaskDone(id, doneVal) {
+      try {
+        var raw = localStorage.getItem("af_exhale_waves");
+        var ew = raw ? JSON.parse(raw) : null;
+        if (!ew || typeof ew!=="object" || Array.isArray(ew)) return;
+        ["daily","weekly","seasonal","custom"].forEach(function(type){
+          if (!Array.isArray(ew[type])) return;
+          ew[type] = ew[type].map(function(w){
+            if (!w || !Array.isArray(w.tasks)) return w;
+            var hasTask = w.tasks.some(function(t){ return t && t.id===id; });
+            if (!hasTask) return w;
+            return Object.assign({}, w, { tasks: w.tasks.map(function(t){ return (t&&t.id===id) ? Object.assign({}, t, { done: doneVal }) : t; }) });
+          });
+        });
+        localStorage.setItem("af_exhale_waves", JSON.stringify(ew));
+        var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys")||"[]");
+        if (dirty.indexOf("exhale_waves")===-1) { dirty.push("exhale_waves"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
+        window.dispatchEvent(new CustomEvent("af-data-changed"));
+      } catch(e) {}
     }
 
     // ── Today redesign — "Not now" dismissals for Compass Suggests. Session
@@ -6491,7 +6504,7 @@ Respond ONLY in valid JSON:
       todaysDailyWaves.concat(todaysWeeklyWaves).forEach(function(w){
         (w.tasks||[]).forEach(function(wt){
           if (!wt || seen[wt.id]) return; seen[wt.id]=1;
-          out.push({ id:wt.id, text:wt.text, done:waveTasksDone.includes(wt.id), source:"wave" });
+          out.push({ id:wt.id, text:wt.text, done:!!wt.done, source:"wave" });
         });
       });
       return out;
@@ -6499,7 +6512,7 @@ Respond ONLY in valid JSON:
     function toggleMergedTaskDone(t) {
       if (t.source==="task") setTasks(function(p){ return p.map(function(x){ return x.id===t.id?{...x,done:!x.done}:x; }); });
       else if (t.source==="exhale") writeExhaleBucketItemDone(t.id, !t.done);
-      else if (t.source==="wave") toggleWaveTaskDone(t.id);
+      else if (t.source==="wave") toggleWaveTaskDone(t.id, !t.done);
     }
     var pinnedTodayTasks = mergedTodayTasks.filter(function(t){ return pinnedTaskIds.includes(t.id); });
     var mainTodayTasks   = mergedTodayTasks.filter(function(t){ return !pinnedTaskIds.includes(t.id); });
