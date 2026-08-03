@@ -157,12 +157,17 @@ export default function FlowHome(props) {
   if (!Array.isArray(flowPeople)) flowPeople = [];
   var workSchedules = rd("work_schedules", {});
   if (!workSchedules || typeof workSchedules !== "object") workSchedules = {};
+  var workTodayISO = now.toISOString().slice(0, 10);
   var workingToday = flowPeople.filter(function (p) {
     var s = workSchedules[p.id];
-    return s && Array.isArray(s.days) && s.days.includes(todayName);
+    if (!s) return false;
+    // WORK-1: irregular schedules have no fixed weekday pattern — matched by
+    // individual date instead of s.days.
+    if (s.type === "irregular") return Array.isArray(s.dates) && s.dates.includes(workTodayISO);
+    return Array.isArray(s.days) && s.days.includes(todayName);
   }).map(function (p) {
     var s = workSchedules[p.id];
-    return { name: p.name, type: s.type, color: s.color || p.color };
+    return { name: p.name, type: s.type, color: s.color || p.color, startTime: s.startTime, endTime: s.endTime };
   });
 
   var calEvents = rd("calEvents", []);
@@ -327,11 +332,17 @@ export default function FlowHome(props) {
             {workingToday.length === 0 ? (
               <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No one's scheduled to work today.</div>
             ) : workingToday.map(function (w, i) {
+              var isOnCall = w.type === "on-call";
+              var isOvernight = w.type === "overnight";
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 0", borderBottom: i < workingToday.length - 1 ? "1px solid " + C.cream : "none" }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: w.color || C.sea, flexShrink: 0 }} />
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: isOnCall ? "transparent" : (w.color || C.sea), border: isOnCall ? "2px dashed " + (w.color || C.sea) : "none", flexShrink: 0 }} />
                   <div style={{ flex: 1, fontSize: ".84rem", color: C.t1 }}>{w.name}</div>
-                  {w.type && w.type !== "regular" && <div style={{ fontSize: ".68rem", color: C.t3, textTransform: "capitalize" }}>{w.type.replace("-", " ")}</div>}
+                  {isOvernight ? (
+                    <div style={{ fontSize: ".68rem", color: C.t3 }}>Overnight{w.startTime && w.endTime ? " · " + w.startTime + "→" + w.endTime + " next morning" : ""}</div>
+                  ) : (
+                    w.type && w.type !== "regular" && <div style={{ fontSize: ".68rem", color: C.t3, textTransform: "capitalize" }}>{w.type.replace("-", " ")}</div>
+                  )}
                 </div>
               );
             })}

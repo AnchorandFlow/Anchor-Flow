@@ -1707,16 +1707,53 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
                   💼 Work schedule{(workSchedules[p.id]&&workSchedules[p.id].days&&workSchedules[p.id].days.length>0)?" ("+workSchedules[p.id].days.length+" days)":""}
                 </button>
                 {workScheduleOpenFor===p.id&&(function(){
-                  var sched=workSchedules[p.id]||{days:[],type:"regular",color:"",notes:""};
+                  var sched=workSchedules[p.id]||{days:[],type:"regular",color:"",notes:"",dates:[],startTime:"",endTime:""};
+                  var isIrregular=sched.type==="irregular";
+                  var isOvernight=sched.type==="overnight";
+                  var swatch=sched.color||T.blue;
                   return (
                     <div style={{background:T.surface,borderRadius:"0.7rem",padding:"0.6rem 0.7rem",marginTop:"0.3rem",border:"1px solid "+T.borderSoft}}>
-                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-                        {MEAL_DAYS.map(function(day){
-                          var on=(sched.days||[]).includes(day);
-                          var swatch=sched.color||T.blue;
-                          return <button key={day} onClick={function(){updateWorkSchedule(p.id,{days:on?sched.days.filter(function(d){return d!==day;}):[...(sched.days||[]),day]});}} style={{background:on?swatch:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?swatch:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
-                        })}
-                      </div>
+                      {isIrregular?(
+                        // WORK-1: irregular shifts have no fixed weekday pattern —
+                        // individual dates the person adds/removes instead.
+                        <div style={{marginBottom:"0.5rem"}}>
+                          <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.4rem"}}>
+                            <input type="date" id={"wsDate_"+p.id} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",flex:1})}}/>
+                            <button onClick={function(){
+                              var el=document.getElementById("wsDate_"+p.id);
+                              var v=el&&el.value;
+                              if(!v)return;
+                              var cur=sched.dates||[];
+                              if(cur.includes(v))return;
+                              updateWorkSchedule(p.id,{dates:[...cur,v].sort()});
+                              if(el)el.value="";
+                            }} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.5rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}}>+ Add date</button>
+                          </div>
+                          <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
+                            {(sched.dates||[]).length===0&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>No shift dates added yet.</div>}
+                            {(sched.dates||[]).map(function(d){
+                              return <button key={d} onClick={function(){updateWorkSchedule(p.id,{dates:sched.dates.filter(function(x){return x!==d;})});}} title="Tap to remove" style={{background:swatch,color:"#fff",border:"none",borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{d} ✕</button>;
+                            })}
+                          </div>
+                        </div>
+                      ):(
+                        <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+                          {MEAL_DAYS.map(function(day){
+                            var on=(sched.days||[]).includes(day);
+                            return <button key={day} onClick={function(){updateWorkSchedule(p.id,{days:on?sched.days.filter(function(d){return d!==day;}):[...(sched.days||[]),day]});}} style={{background:on?swatch:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?swatch:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
+                          })}
+                        </div>
+                      )}
+                      {isOvernight&&(
+                        // WORK-1: overnight shift start/end times, used to render
+                        // "Mon night → Tue morning, 10pm–6am" style labels elsewhere.
+                        <div style={{display:"flex",gap:"0.4rem",alignItems:"center",marginBottom:"0.5rem"}}>
+                          <input type="time" value={sched.startTime||""} onChange={function(e){updateWorkSchedule(p.id,{startTime:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",width:"auto"})}}/>
+                          <span style={{fontSize:"0.7rem",color:T.textFaint}}>→</span>
+                          <input type="time" value={sched.endTime||""} onChange={function(e){updateWorkSchedule(p.id,{endTime:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",width:"auto"})}}/>
+                          <span style={{fontSize:"0.66rem",color:T.textFaint}}>(next morning)</span>
+                        </div>
+                      )}
                       <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",alignItems:"center",marginBottom:"0.5rem"}}>
                         <select value={sched.type||"regular"} onChange={function(e){updateWorkSchedule(p.id,{type:e.target.value});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
                           <option value="regular">Regular</option>
@@ -6977,16 +7014,30 @@ Respond ONLY in valid JSON:
       // weekly weekday pattern, distinct from the date-keyed workDays above.
       Object.keys(workSchedules).forEach(function(personId){
         var sched=workSchedules[personId];
-        if(!sched||!Array.isArray(sched.days)||sched.days.length===0) return;
+        if(!sched) return;
         var person=people.find(function(p){return p.id===personId;});
         var personName=person?person.name:"Work";
-        var typeSuffix=(sched.type&&sched.type!=="regular")?" ("+sched.type.replace("-"," ")+")":"";
+        var isOvernight=sched.type==="overnight";
+        var typeSuffix=isOvernight
+          ? (" (overnight"+(sched.startTime&&sched.endTime?", "+sched.startTime+"→"+sched.endTime+" next morning":"")+")")
+          : (sched.type&&sched.type!=="regular")?" ("+sched.type.replace("-"," ")+")":"";
+        // WORK-1: irregular has no weekday pattern — walk sched.dates directly
+        // instead of scanning the year for a matching day-of-week.
+        if(sched.type==="irregular"){
+          (sched.dates||[]).forEach(function(dateStr2){
+            var d=new Date(dateStr2+"T00:00:00");
+            if(d.getFullYear()!==yr) return;
+            items.push({key:"ws_"+personId+"_"+dateStr2, date:dateStr2, cat:"work", title:personName+" working"+typeSuffix, personId:personId, icon:"💼"});
+          });
+          return;
+        }
+        if(!Array.isArray(sched.days)||sched.days.length===0) return;
         var dCur=new Date(yr,0,1); var dEnd=new Date(yr,11,31);
         while(dCur<=dEnd){
           var dayName=DAY_NAMES[dCur.getDay()];
           if(sched.days.includes(dayName)){
-            var dateStr2=localDateStr(dCur);
-            items.push({key:"ws_"+personId+"_"+dateStr2, date:dateStr2, cat:"work", title:personName+" working"+typeSuffix, personId:personId, icon:"💼"});
+            var dateStr2b=localDateStr(dCur);
+            items.push({key:"ws_"+personId+"_"+dateStr2b, date:dateStr2b, cat:"work", title:personName+" working"+typeSuffix, personId:personId, icon:"💼"});
           }
           dCur.setDate(dCur.getDate()+1);
         }
@@ -11002,8 +11053,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var lPct=total>0?Math.round((done/total)*100):0;
                 var lAccent=list.color_accent||T.blue;
                 return(
-                  <div key={list.id} style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderRadius:12,overflow:"hidden"}}>
-                    <div style={{height:3,background:lAccent}}/>
+                  <div key={list.id} style={{background:T.surface,border:"1.5px solid "+T.borderSoft,borderLeft:"4px solid "+lAccent,borderRadius:12,overflow:"hidden"}}>
+                    <div style={{height:5,background:lAccent}}/>
                     <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px 8px"}}>
                       <div onClick={function(){openList(list);}} style={{flex:1,cursor:"pointer",minWidth:0}}>
                         <div style={{fontSize:"0.88rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>{list.title}</div>
@@ -14016,16 +14067,50 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [error, setError] = useState("");
     const [hhCopied, setHhCopied] = useState(false);
     const [lastSynced, setLastSynced] = useState(null);
+    const [members, setMembers] = useState([]);
+    const [membersError, setMembersError] = useState("");
+    const [membersLoading, setMembersLoading] = useState(false);
     var _ownerId = householdOwnerId || (function(){ try { return JSON.parse(localStorage.getItem("af_householdOwnerId")||"null"); } catch(_e) { return null; } })();
     var isOwner = !!(authUser && authUser.id && householdId && _ownerId && authUser.id === _ownerId);
     var isMember = !!(authUser && authUser.id && householdId && !isOwner);
+    // ACCT-1: household_members' own SELECT policy only allows a member to see
+    // their own row (verified live via `supabase db query` against
+    // pg_policies) — listing everyone else's rows needs the SECURITY DEFINER
+    // RPC in sql/2026-08_household_membership.sql. If that hasn't been run
+    // yet in Supabase, this fails gracefully instead of breaking the modal.
+    async function fetchMembers() {
+      if (!householdId) return;
+      setMembersLoading(true); setMembersError("");
+      const r = await supabase.rpc("list_household_members", { p_household_id: householdId });
+      setMembersLoading(false);
+      if (r.error) { setMembersError("Member list needs a one-time database update — ask your developer to run sql/2026-08_household_membership.sql."); return; }
+      setMembers(r.data || []);
+    }
+    React.useEffect(function(){ fetchMembers(); }, [householdId]);
     async function handleLeave() {
-      if (!(await afConfirm("Leave this household? Your data stays on this device — you can join a different household any time.", { confirmText: "Leave", danger: true }))) return;
+      if (!(await afConfirm("Leave this household? You'll lose access to all shared data. You can create a new household or join another.", { confirmText: "Leave", danger: true }))) return;
+      // Best-effort server-side removal — local state is cleared either way so
+      // the user is never stuck in a household they asked to leave.
+      if (authUser && authUser.id) {
+        try {
+          await sbFetch("/rest/v1/household_members?household_id=eq."+encodeURIComponent(householdId)+"&user_id=eq."+encodeURIComponent(authUser.id), { method: "DELETE", _token: authToken });
+        } catch(e) { console.warn("[AF] Could not remove household_members row on leave:", e.message); }
+      }
       try { localStorage.removeItem("af_householdId"); } catch(_e) {}
       try { localStorage.removeItem("af_householdOwnerId"); } catch(_e) {}
       setHouseholdId(null);
       setHouseholdOwnerId(null);
-      onClose();
+      setMembers([]);
+      // Modal stays open — with householdId now null it already shows the
+      // "Generate" / "Join a household" UI above, which is exactly what the
+      // confirm text just promised.
+    }
+    async function handleRemoveMember(memberUserId, memberEmail) {
+      if (!(await afConfirm("Remove "+(memberEmail||"this member")+" from this household?", { confirmText: "Remove", danger: true }))) return;
+      try {
+        await sbFetch("/rest/v1/household_members?household_id=eq."+encodeURIComponent(householdId)+"&user_id=eq."+encodeURIComponent(memberUserId), { method: "DELETE", _token: authToken });
+        setMembers(function(prev){ return prev.filter(function(m){ return m.user_id !== memberUserId; }); });
+      } catch(e) { setMembersError("Couldn't remove member: " + e.message); }
     }
     async function handleSync() {
       if (!authToken) return;
@@ -14107,6 +14192,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={onClose} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.35rem 0.8rem"})}>Done</button>
           </div>
         </div>
+        {householdId&&(
+          <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginBottom:"1rem"}}>
+            <div style={{fontSize:"0.63rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textSoft,marginBottom:"0.5rem"}}>Household members</div>
+            {membersLoading&&<div style={{fontSize:"0.78rem",color:T.textFaint,fontStyle:"italic"}}>Loading…</div>}
+            {membersError&&<div style={{fontSize:"0.76rem",color:T.rose,lineHeight:1.5}}>{membersError}</div>}
+            {!membersLoading&&!membersError&&members.map(function(m){
+              var isSelf=authUser&&m.user_id===authUser.id;
+              return (
+                <div key={m.user_id} style={{display:"flex",alignItems:"center",gap:"0.6rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"0.82rem",color:T.textDark,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.email||"Member"}{isSelf?" (you)":""}</div>
+                    <div style={{fontSize:"0.68rem",color:T.textFaint,textTransform:"capitalize"}}>{m.role}</div>
+                  </div>
+                  {isOwner&&!isSelf&&(
+                    <button onClick={function(){handleRemoveMember(m.user_id,m.email);}} style={btnS({fontSize:"0.7rem",padding:"0.3rem 0.6rem",color:T.rose,borderColor:T.rose+"55"})}>Remove</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {isOwner&&(
           <div style={{borderTop:"1px solid "+T.borderSoft,paddingTop:"1rem",marginTop:"0.2rem",background:T.bgAlt,borderRadius:"0.85rem",padding:"0.85rem 1rem"}}>
             <div style={{fontSize:"0.68rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textSoft,marginBottom:"0.4rem"}}>Household ownership</div>
