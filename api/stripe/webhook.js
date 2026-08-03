@@ -1,0 +1,150 @@
+// api/stripe/webhook.js
+// Vercel Node serverless function. THE source of truth for entitlement.
+// Security: raw-body signature verification + idempotency + service-role writes only.
+//
+// IMPORTANT (verify against repo before shipping):
+//  - This assumes the api/ folder uses the Node runtime with the (req,res) handler shape,
+//    matching api/anthropic.js. If anthropic.js is an Edge function, port this to
+//    constructEventAsync + a Web Request/Response signature instead.
+//  - bodyParser MUST be disabled so we can read the raw body for signature verification.
+//
+// Required env (Vercel, production scope): STRIPE_SECRET_KEY (sk_live_... live mode),
+//   STRIPE_WEBHOOK_SECRET (whsec_... from the live endpoint registered in the Stripe dashboard),
+//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (server-only, never VITE_).
+
+const Stripe = require('stripe');
+const { createClient } = require('@supabase/supabase-js');
+const { subscriptionToRow } = require('./_shared.js');
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-28' });
+
+// Service-role client: bypasses RLS. NEVER expose this key to the browser.
+function admin() {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+// Disable Vercel's body parser: signature verification needs the raw bytes.
+module.exports.config = { api: { bodyParser: false } };
+
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function upsertFromSubscription(db, subscription) {
+  const row = subscriptionToRow(subscription);
+  if (!row.household_id) {
+    // Never write a row we can't attribute to a household. Log loudly for reconciliation.
+    console.error('[stripe:webhook] subscription missing household_id metadata', subscription.id);
+    return;
+  }
+  // Upsert keyed on stripe_subscription_id so re-delivered/updated events converge.
+  const { error } = await db
+    .from('subscriptions')
+    .upsert(row, { onConflict: 'stripe_subscription_id' });
+  if (error) throw error;
+}
+
+async function handleEvent(db, event) {
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      // Pull the full subscription so we get items[].current_period_end + metadata.
+      if (session.mode === 'subscription' && session.subscription) {
+        const sub = await stripe.subscriptions.retrieve(
+          typeof session.subscription === 'string' ? session.subscription : session.subscription.id,
+          { expand: ['items.data.price'] }
+        );
+        // Carry checkout metadata onto the subscription if it isn't already there.
+        if (session.metadata && (!sub.metadata || !sub.metadata.household_id)) {
+          sub.metadata = { ...(sub.metadata || {}), ...session.metadata };
+        }
+        await upsertFromSubscription(db, sub);
+      }
+      break;
+    }
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated': {
+      await upsertFromSubscription(db, event.data.object);
+      break;
+    }
+    case 'customer.subscription.deleted': {
+      const sub = event.data.object;
+      const { error } = await db
+        .from('subscriptions')
+        .update({ status: 'canceled', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', sub.id);
+      if (error) throw error;
+      break;
+    }
+    case 'invoice.payment_failed': {
+      // Stripe will also send subscription.updated (status past_due/unpaid); this is a
+      // secondary hook if we later want to send a dunning email. No state change needed here.
+      break;
+    }
+    default:
+      // Ignore everything we don't explicitly handle.
+      break;
+  }
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).end('Method Not Allowed');
+  }
+
+  let event;
+  try {
+    const raw = await readRawBody(req);
+    const sig = req.headers['stripe-signature'];
+    event = stripe.webhooks.constructEvent(raw, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('[stripe:webhook] signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  const db = admin();
+
+  // Idempotency: record-before-process. Insert the event id. On a duplicate we must
+  // distinguish an already-COMPLETED event (safe to skip) from a prior FAILED/PROCESSING
+  // attempt (a Stripe retry we SHOULD reprocess). Skipping a failed event would strand it.
+  const { error: insErr } = await db
+    .from('stripe_events')
+    .insert({ id: event.id, type: event.type, status: 'processing' });
+  if (insErr) {
+    if (insErr.code !== '23505') {
+      console.error('[stripe:webhook] events insert error:', insErr);
+      return res.status(500).json({ error: 'events insert failed' });
+    }
+    const { data: prior } = await db
+      .from('stripe_events')
+      .select('status')
+      .eq('id', event.id)
+      .single();
+    if (prior && prior.status === 'completed') {
+      return res.status(200).json({ received: true, duplicate: true });
+    }
+    // Prior attempt failed or is stuck 'processing' → fall through and reprocess.
+  }
+
+  try {
+    await handleEvent(db, event);
+    await db.from('stripe_events').update({ status: 'completed' }).eq('id', event.id);
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    console.error('[stripe:webhook] handler error:', err);
+    await db
+      .from('stripe_events')
+      .update({ status: 'failed', error: String(err && err.message ? err.message : err) })
+      .eq('id', event.id);
+    // 500 → Stripe retries with backoff (up to ~3 days). The event row lets a retry re-run.
+    return res.status(500).json({ error: 'handler failed' });
+  }
+};
