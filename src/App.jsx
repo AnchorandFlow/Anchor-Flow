@@ -9765,6 +9765,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
   _hfRenders.HomeTab = function HomeTab(){
+    // Fix 1 — Home should match AnchorVault's dark navy theme, not
+    // HomeFlow's light theme. Shadowing T locally (same key names, dark
+    // values) means every existing T.xxx reference below this line picks it
+    // up automatically — far lower-risk than hand-editing every inline
+    // style. card/btnS/inp/lbl are also shadowed because the OUTER versions
+    // of those (App.jsx ~2571) close over the outer T internally (baked-in
+    // background/border colors), so a T-only shadow wouldn't reach them.
+    // btnP is NOT shadowed — its accent always comes from the explicit bg
+    // argument callers already pass (btnP(T.sage,...)), which already
+    // resolves against this local T. ModalBox/Icon/SecHead are shared
+    // components with their own closures over the outer T — out of scope
+    // here; re-theming them would affect every other tab that uses them.
+    var T = {
+      textDark:"#faf8f4", textMid:"rgba(250,248,244,0.78)", textSoft:"rgba(250,248,244,0.55)", textFaint:"rgba(250,248,244,0.35)",
+      surface:"rgba(250,242,229,0.05)", bgAlt:"rgba(250,242,229,0.09)",
+      border:"rgba(250,242,229,0.16)", borderSoft:"rgba(250,242,229,0.1)",
+      blue:"#7aa8c8", blueDark:"#5a88ac", bluePale:"rgba(122,168,200,0.16)",
+      sage:"#7eb89a", sageDark:"#5e9878", sagePale:"rgba(126,184,154,0.16)",
+      sand:"#c8a97a", sandDark:"#a88a5e", sandPale:"rgba(200,169,122,0.16)",
+      rose:"#c87a8a", roseDark:"#a85a6a", rosePale:"rgba(200,122,138,0.16)",
+      lavender:"#a89ad0", lavPale:"rgba(168,154,208,0.16)",
+    };
+    function card(x){ return Object.assign({background:T.surface,border:"1px solid "+T.borderSoft,borderRadius:"1.1rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
+    function btnS(x){ return Object.assign({background:T.bgAlt,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600}, x||{}); }
+    function inp(x){ return Object.assign({width:"100%",background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}, x||{}); }
+    var lbl = {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
+    function backToHomePill(key){ return <button onClick={function(){toggleHub(key);}} style={{background:"none",border:"none",color:"rgba(200,169,122,0.7)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",padding:"0 0 12px 0",display:"flex",alignItems:"center",gap:5}}>← Back to Home</button>; }
+
     const SYSTEM_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#7ab8a8","#e8a838","#c878a8"];
     const[editingSystem,setEditingSystem]=useState(null);
     const[editForm,setEditForm]=useState({label:"",emoji:"",items:[]});
@@ -9874,8 +9902,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function deleteDocument(id){ setHomeDocuments(function(p){return p.filter(function(x){return x.id!==id;});}); }
 
     return(
-      <div>
-        <SecHead emoji="🏡" title="Home" sub="Your household operations center" onBack={function(){goTab("anchor");}}/>
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
+        {/* Custom dark header — SecHead itself closes over the outer (light)
+            T, so it's not used here; this matches AnchorVault's own header
+            styling (HGOLD/HWHITE) instead. */}
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
+          <button onClick={function(){goTab("anchor");}} aria-label="Back" style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px 2px 0",display:"flex",alignItems:"center",flexShrink:0,opacity:0.6}}>
+            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
+          </button>
+          <span style={{fontSize:"1.2rem"}}>🏡</span>
+          <div>
+            <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:T.textDark}}>Home</h1>
+            <p style={{margin:"0.15rem 0 0",color:T.textSoft,fontSize:"0.79rem",fontWeight:500}}>Your household operations center</p>
+          </div>
+        </div>
 
         {/* ══════════════ 1. Systems ══════════════ */}
         <div style={{...card({borderTop:"3px solid "+T.blue})}}>
@@ -9886,6 +9926,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.systems)}
           </div>
           {homeHubOpen.systems&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("systems")}
         {homeSystems.map((sys,i)=>(
           <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
             style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
@@ -9919,6 +9960,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.cleaning)}
           </div>
           {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("cleaning")}
             {exhaleWavesWeekly.length===0 ? (
               <div style={{fontSize:"0.84rem",color:T.textSoft,padding:"0.5rem 0"}}>
                 Set up your cleaning zones in Waves — each weekly wave becomes a zone with its own tasks and day.
@@ -9993,6 +10035,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.maintenance)}
           </div>
           {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("maintenance")}
             <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{maintenanceSystems.length} maintenance item{maintenanceSystems.length!==1?"s":""} tracked</div>
             {maintenanceDueSoon.length>0&&maintenanceDueSoon.map(function(s){return(
               <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0"}}>
@@ -10014,6 +10057,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.inventory)}
           </div>
           {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("inventory")}
             <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
             <button onClick={function(){openVaultSection("inventory");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem"})}>Open Inventory →</button>
           </div>)}
@@ -10028,6 +10072,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.projects)}
           </div>
           {homeHubOpen.projects&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("projects")}
             {homeProjects.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No projects yet.</div>}
             {homeProjects.map(function(proj){
               var isExpanded = expandedProjectId===proj.id;
@@ -10096,6 +10141,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.documents)}
           </div>
           {homeHubOpen.documents&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("documents")}
             {DOC_TYPES.map(function(cat){
               var catDocs = homeDocuments.filter(function(d){return (d.type||"Other")===cat;});
               if(catDocs.length===0) return null;
@@ -15659,8 +15705,10 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
       { vault: "recurring", label: "Reminders", emoji: "🔁" },
-      { vault: "inventory", label: "Inventory", emoji: "📦" },
-      { vault: "systems", label: "Maintenance", emoji: "🔧" },
+      // Maintenance (vault:"systems") and Inventory nav entries removed —
+      // both reachable via Home → summary card → "Open →" now. Components
+      // and af_vaultSystems/af_inventory data are untouched, just no
+      // standalone sidebar entry.
       { vault: "health", label: "Health", emoji: "🩺" },
       ...(featureFlags.careerEnabled ? [{ vault: "career", label: "Career", emoji: "📋" }] : []),
       { vault: "subs", label: "Subscriptions", emoji: "🔄" },
