@@ -11108,18 +11108,31 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {content:"Shrimp",tags:["allergen"]},{content:"Cod",tags:[]},{content:"Sardines",tags:[]},
             {content:"White beans",tags:[]},{content:"Kidney beans",tags:[]},{content:"Edamame (shelled)",tags:[]},
           ]},
-          {title:"Grains & starches",items:[
+          {title:"Grains",items:[
             {content:"Oatmeal",tags:[]},{content:"Brown rice",tags:[]},{content:"Quinoa",tags:[]},
             {content:"Barley",tags:[]},{content:"Millet",tags:[]},{content:"Whole wheat toast",tags:["allergen"]},
             {content:"Potato",tags:[]},{content:"Polenta",tags:[]},{content:"Cream of wheat",tags:["allergen"]},
             {content:"Buckwheat",tags:[]},
           ]},
-          {title:"Dairy & fats",items:[
+          {title:"Dairy",items:[
             {content:"Full-fat yogurt",tags:["allergen"]},{content:"Cottage cheese",tags:["allergen"]},
             {content:"Ricotta",tags:["allergen"]},{content:"Whole milk cheese",tags:["allergen"]},
             {content:"Cream cheese",tags:["allergen"]},{content:"Ghee",tags:[]},
             {content:"Olive oil",tags:[]},{content:"Coconut oil",tags:[]},
             {content:"Butter",tags:["allergen"]},{content:"Whole milk (in cooking)",tags:["allergen"]},
+          ]},
+          {title:"Combination Foods",items:[
+            {content:"Oatmeal with mashed banana",tags:[]},{content:"Yogurt with berries",tags:["allergen"]},
+            {content:"Scrambled eggs with avocado",tags:["allergen"]},{content:"Rice and beans",tags:[]},
+            {content:"Chicken and sweet potato mash",tags:[]},{content:"Turkey meatballs",tags:[]},
+            {content:"Veggie and cheese quesadilla",tags:["allergen"]},{content:"Pasta with marinara",tags:["allergen"]},
+            {content:"Mac and cheese",tags:["allergen"]},{content:"Lentil and veggie stew",tags:[]},
+            {content:"Salmon and mashed peas",tags:["allergen"]},{content:"Beef and veggie stew",tags:[]},
+            {content:"Tofu and rice stir-fry",tags:[]},{content:"Veggie fritters",tags:["allergen"]},
+            {content:"Baked oatmeal bites",tags:["allergen"]},{content:"Banana pancakes",tags:["allergen"]},
+            {content:"Chicken and rice bowl",tags:[]},{content:"Egg and toast strips",tags:["allergen"]},
+            {content:"Yogurt parfait with granola",tags:["allergen"]},
+            {content:"Fish and potato mash",tags:["allergen"]},
           ]},
         ],
       },
@@ -11685,6 +11698,33 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setCoveItemsMap(function(prev) { return Object.assign({}, prev, {[list.id]: newItems}); });
     }
 
+    // Destructive counterpart to restoreTemplateItems — wholesale replaces a
+    // templated list's sections and items with a fresh copy straight from
+    // COVE_TEMPLATES (same section/item shape createFromTemplate uses for a
+    // brand-new list), instead of merging. Only touches coveSectionsMap/
+    // coveItemsMap for this list — list-level fields (title, icon, color)
+    // are left as the household set them. Caller is responsible for
+    // confirming with the user first; this has no undo.
+    function resetListToTemplate(list) {
+      var resolvedId = resolveTemplateId(list);
+      var tmpl = COVE_TEMPLATES[resolvedId];
+      if (!tmpl) return;
+      var freshSections = [];
+      var freshItems = [];
+      (tmpl.sections || []).forEach(function(sec, si) {
+        var secId = uid2();
+        freshSections.push({id: secId, title: sec.title, sort_order: si});
+        (sec.items || []).forEach(function(item, ii) {
+          freshItems.push({id: uid2(), content: item.content, checked: false, tags: item.tags || [], section_id: secId, sort_order: ii});
+        });
+      });
+      if (list.template_id !== resolvedId) {
+        setCoveLists(function(prev) { return prev.map(function(l) { return l.id === list.id ? Object.assign({}, l, {template_id: resolvedId}) : l; }); });
+      }
+      setCoveSectionsMap(function(prev) { return Object.assign({}, prev, {[list.id]: freshSections}); });
+      setCoveItemsMap(function(prev) { return Object.assign({}, prev, {[list.id]: freshItems}); });
+    }
+
     function createBlank() {
       if (!newForm.title.trim()) return;
       setSaving(true);
@@ -11860,6 +11900,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   }
                   restoreTemplateItems(fixedList);
                 }} style={{background:"none",border:"1px solid "+T.border,borderRadius:"2rem",cursor:"pointer",color:T.textMid,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"inline-flex",alignItems:"center",gap:5}}>↺ Restore original items</button>
+              </div>
+            );
+          })()}
+
+          {/* Reset to template — always available on a templated list (unlike
+              Restore above, not gated on item count), for when the list is
+              corrupted in a way a merge can't fix: wrong sections, duplicate/
+              stray items, items in the wrong section, etc. Destructive —
+              completely replaces sections+items with a fresh template copy,
+              wiping all checkmarks and any custom items the household added. */}
+          {(function(){
+            var resolvedId = resolveTemplateId(activeList);
+            if (!resolvedId || !COVE_TEMPLATES[resolvedId]) return null;
+            return (
+              <div style={{padding:"0 16px 10px"}}>
+                <button onClick={async function(){
+                  var ok = await afConfirm("This will replace all current items with the original template. Your checkmarks will be lost.", {confirmText:"Reset", danger:true});
+                  if (!ok) return;
+                  resetListToTemplate(activeList);
+                }} style={{background:"none",border:"1px solid "+T.rose+"55",borderRadius:"2rem",cursor:"pointer",color:T.rose,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"inline-flex",alignItems:"center",gap:5}}>⟲ Reset this list to template</button>
               </div>
             );
           })()}
