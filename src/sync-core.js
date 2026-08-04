@@ -71,6 +71,11 @@ export const SYNC_KEYS = [
   // Inventory reuse existing keys (homeSystems/vaultSystems/exhale_waves/
   // inventory); these three are genuinely new.
   "home_projects","home_documents","home_supplies",
+  // home_cleaning: Home dashboard redesign — cleaning zones are now their
+  // own data source, independent of Waves. { zones:[{id,name,rooms,
+  // tasks:[{id,text,done}]}], activeZoneIndex, supplies:[{id,name,low}],
+  // schedule }. Object shape, own guard below (same class as exhale_waves).
+  "home_cleaning",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
@@ -202,6 +207,8 @@ const _SANITIZE_HANDLED = new Set([
   // home_projects/home_documents/home_supplies (Home Phase 3). Same
   // array-guard class as trips/recipeBook.
   "home_projects","home_documents","home_supplies",
+  // home_cleaning: object, own guard (see SYNC_KEYS comment).
+  "home_cleaning",
   // exhale_buckets: object { bucketNames:[], items:[] } (Exhale Phase 1).
   // Own guard for the same reason as gifts/work_schedules below — an object
   // misclassified by the array-guard mechanism silently vanishes every sync.
@@ -437,6 +444,13 @@ export function sanitizeHouseholdData(data) {
     if (data["lighthouse"] !== undefined && data["lighthouse"] !== null &&
         typeof data["lighthouse"] === "object" && !Array.isArray(data["lighthouse"])) {
       out["lighthouse"] = data["lighthouse"];
+    }
+    // home_cleaning: pass through as object (Home dashboard redesign) —
+    // { zones:[], activeZoneIndex, supplies:[], schedule }, same bare
+    // type-check pattern as safe_harbor/lighthouse above.
+    if (data["home_cleaning"] !== undefined && data["home_cleaning"] !== null &&
+        typeof data["home_cleaning"] === "object" && !Array.isArray(data["home_cleaning"])) {
+      out["home_cleaning"] = data["home_cleaning"];
     }
     // onboardingState: { complete: boolean, completedAt: string, version: number }.
     // Drives wizard auto-launch/re-ambush decisions on receive — a malformed

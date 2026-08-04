@@ -6426,7 +6426,20 @@ Respond ONLY in valid JSON:
     // dayOfWeek is numeric (0=Sun...6=Sat, same as Date#getDay()) per the
     // Exhale Phase 2 data shape — TODAY.getDay(), not TODAY_NAME (a string).
     var todaysWeeklyWaves = exhaleWaves.weekly.filter(function(w){ return w && w.dayOfWeek===TODAY.getDay() && Array.isArray(w.tasks); });
-    var homeFocusWave = todaysDailyWaves[0] || todaysWeeklyWaves[0] || null;
+    // Home dashboard redesign — Home Focus now reads the active cleaning
+    // zone (af_home_cleaning), not Exhale Waves. todaysDailyWaves/
+    // todaysWeeklyWaves above stay Waves-sourced (still used below for
+    // Wave-tagged merged tasks) — only this pill's source changed.
+    var homeFocusWave = (function(){
+      try {
+        var hc = JSON.parse(localStorage.getItem("af_home_cleaning")||"null");
+        if (hc && Array.isArray(hc.zones) && hc.zones.length) {
+          var z = hc.zones[hc.activeZoneIndex] || hc.zones[0];
+          if (z && z.name) return { name: z.name };
+        }
+      } catch(e) {}
+      return null;
+    })();
 
     // ── Today redesign — Exhale "Today" bucket (bucketIndex 1, positional —
     // buckets are a fixed 5-slot layout, so this is stable even if the
@@ -9846,26 +9859,88 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
     var hubChevron = function(open){ return <span style={{color:T.textFaint,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
 
-    // ── Cleaning — reads af_exhale_waves.weekly directly (no new zone key) ──
-    var WAVE_DAY_LABELS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    var exhaleWavesWeekly = (function(){
-      try { var w=JSON.parse(localStorage.getItem("af_exhale_waves")||"null"); return (w&&Array.isArray(w.weekly))?w.weekly:[]; } catch(e){ return []; }
-    })();
-    var [cleaningZonePick, setCleaningZonePick] = useState(null); // session-only manual preview, not persisted
-    var todaysZone = exhaleWavesWeekly.find(function(w){ return w && w.dayOfWeek===TODAY.getDay(); }) || null;
-    var previewZone = cleaningZonePick ? exhaleWavesWeekly.find(function(w){ return w.id===cleaningZonePick; }) : todaysZone;
-    var [homeSupplies, setHomeSupplies] = useSaved("home_supplies", []);
+    // ── Cleaning — af_home_cleaning is now its own data source (dashboard
+    // redesign), independent of Waves. Uses useSaved like home_projects/
+    // home_documents/home_supplies: HomeTab owns every write to this key,
+    // and Today only reads it (no external-writer staleness concern the
+    // way af_exhale_waves had with Today's own done-toggle write-back). ──
+    function emptyCleaning(){ return { zones:[], activeZoneIndex:0, supplies:[], schedule:"" }; }
+    function seedCleaning(){
+      var zoneDefs = [
+        { name:"Zone 1 · Master & Baths", rooms:"Master bedroom, bathrooms", tasks:["Strip & wash sheets","Clean toilets","Dust surfaces","Mop floors"] },
+        { name:"Zone 2 · Kitchen & Dining", rooms:"Kitchen, dining room", tasks:["Deep clean appliances","Wipe cabinets","Mop floor"] },
+        { name:"Zone 3 · Living Areas", rooms:"Living room, family room", tasks:["Vacuum","Dust furniture","Wipe surfaces"] },
+        { name:"Zone 4 · Kids & Extras", rooms:"Kids rooms, laundry, garage", tasks:["Change kids bedding","Laundry catch-up","Vacuum kids rooms"] },
+        { name:"Zone 5 · Whole Home Reset", rooms:"All areas", tasks:["Quick vacuum all floors","Wipe all bathrooms","Empty all trash"] },
+      ];
+      var zones = zoneDefs.map(function(z){ return { id:uid(), name:z.name, rooms:z.rooms, tasks:z.tasks.map(function(t){ return { id:uid(), text:t, done:false }; }) }; });
+      return { zones:zones, activeZoneIndex: TODAY.getDate() % zones.length, supplies:[], schedule:"" };
+    }
+    var [homeCleaning, setHomeCleaning] = useSaved("home_cleaning", emptyCleaning());
+    // Seed once (never overwrites real data) + auto-rotate activeZoneIndex
+    // daily (day-of-month mod zone count) so it stays current on revisits.
+    useEffect(function(){
+      if (!homeCleaning || !Array.isArray(homeCleaning.zones) || homeCleaning.zones.length===0) {
+        setHomeCleaning(seedCleaning());
+        return;
+      }
+      var todayIdx = TODAY.getDate() % homeCleaning.zones.length;
+      if (homeCleaning.activeZoneIndex !== todayIdx) {
+        setHomeCleaning(Object.assign({}, homeCleaning, {activeZoneIndex:todayIdx}));
+      }
+    }, []); // eslint-disable-line
+    var cleaningZones = (homeCleaning && Array.isArray(homeCleaning.zones)) ? homeCleaning.zones : [];
+    var activeZoneIndex = (homeCleaning && typeof homeCleaning.activeZoneIndex==="number") ? homeCleaning.activeZoneIndex : 0;
+    var activeZone = cleaningZones[activeZoneIndex] || null;
+    var cleaningSupplies = (homeCleaning && Array.isArray(homeCleaning.supplies)) ? homeCleaning.supplies : [];
+    var lowSupplies = cleaningSupplies.filter(function(s){ return s && s.low; });
+    var [showAllZones, setShowAllZones] = useState(false);
+    function setActiveZone(idx){ setHomeCleaning(Object.assign({}, homeCleaning, {activeZoneIndex:idx})); setShowAllZones(false); }
+    function toggleZoneTask(taskId){
+      if (!activeZone) return;
+      setHomeCleaning(Object.assign({}, homeCleaning, { zones: cleaningZones.map(function(z,i){
+        if (i!==activeZoneIndex) return z;
+        return Object.assign({}, z, { tasks: (z.tasks||[]).map(function(t){ return t.id===taskId ? Object.assign({},t,{done:!t.done}) : t; }) });
+      })}));
+    }
+    function resetZoneTasks(){
+      if (!activeZone) return;
+      setHomeCleaning(Object.assign({}, homeCleaning, { zones: cleaningZones.map(function(z,i){
+        if (i!==activeZoneIndex) return z;
+        return Object.assign({}, z, { tasks: (z.tasks||[]).map(function(t){ return Object.assign({},t,{done:false}); }) });
+      })}));
+    }
     var [newSupplyName, setNewSupplyName] = useState("");
-    function addSupply(){ if(!newSupplyName.trim())return; setHomeSupplies(function(p){return [...p,{id:uid(),name:newSupplyName.trim(),quantity:1,needToRestock:false}];}); setNewSupplyName(""); }
-    function toggleSupplyRestock(id){ setHomeSupplies(function(p){return p.map(function(s){return s.id===id?{...s,needToRestock:!s.needToRestock}:s;});}); }
-    function deleteSupply(id){ setHomeSupplies(function(p){return p.filter(function(s){return s.id!==id;});}); }
+    function addSupply(){ if(!newSupplyName.trim())return; setHomeCleaning(Object.assign({}, homeCleaning, {supplies:cleaningSupplies.concat([{id:uid(),name:newSupplyName.trim(),low:false}])})); setNewSupplyName(""); }
+    function toggleSupplyLow(id){ setHomeCleaning(Object.assign({}, homeCleaning, {supplies:cleaningSupplies.map(function(s){return s.id===id?Object.assign({},s,{low:!s.low}):s;})})); }
+    function deleteSupply(id){ setHomeCleaning(Object.assign({}, homeCleaning, {supplies:cleaningSupplies.filter(function(s){return s.id!==id;})})); }
 
     // ── Maintenance summary — reads af_vaultSystems directly, doesn't own it ──
     var maintenanceSystems = (function(){ try { var v=JSON.parse(localStorage.getItem("af_vaultSystems")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
-    var maintenanceDueSoon = maintenanceSystems.filter(function(s){return s&&s.nextDue;}).slice().sort(function(a,b){return (a.nextDue||"").localeCompare(b.nextDue||"");}).slice(0,3);
+    // First item is "Next Due", remaining up to 3 are "Upcoming".
+    var maintenanceDueSoon = maintenanceSystems.filter(function(s){return s&&s.nextDue;}).slice().sort(function(a,b){return (a.nextDue||"").localeCompare(b.nextDue||"");}).slice(0,4);
+    // "in N days"/"today"/"tomorrow" under 2 weeks, else a natural date
+    // ("August 14") — matches the spec's two examples exactly.
+    function formatDueNaturally(dateStr){
+      if (!dateStr) return "";
+      var d = new Date(dateStr+"T00:00:00");
+      if (isNaN(d)) return dateStr;
+      var days = Math.round((d.setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+      if (days < 0) return "overdue";
+      if (days === 0) return "today";
+      if (days === 1) return "tomorrow";
+      if (days <= 13) return "in " + days + " days";
+      var months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return months[d.getMonth()] + " " + d.getDate();
+    }
 
-    // ── Inventory summary — reads af_inventory directly, doesn't own it ──
-    var inventoryItems = (function(){ try { var v=JSON.parse(localStorage.getItem("af_inventory")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+    // ── Inventory summary — af_inventory is category-keyed ({pantry:[...],
+    // cleaning:[...], ...}), each item {name, stocked:bool, subcat} — NOT a
+    // flat array and NOT a quantity field (the shape assumed by an earlier
+    // draft of this spec). "Running low" maps to stocked===false. ──
+    var inventoryByCategory = (function(){ try { var v=JSON.parse(localStorage.getItem("af_inventory")||"null"); return (v&&typeof v==="object"&&!Array.isArray(v))?v:{}; } catch(e){ return {}; } })();
+    var inventoryItems = Object.keys(inventoryByCategory).reduce(function(acc,cat){ return acc.concat(Array.isArray(inventoryByCategory[cat])?inventoryByCategory[cat]:[]); }, []);
+    var inventoryLow = inventoryItems.filter(function(i){ return i && i.stocked===false; });
 
     // ── Projects ──────────────────────────────────────────────────────────
     var [homeProjects, setHomeProjects] = useSaved("home_projects", []);
@@ -9917,6 +9992,39 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
 
+        {/* ══════════════ 0. Home Overview ══════════════ */}
+        {(function(){
+          var zoneTasksRemaining = activeZone ? (activeZone.tasks||[]).filter(function(t){return !t.done;}).length : 0;
+          var activeProjects = homeProjects.filter(function(p){return p.status!=="done";});
+          var nextProjectTask = null;
+          for (var opi=0; opi<activeProjects.length && !nextProjectTask; opi++) {
+            var nt = (activeProjects[opi].tasks||[]).find(function(t){return !t.done;});
+            if (nt) nextProjectTask = nt;
+          }
+          var hasAlerts = maintenanceDueSoon.length>0 || inventoryLow.length>0;
+          return (
+            <div style={{...card({background:"rgba(250,242,229,0.07)",border:"1px solid rgba(250,242,229,0.14)"})}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
+                {hasAlerts ? "A few things need attention." : "Everything running smoothly."}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.6rem 0.9rem"}}>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                  🧹 {activeZone ? (activeZone.name + " · " + zoneTasksRemaining + " task" + (zoneTasksRemaining!==1?"s":"") + " left") : "No zones set up"}
+                </div>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                  🔧 {maintenanceDueSoon[0] ? (maintenanceDueSoon[0].name + " " + formatDueNaturally(maintenanceDueSoon[0].nextDue)) : "All clear"}
+                </div>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                  📦 {inventoryLow.length>0 ? (inventoryLow.length + " item" + (inventoryLow.length!==1?"s":"") + " running low") : "All stocked"}
+                </div>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                  🏡 {activeProjects.length>0 ? (activeProjects.length + " active project" + (activeProjects.length!==1?"s":"") + (nextProjectTask ? " · " + nextProjectTask.text : "")) : "No active projects"}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ══════════════ 1. Systems ══════════════ */}
         <div style={{...card({borderTop:"3px solid "+T.blue})}}>
           <div onClick={function(){toggleHub("systems");}} style={hubHeaderStyle}>
@@ -9961,62 +10069,64 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
           {backToHomePill("cleaning")}
-            {exhaleWavesWeekly.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textSoft,padding:"0.5rem 0"}}>
-                Set up your cleaning zones in Waves — each weekly wave becomes a zone with its own tasks and day.
-                <div style={{marginTop:"0.5rem"}}><button onClick={function(){goTab("waves");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem"})}>Set up in Waves →</button></div>
+            {cleaningZones.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:T.textSoft,padding:"0.5rem 0",lineHeight:1.6}}>
+                Organize your home into cleaning zones. Today's active zone appears in Today's Home Focus.
               </div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>This Week's Focus</div>
-              {previewZone ? (
-                <div style={{...card({background:T.sagePale,border:"1.5px solid "+T.sage+"55",marginBottom:"0.75rem"})}}>
-                  <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark,marginBottom:"0.3rem"}}>🌊 {previewZone.name}</div>
-                  {(previewZone.tasks||[]).length===0
-                    ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic"}}>No tasks in this zone yet.</div>
-                    : (previewZone.tasks||[]).map(function(t){return(
-                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                          <div style={{width:8,height:8,borderRadius:"50%",background:t.done?T.sage:T.border,flexShrink:0}}/>
-                          <span style={{fontSize:"0.83rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
-                        </div>
-                      );})
-                  }
-                </div>
-              ) : (
-                <div style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.75rem"}}>No zone assigned to today — pick one below to preview, or add one in Waves.</div>
-              )}
-
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>All Zones</div>
-              {exhaleWavesWeekly.map(function(z){
-                var isPicked = previewZone && previewZone.id===z.id;
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>Today's Zone</div>
+              {activeZone && (function(){
+                var zTasks = activeZone.tasks || [];
+                var zDone = zTasks.filter(function(t){return t.done;}).length;
                 return (
-                  <div key={z.id} onClick={function(){setCleaningZonePick(z.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.5rem",borderRadius:"0.6rem",background:isPicked?T.bluePale:"transparent",cursor:"pointer",marginBottom:"0.2rem"}}>
-                    <span style={{fontSize:"0.9rem"}}>🌊</span>
-                    <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:isPicked?700:500}}>{z.name}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textFaint}}>{typeof z.dayOfWeek==="number"?WAVE_DAY_LABELS[z.dayOfWeek]:""}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textFaint}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
+                  <div style={{...card({background:T.sagePale,border:"1.5px solid "+T.sage+"55",marginBottom:"0.75rem"})}}>
+                    <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark,marginBottom:"0.15rem"}}>{activeZone.name}</div>
+                    <div style={{fontSize:"0.78rem",color:T.textSoft,marginBottom:"0.3rem"}}>{activeZone.rooms}</div>
+                    <div style={{fontSize:"0.72rem",color:T.textFaint,fontWeight:700,marginBottom:"0.5rem"}}>{zTasks.length} task{zTasks.length!==1?"s":""} · {zDone} completed</div>
+                    {zTasks.length===0
+                      ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic"}}>No tasks in this zone yet.</div>
+                      : zTasks.map(function(t){return(
+                          <div key={t.id} onClick={function(){toggleZoneTask(t.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0",cursor:"pointer"}}>
+                            <div style={{width:16,height:16,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                            <span style={{fontSize:"0.83rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                          </div>
+                        );})
+                    }
+                    {zTasks.some(function(t){return t.done;}) && <button onClick={resetZoneTasks} style={{...btnS({fontSize:"0.7rem",padding:"0.28rem 0.6rem",marginTop:"0.5rem"})}}>↺ Reset zone</button>}
                   </div>
                 );
-              })}
+              })()}
 
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.75rem 0 0.3rem"}}>Cleaning Schedule</div>
-              {WAVE_DAY_LABELS.map(function(dayName,di){
-                var z = exhaleWavesWeekly.find(function(w){return w.dayOfWeek===di;});
+              <div onClick={function(){setShowAllZones(!showAllZones);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",marginBottom:"0.4rem"}}>
+                <span style={{fontSize:"0.78rem",color:T.blue,fontWeight:700}}>All Zones →</span>
+              </div>
+              {showAllZones && cleaningZones.map(function(z,zi){
+                var isActive = zi===activeZoneIndex;
                 return (
-                  <div key={di} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.22rem 0"}}>
-                    <span style={{fontSize:"0.72rem",fontWeight:700,color:di===TODAY.getDay()?T.blue:T.textFaint,width:34,flexShrink:0}}>{dayName.slice(0,3)}</span>
-                    <span style={{fontSize:"0.8rem",color:z?T.textDark:T.textFaint,fontStyle:z?"normal":"italic"}}>{z?z.name:"—"}</span>
+                  <div key={z.id} onClick={function(){setActiveZone(zi);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.5rem",borderRadius:"0.6rem",background:isActive?T.bluePale:"transparent",cursor:"pointer",marginBottom:"0.2rem"}}>
+                    <span style={{fontSize:"0.9rem"}}>🧹</span>
+                    <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:isActive?700:500}}>{z.name}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textFaint}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
                   </div>
                 );
               })}
             </>)}
 
             <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.75rem 0 0.3rem"}}>Supplies</div>
-            {homeSupplies.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No supplies tracked yet.</div>}
-            {homeSupplies.map(function(s){return(
+            {lowSupplies.length>0
+              ? lowSupplies.map(function(s){return(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
+                    <span style={{fontSize:"0.8rem"}}>⚠️</span>
+                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
+                    <span style={{fontSize:"0.68rem",color:T.rose,fontWeight:700}}>Low</span>
+                  </div>
+                );})
+              : cleaningSupplies.length>0 && <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600}}>All stocked ✓</div>
+            }
+            {cleaningSupplies.filter(function(s){return !s.low;}).map(function(s){return(
               <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                <div onClick={function(){toggleSupplyRestock(s.id);}} style={{width:16,height:16,borderRadius:"0.3rem",border:"2px solid "+(s.needToRestock?T.rose:T.border),background:s.needToRestock?T.rose:"transparent",cursor:"pointer",flexShrink:0}}/>
+                <div onClick={function(){toggleSupplyLow(s.id);}} style={{width:16,height:16,borderRadius:"0.3rem",border:"2px solid "+T.border,background:"transparent",cursor:"pointer",flexShrink:0}}/>
                 <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
-                {s.needToRestock&&<span style={{fontSize:"0.68rem",color:T.rose,fontWeight:700}}>Restock</span>}
                 <button onClick={function(){deleteSupply(s.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
               </div>
             );})}
@@ -10036,16 +10146,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
           {backToHomePill("maintenance")}
-            <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{maintenanceSystems.length} maintenance item{maintenanceSystems.length!==1?"s":""} tracked</div>
-            {maintenanceDueSoon.length>0&&maintenanceDueSoon.map(function(s){return(
-              <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0"}}>
-                <span style={{fontSize:"0.9rem"}}>🔧</span>
-                <span style={{flex:1,fontSize:"0.84rem",color:T.textDark}}>{s.name}</span>
-                <span style={{fontSize:"0.7rem",color:T.textFaint,fontWeight:700}}>{s.nextDue}</span>
-              </div>
-            );})}
-            {maintenanceSystems.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.5rem"}}>Nothing tracked yet.</div>}
-            <button onClick={function(){openVaultSection("systems");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.5rem"})}>Open Maintenance →</button>
+            {maintenanceSystems.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.5rem"}}>No maintenance items — add your first in Maintenance</div>
+            ) : (<>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>Next Due</div>
+              {maintenanceDueSoon[0] ? (
+                <div style={{...card({background:T.sandPale,border:"1.5px solid "+T.sand+"55",marginBottom:"0.6rem"})}}>
+                  <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>{maintenanceDueSoon[0].name}</div>
+                  <div style={{fontSize:"0.8rem",color:T.textSoft,marginTop:"0.15rem"}}>{formatDueNaturally(maintenanceDueSoon[0].nextDue)}</div>
+                </div>
+              ) : <div style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.6rem"}}>All clear</div>}
+              {maintenanceDueSoon.length>1&&(<>
+                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>Upcoming</div>
+                {maintenanceDueSoon.slice(1).map(function(s){return(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
+                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textFaint,fontWeight:700}}>{formatDueNaturally(s.nextDue)}</span>
+                  </div>
+                );})}
+              </>)}
+            </>)}
+            <button onClick={function(){openVaultSection("systems");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Maintenance →</button>
           </div>)}
         </div>
 
@@ -10059,7 +10180,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
           {backToHomePill("inventory")}
             <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
-            <button onClick={function(){openVaultSection("inventory");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem"})}>Open Inventory →</button>
+            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>Running Low</div>
+            {inventoryLow.length===0
+              ? <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600,marginBottom:"0.5rem"}}>All stocked ✓</div>
+              : inventoryLow.map(function(i,ii){return(
+                  <div key={ii} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
+                    <span style={{fontSize:"0.8rem"}}>⚠️</span>
+                    <span style={{fontSize:"0.83rem",color:T.textDark}}>{i.name}</span>
+                  </div>
+                );})
+            }
+            <button onClick={function(){openVaultSection("inventory");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.5rem"})}>Open Inventory →</button>
           </div>)}
         </div>
 
@@ -10073,10 +10204,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.projects&&(<div style={{marginTop:"0.75rem"}}>
           {backToHomePill("projects")}
-            {homeProjects.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No projects yet.</div>}
+            {homeProjects.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No active projects</div>}
             {homeProjects.map(function(proj){
               var isExpanded = expandedProjectId===proj.id;
-              var doneCount = (proj.tasks||[]).filter(function(t){return t.done;}).length;
+              var pTasks = proj.tasks||[];
+              var doneCount = pTasks.filter(function(t){return t.done;}).length;
+              var isActive = proj.status!=="done";
+              var pct = pTasks.length>0 ? Math.round((doneCount/pTasks.length)*100) : 0;
+              var nextTask = pTasks.find(function(t){return !t.done;});
               return (
                 <div key={proj.id} style={{...card({border:"1.5px solid "+T.borderSoft,marginBottom:"0.5rem"})}}>
                   <div onClick={function(){setExpandedProjectId(isExpanded?null:proj.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
@@ -10084,6 +10219,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <span style={{fontSize:"0.68rem",fontWeight:700,color:T.rose,background:T.rosePale||T.bgAlt,borderRadius:"2rem",padding:"1px 8px",textTransform:"capitalize"}}>{proj.status}</span>
                     {hubChevron(isExpanded)}
                   </div>
+                  {isActive && (pTasks.length>0 || nextTask) && (
+                    <div style={{fontSize:"0.76rem",color:T.textSoft,marginTop:"0.3rem"}}>
+                      {pTasks.length>0 && <span>{pct}% complete ({doneCount}/{pTasks.length})</span>}
+                      {nextTask && <span>{pTasks.length>0?" · ":""}Next: {nextTask.text}</span>}
+                    </div>
+                  )}
                   {isExpanded&&(
                     <div style={{marginTop:"0.6rem"}}>
                       <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
