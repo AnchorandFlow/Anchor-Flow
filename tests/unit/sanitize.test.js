@@ -101,6 +101,10 @@ const PLAUSIBLE = {
   // exhale_waves: Exhale Phase 2 — daily/weekly/seasonal/custom wave cards,
   // same object-with-array-fields shape class as exhale_buckets.
   exhale_waves:       { daily:[{ id:"ew1", name:"Morning basics", tasks:[{ id:"ewt1", text:"Check school folders", estimatedMinutes:null, done:false }] }], weekly:[{ id:"ew2", name:"Trash day", dayOfWeek:2, tasks:[] }], seasonal:[{ id:"ew3", name:"Gutter cleaning", month:10, tasks:[] }], custom:[] },
+  // Home Phase 3 — Home hub expansion. Plain array-guard class, same as trips/recipeBook.
+  home_projects:      [{ id:"hp1", name:"Repaint deck", status:"in-progress", budget:400, notes:"", tasks:[{ id:"hpt1", text:"Buy stain", done:false }] }],
+  home_documents:      [{ id:"hd1", name:"Homeowners policy", type:"Insurance", expiryDate:"2027-03-01", notes:"", url:"" }],
+  home_supplies:      [{ id:"hs1", name:"Paper towels", quantity:2, needToRestock:false }],
   cal_markers:        { "2026-07-04":["⭐"] },
   cal_marker_types:   [{ id:"cm1", emoji:"⭐", label:"Star" }],
   workDays:           ["Monday","Tuesday","Wednesday","Thursday","Friday"],

@@ -67,6 +67,10 @@ export const SYNC_KEYS = [
   // custom:[] }, each an array of wave cards with their own tasks. Today.jsx
   // already reads this key defensively; this is where it gets populated.
   "exhale_waves",
+  // Home Phase 3 — Home hub expansion. Systems/Maintenance/Cleaning/
+  // Inventory reuse existing keys (homeSystems/vaultSystems/exhale_waves/
+  // inventory); these three are genuinely new.
+  "home_projects","home_documents","home_supplies",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
@@ -195,6 +199,9 @@ const _SANITIZE_HANDLED = new Set([
   // exhale_columns: user-managed Exhale board columns. Same array-guard
   // class as countdowns.
   "exhale_columns",
+  // home_projects/home_documents/home_supplies (Home Phase 3). Same
+  // array-guard class as trips/recipeBook.
+  "home_projects","home_documents","home_supplies",
   // exhale_buckets: object { bucketNames:[], items:[] } (Exhale Phase 1).
   // Own guard for the same reason as gifts/work_schedules below — an object
   // misclassified by the array-guard mechanism silently vanishes every sync.
@@ -262,7 +269,12 @@ export function sanitizeHouseholdData(data) {
      // exhale_columns: array of { id, label, color, emoji }, user-managed
      // Exhale board columns. Same guard class as countdowns — top-level
      // array + null entries only, sub-field shapes unvalidated.
-     "exhale_columns"
+     "exhale_columns",
+     // Home Phase 3: home_projects ({id,name,status,budget,notes,tasks:[]}),
+     // home_documents ({id,name,type,expiryDate,notes,url}), home_supplies
+     // ({id,name,quantity,needToRestock}). Same guard class as trips/
+     // recipeBook — top-level array + null entries only.
+     "home_projects","home_documents","home_supplies"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);

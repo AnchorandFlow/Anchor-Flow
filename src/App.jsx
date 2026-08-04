@@ -9779,9 +9779,91 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});setNewItemText("");}
     function saveSystem(){if(!editForm.label.trim())return;if(editingSystem==="new")setHomeSystems(p=>[...p,{id:uid(),label:editForm.label.trim(),emoji:editForm.emoji,items:editForm.items}]);else setHomeSystems(p=>p.map(s=>s.id===editingSystem?{...s,label:editForm.label,emoji:editForm.emoji,items:editForm.items}:s));setEditingSystem(null);}
     function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Home Phase 3 — hub expansion. "Systems" above (homeSystems/af_homeSystems)
+    // is the pre-existing content, now wrapped as sub-card 1. The other 5
+    // sub-cards are added below. Maintenance and Inventory already have their
+    // own dedicated vault nav entries (AnchorVault.jsx, "systems"/"inventory")
+    // backed by af_vaultSystems/af_inventory — this stays additive: those keys
+    // are read directly here for a summary card that links out, not owned or
+    // duplicated here.
+    // ══════════════════════════════════════════════════════════════════════
+    var [homeHubOpen, setHomeHubOpen] = useState({systems:true, cleaning:true, maintenance:false, inventory:false, projects:false, documents:false});
+    function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
+    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
+    var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
+    var hubChevron = function(open){ return <span style={{color:T.textFaint,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+
+    // ── Cleaning — reads af_exhale_waves.weekly directly (no new zone key) ──
+    var WAVE_DAY_LABELS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    var exhaleWavesWeekly = (function(){
+      try { var w=JSON.parse(localStorage.getItem("af_exhale_waves")||"null"); return (w&&Array.isArray(w.weekly))?w.weekly:[]; } catch(e){ return []; }
+    })();
+    var [cleaningZonePick, setCleaningZonePick] = useState(null); // session-only manual preview, not persisted
+    var todaysZone = exhaleWavesWeekly.find(function(w){ return w && w.dayOfWeek===TODAY.getDay(); }) || null;
+    var previewZone = cleaningZonePick ? exhaleWavesWeekly.find(function(w){ return w.id===cleaningZonePick; }) : todaysZone;
+    var [homeSupplies, setHomeSupplies] = useSaved("home_supplies", []);
+    var [newSupplyName, setNewSupplyName] = useState("");
+    function addSupply(){ if(!newSupplyName.trim())return; setHomeSupplies(function(p){return [...p,{id:uid(),name:newSupplyName.trim(),quantity:1,needToRestock:false}];}); setNewSupplyName(""); }
+    function toggleSupplyRestock(id){ setHomeSupplies(function(p){return p.map(function(s){return s.id===id?{...s,needToRestock:!s.needToRestock}:s;});}); }
+    function deleteSupply(id){ setHomeSupplies(function(p){return p.filter(function(s){return s.id!==id;});}); }
+
+    // ── Maintenance summary — reads af_vaultSystems directly, doesn't own it ──
+    var maintenanceSystems = (function(){ try { var v=JSON.parse(localStorage.getItem("af_vaultSystems")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+    var maintenanceDueSoon = maintenanceSystems.filter(function(s){return s&&s.nextDue;}).slice().sort(function(a,b){return (a.nextDue||"").localeCompare(b.nextDue||"");}).slice(0,3);
+
+    // ── Inventory summary — reads af_inventory directly, doesn't own it ──
+    var inventoryItems = (function(){ try { var v=JSON.parse(localStorage.getItem("af_inventory")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+
+    // ── Projects ──────────────────────────────────────────────────────────
+    var [homeProjects, setHomeProjects] = useSaved("home_projects", []);
+    var [addingProject, setAddingProject] = useState(false);
+    var [projectForm, setProjectForm] = useState({name:"",status:"planning",budget:"",notes:""});
+    var [expandedProjectId, setExpandedProjectId] = useState(null);
+    var [projectTaskText, setProjectTaskText] = useState("");
+    var PROJECT_STATUSES = ["planning","in-progress","on-hold","done"];
+    function saveNewProject(){
+      if(!projectForm.name.trim()) return;
+      setHomeProjects(function(p){return [...p,{id:uid(),name:projectForm.name.trim(),status:projectForm.status,budget:projectForm.budget||"",notes:projectForm.notes||"",tasks:[]}];});
+      setProjectForm({name:"",status:"planning",budget:"",notes:""}); setAddingProject(false);
+    }
+    function updateProject(id,patch){ setHomeProjects(function(p){return p.map(function(x){return x.id===id?Object.assign({},x,patch):x;});}); }
+    function deleteProject(id){ setHomeProjects(function(p){return p.filter(function(x){return x.id!==id;});}); if(expandedProjectId===id) setExpandedProjectId(null); }
+    function addProjectTask(pid,text){ if(!text.trim())return; setHomeProjects(function(p){return p.map(function(x){return x.id!==pid?x:Object.assign({},x,{tasks:(x.tasks||[]).concat([{id:uid(),text:text.trim(),done:false}])});});}); setProjectTaskText(""); }
+    function toggleProjectTask(pid,tid){ setHomeProjects(function(p){return p.map(function(x){return x.id!==pid?x:Object.assign({},x,{tasks:(x.tasks||[]).map(function(t){return t.id===tid?Object.assign({},t,{done:!t.done}):t;})});});}); }
+    function deleteProjectTask(pid,tid){ setHomeProjects(function(p){return p.map(function(x){return x.id!==pid?x:Object.assign({},x,{tasks:(x.tasks||[]).filter(function(t){return t.id!==tid;})});});}); }
+
+    // ── Documents ─────────────────────────────────────────────────────────
+    var [homeDocuments, setHomeDocuments] = useSaved("home_documents", []);
+    var [addingDocument, setAddingDocument] = useState(false);
+    var [editingDocId, setEditingDocId] = useState(null);
+    var [documentForm, setDocumentForm] = useState({name:"",type:"Insurance",expiryDate:"",notes:"",url:""});
+    var DOC_TYPES = ["Insurance","Warranties","Manuals","Contracts","Other"];
+    function openNewDocument(){ setDocumentForm({name:"",type:"Insurance",expiryDate:"",notes:"",url:""}); setEditingDocId(null); setAddingDocument(true); }
+    function openEditDocument(d){ setDocumentForm({name:d.name||"",type:d.type||"Other",expiryDate:d.expiryDate||"",notes:d.notes||"",url:d.url||""}); setEditingDocId(d.id); setAddingDocument(true); }
+    function saveDocument(){
+      if(!documentForm.name.trim()) return;
+      if(editingDocId) setHomeDocuments(function(p){return p.map(function(x){return x.id===editingDocId?Object.assign({},x,documentForm,{name:documentForm.name.trim()}):x;});});
+      else setHomeDocuments(function(p){return p.concat([Object.assign({id:uid()},documentForm,{name:documentForm.name.trim()})]);});
+      setAddingDocument(false); setEditingDocId(null);
+    }
+    function deleteDocument(id){ setHomeDocuments(function(p){return p.filter(function(x){return x.id!==id;});}); }
+
     return(
       <div>
-        <SecHead emoji="🏠" title="Home Systems" sub="Rhythms that keep life flowing" onBack={function(){goTab("anchor");}} action={<button onClick={openNew} style={{...btnP(T.sage,{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.8rem",padding:"0.42rem 0.85rem"})}}><Icon name="plus" size={14} color="#fff"/> Add System</button>}/>
+        <SecHead emoji="🏡" title="Home" sub="Your household operations center" onBack={function(){goTab("anchor");}}/>
+
+        {/* ══════════════ 1. Systems ══════════════ */}
+        <div style={{...card({borderTop:"3px solid "+T.blue})}}>
+          <div onClick={function(){toggleHub("systems");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>🏠</span>
+            <h2 style={hubTitleStyle}>Systems</h2>
+            <button onClick={function(e){e.stopPropagation();openNew();}} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {hubChevron(homeHubOpen.systems)}
+          </div>
+          {homeHubOpen.systems&&(<div style={{marginTop:"0.75rem"}}>
         {homeSystems.map((sys,i)=>(
           <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
             style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
@@ -9804,6 +9886,234 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {sys.items.length===0&&<p style={{color:T.textFaint,fontSize:"0.79rem"}}>No items yet — tap Edit to add some.</p>}
           </div>
         ))}
+          </div>)}
+        </div>
+
+        {/* ══════════════ 2. Cleaning ══════════════ */}
+        <div style={{...card({borderTop:"3px solid #6ABAAA"})}}>
+          <div onClick={function(){toggleHub("cleaning");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>🧹</span>
+            <h2 style={hubTitleStyle}>Cleaning</h2>
+            {hubChevron(homeHubOpen.cleaning)}
+          </div>
+          {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
+            {exhaleWavesWeekly.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:T.textSoft,padding:"0.5rem 0"}}>
+                Set up your cleaning zones in Waves — each weekly wave becomes a zone with its own tasks and day.
+                <div style={{marginTop:"0.5rem"}}><button onClick={function(){goTab("waves");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem"})}>Set up in Waves →</button></div>
+              </div>
+            ) : (<>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>This Week's Focus</div>
+              {previewZone ? (
+                <div style={{...card({background:T.sagePale,border:"1.5px solid "+T.sage+"55",marginBottom:"0.75rem"})}}>
+                  <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark,marginBottom:"0.3rem"}}>🌊 {previewZone.name}</div>
+                  {(previewZone.tasks||[]).length===0
+                    ? <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic"}}>No tasks in this zone yet.</div>
+                    : (previewZone.tasks||[]).map(function(t){return(
+                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
+                          <div style={{width:8,height:8,borderRadius:"50%",background:t.done?T.sage:T.border,flexShrink:0}}/>
+                          <span style={{fontSize:"0.83rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                        </div>
+                      );})
+                  }
+                </div>
+              ) : (
+                <div style={{fontSize:"0.82rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.75rem"}}>No zone assigned to today — pick one below to preview, or add one in Waves.</div>
+              )}
+
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>All Zones</div>
+              {exhaleWavesWeekly.map(function(z){
+                var isPicked = previewZone && previewZone.id===z.id;
+                return (
+                  <div key={z.id} onClick={function(){setCleaningZonePick(z.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.5rem",borderRadius:"0.6rem",background:isPicked?T.bluePale:"transparent",cursor:"pointer",marginBottom:"0.2rem"}}>
+                    <span style={{fontSize:"0.9rem"}}>🌊</span>
+                    <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:isPicked?700:500}}>{z.name}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textFaint}}>{typeof z.dayOfWeek==="number"?WAVE_DAY_LABELS[z.dayOfWeek]:""}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textFaint}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
+                  </div>
+                );
+              })}
+
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.75rem 0 0.3rem"}}>Cleaning Schedule</div>
+              {WAVE_DAY_LABELS.map(function(dayName,di){
+                var z = exhaleWavesWeekly.find(function(w){return w.dayOfWeek===di;});
+                return (
+                  <div key={di} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.22rem 0"}}>
+                    <span style={{fontSize:"0.72rem",fontWeight:700,color:di===TODAY.getDay()?T.blue:T.textFaint,width:34,flexShrink:0}}>{dayName.slice(0,3)}</span>
+                    <span style={{fontSize:"0.8rem",color:z?T.textDark:T.textFaint,fontStyle:z?"normal":"italic"}}>{z?z.name:"—"}</span>
+                  </div>
+                );
+              })}
+            </>)}
+
+            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.75rem 0 0.3rem"}}>Supplies</div>
+            {homeSupplies.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No supplies tracked yet.</div>}
+            {homeSupplies.map(function(s){return(
+              <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
+                <div onClick={function(){toggleSupplyRestock(s.id);}} style={{width:16,height:16,borderRadius:"0.3rem",border:"2px solid "+(s.needToRestock?T.rose:T.border),background:s.needToRestock?T.rose:"transparent",cursor:"pointer",flexShrink:0}}/>
+                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
+                {s.needToRestock&&<span style={{fontSize:"0.68rem",color:T.rose,fontWeight:700}}>Restock</span>}
+                <button onClick={function(){deleteSupply(s.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+              </div>
+            );})}
+            <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
+              <input value={newSupplyName} onChange={function(e){setNewSupplyName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addSupply();}} placeholder="Add a supply…" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.4rem 0.6rem"})}}/>
+              <button onClick={addSupply} style={btnS({fontSize:"0.75rem",padding:"0.4rem 0.7rem"})}>+ Add</button>
+            </div>
+          </div>)}
+        </div>
+
+        {/* ══════════════ 3. Maintenance (existing vault section — summary + link) ══════════════ */}
+        <div style={{...card({borderTop:"3px solid "+T.sand})}}>
+          <div onClick={function(){toggleHub("maintenance");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>🔧</span>
+            <h2 style={hubTitleStyle}>Maintenance</h2>
+            {hubChevron(homeHubOpen.maintenance)}
+          </div>
+          {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
+            <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{maintenanceSystems.length} maintenance item{maintenanceSystems.length!==1?"s":""} tracked</div>
+            {maintenanceDueSoon.length>0&&maintenanceDueSoon.map(function(s){return(
+              <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0"}}>
+                <span style={{fontSize:"0.9rem"}}>🔧</span>
+                <span style={{flex:1,fontSize:"0.84rem",color:T.textDark}}>{s.name}</span>
+                <span style={{fontSize:"0.7rem",color:T.textFaint,fontWeight:700}}>{s.nextDue}</span>
+              </div>
+            );})}
+            {maintenanceSystems.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.5rem"}}>Nothing tracked yet.</div>}
+            <button onClick={function(){openVaultSection("systems");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.5rem"})}>Open Maintenance →</button>
+          </div>)}
+        </div>
+
+        {/* ══════════════ 4. Inventory (existing vault section — summary + link) ══════════════ */}
+        <div style={{...card({borderTop:"3px solid "+T.lavender})}}>
+          <div onClick={function(){toggleHub("inventory");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>📦</span>
+            <h2 style={hubTitleStyle}>Inventory</h2>
+            {hubChevron(homeHubOpen.inventory)}
+          </div>
+          {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
+            <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
+            <button onClick={function(){openVaultSection("inventory");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem"})}>Open Inventory →</button>
+          </div>)}
+        </div>
+
+        {/* ══════════════ 5. Projects ══════════════ */}
+        <div style={{...card({borderTop:"3px solid "+T.rose})}}>
+          <div onClick={function(){toggleHub("projects");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>🏡</span>
+            <h2 style={hubTitleStyle}>Projects</h2>
+            <button onClick={function(e){e.stopPropagation();setAddingProject(true);}} style={{...btnP(T.rose,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {hubChevron(homeHubOpen.projects)}
+          </div>
+          {homeHubOpen.projects&&(<div style={{marginTop:"0.75rem"}}>
+            {homeProjects.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No projects yet.</div>}
+            {homeProjects.map(function(proj){
+              var isExpanded = expandedProjectId===proj.id;
+              var doneCount = (proj.tasks||[]).filter(function(t){return t.done;}).length;
+              return (
+                <div key={proj.id} style={{...card({border:"1.5px solid "+T.borderSoft,marginBottom:"0.5rem"})}}>
+                  <div onClick={function(){setExpandedProjectId(isExpanded?null:proj.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"}}>
+                    <span style={{flex:1,fontWeight:700,fontSize:"0.9rem",color:T.textDark}}>{proj.name}</span>
+                    <span style={{fontSize:"0.68rem",fontWeight:700,color:T.rose,background:T.rosePale||T.bgAlt,borderRadius:"2rem",padding:"1px 8px",textTransform:"capitalize"}}>{proj.status}</span>
+                    {hubChevron(isExpanded)}
+                  </div>
+                  {isExpanded&&(
+                    <div style={{marginTop:"0.6rem"}}>
+                      <div style={{display:"flex",gap:"0.5rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+                        <select value={proj.status} onChange={function(e){updateProject(proj.id,{status:e.target.value});}} style={{...inp({fontSize:"0.78rem",padding:"0.3rem 0.5rem",width:"auto"})}}>
+                          {PROJECT_STATUSES.map(function(s){return <option key={s} value={s}>{s}</option>;})}
+                        </select>
+                        <input value={proj.budget||""} onChange={function(e){updateProject(proj.id,{budget:e.target.value});}} placeholder="Budget" style={{...inp({fontSize:"0.78rem",padding:"0.3rem 0.5rem",width:100})}}/>
+                      </div>
+                      <textarea value={proj.notes||""} onChange={function(e){updateProject(proj.id,{notes:e.target.value});}} placeholder="Notes…" rows={2} style={{...inp({fontSize:"0.8rem",width:"100%",resize:"none"})}}/>
+                      <div style={{marginTop:"0.5rem"}}>
+                        {(proj.tasks||[]).length>0&&<div style={{fontSize:"0.68rem",color:T.textFaint,marginBottom:"0.2rem"}}>{doneCount}/{proj.tasks.length} done</div>}
+                        {(proj.tasks||[]).map(function(t){return(
+                          <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.2rem 0"}}>
+                            <div onClick={function(){toggleProjectTask(proj.id,t.id);}} style={{width:15,height:15,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",cursor:"pointer",flexShrink:0}}/>
+                            <span style={{flex:1,fontSize:"0.8rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                            <button onClick={function(){deleteProjectTask(proj.id,t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={11} color={T.textFaint}/></button>
+                          </div>
+                        );})}
+                        <div style={{display:"flex",gap:"0.4rem",marginTop:"0.3rem"}}>
+                          <input value={projectTaskText} onChange={function(e){setProjectTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addProjectTask(proj.id,projectTaskText);}} placeholder="Add checklist item…" style={{...inp({flex:1,fontSize:"0.78rem",padding:"0.3rem 0.5rem"})}}/>
+                          <button onClick={function(){addProjectTask(proj.id,projectTaskText);}} style={btnS({fontSize:"0.72rem",padding:"0.3rem 0.6rem"})}>Add</button>
+                        </div>
+                      </div>
+                      <button onClick={function(){deleteProject(proj.id);}} style={{...btnS({fontSize:"0.72rem",padding:"0.3rem 0.6rem",color:T.rose,marginTop:"0.6rem"})}}>Delete project</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {addingProject&&(
+              <ModalBox title="New Project" onClose={function(){setAddingProject(false);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Name</label><input value={projectForm.name} onChange={function(e){setProjectForm(function(p){return Object.assign({},p,{name:e.target.value});});}} style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Status</label>
+                  <select value={projectForm.status} onChange={function(e){setProjectForm(function(p){return Object.assign({},p,{status:e.target.value});});}} style={inp()}>
+                    {PROJECT_STATUSES.map(function(s){return <option key={s} value={s}>{s}</option>;})}
+                  </select>
+                </div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Budget</label><input value={projectForm.budget} onChange={function(e){setProjectForm(function(p){return Object.assign({},p,{budget:e.target.value});});}} placeholder="$" style={inp()}/></div>
+                <div style={{marginBottom:"1rem"}}><label style={lbl}>Notes</label><textarea value={projectForm.notes} onChange={function(e){setProjectForm(function(p){return Object.assign({},p,{notes:e.target.value});});}} rows={2} style={{...inp({resize:"none"})}}/></div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
+                  <button onClick={function(){setAddingProject(false);}} style={btnS()}>Cancel</button>
+                  <button onClick={saveNewProject} style={btnP(T.rose)}>Create Project</button>
+                </div>
+              </ModalBox>
+            )}
+          </div>)}
+        </div>
+
+        {/* ══════════════ 6. Documents ══════════════ */}
+        <div style={{...card({borderTop:"3px solid "+T.textDark})}}>
+          <div onClick={function(){toggleHub("documents");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>📄</span>
+            <h2 style={hubTitleStyle}>Documents</h2>
+            <button onClick={function(e){e.stopPropagation();openNewDocument();}} style={{...btnP(T.textDark,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {hubChevron(homeHubOpen.documents)}
+          </div>
+          {homeHubOpen.documents&&(<div style={{marginTop:"0.75rem"}}>
+            {DOC_TYPES.map(function(cat){
+              var catDocs = homeDocuments.filter(function(d){return (d.type||"Other")===cat;});
+              if(catDocs.length===0) return null;
+              return (
+                <div key={cat} style={{marginBottom:"0.6rem"}}>
+                  <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.25rem"}}>{cat}</div>
+                  {catDocs.map(function(d){return(
+                    <div key={d.id} onClick={function(){openEditDocument(d);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.35rem 0",cursor:"pointer",borderBottom:"1px solid "+T.borderSoft}}>
+                      <span style={{flex:1,fontSize:"0.84rem",color:T.textDark}}>{d.name}</span>
+                      {d.expiryDate&&<span style={{fontSize:"0.68rem",color:T.textFaint}}>exp {d.expiryDate}</span>}
+                      <button onClick={function(e){e.stopPropagation();deleteDocument(d.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                    </div>
+                  );})}
+                </div>
+              );
+            })}
+            {homeDocuments.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No documents yet.</div>}
+            {addingDocument&&(
+              <ModalBox title={editingDocId?"Edit Document":"New Document"} onClose={function(){setAddingDocument(false);setEditingDocId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Name</label><input value={documentForm.name} onChange={function(e){setDocumentForm(function(p){return Object.assign({},p,{name:e.target.value});});}} style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Type</label>
+                  <select value={documentForm.type} onChange={function(e){setDocumentForm(function(p){return Object.assign({},p,{type:e.target.value});});}} style={inp()}>
+                    {DOC_TYPES.map(function(t){return <option key={t} value={t}>{t}</option>;})}
+                  </select>
+                </div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Expiry Date</label><input type="date" value={documentForm.expiryDate} onChange={function(e){setDocumentForm(function(p){return Object.assign({},p,{expiryDate:e.target.value});});}} style={inp()}/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Link / URL</label><input value={documentForm.url} onChange={function(e){setDocumentForm(function(p){return Object.assign({},p,{url:e.target.value});});}} placeholder="https://…" style={inp()}/></div>
+                <div style={{marginBottom:"1rem"}}><label style={lbl}>Notes</label><textarea value={documentForm.notes} onChange={function(e){setDocumentForm(function(p){return Object.assign({},p,{notes:e.target.value});});}} rows={2} style={{...inp({resize:"none"})}}/></div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingDocId?<button onClick={function(){deleteDocument(editingDocId);setAddingDocument(false);setEditingDocId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingDocument(false);setEditingDocId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveDocument} style={btnP(T.textDark)}>{editingDocId?"Save Changes":"Create Document"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            )}
+          </div>)}
+        </div>
+
         {editingSystem&&(
           <ModalBox title={editingSystem==="new"?"New System":`Edit: ${editForm.label||"System"}`} onClose={()=>setEditingSystem(null)} wide>
             <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
