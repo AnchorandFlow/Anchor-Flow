@@ -11343,20 +11343,39 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // One-time migration: the pre-fix drag bug (itemPointerDown/onUp — a
     // plain tap on the drag handle, no movement, used to silently push the
     // tapped item to the end of the list) could corrupt or drop items from
-    // this household's "50 States & National Parks" list. The template has
-    // 113 items (50 states + 63 parks); fewer than 100 is a strong signal of
-    // real loss, not just "a few not checked off yet". restoreTemplateItems
-    // is additive-only (matches existing items by content, never removes or
+    // this household's "50 States & National Parks" list.
+    //
+    // Debug follow-up: the first version of this migration only matched
+    // list.template_id==="states-parks" and it didn't fire — template_id has
+    // actually always been set by createFromTemplate (checked git history,
+    // present since the very first Cove-lists commit), so a missing field
+    // wasn't the confirmed cause, but matching on template_id ALONE is still
+    // fragile (a bad sync pull, manual localStorage edit, or any future bug
+    // in that field is a single point of failure). Now matches on EITHER
+    // template_id==="states-parks" OR the exact title "50 States & National
+    // Parks", and if template_id turns out to be missing/wrong on a matched
+    // list, patches it back so restoreTemplateItems (and the "Restore
+    // original items" button, which also keys off template_id) can find
+    // COVE_TEMPLATES["states-parks"] afterward. restoreTemplateItems is
+    // additive-only (matches existing items by content, never removes or
     // overwrites), so this is safe to run every mount and is a no-op once
     // the list is whole again. Same deferred-2s pattern as the repair effect
     // above, for the same hydration/dirty-marking reason.
     useEffect(function() {
+      console.log("[AF COVE] states-parks migration effect mounted — checking in 2s");
       var t = setTimeout(function() {
+        console.log("[AF COVE] states-parks migration running — coveLists:", coveLists.length);
         coveLists.forEach(function(list) {
-          if (list.template_id !== "states-parks") return;
+          var resolvedId = resolveTemplateId(list);
+          if (resolvedId !== "states-parks") return;
           var items = coveItemsMap[list.id] || [];
-          if (items.length >= 100) return;
-          restoreTemplateItems(list);
+          console.log("[AF COVE] states-parks candidate — id:", list.id, "title:", list.title, "template_id:", list.template_id, "item count:", items.length);
+          if (items.length >= 50) return;
+          var fixedList = list.template_id === resolvedId ? list : Object.assign({}, list, {template_id: resolvedId});
+          if (fixedList !== list) {
+            setCoveLists(function(prev) { return prev.map(function(l) { return l.id === list.id ? fixedList : l; }); });
+          }
+          restoreTemplateItems(fixedList);
           console.warn("[AF COVE] restored states-parks items for list "+list.id+" (had "+items.length+")");
         });
       }, 2000);
@@ -11622,8 +11641,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function templateItemCount(tmpl) {
       return (tmpl.sections || []).reduce(function(sum, s) { return sum + (s.items || []).length; }, 0);
     }
+    // Falls back to matching by exact title when template_id is missing —
+    // same reasoning as the migration effect above: template_id has always
+    // been set by createFromTemplate, but a single field is still a fragile
+    // thing to hang recovery on (bad sync pull, manual edit, future bug).
+    function resolveTemplateId(list) {
+      if (list.template_id) return list.template_id;
+      if (list.title === "50 States & National Parks") return "states-parks";
+      return null;
+    }
     function restoreTemplateItems(list) {
-      var tmpl = list.template_id && COVE_TEMPLATES[list.template_id];
+      var tmpl = COVE_TEMPLATES[resolveTemplateId(list)];
       if (!tmpl) return;
       var existingSections = coveSectionsMap[list.id] || [];
       var existingItems = coveItemsMap[list.id] || [];
@@ -11816,7 +11844,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               were lost (drag bug, sync gap, accidental delete...). Additive only:
               existing items and their checked state are untouched. */}
           {(function(){
-            var tmpl = activeList.template_id && COVE_TEMPLATES[activeList.template_id];
+            var resolvedId = resolveTemplateId(activeList);
+            var tmpl = resolvedId && COVE_TEMPLATES[resolvedId];
             if (!tmpl) return null;
             var tmplCount = templateItemCount(tmpl);
             if (activeItems.length >= tmplCount) return null;
@@ -11824,7 +11853,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{padding:"0 16px 10px"}}>
                 <button onClick={async function(){
                   var ok = await afConfirm("Restore missing items from the original template? Your existing items and completions will be kept.", {confirmText:"Restore"});
-                  if (ok) restoreTemplateItems(activeList);
+                  if (!ok) return;
+                  var fixedList = activeList.template_id === resolvedId ? activeList : Object.assign({}, activeList, {template_id: resolvedId});
+                  if (fixedList !== activeList) {
+                    setCoveLists(function(prev) { return prev.map(function(l) { return l.id === activeList.id ? fixedList : l; }); });
+                  }
+                  restoreTemplateItems(fixedList);
                 }} style={{background:"none",border:"1px solid "+T.border,borderRadius:"2rem",cursor:"pointer",color:T.textMid,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"inline-flex",alignItems:"center",gap:5}}>↺ Restore original items</button>
               </div>
             );
