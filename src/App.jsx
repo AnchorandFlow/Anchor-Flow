@@ -15618,7 +15618,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       {/* AI accessible from header button */}
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)} pendingMessage={pendingChatMessage} onConsumePending={()=>setPendingChatMessage(null)}/>}
-      {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
+      {showEndOfDay&&<SunsetClose weatherData={weatherData} onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
       {showWhoAmI&&<WhoAmIModal/>}
       {showFeedback&&(
         <ModalBox title="Send feedback" onClose={function(){setShowFeedback(false);}}>
