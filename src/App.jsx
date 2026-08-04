@@ -9845,7 +9845,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // Info is its own new card/key below, not a Systems rename in data terms
     // — af_homeSystems is untouched and still synced, just orphaned from UI.
     // ══════════════════════════════════════════════════════════════════════
-    var [homeHubOpen, setHomeHubOpen] = useState({info:true, cleaning:true, maintenance:false, inventory:false, projects:false, documents:false});
+    var [homeHubOpen, setHomeHubOpen] = useState({info:true, cleaning:false, maintenance:false, inventory:false, projects:false, documents:false});
     function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
@@ -9890,12 +9890,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
     var [homeCleaning, setHomeCleaning] = useSaved("home_cleaning", emptyCleaning());
     // Seed once (never overwrites real data) + auto-rotate activeZoneIndex
-    // daily (day-of-month mod zone count) so it stays current on revisits.
+    // daily (day-of-month mod zone count) so it stays current on revisits —
+    // UNLESS the user has manually pinned a zone for the week (zonePinned),
+    // in which case auto-rotation stands down until they pick "This week"
+    // is over some other way (there's no auto-unpin; manual stays manual).
     useEffect(function(){
       if (!homeCleaning || !Array.isArray(homeCleaning.zones) || homeCleaning.zones.length===0) {
         setHomeCleaning(seedCleaning());
         return;
       }
+      if (homeCleaning.zonePinned) return;
       var todayIdx = TODAY.getDate() % homeCleaning.zones.length;
       if (homeCleaning.activeZoneIndex !== todayIdx) {
         setHomeCleaning(Object.assign({}, homeCleaning, {activeZoneIndex:todayIdx}));
@@ -9906,8 +9910,35 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var activeZone = cleaningZones[activeZoneIndex] || null;
     var cleaningSupplies = (homeCleaning && Array.isArray(homeCleaning.supplies)) ? homeCleaning.supplies : [];
     var lowSupplies = cleaningSupplies.filter(function(s){ return s && s.low; });
-    var [showAllZones, setShowAllZones] = useState(false);
-    function setActiveZone(idx){ setHomeCleaning(Object.assign({}, homeCleaning, {activeZoneIndex:idx})); setShowAllZones(false); }
+    // setActiveZone is the manual "pin" path — used by both the quick zone
+    // switch and the zone manager's "Set as this week" button.
+    function setActiveZone(idx){ setHomeCleaning(Object.assign({}, homeCleaning, {activeZoneIndex:idx, zonePinned:true})); }
+    // ── Zone manager — inline editor for adding/renaming/deleting zones
+    // and editing their task lists, opened from "⚙ Manage zones" below.
+    var [manageZonesOpen, setManageZonesOpen] = useState(false);
+    var [addingZone, setAddingZone] = useState(false);
+    var [editingZoneId, setEditingZoneId] = useState(null);
+    var [zoneForm, setZoneForm] = useState({name:"",rooms:"",tasks:[]});
+    var [zoneTaskText, setZoneTaskText] = useState("");
+    function openNewZone(){ setZoneForm({name:"",rooms:"",tasks:[]}); setEditingZoneId(null); setZoneTaskText(""); setAddingZone(true); }
+    function openEditZone(zone){ setZoneForm({name:zone.name||"",rooms:zone.rooms||"",tasks:(zone.tasks||[]).slice()}); setEditingZoneId(zone.id); setZoneTaskText(""); setAddingZone(true); }
+    function addZoneFormTask(){ if(!zoneTaskText.trim())return; setZoneForm(function(p){return Object.assign({},p,{tasks:p.tasks.concat([{id:uid(),text:zoneTaskText.trim(),done:false}])});}); setZoneTaskText(""); }
+    function removeZoneFormTask(taskId){ setZoneForm(function(p){return Object.assign({},p,{tasks:p.tasks.filter(function(t){return t.id!==taskId;})});}); }
+    function saveZone(){
+      if(!zoneForm.name.trim()) return;
+      if(editingZoneId){
+        setHomeCleaning(Object.assign({}, homeCleaning, { zones: cleaningZones.map(function(z){ return z.id===editingZoneId ? Object.assign({},z,{name:zoneForm.name.trim(),rooms:zoneForm.rooms.trim(),tasks:zoneForm.tasks}) : z; }) }));
+      } else {
+        setHomeCleaning(Object.assign({}, homeCleaning, { zones: cleaningZones.concat([{id:uid(),name:zoneForm.name.trim(),rooms:zoneForm.rooms.trim(),tasks:zoneForm.tasks}]) }));
+      }
+      setAddingZone(false); setEditingZoneId(null);
+    }
+    function deleteZone(id){
+      var newZones = cleaningZones.filter(function(z){return z.id!==id;});
+      var newActiveIndex = Math.min(activeZoneIndex, Math.max(0,newZones.length-1));
+      setHomeCleaning(Object.assign({}, homeCleaning, { zones:newZones, activeZoneIndex:newActiveIndex }));
+      setAddingZone(false); setEditingZoneId(null);
+    }
     function toggleZoneTask(taskId){
       if (!activeZone) return;
       setHomeCleaning(Object.assign({}, homeCleaning, { zones: cleaningZones.map(function(z,i){
@@ -10129,20 +10160,63 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 );
               })()}
 
-              <div onClick={function(){setShowAllZones(!showAllZones);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",marginBottom:"0.4rem"}}>
-                <span style={{fontSize:"0.78rem",color:T.blue,fontWeight:700}}>All Zones →</span>
+              <div onClick={function(){setManageZonesOpen(!manageZonesOpen);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",marginBottom:"0.4rem"}}>
+                <span style={{fontSize:"0.78rem",color:T.blue,fontWeight:700}}>⚙ Manage zones {manageZonesOpen?"▾":"→"}</span>
               </div>
-              {showAllZones && cleaningZones.map(function(z,zi){
-                var isActive = zi===activeZoneIndex;
-                return (
-                  <div key={z.id} onClick={function(){setActiveZone(zi);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.5rem",borderRadius:"0.6rem",background:isActive?T.bluePale:"transparent",cursor:"pointer",marginBottom:"0.2rem"}}>
-                    <span style={{fontSize:"0.9rem"}}>🧹</span>
-                    <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:isActive?700:500}}>{z.name}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textFaint}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
-                  </div>
-                );
-              })}
+              {manageZonesOpen && (<div style={{marginBottom:"0.4rem"}}>
+                {cleaningZones.map(function(z,zi){
+                  var isActive = zi===activeZoneIndex;
+                  return (
+                    <div key={z.id} style={{...card({border:"1.5px solid "+(isActive?T.sage+"70":T.borderSoft),marginBottom:"0.4rem",padding:"0.65rem 0.75rem"})}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <span style={{flex:1,fontSize:"0.85rem",fontWeight:700,color:T.textDark}}>{z.name}</span>
+                        {isActive
+                          ? <span style={{fontSize:"0.65rem",fontWeight:800,color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"2px 8px",flexShrink:0}}>Active</span>
+                          : <button onClick={function(){setActiveZone(zi);}} style={{...btnS({fontSize:"0.68rem",padding:"0.25rem 0.55rem"})}}>Set as this week</button>
+                        }
+                      </div>
+                      <div style={{fontSize:"0.76rem",color:T.textSoft,margin:"0.2rem 0 0.45rem"}}>{z.rooms||"No rooms set"}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
+                        <span style={{fontSize:"0.7rem",color:T.textFaint}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
+                        <button onClick={function(){openEditZone(z);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,fontSize:"0.72rem",color:T.blue,fontWeight:700}}>Edit</button>
+                        <button onClick={function(){deleteZone(z.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",marginLeft:"auto"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <button onClick={openNewZone} style={{...btnS({fontSize:"0.76rem",padding:"0.4rem 0.75rem"})}}>+ Add zone</button>
+              </div>)}
             </>)}
+            {cleaningZones.length===0 && manageZonesOpen===false && (
+              <button onClick={function(){setManageZonesOpen(true);}} style={{...btnS({fontSize:"0.76rem",padding:"0.4rem 0.75rem",marginTop:"0.3rem"})}}>⚙ Manage zones</button>
+            )}
+            {addingZone&&(
+              <ModalBox title={editingZoneId?"Edit Zone":"New Zone"} onClose={function(){setAddingZone(false);setEditingZoneId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Zone Name</label><input value={zoneForm.name} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{name:e.target.value});});}} placeholder="e.g. Zone 1 · Master & Baths" style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Rooms</label><input value={zoneForm.rooms} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{rooms:e.target.value});});}} placeholder="e.g. Master bedroom, bathrooms" style={inp()}/></div>
+                <label style={lbl}>Tasks</label>
+                <div style={{marginBottom:"0.6rem",border:"1.5px solid "+T.border,borderRadius:"0.8rem",overflow:"hidden"}}>
+                  {zoneForm.tasks.length===0 && <p style={{color:T.textFaint,fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
+                  {zoneForm.tasks.map(function(t,ti){return(
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.65rem",borderBottom:ti<zoneForm.tasks.length-1?"1px solid "+T.borderSoft:"none"}}>
+                      <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{t.text}</span>
+                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                    </div>
+                  );})}
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.1rem"}}>
+                  <input value={zoneTaskText} onChange={function(e){setZoneTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addZoneFormTask();}} placeholder="Add a task…" style={{...inp({flex:1})}}/>
+                  <button onClick={addZoneFormTask} style={{...btnS({fontSize:"0.78rem",padding:"0.5rem 0.75rem"})}}>+ Add</button>
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingZoneId?<button onClick={function(){deleteZone(editingZoneId);}} style={{...btnS({color:T.rose})}}>Delete Zone</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingZone(false);setEditingZoneId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveZone} style={btnP(T.sage)}>{editingZoneId?"Save Changes":"Create Zone"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            )}
 
             <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,margin:"0.75rem 0 0.3rem"}}>Supplies</div>
             {lowSupplies.length>0
