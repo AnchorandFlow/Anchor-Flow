@@ -145,7 +145,7 @@ export default function FlowHome(props) {
   var doneCount = todayTasks.filter(function (t) { return t.done; }).length;
   var pct = todayTasks.length ? Math.round((doneCount / todayTasks.length) * 100) : 0;
 
-  var meals = rd("nextWeekMeals", {});
+  var meals = rd("meals", {});
   var tMeal = meals[todayName] || {};
   var dinner = tMeal.name || tMeal.dinner || tMeal.meal || null;
   var tmwMeal = meals[tomorrowName] || {};

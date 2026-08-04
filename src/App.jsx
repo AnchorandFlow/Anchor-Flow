@@ -11363,7 +11363,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // invariant violation) on tab switch. Hooks must fire unconditionally,
     // every render, regardless of which tab is active — no logic changed here,
     // only position.
-    var dragItem = useRef({from:null, fromSec:null, toSec:null, toIdx:null, clone:null});
+    var dragItem = useRef({from:null, fromSec:null, toSec:null, toIdx:null, clone:null, hadMovement:false});
     var [dragFromId, setDragFromId] = useState(null);
     var [dragOverId, setDragOverId] = useState(null);
 
@@ -11646,6 +11646,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       dragItem.current.fromSec = item.section_id || null;
       dragItem.current.toSec = item.section_id || null;
       dragItem.current.toIdx = null;
+      dragItem.current.hadMovement = false;
       setDragFromId(item.id);
 
       var rowEl = e.currentTarget.closest("[data-itemid]") || e.currentTarget;
@@ -11658,6 +11659,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       dragItem.current.clone = clone;
 
       function onMove(ev) {
+        dragItem.current.hadMovement = true;
         clone.style.left = (ev.clientX - 20) + "px";
         clone.style.top  = (ev.clientY - 16) + "px";
         clone.style.display = "none";
@@ -11683,9 +11685,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var fromId = dragItem.current.from;
         var toId   = dragItem.current.toIdx;
         var toSec  = dragItem.current.toSec !== undefined ? dragItem.current.toSec : null;
+        var hadMovement = dragItem.current.hadMovement;
         dragItem.current.from = dragItem.current.toIdx = null;
         cleanup();
         if (!fromId) return;
+        // A plain tap on the handle (pointerdown immediately followed by
+        // pointerup, no pointermove in between) used to fall through to the
+        // toIdx2===-1 branch below and silently push the tapped item to the
+        // end of its list — no visible drag, item just jumps to the bottom.
+        // If the pointer never actually moved, there's nothing to reorder.
+        if (!hadMovement) return;
         setCoveItemsMap(function(prev) {
           var items = (prev[activeListId] || []).slice();
           var fromIdx = items.findIndex(function(i){ return i.id === fromId; });
