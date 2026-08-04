@@ -474,6 +474,102 @@ function recentSuggestionTitles(state) {
   return seen.slice(0, 20);
 }
 
+// Phase 4 — cross-feature connection detection. Computed client-side, never
+// left to the model to infer, so a "connection" is always grounded in real
+// data that actually exists together — never invented. Each sub-check only
+// produces a note when BOTH sides of the connection are present.
+//
+// (b) Exhale item text does get sent here when it matches a calendar title —
+// a narrower exception to the "Items must NOT appear in buildCompassContext()"
+// rule from the Exhale Phase 1 task, deliberately made for this one named
+// feature (Phase 4 spec explicitly asks for this exact cross-reference).
+// Nothing else about Exhale items (notes, other buckets, unmatched items)
+// is sent — only items whose text overlaps today's actual calendar titles.
+function celebUnpurchasedGiftCount(state, celeb) {
+  var giftsStore = state.gifts || {};
+  var count = 0;
+  Object.keys(giftsStore).forEach(function (pid) {
+    if (pid === "holiday_lists") return;
+    asArray(giftsStore[pid]).forEach(function (list) {
+      asArray(list && list.gifts).forEach(function (g) {
+        if (!g || g.purchased) return;
+        if (g.assignedCelebId === celeb.id) count++;
+        else if (!g.assignedCelebId && celeb.personId && pid === celeb.personId) count++;
+      });
+    });
+  });
+  return count;
+}
+
+var CONNECTION_STOPWORDS = ["the","a","an","and","for","to","at","on","in","with","of","or","your","today"];
+function significantWords(text) {
+  return String(text || "").toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/)
+    .filter(function (w) { return w.length > 3 && CONNECTION_STOPWORDS.indexOf(w) === -1; });
+}
+
+function computePotentialConnections(state) {
+  var out = [];
+  var now = new Date(); now.setHours(0, 0, 0, 0);
+  var todayEvts = asArray(state.calEvents).map(slimEvent).filter(function (e) { return daysFromNow(e.date) === 0; });
+
+  // a) Celebration within 7 days + unpurchased gifts for that person
+  asArray(state.celebrations).forEach(function (c) {
+    var month = parseInt(c && c.month, 10), day = parseInt(c && c.day, 10);
+    if (!month || !day) return;
+    var next = new Date(now.getFullYear(), month - 1, day);
+    if (next < now) next.setFullYear(next.getFullYear() + 1);
+    var daysAway = Math.round((next - now) / 86400000);
+    if (daysAway < 0 || daysAway > 7) return;
+    var unpurchased = celebUnpurchasedGiftCount(state, c);
+    if (unpurchased <= 0) return;
+    var name = pick(c, ["name"], "Their celebration");
+    var whenText = daysAway === 0 ? "today" : daysAway === 1 ? "in 1 day" : "in " + daysAway + " days";
+    out.push(name + "'s celebration is " + whenText + " — the Gift Ideas card has " + unpurchased + " item" + (unpurchased === 1 ? "" : "s") + " unpurchased.");
+  });
+
+  // b) Exhale bucket item text sharing words with today's calendar titles
+  var exhaleItems = (state.exhale_buckets && Array.isArray(state.exhale_buckets.items)) ? state.exhale_buckets.items : [];
+  var eventWordSets = todayEvts.map(function (e) { return { title: e.title, words: significantWords(e.title) }; }).filter(function (e) { return e.words.length; });
+  if (eventWordSets.length) {
+    exhaleItems.filter(function (it) { return it && !it.archived && it.text; }).forEach(function (it) {
+      var itWords = significantWords(it.text);
+      if (!itWords.length) return;
+      var match = eventWordSets.find(function (ev) { return itWords.some(function (w) { return ev.words.indexOf(w) !== -1; }); });
+      if (match) out.push('Something on your Exhale list ("' + it.text + '") overlaps with today\'s "' + match.title + '".');
+    });
+  }
+
+  // c) A weekly wave assigned to today + a real gap between today's timed events
+  var todaysWave = (state.exhale_waves && Array.isArray(state.exhale_waves.weekly)) ? state.exhale_waves.weekly.find(function (w) { return w && w.dayOfWeek === now.getDay(); }) : null;
+  if (todaysWave && todaysWave.name) {
+    var timed = todayEvts.filter(function (e) { return e.time; }).sort(function (a, b) { return (a.time || "").localeCompare(b.time || ""); });
+    function toMin(t) { var p = String(t).split(":"); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
+    for (var gi = 0; gi < timed.length - 1; gi++) {
+      if (toMin(timed[gi + 1].time) - toMin(timed[gi].time) >= 60) {
+        out.push("Today includes the " + todaysWave.name + " wave, and there's a gap between " + timed[gi].title + " and " + timed[gi + 1].title + " — a window to fit it in.");
+        break;
+      }
+    }
+  }
+
+  // d) Shopping list store names mentioned in today's event titles (no
+  // location field exists on events, so this matches against titles —
+  // "best effort" per the spec, given what the data actually has).
+  var storeNames = asArray(state.stores).filter(function (s) { return typeof s === "string" && s.trim().length > 2; });
+  if (storeNames.length) {
+    todayEvts.forEach(function (e) {
+      var titleLower = String(e.title || "").toLowerCase();
+      storeNames.forEach(function (store) {
+        if (titleLower.indexOf(store.trim().toLowerCase()) !== -1) {
+          out.push('Today\'s "' + e.title + '" is near ' + store + ' — worth combining with your shopping list.');
+        }
+      });
+    });
+  }
+
+  return out.slice(0, 6);
+}
+
 // ── context builder ───────────────────────────────────────────────────────────
 // scope: "today" | "week" | "prep" | "ask"
 export function buildCompassContext(state, scope, extra) {
@@ -510,6 +606,10 @@ export function buildCompassContext(state, scope, extra) {
   if (_patternsSummary) ctx.recent_patterns = _patternsSummary;
   if (_dayPatterns) ctx.day_patterns = _dayPatterns;
   if (_toneGuidance) ctx.tone_guidance = _toneGuidance;
+  // Phase 4 — client-computed cross-feature connections. Only present when
+  // at least one grounded connection was actually found.
+  var _connections = computePotentialConnections(state);
+  if (_connections.length) ctx.potential_connections = "POTENTIAL CONNECTIONS (reference these specifically if relevant):\n- " + _connections.join("\n- ");
 
   if (scope === "today") {
     ctx.flow_mode = state.flowMode || null;

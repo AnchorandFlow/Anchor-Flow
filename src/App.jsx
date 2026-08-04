@@ -1,7 +1,7 @@
 const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import ExhaleSection from './components/ExhaleSection.jsx';
-import { askFamily, ageBracket, isPersonMinor, buildCompassContext } from "./compass/compassEngine";
+import { askFamily, ageBracket, isPersonMinor, buildCompassContext, getDailyBriefing } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
 import NudgeStrip from "./shell/NudgeStrip";
@@ -4028,6 +4028,10 @@ function createLocalBackup() {
   const [calYearDay,setCalYearDay]     = useState(null); // iso date string, day-detail panel
   const goToToday = () => { setCalViewDate(new Date(TODAY)); };
   const [chatOpen,setChatOpen]         = useState(false);
+  // Compass Phase 4 — "Tell me more →" on a Compass Suggests card pre-injects
+  // the suggestion as the chat's first user message. AIChatPanel sends it on
+  // mount and clears it via onConsumePending so re-opening chat later is blank.
+  const [pendingChatMessage,setPendingChatMessage] = useState(null);
   // Clean up any orphaned drag clones periodically
   useEffect(() => {
     const cleanup = setInterval(() => {
@@ -5671,7 +5675,7 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── AI Chat Panel ───────────────────────────────────────────────────────────
-  _hfRenders.AIChatPanel = function AIChatPanel({onClose}) {
+  _hfRenders.AIChatPanel = function AIChatPanel({onClose,pendingMessage,onConsumePending}) {
     const unanswered = GTK_QUESTIONS.filter(q => !aiMemory[q]);
     const todayQuestion = useRef(
       unanswered.length > 0 ? unanswered[Math.floor(Math.random() * unanswered.length)] : null
@@ -5724,6 +5728,18 @@ Respond ONLY with valid JSON array, no markdown:
       } catch { setMessages(prev=>[...prev,{role:"assistant",text:"Something went wrong. Please try again."}]); }
       setLoading(false);
     }
+
+    // Compass Phase 4 — "Tell me more →" pre-injection. Sends once on mount
+    // if a pending message was handed in, then clears it via the parent
+    // callback so the NEXT time chat opens (e.g. the 💬 button) it's blank.
+    const pendingSentRef = useRef(false);
+    useEffect(function(){
+      if (pendingMessage && !pendingSentRef.current) {
+        pendingSentRef.current = true;
+        send(pendingMessage);
+        if (onConsumePending) onConsumePending();
+      }
+    }, []); // eslint-disable-line
 
     return (
       <div style={{position:"fixed",bottom:"4.8rem",right:"0.75rem",width:"min(390px,calc(100vw - 1.5rem))",height:530,background:T.surface,border:`2px solid ${T.blue}70`,borderRadius:"1.4rem",boxShadow:`0 24px 80px ${T.cardShadow}`,zIndex:500,display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -6588,18 +6604,24 @@ Respond ONLY in valid JSON:
       }
     }
 
-    // ── Today redesign — Compass strip text: first sentence of the existing
-    // daily briefing/AI-suggestion data already loaded in this scope, or
-    // nothing if there's no AI data yet (per spec — no placeholder).
-    var compassStripText = (function(){
-      if (visibleInsights && visibleInsights.length>0) {
-        var first = visibleInsights[0];
-        var t = (first.body || first.title || "").trim();
-        if (t) { var m = t.match(/^[^.!?]*[.!?]/); return m ? m[0].trim() : t; }
-      }
-      if (aiSuggestions && Array.isArray(aiSuggestions.todos) && aiSuggestions.todos.length>0) return aiSuggestions.todos[0];
-      return null;
-    })();
+    // ── Compass Phase 4 — Compass strip reads the notice-based briefing's
+    // "notice" field (getDailyBriefing/COMPASS_PROMPTS.briefing), cached per
+    // day+flowMode same as every other cached Compass call. Hidden entirely
+    // if there's no earned notice — no placeholder, no fallback to insights.
+    var [briefingNotice, setBriefingNotice] = useState(null);
+    useEffect(function(){
+      if (compassEnabled === false) return;
+      var _bcState = readHouseholdState();
+      _bcState.flowMode = flowMode;
+      _bcState.myPersonId = myPersonId;
+      _bcState.compassCache = compassCache;
+      getDailyBriefing(_bcState, setCompassCache).then(function(data){
+        setBriefingNotice(data || null);
+      }).catch(function(){ setBriefingNotice(null); });
+    }, []); // eslint-disable-line
+    var compassStripText = (briefingNotice && briefingNotice.notice)
+      ? briefingNotice.notice + (briefingNotice.connection ? " " + briefingNotice.connection : "")
+      : null;
 
     // ── Today redesign — Compass Suggests: existing AI todos + theme-matched
     // brain items (both already loaded via loadAiSuggestions/aiSuggestions).
@@ -6819,7 +6841,8 @@ Respond ONLY in valid JSON:
                   {s.reason&&<div style={{fontSize:"0.7rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.3rem"}}>{s.reason}</div>}
                   <div style={{display:"flex",gap:"0.4rem"}}>
                     <button onClick={function(){dismissSuggestion(s.text);}} style={{flex:1,background:"none",border:"1px solid "+T.border,borderRadius:"0.5rem",padding:"0.3rem",fontSize:"0.7rem",cursor:"pointer",color:T.textMid,fontFamily:"inherit"}}>Not now</button>
-                    <button onClick={function(){addQuickTask(s.text,"top3");dismissSuggestion(s.text);}} style={{flex:2,...btnP("#6ABAAA",{fontSize:"0.7rem",padding:"0.3rem 0.6rem",borderRadius:"0.5rem"})}}>+ Add to today</button>
+                    <button onClick={function(){dismissSuggestion(s.text);}} style={{flex:1,...btnP("#6ABAAA",{fontSize:"0.7rem",padding:"0.3rem 0.6rem",borderRadius:"0.5rem"})}}>Got it</button>
+                    <button onClick={function(){setPendingChatMessage(s.text);setChatOpen(true);}} style={{flex:1,background:"none",border:"1px solid "+T.blue+"55",borderRadius:"0.5rem",padding:"0.3rem",fontSize:"0.7rem",cursor:"pointer",color:T.blue,fontWeight:600,fontFamily:"inherit"}}>Tell me more →</button>
                   </div>
                 </div>
               );})}
@@ -15327,7 +15350,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       </div>
 
       {/* AI accessible from header button */}
-      {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)}/>}
+      {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)} pendingMessage={pendingChatMessage} onConsumePending={()=>setPendingChatMessage(null)}/>}
       {showEndOfDay&&<SunsetClose onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
       {showWhoAmI&&<WhoAmIModal/>}
       {showFeedback&&(
