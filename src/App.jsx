@@ -9838,7 +9838,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function btnS(x){ return Object.assign({background:T.bgAlt,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600}, x||{}); }
     function inp(x){ return Object.assign({width:"100%",background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}, x||{}); }
     var lbl = {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
-    function backToHomePill(key){ return <button onClick={function(){toggleHub(key);}} style={{background:"none",border:"none",color:"rgba(200,169,122,0.7)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",padding:"0 0 12px 0",display:"flex",alignItems:"center",gap:5}}>← Back to Home</button>; }
 
     // ══════════════════════════════════════════════════════════════════════
     // Home cleanup — Systems (homeSystems/af_homeSystems) removed from this
@@ -9993,11 +9992,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         {/* Custom dark header — SecHead itself closes over the outer (light)
             T, so it's not used here; this matches AnchorVault's own header
-            styling (HGOLD/HWHITE) instead. */}
+            styling (HGOLD/HWHITE) instead. Single top-level back button —
+            same "← Anchor Home"-style gold pill AnchorVault itself uses
+            (~AnchorVault.jsx:9251) — replaces the per-card "← Back to Home"
+            pills that made no sense inside an accordion layout. */}
+        <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",color:"rgba(200,169,122,0.7)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",padding:"0 0 12px 0",display:"flex",alignItems:"center",gap:5}}>← Anchor</button>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
-          <button onClick={function(){goTab("anchor");}} aria-label="Back" style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px 2px 0",display:"flex",alignItems:"center",flexShrink:0,opacity:0.6}}>
-            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
-          </button>
           <span style={{fontSize:"1.2rem"}}>🏡</span>
           <div>
             <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:T.textDark}}>Home</h1>
@@ -10048,7 +10048,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.info)}
           </div>
           {homeHubOpen.info&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("info")}
             {homeInfo.length===0 && <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No home info saved yet — Wi-Fi password, utilities, vendor and emergency contacts.</div>}
             {INFO_CATEGORIES.map(function(cat){
               var catItems = homeInfo.filter(function(i){return (i.category||"General")===cat;});
@@ -10102,7 +10101,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.cleaning)}
           </div>
           {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("cleaning")}
             {cleaningZones.length===0 ? (
               <div style={{fontSize:"0.84rem",color:T.textSoft,padding:"0.5rem 0",lineHeight:1.6}}>
                 Organize your home into cleaning zones. Today's active zone appears in Today's Home Focus.
@@ -10180,7 +10178,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.maintenance)}
           </div>
           {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("maintenance")}
             {maintenanceSystems.length===0 ? (
               <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.5rem"}}>No maintenance items — add your first in Maintenance</div>
             ) : (<>
@@ -10214,7 +10211,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.inventory)}
           </div>
           {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("inventory")}
             <div style={{fontSize:"0.84rem",color:T.textSoft,marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
             <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.3rem"}}>Running Low</div>
             {inventoryLow.length===0
@@ -10248,7 +10244,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.projects)}
           </div>
           {homeHubOpen.projects&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("projects")}
             {homeProjects.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No active projects</div>}
             {homeProjects.map(function(proj){
               var isExpanded = expandedProjectId===proj.id;
@@ -10328,7 +10323,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.documents)}
           </div>
           {homeHubOpen.documents&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("documents")}
             {DOC_TYPES.map(function(cat){
               var catDocs = homeDocuments.filter(function(d){return (d.type||"Other")===cat;});
               if(catDocs.length===0) return null;
