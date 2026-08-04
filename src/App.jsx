@@ -12411,15 +12411,37 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       // Shared add/edit form plumbing (mirrors the pattern LighthouseTab's own
       // areas used) — reused across Today/Week/Year/Loops/Subjects below.
-      var [lhForm, setLhForm] = React.useState({});
+      //
+      // Bug fix — typing in any Plan add/edit form used to jump the view back
+      // to the top of the section. Root cause: lhForm was React state owned by
+      // PlanArea, and PlanToday/PlanWeek/WeekDayCard/PlanYear/PlanLoops/
+      // SubjectsSection are all plain nested `function X(){...}` declarations
+      // *inside* PlanArea's body — a new function (new component identity)
+      // every time PlanArea re-rendered. Every keystroke called setLhForm →
+      // PlanArea re-rendered → those nested functions were recreated → React
+      // saw a different component type at the same JSX slot → unmounted and
+      // remounted the whole section (losing focus + resetting scroll), on
+      // every single character typed.
+      // Fix: lhForm is now a ref, not state, so typing never triggers a
+      // PlanArea re-render at all (no remount, no jump). Text/date/select
+      // fields switch from value+onChange to defaultValue+onChange (silent
+      // ref write). The handful of *click* driven fields (icon/colour/pill
+      // pickers, one checkbox) still need a visible re-render, so they go
+      // through fSetLive/fChk, which mutate the ref AND bump a tiny tick
+      // state — a discrete click, not a keystroke stream, so the same
+      // remount-per-render cost is harmless there (and pre-existing).
+      var lhFormRef = React.useRef({});
+      var [, _lhFormTick] = React.useState(0);
+      function lhFormForceUpdate() { _lhFormTick(function(n) { return n + 1; }); }
       var [lhAddMode, setLhAddMode] = React.useState(null);
       var [lhEditId, setLhEditId] = React.useState(null);
-      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
-      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
-      function fChk(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.checked; return n; }); }; }
-      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
-      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
-      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fv(k, def) { return lhFormRef.current[k] != null ? lhFormRef.current[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { lhFormRef.current[k] = e.target.value; }; }
+      function fSetLive(k, v) { lhFormRef.current = Object.assign({}, lhFormRef.current, { [k]: v }); lhFormForceUpdate(); }
+      function fChk(k) { return function(e) { lhFormRef.current[k] = e.target.checked; lhFormForceUpdate(); }; }
+      function openAdd(mode, defaults) { lhFormRef.current = defaults || {}; setLhAddMode(mode); setLhEditId(null); }
+      function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
+      function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
         return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
       }
@@ -12527,9 +12549,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {lhAddMode !== "hw" && <button type="button" onClick={function(){ openAdd("hw",{ due:todayIso }); }} style={btnP(LC.seaglass,{ fontSize:"0.82rem", marginBottom:"0.85rem" })}>+ Add Homework</button>}
               {lhAddMode === "hw" && formCard(
                 <div>
-                  {fieldRow("Subject *", <input value={fv("subj","")} onChange={fSet("subj")} placeholder="Math, English, Science…" style={inp()} autoFocus/>)}
-                  {fieldRow("Assignment *", <input value={fv("task","")} onChange={fSet("task")} placeholder="What's the assignment?" style={inp()}/>)}
-                  {fieldRow("Due", <input type="date" value={fv("due",todayIso)} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                  {fieldRow("Subject *", <input defaultValue={fv("subj","")} onChange={fSet("subj")} placeholder="Math, English, Science…" style={inp()} autoFocus/>)}
+                  {fieldRow("Assignment *", <input defaultValue={fv("task","")} onChange={fSet("task")} placeholder="What's the assignment?" style={inp()}/>)}
+                  {fieldRow("Due", <input type="date" defaultValue={fv("due",todayIso)} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
                   {formBtns(saveHw)}
                 </div>
               )}
@@ -12593,10 +12615,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {lhAddMode === "today-entry" && formCard(
                 <div>
                   {fieldRow("Subject *", subjectNameList.length>0
-                    ? <select value={fv("subject","")} onChange={fSet("subject")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
-                    : <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
-                  {fieldRow("Title", <input value={fv("title","")} onChange={fSet("title")} placeholder="Lesson or unit title" style={inp()}/>)}
-                  {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} placeholder="Optional" style={inp({ height:56, resize:"vertical" })}/>)}
+                    ? <select defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                    : <input defaultValue={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
+                  {fieldRow("Title", <input defaultValue={fv("title","")} onChange={fSet("title")} placeholder="Lesson or unit title" style={inp()}/>)}
+                  {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} placeholder="Optional" style={inp({ height:56, resize:"vertical" })}/>)}
                   {formBtns(saveEntry)}
                 </div>
               )}
@@ -12689,9 +12711,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {isAdding && formCard(
               <div>
                 {fieldRow("Subject", subjectNameList.length>0
-                  ? <select value={fv("name","")} onChange={fSet("name")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
-                  : <input value={fv("name","")} onChange={fSet("name")} placeholder="Math, Reading…" style={inp()} autoFocus/>)}
-                {fieldRow("Lesson title", <input value={fv("title","")} onChange={fSet("title")} style={inp()}/>)}
+                  ? <select defaultValue={fv("name","")} onChange={fSet("name")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                  : <input defaultValue={fv("name","")} onChange={fSet("name")} placeholder="Math, Reading…" style={inp()} autoFocus/>)}
+                {fieldRow("Lesson title", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()}/>)}
                 {formBtns(function(){
                   var n=(fv("name","")).trim(); if(!n) return;
                   saveDayPlan(day, { subjects: subjects.concat([{ id:uid(), name:n, title:(fv("title","")).trim(), todo:"", notes:"", done:false }]) });
@@ -12725,8 +12747,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {lhAddMode !== "week-event" && <button type="button" onClick={function(){ openAdd("week-event",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Event</button>}
                 {lhAddMode === "week-event" && formCard(
                   <div>
-                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                    {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
                     {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ events: events.concat([{ id:uid(), title:t, date:fv("date","") }]) }); closeForm(); })}
                   </div>
                 )}
@@ -12743,8 +12765,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {lhAddMode !== "week-form" && <button type="button" onClick={function(){ openAdd("week-form",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Form</button>}
                 {lhAddMode === "week-form" && formCard(
                   <div>
-                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                    {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                    {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Due", <input type="date" defaultValue={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
                     {formBtns(function(){ var t=(fv("title","")).trim(); if(!t) return; weekMutate({ forms: forms.concat([{ id:uid(), title:t, due:fv("due",""), done:false }]) }); closeForm(); })}
                   </div>
                 )}
@@ -12762,7 +12784,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {lhAddMode !== "week-pack" && <button type="button" onClick={function(){ openAdd("week-pack",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Item</button>}
                 {lhAddMode === "week-pack" && formCard(
                   <div>
-                    {fieldRow("Item *", <input value={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
+                    {fieldRow("Item *", <input defaultValue={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
                     {formBtns(function(){ var l=(fv("label","")).trim(); if(!l) return; weekMutate({ pack: pack.concat([{ id:uid(), label:l, checked:false }]) }); closeForm(); })}
                   </div>
                 )}
@@ -12876,9 +12898,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{ position:"fixed", inset:0, background:"rgba(36,58,90,0.35)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" }}>
                 <div style={{ background:"#fff", borderRadius:"1rem", padding:"1.25rem", width:"min(360px,100%)" }}>
                   <div style={{ fontWeight:700, color:LC.navy, marginBottom:"0.75rem" }}>Bulk-set day type</div>
-                  {fieldRow("Start", <input type="date" value={fv("bulkStart","")} onChange={fSet("bulkStart")} style={inp()}/>)}
-                  {fieldRow("End", <input type="date" value={fv("bulkEnd","")} onChange={fSet("bulkEnd")} style={inp()}/>)}
-                  {fieldRow("Day type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{DAY_TYPES.map(function(t){ return pillToggle(t.label, fv("bulkType","")===t.id, function(){ setLhForm(function(f){ return Object.assign({},f,{bulkType:t.id}); }); }); })}</div>)}
+                  {fieldRow("Start", <input type="date" defaultValue={fv("bulkStart","")} onChange={fSet("bulkStart")} style={inp()}/>)}
+                  {fieldRow("End", <input type="date" defaultValue={fv("bulkEnd","")} onChange={fSet("bulkEnd")} style={inp()}/>)}
+                  {fieldRow("Day type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{DAY_TYPES.map(function(t){ return pillToggle(t.label, fv("bulkType","")===t.id, function(){ fSetLive("bulkType", t.id); }); })}</div>)}
                   <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.8rem", color:"#7a7568", marginBottom:"0.75rem", cursor:"pointer" }}>
                     <input type="checkbox" checked={!!fv("bulkWeekdaysOnly",true)} onChange={fChk("bulkWeekdaysOnly")} style={{ cursor:"pointer" }}/>
                     Weekdays only
@@ -12924,9 +12946,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",LOOP_ICONS[0]); var selTint=fv("tint",loopTints[0]);
           return formCard(
             <div>
-              {fieldRow("Loop name *", <input value={fv("name","")} onChange={fSet("name")} placeholder="e.g. Morning Loop" style={inp()} autoFocus/>)}
-              {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{icon:ic}); }); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
-              {fieldRow("Colour", <div style={{ display:"flex", gap:"0.4rem" }}>{loopTints.map(function(tint){ return <button type="button" key={tint} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{tint:tint}); }); }} style={{ width:24, height:24, borderRadius:"50%", background:tint, border:selTint===tint?"3px solid "+LC.navy:"2px solid transparent", cursor:"pointer" }}/>; })}</div>)}
+              {fieldRow("Loop name *", <input defaultValue={fv("name","")} onChange={fSet("name")} placeholder="e.g. Morning Loop" style={inp()} autoFocus/>)}
+              {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ fSetLive("icon", ic); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
+              {fieldRow("Colour", <div style={{ display:"flex", gap:"0.4rem" }}>{loopTints.map(function(tint){ return <button type="button" key={tint} onClick={function(){ fSetLive("tint", tint); }} style={{ width:24, height:24, borderRadius:"50%", background:tint, border:selTint===tint?"3px solid "+LC.navy:"2px solid transparent", cursor:"pointer" }}/>; })}</div>)}
               {formBtns(function(){ if(!nameTrim) return; applyHs({ loops: lhLoops.concat([{ id:uid(), name:nameTrim, icon:selIcon, tint:selTint, items:[] }]) }); closeForm(); })}
             </div>
           );
@@ -12957,8 +12979,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",loop.icon||LOOP_ICONS[0]); var selTint=fv("tint",loop.tint||loopTints[0]);
                 return formCard(
                   <div>
-                    {fieldRow("Name", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
-                    {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ setLhForm(function(f){ return Object.assign({},f,{icon:ic}); }); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
+                    {fieldRow("Name", <input defaultValue={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
+                    {fieldRow("Icon", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LOOP_ICONS.map(function(ic){ return <button type="button" key={ic} onClick={function(){ fSetLive("icon", ic); }} style={{ background:selIcon===ic?LC.seaglass+"33":"transparent", border:"1.5px solid "+(selIcon===ic?LC.seaglass:"#D8D2C4"), borderRadius:"0.5rem", width:34, height:34, cursor:"pointer", fontSize:"1rem" }}>{ic}</button>; })}</div>)}
                     {formBtns(function(){ if(!nameTrim) return; applyHsLoopUpdate(loop.id, { name:nameTrim, icon:selIcon, tint:selTint }); closeForm(); })}
                   </div>
                 );
@@ -13017,10 +13039,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "subject" && <button type="button" onClick={function(){ openAdd("subject",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Subject</button>}
             {lhAddMode === "subject" && formCard(
               <div>
-                {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
-                {fieldRow("Curriculum / program", <input value={fv("name","")} onChange={fSet("name")} placeholder="Saxon Math, All About Reading…" style={inp()}/>)}
-                {fieldRow("Website", <input value={fv("website","")} onChange={fSet("website")} style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {fieldRow("Subject *", <input defaultValue={fv("subject","")} onChange={fSet("subject")} placeholder="Math, Reading, Science…" style={inp()} autoFocus/>)}
+                {fieldRow("Curriculum / program", <input defaultValue={fv("name","")} onChange={fSet("name")} placeholder="Saxon Math, All About Reading…" style={inp()}/>)}
+                {fieldRow("Website", <input defaultValue={fv("website","")} onChange={fSet("website")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var s=(fv("subject","")).trim(); if(!s) return;
                   saveSubjectRecords(subjectRecords.concat([{ id:uid(), subject:s, name:fv("name",""), website:fv("website",""), notes:fv("notes","") }]));
@@ -13033,10 +13055,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === r.id) {
                 return formCard(
                   <div key={r.id}>
-                    {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
-                    {fieldRow("Curriculum / program", <input value={fv("name","")} onChange={fSet("name")} style={inp()}/>)}
-                    {fieldRow("Website", <input value={fv("website","")} onChange={fSet("website")} style={inp()}/>)}
-                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {fieldRow("Subject *", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
+                    {fieldRow("Curriculum / program", <input defaultValue={fv("name","")} onChange={fSet("name")} style={inp()}/>)}
+                    {fieldRow("Website", <input defaultValue={fv("website","")} onChange={fSet("website")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                     {formBtns(function(){
                       var s=(fv("subject","")).trim(); if(!s) return;
                       saveSubjectRecords(subjectRecords.map(function(x){ return x.id===r.id ? { id:r.id, subject:s, name:fv("name",""), website:fv("website",""), notes:fv("notes","") } : x; }));
