@@ -6638,7 +6638,7 @@ Respond ONLY in valid JSON:
       <div>
         {/* ── Good morning banner (date · weather · greeting) ── */}
         <div style={{marginBottom:"0.85rem"}}>
-          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.25rem"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.25rem",flexWrap:"wrap"}}>
             <span style={{fontSize:"0.66rem",color:"#2f8f7a",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{FORMAT_DATE(TODAY)}</span>
             {(function(){
               var w=weatherData&&weatherData.find(function(d){return d.date===TODAY.toISOString().split("T")[0];});
@@ -6646,14 +6646,13 @@ Respond ONLY in valid JSON:
               if(!weatherLocation) return(<button onClick={requestWeatherLocation} style={{fontSize:"0.6rem",color:T.textFaint,background:"none",border:"1px solid "+T.border,borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>);
               return null;
             })()}
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
             {homeFocusWave&&homeFocusWave.name&&(
               <span style={{fontSize:"0.72rem",fontWeight:700,color:"#1C3A2E",background:"#EBF5F3",border:"1px solid #6ABAAA55",borderRadius:"2rem",padding:"0.2rem 0.7rem"}}>🏠 {homeFocusWave.name}</span>
             )}
           </div>
-          {dayRhythm.theme&&<div style={{color:T.textSoft,fontSize:"0.78rem",fontWeight:500,marginTop:"0.15rem"}}>{dayRhythm.emoji} {dayRhythm.theme} day</div>}
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+          </div>
         </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
@@ -6694,11 +6693,11 @@ Respond ONLY in valid JSON:
             {homeFocusWave&&homeFocusWave.name&&(<><span>·</span><span>🏠 {homeFocusWave.name}</span></>)}
           </div>
         )}
-        {/* ── Compass strip — quiet, not collapsible ── */}
+        {/* ── Compass strip — quiet, not collapsible, but readable ── */}
         {flowMode!=="Survival"&&compassStripText&&(
-          <div style={{borderLeft:"3px solid #6ABAAA",background:"var(--color-background-secondary,#f4f7f6)",borderRadius:"0 0.6rem 0.6rem 0",padding:"0.55rem 0.85rem",marginBottom:"0.85rem"}}>
-            <div style={{fontSize:"0.62rem",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"#6ABAAA",marginBottom:"0.15rem"}}>Compass</div>
-            <div style={{fontSize:"0.82rem",color:T.textMid,lineHeight:1.5}}>{compassStripText}</div>
+          <div style={{borderLeft:"4px solid #6ABAAA",background:"rgba(106,186,170,0.06)",borderRadius:"12px",padding:"16px 18px",marginBottom:"0.85rem",minHeight:"3.2rem",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            <div style={{fontSize:"11px",fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"#6ABAAA",marginBottom:"0.3rem"}}>Compass</div>
+            <div style={{fontSize:"15px",color:T.textDark,lineHeight:1.5}}>{compassStripText}</div>
           </div>
         )}
         {/* ── Ripple notification banner ── */}
