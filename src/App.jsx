@@ -11340,6 +11340,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       return function() { clearTimeout(t); };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+    // One-time migration: the pre-fix drag bug (itemPointerDown/onUp — a
+    // plain tap on the drag handle, no movement, used to silently push the
+    // tapped item to the end of the list) could corrupt or drop items from
+    // this household's "50 States & National Parks" list. The template has
+    // 113 items (50 states + 63 parks); fewer than 100 is a strong signal of
+    // real loss, not just "a few not checked off yet". restoreTemplateItems
+    // is additive-only (matches existing items by content, never removes or
+    // overwrites), so this is safe to run every mount and is a no-op once
+    // the list is whole again. Same deferred-2s pattern as the repair effect
+    // above, for the same hydration/dirty-marking reason.
+    useEffect(function() {
+      var t = setTimeout(function() {
+        coveLists.forEach(function(list) {
+          if (list.template_id !== "states-parks") return;
+          var items = coveItemsMap[list.id] || [];
+          if (items.length >= 100) return;
+          restoreTemplateItems(list);
+          console.warn("[AF COVE] restored states-parks items for list "+list.id+" (had "+items.length+")");
+        });
+      }, 2000);
+      return function() { clearTimeout(t); };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     var [coveNotesAZ, setCoveNotesAZ] = React.useState(false);
     var [coveListsAZ, setCoveListsAZ] = React.useState(false);
     var [catFilter, setCatFilter] = useState("all");
@@ -11588,6 +11611,52 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setCollapsedSections({});
     }
 
+    // Merge missing template items/sections back into an existing templated
+    // list, without touching anything already there — used by both the
+    // "Restore original items" button and the one-time states-parks
+    // data-loss migration below. Sections are matched by title (their ids
+    // are regenerated per list, same reasoning as the sections-repair effect
+    // above); items are matched by content, so an already-checked item is
+    // left exactly as it is — only genuinely missing template items get
+    // (re)added, always unchecked.
+    function templateItemCount(tmpl) {
+      return (tmpl.sections || []).reduce(function(sum, s) { return sum + (s.items || []).length; }, 0);
+    }
+    function restoreTemplateItems(list) {
+      var tmpl = list.template_id && COVE_TEMPLATES[list.template_id];
+      if (!tmpl) return;
+      var existingSections = coveSectionsMap[list.id] || [];
+      var existingItems = coveItemsMap[list.id] || [];
+      var sectionIdByTitle = {};
+      existingSections.forEach(function(s) { sectionIdByTitle[s.title] = s.id; });
+      var haveContent = {};
+      existingItems.forEach(function(i) { haveContent[i.content] = true; });
+
+      var newSections = existingSections.slice();
+      var newItems = existingItems.slice();
+      var sectionsChanged = false;
+
+      (tmpl.sections || []).forEach(function(sec, si) {
+        var secId = sectionIdByTitle[sec.title];
+        if (!secId) {
+          secId = uid2();
+          sectionIdByTitle[sec.title] = secId;
+          newSections.push({id: secId, title: sec.title, sort_order: si});
+          sectionsChanged = true;
+        }
+        (sec.items || []).forEach(function(item, ii) {
+          if (haveContent[item.content]) return;
+          newItems.push({id: uid2(), content: item.content, checked: false, tags: item.tags || [], section_id: secId, sort_order: ii});
+          haveContent[item.content] = true;
+        });
+      });
+
+      if (sectionsChanged) {
+        setCoveSectionsMap(function(prev) { return Object.assign({}, prev, {[list.id]: newSections}); });
+      }
+      setCoveItemsMap(function(prev) { return Object.assign({}, prev, {[list.id]: newItems}); });
+    }
+
     function createBlank() {
       if (!newForm.title.trim()) return;
       setSaving(true);
@@ -11741,6 +11810,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <Icon name="trash" size={14} color={T.rose}/>
             </button>
           </div>
+
+          {/* Restore original items — only shown when this list was created from
+              a template and has fewer items than the template defines, i.e. some
+              were lost (drag bug, sync gap, accidental delete...). Additive only:
+              existing items and their checked state are untouched. */}
+          {(function(){
+            var tmpl = activeList.template_id && COVE_TEMPLATES[activeList.template_id];
+            if (!tmpl) return null;
+            var tmplCount = templateItemCount(tmpl);
+            if (activeItems.length >= tmplCount) return null;
+            return (
+              <div style={{padding:"0 16px 10px"}}>
+                <button onClick={async function(){
+                  var ok = await afConfirm("Restore missing items from the original template? Your existing items and completions will be kept.", {confirmText:"Restore"});
+                  if (ok) restoreTemplateItems(activeList);
+                }} style={{background:"none",border:"1px solid "+T.border,borderRadius:"2rem",cursor:"pointer",color:T.textMid,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"inline-flex",alignItems:"center",gap:5}}>↺ Restore original items</button>
+              </div>
+            );
+          })()}
 
           {/* Progress */}
           {totalItems > 0 && (
