@@ -105,6 +105,7 @@ const PLAUSIBLE = {
   home_projects:      [{ id:"hp1", name:"Repaint deck", status:"in-progress", budget:400, notes:"", tasks:[{ id:"hpt1", text:"Buy stain", done:false }] }],
   home_documents:      [{ id:"hd1", name:"Homeowners policy", type:"Insurance", expiryDate:"2027-03-01", notes:"", url:"" }],
   home_supplies:      [{ id:"hs1", name:"Paper towels", quantity:2, needToRestock:false }],
+  home_info:      [{ id:"hi1", label:"Wi-Fi Password", value:"HomeSweet123", category:"Wi-Fi" }],
   // home_cleaning: Home dashboard redesign — object passthrough, same
   // bare-type-check class as safe_harbor/lighthouse.
   home_cleaning:      { zones:[{ id:"hz1", name:"Zone 1 · Master & Baths", rooms:"Master bedroom, bathrooms", tasks:[{ id:"hzt1", text:"Strip & wash sheets", done:false }] }], activeZoneIndex:0, supplies:[{ id:"hs2", name:"Paper towels", low:false }], schedule:"" },

@@ -76,6 +76,10 @@ export const SYNC_KEYS = [
   // tasks:[{id,text,done}]}], activeZoneIndex, supplies:[{id,name,low}],
   // schedule }. Object shape, own guard below (same class as exhale_waves).
   "home_cleaning",
+  // home_info: Home cleanup — Household Info card replacing Systems in the
+  // UI. Flat array [{id,label,value,category}], same simple-array-guard
+  // class as home_projects/home_documents/home_supplies.
+  "home_info",
   // Calendar emoji markers
   "cal_markers","cal_marker_types","workDays",
   // Traditions (RipplesRoom)
@@ -207,6 +211,8 @@ const _SANITIZE_HANDLED = new Set([
   // home_projects/home_documents/home_supplies (Home Phase 3). Same
   // array-guard class as trips/recipeBook.
   "home_projects","home_documents","home_supplies",
+  // home_info: flat array, same array-guard class as home_projects above.
+  "home_info",
   // home_cleaning: object, own guard (see SYNC_KEYS comment).
   "home_cleaning",
   // exhale_buckets: object { bucketNames:[], items:[] } (Exhale Phase 1).
@@ -281,7 +287,9 @@ export function sanitizeHouseholdData(data) {
      // home_documents ({id,name,type,expiryDate,notes,url}), home_supplies
      // ({id,name,quantity,needToRestock}). Same guard class as trips/
      // recipeBook — top-level array + null entries only.
-     "home_projects","home_documents","home_supplies"
+     "home_projects","home_documents","home_supplies",
+     // home_info ({id,label,value,category}) — Home cleanup, same guard class.
+     "home_info"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);

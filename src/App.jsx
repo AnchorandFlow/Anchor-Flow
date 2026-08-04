@@ -7929,14 +7929,46 @@ Respond ONLY in valid JSON:
       } catch(e) {}
       return null;
     }
+    function seedWaveTasks(texts) {
+      return texts.map(function(text) { return { id: uid(), text: text, estimatedMinutes: null, done: false }; });
+    }
     function seedWaves() {
       return {
-        daily: [{ id: uid(), name: "Morning basics", tasks: [
-          { id: uid(), text: "Check school folders", estimatedMinutes: null, done: false },
-          { id: uid(), text: "Wipe kitchen counters", estimatedMinutes: null, done: false },
-          { id: uid(), text: "Start a load of laundry", estimatedMinutes: null, done: false },
-        ]}],
-        weekly: [], seasonal: [], custom: [],
+        daily: [
+          { id: uid(), name: "Morning reset", tasks: seedWaveTasks([
+            "Make beds", "Check school folders", "Feed pets", "Vitamins", "Wipe kitchen counters", "Empty dishwasher",
+          ])},
+          { id: uid(), name: "Evening wind-down", tasks: seedWaveTasks([
+            "Tidy living areas", "Pack bags for tomorrow", "Check tomorrow's schedule", "Run dishwasher",
+          ])},
+        ],
+        weekly: [
+          { id: uid(), name: "Sunday reset", dayOfWeek: 0, tasks: seedWaveTasks([
+            "Meal plan for the week", "Grocery order", "Review family calendar", "Prep school bags", "Reset laundry",
+          ])},
+          { id: uid(), name: "Laundry day", dayOfWeek: 1, tasks: seedWaveTasks([
+            "Wash & dry all loads", "Put away folded clothes", "Change bed sheets",
+          ])},
+          { id: uid(), name: "Errands run", dayOfWeek: 6, tasks: seedWaveTasks([
+            "Get gas", "Returns & drop-offs", "Pharmacy pickup", "Car clean-out",
+          ])},
+        ],
+        seasonal: [
+          { id: uid(), name: "Back to School", month: 8, tasks: seedWaveTasks([
+            "Supply check", "Label everything", "Set morning routine", "Meet the teacher",
+          ])},
+          { id: uid(), name: "Holiday Prep", month: 11, tasks: seedWaveTasks([
+            "Gift list", "Decorations out", "Holiday cards", "Meal planning",
+          ])},
+          { id: uid(), name: "Spring Reset", month: 3, tasks: seedWaveTasks([
+            "Donate winter items", "Deep clean", "Garden prep",
+          ])},
+        ],
+        custom: [
+          { id: uid(), name: "Travel Prep", tasks: seedWaveTasks([
+            "Passports check", "Stop mail", "Pack medications", "Car serviced", "Pet care arranged",
+          ])},
+        ],
       };
     }
 
@@ -9800,64 +9832,45 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       rose:"#c87a8a", roseDark:"#a85a6a", rosePale:"rgba(200,122,138,0.16)",
       lavender:"#a89ad0", lavPale:"rgba(168,154,208,0.16)",
     };
-    function card(x){ return Object.assign({background:T.surface,border:"1px solid "+T.borderSoft,borderRadius:"1.1rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
+    // Item 4 — plain 0.5px border, no colored top-accent. Individual card
+    // calls below no longer pass borderTop overrides.
+    function card(x){ return Object.assign({background:T.surface,border:"0.5px solid "+T.border,borderRadius:"1.1rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
     function btnS(x){ return Object.assign({background:T.bgAlt,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600}, x||{}); }
     function inp(x){ return Object.assign({width:"100%",background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}, x||{}); }
     var lbl = {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
     function backToHomePill(key){ return <button onClick={function(){toggleHub(key);}} style={{background:"none",border:"none",color:"rgba(200,169,122,0.7)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",padding:"0 0 12px 0",display:"flex",alignItems:"center",gap:5}}>← Back to Home</button>; }
 
-    const SYSTEM_COLORS=[T.blue,T.sage,T.sand,T.rose,T.lavender,"#7ab8a8","#e8a838","#c878a8"];
-    const[editingSystem,setEditingSystem]=useState(null);
-    const[editForm,setEditForm]=useState({label:"",emoji:"",items:[]});
-    const[newItemText,setNewItemText]=useState("");
-    const {draggingId:sysDragId, dragOverId:sysDropId, pointerDown:sysPointerDown} =
-      usePointerDrag(homeSystems, setHomeSystems, {dataAttr:"data-sysid"});
-    // editForm item drag (plain strings, not objects — handled with simple index refs)
-    const editItemDs = useRef({from:null,to:null,clone:null});
-    const [editDragIdx,setEditDragIdx] = useState(null);
-    const [editDropIdx,setEditDropIdx] = useState(null);
-    function editItemPointerDown(e,fromIdx){
-      editItemDs.current.from=fromIdx; editItemDs.current.to=null;
-      setEditDragIdx(fromIdx);
-      function onMove(ev){
-        const el=document.elementFromPoint(ev.clientX,ev.clientY);
-        const row=el&&el.closest("[data-editidx]");
-        const idx=row?parseInt(row.getAttribute("data-editidx")):null;
-        editItemDs.current.to=idx!==null&&idx!==fromIdx?idx:null;
-        setEditDropIdx(editItemDs.current.to);
-      }
-      function onUp(){
-        const toIdx=editItemDs.current.to;
-        setEditDragIdx(null); setEditDropIdx(null);
-        editItemDs.current.from=null; editItemDs.current.to=null;
-        window.removeEventListener("pointermove",onMove);
-        if(toIdx===null||toIdx===fromIdx) return;
-        setEditForm(function(p){ var arr=p.items.slice(); var moved=arr.splice(fromIdx,1)[0]; arr.splice(toIdx,0,moved); return Object.assign({},p,{items:arr}); });
-      }
-      window.addEventListener("pointermove",onMove);
-      window.addEventListener("pointerup",onUp,{once:true});
-      e.preventDefault();
-    }
-    function openEdit(sys){setEditingSystem(sys.id);setEditForm({label:sys.label,emoji:sys.emoji,items:[...sys.items]});setNewItemText("");}
-    function openNew(){setEditingSystem("new");setEditForm({label:"",emoji:"🏡",items:[]});setNewItemText("");}
-    function saveSystem(){if(!editForm.label.trim())return;if(editingSystem==="new")setHomeSystems(p=>[...p,{id:uid(),label:editForm.label.trim(),emoji:editForm.emoji,items:editForm.items}]);else setHomeSystems(p=>p.map(s=>s.id===editingSystem?{...s,label:editForm.label,emoji:editForm.emoji,items:editForm.items}:s));setEditingSystem(null);}
-    function addEditItem(){if(!newItemText.trim())return;setEditForm(p=>({...p,items:[...p.items,newItemText.trim()]}));setNewItemText("");}
-
     // ══════════════════════════════════════════════════════════════════════
-    // Home Phase 3 — hub expansion. "Systems" above (homeSystems/af_homeSystems)
-    // is the pre-existing content, now wrapped as sub-card 1. The other 5
-    // sub-cards are added below. Maintenance and Inventory already have their
-    // own dedicated vault nav entries (AnchorVault.jsx, "systems"/"inventory")
-    // backed by af_vaultSystems/af_inventory — this stays additive: those keys
-    // are read directly here for a summary card that links out, not owned or
-    // duplicated here.
+    // Home cleanup — Systems (homeSystems/af_homeSystems) removed from this
+    // view entirely (kept in SYNC_KEYS, just not rendered here). Household
+    // Info is its own new card/key below, not a Systems rename in data terms
+    // — af_homeSystems is untouched and still synced, just orphaned from UI.
     // ══════════════════════════════════════════════════════════════════════
-    var [homeHubOpen, setHomeHubOpen] = useState({systems:true, cleaning:true, maintenance:false, inventory:false, projects:false, documents:false});
+    var [homeHubOpen, setHomeHubOpen] = useState({info:true, cleaning:true, maintenance:false, inventory:false, projects:false, documents:false});
     function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
     var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
     var hubChevron = function(open){ return <span style={{color:T.textFaint,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    // Item 3 — smart collapsed previews: small muted text shown in the
+    // header row, hidden once expanded (redundant with the full content).
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textFaint,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+
+    // ── Household Info — new card replacing Systems. {id,label,value,category} ──
+    var [homeInfo, setHomeInfo] = useSaved("home_info", []);
+    var [addingInfo, setAddingInfo] = useState(false);
+    var [editingInfoId, setEditingInfoId] = useState(null);
+    var [infoForm, setInfoForm] = useState({label:"",value:"",category:"General"});
+    var INFO_CATEGORIES = ["Wi-Fi","Utilities","Vendors","Emergency","General"];
+    function openNewInfo(){ setInfoForm({label:"",value:"",category:"General"}); setEditingInfoId(null); setAddingInfo(true); }
+    function openEditInfo(item){ setInfoForm({label:item.label||"",value:item.value||"",category:item.category||"General"}); setEditingInfoId(item.id); setAddingInfo(true); }
+    function saveInfo(){
+      if(!infoForm.label.trim()) return;
+      if(editingInfoId) setHomeInfo(function(p){return p.map(function(x){return x.id===editingInfoId?Object.assign({},x,infoForm,{label:infoForm.label.trim()}):x;});});
+      else setHomeInfo(function(p){return p.concat([Object.assign({id:uid()},infoForm,{label:infoForm.label.trim()})]);});
+      setAddingInfo(false); setEditingInfoId(null);
+    }
+    function deleteInfo(id){ setHomeInfo(function(p){return p.filter(function(x){return x.id!==id;});}); }
 
     // ── Cleaning — af_home_cleaning is now its own data source (dashboard
     // redesign), independent of Waves. Uses useSaved like home_projects/
@@ -10025,46 +10038,67 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         })()}
 
-        {/* ══════════════ 1. Systems ══════════════ */}
-        <div style={{...card({borderTop:"3px solid "+T.blue})}}>
-          <div onClick={function(){toggleHub("systems");}} style={hubHeaderStyle}>
-            <span style={{fontSize:"1.1rem"}}>🏠</span>
-            <h2 style={hubTitleStyle}>Systems</h2>
-            <button onClick={function(e){e.stopPropagation();openNew();}} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
-            {hubChevron(homeHubOpen.systems)}
+        {/* ══════════════ 1. Household Info ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("info");}} style={hubHeaderStyle}>
+            <span style={{fontSize:"1.1rem"}}>🏡</span>
+            <h2 style={hubTitleStyle}>Household Info</h2>
+            {!homeHubOpen.info && hubPreview(homeInfo.length>0 ? (homeInfo.length+" item"+(homeInfo.length!==1?"s":"")+" saved") : "Add your home info")}
+            <button onClick={function(e){e.stopPropagation();openNewInfo();}} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {hubChevron(homeHubOpen.info)}
           </div>
-          {homeHubOpen.systems&&(<div style={{marginTop:"0.75rem"}}>
-          {backToHomePill("systems")}
-        {homeSystems.map((sys,i)=>(
-          <div key={sys.id} data-sysid={sys.id} onPointerDown={e=>sysPointerDown(e,sys.id)}
-            style={{...card({borderLeft:`4px solid ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`,cursor:"grab",
-              opacity:sysDragId===sys.id?0.35:1,
-              outline:sysDropId===sys.id?`2px dashed ${SYSTEM_COLORS[i%SYSTEM_COLORS.length]}`:"none",
-              outlineOffset:"2px"})}}>
-            <div style={{display:"flex",alignItems:"center",gap:"0.55rem",marginBottom:"0.85rem"}}>
-              <div style={{opacity:0.35,flexShrink:0}}><Icon name="drag" size={14} color={T.textSoft}/></div>
-              <span style={{fontSize:"1.15rem"}}>{sys.emoji}</span>
-              <h2 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,flex:1}}>{sys.label}</h2>
-              <button onClick={()=>openEdit(sys)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"4px 9px",display:"flex",alignItems:"center",gap:"0.3rem",fontSize:"0.72rem",color:T.textMid,fontWeight:700,fontFamily:"inherit"}}><Icon name="edit" size={12} color={T.textMid}/> Edit</button>
-              <button onClick={()=>setHomeSystems(p=>p.filter(s=>s.id!==sys.id))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.5rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
-            </div>
-            {sys.items.map((item,j)=>(
-              <div key={j} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.48rem 0",borderBottom:j<sys.items.length-1?`1px solid ${T.borderSoft}`:"none"}}>
-                <div style={{width:9,height:9,borderRadius:"50%",background:SYSTEM_COLORS[i%SYSTEM_COLORS.length],flexShrink:0,marginTop:5}}/>
-                <span style={{fontSize:"0.86rem",color:T.textDark,fontWeight:600,lineHeight:1.5}}>{item}</span>
-              </div>
-            ))}
-            {sys.items.length===0&&<p style={{color:T.textFaint,fontSize:"0.79rem"}}>No items yet — tap Edit to add some.</p>}
-          </div>
-        ))}
+          {homeHubOpen.info&&(<div style={{marginTop:"0.75rem"}}>
+          {backToHomePill("info")}
+            {homeInfo.length===0 && <div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0"}}>No home info saved yet — Wi-Fi password, utilities, vendor and emergency contacts.</div>}
+            {INFO_CATEGORIES.map(function(cat){
+              var catItems = homeInfo.filter(function(i){return (i.category||"General")===cat;});
+              if (catItems.length===0) return null;
+              return (
+                <div key={cat} style={{marginBottom:"0.6rem"}}>
+                  <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textFaint,marginBottom:"0.25rem"}}>{cat}</div>
+                  {catItems.map(function(item){return(
+                    <div key={item.id} onClick={function(){openEditInfo(item);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",cursor:"pointer",borderBottom:"1px solid "+T.borderSoft}}>
+                      <span style={{fontSize:"0.82rem",color:T.textSoft,minWidth:100,flexShrink:0}}>{item.label}</span>
+                      <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</span>
+                      <button onClick={function(e){e.stopPropagation();deleteInfo(item.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                    </div>
+                  );})}
+                </div>
+              );
+            })}
+            {addingInfo&&(
+              <ModalBox title={editingInfoId?"Edit Info":"New Info"} onClose={function(){setAddingInfo(false);setEditingInfoId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Label</label><input value={infoForm.label} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{label:e.target.value});});}} placeholder="e.g. Wi-Fi password, Plumber" style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Value</label><input value={infoForm.value} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{value:e.target.value});});}} placeholder="The actual info" style={inp()}/></div>
+                <div style={{marginBottom:"1rem"}}><label style={lbl}>Category</label>
+                  <select value={infoForm.category} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{category:e.target.value});});}} style={inp()}>
+                    {INFO_CATEGORIES.map(function(c){return <option key={c} value={c}>{c}</option>;})}
+                  </select>
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingInfoId?<button onClick={function(){deleteInfo(editingInfoId);setAddingInfo(false);setEditingInfoId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingInfo(false);setEditingInfoId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveInfo} style={btnP(T.sage)}>{editingInfoId?"Save Changes":"Create"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            )}
           </div>)}
         </div>
 
         {/* ══════════════ 2. Cleaning ══════════════ */}
-        <div style={{...card({borderTop:"3px solid #6ABAAA"})}}>
+        <div style={{...card()}}>
           <div onClick={function(){toggleHub("cleaning");}} style={hubHeaderStyle}>
             <span style={{fontSize:"1.1rem"}}>🧹</span>
             <h2 style={hubTitleStyle}>Cleaning</h2>
+            {!homeHubOpen.cleaning && hubPreview((function(){
+              if (cleaningZones.length===0) return "Set up zones";
+              var zTasks = (activeZone && activeZone.tasks) || [];
+              var left = zTasks.filter(function(t){return !t.done;}).length;
+              if (zTasks.length>0 && left===0) return "All clear ✓";
+              return (activeZone?activeZone.name:"")+" · "+left+" task"+(left!==1?"s":"")+" left";
+            })())}
             {hubChevron(homeHubOpen.cleaning)}
           </div>
           {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
@@ -10138,10 +10172,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         {/* ══════════════ 3. Maintenance (existing vault section — summary + link) ══════════════ */}
-        <div style={{...card({borderTop:"3px solid "+T.sand})}}>
+        <div style={{...card()}}>
           <div onClick={function(){toggleHub("maintenance");}} style={hubHeaderStyle}>
             <span style={{fontSize:"1.1rem"}}>🔧</span>
             <h2 style={hubTitleStyle}>Maintenance</h2>
+            {!homeHubOpen.maintenance && hubPreview(maintenanceDueSoon[0] ? (maintenanceDueSoon[0].name+" due "+formatDueNaturally(maintenanceDueSoon[0].nextDue)) : "All clear ✓")}
             {hubChevron(homeHubOpen.maintenance)}
           </div>
           {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
@@ -10171,10 +10206,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         {/* ══════════════ 4. Inventory (existing vault section — summary + link) ══════════════ */}
-        <div style={{...card({borderTop:"3px solid "+T.lavender})}}>
+        <div style={{...card()}}>
           <div onClick={function(){toggleHub("inventory");}} style={hubHeaderStyle}>
             <span style={{fontSize:"1.1rem"}}>📦</span>
             <h2 style={hubTitleStyle}>Inventory</h2>
+            {!homeHubOpen.inventory && hubPreview(inventoryLow.length>0 ? (inventoryItems.length+" item"+(inventoryItems.length!==1?"s":"")+" · "+inventoryLow.length+" low stock") : "All stocked ✓")}
             {hubChevron(homeHubOpen.inventory)}
           </div>
           {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
@@ -10195,10 +10231,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         {/* ══════════════ 5. Projects ══════════════ */}
-        <div style={{...card({borderTop:"3px solid "+T.rose})}}>
+        <div style={{...card()}}>
           <div onClick={function(){toggleHub("projects");}} style={hubHeaderStyle}>
             <span style={{fontSize:"1.1rem"}}>🏡</span>
             <h2 style={hubTitleStyle}>Projects</h2>
+            {!homeHubOpen.projects && hubPreview((function(){
+              var active = homeProjects.filter(function(p){return p.status!=="done";});
+              if (active.length===0) return "No active projects";
+              var proj = active[active.length-1];
+              var pTasks = proj.tasks||[];
+              var doneCount = pTasks.filter(function(t){return t.done;}).length;
+              var pct = pTasks.length>0 ? Math.round((doneCount/pTasks.length)*100) : 0;
+              return proj.name+" · "+pct+"%";
+            })())}
             <button onClick={function(e){e.stopPropagation();setAddingProject(true);}} style={{...btnP(T.rose,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
             {hubChevron(homeHubOpen.projects)}
           </div>
@@ -10274,10 +10319,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
 
         {/* ══════════════ 6. Documents ══════════════ */}
-        <div style={{...card({borderTop:"3px solid "+T.textDark})}}>
+        <div style={{...card()}}>
           <div onClick={function(){toggleHub("documents");}} style={hubHeaderStyle}>
             <span style={{fontSize:"1.1rem"}}>📄</span>
             <h2 style={hubTitleStyle}>Documents</h2>
+            {!homeHubOpen.documents && hubPreview(homeDocuments.length>0 ? (homeDocuments.length+" document"+(homeDocuments.length!==1?"s":"")+" saved") : "No documents yet")}
             <button onClick={function(e){e.stopPropagation();openNewDocument();}} style={{...btnP(T.textDark,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
             {hubChevron(homeHubOpen.documents)}
           </div>
@@ -10322,39 +10368,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
           </div>)}
         </div>
-
-        {editingSystem&&(
-          <ModalBox title={editingSystem==="new"?"New System":`Edit: ${editForm.label||"System"}`} onClose={()=>setEditingSystem(null)} wide>
-            <div style={{display:"grid",gridTemplateColumns:"64px 1fr",gap:"0.65rem",marginBottom:"0.9rem"}}>
-              <div><label style={lbl}>Emoji</label><input value={editForm.emoji} onChange={e=>setEditForm(p=>({...p,emoji:e.target.value}))} style={{...inp({textAlign:"center",fontSize:"1.3rem",padding:"0.5rem"})}}/></div>
-              <div><label style={lbl}>System Name</label><input value={editForm.label} onChange={e=>setEditForm(p=>({...p,label:e.target.value}))} placeholder="e.g. Morning Routine" style={inp()} autoFocus/></div>
-            </div>
-            <label style={lbl}>Items</label>
-            <div style={{marginBottom:"0.7rem",border:`1.5px solid ${T.border}`,borderRadius:"0.8rem",overflow:"hidden"}}>
-              {editForm.items.length===0&&<p style={{color:T.textFaint,fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500}}>No items yet</p>}
-              {editForm.items.map((item,i)=>(
-                <div key={i} data-editidx={String(i)} onPointerDown={e=>editItemPointerDown(e,i)}
-                  style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.45rem 0.65rem",
-                    borderBottom:i<editForm.items.length-1?`1px solid ${T.borderSoft}`:"none",
-                    background:T.surface,cursor:"grab",
-                    opacity:editDragIdx===i?0.35:1,
-                    outline:editDropIdx===i?`2px dashed ${T.blue}`:"none",outlineOffset:"1px"}}>
-                  <div style={{opacity:0.35,flexShrink:0}}><Icon name="drag" size={13} color={T.textSoft}/></div>
-                  <input value={item} onChange={e=>setEditForm(p=>({...p,items:p.items.map((x,j)=>j===i?e.target.value:x)}))} style={{...inp({flex:1,padding:"0.3rem 0.55rem",fontSize:"0.84rem",border:"none",background:"transparent"})}}/>
-                  <button onClick={()=>setEditForm(p=>({...p,items:p.items.filter((_,j)=>j!==i)}))} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.2rem"}}>
-              <input value={newItemText} onChange={e=>setNewItemText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addEditItem();}} placeholder="Add an item…" style={{...inp({flex:1})}}/>
-              <button onClick={addEditItem} style={btnP(T.sage,{padding:"0.5rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem"})}><Icon name="plus" size={14} color="#fff"/> Add</button>
-            </div>
-            <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
-              <button onClick={()=>setEditingSystem(null)} style={btnS()}>Cancel</button>
-              <button onClick={saveSystem} style={btnP(T.sage)}>{editingSystem==="new"?"Create System":"Save Changes"}</button>
-            </div>
-          </ModalBox>
-        )}
       </div>
     );
   }
