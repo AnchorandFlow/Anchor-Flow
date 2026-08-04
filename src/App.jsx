@@ -9992,11 +9992,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         {/* Custom dark header — SecHead itself closes over the outer (light)
             T, so it's not used here; this matches AnchorVault's own header
-            styling (HGOLD/HWHITE) instead. Single top-level back button —
-            same "← Anchor Home"-style gold pill AnchorVault itself uses
-            (~AnchorVault.jsx:9251) — replaces the per-card "← Back to Home"
-            pills that made no sense inside an accordion layout. */}
-        <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",color:"rgba(200,169,122,0.7)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",padding:"0 0 12px 0",display:"flex",alignItems:"center",gap:5}}>← Anchor</button>
+            styling (HGOLD/HWHITE) instead. No back button here — HomeTab is
+            a single scrollable accordion with no sub-screens to return from;
+            leaving Home entirely is the global app header/nav's job, not
+            this view's. (Previously had per-card "← Back to Home" pills,
+            then a single "← Anchor" pill — both removed as not needed.) */}
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
           <span style={{fontSize:"1.2rem"}}>🏡</span>
           <div>
