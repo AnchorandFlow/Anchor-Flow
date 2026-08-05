@@ -106,6 +106,10 @@ const PLAUSIBLE = {
   home_documents:      [{ id:"hd1", name:"Homeowners policy", type:"Insurance", expiryDate:"2027-03-01", notes:"", url:"" }],
   home_supplies:      [{ id:"hs1", name:"Paper towels", quantity:2, needToRestock:false }],
   home_info:      [{ id:"hi1", label:"Wi-Fi Password", value:"HomeSweet123", category:"Wi-Fi" }],
+  // moments: MomentsSection.jsx trip/party records — array of records, same
+  // guard class as trips/celebrations (NOT an object map — see sync-core.js
+  // SYNC_KEYS comment for why that was the original, incorrect assumption).
+  moments:            [{ id:"mo1", type:"party", name:"Alice's Birthday", date:"2026-09-12", location:"Backyard", locationUrl:"", guests:[{name:"Bob",rsvp:"yes"}], food:[], shopping:[], notes:[], flights:[{}], hotels:[{}], packing:{}, itinerary:{}, travelers:["shared"], documents:[] }],
   // home_cleaning: Home dashboard redesign — object passthrough, same
   // bare-type-check class as safe_harbor/lighthouse.
   home_cleaning:      { zones:[{ id:"hz1", name:"Zone 1 · Master & Baths", rooms:"Master bedroom, bathrooms", tasks:[{ id:"hzt1", text:"Strip & wash sheets", done:false }] }], activeZoneIndex:0, supplies:[{ id:"hs2", name:"Paper towels", low:false }], schedule:"" },
@@ -499,5 +503,48 @@ describe("A10 — completeness lint: every useSaved key is classified", () => {
       seen.add(k);
     }
     expect(dups, `Duplicate SYNC_KEYS entries: ${dups.join(", ")}`).toHaveLength(0);
+  });
+});
+
+// ── A11: moments — regression guard for the array/object shape mismatch ──────
+// History: moments was SYNC_KEYS comment as "retired: no real user data,
+// unregistered" — false. MomentsSection.jsx is a live feature writing a plain
+// array (JSON.parse(...||"[]"), [...moments,m]/.map/.filter throughout), but
+// it was never in SYNC_KEYS and its one write site was a bare
+// localStorage.setItem with no dirty-marking, so it never synced. Fixed by
+// registering it in SYNC_KEYS with array-guard treatment (matching its real
+// shape) and switching MomentsSection.jsx's write to the lsSet dirty-marking
+// pattern. This suite guards specifically against the array being
+// misclassified as an object map — that class of bug (gifts, cove_sections_v1)
+// silently drops the data on every sync pass instead of erroring loudly.
+describe("A11 — moments (array shape, not an object map)", () => {
+  it("array of moment records survives sanitize", () => {
+    const moments = [{ id:"mo1", type:"party", name:"Alice's Birthday", date:"2026-09-12" }];
+    const out = sanitizeHouseholdData({ moments });
+    expect(out.moments).toEqual(moments);
+  });
+
+  it("null entries within the array are filtered", () => {
+    const out = sanitizeHouseholdData({ moments: [null, { id:"mo1", type:"travel", name:"Cabin trip", date:"2026-10-01" }] });
+    expect(out.moments).toHaveLength(1);
+    expect(out.moments[0].name).toBe("Cabin trip");
+  });
+
+  it("empty moments array passes through as empty", () => {
+    const out = sanitizeHouseholdData({ moments: [] });
+    expect(out.moments).toEqual([]);
+  });
+
+  it("an object (not array) value is dropped, not silently accepted as a map", () => {
+    // The bug this guards against: if moments were (mis)classified as an
+    // object-passthrough key, this object would have survived — hiding the
+    // fact that real moments data (always an array) would fail that same
+    // check and vanish. Array-guard treatment must reject this shape.
+    const out = sanitizeHouseholdData({ moments: { mo1: { id:"mo1", name:"wrong shape" } } });
+    expect(out.moments).toBeUndefined();
+  });
+
+  it("moments is in SYNC_KEYS", () => {
+    expect(SYNC_KEYS).toContain("moments");
   });
 });

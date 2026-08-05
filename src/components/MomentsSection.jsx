@@ -9,6 +9,23 @@ const B = {
 const inp = (extra={}) => ({ border:"1.5px solid "+B.border, borderRadius:8, padding:"8px 12px", fontSize:13, outline:"none", fontFamily:"DM Sans,sans-serif", width:"100%", boxSizing:"border-box", background:"#1e3060", color:"#faf8f4", ...extra })
 const uid = () => Math.random().toString(36).slice(2)
 
+// Mark this key dirty and trigger a sync so the edit pushes to other devices.
+// MomentsSection writes af_* keys directly (not via the app's setSaved), so
+// without this the change stays local and never reaches Supabase. Same
+// pattern as ExhaleSection.jsx's lsSet.
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)) } catch(e) {}
+  try {
+    var syncName = key.indexOf("af_") === 0 ? key.slice(3) : key
+    var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]")
+    if (dirty.indexOf(syncName) === -1) {
+      dirty.push(syncName)
+      localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty))
+    }
+  } catch(e2) {}
+  try { window.dispatchEvent(new CustomEvent("af-data-changed")) } catch(e3) {}
+}
+
 
 function injectCalendarEvent(title, dateStr, id, color) {
   if (!dateStr) return false
@@ -799,7 +816,7 @@ export default function MomentsSection() {
   const [selected, setSelected] = useState(null)
   const [viewDetail, setViewDetail] = useState(false)
 
-  const save = (updated) => { setMoments(updated); try { localStorage.setItem("af_moments", JSON.stringify(updated)) } catch {} }
+  const save = (updated) => { setMoments(updated); lsSet("af_moments", updated) }
   const addMoment = () => {
     if (!newName.trim()) return
     const m = { id:uid(), type:newType, name:newName.trim(), date:"", location:"", locationUrl:"", guests:[], food:[], shopping:[], notes:[], flights:[{}], hotels:[{}], packing:{}, itinerary:{}, travelers:["shared"], documents:[] }

@@ -40,9 +40,22 @@ export const SYNC_KEYS = [
   "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   // celebgifts retired (Phase 3): migrated into gifts on read, no longer
-  // synced independently. moments retired: no real user data, unregistered.
+  // synced independently.
   "celebrations","gifts","inventory","pets","ripples","houseFile","favProducts","packing_templates",
   "subs","vaultSystems",
+  // moments: MomentsSection.jsx's trip/party planner. Previously commented
+  // here as "retired: no real user data, unregistered" — that was wrong.
+  // It's a live, reachable feature (AnchorVault.jsx "moments" section) with
+  // real structured data (guests/food/shopping/notes/flights/hotels/
+  // packing/itinerary/documents per entry), read by Countdowns (App.jsx)
+  // and compassEngine.js, and it was never actually unregistered so much as
+  // never registered — MomentsSection.jsx wrote af_moments with a bare
+  // localStorage.setItem, no dirty-marking (fixed alongside this entry).
+  // Array of moment records, same array-guard class as trips/celebrations —
+  // NOT an object map (there was an earlier, incorrect assumption that it
+  // was person/id-keyed; the real shape in MomentsSection.jsx is a plain
+  // array built with [...moments, m] / .map / .filter throughout).
+  "moments",
   "health","career","travel_profile",
   // Cove
   "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
@@ -213,6 +226,10 @@ const _SANITIZE_HANDLED = new Set([
   "home_projects","home_documents","home_supplies",
   // home_info: flat array, same array-guard class as home_projects above.
   "home_info",
+  // moments: MomentsSection.jsx trip/party records. Same array-guard class
+  // as trips/celebrations — see SYNC_KEYS comment for the "was incorrectly
+  // assumed to be an object map" note.
+  "moments",
   // home_cleaning: object, own guard (see SYNC_KEYS comment).
   "home_cleaning",
   // exhale_buckets: object { bucketNames:[], items:[] } (Exhale Phase 1).
@@ -289,7 +306,13 @@ export function sanitizeHouseholdData(data) {
      // recipeBook — top-level array + null entries only.
      "home_projects","home_documents","home_supplies",
      // home_info ({id,label,value,category}) — Home cleanup, same guard class.
-     "home_info"
+     "home_info",
+     // moments: array of trip/party records ({id,type,name,date,location,
+     // locationUrl,guests,food,shopping,notes,flights,hotels,packing,
+     // itinerary,travelers,documents}) — MomentsSection.jsx. Same guard
+     // class as trips/celebrations — top-level array + null entries only,
+     // sub-field shapes unvalidated.
+     "moments"
     ].forEach(k => {
       if (Array.isArray(data[k])) {
         out[k] = data[k].filter(item => item != null);
