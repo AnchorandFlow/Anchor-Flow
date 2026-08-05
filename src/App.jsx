@@ -4001,6 +4001,11 @@ function createLocalBackup() {
   // Birthdays
   const [birthdays,setBirthdays]               = useSaved("birthdays",[]);
   const [schoolData]                           = useSaved("schoolData",{});
+  // Second read+write handle onto the same af_lighthouse blob the Lighthouse
+  // tab uses (that tab keeps its own instance, scoped inside LearningTab) —
+  // needed here so Today's merged task list can surface loop/week-plan items
+  // without threading LearningTab's local state through props.
+  const [lighthouseForToday, setLighthouseForToday] = useSaved("lighthouse", defaultLighthouse());
   // Quick Capture
   const [captureOpen,setCaptureOpen]           = useState(false);
   const [captureText,setCaptureText]           = useState("");
@@ -6520,6 +6525,9 @@ Respond ONLY in valid JSON:
     }
 
     // ── Today redesign — merged task list from all 4 sources, deduped by id.
+    // Lighthouse loops/week-plan (below) are a 5th/6th source, added for
+    // every minor in homeschool mode — Today is a household-level view, not
+    // scoped to whichever child happens to be selected in the Lighthouse tab.
     var mergedTodayTasks = (function(){
       var out = []; var seen = {};
       (visibleTasks||[]).filter(function(t){ return t && !t.archived && (t.day===TODAY_NAME || !t.day); }).forEach(function(t){
@@ -6536,12 +6544,45 @@ Respond ONLY in valid JSON:
           out.push({ id:wt.id, text:wt.text, done:!!wt.done, source:"wave" });
         });
       });
+      var lhModesToday = lhGet(lighthouseForToday, "modes", {});
+      var lhHomeschoolToday = lhGet(lighthouseForToday, "homeschool", {});
+      var homeschoolKidsToday = (people||[]).filter(function(p){ return personIsMinor(p) && lhModesToday[p.id]==="homeschool"; });
+      // Loops — items with status "todo" only; marking done in Today writes
+      // status:"done" straight back to the loop item, so it naturally drops
+      // out of this "todo" filter on the next render (no separate archive step).
+      homeschoolKidsToday.forEach(function(p){
+        var hsChild = lhHomeschoolToday[p.id] || defaultLhHsChild();
+        var loops = Array.isArray(hsChild.loops) ? hsChild.loops : [];
+        loops.forEach(function(loop){
+          (Array.isArray(loop.items) ? loop.items : []).forEach(function(item){
+            if (!item || item.status !== "todo") return;
+            var id = "lhloop-"+p.id+"-"+loop.id+"-"+item.id;
+            if (seen[id]) return; seen[id]=1;
+            out.push({ id:id, text:p.name+" — "+item.text, done:false, source:"lhloop", lhChildId:p.id, lhLoopId:loop.id, lhItemId:item.id });
+          });
+        });
+      });
+      // Week plan — today's weekday subjects/lessons, read-only from Today
+      // (editing lives in Lighthouse → Plan → Week).
+      homeschoolKidsToday.forEach(function(p){
+        var childSchoolHsToday = (schoolData[p.id] && schoolData[p.id].homeschool) || {};
+        var weekPlanToday = (childSchoolHsToday.weekPlan && childSchoolHsToday.weekPlan[TODAY_NAME]) || null;
+        var subjectsToday = (weekPlanToday && Array.isArray(weekPlanToday.subjects)) ? weekPlanToday.subjects : [];
+        subjectsToday.forEach(function(s){
+          if (!s) return;
+          var id = "lhweek-"+p.id+"-"+(s.id||s.name);
+          if (seen[id]) return; seen[id]=1;
+          out.push({ id:id, text:p.name+" — "+s.name+(s.title?": "+s.title:""), done:!!s.done, source:"lhweek" });
+        });
+      });
       return out;
     })();
     function toggleMergedTaskDone(t) {
       if (t.source==="task") setTasks(function(p){ return p.map(function(x){ return x.id===t.id?{...x,done:!x.done}:x; }); });
       else if (t.source==="exhale") writeExhaleBucketItemDone(t.id, !t.done);
       else if (t.source==="wave") toggleWaveTaskDone(t.id, !t.done);
+      else if (t.source==="lhloop") setLighthouseForToday(function(prev){ return lhHsLoopItemUpdate(prev, t.lhChildId, t.lhLoopId, t.lhItemId, { status: t.done ? "todo" : "done" }); });
+      // lhweek is read-only from Today — no toggle handler, matches spec.
     }
     var pinnedTodayTasks = mergedTodayTasks.filter(function(t){ return pinnedTaskIds.includes(t.id); });
     var mainTodayTasks   = mergedTodayTasks.filter(function(t){ return !pinnedTaskIds.includes(t.id); });
@@ -6805,10 +6846,12 @@ Respond ONLY in valid JSON:
                 <div style={{fontSize:"0.68rem",fontWeight:800,letterSpacing:"0.05em",color:"#2C5B7A",marginBottom:"0.3rem"}}>⭐ Today's Focus</div>
                 {pinnedTodayTasks.length===0
                   ? <div style={{fontSize:"0.74rem",color:"#5C7C94",fontStyle:"italic",opacity:0.75}}>Drag a task here to pin it</div>
-                  : pinnedTodayTasks.map(function(t){return(
+                  : pinnedTodayTasks.map(function(t){
+                      var readOnly = t.source==="lhweek";
+                      return(
                       <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.1rem"}}>
                         <span style={{color:"#5C7C94",fontSize:"0.85rem",flexShrink:0}}>⠿</span>
-                        <div onClick={function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?"#5E8FA0":"#7AB3D4"),background:t.done?"#5E8FA0":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                        <div onClick={readOnly?undefined:function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?"#5E8FA0":"#7AB3D4"),background:t.done?"#5E8FA0":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:readOnly?"default":"pointer",flexShrink:0,opacity:readOnly?0.5:1}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
                         <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
                         <button onClick={function(){unpinTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"#5C7C94",fontSize:"0.8rem"}}>×</button>
                       </div>
@@ -6819,11 +6862,12 @@ Respond ONLY in valid JSON:
               {flowMode==="Smooth"&&(<div>
                 {mainTodayTasks.length===0&&<div style={{fontSize:"0.8rem",color:T.textFaint,fontStyle:"italic",padding:"0.2rem 0.1rem"}}>Nothing else on the list</div>}
                 {mainTodayTasks.map(function(t){
-                  var tag = t.source==="exhale" ? {label:"Exhale",bg:"#EBF5F3",tx:"#1C3A2E"} : t.source==="wave" ? {label:"Wave",bg:"#D9EFEC",tx:"#12463D"} : null;
+                  var tag = t.source==="exhale" ? {label:"Exhale",bg:"#EBF5F3",tx:"#1C3A2E"} : t.source==="wave" ? {label:"Wave",bg:"#D9EFEC",tx:"#12463D"} : (t.source==="lhloop"||t.source==="lhweek") ? {label:"Lighthouse",bg:"#E3F3EF",tx:"#1C6B5E"} : null;
+                  var readOnly = t.source==="lhweek";
                   return (
                     <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0.1rem"}}>
                       <span onPointerDown={function(e){focusPinPointerDown(e,t.id);}} style={{color:T.textFaint,fontSize:"0.85rem",flexShrink:0,cursor:"grab",touchAction:"none"}}>⠿</span>
-                      <div onClick={function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                      <div onClick={readOnly?undefined:function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:readOnly?"default":"pointer",flexShrink:0,opacity:readOnly?0.5:1}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
                       <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
                       {tag&&<span style={{fontSize:"0.62rem",fontWeight:700,color:tag.tx,background:tag.bg,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{tag.label}</span>}
                     </div>
@@ -12597,7 +12641,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function dayTypeInfo(id) { return DAY_TYPES.find(function(t){ return t.id===id; }) || null; }
 
     function PlanArea() {
-      var [planSubTab, _setPlanSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningPlanSubTab"); if (s && (s!=="loops" || childMode==="homeschool") && (s!=="year" || childMode==="homeschool")) return s; } catch(_e) {} return "today"; });
+      var [planSubTab, _setPlanSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningPlanSubTab"); if (s && (s!=="loops" || childMode==="homeschool") && (s!=="year" || childMode==="homeschool") && (s!=="month" || childMode==="homeschool")) return s; } catch(_e) {} return "today"; });
       function setPlanSubTab(t) { _setPlanSubTab(t); try { sessionStorage.setItem("af_learningPlanSubTab", t); } catch(_e) {} }
 
       // Shared add/edit form plumbing (mirrors the pattern LighthouseTab's own
@@ -13011,6 +13055,65 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
       var [showCopyPicker, setShowCopyPicker] = React.useState(false);
 
+      // ── Month (homeschool only) ──────────────────────────────────────────
+      function PlanMonth() {
+        var monthlyFocus = typeof hsChild.monthly === "string" ? hsChild.monthly : "";
+        var monthlyGoals = Array.isArray(hsChild.monthlyGoals) ? hsChild.monthlyGoals : [];
+        var monthlyBook = typeof hsChild.monthlyBook === "string" ? hsChild.monthlyBook : "";
+        function AddMonthlyGoalRow() {
+          var [adding, setAdding] = React.useState(false);
+          var [text, setText] = React.useState("");
+          function save() {
+            if (!text.trim()) return;
+            applyHs({ monthlyGoals: monthlyGoals.concat([{ id:uid(), text:text.trim(), done:false }]) });
+            setText(""); setAdding(false);
+          }
+          if (!adding) return <button type="button" onClick={function(){ setAdding(true); }} style={{ marginTop:"0.3rem", background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" }}>+ Add goal</button>;
+          return (
+            <div style={{ display:"flex", gap:"0.4rem", marginTop:"0.5rem" }}>
+              <input value={text} onChange={function(e){ setText(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter"){ save(); } if(e.key==="Escape"){ setText(""); setAdding(false); } }} placeholder="e.g. Finish multiplication tables" style={inp({ flex:1, fontSize:"0.82rem" })} autoFocus/>
+              <button type="button" onClick={save} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Add</button>
+              <button type="button" onClick={function(){ setText(""); setAdding(false); }} style={btnS({ fontSize:"0.78rem" })}>Cancel</button>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <SectionShell tabName="plan-month" sectionName="focus" emoji="🎯" title="This Month's Focus" defaultOpen={true}>
+              <textarea
+                defaultValue={monthlyFocus}
+                onBlur={function(e){ applyHs({ monthly: e.target.value }); }}
+                placeholder="What are the big goals or focus areas this month?"
+                style={inp({ minHeight:"70px", resize:"vertical", fontSize:"0.85rem" })}
+              />
+            </SectionShell>
+
+            <SectionShell tabName="plan-month" sectionName="goals" emoji="🌟" title="Monthly Goals" defaultOpen={true}>
+              {monthlyGoals.length === 0 && <div style={{ color:"#9a9488", fontSize:"0.85rem", padding:"0.3rem 0" }}>No monthly goals yet.</div>}
+              {monthlyGoals.map(function(g) {
+                return (
+                  <div key={g.id} style={{ display:"flex", alignItems:"center", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" }}>
+                    <input type="checkbox" checked={!!g.done} onChange={function(){ applyHs({ monthlyGoals: monthlyGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{done:!x.done}) : x; }) }); }} style={{ cursor:"pointer", flexShrink:0 }}/>
+                    <span style={{ flex:1, fontSize:"0.85rem", color:g.done?"#9a9488":"#3a3a34", textDecoration:g.done?"line-through":"none" }}>{g.text}</span>
+                    <button type="button" onClick={function(){ applyHs({ monthlyGoals: monthlyGoals.filter(function(x){ return x.id!==g.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                  </div>
+                );
+              })}
+              <AddMonthlyGoalRow/>
+            </SectionShell>
+
+            <SectionShell tabName="plan-month" sectionName="book" emoji="📖" title="Reading Together" defaultOpen={true}>
+              <input
+                defaultValue={monthlyBook}
+                onBlur={function(e){ applyHs({ monthlyBook: e.target.value }); }}
+                placeholder="What are we reading together?"
+                style={inp()}
+              />
+            </SectionShell>
+          </div>
+        );
+      }
+
       // ── Year ──────────────────────────────────────────────────────────────
       function PlanYear() {
         var [monthIso, setMonthIso] = React.useState(function(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01"; });
@@ -13278,7 +13381,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var PLAN_PILLS = [
         { id:"today", label:"Today" },
         { id:"week",  label:"Week" },
-      ].concat(childMode==="homeschool" ? [{ id:"year", label:"Year" },{ id:"loops", label:"Loops" }] : []);
+      ].concat(childMode==="homeschool" ? [{ id:"month", label:"Month" },{ id:"year", label:"Year" },{ id:"loops", label:"Loops" }] : []);
 
       return (
         <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
@@ -13291,6 +13394,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
           {planSubTab === "today" && <PlanToday/>}
           {planSubTab === "week"  && <PlanWeek/>}
+          {planSubTab === "month" && childMode==="homeschool" && <PlanMonth/>}
           {planSubTab === "year"  && childMode==="homeschool" && <PlanYear/>}
           {planSubTab === "loops" && childMode==="homeschool" && <PlanLoops/>}
 
@@ -13312,14 +13416,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function RecordsArea() {
-      var [lhForm, setLhForm] = React.useState({});
+      // Uncontrolled lhForm — same fix as PlanArea (see the comment above
+      // PlanArea for the full remount/scroll-jump explanation). lhForm lives in
+      // a ref now, not state, so typing never re-renders RecordsArea (which
+      // would otherwise recreate every nested *Section function and remount
+      // whichever one is mid-edit).
+      var lhFormRef = React.useRef({});
+      var [, _lhFormTick] = React.useState(0);
+      function lhFormForceUpdate() { _lhFormTick(function(n) { return n + 1; }); }
       var [lhAddMode, setLhAddMode] = React.useState(null);
       var [lhEditId, setLhEditId] = React.useState(null);
-      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
-      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
-      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
-      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
-      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fv(k, def) { return lhFormRef.current[k] != null ? lhFormRef.current[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { lhFormRef.current[k] = e.target.value; }; }
+      function fSetLive(k, v) { lhFormRef.current = Object.assign({}, lhFormRef.current, { [k]: v }); lhFormForceUpdate(); }
+      function openAdd(mode, defaults) { lhFormRef.current = defaults || {}; setLhAddMode(mode); setLhEditId(null); }
+      function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
+      function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
         return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
       }
@@ -13400,11 +13512,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "teacher" && <button type="button" onClick={function(){ openAdd("teacher",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Contact</button>}
             {lhAddMode === "teacher" && formCard(
               <div>
-                {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
-                {fieldRow("Subject / Role", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
-                {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
-                {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {fieldRow("Name *", <input defaultValue={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
+                {fieldRow("Subject / Role", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                {fieldRow("Email", <input type="email" defaultValue={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                {fieldRow("Phone", <input type="tel" defaultValue={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var n=(fv("name","")).trim(); if(!n) return;
                   savePub({ teachers: teachers.concat([{ id:uid(), name:n, subject:fv("subject",""), email:fv("email",""), phone:fv("phone",""), notes:fv("notes","") }]) });
@@ -13417,11 +13529,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === t.id) {
                 return formCard(
                   <div key={t.id}>
-                    {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
-                    {fieldRow("Subject / Role", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
-                    {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
-                    {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
-                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {fieldRow("Name *", <input defaultValue={fv("name","")} onChange={fSet("name")} style={inp()} autoFocus/>)}
+                    {fieldRow("Subject / Role", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                    {fieldRow("Email", <input type="email" defaultValue={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                    {fieldRow("Phone", <input type="tel" defaultValue={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                     {formBtns(function(){
                       var n=(fv("name","")).trim(); if(!n) return;
                       savePub({ teachers: teachers.map(function(x){ return x.id===t.id ? { id:t.id, name:n, subject:fv("subject",""), email:fv("email",""), phone:fv("phone",""), notes:fv("notes","") } : x; }) });
@@ -13462,11 +13574,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           if (lhEditId === a.id) {
             return formCard(
               <div key={a.id}>
-                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                {fieldRow("Time", <input type="time" value={fv("time","")} onChange={fSet("time")} style={inp()}/>)}
-                {fieldRow("Location", <input value={fv("location","")} onChange={fSet("location")} style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Time", <input type="time" defaultValue={fv("time","")} onChange={fSet("time")} style={inp()}/>)}
+                {fieldRow("Location", <input defaultValue={fv("location","")} onChange={fSet("location")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var t=(fv("title","")).trim(); if(!t) return;
                   saveHs({ activities: activities.map(function(x){ return x.id===a.id ? { id:a.id, title:t, date:fv("date",""), time:fv("time",""), location:fv("location",""), notes:fv("notes","") } : x; }) });
@@ -13492,11 +13604,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "activity" && <button type="button" onClick={function(){ openAdd("activity",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Activity</button>}
             {lhAddMode === "activity" && formCard(
               <div>
-                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
-                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                {fieldRow("Time", <input type="time" value={fv("time","")} onChange={fSet("time")} style={inp()}/>)}
-                {fieldRow("Location", <input value={fv("location","")} onChange={fSet("location")} style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+                {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Time", <input type="time" defaultValue={fv("time","")} onChange={fSet("time")} style={inp()}/>)}
+                {fieldRow("Location", <input defaultValue={fv("location","")} onChange={fSet("location")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var t=(fv("title","")).trim(); if(!t) return;
                   saveHs({ activities: activities.concat([{ id:uid(), title:t, date:fv("date",""), time:fv("time",""), location:fv("location",""), notes:fv("notes","") }]) });
@@ -13522,10 +13634,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "cal-event" && <button type="button" onClick={function(){ openAdd("cal-event",{type:"event"}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Calendar Item</button>}
             {lhAddMode === "cal-event" && formCard(
               <div>
-                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
-                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ setLhForm(function(f){ return Object.assign({},f,{type:t.id}); }); }); })}</div>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+                {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ fSetLive("type", t.id); }); })}</div>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var t=(fv("title","")).trim(); if(!t) return;
                   savePub({ calEvents: calEvents.concat([{ id:uid(), title:t, date:fv("date",""), type:fv("type","event"), notes:fv("notes","") }]) });
@@ -13538,10 +13650,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === ev.id) {
                 return formCard(
                   <div key={ev.id}>
-                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                    {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ setLhForm(function(f){ return Object.assign({},f,{type:t.id}); }); }); })}</div>)}
-                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                    {fieldRow("Type", <div style={{ display:"flex", flexWrap:"wrap", gap:"0.4rem" }}>{CAL_EVENT_TYPES.map(function(t){ return pillToggle(t.label, fv("type","event")===t.id, function(){ fSetLive("type", t.id); }); })}</div>)}
+                    {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                     {formBtns(function(){
                       var t=(fv("title","")).trim(); if(!t) return;
                       savePub({ calEvents: calEvents.map(function(x){ return x.id===ev.id ? { id:ev.id, title:t, date:fv("date",""), type:fv("type","event"), notes:fv("notes","") } : x; }) });
@@ -13568,9 +13680,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "spirit" && <button type="button" onClick={function(){ openAdd("spirit",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Spirit Day</button>}
             {lhAddMode === "spirit" && formCard(
               <div>
-                {fieldRow("Theme *", <input value={fv("theme","")} onChange={fSet("theme")} autoFocus style={inp()}/>)}
-                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:50, resize:"vertical" })}/>)}
+                {fieldRow("Theme *", <input defaultValue={fv("theme","")} onChange={fSet("theme")} autoFocus style={inp()}/>)}
+                {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:50, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var t=(fv("theme","")).trim(); if(!t) return;
                   savePub({ spiritDays: spiritDays.concat([{ id:uid(), theme:t, date:fv("date",""), notes:fv("notes","") }]) });
@@ -13583,9 +13695,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === s.id) {
                 return formCard(
                   <div key={s.id}>
-                    {fieldRow("Theme *", <input value={fv("theme","")} onChange={fSet("theme")} style={inp()} autoFocus/>)}
-                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:50, resize:"vertical" })}/>)}
+                    {fieldRow("Theme *", <input defaultValue={fv("theme","")} onChange={fSet("theme")} style={inp()} autoFocus/>)}
+                    {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:50, resize:"vertical" })}/>)}
                     {formBtns(function(){
                       var t=(fv("theme","")).trim(); if(!t) return;
                       savePub({ spiritDays: spiritDays.map(function(x){ return x.id===s.id ? { id:s.id, theme:t, date:fv("date",""), notes:fv("notes","") } : x; }) });
@@ -13618,10 +13730,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "comms-contact" && <button type="button" onClick={function(){ openAdd("comms-contact",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Contact</button>}
             {lhAddMode === "comms-contact" && formCard(
               <div>
-                {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
-                {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} style={inp()}/>)}
-                {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
-                {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                {fieldRow("Name *", <input defaultValue={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
+                {fieldRow("Role", <input defaultValue={fv("role","")} onChange={fSet("role")} style={inp()}/>)}
+                {fieldRow("Phone", <input type="tel" defaultValue={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                {fieldRow("Email", <input type="email" defaultValue={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
                 {formBtns(function(){
                   var n=(fv("name","")).trim(); if(!n) return;
                   commsMutate({ contacts: commsContacts.concat([{ id:uid(), name:n, role:fv("role",""), phone:fv("phone",""), email:fv("email","") }]) });
@@ -13634,10 +13746,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === c.id) {
                 return formCard(
                   <div key={c.id}>
-                    {fieldRow("Name *", <input value={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
-                    {fieldRow("Role", <input value={fv("role","")} onChange={fSet("role")} style={inp()}/>)}
-                    {fieldRow("Phone", <input type="tel" value={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
-                    {fieldRow("Email", <input type="email" value={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
+                    {fieldRow("Name *", <input defaultValue={fv("name","")} onChange={fSet("name")} autoFocus style={inp()}/>)}
+                    {fieldRow("Role", <input defaultValue={fv("role","")} onChange={fSet("role")} style={inp()}/>)}
+                    {fieldRow("Phone", <input type="tel" defaultValue={fv("phone","")} onChange={fSet("phone")} style={inp()}/>)}
+                    {fieldRow("Email", <input type="email" defaultValue={fv("email","")} onChange={fSet("email")} style={inp()}/>)}
                     {formBtns(function(){
                       var n=(fv("name","")).trim(); if(!n) return;
                       commsMutate({ contacts: commsContacts.map(function(x){ return x.id===c.id ? { id:c.id, name:n, role:fv("role",""), phone:fv("phone",""), email:fv("email","") } : x; }) });
@@ -13662,11 +13774,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "comms-log" && <button type="button" onClick={function(){ openAdd("comms-log",{actionDone:false}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Entry</button>}
             {lhAddMode === "comms-log" && formCard(
               <div>
-                {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
-                {fieldRow("Contact", <input value={fv("who","")} onChange={fSet("who")} style={inp()}/>)}
-                {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:60, resize:"vertical" })}/>)}
-                {fieldRow("Follow-up needed", <input value={fv("action","")} onChange={fSet("action")} placeholder="Optional" style={inp()}/>)}
+                {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                {fieldRow("Contact", <input defaultValue={fv("who","")} onChange={fSet("who")} style={inp()}/>)}
+                {fieldRow("Subject", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:60, resize:"vertical" })}/>)}
+                {fieldRow("Follow-up needed", <input defaultValue={fv("action","")} onChange={fSet("action")} placeholder="Optional" style={inp()}/>)}
                 {formBtns(function(){
                   var who=(fv("who","")).trim(); var subj=(fv("subject","")).trim();
                   if (!who && !subj) return;
@@ -13680,11 +13792,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === entry.id) {
                 return formCard(
                   <div key={entry.id}>
-                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
-                    {fieldRow("Contact", <input value={fv("who","")} onChange={fSet("who")} style={inp()}/>)}
-                    {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
-                    {fieldRow("Notes", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:60, resize:"vertical" })}/>)}
-                    {fieldRow("Follow-up needed", <input value={fv("action","")} onChange={fSet("action")} style={inp()}/>)}
+                    {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp({ width:"180px" })}/>)}
+                    {fieldRow("Contact", <input defaultValue={fv("who","")} onChange={fSet("who")} style={inp()}/>)}
+                    {fieldRow("Subject", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:60, resize:"vertical" })}/>)}
+                    {fieldRow("Follow-up needed", <input defaultValue={fv("action","")} onChange={fSet("action")} style={inp()}/>)}
                     {formBtns(function(){
                       var who=(fv("who","")).trim(); var subj=(fv("subject","")).trim();
                       if (!who && !subj) return;
@@ -13743,9 +13855,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode !== "hw" && <button type="button" onClick={function(){ openAdd("hw",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Assignment</button>}
             {lhAddMode === "hw" && formCard(
               <div>
-                {fieldRow("Subject *", <input value={fv("subj","")} onChange={fSet("subj")} autoFocus style={inp()}/>)}
-                {fieldRow("Assignment *", <input value={fv("task","")} onChange={fSet("task")} style={inp()}/>)}
-                {fieldRow("Due", <input type="date" value={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
+                {fieldRow("Subject *", <input defaultValue={fv("subj","")} onChange={fSet("subj")} autoFocus style={inp()}/>)}
+                {fieldRow("Assignment *", <input defaultValue={fv("task","")} onChange={fSet("task")} style={inp()}/>)}
+                {fieldRow("Due", <input type="date" defaultValue={fv("due","")} onChange={fSet("due")} style={inp({ width:"180px" })}/>)}
                 {formBtns(function(){
                   var task=(fv("task","")).trim(); var subj=(fv("subj","")).trim();
                   if (!task||!subj) return;
@@ -13824,14 +13936,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function GrowthArea() {
-      var [lhForm, setLhForm] = React.useState({});
+      // Uncontrolled lhForm — same fix as PlanArea/RecordsArea (see the comment
+      // above PlanArea for the full remount/scroll-jump explanation).
+      var lhFormRef = React.useRef({});
+      var [, _lhFormTick] = React.useState(0);
+      function lhFormForceUpdate() { _lhFormTick(function(n) { return n + 1; }); }
       var [lhAddMode, setLhAddMode] = React.useState(null);
       var [lhEditId, setLhEditId] = React.useState(null);
-      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
-      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
-      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
-      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
-      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fv(k, def) { return lhFormRef.current[k] != null ? lhFormRef.current[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { lhFormRef.current[k] = e.target.value; }; }
+      function fSetLive(k, v) { lhFormRef.current = Object.assign({}, lhFormRef.current, { [k]: v }); lhFormForceUpdate(); }
+      function openAdd(mode, defaults) { lhFormRef.current = defaults || {}; setLhAddMode(mode); setLhEditId(null); }
+      function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
+      function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
         return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
       }
@@ -13995,17 +14112,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var isChallenge = fv("kind","goal") === "challenge";
           return formCard(
             <div>
-              {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{pillToggle("Goal", !isChallenge, function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"goal"}); }); })}{pillToggle("Challenge", isChallenge, function(){ setLhForm(function(f){ return Object.assign({},f,{kind:"challenge"}); }); })}</div>)}
-              {fieldRow("Category *", <input value={fv("cat","")} onChange={fSet("cat")} autoFocus style={inp()}/>)}
-              {fieldRow("Goal *", <textarea value={fv("goal","")} onChange={fSet("goal")} style={inp({ height:60, resize:"vertical" })}/>)}
-              {isChallenge && fieldRow("Target", <input type="number" min="0" value={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
-              {isChallenge && fieldRow("Unit", <input value={fv("unit","books")} onChange={fSet("unit")} style={inp()}/>)}
-              {fieldRow("Why", <textarea value={fv("why","")} onChange={fSet("why")} style={inp({ height:50, resize:"vertical" })}/>)}
-              {fieldRow("Source", <input value={fv("source","parent")} onChange={fSet("source")} style={inp()}/>)}
-              {!isChallenge && fieldRow("Steps (one per line)", <textarea value={fv("stepsText","")} onChange={fSet("stepsText")} style={inp({ height:70, resize:"vertical" })}/>)}
-              {!isChallenge && fieldRow("Progress", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_PROGRESS_GROWTH.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){ setLhForm(function(f){ return Object.assign({},f,{progress:p}); }); }); })}</div>)}
-              {fieldRow("Evidence", <textarea value={fv("evidence","")} onChange={fSet("evidence")} style={inp({ height:50, resize:"vertical" })}/>)}
-              {fieldRow("Reflect", <textarea value={fv("reflect","")} onChange={fSet("reflect")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{pillToggle("Goal", !isChallenge, function(){ fSetLive("kind", "goal"); })}{pillToggle("Challenge", isChallenge, function(){ fSetLive("kind", "challenge"); })}</div>)}
+              {fieldRow("Category *", <input defaultValue={fv("cat","")} onChange={fSet("cat")} autoFocus style={inp()}/>)}
+              {fieldRow("Goal *", <textarea defaultValue={fv("goal","")} onChange={fSet("goal")} style={inp({ height:60, resize:"vertical" })}/>)}
+              {isChallenge && fieldRow("Target", <input type="number" min="0" defaultValue={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
+              {isChallenge && fieldRow("Unit", <input defaultValue={fv("unit","books")} onChange={fSet("unit")} style={inp()}/>)}
+              {fieldRow("Why", <textarea defaultValue={fv("why","")} onChange={fSet("why")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("Source", <input defaultValue={fv("source","parent")} onChange={fSet("source")} style={inp()}/>)}
+              {!isChallenge && fieldRow("Steps (one per line)", <textarea defaultValue={fv("stepsText","")} onChange={fSet("stepsText")} style={inp({ height:70, resize:"vertical" })}/>)}
+              {!isChallenge && fieldRow("Progress", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_PROGRESS_GROWTH.map(function(p){ return pillToggle(p, fv("progress","Not started")===p, function(){ fSetLive("progress", p); }); })}</div>)}
+              {fieldRow("Evidence", <textarea defaultValue={fv("evidence","")} onChange={fSet("evidence")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("Reflect", <textarea defaultValue={fv("reflect","")} onChange={fSet("reflect")} style={inp({ height:50, resize:"vertical" })}/>)}
               {formBtns(onSave)}
             </div>
           );
@@ -14101,9 +14218,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode!=="grades-mark" && <button type="button" onClick={function(){ openAdd("grades-mark",{mark:""}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Subject</button>}
             {lhAddMode==="grades-mark" && formCard(
               <div>
-                {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} autoFocus style={inp()}/>)}
-                {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ setLhForm(function(f){ return Object.assign({},f,{mark:m}); }); }); })}</div>)}
-                {fieldRow("Note", <input value={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
+                {fieldRow("Subject *", <input defaultValue={fv("subject","")} onChange={fSet("subject")} autoFocus style={inp()}/>)}
+                {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ fSetLive("mark", m); }); })}</div>)}
+                {fieldRow("Note", <input defaultValue={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
                 {formBtns(function(){
                   var s=(fv("subject","")).trim(); var m=fv("mark","");
                   if (!s||!m) return;
@@ -14117,9 +14234,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId===row.id) {
                 return formCard(
                   <div key={row.id}>
-                    {fieldRow("Subject *", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
-                    {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ setLhForm(function(f){ return Object.assign({},f,{mark:m}); }); }); })}</div>)}
-                    {fieldRow("Note", <input value={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
+                    {fieldRow("Subject *", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()} autoFocus/>)}
+                    {fieldRow("Mark", <div style={{ display:"flex", gap:"0.35rem", flexWrap:"wrap" }}>{MARK_OPTIONS.map(function(m){ return pillToggle(m, fv("mark","")===m, function(){ fSetLive("mark", m); }); })}</div>)}
+                    {fieldRow("Note", <input defaultValue={fv("comment","")} onChange={fSet("comment")} style={inp()}/>)}
                     {formBtns(function(){
                       var s=(fv("subject","")).trim(); var m=fv("mark","");
                       if (!s||!m) return;
@@ -14147,8 +14264,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode!=="grades-score" && <button type="button" onClick={function(){ openAdd("grades-score",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.79rem", marginBottom:"0.5rem" })}>+ Add Score</button>}
             {lhAddMode==="grades-score" && formCard(
               <div>
-                {fieldRow("Label *", <input value={fv("label","")} onChange={fSet("label")} autoFocus style={inp()}/>)}
-                {fieldRow("Value *", <input value={fv("value","")} onChange={fSet("value")} style={inp()}/>)}
+                {fieldRow("Label *", <input defaultValue={fv("label","")} onChange={fSet("label")} autoFocus style={inp()}/>)}
+                {fieldRow("Value *", <input defaultValue={fv("value","")} onChange={fSet("value")} style={inp()}/>)}
                 {formBtns(function(){
                   var l=(fv("label","")).trim(); var v=(fv("value","")).trim();
                   if (!l||!v) return;
@@ -14162,8 +14279,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId===sc.id) {
                 return formCard(
                   <div key={sc.id}>
-                    {fieldRow("Label *", <input value={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
-                    {fieldRow("Value *", <input value={fv("value","")} onChange={fSet("value")} style={inp()}/>)}
+                    {fieldRow("Label *", <input defaultValue={fv("label","")} onChange={fSet("label")} style={inp()} autoFocus/>)}
+                    {fieldRow("Value *", <input defaultValue={fv("value","")} onChange={fSet("value")} style={inp()}/>)}
                     {formBtns(function(){
                       var l=(fv("label","")).trim(); var v=(fv("value","")).trim();
                       if (!l||!v) return;
@@ -14197,12 +14314,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode!=="portfolio" && <button type="button" onClick={function(){ openAdd("portfolio",{ date:todayIso }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Entry</button>}
             {lhAddMode==="portfolio" && formCard(
               <div>
-                {fieldRow("Date", <input type="date" value={fv("date",todayIso)} onChange={fSet("date")} style={inp()}/>)}
+                {fieldRow("Date", <input type="date" defaultValue={fv("date",todayIso)} onChange={fSet("date")} style={inp()}/>)}
                 {fieldRow("Subject", subjectNameListForPortfolio.length>0
-                  ? <select value={fv("subject","")} onChange={fSet("subject")} style={inp()}><option value="">—</option>{subjectNameListForPortfolio.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
-                  : <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
-                {fieldRow("Note *", <textarea value={fv("note","")} onChange={fSet("note")} autoFocus style={inp({ height:70, resize:"vertical" })}/>)}
-                {fieldRow("Photo URL", <input value={fv("photoUrl","")} onChange={fSet("photoUrl")} placeholder="Optional" style={inp()}/>)}
+                  ? <select defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}><option value="">—</option>{subjectNameListForPortfolio.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                  : <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                {fieldRow("Note *", <textarea defaultValue={fv("note","")} onChange={fSet("note")} autoFocus style={inp({ height:70, resize:"vertical" })}/>)}
+                {fieldRow("Photo URL", <input defaultValue={fv("photoUrl","")} onChange={fSet("photoUrl")} placeholder="Optional" style={inp()}/>)}
                 {formBtns(function(){
                   var n=(fv("note","")).trim(); if(!n) return;
                   applyHs({ portfolio: portfolio.concat([{ id:uid(), date:fv("date",todayIso), subject:fv("subject",""), note:n, photoUrl:fv("photoUrl","") }]) });
@@ -14215,10 +14332,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId===p.id) {
                 return formCard(
                   <div key={p.id}>
-                    {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-                    {fieldRow("Subject", <input value={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
-                    {fieldRow("Note *", <textarea value={fv("note","")} onChange={fSet("note")} autoFocus style={inp({ height:70, resize:"vertical" })}/>)}
-                    {fieldRow("Photo URL", <input value={fv("photoUrl","")} onChange={fSet("photoUrl")} style={inp()}/>)}
+                    {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+                    {fieldRow("Subject", <input defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/>)}
+                    {fieldRow("Note *", <textarea defaultValue={fv("note","")} onChange={fSet("note")} autoFocus style={inp({ height:70, resize:"vertical" })}/>)}
+                    {fieldRow("Photo URL", <input defaultValue={fv("photoUrl","")} onChange={fSet("photoUrl")} style={inp()}/>)}
                     {formBtns(function(){
                       var n=(fv("note","")).trim(); if(!n) return;
                       applyHs({ portfolio: portfolio.map(function(x){ return x.id===p.id ? { id:p.id, date:fv("date",""), subject:fv("subject",""), note:n, photoUrl:fv("photoUrl","") } : x; }) });
@@ -14262,11 +14379,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {lhAddMode!=="breakgoal" && <button type="button" onClick={function(){ openAdd("breakgoal",{ type:"goal" }); }} style={btnP(breakColor,{ fontSize:"0.8rem", marginBottom:"0.65rem", color:"#fff" })}>+ Add Goal</button>}
             {lhAddMode==="breakgoal" && formCard(
               <div>
-                {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily"]].map(function(t){ return pillToggle(t[1], fv("type","goal")===t[0], function(){ setLhForm(function(f){ return Object.assign({},f,{type:t[0]}); }); }); })}</div>)}
-                {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
-                {fieldRow("Target number", <input type="number" value={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
-                {fieldRow("Unit", <input value={fv("unit","")} onChange={fSet("unit")} placeholder="books, days…" style={inp()}/>)}
-                {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem" }}>{[["goal","🎯 Goal"],["reading","📚 Reading"],["daily","📆 Daily"]].map(function(t){ return pillToggle(t[1], fv("type","goal")===t[0], function(){ fSetLive("type", t[0]); }); })}</div>)}
+                {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+                {fieldRow("Target number", <input type="number" defaultValue={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
+                {fieldRow("Unit", <input defaultValue={fv("unit","")} onChange={fSet("unit")} placeholder="books, days…" style={inp()}/>)}
+                {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                 {formBtns(function(){
                   var t=(fv("title","")).trim(); if(!t) return;
                   saveBreakGoals(breakGoals.concat([{ id:uid(), title:t, type:fv("type","goal"), target:fv("target",""), unit:fv("unit",""), notes:fv("notes",""), break:breakMode, progress:0 }]));
@@ -14279,10 +14396,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId===g.id) {
                 return formCard(
                   <div key={g.id}>
-                    {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
-                    {fieldRow("Target number", <input type="number" value={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
-                    {fieldRow("Unit", <input value={fv("unit","")} onChange={fSet("unit")} style={inp()}/>)}
-                    {fieldRow("Notes", <textarea value={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+                    {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()} autoFocus/>)}
+                    {fieldRow("Target number", <input type="number" defaultValue={fv("target","")} onChange={fSet("target")} style={inp({ width:"140px" })}/>)}
+                    {fieldRow("Unit", <input defaultValue={fv("unit","")} onChange={fSet("unit")} style={inp()}/>)}
+                    {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
                     {formBtns(function(){
                       var t=(fv("title","")).trim(); if(!t) return;
                       saveBreakGoals(breakGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{ title:t, target:fv("target",""), unit:fv("unit",""), notes:fv("notes","") }) : x; }));
@@ -14341,16 +14458,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var LH_TRIP_SUBJ = ["History","Science","Art","Literature","Geography","Other"];
 
     function LibraryArea() {
-      var [lhForm, setLhForm] = React.useState({});
+      // Uncontrolled lhForm — same fix as PlanArea/RecordsArea/GrowthArea (see
+      // the comment above PlanArea for the full remount/scroll-jump
+      // explanation). fChk/fNum are click-driven (checkbox, star rating) and
+      // need a visible re-render, so they go through the ref+tick force-update
+      // like fSetLive elsewhere — a discrete click, not a keystroke stream, so
+      // the remount-per-render cost is harmless there.
+      var lhFormRef = React.useRef({});
+      var [, _lhFormTick] = React.useState(0);
+      function lhFormForceUpdate() { _lhFormTick(function(n) { return n + 1; }); }
       var [lhAddMode, setLhAddMode] = React.useState(null);
       var [lhEditId, setLhEditId] = React.useState(null);
-      function fv(k, def) { return lhForm[k] != null ? lhForm[k] : (def != null ? def : ""); }
-      function fSet(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.value; return n; }); }; }
-      function fChk(k) { return function(e) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=e.target.checked; return n; }); }; }
-      function fNum(k) { return function(v) { setLhForm(function(f) { var n=Object.assign({},f); n[k]=v; return n; }); }; }
-      function openAdd(mode, defaults) { setLhAddMode(mode); setLhEditId(null); setLhForm(defaults||{}); }
-      function openEdit(id, item) { setLhEditId(id); setLhAddMode(null); setLhForm(Object.assign({}, item)); }
-      function closeForm() { setLhAddMode(null); setLhEditId(null); setLhForm({}); }
+      function fv(k, def) { return lhFormRef.current[k] != null ? lhFormRef.current[k] : (def != null ? def : ""); }
+      function fSet(k) { return function(e) { lhFormRef.current[k] = e.target.value; }; }
+      function fSetLive(k, v) { lhFormRef.current = Object.assign({}, lhFormRef.current, { [k]: v }); lhFormForceUpdate(); }
+      function fChk(k) { return function(e) { lhFormRef.current = Object.assign({}, lhFormRef.current, { [k]: e.target.checked }); lhFormForceUpdate(); }; }
+      function fNum(k) { return function(v) { lhFormRef.current = Object.assign({}, lhFormRef.current, { [k]: v }); lhFormForceUpdate(); }; }
+      function openAdd(mode, defaults) { lhFormRef.current = defaults || {}; setLhAddMode(mode); setLhEditId(null); }
+      function openEdit(id, item) { lhFormRef.current = Object.assign({}, item); setLhEditId(id); setLhAddMode(null); }
+      function closeForm() { lhFormRef.current = {}; setLhAddMode(null); setLhEditId(null); }
       function fieldRow(label, children) {
         return (<div style={{ marginBottom:"0.7rem" }}><div style={{ fontSize:"0.73rem", fontWeight:600, color:"#7a7568", marginBottom:"0.2rem", textTransform:"uppercase", letterSpacing:"0.04em" }}>{label}</div>{children}</div>);
       }
@@ -14418,18 +14544,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         function BookForm(onSave) {
           return formCard(
             <div>
-              {fieldRow("Title *", <input value={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
-              {fieldRow("Author", <input value={fv("author","")} onChange={fSet("author")} style={inp()}/>)}
-              {fieldRow("Status", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{BOOK_STATUSES.map(function(o){ return pillToggle(o[1], fv("status","reading")===o[0], function(){ setLhForm(function(f){ return Object.assign({},f,{status:o[0]}); }); }); })}</div>)}
-              {fieldRow("Format", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")===fmt, function(){ setLhForm(function(f){ return Object.assign({},f,{fmt:fmt}); }); }); })}</div>)}
-              {fieldRow("Subject", <input value={fv("subj","")} onChange={fSet("subj")} style={inp()}/>)}
+              {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+              {fieldRow("Author", <input defaultValue={fv("author","")} onChange={fSet("author")} style={inp()}/>)}
+              {fieldRow("Status", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{BOOK_STATUSES.map(function(o){ return pillToggle(o[1], fv("status","reading")===o[0], function(){ fSetLive("status", o[0]); }); })}</div>)}
+              {fieldRow("Format", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BOOK_FMTS.map(function(fmt){ return pillToggle(fmt, fv("fmt","")===fmt, function(){ fSetLive("fmt", fmt); }); })}</div>)}
+              {fieldRow("Subject", <input defaultValue={fv("subj","")} onChange={fSet("subj")} style={inp()}/>)}
               <div style={{ display:"flex", gap:"0.6rem" }}>
-                <div style={{ flex:1 }}>{fieldRow("Start", <input type="date" value={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
-                <div style={{ flex:1 }}>{fieldRow("Finish", <input type="date" value={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
+                <div style={{ flex:1 }}>{fieldRow("Start", <input type="date" defaultValue={fv("start","")} onChange={fSet("start")} style={inp()}/>)}</div>
+                <div style={{ flex:1 }}>{fieldRow("Finish", <input type="date" defaultValue={fv("finish","")} onChange={fSet("finish")} style={inp()}/>)}</div>
               </div>
               {fieldRow("Rating", starRow("rating"))}
-              {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
-              {fieldRow("Favourite Quote", <textarea value={fv("quote","")} onChange={fSet("quote")} style={inp({ height:44, resize:"vertical" })}/>)}
+              {fieldRow("Note", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
+              {fieldRow("Favourite Quote", <textarea defaultValue={fv("quote","")} onChange={fSet("quote")} style={inp({ height:44, resize:"vertical" })}/>)}
               <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
                 <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
                 Include in summaries
@@ -14495,11 +14621,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         function BeyondForm(onSave) {
           return formCard(
             <div>
-              {fieldRow("What *", <input value={fv("what","")} onChange={fSet("what")} autoFocus style={inp()}/>)}
-              {fieldRow("Category", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){ setLhForm(function(f){ return Object.assign({},f,{cat:c}); }); }); })}</div>)}
-              {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-              {fieldRow("Skill or theme", <input value={fv("skill","")} onChange={fSet("skill")} style={inp()}/>)}
-              {fieldRow("Note", <textarea value={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
+              {fieldRow("What *", <input defaultValue={fv("what","")} onChange={fSet("what")} autoFocus style={inp()}/>)}
+              {fieldRow("Category", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){ fSetLive("cat", c); }); })}</div>)}
+              {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+              {fieldRow("Skill or theme", <input defaultValue={fv("skill","")} onChange={fSet("skill")} style={inp()}/>)}
+              {fieldRow("Note", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
               <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
                 <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
                 Include in summaries
@@ -14550,19 +14676,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         function toggleSubj(val) {
           var cur = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
           var next = cur.indexOf(val)>=0 ? cur.filter(function(x){ return x!==val; }) : cur.concat([val]);
-          setLhForm(function(f){ return Object.assign({},f,{subj:next}); });
+          fSetLive("subj", next);
         }
         function TripForm(onSave) {
           var curSubj = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
           return formCard(
             <div>
-              {fieldRow("Place *", <input value={fv("place","")} onChange={fSet("place")} autoFocus style={inp()}/>)}
-              {fieldRow("Date", <input type="date" value={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
+              {fieldRow("Place *", <input defaultValue={fv("place","")} onChange={fSet("place")} autoFocus style={inp()}/>)}
+              {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
               {fieldRow("Subjects", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){ toggleSubj(s); }); })}</div>)}
-              {fieldRow("What we saw", <textarea value={fv("saw","")} onChange={fSet("saw")} style={inp({ height:50, resize:"vertical" })}/>)}
-              {fieldRow("What we learned", <textarea value={fv("learned","")} onChange={fSet("learned")} style={inp({ height:50, resize:"vertical" })}/>)}
-              {fieldRow("A moment", <textarea value={fv("moment","")} onChange={fSet("moment")} style={inp({ height:44, resize:"vertical" })}/>)}
-              {fieldRow("Follow-up ideas", <textarea value={fv("followup","")} onChange={fSet("followup")} style={inp({ height:44, resize:"vertical" })}/>)}
+              {fieldRow("What we saw", <textarea defaultValue={fv("saw","")} onChange={fSet("saw")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("What we learned", <textarea defaultValue={fv("learned","")} onChange={fSet("learned")} style={inp({ height:50, resize:"vertical" })}/>)}
+              {fieldRow("A moment", <textarea defaultValue={fv("moment","")} onChange={fSet("moment")} style={inp({ height:44, resize:"vertical" })}/>)}
+              {fieldRow("Follow-up ideas", <textarea defaultValue={fv("followup","")} onChange={fSet("followup")} style={inp({ height:44, resize:"vertical" })}/>)}
               {formBtns(onSave)}
             </div>
           );
