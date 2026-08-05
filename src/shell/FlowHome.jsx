@@ -1,5 +1,6 @@
 // src/shell/FlowHome.jsx — Flow pillar dashboard. Balanced two-column grid.
 import { useState, useEffect } from "react";
+import { isPersonMinor } from "../compass/compassEngine";
 
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
@@ -18,6 +19,83 @@ function rd(key, fb) {
 }
 function go(tab) { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: tab })); }
 function goVault(section, tripId) { window.dispatchEvent(new CustomEvent("af-open-vault", { detail: { section: section, tripId: tripId || null } })); }
+function uid() { return Math.random().toString(36).slice(2); }
+
+// Write + dirty-mark + dispatch — same pattern as this file's own toggleTask,
+// and as ExhaleSection.jsx/SunsetClose.jsx/MomentsSection.jsx's local lsSet
+// helpers. FlowHome writes af_* keys directly (not via HomeFlow's setSaved),
+// so without the dirty-mark the change would stay local and never sync.
+function wr(key, val) {
+  try { localStorage.setItem("af_" + key, JSON.stringify(val)); } catch (e) {}
+  try {
+    var dirty = rd("dirtyKeys", []);
+    if (!Array.isArray(dirty)) dirty = [];
+    if (dirty.indexOf(key) === -1) { dirty.push(key); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
+  } catch (e2) {}
+  try { window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: key } })); } catch (e3) {}
+}
+
+// Exhale bucket 0 is "Exhaled" (DEFAULT_BUCKET_NAMES in ExhaleSection.jsx).
+// BUCKET_COLORS duplicated from there/sync-core.js — same small-constant
+// duplication convention used throughout this codebase.
+var BUCKET_COLORS = ["#4A9E8E", "#6ABAAA", "#7AB3D4", "#8BAF8B", "#A99AC4"];
+
+// ── Reminders due-date math — duplicated from AnchorVault.jsx's
+// RecurringRemindersSection (nextWeeklyDay/nextWeeklyDays/nextInterval/
+// daysUntilReminder, ~AnchorVault.jsx:7844-7900), which are module-scope
+// and not exported. Read-only here — Flow only surfaces upcoming
+// reminders, editing still happens in Anchor → Reminders.
+var REMINDER_FREQ_DAYS = { weekly:7, biweekly:14, every6wk:42, every2mo:61, every3mo:91, every6mo:182, yearly:365, monthly:30 };
+function nextWeeklyDay(dayOfWeek, freq, lastDone) {
+  if (dayOfWeek == null) return null;
+  var now = new Date(); now.setHours(0,0,0,0);
+  var diff = (dayOfWeek - now.getDay() + 7) % 7;
+  var d = new Date(now); d.setDate(d.getDate() + diff);
+  if (freq === "biweekly" && lastDone) {
+    var lp = new Date(lastDone); lp.setHours(0,0,0,0);
+    var weeksSince = Math.round((d - lp) / (7 * 86400000));
+    if (weeksSince % 2 !== 0) d.setDate(d.getDate() + 7);
+  }
+  if (freq === "monthly") {
+    var first = new Date(now.getFullYear(), now.getMonth(), 1);
+    d = new Date(first); d.setDate(1 + (dayOfWeek - first.getDay() + 7) % 7);
+    if (d < now) { d.setMonth(d.getMonth()+1); d.setDate(1); var b=new Date(d); d.setDate(1+(dayOfWeek-b.getDay()+7)%7); }
+  }
+  return d;
+}
+function nextWeeklyDays(days, freq, lastDone) {
+  if (!days || !days.length) return null;
+  var earliest = null;
+  days.forEach(function(d) {
+    var candidate = nextWeeklyDay(d, freq, lastDone);
+    if (!earliest || candidate < earliest) earliest = candidate;
+  });
+  return earliest;
+}
+function nextInterval(freq, lastDone) {
+  var days = REMINDER_FREQ_DAYS[freq] || 90;
+  var now = new Date(); now.setHours(0,0,0,0);
+  if (lastDone) {
+    var last = new Date(lastDone); last.setHours(0,0,0,0);
+    var next = new Date(last); next.setDate(next.getDate() + days);
+    return next;
+  }
+  return now;
+}
+function daysUntilReminder(r) {
+  var now = new Date(); now.setHours(0,0,0,0);
+  var next;
+  if (r.type === "weekly_days") next = nextWeeklyDays(r.days, r.freq, r.lastDone);
+  else if (r.type === "weekly_day") next = nextWeeklyDay(r.day, r.freq, r.lastDone);
+  else next = nextInterval(r.freq, r.lastDone);
+  if (!next) return null;
+  return Math.round((next - now) / 86400000);
+}
+function reminderDueLabel(days) {
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return "in " + days + " days";
+}
 
 // Same manual YYYY-MM-DD part parsing as AnchorVault's daysUntil/TripCountdownBadge
 // (~AnchorVault.jsx:3606) — avoids the timezone ambiguity of new Date(dateStr).
@@ -99,7 +177,10 @@ function Card(props) {
 
 export default function FlowHome(props) {
   var [tasks, setTasks] = useState(function () { return rd("tasks", []); });
-  var [brain, setBrain] = useState(function () { return rd("brainItems", []); });
+  var [exhaleBuckets, setExhaleBuckets] = useState(function () { return rd("exhale_buckets", { bucketNames: ["Exhaled","Today","Tomorrow","This Weekend","Someday"], items: [] }); });
+  var [recurring, setRecurring] = useState(function () { return rd("recurring", []); });
+  var [coveData, setCoveData] = useState(function () { return rd("coveData", []); });
+  var [exhaleQuickText, setExhaleQuickText] = useState("");
   var [upNextOpen, setUpNextOpen] = useState(true);
   var [alsoTodayOpen, setAlsoTodayOpen] = useState(true);
   // Mode-impact: now live-reactive via the same af-flowmode-changed bridge
@@ -111,7 +192,9 @@ export default function FlowHome(props) {
   useEffect(function () {
     function refresh(e) {
       if (!e || !e.detail || !e.detail.key || e.detail.key === "tasks") setTasks(rd("tasks", []));
-      if (!e || !e.detail || !e.detail.key || e.detail.key === "brainItems") setBrain(rd("brainItems", []));
+      if (!e || !e.detail || !e.detail.key || e.detail.key === "exhale_buckets") setExhaleBuckets(rd("exhale_buckets", { bucketNames: ["Exhaled","Today","Tomorrow","This Weekend","Someday"], items: [] }));
+      if (!e || !e.detail || !e.detail.key || e.detail.key === "recurring") setRecurring(rd("recurring", []));
+      if (!e || !e.detail || !e.detail.key || e.detail.key === "coveData") setCoveData(rd("coveData", []));
     }
     window.addEventListener("af-data-changed", refresh);
     return function () { window.removeEventListener("af-data-changed", refresh); };
@@ -176,8 +259,25 @@ export default function FlowHome(props) {
   var upcoming = calEvents.filter(function (e) { return e && e.date && e.date >= todayISO; })
     .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(0, 5);
 
-  if (!Array.isArray(brain)) brain = [];
-  var recentBrain = brain.slice(0, 4);
+  // Fix 1 — Unload It: items from Exhale bucket 0 ("Exhaled"). Items array
+  // is already newest-first (addBucketItem in ExhaleSection.jsx prepends),
+  // so no re-sort needed here.
+  var exhaleItemsAll = (exhaleBuckets && Array.isArray(exhaleBuckets.items)) ? exhaleBuckets.items : [];
+  var exhaledItems = exhaleItemsAll.filter(function (it) { return it && !it.archived && it.bucketIndex === 0; });
+
+  // Fix 2 — Household Alerts: reminders due today or within 3 days.
+  var dueReminders = (Array.isArray(recurring) ? recurring : [])
+    .filter(function (r) { return r && r.active !== false; })
+    .map(function (r) { return Object.assign({}, r, { _days: daysUntilReminder(r) }); })
+    .filter(function (r) { return r._days != null && r._days >= 0 && r._days <= 3; })
+    .sort(function (a, b) { return a._days - b._days; });
+
+  // Fix 3 — Tide Pool: one row per kid in the household, shells pulled from
+  // af_coveData (0 if that kid has no record yet).
+  var tidePoolKids = flowPeople.filter(function (p) { return isPersonMinor(p); }).map(function (p) {
+    var rec = (Array.isArray(coveData) ? coveData : []).find(function (k) { return k.kidId === p.id; });
+    return { id: p.id, name: p.name, shells: rec ? (rec.shells || 0) : 0 };
+  });
 
   var upNext = todayTasks.filter(function (t) { return !t.done; })[0];
   var thenTask = todayTasks.filter(function (t) { return !t.done; })[1];
@@ -193,6 +293,46 @@ export default function FlowHome(props) {
     var dirty = rd("dirtyKeys", []); if (!dirty.includes("tasks")) { dirty.push("tasks"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
     window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "tasks" } }));
     setTasks(next);
+  }
+
+  function addExhaleItem() {
+    var txt = (exhaleQuickText || "").trim();
+    if (!txt) return;
+    var item = { id: uid(), text: txt, notes: "", bucketIndex: 0, createdAt: Date.now(), color: BUCKET_COLORS[0] };
+    var nb = Object.assign({}, exhaleBuckets, { items: [item].concat(exhaleItemsAll) });
+    wr("exhale_buckets", nb);
+    setExhaleBuckets(nb);
+    setExhaleQuickText("");
+  }
+
+  // New-kid record (no existing af_coveData entry) matches TidePoolTab's own
+  // new-kid merge defaults (~App.jsx:10573-10582) so a kid's first shell
+  // gives the same starter chores/treasures whether it's tapped here or
+  // seeded by opening the real Tide Pool tab first.
+  function addShell(kidId, kidName) {
+    var list = Array.isArray(coveData) ? coveData : [];
+    var existing = list.find(function (k) { return k.kidId === kidId; });
+    var next;
+    if (existing) {
+      next = list.map(function (k) { return k.kidId === kidId ? Object.assign({}, k, { shells: (k.shells || 0) + 1 }) : k; });
+    } else {
+      next = list.concat([{
+        kidId: kidId, kidName: kidName, shells: 1,
+        chores: [
+          { id: uid(), name: "Make bed", pts: 1, done: false },
+          { id: uid(), name: "Clear dishes", pts: 1, done: false },
+        ],
+        treasures: [
+          { id: uid(), name: "Extra screen time", icon: "📱", cost: 10 },
+          { id: uid(), name: "Pick dinner", icon: "🍕", cost: 15 },
+          { id: uid(), name: "Movie night pick", icon: "🎬", cost: 20 },
+          { id: uid(), name: "Stay up late", icon: "🌙", cost: 25 },
+          { id: uid(), name: "Special outing", icon: "🎡", cost: 35 },
+        ],
+      }]);
+    }
+    wr("coveData", next);
+    setCoveData(next);
   }
 
   return (
@@ -365,29 +505,49 @@ export default function FlowHome(props) {
       {alsoTodayOpen && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card eyebrow="Exhale" title="Unload It" open={false} link={{ label: "All →", onClick: function () { go("brain"); } }}>
-            <div onClick={function () { go("brain"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 0", borderBottom: "1px solid " + C.cream, marginBottom: 8, cursor: "text" }}>
-              <span style={{ opacity: .3, fontSize: ".82rem" }}>✎</span>
-              <span style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>What's on your mind?</span>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input
+                value={exhaleQuickText}
+                onChange={function (e) { setExhaleQuickText(e.target.value); }}
+                onKeyDown={function (e) { if (e.key === "Enter") addExhaleItem(); }}
+                placeholder="What's on your mind?"
+                style={{ flex: 1, padding: "8px 11px", fontSize: ".78rem", border: "1px solid " + C.cardBorder, borderRadius: 8, background: "#fff", color: C.t1, fontFamily: SANS, outline: "none" }}
+              />
+              <button onClick={addExhaleItem} style={{ background: C.t1, color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontSize: ".74rem", fontWeight: 600, cursor: "pointer", fontFamily: SANS }}>+ Add</button>
             </div>
-            {recentBrain.length === 0 ? (
+            {exhaledItems.length === 0 ? (
               <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing waiting. Clear head.</div>
-            ) : recentBrain.map(function (b) {
-              return <div key={b.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{b.text}</div>;
+            ) : exhaledItems.slice(0, 4).map(function (it) {
+              return <div key={it.id} onClick={function () { go("brain"); }} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", fontSize: ".8rem", color: C.t2, cursor: "pointer" }}>•&nbsp;{it.text}</div>;
             })}
           </Card>
 
           <Card eyebrow="From Anchor" title="Household Alerts" open={false}>
-            <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
-              Expiring documents, low inventory, and packing reminders surface here from your Anchor vault.
-              <div onClick={function () { goVault("household"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Anchor →</div>
-            </div>
+            {dueReminders.length === 0 ? (
+              <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>All clear for now.</div>
+            ) : dueReminders.map(function (r) {
+              return (
+                <div key={r.id} onClick={function () { goVault("recurring"); }} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 0", borderBottom: "1px solid " + C.cream, cursor: "pointer" }}>
+                  <span style={{ fontSize: "1rem", flexShrink: 0 }}>{r.emoji || "⏰"}</span>
+                  <div style={{ flex: 1, fontSize: ".82rem", color: C.t1 }}>{r.label}</div>
+                  <div style={{ fontSize: ".68rem", color: C.sea, fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>{reminderDueLabel(r._days)}</div>
+                </div>
+              );
+            })}
           </Card>
 
-          <Card eyebrow="Tide Pool" title="Today's Chores" open={false} link={{ label: "View →", onClick: function () { go("tidepool"); } }}>
-            <div style={{ fontSize: ".78rem", color: C.t3, lineHeight: 1.6 }}>
-              Kids' chore progress and shell goals live here.
-              <div onClick={function () { go("tidepool"); }} style={{ color: C.sea, cursor: "pointer", marginTop: 7 }}>Open Tide Pool →</div>
-            </div>
+          <Card eyebrow="Tide Pool" title="Today's Tide Pool" open={false} link={{ label: "View →", onClick: function () { go("tidepool"); } }}>
+            {tidePoolKids.length === 0 ? (
+              <div style={{ fontSize: ".78rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No kids added yet.</div>
+            ) : tidePoolKids.map(function (k) {
+              return (
+                <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid " + C.cream }}>
+                  <div style={{ flex: 1, fontSize: ".84rem", color: C.t1 }}>{k.name}</div>
+                  <div style={{ fontSize: ".74rem", color: C.t3 }}>🐚 {k.shells}</div>
+                  <button onClick={function () { addShell(k.id, k.name); }} style={{ background: C.sea, color: "#fff", border: "none", borderRadius: 20, width: 30, height: 30, fontSize: ".8rem", fontWeight: 700, cursor: "pointer", flexShrink: 0, fontFamily: SANS }}>+1</button>
+                </div>
+              );
+            })}
           </Card>
 
           <NextTripCard />
