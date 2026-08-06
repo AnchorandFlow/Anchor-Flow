@@ -5462,11 +5462,13 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
 // ── Career Section ────────────────────────────────────────────────────────────
 var CAREER_GOLD  = "#c8a97a"
 var CAREER_NAVY  = "#243A5A"
-var CAREER_SURF  = "rgba(250,242,229,0.05)"
-var CAREER_SURF2 = "rgba(250,242,229,0.04)"
-var CAREER_BORD  = "0.5px solid rgba(250,242,229,0.1)"
-var CAREER_BORD2 = "0.5px solid rgba(250,242,229,0.08)"
-var CAREER_WHITE = "#faf8f4"
+var CAREER_SURF  = "#f7f1e3"
+var CAREER_SURF2 = "#f7f1e3"
+var CAREER_BORD  = "1px solid rgba(26,46,61,0.1)"
+var CAREER_BORD2 = "1px solid rgba(26,46,61,0.08)"
+var CAREER_WHITE = "#1a2e3d"
+var CAREER_SUB   = "#4a6275"
+var CAREER_MODAL_TEXT = "#faf8f4" // CModal/inputs still render on a dark surface, unlike cards
 
 var C_TABS = [
   { id: "resume",    label: "Resume & Skills"  },
@@ -5487,24 +5489,24 @@ function useCareer() {
 
 // ── Shared Career UI primitives ───────────────────────────────────────────────
 function CCard(props) {
-  return React.createElement("div",{style:Object.assign({background:CAREER_SURF,border:CAREER_BORD,borderRadius:10,padding:"0.9rem 1.1rem"},props.style||{})},props.children)
+  return React.createElement("div",{style:Object.assign({background:CAREER_SURF,border:CAREER_BORD,borderRadius:8,padding:"0.9rem 1.1rem"},props.style||{})},props.children)
 }
 function CHead(props) {
   return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}},
-    React.createElement("span",{style:{fontSize:13,fontWeight:600,color:"rgba(250,248,244,0.75)",display:"flex",alignItems:"center",gap:6}},
-      React.createElement("span",{style:{fontSize:15}},props.icon), props.label),
+    React.createElement("span",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE,display:"flex",alignItems:"center",gap:8}},
+      React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon), props.label),
     props.onAdd&&React.createElement("button",{onClick:props.onAdd,style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer"}},"+ Add")
   )
 }
 function CModal(props) {
   return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#2E486B",border:CAREER_BORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+    React.createElement("div",{style:{background:"#2E486B",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"85dvh",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},
-        React.createElement("span",{style:{color:CAREER_WHITE,fontSize:15,fontWeight:600}},props.title),
+        React.createElement("span",{style:{color:CAREER_MODAL_TEXT,fontSize:15,fontWeight:600}},props.title),
         React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children))
 }
-var C_INP_STYLE = {width:"100%",background:"rgba(250,242,229,0.07)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,WebkitTextFillColor:CAREER_WHITE,caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
+var C_INP_STYLE = {width:"100%",background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_MODAL_TEXT,WebkitTextFillColor:CAREER_MODAL_TEXT,caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
 function CInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
@@ -5518,7 +5520,7 @@ function CTextarea(props) {
 function CSelect(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:CAREER_BORD,borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_WHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
+    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_MODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
       props.options.map(function(o){return React.createElement("option",{key:o.value,value:o.value},o.label);})))
 }
 function CSaveBtn(props) {
@@ -5528,13 +5530,13 @@ function CRow(props) {
   return React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",padding:"0.5rem 0",borderBottom:CAREER_BORD2,gap:8}},
     React.createElement("div",{style:{flex:1}},
       React.createElement("p",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:500,margin:"0 0 2px"}},props.title),
-      props.sub&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",margin:0}},props.sub)),
+      props.sub&&React.createElement("p",{style:{fontSize:12,color:CAREER_SUB,margin:0}},props.sub)),
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-      props.badge&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(200,169,122,0.12)",color:CAREER_GOLD,border:"0.5px solid rgba(200,169,122,0.25)",whiteSpace:"nowrap"}},props.badge),
-      props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕")))
+      props.badge&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:4,background:"rgba(26,46,61,0.12)",color:"#1a2e3d",whiteSpace:"nowrap"}},props.badge),
+      props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:CAREER_SUB,cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕")))
 }
 function CEmpty(props) {
-  return React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic",textAlign:"center",padding:"1rem 0"}},props.text||"Nothing here yet")
+  return React.createElement("p",{style:{fontSize:12,color:CAREER_SUB,fontStyle:"italic",textAlign:"center",padding:"1rem 0"}},props.text||"Nothing here yet")
 }
 
 // ── Resume & Skills tab ───────────────────────────────────────────────────────
@@ -5597,21 +5599,21 @@ function CResumeTab({ pid, career, setCareer }) {
           (resume.history||[]).map(function(h){
             var isExpanded = expandedJob===h.id
             var isEditing = editingJob===h.id
-            return React.createElement("div",{key:h.id,style:{background:"rgba(250,242,229,0.04)",border:CAREER_BORD,borderRadius:10,overflow:"hidden"}},
+            return React.createElement("div",{key:h.id,style:{background:"#f7f1e3",border:CAREER_BORD,borderRadius:8,overflow:"hidden"}},
               // Header row — always visible, tappable
               !isEditing&&React.createElement("div",{onClick:function(){setExpandedJob(isExpanded?null:h.id)},style:{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}},
                 React.createElement("div",{style:{flex:1,minWidth:0}},
                   React.createElement("div",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},h.title||(h.company||"Role")),
-                  React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.45)",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},(h.company||"")+(h.from||h.to?" · "+(h.from||"")+"–"+(h.to||"present"):"")),
+                  React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}},(h.company||"")+(h.from||h.to?" · "+(h.from||"")+"–"+(h.to||"present"):"")),
                 ),
-                React.createElement("span",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",flexShrink:0,transform:isExpanded?"rotate(180deg)":"rotate(0deg)",display:"inline-block",transition:"transform 0.2s"}},"\u25BE")
+                React.createElement("span",{style:{fontSize:10,color:"#4a6275",flexShrink:0,transform:isExpanded?"rotate(180deg)":"rotate(0deg)",display:"inline-block",transition:"transform 0.2s"}},"\u25BE")
               ),
               // Expanded detail
               isExpanded&&!isEditing&&React.createElement("div",{style:{padding:"0 12px 12px",borderTop:CAREER_BORD2}},
-                h.desc&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.6)",lineHeight:1.6,margin:"10px 0 0"}}),h.desc,
+                h.desc&&React.createElement("p",{style:{fontSize:12,color:"#1a2e3d",lineHeight:1.6,margin:"10px 0 0"}}),h.desc,
                 React.createElement("div",{style:{display:"flex",gap:8,marginTop:10}},
                   React.createElement("button",{onClick:function(e){e.stopPropagation();startEditJob(h)},style:{fontSize:11,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"✏️ Edit"),
-                  React.createElement("button",{onClick:function(e){e.stopPropagation();removeJob(h.id)},style:{fontSize:11,color:"rgba(250,248,244,0.3)",background:"rgba(250,242,229,0.04)",border:CAREER_BORD2,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"Remove")
+                  React.createElement("button",{onClick:function(e){e.stopPropagation();removeJob(h.id)},style:{fontSize:11,color:"#4a6275",background:"rgba(26,46,61,0.05)",border:CAREER_BORD2,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}},"Remove")
                 )
               ),
               // Inline edit form
@@ -5627,7 +5629,7 @@ function CResumeTab({ pid, career, setCareer }) {
                 React.createElement("textarea",{value:editForm.desc,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{desc:e.target.value})})},placeholder:"What you built, led, or accomplished…",rows:3,style:Object.assign({},C_INP_STYLE,{resize:"vertical",marginBottom:8})}),
                 React.createElement("div",{style:{display:"flex",gap:8}},
                   React.createElement("button",{onClick:saveEditJob,style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"7px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Save"),
-                  React.createElement("button",{onClick:function(){setEditingJob(null)},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                  React.createElement("button",{onClick:function(){setEditingJob(null)},style:{background:"rgba(26,46,61,0.05)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"#4a6275",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
                 )
               )
             )
@@ -5639,7 +5641,7 @@ function CResumeTab({ pid, career, setCareer }) {
     React.createElement(CCard,null,
       React.createElement(CHead,{icon:"⚡",label:"Skills"}),
       skills.length===0
-        ? React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic",marginBottom:8}},"No skills added yet")
+        ? React.createElement("p",{style:{fontSize:12,color:"#4a6275",fontStyle:"italic",marginBottom:8}},"No skills added yet")
         : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6,marginBottom:"0.65rem"}},
             skills.map(function(sk){
               if(editingSkill===sk.id) {
@@ -5647,16 +5649,16 @@ function CResumeTab({ pid, career, setCareer }) {
                   React.createElement("input",{value:editSkillForm.label,onChange:function(e){setEditSkillForm(function(f){return Object.assign({},f,{label:e.target.value})})},placeholder:"Skill",style:Object.assign({},C_INP_STYLE,{flex:2,padding:"4px 8px",marginBottom:0})}),
                   React.createElement("input",{value:editSkillForm.since,onChange:function(e){setEditSkillForm(function(f){return Object.assign({},f,{since:e.target.value})})},placeholder:"Since (e.g. 2021)",style:Object.assign({},C_INP_STYLE,{flex:1,padding:"4px 8px",marginBottom:0})}),
                   React.createElement("button",{onClick:saveEditSkill,style:{background:CAREER_GOLD,border:"none",borderRadius:6,padding:"4px 8px",fontSize:11,color:CAREER_NAVY,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}},"✓"),
-                  React.createElement("button",{onClick:function(){setEditingSkill(null)},style:{background:"none",border:"none",fontSize:13,color:"rgba(250,248,244,0.3)",cursor:"pointer",padding:"2px"}},"✕")
+                  React.createElement("button",{onClick:function(){setEditingSkill(null)},style:{background:"none",border:"none",fontSize:13,color:"#4a6275",cursor:"pointer",padding:"2px"}},"✕")
                 )
               }
               return React.createElement("div",{key:sk.id,style:{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"rgba(200,169,122,0.07)",borderRadius:8,border:"0.5px solid rgba(200,169,122,0.18)"}},
                 React.createElement("div",{style:{flex:1}},
                   React.createElement("span",{style:{fontSize:13,color:CAREER_GOLD,fontWeight:500}}),sk.label,
-                  sk.since&&React.createElement("span",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",marginLeft:8}},"since "+sk.since)
+                  sk.since&&React.createElement("span",{style:{fontSize:10,color:"#4a6275",marginLeft:8}},"since "+sk.since)
                 ),
                 React.createElement("button",{onClick:function(){startEditSkill(sk)},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"0 3px"}},"✏️"),
-                React.createElement("button",{onClick:function(){removeSkill(sk.id)},style:{background:"none",border:"none",fontSize:13,color:"rgba(250,248,244,0.2)",cursor:"pointer",padding:"0 3px"}},"×")
+                React.createElement("button",{onClick:function(){removeSkill(sk.id)},style:{background:"none",border:"none",fontSize:13,color:"#4a6275",cursor:"pointer",padding:"0 3px"}},"×")
               )
             })
           ),
@@ -5706,21 +5708,21 @@ function CJobsTab({ pid, career, setCareer }) {
       active.map(function(status){
         var list=grouped[status]||[]; if(!list.length) return null;
         return React.createElement("div",{key:status,style:{marginBottom:"0.75rem"}},
-          React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}},status+" ("+list.length+")"),
+          React.createElement("div",{style:{fontSize:10,fontWeight:700,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}},status+" ("+list.length+")"),
           React.createElement(CCard,null,list.map(function(job){
             return React.createElement("div",{key:job.id,style:{display:"flex",alignItems:"flex-start",gap:10,padding:"0.5rem 0",borderBottom:CAREER_BORD2}},
               React.createElement("div",{style:{flex:1}},
                 React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}},(job.role||"Role")+" · "+job.company),
-                job.date&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:2}},"Applied: "+job.date),
-                job.notes&&React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",marginTop:3,lineHeight:1.5}}),job.url&&safeUrl(job.url)&&React.createElement("a",{href:safeUrl(job.url),target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"View posting →")),
+                job.date&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}},"Applied: "+job.date),
+                job.notes&&React.createElement("div",{style:{fontSize:12,color:"#4a6275",marginTop:3,lineHeight:1.5}}),job.url&&safeUrl(job.url)&&React.createElement("a",{href:safeUrl(job.url),target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"View posting →")),
               React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}},
                 React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
-                React.createElement("button",{onClick:function(){removeJob(job.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕")))
+                React.createElement("button",{onClick:function(){removeJob(job.id)},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:13,padding:0}},"✕")))
           })))
       }),
       (grouped["Rejected"]||[]).length>0||( grouped["Withdrawn"]||[]).length>0 ?
         React.createElement("details",{style:{marginTop:"0.5rem"}},
-          React.createElement("summary",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",cursor:"pointer",userSelect:"none"}},"Archived ("+(((grouped["Rejected"]||[]).length+(grouped["Withdrawn"]||[]).length))+")")):null),
+          React.createElement("summary",{style:{fontSize:11,color:"#4a6275",cursor:"pointer",userSelect:"none"}},"Archived ("+(((grouped["Rejected"]||[]).length+(grouped["Withdrawn"]||[]).length))+")")):null),
     adding&&React.createElement(CModal,{title:"Track a job",onClose:function(){setAdding(false);}},
       React.createElement(CInput,{label:"Role / title",value:form.role,onChange:function(v){setForm(function(f){return{...f,role:v}});},placeholder:"e.g. Product Designer"}),
       React.createElement(CInput,{label:"Company",value:form.company,onChange:function(v){setForm(function(f){return{...f,company:v}});},placeholder:"e.g. Notion"}),
@@ -5881,37 +5883,37 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                       React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600,lineHeight:1.4}},g.goal),
                       React.createElement("div",{style:{fontSize:11,color:CAREER_GOLD,marginTop:3}},g.area),
                       g.targetDate&&React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginTop:4}},
-                        React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.5)"}},"📅 "+fmtDate(g.targetDate)),
-                        days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"rgba(250,248,244,0.3)":days<=14?"#c8834a":CAREER_GOLD,background:days<0?"rgba(250,242,229,0.04)":days<=14?"rgba(200,131,74,0.1)":"rgba(200,169,122,0.1)",borderRadius:8,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
+                        React.createElement("span",{style:{fontSize:11,color:"#1a2e3d"}},"📅 "+fmtDate(g.targetDate)),
+                        days!==null&&React.createElement("span",{style:{fontSize:10,fontWeight:700,color:days<0?"#a05c10":"#4a6275",background:days<0?"rgba(160,92,16,0.1)":"rgba(26,46,61,0.08)",borderRadius:4,padding:"1px 7px"}},days<0?"passed":days===0?"Today!":days+"d away")
                       ),
-                      steps.length>0&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",marginTop:3}},doneSteps+"/"+steps.length+" steps done"),
-                      g.notes&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",lineHeight:1.5,margin:"6px 0 0"}},g.notes)
+                      steps.length>0&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:3}},doneSteps+"/"+steps.length+" steps done"),
+                      g.notes&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",lineHeight:1.5,margin:"6px 0 0"}},g.notes)
                     ),
                     React.createElement("div",{style:{display:"flex",gap:4,flexShrink:0}},
                       React.createElement("button",{onClick:function(){startEdit(g);},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"2px 4px"}},"✏️"),
-                      React.createElement("button",{onClick:function(){remove(g.id);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.2)",cursor:"pointer",padding:"2px 4px"}},"✕")
+                      React.createElement("button",{onClick:function(){remove(g.id);},style:{background:"none",border:"none",fontSize:12,color:"#4a6275",cursor:"pointer",padding:"2px 4px"}},"✕")
                     )
                   ),
                   // Steps list
                   React.createElement("div",{style:{marginTop:8,paddingLeft:26}},
                     steps.map(function(s){
-                      return React.createElement("div",{key:s.id,style:{display:"flex",alignItems:"center",gap:7,padding:"4px 0",borderBottom:"0.5px solid rgba(250,242,229,0.05)"}},
+                      return React.createElement("div",{key:s.id,style:{display:"flex",alignItems:"center",gap:7,padding:"4px 0",borderBottom:"0.5px solid rgba(26,46,61,0.06)"}},
                         React.createElement("button",{onClick:function(){toggleStep(g.id,s.id);},style:{width:15,height:15,borderRadius:3,border:"1.5px solid rgba(200,169,122,0.35)",background:s.done?"rgba(200,169,122,0.35)":"none",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:CAREER_GOLD}},s.done?"✓":""),
-                        React.createElement("span",{style:{flex:1,fontSize:12,color:s.done?"rgba(250,248,244,0.3)":CAREER_WHITE,textDecoration:s.done?"line-through":"none",lineHeight:1.3}},s.text),
-                        s.date&&React.createElement("span",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",flexShrink:0}},fmtDate(s.date)),
-                        React.createElement("button",{onClick:function(){removeStep(g.id,s.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:11,padding:0,flexShrink:0}},"✕")
+                        React.createElement("span",{style:{flex:1,fontSize:12,color:s.done?"#4a6275":CAREER_WHITE,textDecoration:s.done?"line-through":"none",lineHeight:1.3}},s.text),
+                        s.date&&React.createElement("span",{style:{fontSize:10,color:"#4a6275",flexShrink:0}},fmtDate(s.date)),
+                        React.createElement("button",{onClick:function(){removeStep(g.id,s.id);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:11,padding:0,flexShrink:0}},"✕")
                       );
                     }),
                     addingStepFor===g.id
-                      ? React.createElement("div",{style:{marginTop:7,background:"rgba(250,242,229,0.04)",borderRadius:8,padding:"9px"}},
+                      ? React.createElement("div",{style:{marginTop:7,background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"9px"}},
                           React.createElement("input",{value:stepForm.text,onChange:function(e){setStepForm(function(f){return Object.assign({},f,{text:e.target.value});});},placeholder:"Action step…",autoFocus:true,style:Object.assign({},C_INP_STYLE,{marginBottom:7,fontSize:12})}),
                           React.createElement("div",{style:{display:"flex",gap:7,marginBottom:7}},
                             React.createElement("div",{style:{flex:1}},
-                              React.createElement("label",{style:{display:"block",fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},"Due date"),
+                              React.createElement("label",{style:{display:"block",fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},"Due date"),
                               React.createElement("input",{type:"date",value:stepForm.date,onChange:function(e){setStepForm(function(f){return Object.assign({},f,{date:e.target.value});});},style:C_INP_STYLE})
                             ),
                             React.createElement("div",{style:{flex:1}},
-                              React.createElement("label",{style:{display:"block",fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},"Also send to"),
+                              React.createElement("label",{style:{display:"block",fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},"Also send to"),
                               React.createElement("select",{value:stepForm.sendTo,onChange:function(e){setStepForm(function(f){return Object.assign({},f,{sendTo:e.target.value});});},style:Object.assign({},C_INP_STYLE,{background:"rgba(30,46,82,0.95)"})},
                                 SEND_OPTS.map(function(o){return React.createElement("option",{key:o.value,value:o.value},o.label);})
                               )
@@ -5919,7 +5921,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                           ),
                           React.createElement("div",{style:{display:"flex",gap:6}},
                             React.createElement("button",{onClick:function(){addStep(g.id);},style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"6px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Add step"),
-                            React.createElement("button",{onClick:function(){setAddingStepFor(null);},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"6px 10px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                            React.createElement("button",{onClick:function(){setAddingStepFor(null);},style:{background:"rgba(26,46,61,0.05)",border:CAREER_BORD2,borderRadius:7,padding:"6px 10px",fontSize:12,color:"#4a6275",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
                           )
                         )
                       : React.createElement("button",{onClick:function(){setAddingStepFor(g.id);setStepForm({text:"",date:"",sendTo:"none"});},style:{marginTop:7,background:"rgba(200,169,122,0.07)",border:"0.5px solid rgba(200,169,122,0.2)",borderRadius:7,padding:"4px 10px",fontSize:11,color:CAREER_GOLD,fontFamily:"inherit",cursor:"pointer",width:"100%"}},"+ Add step")
@@ -5931,25 +5933,25 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
                     GOAL_AREAS.map(function(a){return React.createElement("option",{key:a,value:a},a);})
                   ),
                   React.createElement("div",{style:{marginBottom:8}},
-                    React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date"),
+                    React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date"),
                     React.createElement("input",{type:"date",value:editForm.targetDate,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{targetDate:e.target.value});});},style:C_INP_STYLE})
                   ),
                   React.createElement("textarea",{value:editForm.notes,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{notes:e.target.value});});},placeholder:"Notes…",rows:2,style:Object.assign({},C_INP_STYLE,{resize:"vertical",marginBottom:8})}),
                   React.createElement("div",{style:{display:"flex",gap:8}},
                     React.createElement("button",{onClick:saveEdit,style:{flex:1,background:CAREER_GOLD,color:CAREER_NAVY,border:"none",borderRadius:7,padding:"7px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}},"Save"),
-                    React.createElement("button",{onClick:function(){setEditingId(null);},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
+                    React.createElement("button",{onClick:function(){setEditingId(null);},style:{background:"rgba(26,46,61,0.05)",border:CAREER_BORD2,borderRadius:7,padding:"7px 12px",fontSize:12,color:"#4a6275",cursor:"pointer",fontFamily:"inherit"}},"Cancel")
                   )
                 )
               );
             })
           ),
           done.length>0&&React.createElement("div",{style:{marginTop:"0.5rem"}},
-            React.createElement("div",{style:{fontSize:10,color:"rgba(250,248,244,0.3)",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}},"Achieved ("+done.length+")"),
+            React.createElement("div",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}},"Achieved ("+done.length+")"),
             done.map(function(g){
               return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"center",gap:8,padding:"0.35rem 0",opacity:0.5}},
                 React.createElement("span",{style:{fontSize:12,color:CAREER_GOLD,cursor:"pointer"},onClick:function(){toggle(g.id);}},"✓"),
                 React.createElement("span",{style:{fontSize:12,color:CAREER_WHITE,textDecoration:"line-through"}},g.goal),
-                React.createElement("button",{onClick:function(){remove(g.id);},style:{background:"none",border:"none",fontSize:11,color:"rgba(250,248,244,0.2)",cursor:"pointer",marginLeft:"auto",padding:0}},"✕")
+                React.createElement("button",{onClick:function(){remove(g.id);},style:{background:"none",border:"none",fontSize:11,color:"#4a6275",cursor:"pointer",marginLeft:"auto",padding:0}},"✕")
               );
             })
           )
@@ -5959,7 +5961,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
       React.createElement(CInput,{label:"Goal",value:form.goal,onChange:function(v){setForm(function(f){return Object.assign({},f,{goal:v});});},placeholder:"e.g. Lead my first product launch"}),
       React.createElement(CSelect,{label:"Area",value:form.area,onChange:function(v){setForm(function(f){return Object.assign({},f,{area:v});});},options:GOAL_AREAS.map(function(a){return{value:a,label:a};})}),
       React.createElement("div",{style:{marginBottom:"0.7rem"}},
-        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date (adds to your calendar)"),
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Target date (adds to your calendar)"),
         React.createElement("input",{type:"date",value:form.targetDate,onChange:function(e){setForm(function(f){return Object.assign({},f,{targetDate:e.target.value});});},style:C_INP_STYLE})
       ),
       form.targetDate&&React.createElement("div",{style:{fontSize:11,color:"rgba(122,158,142,0.8)",background:"rgba(122,158,142,0.08)",borderRadius:7,padding:"6px 10px",marginBottom:"0.7rem"}},"\u2713 This goal will appear on your calendar and Compass will remind you."),
@@ -5993,9 +5995,9 @@ function CWinsTab({ pid, career, setCareer }) {
               React.createElement("span",{style:{fontSize:16,flexShrink:0}},TYPE_ICON[w.type]||"📝"),
               React.createElement("span",{style:{fontSize:13,fontWeight:600,color:CAREER_WHITE}}),w.title),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,flexShrink:0}},
-              w.date&&React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}}),w.date,
-              React.createElement("button",{onClick:function(){remove(w.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0}},"✕"))),
-          w.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.5)",lineHeight:1.6,margin:0,paddingLeft:24}}),w.body)})),
+              w.date&&React.createElement("span",{style:{fontSize:11,color:"#4a6275"}}),w.date,
+              React.createElement("button",{onClick:function(){remove(w.id)},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:13,padding:0}},"✕"))),
+          w.body&&React.createElement("p",{style:{fontSize:12,color:"#1a2e3d",lineHeight:1.6,margin:0,paddingLeft:24}}),w.body)})),
     adding&&React.createElement(CModal,{title:"Log a win or note",onClose:function(){setAdding(false);}},
       React.createElement(CSelect,{label:"Type",value:form.type,onChange:function(v){setForm(function(f){return{...f,type:v}});},options:[{value:"win",label:"🏆 Win"},{value:"feedback",label:"💬 Feedback received"},{value:"reflection",label:"💭 Reflection"},{value:"note",label:"📝 Note"}]}),
       React.createElement(CInput,{label:"Title",value:form.title,onChange:function(v){setForm(function(f){return{...f,title:v}});},placeholder:"e.g. Landed the Acme account"}),
@@ -6051,13 +6053,13 @@ function CDocsTab({ pid, career, setCareer }) {
           React.createElement("span",{style:{fontSize:18,flexShrink:0,marginTop:1}},(TYPE_ICON[doc.type]||"📎")),
           React.createElement("div",{style:{flex:1,minWidth:0}},
             React.createElement("div",{style:{fontSize:13,color:CAREER_WHITE,fontWeight:600}}),doc.label,
-            doc.fileName&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},"📎 "+doc.fileName),
+            doc.fileName&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},"📎 "+doc.fileName),
             React.createElement("div",{style:{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}},
               (doc.file||doc.url)&&React.createElement("button",{onClick:function(){openFile(doc)},style:{fontSize:11,color:CAREER_GOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"3px 9px",cursor:"pointer",fontFamily:"inherit"}},doc.file?"⬇ Download":"Open →"),
-              doc.note&&React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}}),doc.note
+              doc.note&&React.createElement("span",{style:{fontSize:11,color:"#4a6275"}}),doc.note
             )
           ),
-          React.createElement("button",{onClick:function(){remove(doc.id)},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:0,flexShrink:0}},"✕")
+          React.createElement("button",{onClick:function(){remove(doc.id)},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:13,padding:0,flexShrink:0}},"✕")
         )
       })),
 
@@ -6067,18 +6069,18 @@ function CDocsTab({ pid, career, setCareer }) {
 
       // File upload zone
       React.createElement("div",{style:{marginBottom:"0.7rem"}},
-        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Upload a file"),
-        React.createElement("label",{style:{display:"flex",alignItems:"center",gap:10,background:"rgba(250,242,229,0.05)",border:form.file?"0.5px solid rgba(122,158,142,0.4)":"0.5px dashed rgba(250,242,229,0.2)",borderRadius:10,padding:"12px 14px",cursor:"pointer"}},
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Upload a file"),
+        React.createElement("label",{style:{display:"flex",alignItems:"center",gap:10,background:"rgba(26,46,61,0.05)",border:form.file?"0.5px solid rgba(122,158,142,0.4)":"0.5px dashed rgba(250,242,229,0.2)",borderRadius:8,padding:"12px 14px",cursor:"pointer"}},
           React.createElement("span",{style:{fontSize:20}}),form.file?"✅":"📂",
           React.createElement("div",null,
             form.file
               ? React.createElement("div",null,
                   React.createElement("div",{style:{fontSize:12,color:"rgba(122,158,142,0.9)",fontWeight:600}}),form.fileName,
-                  React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",marginTop:2}},"Tap to replace")
+                  React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}},"Tap to replace")
                 )
               : React.createElement("div",null,
-                  React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.6)",fontWeight:500}},uploading?"Uploading…":"Choose a file"),
-                  React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",marginTop:2}},"PDF, Word, image — any file type")
+                  React.createElement("div",{style:{fontSize:12,color:"#1a2e3d",fontWeight:500}},uploading?"Uploading…":"Choose a file"),
+                  React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}},"PDF, Word, image — any file type")
                 )
           ),
           React.createElement("input",{type:"file",accept:"*/*",style:{display:"none"},onChange:handleFile})
@@ -6087,9 +6089,9 @@ function CDocsTab({ pid, career, setCareer }) {
 
       // OR a URL
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:"0.7rem"}},
-        React.createElement("div",{style:{flex:1,height:1,background:"rgba(250,242,229,0.1)"}}),
-        React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},"or"),
-        React.createElement("div",{style:{flex:1,height:1,background:"rgba(250,242,229,0.1)"}})
+        React.createElement("div",{style:{flex:1,height:1,background:"rgba(26,46,61,0.08)"}}),
+        React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},"or"),
+        React.createElement("div",{style:{flex:1,height:1,background:"rgba(26,46,61,0.08)"}})
       ),
       React.createElement(CInput,{label:"Link / URL",value:form.url,onChange:function(v){setForm(function(f){return Object.assign({},f,{url:v})});},placeholder:"https://…"}),
       React.createElement(CInput,{label:"Note (optional)",value:form.note,onChange:function(v){setForm(function(f){return Object.assign({},f,{note:v})});},placeholder:"e.g. Last updated May 2026"}),
@@ -6139,48 +6141,48 @@ function CareerSection() {
     return {activeJobs:activeJobs,goals:goals,skills:skills,wins:wins,interviews:interviews,goalsDone:goalsDone,lastWin:lastWin,jobs:jobs.slice(0,3),goalList:(d.goals||[]).filter(function(g){return !g.done;}).slice(0,2)};
   }
 
-  var CSURF="rgba(250,242,229,0.05)";
-  var CSURF2="rgba(250,242,229,0.04)";
-  var CBORD2="0.5px solid rgba(250,242,229,0.08)";
-  var STATUS_COLOR={"Interview":"#85B7EB","Applied":"#EF9F27","Offer":"#97C459","Researching":"rgba(250,248,244,0.4)","Rejected":"rgba(250,248,244,0.25)"};
+  var CSURF="#f7f1e3";
+  var CSURF2="#f7f1e3";
+  var CBORD2="1px solid rgba(26,46,61,0.08)";
+  var STATUS_COLOR={"Interview":"#85B7EB","Applied":"#4a6275","Offer":"#2e7a46","Researching":"#4a6275","Rejected":"#4a6275"};
 
   // ── Dashboard overview ────────────────────────────────────────────────────
   if(!detail) {
     return React.createElement("div",null,
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:CAREER_WHITE}},"Career"),
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:CAREER_MODAL_TEXT}},"Career"),
         React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
       ),
-      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
       React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
         people.map(function(p,i){
           var stats=getStats(p.id);
           var initials=p.name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
-          return React.createElement("div",{key:p.id,onClick:function(){setPersonIdx(i);setDetail({pid:p.id,tab:"resume"});},style:{background:CSURF,border:CAREER_BORD,borderRadius:12,padding:"14px 16px",cursor:"pointer"}},
+          return React.createElement("div",{key:p.id,onClick:function(){setPersonIdx(i);setDetail({pid:p.id,tab:"resume"});},style:{background:CSURF,border:CAREER_BORD,borderRadius:8,padding:"14px 16px",cursor:"pointer"}},
             // person header
             React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
                 React.createElement("div",{style:{width:34,height:34,borderRadius:"50%",background:p.color||CAREER_GOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:CAREER_NAVY,flexShrink:0}},initials),
                 React.createElement("span",{style:{fontSize:14,fontWeight:500,color:CAREER_WHITE}},p.name)
               ),
-              React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},">")
+              React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
             ),
             // 4 stat grid
             React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:stats.jobs.length||stats.goalList.length?12:0}},
               React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
-                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Active apps"),
+                React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Active apps"),
                 React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.activeJobs)
               ),
               React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
-                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Interviews"),
+                React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Interviews"),
                 React.createElement("p",{style:{fontSize:17,fontWeight:500,color:stats.interviews>0?CAREER_GOLD:CAREER_WHITE,margin:0}},stats.interviews)
               ),
               React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
-                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Goals"),
+                React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Goals"),
                 React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.goals)
               ),
               React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
-                React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Skills"),
+                React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Skills"),
                 React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.skills)
               )
             ),
@@ -6188,17 +6190,17 @@ function CareerSection() {
             stats.jobs.length>0&&React.createElement("div",{style:{borderTop:CBORD2,paddingTop:8}},
               stats.jobs.map(function(j,ji){
                 return React.createElement("div",{key:ji,style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}},
-                  React.createElement("span",{style:{color:"rgba(250,248,244,0.6)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"65%"}},(j.company||"Company")+(j.role?" — "+j.role:"")),
-                  React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(250,242,229,0.06)",color:STATUS_COLOR[j.status]||"rgba(250,248,244,0.4)",border:"0.5px solid rgba(250,242,229,0.1)",whiteSpace:"nowrap"}},j.status||"—")
+                  React.createElement("span",{style:{color:"#1a2e3d",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"65%"}},(j.company||"Company")+(j.role?" — "+j.role:"")),
+                  React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:4,background:"rgba(26,46,61,0.12)",color:STATUS_COLOR[j.status]||"#4a6275",whiteSpace:"nowrap"}},j.status||"—")
                 );
               })
             )
           );
         }),
         // add card
-        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.15)",borderRadius:12,minHeight:60,display:"flex",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer"}},
-          React.createElement("span",{style:{fontSize:18,color:"rgba(250,248,244,0.2)"}},"+"),
-          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}},"Add person")
+        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.15)",borderRadius:8,minHeight:60,display:"flex",alignItems:"center",justifyContent:"center",gap:8,cursor:"pointer"}},
+          React.createElement("span",{style:{fontSize:18,color:"rgba(250,248,244,0.4)"}},"+"),
+          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}},"Add person")
         )
       ),
       addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
@@ -6217,15 +6219,15 @@ function CareerSection() {
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
     // back + person header + person switcher
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
-      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:CAREER_BORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
+      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
       React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||CAREER_GOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:CAREER_NAVY,flexShrink:0}},initials),
-      React.createElement("span",{style:{fontSize:15,fontWeight:500,color:CAREER_WHITE,flex:1}},person.name),
+      React.createElement("span",{style:{fontSize:15,fontWeight:500,color:CAREER_MODAL_TEXT,flex:1}},person.name),
       personIdx>0&&React.createElement("button",{onClick:function(){removePerson(personIdx);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
     ),
-    // subtabs
+    // subtabs \u2014 this bar sits on the vault's dark navy page chrome, not a card, so it keeps light text
     React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(250,242,229,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0}},
       C_TABS.map(function(t){
-        return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?CAREER_WHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label)
+        return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?CAREER_MODAL_TEXT:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label)
       })),
     React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 0",display:"flex",flexDirection:"column",gap:"0.9rem"}},
       detail.tab==="resume" && React.createElement(CResumeTab,tp),
@@ -6256,8 +6258,8 @@ var HBADGE = {
   rx:      { bg:"rgba(55,138,221,0.12)",   color:"#85B7EB", border:"rgba(55,138,221,0.2)"   },
   allergy: { bg:"rgba(216,90,48,0.12)",    color:"#F0997B", border:"rgba(216,90,48,0.2)"    },
   alive:   { bg:"rgba(99,153,34,0.12)",    color:"#97C459", border:"rgba(99,153,34,0.2)"    },
-  deceased:{ bg:"rgba(136,135,128,0.12)",  color:"rgba(250,248,244,0.4)", border:"rgba(136,135,128,0.2)" },
-  gray:    { bg:"rgba(250,242,229,0.06)",  color:"rgba(250,248,244,0.45)", border:"rgba(250,242,229,0.1)" },
+  deceased:{ bg:"rgba(136,135,128,0.12)",  color:"#4a6275", border:"rgba(136,135,128,0.2)" },
+  gray:    { bg:"rgba(250,242,229,0.06)",  color:"#4a6275", border:"rgba(250,242,229,0.1)" },
 }
 var HPILL = {
   heart:    { bg:"rgba(216,90,48,0.1)",    color:"#F0997B", border:"rgba(216,90,48,0.2)"    },
@@ -6265,7 +6267,7 @@ var HPILL = {
   diabetes: { bg:"rgba(239,159,39,0.12)",  color:"#EF9F27", border:"rgba(239,159,39,0.2)"   },
   mental:   { bg:"rgba(127,119,221,0.12)", color:"#AFA9EC", border:"rgba(127,119,221,0.2)"  },
   neuro:    { bg:"rgba(29,158,117,0.12)",  color:"#5DCAA5", border:"rgba(29,158,117,0.2)"   },
-  other:    { bg:"rgba(250,242,229,0.06)", color:"rgba(250,248,244,0.5)", border:"rgba(250,242,229,0.1)" },
+  other:    { bg:"rgba(250,242,229,0.06)", color:"#1a2e3d", border:"rgba(250,242,229,0.1)" },
 }
 var H_TABS = [
   { id:"history",   label:"Medical history" },
