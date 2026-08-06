@@ -8817,7 +8817,7 @@ function AnchorSettings() {
 // ── Subscriptions Section ─────────────────────────────────────────────────────
 function SubscriptionsSection() {
   var GOLD = "#c8a97a"; var NAVY = "#243A5A"; var WHITE = "#faf8f4"
-  var SURF = "rgba(250,242,229,0.04)"; var BORD = "0.5px solid rgba(250,242,229,0.08)"
+  var SURF = "#f7f1e3"; var BORD = "1px solid rgba(26,46,61,0.1)"
   var SAGE = "#7a9e8e"; var BLUE = "#7EAEB4"
   var CYCLES = ["monthly","yearly","weekly","quarterly"]
   var PERK_TYPES = ["Kids eat free","Military discount","Student discount","Senior discount","AAA discount","Other"]
@@ -8861,11 +8861,11 @@ function SubscriptionsSection() {
     if (s.cycle==="quarterly") return acc+(s.amount||0)/3
     return acc
   }, 0)
-  var inp = { background: "rgba(250,242,229,0.06)", border: BORD, borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
+  var inp = { background: "rgba(250,242,229,0.06)", border: "0.5px solid rgba(250,242,229,0.08)", borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
   var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
-  var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : BORD, borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
-  var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 10, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
-  var cardStyle = { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 }
+  var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : "0.5px solid rgba(250,242,229,0.08)", borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
+  var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 8, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
+  var cardStyle = { background: SURF, border: BORD, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }
   var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
   var modalBox = { background: "#2E486B", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
   return React.createElement("div", { style: { paddingBottom: "2rem" } },
@@ -8883,29 +8883,29 @@ function SubscriptionsSection() {
     ),
     tab === "subs" && React.createElement("div", null,
       subs.length > 0 && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
-        React.createElement("div", { style: { background: "rgba(250,242,229,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),
-          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + monthly.toFixed(2))
+        React.createElement("div", { style: { background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "10px 12px" } },
+          React.createElement("div", { style: { fontSize: 10, color: "#4a6275", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),
+          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, "$" + monthly.toFixed(2))
         ),
-        React.createElement("div", { style: { background: "rgba(250,242,229,0.05)", border: "0.5px solid rgba(200,169,122,0.15)", borderRadius: 10, padding: "10px 12px" } },
-          React.createElement("div", { style: { fontSize: 10, color: "rgba(250,248,244,0.45)", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Yearly total"),
-          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (monthly*12).toFixed(2))
+        React.createElement("div", { style: { background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "10px 12px" } },
+          React.createElement("div", { style: { fontSize: 10, color: "#4a6275", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Yearly total"),
+          React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, "$" + (monthly*12).toFixed(2))
         )
       ),
       (azSort?subs.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");}):subs).map(function(s) {
         return React.createElement("div", { key: s.id, style: cardStyle },
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
             React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, s.name),
-              React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.45)", marginTop: 2, fontFamily: "DM Sans,sans-serif", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
+              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, s.name),
+              React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", null, s.cycle),
                 s.website && React.createElement("a", { href: s.website.startsWith("http") ? s.website : "https://"+s.website, target: "_blank", rel: "noopener noreferrer", style: { color: BLUE, fontSize: 10 } }, "↗ website"),
-                s.renewDate && React.createElement("span", { style: { fontSize: 9, padding: "2px 6px", borderRadius: 20, background: "rgba(239,159,39,0.15)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.3)" } }, "Renews " + s.renewDate)
+                s.renewDate && React.createElement("span", { style: { fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "rgba(26,46,61,0.12)", color: "#4a6275" } }, "Renews " + s.renewDate)
               )
             ),
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
-              React.createElement("div", { style: { fontSize: 16, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, "$" + (s.amount||0).toFixed(2)),
-              React.createElement("button", { onClick: function() { deleteSub(s.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "remove")
+              React.createElement("div", { style: { fontSize: 16, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, "$" + (s.amount||0).toFixed(2)),
+              React.createElement("button", { onClick: function() { deleteSub(s.id) }, style: { background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "remove")
             )
           )
         )
@@ -8921,15 +8921,15 @@ function SubscriptionsSection() {
         return React.createElement("div", { key: c.id, style: Object.assign({}, cardStyle, { opacity: c.used ? 0.45 : 1 }) },
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
             React.createElement("div", { style: { flex: 1 } },
-              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif", textDecoration: c.used ? "line-through" : "none" } }, c.name),
-              c.expires && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.45)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, "Use by " + c.expires),
-              c.notes && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.4)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, c.notes)
+              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: c.used ? "line-through" : "none" } }, c.name),
+              c.expires && React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, "Use by " + c.expires),
+              c.notes && React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, c.notes)
             ),
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
               c.amount && React.createElement("div", { style: { fontSize: 18, fontWeight: 600, color: SAGE, fontFamily: "DM Sans,sans-serif" } }, c.amount),
               React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
-                React.createElement("button", { onClick: function() { toggleCouponUsed(c.id) }, style: { background: "none", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 6, padding: "2px 8px", color: "rgba(250,248,244,0.45)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, c.used ? "unmark" : "used"),
-                React.createElement("button", { onClick: function() { deleteCoupon(c.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "✕")
+                React.createElement("button", { onClick: function() { toggleCouponUsed(c.id) }, style: { background: "none", border: "1px solid rgba(26,46,61,0.15)", borderRadius: 6, padding: "2px 8px", color: "#4a6275", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, c.used ? "unmark" : "used"),
+                React.createElement("button", { onClick: function() { deleteCoupon(c.id) }, style: { background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "✕")
               )
             )
           )
@@ -8943,15 +8943,15 @@ function SubscriptionsSection() {
     tab === "perks" && React.createElement("div", null,
       perks.length === 0 && React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "rgba(250,248,244,0.35)", fontSize: 13, fontFamily: "DM Sans,sans-serif" } }, "Record kids eat free spots, military discounts, and more..."),
       perks.map(function(p) {
-        return React.createElement("div", { key: p.id, style: Object.assign({}, cardStyle, { background: "rgba(107,163,196,0.07)", border: "0.5px solid rgba(107,163,196,0.2)" }) },
+        return React.createElement("div", { key: p.id, style: Object.assign({}, cardStyle, { background: "#f7f1e3", border: "1px solid rgba(107,163,196,0.35)" }) },
           React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
             React.createElement("div", { style: { flex: 1 } },
               React.createElement("div", { style: { fontSize: 9, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, p.type),
-              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, p.name),
-              p.detail && React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 3, fontFamily: "DM Sans,sans-serif" } }, p.detail),
-              p.notes && React.createElement("div", { style: { fontSize: 11, color: "rgba(250,248,244,0.4)", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, p.notes)
+              React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, p.name),
+              p.detail && React.createElement("div", { style: { fontSize: 12, color: "#4a6275", marginTop: 3, fontFamily: "DM Sans,sans-serif" } }, p.detail),
+              p.notes && React.createElement("div", { style: { fontSize: 11, color: "#4a6275", marginTop: 2, fontFamily: "DM Sans,sans-serif" } }, p.notes)
             ),
-            React.createElement("button", { onClick: function() { deletePerk(p.id) }, style: { background: "none", border: "none", color: "rgba(250,248,244,0.25)", cursor: "pointer", fontSize: 14, marginLeft: 8 } }, "✕")
+            React.createElement("button", { onClick: function() { deletePerk(p.id) }, style: { background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 14, marginLeft: 8 } }, "✕")
           )
         )
       }),
