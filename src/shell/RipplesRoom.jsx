@@ -137,19 +137,37 @@ export default function RipplesRoom(props) {
 
   var [addOpen, setAddOpen] = useState(false);
   var [addForm, setAddForm] = useState({ name: "", who: "", category: "milestone", date: "", note: "", photo: null });
+  var [editingRippleId, setEditingRippleId] = useState(null); // ripple id being edited, or null when adding new
 
   function quickAdd(category) {
     var today = new Date().toISOString().slice(0, 10);
+    setEditingRippleId(null);
     setAddForm({ name: "", who: "", category: category || "milestone", date: today, note: "", photo: null });
     setAddOpen(true);
   }
+  function openRippleEdit(r) {
+    setEditingRippleId(r.id);
+    setAddForm({ name: r.name || "", who: r.who || "", category: r.category || "milestone", date: r.date || "", note: r.note || "", photo: r.photo || null });
+    setAddOpen(true);
+  }
+  function closeAddModal() {
+    setAddOpen(false);
+    setEditingRippleId(null);
+  }
   function saveRipple(form) {
-    var item = { id: "r-" + Date.now(), name: form.name.trim(), who: form.who, category: form.category, date: form.date, note: form.note, photo: form.photo || null };
-    var next = [item].concat(ripples);
+    var next;
+    if (editingRippleId) {
+      next = ripples.map(function (r) {
+        return r.id === editingRippleId ? Object.assign({}, r, { name: form.name.trim(), who: form.who, category: form.category, date: form.date, note: form.note, photo: form.photo || null }) : r;
+      });
+    } else {
+      var item = { id: "r-" + Date.now(), name: form.name.trim(), who: form.who, category: form.category, date: form.date, note: form.note, photo: form.photo || null };
+      next = [item].concat(ripples);
+    }
     setRipples(next);
     try { localStorage.setItem("af_ripples", JSON.stringify(next)); } catch(e) {}
     window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "ripples" } }));
-    setAddOpen(false);
+    closeAddModal();
   }
 
   // ── tradition helpers ──
@@ -215,7 +233,7 @@ export default function RipplesRoom(props) {
           <div style={{ fontFamily: SERIF, fontSize: "1.6rem", fontWeight: 600, color: C.t1 }}>{title}</div>
           <div style={{ fontSize: ".78rem", color: C.t3, fontFamily: SANS }}>{sub}</div>
         </div>
-        <div onClick={function () { tab === "traditions" ? openNew() : quickAdd(null); }} style={{ padding: "7px 15px", border: "1px solid " + C.border, borderRadius: 9, color: C.sea, fontSize: ".78rem", cursor: "pointer", fontFamily: SANS }}>{tab === "traditions" ? "+ Add tradition" : "+ Add ripple"}</div>
+        <div onClick={function () { tab === "traditions" ? openNew() : quickAdd(tab === "quotes" ? "funny" : null); }} style={{ padding: "7px 15px", border: "1px solid " + C.border, borderRadius: 9, color: C.sea, fontSize: ".78rem", cursor: "pointer", fontFamily: SANS }}>{tab === "traditions" ? "+ Add tradition" : "+ Add ripple"}</div>
       </div>
     );
   }
@@ -337,7 +355,7 @@ export default function RipplesRoom(props) {
             </div>
           ) : quoteRipples.map(function (r) {
             return (
-              <div key={r.id} style={{ padding: "14px 16px", background: C.card, border: "1px solid " + C.border, borderRadius: 11 }}>
+              <div key={r.id} onClick={function () { openRippleEdit(r); }} style={{ padding: "14px 16px", background: C.card, border: "1px solid " + C.border, borderRadius: 11, cursor: "pointer" }}>
                 <div style={{ fontFamily: SERIF, fontSize: "1.05rem", fontStyle: "italic", color: C.t1, lineHeight: 1.4 }}>{r.name}</div>
                 <div style={{ fontSize: ".66rem", color: C.t3, marginTop: 6 }}>{[r.who, fmtDate(r.date, { month: "long", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ")}</div>
               </div>
@@ -505,7 +523,7 @@ export default function RipplesRoom(props) {
     {addOpen && (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
         <div style={{ background: "#1E5B63", border: "1px solid " + C.border, borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }}>
-          <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12 }}>Capture a ripple</div>
+          <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12 }}>{editingRippleId ? "Edit ripple" : "Capture a ripple"}</div>
           <input value={addForm.name} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{name:e.target.value}); }); }} placeholder="What happened? (e.g. First steps!)"
             style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
@@ -551,8 +569,8 @@ export default function RipplesRoom(props) {
             }} />
           </label>
           <div style={{ display: "flex", gap: 8 }}>
-            <div onClick={function(){ if(addForm.name.trim()) saveRipple(addForm); }} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Save ripple</div>
-            <div onClick={function(){ setAddOpen(false); }} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
+            <div onClick={function(){ if(addForm.name.trim()) saveRipple(addForm); }} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{editingRippleId ? "Save changes" : "Save ripple"}</div>
+            <div onClick={closeAddModal} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
           </div>
         </div>
       </div>
