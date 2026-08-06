@@ -1493,9 +1493,12 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   const now = new Date(); now.setHours(0,0,0,0)
   const year = now.getFullYear()
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-  const INP = { background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
-  const LBL = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }
-  const VAL = { fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }
+  const INP = { background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const LBL = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }
+  // The one true modal ("Edit celebration") sits on a dark surface unlike the inline
+  // add-forms above, which now live on sand cards — keep its own inputs light.
+  const MODAL_INP = { background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const VAL = { fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }
 
 
   const passedThisYear = celebrations.filter(function(c) {
@@ -1570,16 +1573,16 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     var list = (detailCeleb && detailCeleb[field]) || []
     return (
       <div>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>{title}</div>
-        {list.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No items yet.</div>}
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#1a2e3d", marginBottom: 12 }}>{title}</div>
+        {list.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No items yet.</div>}
         {list.map(function(it) {
           return (
-            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+            <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
               <div onClick={function() { toggleChecklistItem(detailCeleb.id, field, it.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (it.done ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: it.done ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                 {it.done && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
               </div>
-              <span style={{ flex: 1, fontSize: 13, color: it.done ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
-              <button onClick={function() { removeChecklistItem(detailCeleb.id, field, it.id) }} aria-label="Remove item" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+              <span style={{ flex: 1, fontSize: 13, color: it.done ? "#4a6275" : "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
+              <button onClick={function() { removeChecklistItem(detailCeleb.id, field, it.id) }} aria-label="Remove item" style={{ background: "none", border: "none", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>✕</button>
             </div>
           )
         })}
@@ -1598,36 +1601,36 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   function renderGiftRow(g, listId, opts) {
     opts = opts || {}
     return (
-      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
         <div onClick={function() { toggleGiftPurchased(g.personId, listId, g.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (g.purchased ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: g.purchased ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
           {g.purchased && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
         </div>
         {g.imageUrl ? <img src={g.imageUrl} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} /> : null}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: g.purchased ? "rgba(250,248,244,0.4)" : "#faf8f4", fontFamily: "DM Sans,sans-serif", textDecoration: g.purchased ? "line-through" : "none" }}>
+          <div style={{ fontSize: 13, color: g.purchased ? "#4a6275" : "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: g.purchased ? "line-through" : "none" }}>
             {g.title}
             {g.private && <span title="Private — hidden from the recipient" style={{ marginLeft: 6, fontSize: 11 }}>🔒</span>}
           </div>
-          {g.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{g.notes}</div>}
+          {g.notes && <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{g.notes}</div>}
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2, flexWrap: "wrap" }}>
             {g.price != null && g.price !== "" && <span style={{ fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif" }}>${(+g.price).toFixed(2)}</span>}
             {g.url && <a href={g.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#7EAEB4" }}>Link ↗</a>}
             {g.assignedTo && <span style={{ fontSize: 10, background: "rgba(200,169,122,0.15)", color: "#c8a97a", borderRadius: 8, padding: "1px 7px", fontFamily: "DM Sans,sans-serif" }}>→ {g.assignedTo}</span>}
           </div>
         </div>
-        <button onClick={function() { toggleGiftPrivate(g.personId, listId, g.id) }} title={g.private ? "Make visible" : "Make private"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "rgba(250,248,244,0.3)", flexShrink: 0 }}>{g.private ? "🔒" : "🔓"}</button>
+        <button onClick={function() { toggleGiftPrivate(g.personId, listId, g.id) }} title={g.private ? "Make visible" : "Make private"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#4a6275", flexShrink: 0 }}>{g.private ? "🔒" : "🔓"}</button>
         {opts.celebId && (g.assignedCelebId === opts.celebId
           ? <button onClick={function() { unassignGift(g.personId, listId, g.id) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Unassign</button>
           : <button onClick={function() { assignGiftToCeleb(g.personId, listId, g.id, opts.celebId) }} style={{ background: "none", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 6, padding: "2px 7px", fontSize: 10, color: "#c8a97a", cursor: "pointer", fontFamily: "DM Sans,sans-serif", flexShrink: 0, whiteSpace: "nowrap" }}>Assign here</button>
         )}
-        <button onClick={function() { removeGiftFromList(g.personId, listId, g.id) }} aria-label="Remove gift" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer", flexShrink: 0 }}>✕</button>
+        <button onClick={function() { removeGiftFromList(g.personId, listId, g.id) }} aria-label="Remove gift" style={{ background: "none", border: "none", fontSize: 12, color: "#4a6275", cursor: "pointer", flexShrink: 0 }}>✕</button>
       </div>
     )
   }
 
   function renderGiftAddForm(onSubmit) {
     return (
-      <div style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 10, padding: 12, marginTop: 8 }}>
+      <div style={{ background: "rgba(26,46,61,0.05)", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 12, marginTop: 8 }}>
         <input value={giftDraft.title} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { title: e.target.value }) }) }} placeholder="Gift idea…" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
         <input value={giftDraft.notes} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { notes: e.target.value }) }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
         <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -1636,13 +1639,13 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         </div>
         <input value={giftDraft.imageUrl} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { imageUrl: e.target.value }) }) }} placeholder="Image URL (optional)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
         <input value={giftDraft.assignedTo} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { assignedTo: e.target.value }) }) }} placeholder="Status (e.g. told Grandma, ordered from Amazon)" style={Object.assign({}, INP, { width: "100%", marginBottom: 8 })} />
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", marginBottom: 10, cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 10, cursor: "pointer" }}>
           <input type="checkbox" checked={giftDraft.private} onChange={function(e) { setGiftDraft(function(p) { return Object.assign({}, p, { private: e.target.checked }) }) }} />
           Private (hidden from the recipient)
         </label>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onSubmit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: 8, fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-          <button onClick={function() { setAddingGiftTarget(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+          <button onClick={function() { setAddingGiftTarget(null) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
         </div>
       </div>
     )
@@ -1674,14 +1677,14 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>
         <button onClick={function() { setAdding(function(p) { return !p }); setForm({ name: "", month: "", day: "", year: "", notes: "" }) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
       </div>
-      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
+      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
 
       {adding && (
-        <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "16px", marginBottom: 16 }}>
+        <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "16px", marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
             {CELEBRATION_TYPES.map(function(t) {
               return (
-                <button key={t.id} onClick={function() { setCelebType(t.id) }} style={{ background: celebType === t.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (celebType === t.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "5px 11px", fontSize: 11, color: celebType === t.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: celebType === t.id ? 700 : 400 }}>
+                <button key={t.id} onClick={function() { setCelebType(t.id) }} style={{ background: celebType === t.id ? "rgba(200,169,122,0.2)" : "rgba(26,46,61,0.05)", border: "1px solid " + (celebType === t.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "5px 11px", fontSize: 11, color: celebType === t.id ? "#c8a97a" : "#4a6275", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: celebType === t.id ? 700 : 400 }}>
                   {t.emoji} {t.label}
                 </button>
               )
@@ -1689,9 +1692,9 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
           </div>
           <input value={form.name} onChange={function(e) { setForm(function(p) { return {...p, name: e.target.value} }) }} placeholder={celebType === "birthday" ? "Person's name" : "What's the occasion?"} style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
           <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: form.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
-              <option value="" style={{ background: "#243A5A", color: "rgba(250,248,244,0.5)" }}>Month</option>
-              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#243A5A", color: "#faf8f4" }}>{m}</option> })}
+            <select value={form.month} onChange={function(e) { setForm(function(p) { return {...p, month: e.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: form.month ? "#1a2e3d" : "#4a6275", WebkitAppearance: "none", appearance: "none" })}>
+              <option value="" style={{ background: "#243A5A", color: "#1a2e3d" }}>Month</option>
+              {MONTHS.map(function(m, i) { return <option key={i} value={i+1} style={{ background: "#243A5A", color: "#1a2e3d" }}>{m}</option> })}
             </select>
             <input value={form.day} onChange={function(e) { setForm(function(p) { return {...p, day: e.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
             {(celebType === "birthday" || celebType === "anniversary") && (
@@ -1701,7 +1704,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
           <input value={form.notes} onChange={function(e) { setForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 12})} />
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addCelebration} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save celebration</button>
-            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
           </div>
         </div>
       )}
@@ -1715,7 +1718,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         })}
       </div>
 
-      {shown.length === 0 && <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
+      {shown.length === 0 && <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
       {shown.map(function(e, i) {
         const isPast = e.diff < 0
         const cGifts = celebGifts(e.id, e.personId)
@@ -1723,31 +1726,31 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         const hasGifts = cGifts.length > 0
 
         return (
-          <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: e.soon && !isPast ? "rgba(200,131,74,0.06)" : "rgba(250,242,229,0.03)", border: "1px solid " + (e.soon && !isPast ? "rgba(200,131,74,0.2)" : "rgba(250,242,229,0.07)"), borderRadius: 12, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden", cursor: "pointer" }}>
+          <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden", cursor: "pointer" }}>
             {/* Card header — icon, name, type, countdown */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px 8px" }}>
               <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{e.emoji}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: isPast ? "rgba(250,248,244,0.45)" : "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: isPast ? "#4a6275" : "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
                   {hasGifts && <span style={{ fontSize: 12 }} title={boughtCount + "/" + cGifts.length + " bought"}>🎁</span>}
                   {hasGifts && boughtCount < cGifts.length && <span style={{ fontSize: 9, background: "rgba(200,131,74,0.2)", color: "#c8834a", borderRadius: 8, padding: "1px 5px", fontFamily: "DM Sans,sans-serif", fontWeight: 700 }}>{cGifts.length - boughtCount} to get</span>}
                 </div>
-                <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
                   {e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.typeInfo && e.typeInfo.label}
-                  {" · "}<span style={{ color: isPast ? "rgba(250,248,244,0.3)" : e.diff<=7 ? "#c8834a" : "rgba(250,248,244,0.5)", fontWeight: e.diff<=7 && !isPast ? 700 : 500 }}>{e.countdown}</span>
+                  {" · "}<span style={{ color: isPast ? "#4a6275" : e.diff<=7 ? "#c8834a" : "#1a2e3d", fontWeight: e.diff<=7 && !isPast ? 700 : 500 }}>{e.countdown}</span>
                 </div>
-                {e.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginTop: 2, fontStyle: "italic" }}>{e.notes}</div>}
+                {e.notes && <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2, fontStyle: "italic" }}>{e.notes}</div>}
               </div>
-              <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} aria-label="Delete celebration" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "rgba(250,248,244,0.2)", flexShrink: 0 }}>✕</button>
+              <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} aria-label="Delete celebration" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "#4a6275", flexShrink: 0 }}>✕</button>
             </div>
 
             {/* Planning status — N of 7 planning cards have content */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 10px" }}>
-              <div style={{ flex: 1, height: 4, background: "rgba(250,242,229,0.08)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ flex: 1, height: 4, background: "rgba(26,46,61,0.1)", borderRadius: 2, overflow: "hidden" }}>
                 <div style={{ width: (e.planned/e.planTotal*100)+"%", height: "100%", background: e.planned===0 ? "rgba(250,242,229,0.12)" : "#c8a97a", transition: "width 0.3s" }} />
               </div>
-              <span style={{ fontSize: 10, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", whiteSpace: "nowrap" }}>{e.planned} of {e.planTotal} planned</span>
+              <span style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif", whiteSpace: "nowrap" }}>{e.planned} of {e.planTotal} planned</span>
             </div>
           </div>
         )
@@ -1757,25 +1760,25 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
       {celebTab === "gifts" && (
         <div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-            <button onClick={function() { setGiftsAZ(!giftsAZ) }} style={{ fontSize: 11, color: giftsAZ?"#c8a97a":"rgba(250,248,244,0.5)", background: giftsAZ?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(giftsAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "4px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>{giftsAZ?"A–Z ✓":"A–Z"}</button>
+            <button onClick={function() { setGiftsAZ(!giftsAZ) }} style={{ fontSize: 11, color: giftsAZ?"#c8a97a":"#1a2e3d", background: giftsAZ?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(giftsAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "4px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>{giftsAZ?"A–Z ✓":"A–Z"}</button>
           </div>
           {(function() {
             var roster = hLoadPeople()
             var giftPersonIds = Array.from(new Set(roster.map(function(p) { return p.id }).concat(Object.keys(gifts).filter(function(k) { return k !== "holiday_lists" }))))
-            if (giftPersonIds.length === 0) return <div style={{ fontSize: 13, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No people yet.</div>
+            if (giftPersonIds.length === 0) return <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No people yet.</div>
             return giftPersonIds.map(function(personId) {
               var name = personDisplayName(personId)
               var lists = personLists(personId)
               var personOpen = isPersonOpen(personId)
               return (
-                <div key={personId} style={{ marginBottom: 16, background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, overflow: "hidden" }}>
+                <div key={personId} style={{ marginBottom: 16, background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, overflow: "hidden" }}>
                   <div onClick={function() { togglePersonOpen(personId) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px", cursor: "pointer" }}>
-                    <div style={{ flex: 1, fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#faf8f4" }}>{name}</div>
-                    <span style={{ color: "rgba(250,248,244,0.35)", fontSize: "0.62rem", display: "inline-block", transform: personOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
+                    <div style={{ flex: 1, fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#1a2e3d" }}>{name}</div>
+                    <span style={{ color: "#4a6275", fontSize: "0.62rem", display: "inline-block", transform: personOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
                   </div>
                   {personOpen && (
                     <div style={{ padding: "0 14px 14px" }}>
-                      {lists.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No lists yet.</div>}
+                      {lists.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No lists yet.</div>}
                       {lists.map(function(list) {
                         var listKey = personId + ":" + list.id
                         var listOpen = !!openLists[listKey]
@@ -1783,7 +1786,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                         if (giftsAZ) visibleItems = visibleItems.slice().sort(function(a, b) { return (a.title||"").localeCompare(b.title||"") })
                         var isAddingHere = addingGiftTarget && addingGiftTarget.personId === personId && addingGiftTarget.listId === list.id
                         return (
-                          <div key={list.id} style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 10, marginBottom: 8, overflow: "hidden" }}>
+                          <div key={list.id} style={{ background: "rgba(26,46,61,0.05)", border: "1px solid rgba(26,46,61,0.08)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
                             <div onClick={function() { if (renamingListId !== list.id) toggleListOpen(personId, list.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}>
                               {renamingListId === list.id ? (
                                 <input autoFocus value={renameDraft} onChange={function(e) { setRenameDraft(e.target.value) }} onClick={function(e) { e.stopPropagation() }}
@@ -1791,14 +1794,14 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                                   onBlur={function() { if (renameDraft.trim()) renamePersonList(personId, list.id, renameDraft); setRenamingListId(null) }}
                                   style={Object.assign({}, INP, { flex: 1 })} />
                               ) : (
-                                <div onClick={function(e) { e.stopPropagation(); setRenamingListId(list.id); setRenameDraft(list.name) }} style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", cursor: "text" }}>{list.name}</div>
+                                <div onClick={function(e) { e.stopPropagation(); setRenamingListId(list.id); setRenameDraft(list.name) }} style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", cursor: "text" }}>{list.name}</div>
                               )}
-                              <span style={{ fontSize: 11, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>{visibleItems.length}</span>
-                              <span style={{ color: "rgba(250,248,244,0.35)", fontSize: "0.62rem", display: "inline-block", transform: listOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
+                              <span style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{visibleItems.length}</span>
+                              <span style={{ color: "#4a6275", fontSize: "0.62rem", display: "inline-block", transform: listOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
                             </div>
                             {listOpen && (
                               <div style={{ padding: "0 12px 12px" }}>
-                                {visibleItems.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
+                                {visibleItems.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
                                 {visibleItems.map(function(g) { return renderGiftRow(g, list.id, {}) })}
                                 {isAddingHere ? renderGiftAddForm(function() { submitGiftDraft(personId, list.id, null) }) : (
                                   <button onClick={function() { resetGiftDraft(); setAddingGiftTarget({ personId: personId, listId: list.id }) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift</button>
@@ -1812,7 +1815,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                           <input autoFocus value={newListName} onChange={function(e) { setNewListName(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { addPersonList(personId, newListName, "custom"); setNewListName(""); setAddingListFor(null) } }} placeholder="List name (e.g. Easter basket)…" style={Object.assign({}, INP, { flex: 1 })} />
                           <button onClick={function() { addPersonList(personId, newListName, "custom"); setNewListName(""); setAddingListFor(null) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-                          <button onClick={function() { setAddingListFor(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+                          <button onClick={function() { setAddingListFor(null) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
                         </div>
                       ) : (
                         <button onClick={function() { setNewListName(""); setAddingListFor(personId) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add list</button>
@@ -1838,7 +1841,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 <div style={{ fontSize: 32, flexShrink: 0 }}>{detailCeleb.emoji}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 20, fontWeight: 700, color: "#faf8f4" }}>{detailCeleb.label}</div>
-                  <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
                     {detailCeleb.month && MONTHS[detailCeleb.month-1]+" "+detailCeleb.day}{" · "}{detailCeleb.typeInfo && detailCeleb.typeInfo.label}{" · "}{detailCeleb.countdown}
                   </div>
                 </div>
@@ -1847,7 +1850,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                   {celebMatchedCountdowns.map(function(cd) {
                     return (
-                      <div key={cd.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(250,242,229,0.04)", border: "1px solid " + (cd.color || "rgba(250,242,229,0.1)"), borderRadius: 20, padding: "4px 11px", fontSize: 12, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
+                      <div key={cd.id} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(26,46,61,0.1)", border: "1px solid " + (cd.color || "rgba(26,46,61,0.1)"), borderRadius: 20, padding: "4px 11px", fontSize: 12, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>
                         <span>{cd.emoji || "⭐"}</span><span style={{ fontWeight: 700 }}>{cd.title}</span>
                       </div>
                     )
@@ -1858,10 +1861,10 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 {CELEB_CARD_ORDER.map(function(cardId) {
                   var meta = CELEB_CARD_META[cardId]
                   return (
-                    <div key={cardId} onClick={function() { setActiveCelebCard(cardId) }} style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
-                      <div style={{ fontSize: 18, marginBottom: 6 }}>{meta.icon}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }}>{meta.title}</div>
-                      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{celebCardPreview(detailCeleb, cardId)}</div>
+                    <div key={cardId} onClick={function() { setActiveCelebCard(cardId) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "12px 14px", cursor: "pointer" }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginBottom: 8 }}>{meta.icon}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }}>{meta.title}</div>
+                      <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{celebCardPreview(detailCeleb, cardId)}</div>
                     </div>
                   )
                 })}
@@ -1872,9 +1875,9 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
               <button onClick={function() { setActiveCelebCard(null) }} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(200,169,122,0.6)", fontSize: 12, fontFamily: "DM Sans,sans-serif", padding: "0 0 14px 0", display: "flex", alignItems: "center", gap: 5 }}>← {detailCeleb.name}</button>
 
               {activeCelebCard === "overview" && (
-                <div style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.08)", borderRadius: 12, padding: "16px" }}>
+                <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "16px" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                    <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4" }}>Overview</div>
+                    <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#1a2e3d" }}>Overview</div>
                     <button onClick={function() { startEdit(detailCeleb) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "4px 12px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>Edit</button>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1888,24 +1891,24 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
               {activeCelebCard === "guestlist" && (
                 <div>
-                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Guest List</div>
-                  {(detailCeleb.guestList||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No guests added yet.</div>}
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#1a2e3d", marginBottom: 12 }}>Guest List</div>
+                  {(detailCeleb.guestList||[]).length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No guests added yet.</div>}
                   {(detailCeleb.guestList||[]).map(function(g) {
                     return (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(250,242,229,0.03)", borderRadius: 9, marginBottom: 6, flexWrap: "wrap" }}>
-                        <div style={{ flex: 1, minWidth: 80, fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{g.name}</div>
-                        <select value={g.rsvp} onChange={function(e) { setGuestRsvp(detailCeleb.id, g.id, e.target.value) }} style={{ background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 6, padding: "3px 6px", fontSize: 11, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(26,46,61,0.05)", borderRadius: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 80, fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{g.name}</div>
+                        <select value={g.rsvp} onChange={function(e) { setGuestRsvp(detailCeleb.id, g.id, e.target.value) }} style={{ background: "rgba(26,46,61,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 6, padding: "3px 6px", fontSize: 11, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>
                           <option value="pending" style={{ background: "#243A5A" }}>Pending</option>
                           <option value="yes" style={{ background: "#243A5A" }}>Yes</option>
                           <option value="no" style={{ background: "#243A5A" }}>No</option>
                           <option value="maybe" style={{ background: "#243A5A" }}>Maybe</option>
                         </select>
                         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, -1) }} style={{ background: "none", border: "none", color: "rgba(250,248,244,0.4)", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>−</button>
-                          <span style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", minWidth: 14, textAlign: "center" }}>+{g.plusOnes||0}</span>
-                          <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, 1) }} style={{ background: "none", border: "none", color: "rgba(250,248,244,0.4)", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>+</button>
+                          <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, -1) }} style={{ background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>−</button>
+                          <span style={{ fontSize: 11, color: "#1a2e3d", minWidth: 14, textAlign: "center" }}>+{g.plusOnes||0}</span>
+                          <button onClick={function() { setGuestPlusOnes(detailCeleb.id, g.id, 1) }} style={{ background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>+</button>
                         </div>
-                        <button onClick={function() { removeGuest(detailCeleb.id, g.id) }} aria-label="Remove guest" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                        <button onClick={function() { removeGuest(detailCeleb.id, g.id) }} aria-label="Remove guest" style={{ background: "none", border: "none", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>✕</button>
                       </div>
                     )
                   })}
@@ -1921,8 +1924,8 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 var isAddingHere = addingGiftTarget && addingGiftTarget.celebId === detailCeleb.id
                 return (
                   <div>
-                    <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Gift Ideas</div>
-                    {relevant.length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No gift ideas yet.</div>}
+                    <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#1a2e3d", marginBottom: 12 }}>Gift Ideas</div>
+                    {relevant.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>No gift ideas yet.</div>}
                     {relevant.map(function(g) { return renderGiftRow(g, g.__listId, { celebId: detailCeleb.id }) })}
                     {detailCeleb.personId ? (
                       isAddingHere ? renderGiftAddForm(function() { submitGiftDraft(addingGiftTarget.personId, addingGiftTarget.listId, addingGiftTarget.celebId) }) : (
@@ -1933,7 +1936,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                         }} style={{ marginTop: 10, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift idea</button>
                       )
                     ) : (
-                      <div style={{ fontSize: 11, color: "rgba(250,248,244,0.25)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginTop: 10 }}>This celebration isn't linked to a specific person — add and assign gift ideas from the Gifts tab instead.</div>
+                      <div style={{ fontSize: 11, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginTop: 10 }}>This celebration isn't linked to a specific person — add and assign gift ideas from the Gifts tab instead.</div>
                     )}
                   </div>
                 )
@@ -1941,7 +1944,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
               {activeCelebCard === "budget" && (
                 <div>
-                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Budget</div>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#1a2e3d", marginBottom: 12 }}>Budget</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 14 }}>
                     <div style={{ flex: 1 }}>
                       <div style={LBL}>Planned</div>
@@ -1954,13 +1957,13 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                   </div>
                   {((detailCeleb.budget && detailCeleb.budget.items) || []).map(function(it) {
                     return (
-                      <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(250,242,229,0.06)" }}>
+                      <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
                         <div onClick={function() { toggleBudgetItemSpent(detailCeleb.id, it.id) }} style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid " + (it.spent ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: it.spent ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                           {it.spent && <span style={{ color: "#fff", fontSize: 10 }}>✓</span>}
                         </div>
-                        <span style={{ flex: 1, fontSize: 13, color: it.spent ? "rgba(250,248,244,0.35)" : "rgba(250,248,244,0.85)", fontFamily: "DM Sans,sans-serif", textDecoration: it.spent ? "line-through" : "none" }}>{it.desc}</span>
-                        <span style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif" }}>${(it.amount||0).toFixed(2)}</span>
-                        <button onClick={function() { removeBudgetItem(detailCeleb.id, it.id) }} aria-label="Remove budget item" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                        <span style={{ flex: 1, fontSize: 13, color: it.spent ? "#4a6275" : "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: it.spent ? "line-through" : "none" }}>{it.desc}</span>
+                        <span style={{ fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>${(it.amount||0).toFixed(2)}</span>
+                        <button onClick={function() { removeBudgetItem(detailCeleb.id, it.id) }} aria-label="Remove budget item" style={{ background: "none", border: "none", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>✕</button>
                       </div>
                     )
                   })}
@@ -1974,25 +1977,25 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
               {activeCelebCard === "food" && (
                 <div>
-                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#faf8f4", marginBottom: 12 }}>Food & Cake</div>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 16, fontWeight: 700, color: "#1a2e3d", marginBottom: 12 }}>Food & Cake</div>
 
                   <div style={{ marginBottom: 18 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>Recipes</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>Recipes</div>
                       {onBrowseRecipes && <button onClick={onBrowseRecipes} style={{ background: "none", border: "none", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>Browse all recipes →</button>}
                     </div>
                     {celebFoodMatchedRecipes.length === 0 ? (
-                      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif" }}>
+                      <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif" }}>
                         No recipes tagged for this occasion yet — {onBrowseRecipes ? <span onClick={onBrowseRecipes} style={{ color: "#c8a97a", cursor: "pointer", fontStyle: "normal", textDecoration: "underline" }}>add one in Meals → Recipes</span> : "add one in Meals → Recipes"}.
                       </div>
                     ) : celebFoodMatchedRecipes.map(function(r) {
                       var pinned = (detailCeleb.pinnedRecipes || []).includes(r.id)
                       return (
                         <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: pinned ? "rgba(200,169,122,0.14)" : "rgba(200,169,122,0.06)", border: "1px solid " + (pinned ? "rgba(200,169,122,0.35)" : "rgba(200,169,122,0.15)"), borderRadius: 9, marginBottom: 6 }}>
-                          <button onClick={function() { toggleRecipePin(detailCeleb.id, r.id) }} title={pinned ? "Unpin from this celebration" : "Pin to this celebration"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: pinned ? "#c8a97a" : "rgba(250,248,244,0.25)", flexShrink: 0, padding: 2, lineHeight: 1 }}>{pinned ? "📌" : "📍"}</button>
+                          <button onClick={function() { toggleRecipePin(detailCeleb.id, r.id) }} title={pinned ? "Unpin from this celebration" : "Pin to this celebration"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, color: pinned ? "#c8a97a" : "#4a6275", flexShrink: 0, padding: 2, lineHeight: 1 }}>{pinned ? "📌" : "📍"}</button>
                           <div onClick={function() { onOpenRecipe && onOpenRecipe(r.id) }} style={{ flex: 1, cursor: onOpenRecipe ? "pointer" : "default" }}>
-                            <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif", fontWeight: 600 }}>{r.title}</div>
-                            <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>{r.type === "full" ? "Full recipe" : "Simple dish"}{r.serves ? " · Serves " + r.serves : ""}</div>
+                            <div style={{ fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", fontWeight: 600 }}>{r.title}</div>
+                            <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>{r.type === "full" ? "Full recipe" : "Simple dish"}{r.serves ? " · Serves " + r.serves : ""}</div>
                             {usedRecipeConfirm === r.id && <div style={{ fontSize: 11, color: "#7a9e8e", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontWeight: 600 }}>✓ Added to dish checklist below</div>}
                           </div>
                           <button onClick={function() { useRecipeAsDish(detailCeleb.id, r) }} style={{ background: "rgba(200,169,122,0.15)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "4px 9px", fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>Use this recipe</button>
@@ -2001,15 +2004,15 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                     })}
                   </div>
 
-                  {(detailCeleb.food||[]).length === 0 && <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>Nothing planned yet.</div>}
+                  {(detailCeleb.food||[]).length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 10 }}>Nothing planned yet.</div>}
                   {(detailCeleb.food||[]).map(function(f) {
                     return (
-                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(250,242,229,0.03)", borderRadius: 9, marginBottom: 6 }}>
+                      <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(26,46,61,0.05)", borderRadius: 8, marginBottom: 6 }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{f.item}</div>
-                          <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif" }}>{f.who ? "Bringing: "+f.who : ""}{f.who && f.dietary ? " · " : ""}{f.dietary}{(f.who || f.dietary) && f.fromRecipe ? " · " : ""}{f.fromRecipe ? "From recipe: "+f.fromRecipe : ""}</div>
+                          <div style={{ fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{f.item}</div>
+                          <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{f.who ? "Bringing: "+f.who : ""}{f.who && f.dietary ? " · " : ""}{f.dietary}{(f.who || f.dietary) && f.fromRecipe ? " · " : ""}{f.fromRecipe ? "From recipe: "+f.fromRecipe : ""}</div>
                         </div>
-                        <button onClick={function() { removeFoodItem(detailCeleb.id, f.id) }} aria-label="Remove food item" style={{ background: "none", border: "none", fontSize: 12, color: "rgba(250,248,244,0.2)", cursor: "pointer" }}>✕</button>
+                        <button onClick={function() { removeFoodItem(detailCeleb.id, f.id) }} aria-label="Remove food item" style={{ background: "none", border: "none", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>✕</button>
                       </div>
                     )
                   })}
@@ -2029,7 +2032,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
               {activeCelebCard === "todo" && renderChecklistCard("todo", "To-Do", todoDraft, setTodoDraft)}
 
               {activeCelebCard === "photos" && (
-                <div style={{ textAlign: "center", padding: "32px 20px", color: "rgba(250,248,244,0.3)", fontSize: 13, fontFamily: "DM Sans,sans-serif" }}>
+                <div style={{ textAlign: "center", padding: "32px 20px", color: "#4a6275", fontSize: 13, fontFamily: "DM Sans,sans-serif" }}>
                   <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
                   Add photos coming soon.
                 </div>
@@ -2054,21 +2057,21 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 )
               })}
             </div>
-            <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={Object.assign({}, INP, {width: "100%", marginBottom: 8})} />
+            <input value={editForm.name} onChange={function(ev) { setEditForm(function(p) { return {...p, name: ev.target.value} }) }} placeholder="Name" style={Object.assign({}, MODAL_INP, {width: "100%", marginBottom: 8})} />
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={Object.assign({}, INP, { flex: 2, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
+              <select value={editForm.month} onChange={function(ev) { setEditForm(function(p) { return {...p, month: ev.target.value} }) }} style={Object.assign({}, MODAL_INP, { flex: 2, color: editForm.month ? "#faf8f4" : "rgba(250,248,244,0.35)", WebkitAppearance: "none", appearance: "none" })}>
                 <option value="" style={{ background: "#243A5A", color: "rgba(250,248,244,0.5)" }}>Month</option>
                 {MONTHS.map(function(m, mi) { return <option key={mi} value={mi+1} style={{ background: "#243A5A", color: "#faf8f4" }}>{m}</option> })}
               </select>
-              <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, INP, { flex: 1 })} />
+              <input value={editForm.day} onChange={function(ev) { setEditForm(function(p) { return {...p, day: ev.target.value} }) }} placeholder="Day" type="number" min="1" max="31" style={Object.assign({}, MODAL_INP, { flex: 1 })} />
               {(editForm.type === "birthday" || editForm.type === "anniversary") && (
-                <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={Object.assign({}, INP, { flex: 1 })} />
+                <input value={editForm.year} onChange={function(ev) { setEditForm(function(p) { return {...p, year: ev.target.value} }) }} placeholder="Year (opt)" type="number" style={Object.assign({}, MODAL_INP, { flex: 1 })} />
               )}
             </div>
-            <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, INP, {width: "100%", marginBottom: 10})} />
+            <input value={editForm.notes} onChange={function(ev) { setEditForm(function(p) { return {...p, notes: ev.target.value} }) }} placeholder="Notes (optional)" style={Object.assign({}, MODAL_INP, {width: "100%", marginBottom: 10})} />
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={saveEdit} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save changes</button>
-              <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+              <button onClick={function() { setEditingId(null) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         </div>
