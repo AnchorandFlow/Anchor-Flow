@@ -7999,13 +7999,13 @@ function RecurringRemindersSection() {
   var availableBuiltins = BUILTIN_REMINDERS.filter(function(b){return !existingBuiltinIds.includes(b.id)})
 
   var S = {
-    card: { background:"rgba(250,242,229,0.03)", border:"1px solid rgba(200,169,122,0.18)", borderRadius:12, padding:"14px 16px", marginBottom:8 },
-    lbl: { fontSize:11, fontWeight:700, color:"rgba(200,169,122,0.65)", textTransform:"uppercase", letterSpacing:"0.09em", marginBottom:6, display:"block", fontFamily:"DM Sans,sans-serif" },
-    inp: { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.9)", fontFamily:"DM Sans,sans-serif", marginBottom:12, boxSizing:"border-box" },
-    sel: { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.12)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"rgba(250,248,244,0.85)", fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:12, boxSizing:"border-box" },
-    toggle: function(on){ return { width:36, height:20, borderRadius:10, background:on?"#7a9e8e":"rgba(250,242,229,0.1)", border:"none", position:"relative", cursor:"pointer", flexShrink:0, transition:"background 0.2s" } },
+    card: { background:"#f7f1e3", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:"14px 16px", marginBottom:8 },
+    lbl: { fontSize:11, fontWeight:700, color:"#4a6275", textTransform:"uppercase", letterSpacing:"0.09em", marginBottom:6, display:"block", fontFamily:"DM Sans,sans-serif" },
+    inp: { width:"100%", background:"rgba(26,46,61,0.05)", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", marginBottom:12, boxSizing:"border-box" },
+    sel: { width:"100%", background:"rgba(26,46,61,0.05)", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:12, boxSizing:"border-box" },
+    toggle: function(on){ return { width:36, height:20, borderRadius:10, background:on?"#7a9e8e":"rgba(26,46,61,0.15)", border:"none", position:"relative", cursor:"pointer", flexShrink:0, transition:"background 0.2s" } },
     thumb: function(on){ return { position:"absolute", top:2, left:on?18:2, width:16, height:16, borderRadius:"50%", background:"#fff", transition:"left 0.2s", boxShadow:"0 1px 3px rgba(0,0,0,0.3)" } },
-    trow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 0", borderBottom:"0.5px solid rgba(250,242,229,0.06)" },
+    trow: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 0", borderBottom:"1px solid rgba(26,46,61,0.08)" },
   }
 
   // ── Edit / New form ──────────────────────────────────────────────────────────
@@ -8036,7 +8036,7 @@ function RecurringRemindersSection() {
           <label style={S.lbl}>Reminder type</label>
           <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
             {[{id:"weekly_day",label:"📅 One day"},{id:"weekly_days",label:"📅 Multiple days"},{id:"interval",label:"⏱ After X days"}].map(function(t){
-              return <button key={t.id} onClick={function(){setDraft(function(p){return {...p,type:t.id,day:null,days:[]}})}} style={{flex:1,minWidth:"30%",background:draft.type===t.id?"rgba(200,169,122,0.2)":"rgba(250,242,229,0.04)",border:"1px solid "+(draft.type===t.id?"rgba(200,169,122,0.5)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"7px 4px",fontSize:11,color:draft.type===t.id?GOLD:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:draft.type===t.id?700:400}}>{t.label}</button>
+              return <button key={t.id} onClick={function(){setDraft(function(p){return {...p,type:t.id,day:null,days:[]}})}} style={{flex:1,minWidth:"30%",background:draft.type===t.id?"rgba(200,169,122,0.2)":"rgba(26,46,61,0.05)",border:"1px solid "+(draft.type===t.id?"rgba(200,169,122,0.5)":"rgba(26,46,61,0.08)"),borderRadius:8,padding:"7px 4px",fontSize:11,color:draft.type===t.id?GOLD:"#4a6275",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:draft.type===t.id?700:400}}>{t.label}</button>
             })}
           </div>
 
@@ -8061,7 +8061,7 @@ function RecurringRemindersSection() {
                   return <button key={i} onClick={function(){
                     var cur=draft.days||[]
                     setDraft(function(p){return {...p,days:selected?cur.filter(function(x){return x!==i}):[...cur,i].sort()}})
-                  }} style={{background:selected?"rgba(107,163,196,0.25)":"rgba(250,242,229,0.04)",border:"1px solid "+(selected?"rgba(107,163,196,0.6)":"rgba(250,242,229,0.12)"),borderRadius:20,padding:"5px 11px",fontSize:12,color:selected?"#a8d4ea":SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:selected?700:400}}>{d.slice(0,3)}</button>
+                  }} style={{background:selected?"rgba(107,163,196,0.25)":"rgba(26,46,61,0.05)",border:"1px solid "+(selected?"rgba(107,163,196,0.6)":"rgba(26,46,61,0.1)"),borderRadius:20,padding:"5px 11px",fontSize:12,color:selected?"#2a6b85":"#4a6275",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:selected?700:400}}>{d.slice(0,3)}</button>
                 })}
               </div>
             </>
@@ -8087,11 +8087,11 @@ function RecurringRemindersSection() {
 
         {/* Reminder toggles */}
         <div style={S.card}>
-          <div style={{fontSize:11,fontWeight:700,color:"rgba(200,169,122,0.65)",textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,fontFamily:"DM Sans,sans-serif"}}>🔔 Reminders</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:10,fontFamily:"DM Sans,sans-serif"}}>🔔 Reminders</div>
           <div style={S.trow}>
             <div>
-              <div style={{fontSize:13,fontFamily:"DM Sans,sans-serif",fontWeight:600,color:"rgba(250,248,244,0.85)"}}>Evening before</div>
-              <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif"}}>Night before it's due</div>
+              <div style={{fontSize:13,fontFamily:"DM Sans,sans-serif",fontWeight:600,color:"#1a2e3d"}}>Evening before</div>
+              <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif"}}>Night before it's due</div>
             </div>
             <button onClick={function(){setDraft(function(p){return {...p,remindEvening:!p.remindEvening}})}} style={S.toggle(draft.remindEvening)}>
               <div style={S.thumb(draft.remindEvening)}/>
@@ -8099,8 +8099,8 @@ function RecurringRemindersSection() {
           </div>
           <div style={{...S.trow,borderBottom:"none"}}>
             <div>
-              <div style={{fontSize:13,fontFamily:"DM Sans,sans-serif",fontWeight:600,color:"rgba(250,248,244,0.85)"}}>Morning of</div>
-              <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif"}}>Day it's due</div>
+              <div style={{fontSize:13,fontFamily:"DM Sans,sans-serif",fontWeight:600,color:"#1a2e3d"}}>Morning of</div>
+              <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif"}}>Day it's due</div>
             </div>
             <button onClick={function(){setDraft(function(p){return {...p,remindMorning:!p.remindMorning}})}} style={S.toggle(draft.remindMorning)}>
               <div style={S.thumb(draft.remindMorning)}/>
@@ -8110,7 +8110,7 @@ function RecurringRemindersSection() {
 
         <div style={{display:"flex",gap:10,marginTop:4}}>
           {editing!=="new"&&<button onClick={deleteDraft} style={{background:"rgba(220,80,80,0.1)",border:"1px solid rgba(220,80,80,0.25)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#e07070",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Delete</button>}
-          <button onClick={function(){setEditing(null);setDraft(null)}} style={{flex:1,background:"rgba(250,242,229,0.06)",border:"1px solid rgba(250,242,229,0.12)",borderRadius:10,padding:"10px",fontSize:13,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Cancel</button>
+          <button onClick={function(){setEditing(null);setDraft(null)}} style={{flex:1,background:"rgba(26,46,61,0.06)",border:"1px solid rgba(26,46,61,0.1)",borderRadius:10,padding:"10px",fontSize:13,color:"#4a6275",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>Cancel</button>
           <button onClick={saveDraft} disabled={!draft.label.trim()} style={{flex:2,background:GOLD,border:"none",borderRadius:10,padding:"10px",fontSize:13,color:NAVY,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:700,opacity:draft.label.trim()?1:0.5}}>Save</button>
         </div>
       </div>
@@ -8140,13 +8140,13 @@ function RecurringRemindersSection() {
             <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
               {availableBuiltins.map(function(b){
                 return(
-                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(250,242,229,0.03)",border:"1px solid rgba(250,242,229,0.08)",borderRadius:10,padding:"10px 14px",cursor:"pointer",textAlign:"left"}}>
+                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"10px 14px",cursor:"pointer",textAlign:"left"}}>
                     <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:600,color:"rgba(250,248,244,0.9)",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
-                      <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
+                      <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
                     </div>
-                    <span style={{fontSize:11,color:GOLD,fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
+                    <span style={{fontSize:11,color:"#a05c10",fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
                   </button>
                 )
               })}
@@ -8172,19 +8172,19 @@ function RecurringRemindersSection() {
         var alert = days!=null&&days<=1
         var overdue = days!=null&&days<0
         return(
-          <div key={r.id} style={{background:alert?"rgba(200,131,74,0.07)":"rgba(250,242,229,0.03)",border:"1px solid "+(overdue?"rgba(220,80,80,0.35)":alert?"rgba(200,131,74,0.35)":"rgba(200,169,122,0.15)"),borderRadius:12,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+          <div key={r.id} style={{background:(alert||overdue)?"rgba(160,92,16,0.08)":"#f7f1e3",border:"1px solid "+((alert||overdue)?"rgba(160,92,16,0.3)":"rgba(26,46,61,0.1)"),borderRadius:8,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
             <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:700,color:"rgba(250,248,244,0.92)",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
-              <div style={{fontSize:11,color:FAINT,fontFamily:"DM Sans,sans-serif",marginTop:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
+              <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>
                 {r.type==="weekly_days"&&r.days&&r.days.length>0?r.days.map(function(d){return DAY_LABELS[d].slice(0,3)}).join(", "):r.type==="weekly_day"&&r.day!=null?DAY_LABELS[r.day]+"s":""}{" "}
                 {FREQ_OPTIONS.find(function(f){return f.id===r.freq})?FREQ_OPTIONS.find(function(f){return f.id===r.freq}).label:""}
               </div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-              {badge&&<span style={{fontSize:11,fontWeight:700,color:overdue?"#e07070":alert?"#c8834a":GOLD}}>{badge}</span>}
+              {badge&&<span style={{fontSize:11,fontWeight:700,color:overdue?"#a05c10":alert?"#a05c10":"#4a6275"}}>{badge}</span>}
               <button onClick={function(){markDone(r.id)}} title="Mark done / reset timer" style={{background:"rgba(122,158,142,0.15)",border:"1px solid rgba(122,158,142,0.3)",borderRadius:6,padding:"4px 8px",fontSize:11,color:"#7a9e8e",fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>✓ Done</button>
-              <button onClick={function(){openEdit(r)}} style={{background:"rgba(250,242,229,0.06)",border:"1px solid rgba(250,242,229,0.1)",borderRadius:6,padding:"4px 8px",fontSize:11,color:SOFT,fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>Edit</button>
+              <button onClick={function(){openEdit(r)}} style={{background:"rgba(26,46,61,0.06)",border:"1px solid rgba(26,46,61,0.1)",borderRadius:6,padding:"4px 8px",fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",cursor:"pointer"}}>Edit</button>
             </div>
           </div>
         )
