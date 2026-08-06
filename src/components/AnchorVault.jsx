@@ -3151,7 +3151,7 @@ function MaskedField(props) {
           type="button"
           onClick={function() { setRevealed(function(r){ return !r }) }}
           aria-label={(revealed ? "Hide " : "Reveal ") + (props.label || "field")}
-          style={{ position:"absolute", right:2, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:14, color:props.muted || "rgba(250,248,244,0.35)", padding:6, lineHeight:1 }}
+          style={{ position:"absolute", right:2, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:14, color:props.muted || "#4a6275", padding:6, lineHeight:1 }}
         >{revealed ? "🙈" : "👁"}</button>
       </div>
     </div>
@@ -3160,10 +3160,10 @@ function MaskedField(props) {
 
 function TravelProfileSection() {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
-  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
+  var muted = "#4a6275"; var border = "rgba(26,46,61,0.1)"; var cardBg = "#f7f1e3"
   var coastal = "#7EAEB4"
-  var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
-  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
+  var inputStyle = { width:"100%", background:"rgba(26,46,61,0.05)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
+  var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
 
   var pair = useState(function() { try { var s=localStorage.getItem("af_travel_profile"); return s?JSON.parse(s):{}; } catch{return{};} })
   var profile = pair[0]; var setProfileRaw = pair[1]
@@ -3202,10 +3202,10 @@ function TravelProfileSection() {
   function ExpiryBadge(props) {
     var d = daysUntil(props.date)
     if (d===null) return null
-    var expired = d<0; var soon = d>=0&&d<=90; var color = expired?"#e88":soon?sand:muted
+    var expired = d<0; var color = expired?"#a05c10":"#4a6275"
     var label = expired?"Expired "+Math.abs(d)+"d ago":d===0?"Expires today":d<=30?d+"d left":d<=90?"~"+Math.round(d/30)+"mo left":null
     if (!label) return null
-    return React.createElement("span",{style:{fontSize:9,fontWeight:700,color:color,fontFamily:"DM Sans,sans-serif",marginLeft:6,background:"rgba(250,242,229,0.06)",borderRadius:20,padding:"1px 7px",border:"1px solid "+color+"44"}},label)
+    return React.createElement("span",{style:{fontSize:9,fontWeight:700,color:color,fontFamily:"DM Sans,sans-serif",marginLeft:6,background:expired?"rgba(160,92,16,0.12)":"rgba(26,46,61,0.12)",borderRadius:4,padding:"1px 7px"}},label)
   }
 
   var AIRLINE_PROGRAMS = ["United MileagePlus","Delta SkyMiles","American AAdvantage","Southwest Rapid Rewards","Alaska Mileage Plan","JetBlue TrueBlue","Air Canada Aeroplan","British Airways Avios","Emirates Skywards","Other"]
@@ -3233,16 +3233,16 @@ function TravelProfileSection() {
   function removeContact(id) { setProfile({ emergencyContacts: emergencyContacts.filter(function(c){ return c.id!==id }) }) }
 
   var sectionHead = function(emoji, title) {
-    return React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"rgba(250,248,244,0.25)",fontFamily:"DM Sans,sans-serif",marginBottom:10,marginTop:4,display:"flex",alignItems:"center",gap:6}},emoji," ",title)
+    return React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginBottom:10,marginTop:4,display:"flex",alignItems:"center",gap:6}},emoji," ",title)
   }
 
   return (
     <div>
       <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel Profile</div>
-      <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
+      <div style={{ fontSize:12, color:"rgba(250,248,244,0.42)", fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
 
       {/* Passports */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         {sectionHead("📘","Passport")}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ display:"flex", gap:8 }}>
@@ -3263,14 +3263,14 @@ function TravelProfileSection() {
               {profile.passportExp && React.createElement(ExpiryBadge,{date:profile.passportExp})}
             </div>
           </div>
-          <div style={{ fontSize:10, color:"rgba(250,248,244,0.25)", fontFamily:"DM Sans,sans-serif" }}>
+          <div style={{ fontSize:10, color:"#4a6275", fontFamily:"DM Sans,sans-serif" }}>
             💡 Most countries require passport valid 6+ months beyond travel dates.
           </div>
         </div>
       </div>
 
       {/* Second passport */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         {sectionHead("📘","Second Passport (optional)")}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ display:"flex", gap:8 }}>
@@ -3288,7 +3288,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Trusted Traveler */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         {sectionHead("🛂","Trusted Traveler Programs")}
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {[
@@ -3298,8 +3298,8 @@ function TravelProfileSection() {
             {key:"sentri",label:"SENTRI",numKey:"sentriNum",expKey:"sentriExp"},
           ].map(function(prog) {
             return (
-              <div key={prog.key} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px" }}>
-                <div style={{ fontSize:12, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center" }}>
+              <div key={prog.key} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontSize:12, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center" }}>
                   {prog.label}
                   {profile[prog.expKey] && React.createElement(ExpiryBadge,{date:profile[prog.expKey]})}
                 </div>
@@ -3319,22 +3319,22 @@ function TravelProfileSection() {
       </div>
 
       {/* Airline Frequent Flyer */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("✈️","Frequent Flyer Numbers")}
           <button onClick={addFF} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
         </div>
         {ffPrograms.length === 0 && (
-          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No programs added yet.</div>
+          <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No programs added yet.</div>
         )}
         {ffPrograms.map(function(p) {
           return (
-            <div key={p.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+            <div key={p.id} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 <div style={{ display:"flex", gap:8 }}>
                   <div style={{ flex:2 }}>
                     <label style={labelStyle}>Airline program</label>
-                    <select value={p.airline||""} onChange={function(e){updateFF(p.id,{airline:e.target.value})}} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:p.airline?warm:"rgba(250,248,244,0.3)"})}>
+                    <select value={p.airline||""} onChange={function(e){updateFF(p.id,{airline:e.target.value})}} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:p.airline?warm:"#4a6275"})}>
                       <option value="" style={{background:navy}}>Select program…</option>
                       {AIRLINE_PROGRAMS.map(function(a){ return React.createElement("option",{key:a,value:a,style:{background:navy}},a) })}
                     </select>
@@ -3357,22 +3357,22 @@ function TravelProfileSection() {
       </div>
 
       {/* Hotel Loyalty */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("🏨","Hotel Loyalty Programs")}
           <button onClick={addHotel} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
         </div>
         {hotelPrograms.length === 0 && (
-          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No programs added yet.</div>
+          <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No programs added yet.</div>
         )}
         {hotelPrograms.map(function(p) {
           return (
-            <div key={p.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+            <div key={p.id} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 <div style={{ display:"flex", gap:8 }}>
                   <div style={{ flex:2 }}>
                     <label style={labelStyle}>Hotel program</label>
-                    <select value={p.chain||""} onChange={function(e){updateHotel(p.id,{chain:e.target.value})}} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:p.chain?warm:"rgba(250,248,244,0.3)"})}>
+                    <select value={p.chain||""} onChange={function(e){updateHotel(p.id,{chain:e.target.value})}} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:p.chain?warm:"#4a6275"})}>
                       <option value="" style={{background:navy}}>Select program…</option>
                       {HOTEL_PROGRAMS.map(function(h){ return React.createElement("option",{key:h,value:h,style:{background:navy}},h) })}
                     </select>
@@ -3395,7 +3395,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Preferences */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         {sectionHead("⭐","Preferences")}
         <div style={{ display:"flex", gap:8 }}>
           <div style={{ flex:1 }}>{field("preferredAirline","Preferred airline","e.g. Delta")}</div>
@@ -3404,17 +3404,17 @@ function TravelProfileSection() {
       </div>
 
       {/* Luggage */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("🧳","Luggage")}
           <button onClick={addLuggage} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
         </div>
         {luggage.length === 0 && (
-          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No bags added yet.</div>
+          <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No bags added yet.</div>
         )}
         {luggage.map(function(b) {
           return (
-            <div key={b.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+            <div key={b.id} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
                   <div style={{ flex:2 }}>
@@ -3433,17 +3433,17 @@ function TravelProfileSection() {
       </div>
 
       {/* Emergency Travel Contacts */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("🚨","Emergency Travel Contacts")}
           <button onClick={addContact} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
         </div>
         {emergencyContacts.length === 0 && (
-          <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No contacts added yet.</div>
+          <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No contacts added yet.</div>
         )}
         {emergencyContacts.map(function(c) {
           return (
-            <div key={c.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+            <div key={c.id} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
               <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                 <div style={{ display:"flex", gap:8 }}>
                   <div style={{ flex:2 }}>
@@ -3510,7 +3510,7 @@ function TripCard(props) {
   var s = useState(props.defaultOpen !== false); var open = s[0]; var setOpen = s[1]
   var accent = props.accent || "#c8a97a"
   return (
-    <div style={{ background:"rgba(250,242,229,0.04)", border:"1px solid "+accent+"33", borderRadius:12, marginBottom:12, overflow:"hidden" }}>
+    <div style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden" }}>
       <div onClick={function(){ setOpen(function(o){ return !o }) }} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 14px", cursor:"pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           {/* Circular icon badge — same shape/sizing convention as Health's HPersonCard avatar (~5921), tinted from this card's own accent instead of a solid person-color */}
@@ -3518,12 +3518,12 @@ function TripCard(props) {
           <div>
             <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
             {/* Always-visible content preview, even collapsed — same stat/status-text convention as HPersonCard's preview rows (~5942) */}
-            {props.preview && <div style={{ fontSize:11, color:props.previewColor||"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
+            {props.preview && <div style={{ fontSize:11, color:props.previewColor||"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
           </div>
         </div>
-        <span style={{ fontSize:10, color:"rgba(250,248,244,0.3)", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
+        <span style={{ fontSize:10, color:"#4a6275", display:"inline-block", transform:open?"rotate(180deg)":"rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
       </div>
-      {open && <div style={{ padding:"0 14px 14px", borderTop:"1px solid rgba(250,242,229,0.06)" }}>{props.children}</div>}
+      {open && <div style={{ padding:"0 14px 14px", borderTop:"1px solid rgba(26,46,61,0.08)" }}>{props.children}</div>}
     </div>
   )
 }
@@ -3538,13 +3538,13 @@ function TripCard(props) {
 function TripCardTile(props) {
   var accent = props.accent || "#c8a97a"
   return (
-    <div onClick={props.onClick} style={{ background:"rgba(250,242,229,0.04)", border:"1px solid "+accent+"33", borderRadius:12, marginBottom:12, overflow:"hidden", padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+    <div onClick={props.onClick} style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
       <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
-        {props.preview && <div style={{ fontSize:11, color:"rgba(250,248,244,0.4)", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
+        {props.preview && <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
       </div>
-      <span style={{ fontSize:16, color:"rgba(250,248,244,0.25)", flexShrink:0 }}>›</span>
+      <span style={{ fontSize:16, color:"#4a6275", flexShrink:0 }}>›</span>
     </div>
   )
 }
@@ -3610,7 +3610,7 @@ var CARD_META = {
   weather:        { icon:"⛅", title:"Weather",          accent:"#7EAEB4" },
   notes:          { icon:"📝", title:"Notes",            accent:"#c8a97a" },
   emergencyInfo:  { icon:"🚨", title:"Emergency Info",   accent:"#c8834a" },
-  photos:         { icon:"📷", title:"Photos",           accent:"rgba(250,248,244,0.4)" }
+  photos:         { icon:"📷", title:"Photos",           accent:"#4a6275" }
 }
 
 // Fixed structural grouping for the trip detail view — a static id -> group
@@ -3629,7 +3629,7 @@ var CARD_GROUP_OF = {
 
 function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
-  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(250,242,229,0.08)"; var cardBg = "rgba(250,242,229,0.04)"
+  var muted = "rgba(250,248,244,0.42)"; var border = "rgba(26,46,61,0.1)"; var cardBg = "#f7f1e3"
   var coastal = "#7EAEB4"
   var inputStyle = { width:"100%", background:"rgba(250,242,229,0.06)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:8, padding:"8px 12px", fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif", outline:"none", boxSizing:"border-box" }
   var labelStyle = { fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:4, display:"block" }
@@ -3735,9 +3735,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     var effectiveEnd = end !== null ? end : start
     var inProgress = start <= 0 && effectiveEnd >= 0
     var isPast = effectiveEnd < 0
-    var color = inProgress ? coastal : isPast ? muted : sand
+    // Featured/time-sensitive info per the sand refresh: pale blue-gray, not a plain card tint
+    var color = isPast ? "#4a6275" : "#1a2e3d"
     var label = inProgress ? "In progress" : isPast ? "Past" : start===0 ? "Today!" : start===1 ? "Tomorrow" : start<=30 ? start+"d away" : "~"+Math.round(start/30)+"mo away"
-    return <span style={{ fontSize:9, fontWeight:700, color:color, fontFamily:"DM Sans,sans-serif", background:"rgba(250,242,229,0.06)", borderRadius:20, padding:"1px 7px", border:"1px solid "+color+"44" }}>{label}</span>
+    return <span style={{ fontSize:9, fontWeight:700, color:color, fontFamily:"DM Sans,sans-serif", background:"#ddeaf4", borderRadius:4, padding:"1px 7px" }}>{label}</span>
   }
 
   // Read-only mirror of af_travel_profile for the Travel Wallet card at the
@@ -3755,7 +3756,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   function walletExpiryColor(dateStr) {
     var d = daysUntil(dateStr)
     if (d === null) return null
-    return d < 0 ? "rgba(200,100,100,0.9)" : d <= 180 ? sand : "rgba(122,184,122,0.9)"
+    return d < 0 ? "#a05c10" : d <= 180 ? "#4a6275" : "#2e7a46"
   }
   function WalletExpiry(props) {
     var color = walletExpiryColor(props.date)
@@ -3778,24 +3779,24 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     var empty = !hasPassport && trusted.length===0 && ff.length===0 && hotels.length===0 && !p.preferredAirline && !p.preferredHotel
 
     return (
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"14px 16px", marginBottom:18 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:18 }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: empty?0:12 }}>
-          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:warm, display:"flex", alignItems:"center", gap:6 }}>🧳 Travel Wallet</div>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d", display:"flex", alignItems:"center", gap:6 }}>🧳 Travel Wallet</div>
           <button onClick={function(){ if (onNavigate) onNavigate("travel") }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"4px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>Edit</button>
         </div>
         {empty ? (
-          <div style={{ fontSize:12, color:"rgba(250,248,244,0.3)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No travel documents or loyalty numbers yet — tap Edit to add some.</div>
+          <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No travel documents or loyalty numbers yet — tap Edit to add some.</div>
         ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {hasPassport && (
-              <div style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+              <div style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
                 📘 {p.passportName || "Passport"}{p.passportNum ? " · "+p.passportNum : ""}
                 <WalletExpiry date={p.passportExp} />
               </div>
             )}
             {trusted.map(function(t) {
               return (
-                <div key={t.label} style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                <div key={t.label} style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
                   🛂 {t.label}{t.num ? " · "+t.num : ""}
                   <WalletExpiry date={t.exp} />
                 </div>
@@ -3803,20 +3804,20 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
             })}
             {ff.map(function(f) {
               return (
-                <div key={f.id} style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                <div key={f.id} style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
                   ✈️ {f.airline}{f.number ? " · "+f.number : ""}{f.tier ? " · "+f.tier : ""}
                 </div>
               )
             })}
             {hotels.map(function(h) {
               return (
-                <div key={h.id} style={{ fontSize:12.5, color:warm, fontFamily:"DM Sans,sans-serif" }}>
+                <div key={h.id} style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
                   🏨 {h.chain}{h.number ? " · "+h.number : ""}{h.tier ? " · "+h.tier : ""}
                 </div>
               )
             })}
             {(p.preferredAirline || p.preferredHotel) && (
-              <div style={{ fontSize:11, color:muted, fontFamily:"DM Sans,sans-serif", marginTop:2 }}>
+              <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>
                 ⭐ {[p.preferredAirline, p.preferredHotel].filter(Boolean).join(" · ")}
               </div>
             )}
@@ -4562,7 +4563,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       return (
         <TripCard key="weather" icon={CARD_META.weather.icon} title={CARD_META.weather.title} accent={CARD_META.weather.accent} defaultOpen={false} preview={weatherPreview}>
           <div style={{ paddingTop:10 }}>
-            <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:10, fontStyle:"italic" }}>No live forecast yet — this is just a place to jot expectations for packing purposes.</div>
+            <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:10, fontStyle:"italic" }}>No live forecast yet — this is just a place to jot expectations for packing purposes.</div>
             <textarea value={detailTrip.weather||""} onChange={function(e){ updateTrip(detailTrip.id,{weather:e.target.value}) }} placeholder="e.g. Highs near 85°F, chance of afternoon rain — pack a light rain jacket" rows={3} style={Object.assign({},inputStyle,{resize:"vertical"})}/>
           </div>
         </TripCard>
@@ -4590,7 +4591,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
         <TripCard key="photos" icon={CARD_META.photos.icon} title={CARD_META.photos.title} accent={CARD_META.photos.accent} defaultOpen={false} preview="No photos yet — coming soon.">
           <div style={{ paddingTop:10, textAlign:"center", padding:"20px 10px" }}>
             <div style={{ fontSize:24, marginBottom:8 }}>📷</div>
-            <div style={{ fontSize:12, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", fontStyle:"italic" }}>No photos yet — a place to hold memories from this trip is coming soon.</div>
+            <div style={{ fontSize:12, color:"#4a6275", fontFamily:"DM Sans,sans-serif", fontStyle:"italic" }}>No photos yet — a place to hold memories from this trip is coming soon.</div>
           </div>
         </TripCard>
       )
@@ -4621,14 +4622,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                       <button onClick={copyAlwaysBring} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📋 Copy from Always Bring ({readAlwaysBring().length})</button>
                     )}
                     {sections.length === 0 && (
-                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No packing sections yet.</div>
+                      <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No packing sections yet.</div>
                     )}
                     {sections.map(function(sec){
                       var open = !collapsedPackingSections[sec.id]
                       return (
-                        <div key={sec.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, marginBottom:12, overflow:"hidden" }}>
+                        <div key={sec.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, marginBottom:12, overflow:"hidden" }}>
                           <div onClick={function(){ setCollapsedPackingSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
-                            <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:warm, background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                            <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
                             <span style={{ fontSize:11, color:muted, flexShrink:0 }}>{sec.items.filter(function(i){return i.done}).length}/{sec.items.length}</span>
                             <button onClick={function(e){ e.stopPropagation(); deletePackingSection(sec.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
                             <span style={{ fontSize:10, color:muted, transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
@@ -4636,16 +4637,16 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                           {open && (
                             <div style={{ padding:"0 12px 12px" }}>
                               {sec.items.length === 0 && (
-                                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
+                                <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
                               )}
                               {sec.items.map(function(item){
                                 return (
-                                  <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
+                                  <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.06)" }}>
                                     <div onClick={function(){ togglePackingItem(sec.id, item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(250,242,229,0.2)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
                                       {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
                                     </div>
-                                    <span style={{ flex:1, fontSize:13, color:item.done?"rgba(250,248,244,0.35)":"rgba(250,248,244,0.8)", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                                    <button onClick={function(){ removePackingItem(sec.id, item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"rgba(250,248,244,0.2)", cursor:"pointer", padding:"0 2px" }}>✕</button>
+                                    <span style={{ flex:1, fontSize:13, color:item.done?"#4a6275":"#1a2e3d", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                                    <button onClick={function(){ removePackingItem(sec.id, item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"#4a6275", cursor:"pointer", padding:"0 2px" }}>✕</button>
                                   </div>
                                 )
                               })}
@@ -4705,14 +4706,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 return (
                   <div>
                     {days.length === 0 && (
-                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No days added yet.</div>
+                      <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No days added yet.</div>
                     )}
                     {days.map(function(day){
                       var open = !collapsedItineraryDays[day.id]
                       return (
-                        <div key={day.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, marginBottom:12, overflow:"hidden" }}>
+                        <div key={day.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, marginBottom:12, overflow:"hidden" }}>
                           <div onClick={function(){ setCollapsedItineraryDays(function(p){ return Object.assign({},p,{[day.id]:!p[day.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
-                            <input value={day.label} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renameItineraryDay(day.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:warm, background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                            <input value={day.label} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renameItineraryDay(day.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
                             <span style={{ fontSize:11, color:muted, flexShrink:0 }}>{day.activities.length} {day.activities.length===1?"activity":"activities"}</span>
                             <button onClick={function(e){ e.stopPropagation(); deleteItineraryDay(day.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
                             <span style={{ fontSize:10, color:muted, transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
@@ -4720,11 +4721,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                           {open && (
                             <div style={{ padding:"0 12px 12px" }}>
                               {day.activities.length === 0 && (
-                                <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No activities yet.</div>
+                                <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No activities yet.</div>
                               )}
                               {day.activities.map(function(act){
                                 return (
-                                  <div key={act.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+                                  <div key={act.id} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
                                     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                                       <div style={{ display:"flex", gap:8 }}>
                                         <div style={{ flex:2 }}>
@@ -4762,20 +4763,20 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div>
                   <button onClick={addTransportation} style={{ background:"rgba(122,168,200,0.12)", border:"1px solid rgba(122,168,200,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7aa8c8", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add transportation</button>
                   {(detailTrip.transportation||[]).length === 0 && (
-                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No transportation added yet</div>
+                    <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No transportation added yet</div>
                   )}
                   {(detailTrip.transportation||[]).map(function(tr) {
                     return (
-                      <div key={tr.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={tr.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                           <span style={{ fontSize:18 }}>{TRANSPORT_TYPE_ICONS[tr.type]||"🧳"}</span>
-                          <span style={{ fontSize:14, fontWeight:700, color:warm, fontFamily:"DM Sans,sans-serif" }}>{tr.carrier || tr.type || "Untitled leg"}</span>
+                          <span style={{ fontSize:14, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{tr.carrier || tr.type || "Untitled leg"}</span>
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                           <div style={{ display:"flex", gap:8 }}>
                             <div style={{ flex:1 }}>
                               <label style={labelStyle}>Type</label>
-                              <select value={tr.type||""} onChange={function(e){ updateTransportation(tr.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:tr.type?warm:"rgba(250,248,244,0.3)"})}>
+                              <select value={tr.type||""} onChange={function(e){ updateTransportation(tr.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:tr.type?warm:"#4a6275"})}>
                                 <option value="" style={{background:navy}}>Select type…</option>
                                 {TRANSPORT_TYPES.map(function(t){ return <option key={t} value={t} style={{background:navy}}>{t}</option> })}
                               </select>
@@ -4811,11 +4812,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div>
                   <button onClick={addLodging} style={{ background:"rgba(122,158,142,0.12)", border:"1px solid rgba(122,158,142,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#7a9e8e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add lodging</button>
                   {(detailTrip.lodging||[]).length === 0 && (
-                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No lodging added yet</div>
+                    <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No lodging added yet</div>
                   )}
                   {(detailTrip.lodging||[]).map(function(lg) {
                     return (
-                      <div key={lg.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={lg.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                           <div>
                             <label style={labelStyle}>Name</label>
@@ -4851,11 +4852,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div>
                   <button onClick={addReservation} style={{ background:"rgba(142,142,181,0.15)", border:"1px solid rgba(142,142,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#8e8eb5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add reservation</button>
                   {reservationsList().length === 0 && (
-                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No reservations added yet</div>
+                    <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No reservations added yet</div>
                   )}
                   {reservationsList().map(function(r) {
                     return (
-                      <div key={r.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={r.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                           <div style={{ display:"flex", gap:8 }}>
                             <div style={{ flex:2 }}>
@@ -4899,11 +4900,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div>
                   <button onClick={addActivity} style={{ background:"rgba(106,181,160,0.15)", border:"1px solid rgba(106,181,160,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#6ab5a0", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add activity</button>
                   {activitiesList().length === 0 && (
-                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No activities added yet</div>
+                    <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No activities added yet</div>
                   )}
                   {activitiesList().map(function(a) {
                     return (
-                      <div key={a.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={a.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                           <div onClick={function(){ toggleActivity(a.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(a.done?"#6ab5a0":"rgba(250,242,229,0.2)"), background:a.done?"#6ab5a0":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
                             {a.done ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
@@ -4934,11 +4935,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div>
                   <button onClick={addDiningSpot} style={{ background:"rgba(181,133,106,0.15)", border:"1px solid rgba(181,133,106,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#b5856a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add dining spot</button>
                   {diningList().length === 0 && (
-                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No dining spots added yet</div>
+                    <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No dining spots added yet</div>
                   )}
                   {diningList().map(function(d) {
                     return (
-                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                           <div onClick={function(){ toggleDiningSpot(d.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(d.visited?"#b5856a":"rgba(250,242,229,0.2)"), background:d.visited?"#b5856a":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
                             {d.visited ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
@@ -4982,14 +4983,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                       <input value={b.estimated||""} onChange={function(e){ updateBudget({estimated:e.target.value}) }} placeholder="e.g. 2000" style={inputStyle}/>
                     </div>
                     {!hasBudget && (
-                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>Set a budget to track spending against it.</div>
+                      <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>Set a budget to track spending against it.</div>
                     )}
                     {hasBudget && (
                       <div style={{ marginBottom:16 }}>
                         <div style={{ fontSize:13, color: over?"#e07070":warm, fontFamily:"DM Sans,sans-serif", marginBottom:6 }}>
                           ${spentTotal.toLocaleString()} of ${est.toLocaleString()} planned
                         </div>
-                        <div style={{ height:8, background:"rgba(250,242,229,0.08)", borderRadius:4, overflow:"hidden" }}>
+                        <div style={{ height:8, background:"rgba(26,46,61,0.08)", borderRadius:4, overflow:"hidden" }}>
                           <div style={{ width:pct+"%", height:"100%", background: over?"#e07070":"#e0937a", transition:"width 0.2s" }}/>
                         </div>
                         {over && <div style={{ fontSize:11, color:"#e07070", fontFamily:"DM Sans,sans-serif", marginTop:6 }}>Over by ${(spentTotal-est).toLocaleString()}</div>}
@@ -4997,11 +4998,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                     )}
                     <button onClick={addExpense} style={{ background:"rgba(224,147,122,0.15)", border:"1px solid rgba(224,147,122,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#e0937a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add expense</button>
                     {expenses.length === 0 && (
-                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No expenses logged yet</div>
+                      <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No expenses logged yet</div>
                     )}
                     {expenses.map(function(e){
                       return (
-                        <div key={e.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                        <div key={e.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                           <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                             <div style={{ flex:2 }}>
                               <label style={labelStyle}>Description</label>
@@ -5034,15 +5035,15 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
 
               {activeTripCard === "documents" && (
                 <div>
-                  <div style={{ fontSize:11, color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:12, fontStyle:"italic" }}>What's ready for this trip — passport numbers, KTN, and other sensitive details live in Travel Profile, not here.</div>
+                  <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:12, fontStyle:"italic" }}>What's ready for this trip — passport numbers, KTN, and other sensitive details live in Travel Profile, not here.</div>
                   <button onClick={addDocument} style={{ background:"rgba(106,155,181,0.15)", border:"1px solid rgba(106,155,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#6A9BB5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12 }}>+ Add document</button>
                   {documentsList().length === 0 && (
-                    <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No documents added yet — add passports, visas, insurance, and booking confirmations here</div>
+                    <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No documents added yet — add passports, visas, insurance, and booking confirmations here</div>
                   )}
                   {documentsList().map(function(d) {
                     var expiry = documentExpiryStatus(d)
                     return (
-                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+(expiry?(expiry==="expired"?"rgba(226,75,74,0.4)":"rgba(224,147,122,0.4)"):border), borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+(expiry?(expiry==="expired"?"rgba(226,75,74,0.4)":"rgba(224,147,122,0.4)"):border), borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
                         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                           <div onClick={function(){ toggleDocument(d.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(d.confirmed?"#6A9BB5":"rgba(250,242,229,0.2)"), background:d.confirmed?"#6A9BB5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
                             {d.confirmed ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
@@ -5053,7 +5054,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                           </div>
                           <div style={{ flex:1 }}>
                             <label style={labelStyle}>Type</label>
-                            <select value={d.type||""} onChange={function(e){ updateDocument(d.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:d.type?warm:"rgba(250,248,244,0.3)"})}>
+                            <select value={d.type||""} onChange={function(e){ updateDocument(d.id,{type:e.target.value}) }} style={Object.assign({},inputStyle,{WebkitAppearance:"none",appearance:"none",color:d.type?warm:"#4a6275"})}>
                               <option value="" style={{background:navy}}>Select…</option>
                               {DOCUMENT_TYPES.map(function(t){ return <option key={t} value={t} style={{background:navy}}>{t}</option> })}
                             </select>
@@ -5092,32 +5093,32 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 var tripContacts = detailTrip.emergencyInfo || []
                 return (
                   <div>
-                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>From your Travel Profile</div>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>From your Travel Profile</div>
                     {householdContacts.length === 0 && (
-                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:14 }}>No emergency contacts on file yet — add them in Travel Profile.</div>
+                      <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:14 }}>No emergency contacts on file yet — add them in Travel Profile.</div>
                     )}
                     {householdContacts.length > 0 && (
                       <div style={{ marginBottom:14 }}>
                         {householdContacts.map(function(c) {
                           return (
-                            <div key={c.id} style={{ padding:"6px 0", borderBottom:"1px solid rgba(250,242,229,0.04)" }}>
-                              <div style={{ fontSize:13, color:warm, fontFamily:"DM Sans,sans-serif" }}>{c.name||"Unnamed"}{c.relation?" · "+c.relation:""}</div>
-                              {c.phone && <div style={{ fontSize:11, color:"rgba(250,248,244,0.4)" }}>{c.phone}</div>}
+                            <div key={c.id} style={{ padding:"6px 0", borderBottom:"1px solid rgba(26,46,61,0.06)" }}>
+                              <div style={{ fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{c.name||"Unnamed"}{c.relation?" · "+c.relation:""}</div>
+                              {c.phone && <div style={{ fontSize:11, color:"#4a6275" }}>{c.phone}</div>}
                             </div>
                           )
                         })}
                       </div>
                     )}
-                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"rgba(250,248,244,0.3)", fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:8, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                       For this trip only
                       <button onClick={addEmergencyContact} style={{ background:"rgba(200,131,74,0.12)", border:"1px solid rgba(200,131,74,0.3)", borderRadius:7, padding:"3px 10px", fontSize:11, color:"#c8834a", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, textTransform:"none", letterSpacing:"normal" }}>+ Add</button>
                     </div>
                     {tripContacts.length === 0 && (
-                      <div style={{ fontSize:12, color:"rgba(250,248,244,0.2)", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No trip-specific contacts added.</div>
+                      <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif" }}>No trip-specific contacts added.</div>
                     )}
                     {tripContacts.map(function(c) {
                       return (
-                        <div key={c.id} style={{ background:"rgba(250,242,229,0.03)", borderRadius:9, padding:"10px 12px", marginBottom:8 }}>
+                        <div key={c.id} style={{ background:"rgba(26,46,61,0.05)", borderRadius:8, padding:"10px 12px", marginBottom:8 }}>
                           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
                             <div style={{ display:"flex", gap:8 }}>
                               <div style={{ flex:2 }}>
@@ -5160,7 +5161,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 {detailTrip.destination && <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{detailTrip.destination}</div>}
               </div>
             </div>
-            <button onClick={function(){ setManageOpen(true) }} title="Customize cards" style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 10px", fontSize:14, color:"rgba(250,248,244,0.6)", cursor:"pointer", flexShrink:0 }}>⋮</button>
+            <button onClick={function(){ setManageOpen(true) }} title="Customize cards" style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 10px", fontSize:14, color:"#1a2e3d", cursor:"pointer", flexShrink:0 }}>⋮</button>
           </div>
           <div style={{ display:"flex", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
             {(detailTrip.startDate || detailTrip.endDate) && (
@@ -5192,32 +5193,32 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
           <TripCard icon="📋" title="Overview" accent={sand} defaultOpen={true}>
             <div style={{ display:"flex", flexDirection:"column", gap:12, paddingTop:10 }}>
               <div>
-                <label style={labelStyle}>Trip name</label>
-                <div style={{ fontSize:15, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.name || "Untitled trip"}</div>
+                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Trip name</label>
+                <div style={{ fontSize:15, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.name || "Untitled trip"}</div>
               </div>
               <div>
-                <label style={labelStyle}>Destination</label>
-                <div style={{ fontSize:15, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.destination || "Not set"}</div>
+                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Destination</label>
+                <div style={{ fontSize:15, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.destination || "Not set"}</div>
               </div>
               <div style={{ display:"flex", gap:24 }}>
                 <div>
-                  <label style={labelStyle}>Start date</label>
-                  <div style={{ fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.startDate ? formatTripDate(detailTrip.startDate) : "Not set"}</div>
+                  <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Start date</label>
+                  <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.startDate ? formatTripDate(detailTrip.startDate) : "Not set"}</div>
                 </div>
                 <div>
-                  <label style={labelStyle}>End date</label>
-                  <div style={{ fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.endDate ? formatTripDate(detailTrip.endDate) : "Not set"}</div>
+                  <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>End date</label>
+                  <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.endDate ? formatTripDate(detailTrip.endDate) : "Not set"}</div>
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Status</label>
+                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Status</label>
                 {detailTrip.status ? (
                   <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                     <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[detailTrip.status]||sand, display:"inline-block", flexShrink:0 }}/>
                     <span style={{ fontSize:14, color:TRIP_STATUS_COLORS[detailTrip.status]||sand, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.status}</span>
                   </div>
                 ) : (
-                  <div style={{ fontSize:14, color:warm, fontFamily:"DM Sans,sans-serif" }}>Not set</div>
+                  <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>Not set</div>
                 )}
               </div>
             </div>
@@ -5233,7 +5234,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                     file's own dark-theme tokens rather than Cove's T.* values */}
                 <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 0 8px", borderTop:"1px solid "+border, marginTop:4 }}>
                   <span style={{ flex:1, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:muted, fontFamily:"DM Sans,sans-serif" }}>{CARD_GROUP_LABELS[g]}</span>
-                  <span style={{ fontSize:10, color:"rgba(250,248,244,0.3)", background:"rgba(250,242,229,0.04)", borderRadius:999, padding:"1px 7px", border:"1px solid "+border }}>{idsInGroup.length}</span>
+                  <span style={{ fontSize:10, color:"#1a2e3d", background:"rgba(26,46,61,0.12)", borderRadius:4, padding:"1px 7px" }}>{idsInGroup.length}</span>
                 </div>
                 {/* 2-column grid — same auto-fit pattern as Health's person-card grid
                     (~6126), not a rigid 1fr 1fr, so it collapses to 1 column on mobile
@@ -5264,8 +5265,8 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 var days = Math.round((d - today0) / 86400000)
                 var when = days===0 ? "Today!" : days===1 ? "Tomorrow" : "in "+days+" days"
                 return (
-                  <div key={cd.id} style={{ display:"flex", alignItems:"center", gap:7, background:cardBg, border:"1px solid "+(cd.color||border), borderRadius:20, padding:"5px 12px", fontSize:12, color:warm, fontFamily:"DM Sans,sans-serif" }}>
-                    <span>{cd.emoji||"⭐"}</span><span style={{ fontWeight:700 }}>{cd.title}</span><span style={{ color:muted }}>{when}</span>
+                  <div key={cd.id} style={{ display:"flex", alignItems:"center", gap:7, background:cardBg, border:"1px solid "+(cd.color||border), borderRadius:4, padding:"5px 12px", fontSize:12, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
+                    <span>{cd.emoji||"⭐"}</span><span style={{ fontWeight:700 }}>{cd.title}</span><span style={{ color:"#4a6275" }}>{when}</span>
                   </div>
                 )
               })}
@@ -5297,13 +5298,13 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               })
               function renderTripCard(trip, mutedStyle) {
                 return (
-                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:12, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6, opacity: mutedStyle?0.7:1 }}>
+                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6, opacity: mutedStyle?0.7:1 }}>
                     <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
                       <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
                       <TripCountdownBadge trip={trip} />
                     </div>
-                    <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:warm, lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
-                    {trip.destination ? <div style={{ fontSize:12, color:muted }}>{trip.destination}</div> : null}
+                    <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d", lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
+                    {trip.destination ? <div style={{ fontSize:12, color:"#4a6275" }}>{trip.destination}</div> : null}
                     {(trip.startDate || trip.endDate) ? (
                       <div style={{ fontSize:11, color:muted }}>
                         {formatTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + formatTripDate(trip.endDate) : ""}
@@ -5323,9 +5324,9 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
                     {activeTrips.map(function(trip){ return renderTripCard(trip, false) })}
                     {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
-                    <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:12, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
-                      <span style={{ fontSize:20, color:"rgba(250,248,244,0.18)" }}>+</span>
-                      <span style={{ fontSize:11, color:"rgba(250,248,244,0.28)", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
+                    <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:8, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
+                      <span style={{ fontSize:20, color:"#4a6275" }}>+</span>
+                      <span style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
                     </div>
                   </div>
                   {pastTrips.length > 0 && (
