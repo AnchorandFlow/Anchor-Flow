@@ -6245,29 +6245,31 @@ function CareerSection() {
 
 // ── Health Section ────────────────────────────────────────────────────────────
 var HGOLD  = "#c8a97a"
-var HWHITE = "#faf8f4"
+var HWHITE = "#1a2e3d"
+var HSUB   = "#4a6275"
+var HMODAL_TEXT = "#faf8f4" // HModal/inputs/HPrivateLock still render on a dark surface, unlike cards
 var HNAVY  = "#243A5A"
-var HSURF  = "rgba(250,242,229,0.05)"
-var HSURF2 = "rgba(250,242,229,0.04)"
-var HBORD  = "0.5px solid rgba(250,242,229,0.1)"
-var HBORD2 = "0.5px solid rgba(250,242,229,0.08)"
+var HSURF  = "#f7f1e3"
+var HSURF2 = "#f7f1e3"
+var HBORD  = "1px solid rgba(26,46,61,0.1)"
+var HBORD2 = "1px solid rgba(26,46,61,0.08)"
 
 var HBADGE = {
-  ok:      { bg:"rgba(99,153,34,0.15)",    color:"#97C459", border:"rgba(99,153,34,0.2)"    },
-  due:     { bg:"rgba(239,159,39,0.12)",   color:"#EF9F27", border:"rgba(239,159,39,0.2)"   },
-  rx:      { bg:"rgba(55,138,221,0.12)",   color:"#85B7EB", border:"rgba(55,138,221,0.2)"   },
-  allergy: { bg:"rgba(216,90,48,0.12)",    color:"#F0997B", border:"rgba(216,90,48,0.2)"    },
-  alive:   { bg:"rgba(99,153,34,0.12)",    color:"#97C459", border:"rgba(99,153,34,0.2)"    },
-  deceased:{ bg:"rgba(136,135,128,0.12)",  color:"#4a6275", border:"rgba(136,135,128,0.2)" },
-  gray:    { bg:"rgba(250,242,229,0.06)",  color:"#4a6275", border:"rgba(250,242,229,0.1)" },
+  ok:      { bg:"rgba(26,46,61,0.12)",    color:"#2e7a46" },
+  due:     { bg:"rgba(26,46,61,0.12)",    color:"#a05c10" },
+  rx:      { bg:"rgba(55,138,221,0.12)",   color:"#85B7EB" },
+  allergy: { bg:"rgba(216,90,48,0.12)",    color:"#F0997B" },
+  alive:   { bg:"rgba(26,46,61,0.12)",    color:"#2e7a46" },
+  deceased:{ bg:"rgba(26,46,61,0.12)",  color:"#4a6275" },
+  gray:    { bg:"rgba(26,46,61,0.12)",  color:"#4a6275" },
 }
 var HPILL = {
-  heart:    { bg:"rgba(216,90,48,0.1)",    color:"#F0997B", border:"rgba(216,90,48,0.2)"    },
-  cancer:   { bg:"rgba(153,53,86,0.12)",   color:"#ED93B1", border:"rgba(153,53,86,0.2)"    },
-  diabetes: { bg:"rgba(239,159,39,0.12)",  color:"#EF9F27", border:"rgba(239,159,39,0.2)"   },
-  mental:   { bg:"rgba(127,119,221,0.12)", color:"#AFA9EC", border:"rgba(127,119,221,0.2)"  },
-  neuro:    { bg:"rgba(29,158,117,0.12)",  color:"#5DCAA5", border:"rgba(29,158,117,0.2)"   },
-  other:    { bg:"rgba(250,242,229,0.06)", color:"#1a2e3d", border:"rgba(250,242,229,0.1)" },
+  heart:    { bg:"rgba(216,90,48,0.1)",    color:"#F0997B" },
+  cancer:   { bg:"rgba(153,53,86,0.12)",   color:"#ED93B1" },
+  diabetes: { bg:"rgba(239,159,39,0.12)",  color:"#EF9F27" },
+  mental:   { bg:"rgba(127,119,221,0.12)", color:"#AFA9EC" },
+  neuro:    { bg:"rgba(29,158,117,0.12)",  color:"#5DCAA5" },
+  other:    { bg:"rgba(26,46,61,0.12)", color:"#1a2e3d" },
 }
 var H_TABS = [
   { id:"history",   label:"Medical history" },
@@ -6332,24 +6334,24 @@ function HPrivateLock(props) {
       hHashPin(raw).then(function(hash){ hSetPrivatePinRaw(hash); setMigTick(function(n){return n+1;}); });
     }
   },[]); // eslint-disable-line
-  var inputStyle={width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:18,letterSpacing:"0.4em",textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
+  var inputStyle={width:"100%",background:"rgba(26,46,61,0.05)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:18,letterSpacing:"0.4em",textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"};
   if(unlocked) return React.createElement(React.Fragment,null,
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:"0.6rem"}},
       React.createElement("span",{style:{fontSize:11,color:HGOLD,opacity:0.7}},"🔒 Private"),
-      React.createElement("button",{onClick:function(){setUnlocked(false);setEntered("");},style:{fontSize:11,color:"rgba(250,248,244,0.35)",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}},"Lock")
+      React.createElement("button",{onClick:function(){setUnlocked(false);setEntered("");},style:{fontSize:11,color:"#4a6275",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}},"Lock")
     ),
     props.children
   );
   if(!storedPin||setting) return React.createElement("div",{style:{textAlign:"center",padding:"1.5rem 0.5rem"}},
     React.createElement("div",{style:{fontSize:28,marginBottom:8}},"🔒"),
     React.createElement("div",{style:{fontSize:14,color:HWHITE,fontWeight:500,marginBottom:4}},"Set a PIN for private notes"),
-    React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",marginBottom:16,lineHeight:1.5}})  ,
+    React.createElement("div",{style:{fontSize:12,color:"#4a6275",marginBottom:16,lineHeight:1.5}})  ,
     React.createElement("div",{style:{marginBottom:10}},
-      React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Choose a PIN"),
+      React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Choose a PIN"),
       React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,value:entered,onChange:function(e){setEntered(e.target.value);setErr(null);},style:inputStyle})
     ),
     React.createElement("div",{style:{marginBottom:14}},
-      React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Confirm PIN"),
+      React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Confirm PIN"),
       React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,value:confirm,onChange:function(e){setConfirm(e.target.value);setErr(null);},style:inputStyle})
     ),
     err&&React.createElement("p",{style:{fontSize:12,color:"#f0997b",marginBottom:8}},err),
@@ -6362,9 +6364,9 @@ function HPrivateLock(props) {
   return React.createElement("div",{style:{textAlign:"center",padding:"1.5rem 0.5rem"}},
     React.createElement("div",{style:{fontSize:28,marginBottom:8}},"🔒"),
     React.createElement("div",{style:{fontSize:14,color:HWHITE,fontWeight:500,marginBottom:4}},"Private — my eyes only"),
-    React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",marginBottom:16,lineHeight:1.5}})  ,
+    React.createElement("div",{style:{fontSize:12,color:"#4a6275",marginBottom:16,lineHeight:1.5}})  ,
     React.createElement("div",{style:{marginBottom:14}},
-      React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Enter PIN"),
+      React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Enter PIN"),
       React.createElement("input",{type:"password",inputMode:"numeric",maxLength:8,autoFocus:true,value:entered,onKeyDown:async function(e){if(e.key==="Enter"){var h=await hHashPin(entered);if(h===storedPin){setUnlocked(true);setEntered("");setErr(null);}else{setErr("Incorrect PIN — try again.");}}},onChange:function(e){setEntered(e.target.value);setErr(null);},style:inputStyle})
     ),
     err&&React.createElement("p",{style:{fontSize:12,color:"#f0997b",marginBottom:8}},err),
@@ -6374,7 +6376,7 @@ function HPrivateLock(props) {
         if(h===storedPin){setUnlocked(true);setEntered("");setErr(null);}
         else{setErr("Incorrect PIN — try again.");}
       },style:{flex:1,background:HGOLD,color:HNAVY,border:"none",borderRadius:8,padding:"0.6rem",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}},"Unlock"),
-      React.createElement("button",{onClick:function(){setSetting(true);setEntered("");setConfirm("");setErr(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.6rem 0.9rem",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:12,fontFamily:"inherit"}},"Reset PIN")
+      React.createElement("button",{onClick:function(){setSetting(true);setEntered("");setConfirm("");setErr(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.6rem 0.9rem",color:"#4a6275",cursor:"pointer",fontSize:12,fontFamily:"inherit"}},"Reset PIN")
     )
   );
 }
@@ -6385,28 +6387,28 @@ function hLoadPeople() {
 function hSavePeople(list) { try { localStorage.setItem("af_people", JSON.stringify(list)); afVaultChanged("people"); } catch(e){} }
 var PERSON_COLORS = ["#6A9BB5","#c8a97a","#7a9e8e","#a07ab5","#d98a6e","#6ab5a0","#b5856a","#8e8eb5"]
 
-function HBadge(props) { var b=HBADGE[props.type]||HBADGE.gray; return React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:12,whiteSpace:"nowrap",background:b.bg,color:b.color,border:"0.5px solid "+b.border}},props.label); }
-function HCondPill(props) { var p=HPILL[props.type]||HPILL.other; return React.createElement("span",{style:{fontSize:11,padding:"2px 9px",borderRadius:12,background:p.bg,color:p.color,border:"0.5px solid "+p.border}},props.label); }
-function HCard(props) { return React.createElement("div",{style:Object.assign({background:HSURF,border:HBORD,borderRadius:10,padding:"0.9rem 1.1rem"},props.style||{})},props.children); }
+function HBadge(props) { var b=HBADGE[props.type]||HBADGE.gray; return React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",background:b.bg,color:b.color}},props.label); }
+function HCondPill(props) { var p=HPILL[props.type]||HPILL.other; return React.createElement("span",{style:{fontSize:11,padding:"2px 9px",borderRadius:4,background:p.bg,color:p.color}},props.label); }
+function HCard(props) { return React.createElement("div",{style:Object.assign({background:HSURF,border:HBORD,borderRadius:8,padding:"0.9rem 1.1rem"},props.style||{})},props.children); }
 function HCardHead(props) {
   return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}},
-    React.createElement("span",{style:{fontSize:13,fontWeight:500,color:"rgba(250,248,244,0.7)",display:"flex",alignItems:"center",gap:6}},React.createElement("span",{style:{fontSize:15,color:HGOLD}},props.icon),props.label),
+    React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE,display:"flex",alignItems:"center",gap:8}},React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon),props.label),
     props.onAdd&&React.createElement("button",{onClick:props.onAdd,style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:6,padding:"3px 10px",cursor:"pointer"}},"+ Add")
   );
 }
 function HItemRow(props) {
   return React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",padding:"0.45rem 0",borderBottom:HBORD2,gap:8}},
-    React.createElement("div",{style:{flex:1}},React.createElement("p",{style:{fontSize:13,color:HWHITE,fontWeight:500,margin:"0 0 2px"}},props.name),props.detail&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",margin:0}},props.detail)),
+    React.createElement("div",{style:{flex:1}},React.createElement("p",{style:{fontSize:13,color:HWHITE,fontWeight:500,margin:"0 0 2px"}},props.name),props.detail&&React.createElement("p",{style:{fontSize:12,color:HSUB,margin:0}},props.detail)),
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
       props.badge&&React.createElement(HBadge,{type:props.badge,label:props.badgeLabel}),
       props.onEdit&&React.createElement("button",{onClick:props.onEdit,style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
-      props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕"))
+      props.onDelete&&React.createElement("button",{onClick:props.onDelete,style:{background:"none",border:"none",color:HSUB,cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1}},"✕"))
   );
 }
 function HModal(props) {
   return React.createElement("div",{style:{position:"fixed",top:0,left:68,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:"env(safe-area-inset-top,1rem) 1rem env(safe-area-inset-bottom,1rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:props.onClose},
-    React.createElement("div",{style:{background:"#2E486B",border:HBORD,borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
-      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HWHITE,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
+    React.createElement("div",{style:{background:"#2E486B",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:14,padding:"1.25rem 1.5rem",width:"min(480px,calc(100vw - 68px - 2rem))",maxHeight:"calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 2rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"},onClick:function(e){e.stopPropagation();}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}},React.createElement("span",{style:{color:HMODAL_TEXT,fontSize:15,fontWeight:500}},props.title),React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children
     )
   );
@@ -6414,19 +6416,19 @@ function HModal(props) {
 function HInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
+    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.55rem 0.75rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
   );
 }
 function HTextarea(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})
+    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.55rem 0.75rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})
   );
 }
 function HSelect(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:HBORD,borderRadius:8,padding:"0.55rem 0.75rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
+    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.55rem 0.75rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
       props.options.map(function(o){return React.createElement("option",{key:o.value,value:o.value},o.label);})    )
   );
 }
@@ -6458,7 +6460,7 @@ function HTimePicker(props) {
   }
   var p=parse(value);
 
-  var selStyle={background:"rgba(30,46,82,0.95)",border:HBORD,borderRadius:7,padding:"0.48rem 0.4rem",color:HWHITE,fontSize:13,fontFamily:"inherit",outline:"none",cursor:"pointer"};
+  var selStyle={background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:7,padding:"0.48rem 0.4rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",cursor:"pointer"};
 
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},label),
@@ -6501,7 +6503,7 @@ function HHistoryTab(props) {
   function remove(id){var next=Object.assign({},health);next[pid].history=next[pid].history.filter(function(x){return x.id!==id;});setHealth(next);}
   return React.createElement(React.Fragment,null,
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"🩺",label:"Conditions & diagnoses",onAdd:function(){setForm({name:"",detail:"",status:"Stable"});setEditId(null);setOpen(true);}}),
-      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No conditions added yet"),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No conditions added yet"),
       items.map(function(it){var badge=it.status==="Improving"?"ok":it.status==="Worsening"?"allergy":it.status==="Resolved"?"alive":it.status==="Monitoring"?"due":"gray";return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.detail,badge:badge,badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
     open&&React.createElement(HModal,{title:editId?"Edit condition":"Add condition / diagnosis",onClose:function(){setOpen(false);setEditId(null);}},
       React.createElement(HInput,{label:"Condition name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Asthma"}),
@@ -6561,7 +6563,7 @@ function HImmunizeTab(props) {
   return React.createElement(React.Fragment,null,
     toast&&React.createElement("div",{style:{background:"rgba(106,155,181,0.2)",border:"0.5px solid rgba(106,155,181,0.4)",borderRadius:8,padding:"0.5rem 0.9rem",fontSize:12,color:"#6A9BB5",marginBottom:"0.75rem",textAlign:"center"}},"📅 "+toast),
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💉",label:"Immunizations",onAdd:function(){setForm({name:"",date:"",nextDue:"",status:"Up to date",addReminder:false});setEditId(null);setOpen(true);}}),
-      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No immunizations added yet"),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No immunizations added yet"),
       items.map(function(it){
         var badge=it.status==="Up to date"?"ok":it.status==="Overdue"?"allergy":"due";
         var detail=[it.date,it.nextDue?"Next: "+it.nextDue:""].filter(Boolean).join(" · ");
@@ -6606,24 +6608,24 @@ function HMedsTab(props) {
     var safe=safeUrl(c);
     if(safe) return React.createElement("a",{href:safe,target:"_blank",rel:"noreferrer",style:{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:3}},"🔗 Order");
     if(isPhone) return React.createElement("a",{href:"tel:"+c.replace(/\s/g,""),style:{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:3}},"📞 "+c);
-    return React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:3}},c);
+    return React.createElement("span",{style:{fontSize:11,color:"#4a6275",marginTop:3}},c);
   }
 
   return React.createElement(React.Fragment,null,
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💊",label:"Medications",onAdd:function(){setForm({name:"",dose:"",frequency:"",type:"Rx",contact:""});setEditId(null);setOpen(true);}}),
-      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No medications added yet"),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No medications added yet"),
       items.map(function(it){
-        return React.createElement("div",{key:it.id,style:{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0",borderBottom:"0.5px solid rgba(250,242,229,0.07)"}},
+        return React.createElement("div",{key:it.id,style:{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0",borderBottom:"0.5px solid rgba(26,46,61,0.06)"}},
           React.createElement("div",{style:{flex:1}},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
               React.createElement("span",{style:{fontSize:13,fontWeight:600,color:HWHITE}}),it.name,
-              React.createElement("span",{style:{fontSize:10,padding:"1px 7px",borderRadius:10,background:"rgba(55,138,221,0.12)",color:"#85B7EB",border:"0.5px solid rgba(55,138,221,0.2)"}}),it.type
+              React.createElement("span",{style:{fontSize:10,padding:"1px 7px",borderRadius:4,background:"rgba(55,138,221,0.12)",color:"#85B7EB"}}),it.type
             ),
-            React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginTop:2}}),[it.dose,it.frequency].filter(Boolean).join(" · "),
+            React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}}),[it.dose,it.frequency].filter(Boolean).join(" · "),
             it.contact&&React.createElement(ContactLink,{contact:it.contact})
           ),
           React.createElement("button",{onClick:function(){startEdit(it);},style:{background:"none",border:"none",fontSize:12,color:"rgba(200,169,122,0.4)",cursor:"pointer",padding:"2px 4px",flexShrink:0}},"✏️"),
-          React.createElement("button",{onClick:function(){remove(it.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.2)",cursor:"pointer",fontSize:13,padding:"0 2px",flexShrink:0}},"✕")
+          React.createElement("button",{onClick:function(){remove(it.id);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:13,padding:"0 2px",flexShrink:0}},"✕")
         );
       })),
     open&&React.createElement(HModal,{title:editId?"Edit medication":"Add medication",onClose:function(){setOpen(false);setEditId(null);}},
@@ -6657,7 +6659,7 @@ function HAllergiesTab(props) {
   function remove(id){var next=Object.assign({},health);next[pid].allergies=next[pid].allergies.filter(function(x){return x.id!==id;});setHealth(next);}
   return React.createElement(React.Fragment,null,
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"⚠️",label:"Allergies",onAdd:function(){setForm({name:"",type:"Drug",severity:"Moderate"});setEditId(null);setOpen(true);}}),
-      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No allergies added yet"),
+      items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No allergies added yet"),
       items.map(function(it){return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.type,badge:"allergy",badgeLabel:it.severity,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
     open&&React.createElement(HModal,{title:editId?"Edit allergy":"Add allergy",onClose:function(){setOpen(false);setEditId(null);}},
       React.createElement(HInput,{label:"Allergen",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Penicillin"}),
@@ -6700,20 +6702,20 @@ function HFamilyTab(props) {
     return React.createElement("div",{style:{background:rel._inherited?"rgba(200,169,122,0.04)":HSURF2,border:rel._inherited?"0.5px solid rgba(200,169,122,0.15)":HBORD2,borderRadius:8,padding:"0.7rem 0.9rem",marginBottom:"0.5rem"}},
       rel._inherited&&React.createElement("div",{style:{fontSize:10,color:"rgba(200,169,122,0.5)",marginBottom:4,letterSpacing:"0.05em",textTransform:"uppercase"}},"Inherited from "+rel._sourceName),
       React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.45rem"}},
-        React.createElement("div",null,React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},rel.role+(rel.name?" — "+rel.name:"")),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.35)",margin:0}},rel.years)),
+        React.createElement("div",null,React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},rel.role+(rel.name?" — "+rel.name:"")),React.createElement("p",{style:{fontSize:11,color:"#4a6275",margin:0}},rel.years)),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
           React.createElement(HBadge,{type:rel.living==="Living"?"alive":"deceased",label:rel.living}),
-          !rel._inherited&&React.createElement("button",{onClick:function(){remove(rel.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
+          !rel._inherited&&React.createElement("button",{onClick:function(){remove(rel.id);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
         )
       ),
       rel.conditions&&rel.conditions.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:rel.note?"0.4rem":0}},rel.conditions.map(function(c,i){return React.createElement(HCondPill,{key:i,type:c.type,label:c.label});})),
-      rel.note&&React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.3)",margin:"0.35rem 0 0",fontStyle:"italic"}},rel.note)
+      rel.note&&React.createElement("p",{style:{fontSize:11,color:"#4a6275",margin:"0.35rem 0 0",fontStyle:"italic"}},rel.note)
     );
   }
-  function SideCard(sp){return React.createElement(HCard,null,React.createElement(HCardHead,{icon:sp.icon,label:sp.title,onAdd:function(){setOpen(true);}}),sp.rels.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0"}},"None added yet"),sp.rels.map(function(r){return React.createElement(RelCard,{key:r.id+(r._inherited?"_i":""),rel:r});}));}
+  function SideCard(sp){return React.createElement(HCard,null,React.createElement(HCardHead,{icon:sp.icon,label:sp.title,onAdd:function(){setOpen(true);}}),sp.rels.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.5rem 0"}},"None added yet"),sp.rels.map(function(r){return React.createElement(RelCard,{key:r.id+(r._inherited?"_i":""),rel:r});}));}
   return React.createElement(React.Fragment,null,
     maternalSource&&React.createElement("div",{style:{background:"rgba(200,169,122,0.06)",border:"0.5px solid rgba(200,169,122,0.2)",borderRadius:8,padding:"0.55rem 0.85rem",fontSize:12,color:"rgba(200,169,122,0.7)",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:6}},"🔗 Maternal side inherited from ",React.createElement("strong",null,maternalSource.name)," · updates automatically"),
-    (relatives.length>0||inheritedMaternalEntries.length>0)&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.65)",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(250,242,229,0.07)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.25)",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
+    (relatives.length>0||inheritedMaternalEntries.length>0)&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"#1a2e3d",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(26,46,61,0.08)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"#4a6275",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
     React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.9rem"}},React.createElement(SideCard,{title:"Maternal side",icon:"👩",rels:maternalAll}),React.createElement(SideCard,{title:"Paternal side",icon:"👨",rels:paternal})),
     other.length>0&&React.createElement(HCard,{style:{marginTop:"0.9rem"}},React.createElement(HCardHead,{icon:"👤",label:"Other relatives"}),other.map(function(r){return React.createElement(RelCard,{key:r.id,rel:r});})),
     open&&React.createElement(HModal,{title:"Add family member",onClose:function(){setOpen(false);}},
@@ -6722,11 +6724,11 @@ function HFamilyTab(props) {
       React.createElement(HInput,{label:"Birth / death years",value:form.years,onChange:function(v){setForm(function(f){return Object.assign({},f,{years:v});});},placeholder:"e.g. b.1935 · d.2019"}),
       React.createElement(HSelect,{label:"Status",value:form.living,onChange:function(v){setForm(function(f){return Object.assign({},f,{living:v});});},options:LIVE_OPTS}),
       React.createElement("div",{style:{marginBottom:"0.75rem"}},
-        React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Conditions"),
-        React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}},form.conditions.map(function(c,i){var p=HPILL[c.type]||HPILL.other;return React.createElement("span",{key:i,onClick:function(){removeCond(i);},style:{fontSize:11,padding:"2px 8px",borderRadius:12,cursor:"pointer",background:p.bg,color:p.color,border:"0.5px solid "+p.border}},c.label+" ✕");})),
+        React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Conditions"),
+        React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}},form.conditions.map(function(c,i){var p=HPILL[c.type]||HPILL.other;return React.createElement("span",{key:i,onClick:function(){removeCond(i);},style:{fontSize:11,padding:"2px 8px",borderRadius:4,cursor:"pointer",background:(c.type==="other"||!HPILL[c.type])?"rgba(250,242,229,0.1)":p.bg,color:(c.type==="other"||!HPILL[c.type])?"rgba(250,248,244,0.7)":p.color}},c.label+" ✕");})),
         React.createElement("div",{style:{display:"flex",gap:6}},
-          React.createElement("select",{value:condIn.type,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{type:e.target.value});});},style:{background:"rgba(30,46,82,0.95)",border:HBORD,borderRadius:8,padding:"0.4rem 0.5rem",color:HWHITE,fontSize:12,fontFamily:"inherit",outline:"none",flexShrink:0}},H_COND_TYPES.map(function(c){return React.createElement("option",{key:c.id,value:c.id},c.label);})),
-          React.createElement("input",{value:condIn.label,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{label:e.target.value});});},placeholder:"Condition name",style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.6rem",color:HWHITE,fontSize:12,fontFamily:"inherit",outline:"none"}}),
+          React.createElement("select",{value:condIn.type,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{type:e.target.value});});},style:{background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.4rem 0.5rem",color:HMODAL_TEXT,fontSize:12,fontFamily:"inherit",outline:"none",flexShrink:0}},H_COND_TYPES.map(function(c){return React.createElement("option",{key:c.id,value:c.id},c.label);})),
+          React.createElement("input",{value:condIn.label,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{label:e.target.value});});},placeholder:"Condition name",style:{flex:1,background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.4rem 0.6rem",color:HMODAL_TEXT,fontSize:12,fontFamily:"inherit",outline:"none"}}),
           React.createElement("button",{onClick:addCond,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.7rem",color:HGOLD,cursor:"pointer",fontSize:12}},"+ Add")
         )
       ),
@@ -6818,30 +6820,30 @@ function HNotesTab(props) {
             React.createElement(HTextarea,{value:genDraft,onChange:setGenDraft,rows:4,placeholder:"Insurance info, provider preferences, sensitive notes…"}),
             React.createElement("div",{style:{display:"flex",gap:8}},
               React.createElement(HSaveBtn,{onClick:saveGen,label:"Save"}),
-              React.createElement("button",{onClick:function(){setEditGen(false);},style:{flex:1,background:"transparent",border:HBORD,borderRadius:8,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontSize:13,fontFamily:"inherit"}},"Cancel")))
+              React.createElement("button",{onClick:function(){setEditGen(false);},style:{flex:1,background:"transparent",border:HBORD,borderRadius:8,color:"#1a2e3d",cursor:"pointer",fontSize:13,fontFamily:"inherit"}},"Cancel")))
           :general
-            ?React.createElement("p",{style:{fontSize:13,color:"rgba(250,248,244,0.6)",lineHeight:1.7,margin:0,cursor:"pointer"},onClick:function(){setGenDraft(general);setEditGen(true);}},general)
-            :React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.5rem 0",cursor:"pointer"},onClick:function(){setGenDraft("");setEditGen(true);}},"Tap to add private standing notes…")
+            ?React.createElement("p",{style:{fontSize:13,color:"#1a2e3d",lineHeight:1.7,margin:0,cursor:"pointer"},onClick:function(){setGenDraft(general);setEditGen(true);}},general)
+            :React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.5rem 0",cursor:"pointer"},onClick:function(){setGenDraft("");setEditGen(true);}},"Tap to add private standing notes…")
       )
     ),
     // Appointment notes
     React.createElement(HCard,null,
       React.createElement(HCardHead,{icon:"🗒️",label:"Appointment notes",onAdd:function(){setForm({title:"",date:"",provider:"",location:"",body:"",tags:"",addToCalendar:false});setEditId(null);setOpen(true);}}),
-      notes.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No appointment notes yet"),
+      notes.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No appointment notes yet"),
       notes.map(function(n){
         return React.createElement("div",{key:n.id,style:{background:HSURF2,border:HBORD2,borderRadius:8,padding:"0.75rem 0.9rem",marginBottom:"0.5rem"}},
           React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"0.35rem"}},
             React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE}},n.title),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-              React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}},n.date),
+              React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},n.date),
               React.createElement("button",{onClick:function(){startEdit(n);},style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
               React.createElement("button",{onClick:function(){injectCalendar(n);},title:"Add to calendar",style:{background:"rgba(106,155,181,0.1)",border:"0.5px solid rgba(106,155,181,0.25)",borderRadius:5,color:"#6A9BB5",cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"📅"),
-              React.createElement("button",{onClick:function(){removeNote(n.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
+              React.createElement("button",{onClick:function(){removeNote(n.id);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
             )
           ),
           (n.provider||n.location)&&React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 0.4rem"}},"🏥 "+[n.provider,n.location].filter(Boolean).join(" · ")),
-          n.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.55)",lineHeight:1.65,margin:"0 0 0.45rem"}},n.body),
-          n.tags&&n.tags.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},n.tags.map(function(t,i){return React.createElement("span",{key:i,style:{fontSize:11,padding:"2px 8px",borderRadius:12,background:"rgba(250,242,229,0.05)",color:"rgba(250,248,244,0.4)",border:HBORD2}},t);}))
+          n.body&&React.createElement("p",{style:{fontSize:12,color:"#1a2e3d",lineHeight:1.65,margin:"0 0 0.45rem"}},n.body),
+          n.tags&&n.tags.length>0&&React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5}},n.tags.map(function(t,i){return React.createElement("span",{key:i,style:{fontSize:11,padding:"2px 8px",borderRadius:4,background:"rgba(26,46,61,0.1)",color:"#4a6275"}},t);}))
         );
       })
     ),
@@ -6877,44 +6879,44 @@ function HPersonCard(props) {
   var firstDue=immunizations.find(function(v){return v.status==="overdue";}) || immunizations.find(function(v){return v.status==="due";});
   // first allergy
   var firstAllergy=(d.allergies||[])[0];
-  var SURF="rgba(250,242,229,0.05)";
-  var SURF2="rgba(250,242,229,0.04)";
-  var BORD2="0.5px solid rgba(250,242,229,0.08)";
-  return React.createElement("div",{onClick:function(){onOpen(pid);},style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}},
+  var SURF="#f7f1e3";
+  var SURF2="#f7f1e3";
+  var BORD2="1px solid rgba(26,46,61,0.08)";
+  return React.createElement("div",{onClick:function(){onOpen(pid);},style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}},
     // header
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
         React.createElement("div",{style:{width:34,height:34,borderRadius:"50%",background:p.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
         React.createElement("span",{style:{fontSize:14,fontWeight:500,color:HWHITE}},p.name)
       ),
-      React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.3)"}},">")
+      React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
     ),
     // 3 mini stats
     React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
       React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
-        React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Meds"),
+        React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Meds"),
         React.createElement("p",{style:{fontSize:17,fontWeight:500,color:HWHITE,margin:0}},meds)
       ),
       React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
-        React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Allergies"),
+        React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Allergies"),
         React.createElement("p",{style:{fontSize:17,fontWeight:500,color:HWHITE,margin:0}},allergies)
       ),
       React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
-        React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Vaccines"),
+        React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Vaccines"),
         React.createElement("p",{style:{fontSize:14,fontWeight:500,color:vaxColor,margin:0}},vaxLabel)
       )
     ),
     // preview rows
     React.createElement("div",{style:{borderTop:BORD2,paddingTop:8,display:"flex",flexDirection:"column",gap:4}},
       firstDue&&React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12}},
-        React.createElement("span",{style:{color:"rgba(250,248,244,0.6)"}},firstDue.name||"Vaccine"),
-        React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(216,90,48,0.15)",color:"#f0997b",border:"0.5px solid rgba(216,90,48,0.25)"}},firstDue.status==="overdue"?"Overdue":"Due")
+        React.createElement("span",{style:{color:"#1a2e3d"}},firstDue.name||"Vaccine"),
+        React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:4,background:"rgba(160,92,16,0.12)",color:"#a05c10"}},firstDue.status==="overdue"?"Overdue":"Due")
       ),
       firstAllergy&&React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12}},
-        React.createElement("span",{style:{color:"rgba(250,248,244,0.6)"}},firstAllergy.substance||firstAllergy.name||"Allergy"),
-        React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:10,background:"rgba(216,90,48,0.1)",color:"#f0997b",border:"0.5px solid rgba(216,90,48,0.2)"}},firstAllergy.severity||"Allergy")
+        React.createElement("span",{style:{color:"#1a2e3d"}},firstAllergy.substance||firstAllergy.name||"Allergy"),
+        React.createElement("span",{style:{fontSize:11,padding:"1px 7px",borderRadius:4,background:"rgba(216,90,48,0.1)",color:"#f0997b"}},firstAllergy.severity||"Allergy")
       ),
-      !firstDue&&!firstAllergy&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.28)",margin:0,textAlign:"center",padding:"2px 0"}},"Tap to add records")
+      !firstDue&&!firstAllergy&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",margin:0,textAlign:"center",padding:"2px 0"}},"Tap to add records")
     )
   );
 }
@@ -6983,12 +6985,12 @@ function HAppointmentsTab(props) {
         React.createElement("div",{style:{flex:1}},
           React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 2px"}},a.title),
           React.createElement("p",{style:{fontSize:11,color:HGOLD,margin:"0 0 2px"}},[a.date,a.time].filter(Boolean).join(" · ")+(a.provider?" · "+a.provider:"")),
-          a.body&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",margin:0,lineHeight:1.5}},a.body)
+          a.body&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",margin:0,lineHeight:1.5}},a.body)
         ),
         React.createElement("div",{style:{display:"flex",gap:5,flexShrink:0,marginLeft:6}},
           !isPast&&React.createElement("button",{onClick:function(){injectCal(a);setToast("Added to calendar!");setTimeout(function(){setToast(null);},2500);},title:"Push to calendar",style:{background:"rgba(106,155,181,0.1)",border:"0.5px solid rgba(106,155,181,0.25)",borderRadius:5,color:"#6A9BB5",cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"📅"),
           React.createElement("button",{onClick:function(){startEdit(a);},style:{background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:5,color:HGOLD,cursor:"pointer",fontSize:11,padding:"2px 7px",lineHeight:1.4,fontFamily:"inherit"}},"Edit"),
-          React.createElement("button",{onClick:function(){remove(a.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
+          React.createElement("button",{onClick:function(){remove(a.id);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:14,padding:"0 2px"}},"✕")
         )
       )
     );
@@ -6999,7 +7001,7 @@ function HAppointmentsTab(props) {
     toast&&React.createElement("div",{style:{background:"rgba(106,155,181,0.2)",border:"0.5px solid rgba(106,155,181,0.4)",borderRadius:8,padding:"0.5rem 0.9rem",fontSize:12,color:"#6A9BB5",marginBottom:"0.75rem",textAlign:"center"}},"📅 "+toast),
     React.createElement(HCard,null,
       React.createElement(HCardHead,{icon:"📅",label:"Upcoming appointments",onAdd:function(){setForm({title:"",date:"",time:"",provider:"",location:"",body:"",addToCalendar:true});setEditId(null);setOpen(true);}}),
-      upcoming.length===0&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",textAlign:"center",padding:"0.75rem 0"}},"No upcoming appointments"),
+      upcoming.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No upcoming appointments"),
       upcoming.map(function(a){return React.createElement(ApptRow,{key:a.id,appt:a});})
     ),
     past.length>0&&React.createElement(HCard,{style:{marginTop:"0.9rem"}},
@@ -7051,19 +7053,19 @@ function HealthSection() {
     return React.createElement("div",null,
       // header
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"Health"),
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HMODAL_TEXT}},"Health"),
         React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
       ),
-      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
       // Responsive person card grid — single column on phones (was fixed 2-col and cut off on mobile)
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))",gap:12}},
         people.map(function(p){
           return React.createElement(HPersonCard,{key:p.id,person:p,health:health,onOpen:function(pid){setDetail({pid:pid,tab:"history"});}});
         }),
         // add card
-        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.15)",borderRadius:12,minHeight:140,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer"}},
-          React.createElement("span",{style:{fontSize:22,color:"rgba(250,248,244,0.2)"}},"+"),
-          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontFamily:"DM Sans,sans-serif"}},"Add person")
+        React.createElement("div",{onClick:function(){setAddingPerson(true);},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.15)",borderRadius:8,minHeight:140,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer"}},
+          React.createElement("span",{style:{fontSize:22,color:"rgba(250,248,244,0.4)"}},"+"),
+          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}},"Add person")
         )
       ),
       addingPerson&&React.createElement(HModal,{title:"Add person",onClose:function(){setAddingPerson(false);setNewPersonName("");}},
@@ -7082,29 +7084,29 @@ function HealthSection() {
   return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
     // back + person header
     React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14}},
-      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
+      React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 All"),
       React.createElement("div",{style:{width:28,height:28,borderRadius:"50%",background:person.color||HGOLD,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:HNAVY,flexShrink:0}},initials),
-      React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},person.name),
+      React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HMODAL_TEXT,flex:1}},person.name),
       // maternal link pill — show on non-"You" people when the first person exists
       people.length>1&&people.indexOf(person)>0&&React.createElement("div",{style:{position:"relative"}},
-        React.createElement("button",{onClick:function(){setDetail(function(d){return Object.assign({},d,{showLink:!d.showLink});});},title:"Link family history",style:{fontSize:11,color:"rgba(250,248,244,0.4)",background:"rgba(250,242,229,0.06)",border:HBORD,borderRadius:7,padding:"4px 9px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Hx link"),
-        detail.showLink&&React.createElement("div",{style:{position:"absolute",right:0,top:"calc(100% + 4px)",background:"#2E486B",border:HBORD,borderRadius:10,padding:"0.75rem",zIndex:99,minWidth:220,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
-          React.createElement("p",{style:{fontSize:12,color:HWHITE,fontWeight:500,marginBottom:4}},"Inherit family history from:"),
+        React.createElement("button",{onClick:function(){setDetail(function(d){return Object.assign({},d,{showLink:!d.showLink});});},title:"Link family history",style:{fontSize:11,color:"rgba(250,248,244,0.4)",background:"rgba(250,242,229,0.06)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"🔗 Hx link"),
+        detail.showLink&&React.createElement("div",{style:{position:"absolute",right:0,top:"calc(100% + 4px)",background:"#2E486B",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:10,padding:"0.75rem",zIndex:99,minWidth:220,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
+          React.createElement("p",{style:{fontSize:12,color:HMODAL_TEXT,fontWeight:500,marginBottom:4}},"Inherit family history from:"),
           React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",marginBottom:10,lineHeight:1.5}},"Their history becomes this person's maternal side. Updates automatically."),
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
-            React.createElement("button",{onClick:function(){var next=Object.assign({},health);if(!next[person.id])next[person.id]={};next[person.id].maternalSourceId=null;setHealth(next);setDetail(function(d){return Object.assign({},d,{showLink:false});});},style:{fontSize:11,padding:"5px 10px",borderRadius:6,background:(!health[person.id]||!health[person.id].maternalSourceId)?"rgba(200,169,122,0.15)":"transparent",border:HBORD,color:HGOLD,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}},"None (use own entries)"),
+            React.createElement("button",{onClick:function(){var next=Object.assign({},health);if(!next[person.id])next[person.id]={};next[person.id].maternalSourceId=null;setHealth(next);setDetail(function(d){return Object.assign({},d,{showLink:false});});},style:{fontSize:11,padding:"5px 10px",borderRadius:6,background:(!health[person.id]||!health[person.id].maternalSourceId)?"rgba(200,169,122,0.15)":"transparent",border:"0.5px solid rgba(250,242,229,0.1)",color:HGOLD,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}},"None (use own entries)"),
             people.filter(function(p){return p.id!==person.id;}).map(function(p){
               var isLinked=health[person.id]&&health[person.id].maternalSourceId===p.id;
-              return React.createElement("button",{key:p.id,onClick:function(){var next=Object.assign({},health);if(!next[person.id])next[person.id]={};next[person.id].maternalSourceId=p.id;setHealth(next);setDetail(function(d){return Object.assign({},d,{showLink:false});});},style:{fontSize:11,padding:"5px 10px",borderRadius:6,background:isLinked?"rgba(200,169,122,0.15)":"transparent",border:HBORD,color:isLinked?HGOLD:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}},p.name+(isLinked?" ✓":""));
+              return React.createElement("button",{key:p.id,onClick:function(){var next=Object.assign({},health);if(!next[person.id])next[person.id]={};next[person.id].maternalSourceId=p.id;setHealth(next);setDetail(function(d){return Object.assign({},d,{showLink:false});});},style:{fontSize:11,padding:"5px 10px",borderRadius:6,background:isLinked?"rgba(200,169,122,0.15)":"transparent",border:"0.5px solid rgba(250,242,229,0.1)",color:isLinked?HGOLD:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}},p.name+(isLinked?" ✓":""));
             })
           )
         )
       ),
-      people.indexOf(person)>0&&React.createElement("button",{onClick:function(){removePerson(person.id);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.25)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
+      people.indexOf(person)>0&&React.createElement("button",{onClick:function(){removePerson(person.id);},style:{background:"none",border:"none",fontSize:12,color:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Remove")
     ),
     // subtabs
     React.createElement("div",{style:{display:"flex",borderBottom:"0.5px solid rgba(250,242,229,0.08)",background:"rgba(0,0,0,0.15)",overflowX:"auto",flexShrink:0,marginBottom:0}},
-      H_TABS.map(function(t){return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?HWHITE:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label);})
+      H_TABS.map(function(t){return React.createElement("button",{key:t.id,onClick:function(){setDetail(function(d){return Object.assign({},d,{tab:t.id});});},style:{padding:"0.55rem 0.85rem",fontSize:12,background:"none",border:"none",borderBottom:t.id===detail.tab?"2px solid rgba(250,248,244,0.5)":"2px solid transparent",color:t.id===detail.tab?HMODAL_TEXT:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}},t.label);})
     ),
     React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"1rem 0",display:"flex",flexDirection:"column",gap:"0.9rem"}},
       detail.tab==="history"   &&React.createElement(HHistoryTab,  tp),
