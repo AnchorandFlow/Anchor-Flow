@@ -254,8 +254,16 @@ export default function SunsetClose(props) {
 
   return (
     <div onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: PAGE_GRADIENT, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto" }}>
+      {/* Fixed to the viewport (not the scrolling content below) so it stays reachable
+          on mobile no matter how far the accordion content scrolls. */}
+      <button onClick={props.onClose} aria-label="Close" style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))", zIndex: 201, background: "rgba(15,10,30,0.55)", border: CARD_BORDER, width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}><CloseGlyph /></button>
+
       <div onClick={function (e) { e.stopPropagation(); }} style={{ maxWidth: 460, width: "92%", margin: "20px auto 40px", position: "relative" }}>
-        <button onClick={props.onClose} aria-label="Close" style={{ position: "absolute", top: -6, right: 0, zIndex: 2, background: "rgba(15,10,30,0.32)", border: CARD_BORDER, width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}><CloseGlyph /></button>
+        <div style={{ marginBottom: 16, paddingRight: 40 }}>
+          {sectionLabel("Sunset")}
+          <div style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: TEXT_PRIMARY }}>Good evening, {firstName}.</div>
+          <div style={{ fontSize: ".82rem", color: TEXT_SECONDARY, fontFamily: SANS, marginTop: 4 }}>Let's close today with intention.</div>
+        </div>
 
         <AccordionCard label="Reflect" title="How did today feel?" open={openSections.reflect} onToggle={function () { toggleSection("reflect"); }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
