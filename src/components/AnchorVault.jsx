@@ -623,17 +623,17 @@ function InventorySection({ onAddToShopping }) {
 
           {/* ── Add form ── */}
           {addingFav ? (
-            <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: "14px", marginBottom: 14 }}>
+            <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px", marginBottom: 14 }}>
 
               {/* Photo upload */}
               <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
                 <div
                   onClick={function() { favPhotoRef.current && favPhotoRef.current.click() }}
-                  style={{ width: 72, height: 72, borderRadius: 10, border: "1.5px dashed rgba(200,169,122,0.35)", background: favForm.photo ? "transparent" : "rgba(250,242,229,0.03)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, overflow: "hidden", position: "relative" }}
+                  style={{ width: 72, height: 72, borderRadius: 10, border: "1.5px dashed rgba(200,169,122,0.35)", background: favForm.photo ? "transparent" : "rgba(26,46,61,0.04)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, overflow: "hidden", position: "relative" }}
                 >
                   {favForm.photo
                     ? <img src={favForm.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <div style={{ textAlign: "center" }}><div style={{ fontSize: 20 }}>📷</div><div style={{ fontSize: 9, color: "rgba(200,169,122,0.5)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>Add photo</div></div>
+                    : <div style={{ textAlign: "center" }}><div style={{ fontSize: 20 }}>📷</div><div style={{ fontSize: 9, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>Add photo</div></div>
                   }
                 </div>
                 <input ref={favPhotoRef} type="file" accept="image/*" onChange={handleFavPhoto} style={{ display: "none" }} />
@@ -642,11 +642,11 @@ function InventorySection({ onAddToShopping }) {
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                     {FAV_SUBCATS.filter(function(s) { return s.id !== "all" }).map(function(s) {
                       return (
-                        <button key={s.id} onClick={function() { setFavForm(function(p) { return {...p, subcat: s.id} }) }} style={{ background: favForm.subcat===s.id ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (favForm.subcat===s.id ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.08)"), borderRadius: 20, padding: "3px 9px", fontSize: 10, color: favForm.subcat===s.id ? "#c8a97a" : "rgba(250,248,244,0.45)", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: favForm.subcat===s.id ? 700 : 400 }}>{s.icon} {s.label}</button>
+                        <button key={s.id} onClick={function() { setFavForm(function(p) { return {...p, subcat: s.id} }) }} style={{ background: favForm.subcat===s.id ? "rgba(200,169,122,0.2)" : "rgba(26,46,61,0.05)", border: "1px solid " + (favForm.subcat===s.id ? "rgba(200,169,122,0.5)" : "rgba(26,46,61,0.08)"), borderRadius: 20, padding: "3px 9px", fontSize: 10, color: favForm.subcat===s.id ? "#c8a97a" : "#4a6275", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: favForm.subcat===s.id ? 700 : 400 }}>{s.icon} {s.label}</button>
                       )
                     })}
                   </div>
-                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
+                  <input value={favForm.name} onChange={function(e) { setFavForm(function(p) { return {...p, name: e.target.value} }) }} placeholder="Product name *" style={{ width: "100%", background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "7px 10px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }} />
                 </div>
               </div>
 
@@ -654,17 +654,17 @@ function InventorySection({ onAddToShopping }) {
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 10 }}>
                 {FAV_EMOJIS.map(function(e) {
                   return (
-                    <button key={e} onClick={function() { setFavForm(function(p) { return {...p, emoji: e} }) }} style={{ background: favForm.emoji===e ? "rgba(200,169,122,0.2)" : "rgba(250,242,229,0.04)", border: "1px solid " + (favForm.emoji===e ? "rgba(200,169,122,0.5)" : "rgba(250,242,229,0.08)"), borderRadius: 8, padding: "4px 7px", fontSize: 14, cursor: "pointer" }}>{e}</button>
+                    <button key={e} onClick={function() { setFavForm(function(p) { return {...p, emoji: e} }) }} style={{ background: favForm.emoji===e ? "rgba(200,169,122,0.2)" : "rgba(26,46,61,0.05)", border: "1px solid " + (favForm.emoji===e ? "rgba(200,169,122,0.5)" : "rgba(26,46,61,0.08)"), borderRadius: 8, padding: "4px 7px", fontSize: 14, cursor: "pointer" }}>{e}</button>
                   )
                 })}
               </div>
 
               <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
-                <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={favForm.brand} onChange={function(e) { setFavForm(function(p) { return {...p, brand: e.target.value} }) }} placeholder="Brand (opt)" style={{ flex: 1, background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                <input value={favForm.store} onChange={function(e) { setFavForm(function(p) { return {...p, store: e.target.value} }) }} placeholder="Where to buy (opt)" style={{ flex: 1, background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 10px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
               </div>
-              <input value={favForm.notes} onChange={function(e) { setFavForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (opt)" style={{ width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
-              <input value={favForm.url||""} onChange={function(e) { setFavForm(function(p) { return {...p, url: e.target.value} }) }} placeholder="Link / URL (opt) — e.g. amazon.com/…" style={{ width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <input value={favForm.notes} onChange={function(e) { setFavForm(function(p) { return {...p, notes: e.target.value} }) }} placeholder="Notes (opt)" style={{ width: "100%", background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
+              <input value={favForm.url||""} onChange={function(e) { setFavForm(function(p) { return {...p, url: e.target.value} }) }} placeholder="Link / URL (opt) — e.g. amazon.com/…" style={{ width: "100%", background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", marginBottom: 10, boxSizing: "border-box" }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={function() {
                   if (!favForm.name.trim()) return
@@ -672,7 +672,7 @@ function InventorySection({ onAddToShopping }) {
                   setFavForm({ name: "", brand: "", store: "", notes: "", url: "", emoji: "⭐", subcat: "grocery", photo: null })
                   setAddingFav(false)
                 }} style={{ flex: 1, background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save product</button>
-                <button onClick={function() { setAddingFav(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "rgba(250,248,244,0.4)", cursor: "pointer" }}>Cancel</button>
+                <button onClick={function() { setAddingFav(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
               </div>
             </div>
           ) : (
@@ -701,7 +701,7 @@ function InventorySection({ onAddToShopping }) {
               {favorites.filter(function(f) { return favSubcat === "all" || (f.subcat || "other") === favSubcat }).map(function(fav) {
                 const subInfo = FAV_SUBCATS.find(function(s) { return s.id === (fav.subcat || "other") }) || FAV_SUBCATS[FAV_SUBCATS.length-1]
                 return (
-                  <div key={fav.id} style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
+                  <div key={fav.id} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 10, overflow: "hidden" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
                       {/* Photo or emoji column */}
                       {fav.photo ? (
@@ -714,17 +714,17 @@ function InventorySection({ onAddToShopping }) {
                       <div style={{ flex: 1, padding: "10px 12px 8px" }}>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>{fav.name}</div>
-                            {fav.brand && <div style={{ fontSize: 11, color: "rgba(200,169,122,0.7)", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{fav.brand}</div>}
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{fav.name}</div>
+                            {fav.brand && <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 1 }}>{fav.brand}</div>}
                           </div>
-                          <span style={{ fontSize: 9, color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", background: "rgba(250,242,229,0.05)", borderRadius: 10, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{subInfo.icon} {subInfo.label}</span>
+                          <span style={{ fontSize: 9, color: "#4a6275", fontFamily: "DM Sans,sans-serif", background: "rgba(26,46,61,0.12)", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{subInfo.icon} {subInfo.label}</span>
                         </div>
-                        {fav.store && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>📍 {fav.store}</div>}
-                        {fav.notes && <div style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontStyle: "italic" }}>{fav.notes}</div>}
-                        {fav.url && safeUrl(fav.url) && <a href={safeUrl(fav.url)} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", marginTop: 4, display: "flex", alignItems: "center", gap: 3, textDecoration: "none" }}>🔗 <span style={{ textDecoration: "underline", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "middle" }}>{fav.url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</span></a>}
+                        {fav.store && <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>📍 {fav.store}</div>}
+                        {fav.notes && <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 3, fontStyle: "italic" }}>{fav.notes}</div>}
+                        {fav.url && safeUrl(fav.url) && <a href={safeUrl(fav.url)} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 4, display: "flex", alignItems: "center", gap: 3, textDecoration: "none" }}>🔗 <span style={{ textDecoration: "underline", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block", verticalAlign: "middle" }}>{fav.url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0]}</span></a>}
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button onClick={function() { onAddToShopping(fav.brand ? fav.brand + " " + fav.name : fav.name); setToast(fav.name + " added to list"); setTimeout(function() { setToast(null) }, 2000) }} style={{ background: "rgba(122,158,142,0.15)", border: "1px solid rgba(122,158,142,0.3)", borderRadius: 6, padding: "4px 10px", fontSize: 10, color: "#7a9e8e", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Shopping list</button>
-                          <button onClick={function() { saveFavs(favorites.filter(function(f2) { return f2.id !== fav.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 11, color: "#faf8f4", padding: "2px 4px" }}>✕ Remove</button>
+                          <button onClick={function() { saveFavs(favorites.filter(function(f2) { return f2.id !== fav.id })) }} style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 11, color: "#4a6275", padding: "2px 4px" }}>✕ Remove</button>
                         </div>
                       </div>
                     </div>
@@ -743,7 +743,7 @@ function InventorySection({ onAddToShopping }) {
         <div>
           <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16, lineHeight: 1.5 }}>Tap ✓ to mark low (adds to shopping). Drag ⠿ to reorder. Click a category to type directly.</div>
           {totalLow > 0 && (
-            <div style={{ background: "rgba(200,131,74,0.1)", border: "1px solid rgba(200,131,74,0.25)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#c8834a", fontFamily: "DM Sans,sans-serif" }}>
+            <div style={{ background: "rgba(200,131,74,0.1)", border: "1px solid rgba(200,131,74,0.25)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#a05c10", fontFamily: "DM Sans,sans-serif" }}>
               {totalLow} item{totalLow > 1 ? "s" : ""} running low — added to your shopping list
             </div>
           )}
@@ -758,7 +758,7 @@ function InventorySection({ onAddToShopping }) {
               return (
                 <div key={cat.id} onClick={function() { setActiveCat(cat.id); setEditing(null); setInlineAdding({}); setInlineVal({}) }} style={{ padding: "7px 12px", fontSize: 11, cursor: "pointer", borderBottom: activeCat === cat.id ? "2px solid #c8a97a" : "2px solid transparent", color: activeCat === cat.id ? "#c8a97a" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap", flexShrink: 0 }}>
                   {cat.icon} {cat.label}
-                  {low > 0 && <span style={{ background: "#c8834a", color: "#fff", fontSize: 8, borderRadius: 8, padding: "1px 5px", fontWeight: 700 }}>{low}</span>}
+                  {low > 0 && <span style={{ background: "rgba(160,92,16,0.15)", color: "#a05c10", fontSize: 8, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>{low}</span>}
                 </div>
               )
             })}
@@ -786,21 +786,21 @@ function InventorySection({ onAddToShopping }) {
               return (
                 <div key={sub.id} style={{ marginBottom: 6 }}>
                   {/* Subcategory header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(250,242,229,0.04)", borderRadius: isCollapsed ? 10 : "10px 10px 0 0", border: "1px solid rgba(250,242,229,0.06)", borderBottom: isCollapsed ? "1px solid rgba(250,242,229,0.06)" : "1px solid rgba(250,242,229,0.04)", userSelect: "none" }}>
-                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 14, cursor: "pointer" }}>{sub.icon}</span>
-                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "rgba(250,248,244,0.7)", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.02em", cursor: "pointer" }}>{sub.label}</span>
-                    {lowCount > 0 && <span style={{ background: "#c8834a", color: "#fff", fontSize: 8, borderRadius: 8, padding: "1px 5px", fontWeight: 700 }}>{lowCount} low</span>}
-                    {subItems.length > 0 && isCollapsed && <span style={{ fontSize: 10, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>{subItems.length} item{subItems.length !== 1 ? "s" : ""}</span>}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f7f1e3", borderRadius: isCollapsed ? 8 : "8px 8px 0 0", border: "1px solid rgba(26,46,61,0.1)", borderBottom: isCollapsed ? "1px solid rgba(26,46,61,0.1)" : "1px solid rgba(26,46,61,0.08)", userSelect: "none" }}>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, cursor: "pointer" }}>{sub.icon}</span>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", letterSpacing: "0.02em", cursor: "pointer" }}>{sub.label}</span>
+                    {lowCount > 0 && <span style={{ background: "rgba(160,92,16,0.15)", color: "#a05c10", fontSize: 8, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>{lowCount} low</span>}
+                    {subItems.length > 0 && isCollapsed && <span style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{subItems.length} item{subItems.length !== 1 ? "s" : ""}</span>}
                     {/* Quick-add button per subcategory */}
-                    <button onClick={function() { openInlineAdd(sub.id) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "rgba(200,169,122,0.5)", padding: "0 2px", lineHeight: 1 }} title="Add item here">+</button>
-                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 10, color: "rgba(250,248,244,0.3)", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block", cursor: "pointer" }}>▾</span>
+                    <button onClick={function() { openInlineAdd(sub.id) }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#4a6275", padding: "0 2px", lineHeight: 1 }} title="Add item here">+</button>
+                    <span onClick={function() { toggleSubcat(activeCat, sub.id) }} style={{ fontSize: 10, color: "#4a6275", transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block", cursor: "pointer" }}>▾</span>
                   </div>
 
                   {/* Subcategory items + inline add */}
                   {!isCollapsed && (
-                    <div style={{ background: "rgba(250,242,229,0.025)", border: "1px solid rgba(250,242,229,0.06)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                    <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderTop: "none", borderRadius: "0 0 8px 8px", overflow: "hidden" }}>
                       {subItems.length === 0 && !isInlineAdding && (
-                        <div onClick={function() { openInlineAdd(sub.id) }} style={{ padding: "10px 14px", fontSize: 12, color: "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif", fontStyle: "italic", cursor: "text" }}>tap to add an item…</div>
+                        <div onClick={function() { openInlineAdd(sub.id) }} style={{ padding: "10px 14px", fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif", fontStyle: "italic", cursor: "text" }}>tap to add an item…</div>
                       )}
 
                       {(invAZ?subItems.slice().sort(function(a,b){return (a.item.name||"").localeCompare(b.item.name||"");}):subItems).map(function(s) {
@@ -815,27 +815,27 @@ function InventorySection({ onAddToShopping }) {
                             onDrop={function(e) { onDrop(e, idx) }}
                             onDragEnd={onDragEnd}
                             onDragLeave={function() { if (dragOverIdx === idx) setDragOverIdx(null) }}
-                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(250,242,229,0.04)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: dragFrom.current === idx ? 0.3 : 1, cursor: "grab" }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid rgba(26,46,61,0.06)", background: isDragOver ? "rgba(200,169,122,0.12)" : "transparent", borderLeft: isDragOver ? "3px solid #c8a97a" : "3px solid transparent", transition: "background 0.08s", opacity: dragFrom.current === idx ? 0.3 : 1, cursor: "grab" }}
                           >
                             {/* Stocked checkbox */}
-                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(250,242,229,0.2)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                            <div onClick={function() { if (editing !== idx) toggle(idx) }} style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid " + (item.stocked ? "#7a9e8e" : "rgba(26,46,61,0.25)"), background: item.stocked ? "#7a9e8e" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                               {item.stocked && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
                             </div>
                             {editing === idx ? (
-                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(250,242,229,0.08)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
+                              <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") renameItem(idx); if (e.key === "Escape") setEditing(null) }} autoFocus style={{ flex: 1, background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.4)", borderRadius: 6, padding: "3px 8px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }} />
                             ) : (
-                              <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "rgba(250,248,244,0.75)" : "rgba(250,248,244,0.35)", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
+                              <span style={{ flex: 1, fontSize: 13, color: item.stocked ? "#1a2e3d" : "#4a6275", fontFamily: "DM Sans,sans-serif", textDecoration: item.stocked ? "none" : "line-through" }}>{item.name}</span>
                             )}
-                            {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: "#c8834a", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>→ list</span>}
+                            {!item.stocked && editing !== idx && <span style={{ fontSize: 10, color: "#a05c10", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>→ list</span>}
                             {editing === idx ? (
                               <div style={{ display: "flex", gap: 6 }}>
                                 <button onClick={function() { renameItem(idx) }} style={{ background: "#7a9e8e", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer" }}>save</button>
-                                <button onClick={function() { setEditing(null) }} style={{ background: "rgba(250,242,229,0.08)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "rgba(250,248,244,0.5)", cursor: "pointer" }}>cancel</button>
+                                <button onClick={function() { setEditing(null) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, color: "#4a6275", cursor: "pointer" }}>cancel</button>
                               </div>
                             ) : (
                               <div style={{ display: "flex", gap: 6 }}>
-                                <button onClick={function() { setEditing(idx); setEditVal(item.name) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(250,248,244,0.35)", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
-                                <button onClick={function() { deleteItem(idx) }} style={{ background: "none", border: "none", fontSize: 11, color: "rgba(200,131,74,0.5)", cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                                <button onClick={function() { setEditing(idx); setEditVal(item.name) }} style={{ background: "none", border: "none", fontSize: 11, color: "#4a6275", cursor: "pointer", padding: "2px 4px" }}>✏️</button>
+                                <button onClick={function() { deleteItem(idx) }} style={{ background: "none", border: "none", fontSize: 11, color: "#a05c10", cursor: "pointer", padding: "2px 4px" }}>✕</button>
                               </div>
                             )}
                           </div>
@@ -844,7 +844,7 @@ function InventorySection({ onAddToShopping }) {
 
                       {/* Inline quick-add row */}
                       {isInlineAdding && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: subItems.length > 0 ? "1px solid rgba(250,242,229,0.04)" : "none" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: subItems.length > 0 ? "1px solid rgba(26,46,61,0.06)" : "none" }}>
                           <input
                             autoFocus
                             value={inlineVal[inlineKey] || ""}
@@ -854,10 +854,10 @@ function InventorySection({ onAddToShopping }) {
                               if (e.key === "Escape") { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }
                             }}
                             placeholder={"Add to " + sub.label + "…"}
-                            style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
+                            style={{ flex: 1, background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 7, padding: "6px 10px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none" }}
                           />
                           <button onClick={function() { addInlineItem(sub.id) }} style={{ background: "#c8a97a", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-                          <button onClick={function() { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }} style={{ background: "none", border: "none", fontSize: 13, color: "rgba(250,248,244,0.3)", cursor: "pointer", padding: "2px" }}>✕</button>
+                          <button onClick={function() { setInlineAdding(function(p) { var n={...p}; delete n[inlineKey]; return n }); setInlineVal(function(p) { var n={...p}; delete n[inlineKey]; return n }) }} style={{ background: "none", border: "none", fontSize: 13, color: "#4a6275", cursor: "pointer", padding: "2px" }}>✕</button>
                         </div>
                       )}
                     </div>
