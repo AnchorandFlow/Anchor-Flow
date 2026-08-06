@@ -2237,9 +2237,9 @@ function PetsSection() {
   }
 
   const navy = "#243A5A"; const sand = "#c8a97a"; const warm = "#faf8f4"
-  const muted = "rgba(250,248,244,0.42)"; const border = "rgba(250,242,229,0.08)"; const cardBg = "rgba(250,242,229,0.04)"
-  const inputStyle = { width: "100%", background: "rgba(250,242,229,0.06)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: warm, fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
-  const labelStyle = { fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginBottom: 4, display: "block" }
+  const muted = "rgba(250,248,244,0.42)"; const border = "rgba(26,46,61,0.1)"; const cardBg = "#f7f1e3"
+  const inputStyle = { width: "100%", background: "rgba(26,46,61,0.05)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const labelStyle = { fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 4, display: "block" }
 
   if (!activePet) return (
     <div>
@@ -2250,28 +2250,28 @@ function PetsSection() {
           const upcoming = (pet.vaccines||[]).filter(function(v) { return v.due && petDaysUntil(v.due) !== null && petDaysUntil(v.due) <= 30 && petDaysUntil(v.due) >= 0 })
           const overdue = (pet.vaccines||[]).filter(function(v) { return v.due && petDaysUntil(v.due) !== null && petDaysUntil(v.due) < 0 })
           return (
-            <div key={pet.id} onClick={function() { setActivePetId(pet.id) }} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", background: cardBg, border: "1px solid " + border, borderRadius: 12, cursor: "pointer" }}>
+            <div key={pet.id} onClick={function() { setActivePetId(pet.id) }} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 14px", background: cardBg, border: "1px solid " + border, borderRadius: 8, cursor: "pointer" }}>
               <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(200,169,122,0.15)", border: "1.5px solid rgba(200,169,122,0.3)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {pet.photo ? <img src={pet.photo} alt={pet.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{pet.type==="Cat"?"🐱":pet.type==="Bird"?"🐦":pet.type==="Rabbit"?"🐰":"🐾"}</span>}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: warm, fontFamily: "DM Sans,sans-serif" }}>{pet.name}</div>
-                <div style={{ fontSize: 11, color: muted, fontFamily: "DM Sans,sans-serif" }}>{pet.type}{pet.breed ? " · " + pet.breed : ""}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{pet.name}</div>
+                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{pet.type}{pet.breed ? " · " + pet.breed : ""}</div>
                 {(upcoming.length > 0 || overdue.length > 0) && (
                   <div style={{ marginTop: 4 }}>
-                    {overdue.length > 0 && <span style={{ fontSize: 10, background: "rgba(200,80,80,0.15)", color: "#e88", border: "1px solid rgba(200,80,80,0.3)", borderRadius: 20, padding: "1px 8px", fontFamily: "DM Sans,sans-serif", marginRight: 4 }}>⚠ {overdue.length} overdue</span>}
-                    {upcoming.length > 0 && <span style={{ fontSize: 10, background: "rgba(200,169,122,0.12)", color: sand, border: "1px solid rgba(200,169,122,0.25)", borderRadius: 20, padding: "1px 8px", fontFamily: "DM Sans,sans-serif" }}>📅 {upcoming.length} due soon</span>}
+                    {overdue.length > 0 && <span style={{ fontSize: 10, background: "rgba(160,92,16,0.12)", color: "#a05c10", borderRadius: 4, padding: "1px 8px", fontFamily: "DM Sans,sans-serif", marginRight: 4 }}>⚠ {overdue.length} overdue</span>}
+                    {upcoming.length > 0 && <span style={{ fontSize: 10, background: "rgba(26,46,61,0.12)", color: "#4a6275", borderRadius: 4, padding: "1px 8px", fontFamily: "DM Sans,sans-serif" }}>📅 {upcoming.length} due soon</span>}
                   </div>
                 )}
               </div>
-              <div style={{ fontSize: 12, color: "rgba(200,169,122,0.35)" }}>→</div>
+              <div style={{ fontSize: 12, color: "#4a6275" }}>→</div>
             </div>
           )
         })}
       </div>
       {adding ? (
-        <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: warm, fontFamily: "DM Sans,sans-serif", marginBottom: 14 }}>New pet</div>
+        <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 16, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 14 }}>New pet</div>
           <label style={labelStyle}>Name *</label>
           <input value={newPetForm.name} onChange={function(e) { setNewPetForm(function(p){return{...p,name:e.target.value}}) }} placeholder="Pet's name" style={{...inputStyle, marginBottom: 10}} />
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -2298,7 +2298,7 @@ function PetsSection() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={addPet} style={{ flex: 1, background: sand, border: "none", borderRadius: 8, padding: "9px", fontSize: 13, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add pet</button>
-            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: muted, cursor: "pointer" }}>Cancel</button>
+            <button onClick={function() { setAdding(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
           </div>
         </div>
       ) : (
@@ -2324,33 +2324,33 @@ function PetsSection() {
       </div>
 
       {/* Photo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20, background: cardBg, border: "1px solid " + border, borderRadius: 12, padding: "12px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20, background: cardBg, border: "1px solid " + border, borderRadius: 8, padding: "12px 14px" }}>
         <div style={{ width: 72, height: 72, borderRadius: 12, background: "rgba(200,169,122,0.12)", border: "1.5px solid rgba(200,169,122,0.25)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {activePet.photo ? <img src={activePet.photo} alt={activePet.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 32 }}>{activePet.type==="Cat"?"🐱":activePet.type==="Bird"?"🐦":activePet.type==="Rabbit"?"🐰":"🐾"}</span>}
         </div>
         <div>
-          <div style={{ fontSize: 12, color: muted, fontFamily: "DM Sans,sans-serif", marginBottom: 6 }}>Pet photo</div>
+          <div style={{ fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 6 }}>Pet photo</div>
           <label style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.25)", borderRadius: 7, padding: "5px 12px", fontSize: 11, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>
             {activePet.photo ? "Change photo" : "Upload photo"}
             <input type="file" accept="image/*" onChange={function(e) { handlePhoto(e, activePet.id) }} style={{ display: "none" }} />
           </label>
-          {activePet.photo && <button onClick={function() { updatePet(activePet.id, { photo: null }) }} style={{ background: "none", border: "none", color: "rgba(200,80,80,0.4)", fontSize: 11, cursor: "pointer", fontFamily: "DM Sans,sans-serif", marginLeft: 8 }}>Remove</button>}
+          {activePet.photo && <button onClick={function() { updatePet(activePet.id, { photo: null }) }} style={{ background: "none", border: "none", color: "#a05c10", fontSize: 11, cursor: "pointer", fontFamily: "DM Sans,sans-serif", marginLeft: 8 }}>Remove</button>}
         </div>
       </div>
 
       {/* ID Tags */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>🏷 ID & Registration</div>
-        <div style={{ background: cardBg, border: "1px solid " + border, borderRadius: 12, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: cardBg, border: "1px solid " + border, borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
           {[{key:"rabies",label:"Rabies tag #"},{key:"chip",label:"Microchip #"},{key:"registration",label:"Registration #"}].map(function(f) {
             return (
               <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif", marginBottom: 2 }}>{f.label}</div>
+                  <div style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 2 }}>{f.label}</div>
                   {editingField === f.key ? (
                     <input value={editVal} onChange={function(e) { setEditVal(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { updatePet(activePet.id, { tags: {...tags, [f.key]: editVal} }); setEditingField(null) } if (e.key === "Escape") setEditingField(null) }} onBlur={function() { updatePet(activePet.id, { tags: {...tags, [f.key]: editVal} }); setEditingField(null) }} autoFocus style={{...inputStyle, padding: "4px 8px", fontSize: 12}} />
                   ) : (
-                    <div style={{ fontSize: 13, color: tags[f.key] ? warm : "rgba(250,248,244,0.2)", fontFamily: "DM Sans,sans-serif", fontStyle: tags[f.key] ? "normal" : "italic" }}>{tags[f.key] || "Not set"}</div>
+                    <div style={{ fontSize: 13, color: tags[f.key] ? "#1a2e3d" : "#4a6275", fontFamily: "DM Sans,sans-serif", fontStyle: tags[f.key] ? "normal" : "italic" }}>{tags[f.key] || "Not set"}</div>
                   )}
                 </div>
                 {editingField === f.key
@@ -2370,7 +2370,7 @@ function PetsSection() {
           <button onClick={function() { setAddingVaccine(function(p){return !p}) }} style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 7, padding: "3px 10px", fontSize: 11, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
         </div>
         {addingVaccine && (
-          <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.18)", borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 12, marginBottom: 10 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 2 }}>
                 <label style={labelStyle}>Vaccine</label>
@@ -2405,7 +2405,7 @@ function PetsSection() {
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={function() { addVaccine(activePet.id) }} style={{ flex: 1, background: sand, border: "none", borderRadius: 7, padding: "7px", fontSize: 12, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save</button>
-              <button onClick={function() { setAddingVaccine(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
+              <button onClick={function() { setAddingVaccine(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         )}
@@ -2416,18 +2416,18 @@ function PetsSection() {
           const overdue = days !== null && days < 0
           const soon = days !== null && days >= 0 && days <= 30
           return (
-            <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: overdue ? "rgba(200,80,80,0.07)" : soon ? "rgba(200,169,122,0.07)" : cardBg, border: "1px solid " + (overdue ? "rgba(200,80,80,0.2)" : soon ? "rgba(200,169,122,0.2)" : border), borderRadius: 9, marginBottom: 6 }}>
+            <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: overdue ? "rgba(160,92,16,0.08)" : cardBg, border: "1px solid " + (overdue ? "rgba(160,92,16,0.25)" : border), borderRadius: 9, marginBottom: 6 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: warm, fontFamily: "DM Sans,sans-serif" }}>{v.name}</div>
-                <div style={{ fontSize: 11, color: muted, fontFamily: "DM Sans,sans-serif" }}>{v.date && "Given: " + v.date}{v.vet && " · " + v.vet}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{v.name}</div>
+                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{v.date && "Given: " + v.date}{v.vet && " · " + v.vet}</div>
               </div>
               {v.due && (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, color: muted, fontFamily: "DM Sans,sans-serif" }}>Due</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: overdue ? "#e88" : soon ? sand : muted, fontFamily: "DM Sans,sans-serif" }}>{overdue ? Math.abs(days) + "d overdue" : days === 0 ? "Today!" : days + "d"}</div>
+                  <div style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>Due</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: overdue ? "#a05c10" : "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{overdue ? Math.abs(days) + "d overdue" : days === 0 ? "Today!" : days + "d"}</div>
                 </div>
               )}
-              <button onClick={function() { updatePet(activePet.id, { vaccines: vaccines.filter(function(x) { return x.id !== v.id }) }) }} aria-label="Remove vaccine" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px" }}>✕</button>
+              <button onClick={function() { updatePet(activePet.id, { vaccines: vaccines.filter(function(x) { return x.id !== v.id }) }) }} aria-label="Remove vaccine" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 13, color: "#4a6275", padding: "2px 4px" }}>✕</button>
             </div>
           )
         })}
@@ -2440,7 +2440,7 @@ function PetsSection() {
           <button onClick={function() { setAddingMed(function(p){return !p}) }} style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 7, padding: "3px 10px", fontSize: 11, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
         </div>
         {addingMed && (
-          <div style={{ background: "rgba(200,169,122,0.06)", border: "1px solid rgba(200,169,122,0.18)", borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 12, marginBottom: 10 }}>
             <input value={medForm.name} onChange={function(e) { setMedForm(function(p){return{...p,name:e.target.value}}) }} placeholder="Medication name *" style={{...inputStyle, marginBottom: 8}} />
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <input value={medForm.dose} onChange={function(e) { setMedForm(function(p){return{...p,dose:e.target.value}}) }} placeholder="Dose (e.g. 25mg)" style={{...inputStyle, flex:1}} />
@@ -2459,7 +2459,7 @@ function PetsSection() {
             )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={function() { addMed(activePet.id) }} style={{ flex: 1, background: sand, border: "none", borderRadius: 7, padding: "7px", fontSize: 12, color: navy, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Save</button>
-              <button onClick={function() { setAddingMed(false) }} style={{ background: "rgba(250,242,229,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: muted, cursor: "pointer" }}>Cancel</button>
+              <button onClick={function() { setAddingMed(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 7, padding: "7px 12px", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         )}
@@ -2468,24 +2468,24 @@ function PetsSection() {
         ) : medications.map(function(m) {
           const refillDays = petDaysUntil(m.refill)
           return (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: cardBg, border: "1px solid " + (refillDays !== null && refillDays <= 7 ? "rgba(200,169,122,0.3)" : border), borderRadius: 9, marginBottom: 6 }}>
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: refillDays !== null && refillDays <= 7 ? "rgba(160,92,16,0.08)" : cardBg, border: "1px solid " + (refillDays !== null && refillDays <= 7 ? "rgba(160,92,16,0.25)" : border), borderRadius: 9, marginBottom: 6 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: warm, fontFamily: "DM Sans,sans-serif" }}>{m.name}</div>
-                <div style={{ fontSize: 11, color: muted, fontFamily: "DM Sans,sans-serif" }}>{m.dose}{m.freq ? " · " + m.freq : ""}{m.notes ? " · " + m.notes : ""}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{m.name}</div>
+                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{m.dose}{m.freq ? " · " + m.freq : ""}{m.notes ? " · " + m.notes : ""}</div>
                 {m.contact && (function(){
                   var c=m.contact; var isPhone=/^[\d\s\-\+\(\)]{7,}$/.test(c.trim()); var safe=safeUrl(c);
                   if(safe) return <a href={safe} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:2}}>🔗 Order</a>;
                   if(isPhone) return <a href={"tel:"+c.replace(/\s/g,"")} style={{fontSize:11,color:"#7EAEB4",textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,marginTop:2}}>📞 {c}</a>;
-                  return <span style={{fontSize:11,color:muted,display:"block",marginTop:2}}>{c}</span>;
+                  return <span style={{fontSize:11,color:"#4a6275",display:"block",marginTop:2}}>{c}</span>;
                 })()}
               </div>
               {m.refill && (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, color: muted, fontFamily: "DM Sans,sans-serif" }}>Refill</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: refillDays !== null && refillDays <= 7 ? sand : muted, fontFamily: "DM Sans,sans-serif" }}>{refillDays !== null && refillDays <= 0 ? "Now!" : refillDays + "d"}</div>
+                  <div style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>Refill</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: refillDays !== null && refillDays <= 7 ? "#a05c10" : "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{refillDays !== null && refillDays <= 0 ? "Now!" : refillDays + "d"}</div>
                 </div>
               )}
-              <button onClick={function() { updatePet(activePet.id, { medications: medications.filter(function(x) { return x.id !== m.id }) }) }} aria-label="Remove medication" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px" }}>✕</button>
+              <button onClick={function() { updatePet(activePet.id, { medications: medications.filter(function(x) { return x.id !== m.id }) }) }} aria-label="Remove medication" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 13, color: "#4a6275", padding: "2px 4px" }}>✕</button>
             </div>
           )
         })}
@@ -2502,7 +2502,7 @@ function PetsSection() {
         </div>
         <div style={{ fontSize: 11, color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>Vaccine records, vet summaries, insurance — any file.</div>
         {(activePet.documents || []).length === 0 ? (
-          <label style={{ display: "block", border: "1.5px dashed rgba(200,169,122,0.2)", borderRadius: 10, padding: "20px", textAlign: "center", cursor: "pointer" }}>
+          <label style={{ display: "block", border: "1.5px dashed rgba(200,169,122,0.2)", borderRadius: 8, padding: "20px", textAlign: "center", cursor: "pointer" }}>
             <div style={{ fontSize: 24, marginBottom: 6 }}>📁</div>
             <div style={{ fontSize: 12, color: "rgba(250,248,244,0.3)", fontFamily: "DM Sans,sans-serif" }}>Tap to upload files</div>
             <div style={{ fontSize: 10, color: "rgba(250,248,244,0.18)", fontFamily: "DM Sans,sans-serif", marginTop: 3 }}>PDF, images, Word docs</div>
@@ -2516,7 +2516,7 @@ function PetsSection() {
               const icon = isImage ? "🖼️" : isPdf ? "📋" : "📄"
               const kb = doc.size ? Math.round(doc.size / 1024) : null
               return (
-                <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: cardBg, border: "1px solid " + border, borderRadius: 10, marginBottom: 6 }}>
+                <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: cardBg, border: "1px solid " + border, borderRadius: 8, marginBottom: 6 }}>
                   {isImage ? (
                     <div style={{ width: 40, height: 40, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
                       <img src={doc.data} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -2525,11 +2525,11 @@ function PetsSection() {
                     <div style={{ width: 40, height: 40, borderRadius: 6, background: "rgba(200,169,122,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{icon}</div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: warm, fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
-                    <div style={{ fontSize: 10, color: muted, fontFamily: "DM Sans,sans-serif" }}>{doc.uploaded}{kb ? " · " + kb + " KB" : ""}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
+                    <div style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{doc.uploaded}{kb ? " · " + kb + " KB" : ""}</div>
                   </div>
                   <button onClick={function() { openDoc(doc) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 6, padding: "4px 10px", fontSize: 10, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}>Open</button>
-                  <button onClick={function() { removeDoc(activePet.id, doc.id) }} aria-label="Remove document" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.25, fontSize: 13, color: warm, padding: "2px 4px", flexShrink: 0 }}>✕</button>
+                  <button onClick={function() { removeDoc(activePet.id, doc.id) }} aria-label="Remove document" style={{ background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: 13, color: "#4a6275", padding: "2px 4px", flexShrink: 0 }}>✕</button>
                 </div>
               )
             })}
@@ -2544,7 +2544,7 @@ function PetsSection() {
       {/* Notes */}
       <div>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>📝 Notes</div>
-        <textarea value={activePet.notes || ""} onChange={function(e) { updatePet(activePet.id, { notes: e.target.value }) }} placeholder="Vet info, allergies, special care notes…" rows={3} style={{ width: "100%", background: cardBg, border: "1px solid " + border, borderRadius: 10, padding: "10px 12px", fontSize: 13, color: warm, fontFamily: "DM Sans,sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+        <textarea value={activePet.notes || ""} onChange={function(e) { updatePet(activePet.id, { notes: e.target.value }) }} placeholder="Vet info, allergies, special care notes…" rows={3} style={{ width: "100%", background: cardBg, border: "1px solid " + border, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
       </div>
     </div>
   )
