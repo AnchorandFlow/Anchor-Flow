@@ -837,8 +837,9 @@ export default function SafeHarbor() {
                       onClick={function() { toggleItem(item.id) }}
                       style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0",
                         borderBottom:"0.5px solid rgba(26,46,61,0.08)",
-                        cursor:(SAFE_HARBOR_V2||session)?"pointer":"default",
-                        opacity:!SAFE_HARBOR_V2&&!session&&item.tier>activeTier?0.4:1 }}>
+                        cursor:(SAFE_HARBOR_V2||session)?"pointer":"default" }}>
+                      {/* Tier relevance already carries via the always-visible tier badge
+                          below, not row opacity (never dim whole rows for status). */}
                       {/* Checkbox — V2: reflects sessionChecked overlay during sessions,
                           persistent item.checked otherwise. V1: always item.checked. */}
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0, marginTop:2, transition:"all .15s",
@@ -877,7 +878,7 @@ export default function SafeHarbor() {
                   var entry = pendingUndo[id]
                   if (!entry) return null
                   return (
-                    <div key={"undo-"+id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"0.5px solid rgba(26,46,61,0.06)", opacity:0.7 }}>
+                    <div key={"undo-"+id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"0.5px solid rgba(26,46,61,0.06)" }}>
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0, border:"1.5px dashed rgba(250,248,244,0.15)", background:"transparent" }} />
                       <div style={{ flex:1, fontSize:12, color:"#4a6275", textDecoration:"line-through", fontStyle:"italic" }}>{entry.item.name}</div>
                       <div style={{ fontSize:12, color:G.sea, whiteSpace:"nowrap" }}>
