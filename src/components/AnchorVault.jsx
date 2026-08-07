@@ -8178,10 +8178,10 @@ function RecurringRemindersSection() {
 
       {/* Empty state */}
       {sorted.length===0&&(
-        <div style={{textAlign:"center",padding:"32px 20px",background:"rgba(250,242,229,0.02)",border:"1px dashed rgba(200,169,122,0.2)",borderRadius:14}}>
+        <div style={{textAlign:"center",padding:"32px 20px",background:A.card,border:"1px dashed rgba(200,169,122,0.35)",borderRadius:A.radius}}>
           <div style={{fontSize:32,marginBottom:10}}>🔁</div>
-          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:18,color:"#faf8f4",marginBottom:6}}>No reminders yet</div>
-          <div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:18,lineHeight:1.6}}>Add trash day, HVAC filters, street sweeping — anything that repeats.</div>
+          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:18,color:A.title,marginBottom:6}}>No reminders yet</div>
+          <div style={{fontSize:12,color:A.sub,fontFamily:"DM Sans,sans-serif",marginBottom:18,lineHeight:1.6}}>Add trash day, HVAC filters, street sweeping — anything that repeats.</div>
           <button onClick={function(){setShowBuiltins(true);setTimeout(function(){document.querySelector("[data-builtin-list]")&&document.querySelector("[data-builtin-list]").scrollIntoView({behavior:"smooth"})},50)}} style={{background:GOLD,border:"none",borderRadius:10,padding:"10px 24px",fontSize:13,color:NAVY,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:700}}>Add from common reminders</button>
         </div>
       )}
@@ -8193,7 +8193,7 @@ function RecurringRemindersSection() {
         var alert = days!=null&&days<=1
         var overdue = days!=null&&days<0
         return(
-          <div key={r.id} style={{background:(alert||overdue)?"rgba(160,92,16,0.08)":"#f7f1e3",border:"1px solid "+((alert||overdue)?"rgba(160,92,16,0.3)":"rgba(26,46,61,0.1)"),borderRadius:8,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+          <div key={r.id} style={{background:A.card,border:"1px solid "+((alert||overdue)?"rgba(160,92,16,0.3)":A.border),borderRadius:A.radius,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
             <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:700,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
