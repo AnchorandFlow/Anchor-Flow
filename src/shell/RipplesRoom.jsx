@@ -32,7 +32,7 @@ var CAT_STYLE = {
 function catStyle(id) { return CAT_STYLE[id] || CAT_STYLE.other; }
 
 // Emoji palette for traditions
-var TRAD_EMOJIS = ["🎃","🎄","🦃","🥳","🇺🇸","🎂","🌸","☃️","🏖️","🍂","🎆","🕯️","🍪","🎁","⛄","🌟"];
+var TRAD_EMOJIS = ["🎃","🎄","🦃","🥳","🇺🇸","🎂","🌸","☃️","🏖️","🍂","🎆","🕯️","🍪","🎁","⛄","🌟","🎒","🎓","📚"];
 
 function loadRipples() {
   try { var v = JSON.parse(localStorage.getItem("af_ripples") || "[]"); return Array.isArray(v) ? v : []; }

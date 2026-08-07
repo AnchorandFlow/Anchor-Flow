@@ -8393,6 +8393,28 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     } catch { return { highlight: null, countdown: null, count: 0 } }
   }
 
+  // Batch E Fix 1/2 — the next upcoming trip for the dashboard's featured
+  // countdown card. Guard: startDate must be strictly greater than today
+  // (daysUntilDate > 0) — a trip starting today or already underway/past is
+  // not "upcoming" and must not surface here, only the soonest true future
+  // trip does. Returns null (render nothing) when no trip qualifies.
+  function nextTripSummary() {
+    try {
+      var trips = JSON.parse(localStorage.getItem("af_trips") || "[]")
+      if (!Array.isArray(trips)) return null
+      var upcoming = trips
+        .map(function(t) { return { trip: t, days: daysUntilDate(t.startDate) } })
+        .filter(function(x) { return x.days !== null && x.days > 0 })
+        .sort(function(a, b) { return a.days - b.days })
+      if (!upcoming.length) return null
+      var next = upcoming[0]
+      var parts = (next.trip.startDate || "").split("-")
+      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+      var formattedDate = parts.length === 3 ? months[parseInt(parts[1])-1]+" "+parseInt(parts[2])+", "+parts[0] : ""
+      return { name: next.trip.name || "Untitled trip", days: next.days, date: formattedDate }
+    } catch { return null }
+  }
+
   function healthSummary() {
     var h = readHealth()
     // Health is stored as health[personId] = { appointments:[], medications:[], ... }
@@ -8586,6 +8608,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var celeb = celebSummary()
   var pets = petsSummary()
   var travelSum = travelSummary()
+  var nextTrip = nextTripSummary()
   var moments = momentsSummary()
   var health = healthSummary()
   var inventory = inventorySummary()
@@ -8694,6 +8717,23 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           <div style={{ fontSize: 14, color: "#1a2e3d", fontFamily: "Cormorant Garamond,serif", fontStyle: "italic", lineHeight: 1.45 }}>{glanceText}</div>
         </div>
       </div>
+
+      {/* Batch E Fix 1 — next upcoming trip countdown. nextTripSummary()
+          already guards startDate > today, so nothing renders here for a
+          trip that's today, in progress, or past. */}
+      {nextTrip && (
+        <div onClick={function() { onNavigate("trips") }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", marginBottom: 18, background: "#ddeaf4", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, cursor: "pointer" }}>
+          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🧳</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a6275", fontWeight: 700, marginBottom: 3 }}>Next trip</div>
+            <div style={{ fontSize: 14, color: "#1a2e3d", fontFamily: "Cormorant Garamond,serif", fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextTrip.name}</div>
+            <div style={{ fontSize: 12, color: "#4a6275", marginTop: 2 }}>
+              {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}
+              {nextTrip.date && " · " + nextTrip.date}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
