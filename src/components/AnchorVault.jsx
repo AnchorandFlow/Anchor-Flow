@@ -41,6 +41,28 @@ const VAULT_INPUT_STYLE = `
   }
 `
 
+// ── Anchor design system constants ─────────────────────────────────────────
+// Not yet wired into any call sites — this block only introduces the shared
+// values. Existing inline literals (617 occurrences as of this pass) are
+// left untouched; migrating them to reference A.* is a separate, later pass.
+const A = {
+  card:      "#f7f1e3",   // primary card background
+  featured:  "#ddeaf4",   // featured/status card background (At a Glance, active-trip countdown, etc.)
+  iconBg:    "#2b3d52",   // navy circle behind card-header icons
+  title:     "#1a2e3d",   // card title text
+  sub:       "#4a6275",   // supporting/sub text, neutral status
+  warning:   "#a05c10",   // warning/overdue text
+  success:   "#2e7a46",   // all-clear/complete text
+  border:      "rgba(26,46,61,0.1)",   // standard card border
+  borderSoft:  "rgba(26,46,61,0.08)",  // row/divider border, one step lighter
+  surfaceMuted:"rgba(26,46,61,0.05)",  // nested row / input background inside a card
+  surfaceSoft: "rgba(26,46,61,0.06)",  // secondary nested background (e.g. Cancel buttons)
+  badgeBg:     "rgba(26,46,61,0.12)",  // square count/status badge background
+  radius:      8,   // standard card corner radius
+  radiusBadge: 4,   // badge corner radius
+  iconSize:    28,  // icon-circle diameter (width/height)
+}
+
 const NAV = [
   { id: "home",      label: "Home",      icon: "home", emoji: "🏠" },
   { id: "inventory", label: "Inventory", icon: "inv",  emoji: "📦" },
