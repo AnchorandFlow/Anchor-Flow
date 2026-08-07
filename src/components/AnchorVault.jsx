@@ -5321,8 +5321,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 return a.endDate < b.endDate ? 1 : a.endDate > b.endDate ? -1 : 0
               })
               function renderTripCard(trip, mutedStyle) {
+                // mutedStyle (past trips) no longer dims the whole card — TripCountdownBadge
+                // already renders "Past" as a text badge, which is the spec-correct way to
+                // carry status (badge/border only, never whole-card opacity).
                 return (
-                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6, opacity: mutedStyle?0.7:1 }}>
+                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
                     <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
                       <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
                       <TripCountdownBadge trip={trip} />
@@ -5347,8 +5350,8 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 <div>
                   <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
                     {activeTrips.map(function(trip){ return renderTripCard(trip, false) })}
-                    {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
-                    <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:8, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
+                    {/* Dashed add tile inside the grid — solid sand like its sibling trip cards, not the old near-transparent navy-glass tile */}
+                    <div onClick={openAdd} style={{ background:cardBg, border:"1px dashed rgba(200,169,122,0.35)", borderRadius:8, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
                       <span style={{ fontSize:20, color:"#4a6275" }}>+</span>
                       <span style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif" }}>Add trip</span>
                     </div>
