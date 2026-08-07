@@ -8984,7 +8984,9 @@ function SubscriptionsSection() {
     tab === "coupons" && React.createElement("div", null,
       coupons.length === 0 && React.createElement("div", { style: { textAlign: "center", padding: "32px 0", color: "rgba(250,248,244,0.35)", fontSize: 13, fontFamily: "DM Sans,sans-serif" } }, "No coupons yet — add Kohl\'s Cash, store credit, rewards..."),
       coupons.map(function(c) {
-        return React.createElement("div", { key: c.id, style: Object.assign({}, cardStyle, { opacity: c.used ? 0.45 : 1 }) },
+        // "Used" status carries via the line-through on the name below, not
+        // whole-card opacity (never dim whole cards/rows for status).
+        return React.createElement("div", { key: c.id, style: cardStyle },
           React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
             React.createElement("div", { style: { flex: 1 } },
               React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: c.used ? "line-through" : "none" } }, c.name),
