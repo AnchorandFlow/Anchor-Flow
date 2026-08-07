@@ -5976,7 +5976,9 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
           done.length>0&&React.createElement("div",{style:{marginTop:"0.5rem"}},
             React.createElement("div",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}},"Achieved ("+done.length+")"),
             done.map(function(g){
-              return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"center",gap:8,padding:"0.35rem 0",opacity:0.5}},
+              // Achieved status carries via the line-through text-decoration below,
+              // not whole-row opacity (never dim whole cards/rows for status).
+              return React.createElement("div",{key:g.id,style:{display:"flex",alignItems:"center",gap:8,padding:"0.35rem 0"}},
                 React.createElement("span",{style:{fontSize:12,color:CAREER_GOLD,cursor:"pointer"},onClick:function(){toggle(g.id);}},"✓"),
                 React.createElement("span",{style:{fontSize:12,color:CAREER_WHITE,textDecoration:"line-through"}},g.goal),
                 React.createElement("button",{onClick:function(){remove(g.id);},style:{background:"none",border:"none",fontSize:11,color:"#4a6275",cursor:"pointer",marginLeft:"auto",padding:0}},"✕")
