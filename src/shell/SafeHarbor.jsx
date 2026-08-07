@@ -26,8 +26,8 @@ var G = {
   denim:      "#3D6B8E",
   denimPale:  "rgba(61,107,142,0.18)",
   denimBorder:"rgba(61,107,142,0.35)",
-  card:       "rgba(250,242,229,0.04)",
-  cardBorder: "rgba(250,242,229,0.1)",
+  card:       "#f7f1e3",
+  cardBorder: "rgba(26,46,61,0.1)",
 }
 
 // ── 6 P categories ───────────────────────────────────────────────────────────
@@ -260,10 +260,10 @@ function saveData(d) {
 }
 
 // ── Shared style helpers ──────────────────────────────────────────────────────
-function card(extra) { return Object.assign({ background:G.card, border:"1px solid "+G.cardBorder, borderRadius:14, padding:"16px 18px", marginBottom:14 }, extra || {}) }
-function inp(extra)  { return Object.assign({ background:"rgba(250,242,229,0.06)", border:"1px solid "+G.goldBorder, borderRadius:8, padding:"8px 12px", color:"#faf8f4", fontFamily:SANS, fontSize:13, outline:"none", width:"100%", boxSizing:"border-box" }, extra || {}) }
+function card(extra) { return Object.assign({ background:G.card, border:"1px solid "+G.cardBorder, borderRadius:8, padding:"16px 18px", marginBottom:14 }, extra || {}) }
+function inp(extra)  { return Object.assign({ background:"rgba(26,46,61,0.05)", border:"1px solid "+G.goldBorder, borderRadius:8, padding:"8px 12px", color:"#1a2e3d", fontFamily:SANS, fontSize:13, outline:"none", width:"100%", boxSizing:"border-box" }, extra || {}) }
 function goldBtn(extra)  { return Object.assign({ background:G.gold, color:G.navy, border:"none", borderRadius:9, padding:"9px 20px", fontFamily:SANS, fontSize:13, fontWeight:700, cursor:"pointer" }, extra || {}) }
-function ghostBtn(extra) { return Object.assign({ background:"none", color:G.soft, border:"1px solid rgba(250,248,244,0.2)", borderRadius:9, padding:"9px 20px", fontFamily:SANS, fontSize:13, cursor:"pointer" }, extra || {}) }
+function ghostBtn(extra) { return Object.assign({ background:"none", color:"#4a6275", border:"1px solid rgba(250,248,244,0.2)", borderRadius:9, padding:"9px 20px", fontFamily:SANS, fontSize:13, cursor:"pointer" }, extra || {}) }
 
 // ── Print styles ──────────────────────────────────────────────────────────────
 var PRINT_CSS = "@media print { .af-sh-no-print { display:none !important; } .af-sh-print { color:#000 !important; background:#fff !important; } }"
@@ -547,7 +547,7 @@ export default function SafeHarbor() {
           return (
             <div key={t.id} onClick={function() { setTab(t.id) }}
               style={{ flex:1, padding:"8px 4px", borderRadius:9, textAlign:"center", cursor:"pointer",
-                background:on?G.gold:"transparent", color:on?G.navy:G.muted,
+                background:on?G.gold:"transparent", color:on?G.navy:"rgba(250,248,244,0.35)",
                 fontWeight:on?700:400, fontSize:13, transition:"all .15s", fontFamily:SANS }}>
               {t.label}
             </div>
@@ -565,7 +565,7 @@ export default function SafeHarbor() {
           {showNudge && (
             <div style={card({ background:G.goldPale, border:"1px solid "+G.goldBorder, marginBottom:16 })}>
               <div style={{ fontSize:10, letterSpacing:"0.16em", textTransform:"uppercase", color:G.gold, fontWeight:700, marginBottom:6 }}>🧭 From Compass</div>
-              <div style={{ fontFamily:SERIF, fontSize:15, fontStyle:"italic", color:"#faf8f4", lineHeight:1.65, marginBottom:14 }}>
+              <div style={{ fontFamily:SERIF, fontSize:15, fontStyle:"italic", color:"#1a2e3d", lineHeight:1.65, marginBottom:14 }}>
                 "A little preparation brings a lot of peace of mind.{" "}
                 {data.lastReviewed ? "It's been a year since your family reviewed Safe Harbor." : "Your family hasn't reviewed Safe Harbor yet."}{" "}
                 Want to take five quiet minutes to make sure everything is still current?"
@@ -587,7 +587,7 @@ export default function SafeHarbor() {
               return (
                 <div key={i} style={card({ padding:"12px 10px", marginBottom:0, textAlign:"center" })}>
                   <div style={{ fontFamily:SERIF, fontSize:i===2?14:20, color:G.gold, lineHeight:1, marginBottom:4 }}>{s.n}</div>
-                  <div style={{ fontSize:10, color:G.muted, lineHeight:1.3 }}>{s.l}</div>
+                  <div style={{ fontSize:10, color:"#4a6275", lineHeight:1.3 }}>{s.l}</div>
                   {i === 2 && <div onClick={markReviewed} style={{ fontSize:9, color:G.sea, cursor:"pointer", marginTop:5 }}>Mark reviewed →</div>}
                 </div>
               )
@@ -599,7 +599,7 @@ export default function SafeHarbor() {
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
               <div>
                 <div style={{ fontSize:11, letterSpacing:"0.1em", textTransform:"uppercase", color:G.gold, fontWeight:700, marginBottom:2 }}>Meeting Places & Contacts</div>
-                <div style={{ fontSize:11, color:G.muted }}>Where to find each other and who to call</div>
+                <div style={{ fontSize:11, color:"#4a6275" }}>Where to find each other and who to call</div>
               </div>
               {!editCon && <button onClick={openEditContacts} style={ghostBtn({ padding:"5px 14px", fontSize:12 })}>Edit</button>}
             </div>
@@ -609,7 +609,7 @@ export default function SafeHarbor() {
                 {CON_FIELDS.map(function(f) {
                   return (
                     <div key={f.key} style={{ marginBottom:10 }}>
-                      <div style={{ fontSize:11, color:G.muted, marginBottom:4 }}>{f.icon} {f.label}</div>
+                      <div style={{ fontSize:11, color:"#4a6275", marginBottom:4 }}>{f.icon} {f.label}</div>
                       <input
                         value={conDraft[f.key] || ""}
                         onChange={function(e) { var v=e.target.value; setConDraft(function(p) { var n=Object.assign({},p); n[f.key]=v; return n }) }}
@@ -629,11 +629,11 @@ export default function SafeHarbor() {
                 {CON_FIELDS.map(function(f) {
                   var val = data.contacts && data.contacts[f.key]
                   return (
-                    <div key={f.key} style={{ display:"flex", gap:10, padding:"9px 0", borderBottom:"0.5px solid rgba(250,242,229,0.07)" }}>
+                    <div key={f.key} style={{ display:"flex", gap:10, padding:"9px 0", borderBottom:"0.5px solid rgba(26,46,61,0.08)" }}>
                       <span style={{ fontSize:15, flexShrink:0, opacity:0.55 }}>{f.icon}</span>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:11, color:G.muted, marginBottom:2 }}>{f.label}</div>
-                        <div style={{ fontSize:13, color:val?"#faf8f4":G.muted, fontStyle:val?"normal":"italic" }}>{val || "Not set — tap Edit to add"}</div>
+                        <div style={{ fontSize:11, color:"#4a6275", marginBottom:2 }}>{f.label}</div>
+                        <div style={{ fontSize:13, color:val?"#1a2e3d":"#4a6275", fontStyle:val?"normal":"italic" }}>{val || "Not set — tap Edit to add"}</div>
                       </div>
                     </div>
                   )
@@ -647,14 +647,14 @@ export default function SafeHarbor() {
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
               <div>
                 <div style={{ fontSize:11, letterSpacing:"0.1em", textTransform:"uppercase", color:G.gold, fontWeight:700, marginBottom:2 }}>Household Members</div>
-                <div style={{ fontSize:11, color:G.muted }}>{(data.members||[]).length} {(data.members||[]).length===1?"person":"people"} in your plan</div>
+                <div style={{ fontSize:11, color:"#4a6275" }}>{(data.members||[]).length} {(data.members||[]).length===1?"person":"people"} in your plan</div>
               </div>
               <button onClick={startAddMember} style={goldBtn({ padding:"6px 14px", fontSize:12 })}>+ Add</button>
             </div>
 
             {/* Add/edit form */}
             {memberForm && (
-              <div style={{ background:"rgba(200,169,110,0.08)", border:"1px solid "+G.goldBorder, borderRadius:10, padding:"13px 14px", marginBottom:12 }}>
+              <div style={{ background:"#f7f1e3", border:"1px solid "+G.goldBorder, borderRadius:8, padding:"13px 14px", marginBottom:12 }}>
                 <input
                   value={memberForm.name}
                   onChange={function(e) { var v=e.target.value; setMemberForm(function(p) { return Object.assign({},p,{name:v}) }) }}
@@ -668,7 +668,7 @@ export default function SafeHarbor() {
                     return (
                       <button key={role}
                         onClick={function() { setMemberForm(function(p) { return Object.assign({},p,{role:role}) }) }}
-                        style={{ flex:1, background:on?G.gold:"transparent", color:on?G.navy:G.muted,
+                        style={{ flex:1, background:on?G.gold:"transparent", color:on?G.navy:"#4a6275",
                           border:"1px solid "+(on?G.gold:G.goldBorder), borderRadius:8, padding:"6px",
                           fontSize:12, cursor:"pointer", fontFamily:SANS, fontWeight:on?700:400 }}>
                         {role}
@@ -690,23 +690,23 @@ export default function SafeHarbor() {
             )}
 
             {(data.members||[]).length === 0 && !memberForm && (
-              <div style={{ textAlign:"center", padding:"18px 0", color:G.muted, fontSize:13, fontStyle:"italic", fontFamily:SERIF }}>
+              <div style={{ textAlign:"center", padding:"18px 0", color:"#4a6275", fontSize:13, fontStyle:"italic", fontFamily:SERIF }}>
                 Add household members so everyone has a role in the plan.
               </div>
             )}
 
             {(data.members||[]).map(function(m) {
               return (
-                <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:"0.5px solid rgba(250,242,229,0.07)" }}>
+                <div key={m.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 0", borderBottom:"0.5px solid rgba(26,46,61,0.08)" }}>
                   <div style={{ width:32, height:32, borderRadius:"50%",
                     background:m.role==="Child"?G.seaPale:m.role==="Pet"?G.goldPale:"rgba(100,140,180,0.2)",
                     display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>
                     {m.role==="Child"?"🧒":m.role==="Pet"?"🐾":"👤"}
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:"#faf8f4" }}>{m.name}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#1a2e3d" }}>{m.name}</div>
                     <div style={{ fontSize:11, color:G.sea }}>{m.role}</div>
-                    {m.note && <div style={{ fontSize:11, color:G.muted, marginTop:2 }}>{m.note}</div>}
+                    {m.note && <div style={{ fontSize:11, color:"#4a6275", marginTop:2 }}>{m.note}</div>}
                   </div>
                   <button onClick={function() { removeMember(m.id) }} style={{ background:"none", border:"none", color:"rgba(208,128,96,0.45)", cursor:"pointer", fontSize:18, padding:"0 4px", flexShrink:0 }}>×</button>
                 </div>
@@ -731,8 +731,8 @@ export default function SafeHarbor() {
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <span style={{ fontSize:18, flexShrink:0 }}>🔄</span>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, color:"#faf8f4", fontWeight:600 }}>Annual Review</div>
-                    <div style={{ fontSize:11, color:G.muted }}>
+                    <div style={{ fontSize:13, color:"#1a2e3d", fontWeight:600 }}>Annual Review</div>
+                    <div style={{ fontSize:11, color:"#4a6275" }}>
                       Cadence: {(data.review && data.review.cadence) || "yearly"}
                       {data.review && data.review.lastReviewedAt && (
                         <span> · last reviewed {data.review.lastReviewedAt}</span>
@@ -745,8 +745,8 @@ export default function SafeHarbor() {
                 <div style={{ display:"flex", alignItems:"center", gap:10, opacity:0.45 }}>
                   <span style={{ fontSize:18, flexShrink:0 }}>🏠</span>
                   <div>
-                    <div style={{ fontSize:13, color:"#faf8f4", fontWeight:600 }}>Six P's of Evacuation</div>
-                    <div style={{ fontSize:11, color:G.muted }}>Category notes layer — coming in SH-4</div>
+                    <div style={{ fontSize:13, color:"#1a2e3d", fontWeight:600 }}>Six P's of Evacuation</div>
+                    <div style={{ fontSize:11, color:"#4a6275" }}>Category notes layer — coming in SH-4</div>
                   </div>
                 </div>
 
@@ -754,8 +754,8 @@ export default function SafeHarbor() {
                 <div style={{ display:"flex", alignItems:"center", gap:10, opacity:0.45 }}>
                   <span style={{ fontSize:18, flexShrink:0 }}>👨‍👩‍👧</span>
                   <div>
-                    <div style={{ fontSize:13, color:"#faf8f4", fontWeight:600 }}>Family Emergency Plan</div>
-                    <div style={{ fontSize:11, color:G.muted }}>Full preparedness plan — coming in SH-5</div>
+                    <div style={{ fontSize:13, color:"#1a2e3d", fontWeight:600 }}>Family Emergency Plan</div>
+                    <div style={{ fontSize:11, color:"#4a6275" }}>Full preparedness plan — coming in SH-5</div>
                   </div>
                 </div>
 
@@ -777,7 +777,7 @@ export default function SafeHarbor() {
               return (
                 <button key={t.id} onClick={function() { setActiveTier(t.id) }}
                   style={{ flex:1, background:on?t.color:"transparent",
-                    color:on?"#fff":G.muted, border:"1.5px solid "+(on?t.color:"rgba(250,248,244,0.15)"),
+                    color:on?"#fff":"rgba(250,248,244,0.5)", border:"1.5px solid "+(on?t.color:"rgba(250,248,244,0.15)"),
                     borderRadius:10, padding:"10px 6px", cursor:"pointer", fontFamily:SANS, transition:"all .15s" }}>
                   <div style={{ fontSize:10, fontWeight:700, marginBottom:2 }}>{t.sub}</div>
                   <div style={{ fontSize:12, fontWeight:on?700:400 }}>{t.label}</div>
@@ -804,7 +804,7 @@ export default function SafeHarbor() {
               <div style={{ background:G.seaPale, border:"1px solid "+G.seaBorder, borderRadius:10, padding:"11px 14px", marginBottom:10 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:7 }}>
                   <div style={{ fontSize:13, color:G.sea, fontWeight:700 }}>{checkedCount} of {visibleItems.length} complete</div>
-                  <div style={{ fontSize:11, color:G.muted }}>{pct}%</div>
+                  <div style={{ fontSize:11, color:"#4a6275" }}>{pct}%</div>
                 </div>
                 <div style={{ height:5, background:"rgba(250,248,244,0.1)", borderRadius:3, overflow:"hidden" }}>
                   <div style={{ height:"100%", width:pct+"%", background:G.sea, transition:"width .3s", borderRadius:3 }} />
@@ -836,7 +836,7 @@ export default function SafeHarbor() {
                     <div key={item.id}
                       onClick={function() { toggleItem(item.id) }}
                       style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0",
-                        borderBottom:"0.5px solid rgba(250,242,229,0.06)",
+                        borderBottom:"0.5px solid rgba(26,46,61,0.08)",
                         cursor:(SAFE_HARBOR_V2||session)?"pointer":"default",
                         opacity:!SAFE_HARBOR_V2&&!session&&item.tier>activeTier?0.4:1 }}>
                       {/* Checkbox — V2: reflects sessionChecked overlay during sessions,
@@ -849,8 +849,8 @@ export default function SafeHarbor() {
                       </div>
                       {/* Content */}
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, color:getChecked(item)?G.muted:"#faf8f4", textDecoration:getChecked(item)?"line-through":"none" }}>{item.name}</div>
-                        {item.location && <div style={{ fontSize:11, color:G.muted, marginTop:2 }}>📍 {item.location}</div>}
+                        <div style={{ fontSize:13, color:getChecked(item)?"#4a6275":"#1a2e3d", textDecoration:getChecked(item)?"line-through":"none" }}>{item.name}</div>
+                        {item.location && <div style={{ fontSize:11, color:"#4a6275", marginTop:2 }}>📍 {item.location}</div>}
                         {item.source  && <div style={{ fontSize:10, color:G.sea, fontStyle:"italic", marginTop:2 }}>{item.source}</div>}
                         {item.assignedTo && (
                           <div style={{ display:"inline-block", background:G.seaPale, border:"0.5px solid "+G.seaBorder, borderRadius:20, padding:"1px 8px", fontSize:10, color:G.sea, marginTop:3 }}>{item.assignedTo}</div>
@@ -877,9 +877,9 @@ export default function SafeHarbor() {
                   var entry = pendingUndo[id]
                   if (!entry) return null
                   return (
-                    <div key={"undo-"+id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"0.5px solid rgba(250,242,229,0.04)", opacity:0.7 }}>
+                    <div key={"undo-"+id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0", borderBottom:"0.5px solid rgba(26,46,61,0.06)", opacity:0.7 }}>
                       <div style={{ width:18, height:18, borderRadius:5, flexShrink:0, border:"1.5px dashed rgba(250,248,244,0.15)", background:"transparent" }} />
-                      <div style={{ flex:1, fontSize:12, color:G.muted, textDecoration:"line-through", fontStyle:"italic" }}>{entry.item.name}</div>
+                      <div style={{ flex:1, fontSize:12, color:"#4a6275", textDecoration:"line-through", fontStyle:"italic" }}>{entry.item.name}</div>
                       <div style={{ fontSize:12, color:G.sea, whiteSpace:"nowrap" }}>
                         Removed ·{" "}
                         <button onClick={function() { undoRemove(id) }} aria-label={"Undo removal of " + entry.item.name} style={{ background:"none", border:"none", color:G.sea, fontFamily:SANS, fontSize:12, fontWeight:700, cursor:"pointer", textDecoration:"underline", padding:"0 0 0 2px", minHeight:44, verticalAlign:"middle" }}>Undo</button>
@@ -890,7 +890,7 @@ export default function SafeHarbor() {
 
                 {/* Custom item form */}
                 {addingCat === cat ? (
-                  <div style={{ marginTop:10, background:"rgba(200,169,110,0.06)", border:"1px dashed "+G.goldBorder, borderRadius:9, padding:"11px 12px" }}>
+                  <div style={{ marginTop:10, background:"#f7f1e3", border:"1px dashed "+G.goldBorder, borderRadius:8, padding:"11px 12px" }}>
                     <input value={addName} onChange={function(e){setAddName(e.target.value)}} placeholder="Item name" style={inp({ marginBottom:7 })} autoFocus />
                     <input value={addLoc}  onChange={function(e){setAddLoc(e.target.value)}}  placeholder="Where is it? (optional)" style={inp({ marginBottom:10 })} />
                     <div style={{ display:"flex", gap:8 }}>
@@ -909,12 +909,12 @@ export default function SafeHarbor() {
           })}
 
           {/* Restore defaults + ready.gov footer */}
-          <div style={{ textAlign:"center", padding:"14px 0 2px", borderTop:"0.5px solid rgba(250,242,229,0.06)", marginTop:6 }}>
+          <div style={{ textAlign:"center", padding:"14px 0 2px", borderTop:"0.5px solid rgba(26,46,61,0.08)", marginTop:6 }}>
             <div
               onClick={restoreDefaults}
-              style={{ fontSize:12, color:G.muted, cursor:"pointer", marginBottom:10, display:"inline-block" }}
+              style={{ fontSize:12, color:"#4a6275", cursor:"pointer", marginBottom:10, display:"inline-block" }}
               onMouseEnter={function(e) { e.currentTarget.style.color = G.sea }}
-              onMouseLeave={function(e) { e.currentTarget.style.color = G.muted }}>
+              onMouseLeave={function(e) { e.currentTarget.style.color = "#4a6275" }}>
               ↩ Restore default items
             </div>
             <div style={{ fontSize:10, color:"rgba(250,248,244,0.2)" }}>
@@ -930,7 +930,7 @@ export default function SafeHarbor() {
       ══════════════════════════════════════════════════ */}
       {tab === "ourArea" && (
         <div>
-          <div style={{ fontSize:13, color:G.muted, marginBottom:16, lineHeight:1.55 }}>
+          <div style={{ fontSize:13, color:"rgba(250,248,244,0.5)", marginBottom:16, lineHeight:1.55 }}>
             Select the hazards most relevant to your area. Each one has a calm Before / During / After guide.
           </div>
 
@@ -941,15 +941,15 @@ export default function SafeHarbor() {
               return (
                 <div key={h.id} onClick={function() { toggleHazard(h.id) }}
                   style={{ background:on?h.pale:G.card, border:"1.5px solid "+(on?h.border:G.cardBorder),
-                    borderRadius:12, padding:"13px 14px", cursor:"pointer", transition:"all .15s" }}>
+                    borderRadius:8, padding:"13px 14px", cursor:"pointer", transition:"all .15s" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <span style={{ fontSize:20 }}>{h.emoji}</span>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:on?"#fff":G.soft }}>{h.label}</div>
-                      <div style={{ fontSize:10, color:on?h.color:G.muted, marginTop:2, fontWeight:on?700:400 }}>{h.urgent}</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:on?"#fff":"#1a2e3d" }}>{h.label}</div>
+                      <div style={{ fontSize:10, color:on?h.color:"#4a6275", marginTop:2, fontWeight:on?700:400 }}>{h.urgent}</div>
                     </div>
                     <div style={{ width:18, height:18, borderRadius:"50%",
-                      border:"1.5px solid "+(on?h.color:"rgba(250,248,244,0.2)"),
+                      border:"1.5px solid "+(on?h.color:"rgba(26,46,61,0.25)"),
                       background:on?h.color:"transparent",
                       display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, color:"#fff", flexShrink:0 }}>
                       {on?"✓":""}
@@ -962,10 +962,10 @@ export default function SafeHarbor() {
 
           {/* Empty state */}
           {(data.hazards||[]).length === 0 && (
-            <div style={{ textAlign:"center", padding:"28px 20px", background:G.card, border:"1px solid "+G.cardBorder, borderRadius:14 }}>
+            <div style={{ textAlign:"center", padding:"28px 20px", background:G.card, border:"1px solid "+G.cardBorder, borderRadius:8 }}>
               <div style={{ fontSize:"1.5rem", marginBottom:8 }}>🗺️</div>
-              <div style={{ fontFamily:SERIF, fontSize:18, color:"#faf8f4", marginBottom:6 }}>Select your area's hazards above</div>
-              <div style={{ fontSize:12, color:G.muted, lineHeight:1.6 }}>Tap any hazard to add a Before / During / After guide to your plan.</div>
+              <div style={{ fontFamily:SERIF, fontSize:18, color:"#1a2e3d", marginBottom:6 }}>Select your area's hazards above</div>
+              <div style={{ fontSize:12, color:"#4a6275", lineHeight:1.6 }}>Tap any hazard to add a Before / During / After guide to your plan.</div>
             </div>
           )}
 
@@ -978,7 +978,7 @@ export default function SafeHarbor() {
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:content.urgentNote?8:14 }}>
                   <span style={{ fontSize:24 }}>{h.emoji}</span>
                   <div>
-                    <div style={{ fontFamily:SERIF, fontSize:19, fontWeight:700, color:"#faf8f4" }}>{h.label}</div>
+                    <div style={{ fontFamily:SERIF, fontSize:19, fontWeight:700, color:"#1a2e3d" }}>{h.label}</div>
                     <div style={{ fontSize:11, color:h.color, fontWeight:700, marginTop:1 }}>{h.urgent}</div>
                   </div>
                 </div>
@@ -1005,7 +1005,7 @@ export default function SafeHarbor() {
                         return (
                           <div key={idx} style={{ display:"flex", gap:8, padding:"3px 0" }}>
                             <div style={{ width:4, height:4, borderRadius:"50%", background:G.sea, flexShrink:0, marginTop:7 }} />
-                            <div style={{ fontSize:13, color:G.soft, lineHeight:1.45 }}>{item}</div>
+                            <div style={{ fontSize:13, color:"#4a6275", lineHeight:1.45 }}>{item}</div>
                           </div>
                         )
                       })}
@@ -1014,7 +1014,7 @@ export default function SafeHarbor() {
                 })}
 
                 {/* Source attribution */}
-                <div style={{ fontSize:10, color:G.muted, borderTop:"0.5px solid rgba(250,242,229,0.07)", paddingTop:8, marginTop:4 }}>
+                <div style={{ fontSize:10, color:"#4a6275", borderTop:"0.5px solid rgba(26,46,61,0.08)", paddingTop:8, marginTop:4 }}>
                   Source:{" "}
                   <a href={"https://www." + content.source} target="_blank" rel="noopener noreferrer" style={{ color:G.sea }}>{content.source}</a>
                 </div>
