@@ -1747,7 +1747,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         const hasGifts = cGifts.length > 0
 
         return (
-          <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 10, opacity: isPast ? 0.5 : 1, overflow: "hidden", cursor: "pointer" }}>
+          <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 10, overflow: "hidden", cursor: "pointer" }}>
             {/* Card header — icon, name, type, countdown */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px 8px" }}>
               <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{e.emoji}</div>
