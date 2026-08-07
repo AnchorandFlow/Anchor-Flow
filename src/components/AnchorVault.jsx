@@ -7185,9 +7185,9 @@ function sysStatus(system) {
 }
 
 function sysStatusColor(status) {
-  if(status==="overdue") return "#e24b4a";
-  if(status==="soon") return "#ef9f27";
-  return "#1d9e75";
+  if(status==="overdue") return "#a05c10";
+  if(status==="soon") return "#4a6275";
+  return "#2e7a46";
 }
 
 function sysStatusLabel(system) {
@@ -7364,9 +7364,9 @@ function HouseFileSection() {
     setCardItems(function(prev){return prev.filter(function(i){return i.id!==id;});});
   }
 
-  var SURF="rgba(250,242,229,0.05)";
+  var SURF="#f7f1e3";
   var SURF2="rgba(250,242,229,0.04)";
-  var BORD2="0.5px solid rgba(250,242,229,0.08)";
+  var BORD2="0.5px solid rgba(26,46,61,0.08)";
 
   // ── Detail card view ───────────────────────────────────────────────────────
   if(detail) {
@@ -7378,45 +7378,45 @@ function HouseFileSection() {
     return React.createElement("div",null,
       // back + actions
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16}},
-        React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:HBORD,borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 Back"),
+        React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"rgba(250,242,229,0.06)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"5px 10px",fontSize:12,color:"rgba(250,248,244,0.5)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u2190 Back"),
         React.createElement("span",{style:{fontSize:15}},cardCat.emoji),
-        React.createElement("span",{style:{fontSize:15,fontWeight:500,color:HWHITE,flex:1}},card.title),
+        React.createElement("span",{style:{fontSize:15,fontWeight:500,color:"#faf8f4",flex:1}},card.title),
         React.createElement("button",{onClick:function(){openEdit(card);},style:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Edit"),
         React.createElement("button",{onClick:function(){if(window.confirm("Delete this record?")){deleteCard(card.id);}},style:{fontSize:11,color:"rgba(240,153,123,0.6)",background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.15)",borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Delete")
       ),
       // checklist
-      card.type==="checklist"&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",marginBottom:12}},
+      card.type==="checklist"&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",marginBottom:12}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
-          React.createElement("span",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif"}},(doneCount+" of "+totalCount+" collected")),
-          doneCount===totalCount&&totalCount>0&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:10,background:"rgba(29,158,117,0.15)",color:"#5dcaa5",border:"0.5px solid rgba(29,158,117,0.25)"}},"Complete \u2713")
+          React.createElement("span",{style:{fontSize:12,color:"#4a6275",fontFamily:"DM Sans,sans-serif"}},(doneCount+" of "+totalCount+" collected")),
+          doneCount===totalCount&&totalCount>0&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:4,background:"rgba(29,158,117,0.15)",color:"#2e7a46"}},"Complete \u2713")
         ),
         // progress bar
-        totalCount>0&&React.createElement("div",{style:{height:3,background:"rgba(250,242,229,0.07)",borderRadius:2,marginBottom:12}},
+        totalCount>0&&React.createElement("div",{style:{height:3,background:"rgba(26,46,61,0.08)",borderRadius:2,marginBottom:12}},
           React.createElement("div",{style:{width:Math.round((doneCount/totalCount)*100)+"%",height:3,borderRadius:2,background:"#1d9e75",transition:"width 0.2s"}})
         ),
         (card.items||[]).map(function(item){
           return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:BORD2,cursor:"pointer"},onClick:function(){toggleItem(card.id,item.id);}},
-            React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"0.5px solid "+(item.done?"rgba(29,158,117,0.6)":"rgba(250,242,229,0.2)"),background:item.done?"rgba(29,158,117,0.2)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+            React.createElement("div",{style:{width:16,height:16,borderRadius:4,border:"0.5px solid "+(item.done?"rgba(29,158,117,0.6)":"rgba(26,46,61,0.25)"),background:item.done?"rgba(29,158,117,0.2)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
               item.done&&React.createElement("span",{style:{fontSize:10,color:"#5dcaa5"}},"\u2713")
             ),
-            React.createElement("span",{style:{fontSize:13,color:item.done?"rgba(250,248,244,0.3)":"rgba(250,248,244,0.8)",textDecoration:item.done?"line-through":"none",flex:1}},item.text)
+            React.createElement("span",{style:{fontSize:13,color:item.done?"#4a6275":"#1a2e3d",textDecoration:item.done?"line-through":"none",flex:1}},item.text)
           );
         })
       ),
       // fields
-      card.type==="note"&&(card.fields||[]).filter(function(f){return f.value;}).length>0&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",marginBottom:12}},
+      card.type==="note"&&(card.fields||[]).filter(function(f){return f.value;}).length>0&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",marginBottom:12}},
         (card.fields||[]).map(function(f,i){
           if(!f.value) return null;
           return React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:BORD2,gap:12}},
-            React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",flexShrink:0,paddingTop:1}},f.label),
-            React.createElement("span",{style:{fontSize:13,color:HWHITE,textAlign:"right",wordBreak:"break-word"}},f.value)
+            React.createElement("span",{style:{fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",flexShrink:0,paddingTop:1}},f.label),
+            React.createElement("span",{style:{fontSize:13,color:"#1a2e3d",textAlign:"right",wordBreak:"break-word"}},f.value)
           );
         })
       ),
       // notes
-      card.notes&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:12,padding:"14px 16px",marginBottom:12}},
-        React.createElement("p",{style:{fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 6px"}},"Notes"),
-        React.createElement("p",{style:{fontSize:13,color:"rgba(250,248,244,0.7)",lineHeight:1.65,margin:0}},card.notes)
+      card.notes&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",marginBottom:12}},
+        React.createElement("p",{style:{fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 6px"}},"Notes"),
+        React.createElement("p",{style:{fontSize:13,color:"#1a2e3d",lineHeight:1.65,margin:0}},card.notes)
       )
     );
   }
@@ -7425,7 +7425,7 @@ function HouseFileSection() {
   return React.createElement("div",null,
     // header
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}},
-      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE}},"House File"),
+      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4"}},"House File"),
       React.createElement("button",{onClick:openAdd,style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add record")
     ),
     // category pills
@@ -7453,13 +7453,13 @@ function HouseFileSection() {
             var doneC=(card.items||[]).filter(function(i){return i.done;}).length;
             var totalC=(card.items||[]).length;
             var filledFields=(card.fields||[]).filter(function(f){return f.value;}).length;
-            return React.createElement("div",{key:card.id,onClick:function(){setDetail(card.id);},style:{background:SURF,border:HBORD,borderRadius:10,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}},
+            return React.createElement("div",{key:card.id,onClick:function(){setDetail(card.id);},style:{background:SURF,border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}},
               React.createElement("span",{style:{fontSize:20,flexShrink:0}},cat.emoji),
               React.createElement("div",{style:{flex:1,minWidth:0}},
-                React.createElement("p",{style:{fontSize:13,fontWeight:500,color:HWHITE,margin:"0 0 3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},card.title),
+                React.createElement("p",{style:{fontSize:13,fontWeight:500,color:"#1a2e3d",margin:"0 0 3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},card.title),
                 card.type==="checklist"
                   ? React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-                      React.createElement("div",{style:{flex:1,height:3,background:"rgba(250,242,229,0.08)",borderRadius:2,maxWidth:100}},
+                      React.createElement("div",{style:{flex:1,height:3,background:"rgba(26,46,61,0.1)",borderRadius:2,maxWidth:100}},
                         React.createElement("div",{style:{width:totalC>0?Math.round((doneC/totalC)*100)+"%":"0%",height:3,borderRadius:2,background:"#1d9e75"}})
                       ),
                       React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.35)"}},(doneC+"/"+totalC))
@@ -7484,15 +7484,15 @@ function HouseFileSection() {
         cardFields.map(function(f,i){
           return React.createElement("div",{key:i,style:{marginBottom:8}},
             React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},f.label),
-            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.5rem 0.7rem",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
+            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#faf8f4",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
           );
         }),
         // add custom field
         fieldEdit!==null
           ? React.createElement("div",{style:{display:"flex",gap:6,marginTop:6}},
-              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.45rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.45rem 0.65rem",color:"#faf8f4",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
               React.createElement("button",{onClick:function(){if(fieldEdit.trim()){setCardFields(function(prev){return prev.concat([{label:fieldEdit.trim(),value:""}]);});setFieldEdit(null);}},style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.45rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"Add"),
-              React.createElement("button",{onClick:function(){setFieldEdit(null);},style:{background:"none",border:HBORD,borderRadius:8,padding:"0.45rem 0.8rem",color:"rgba(250,248,244,0.35)",cursor:"pointer",fontSize:12}},"Cancel")
+              React.createElement("button",{onClick:function(){setFieldEdit(null);},style:{background:"none",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.45rem 0.8rem",color:"rgba(250,248,244,0.35)",cursor:"pointer",fontSize:12}},"Cancel")
             )
           : React.createElement("button",{onClick:function(){setFieldEdit("");},style:{fontSize:11,color:"rgba(250,248,244,0.35)",background:"none",border:"0.5px dashed rgba(250,242,229,0.12)",borderRadius:7,padding:"4px 10px",cursor:"pointer",marginTop:4,fontFamily:"DM Sans,sans-serif"}},"\u002B Add custom field")
       ),
@@ -7501,12 +7501,12 @@ function HouseFileSection() {
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Items"),
         cardItems.map(function(item,i){
           return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:6,marginBottom:4}},
-            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.4rem 0.65rem",color:"#faf8f4",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
             React.createElement("button",{onClick:function(){removeChecklistItem(item.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1,flexShrink:0}},"✕")
           );
         }),
         React.createElement("div",{style:{display:"flex",gap:6,marginTop:4}},
-          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"rgba(250,242,229,0.07)",border:HBORD,borderRadius:8,padding:"0.4rem 0.65rem",color:HWHITE,fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"rgba(250,242,229,0.07)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.4rem 0.65rem",color:"#faf8f4",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
           React.createElement("button",{onClick:addChecklistItem,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"\u002B")
         )
       ),
@@ -7564,8 +7564,8 @@ function ProductsPanel() {
   }
   function deleteItem(catId,itemId){ save(cats.map(function(c){return c.id!==catId?c:Object.assign({},c,{items:(c.items||[]).filter(function(it){return it.id!==itemId;})});})); }
 
-  var SURF="rgba(250,242,229,0.05)";
-  var inp={width:"100%",background:"rgba(250,242,229,0.04)",border:HBORD,borderRadius:8,padding:"9px 11px",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"};
+  var SURF="#f7f1e3";
+  var inp={width:"100%",background:"rgba(250,242,229,0.04)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"9px 11px",color:"#faf8f4",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"};
   var lbl={fontSize:11,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",display:"block",marginBottom:4,marginTop:11};
   function up(k){ return function(e){ var v=e.target.value; setForm(function(p){var n=Object.assign({},p);n[k]=v;return n;}); }; }
 
@@ -7588,26 +7588,26 @@ function ProductsPanel() {
     cats.map(function(cat){
       var isOpen=expanded===cat.id; var items=cat.items||[];
       if(sortAZ) items=items.slice().sort(function(a,b){return (a.name||"").localeCompare(b.name||"");});
-      return React.createElement("div",{key:cat.id,style:{background:SURF,border:HBORD,borderRadius:12,marginBottom:10,overflow:"hidden"}},
+      return React.createElement("div",{key:cat.id,style:{background:SURF,border:HBORD,borderRadius:8,marginBottom:10,overflow:"hidden"}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"},onClick:function(){setExpanded(isOpen?null:cat.id);}},
-          React.createElement("span",{style:{fontSize:13,color:"rgba(250,248,244,0.4)",transition:"transform 0.2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"›"),
-          React.createElement("div",{style:{flex:1,fontFamily:"Cormorant Garamond,serif",fontSize:17,fontWeight:700,color:HWHITE}},cat.name),
-          React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif"}},items.length+(items.length===1?" item":" items")),
+          React.createElement("span",{style:{fontSize:13,color:"#4a6275",transition:"transform 0.2s",display:"inline-block",transform:isOpen?"rotate(90deg)":"rotate(0deg)"}},"›"),
+          React.createElement("div",{style:{flex:1,fontFamily:"Cormorant Garamond,serif",fontSize:17,fontWeight:700,color:"#1a2e3d"}},cat.name),
+          React.createElement("span",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif"}},items.length+(items.length===1?" item":" items")),
           React.createElement("button",{onClick:function(e){e.stopPropagation();if(window.confirm("Delete category \""+cat.name+"\" and its items?"))deleteCategory(cat.id);},style:{background:"none",border:"none",cursor:"pointer",color:"rgba(226,75,74,0.7)",fontSize:15,padding:"0 2px"}},"✕")
         ),
         isOpen&&React.createElement("div",{style:{padding:"0 14px 12px"}},
-          items.length===0&&React.createElement("div",{style:{fontSize:12,color:"rgba(250,248,244,0.3)",fontStyle:"italic",fontFamily:"DM Sans,sans-serif",padding:"2px 0 10px"}},"No products in here yet."),
+          items.length===0&&React.createElement("div",{style:{fontSize:12,color:"#4a6275",fontStyle:"italic",fontFamily:"DM Sans,sans-serif",padding:"2px 0 10px"}},"No products in here yet."),
           items.map(function(item){
-            return React.createElement("div",{key:item.id,style:{background:"rgba(250,242,229,0.03)",border:HBORD,borderRadius:9,padding:"10px 12px",marginBottom:8}},
+            return React.createElement("div",{key:item.id,style:{background:"rgba(26,46,61,0.05)",border:"1px solid rgba(26,46,61,0.08)",borderRadius:8,padding:"10px 12px",marginBottom:8}},
               React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}},
                 React.createElement("div",{style:{flex:1,minWidth:0}},
-                  React.createElement("div",{style:{fontSize:14,fontWeight:600,color:HWHITE,fontFamily:"DM Sans,sans-serif"}},item.name),
-                  item.purchasedAt&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",marginTop:2}},"Bought: "+item.purchasedAt),
+                  React.createElement("div",{style:{fontSize:14,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}},item.name),
+                  item.purchasedAt&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:2}},"Bought: "+item.purchasedAt),
                   item.warranty&&React.createElement("div",{style:{fontSize:11,color:"#8bbf9a",fontFamily:"DM Sans,sans-serif",marginTop:2}},"✓ Warranty"+(item.warrantyNote?" — "+item.warrantyNote:"")),
-                  item.notes&&React.createElement("div",{style:{fontSize:11,color:"rgba(250,248,244,0.45)",fontFamily:"DM Sans,sans-serif",marginTop:2,fontStyle:"italic"}},item.notes)
+                  item.notes&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:2,fontStyle:"italic"}},item.notes)
                 ),
                 React.createElement("div",{style:{display:"flex",gap:6,flexShrink:0}},
-                  React.createElement("button",{onClick:function(){openEdit(cat.id,item);},style:{background:"none",border:HBORD,borderRadius:6,padding:"3px 8px",fontSize:11,color:"rgba(250,248,244,0.6)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Edit"),
+                  React.createElement("button",{onClick:function(){openEdit(cat.id,item);},style:{background:"none",border:HBORD,borderRadius:6,padding:"3px 8px",fontSize:11,color:"#1a2e3d",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Edit"),
                   React.createElement("button",{onClick:function(){deleteItem(cat.id,item.id);},style:{background:"none",border:HBORD,borderRadius:6,padding:"3px 7px",fontSize:11,color:"rgba(226,75,74,0.7)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"✕")
                 )
               ),
@@ -7620,7 +7620,7 @@ function ProductsPanel() {
     }),
     modal&&React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(15,26,42,0.72)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"},onClick:function(){setModal(null);}},
       React.createElement("div",{onClick:function(e){e.stopPropagation();},style:{background:"#1a2744",borderRadius:"18px 18px 0 0",padding:"20px",paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))",width:"min(480px,100%)",maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))",overflowY:"auto"}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:19,fontWeight:700,color:HWHITE,marginBottom:2}},modal.itemId?"Edit product":"Add product"),
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:19,fontWeight:700,color:"#faf8f4",marginBottom:2}},modal.itemId?"Edit product":"Add product"),
         React.createElement("label",{style:lbl},"Name"),
         React.createElement("input",{autoFocus:true,value:form.name,onChange:up("name"),placeholder:"Snoo, Graco carseat...",style:inp}),
         React.createElement("label",{style:lbl},"Link (manual or website)"),
@@ -7629,14 +7629,14 @@ function ProductsPanel() {
         React.createElement("input",{value:form.purchasedAt,onChange:up("purchasedAt"),placeholder:"Target, Amazon, gift...",style:inp}),
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:9,marginTop:13,cursor:"pointer"},onClick:function(){setForm(function(p){return Object.assign({},p,{warranty:!p.warranty});});}},
           React.createElement("span",{style:{width:18,height:18,borderRadius:5,border:"1.5px solid "+(form.warranty?HGOLD:"rgba(250,248,244,0.25)"),background:form.warranty?HGOLD:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},form.warranty?React.createElement("span",{style:{color:"#1a2744",fontSize:11,fontWeight:900}},"✓"):null),
-          React.createElement("span",{style:{fontSize:13,color:HWHITE,fontFamily:"DM Sans,sans-serif"}},"Warranty purchased")
+          React.createElement("span",{style:{fontSize:13,color:"#faf8f4",fontFamily:"DM Sans,sans-serif"}},"Warranty purchased")
         ),
         form.warranty&&React.createElement("input",{value:form.warrantyNote,onChange:up("warrantyNote"),placeholder:"Expires 2028, receipt in email...",style:Object.assign({},inp,{marginTop:8})}),
         React.createElement("label",{style:lbl},"Notes"),
         React.createElement("textarea",{value:form.notes,onChange:up("notes"),placeholder:"Model number, serial, anything useful...",style:Object.assign({},inp,{minHeight:60,resize:"vertical"})}),
         React.createElement("div",{style:{display:"flex",gap:8,marginTop:16}},
           React.createElement("button",{onClick:saveItem,style:{flex:1,background:HGOLD,color:"#1a2744",border:"none",borderRadius:10,padding:"11px",fontWeight:700,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:14}},"Save"),
-          React.createElement("button",{onClick:function(){setModal(null);},style:{flex:1,background:"none",color:"rgba(250,248,244,0.6)",border:HBORD,borderRadius:10,padding:"11px",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:14}},"Cancel")
+          React.createElement("button",{onClick:function(){setModal(null);},style:{flex:1,background:"none",color:"rgba(250,248,244,0.6)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:10,padding:"11px",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontSize:14}},"Cancel")
         )
       )
     )
@@ -7650,7 +7650,7 @@ function HomeSystemsSection() {
     return React.createElement("button",{onClick:function(){setSysTab(id);},style:{flex:1,background:active?"rgba(200,169,122,0.15)":"transparent",color:active?HGOLD:"rgba(250,248,244,0.5)",border:"0.5px solid "+(active?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"8px 0",fontSize:12.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label);
   }
   return React.createElement("div",null,
-    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HWHITE,marginBottom:12}},"Maintenance"),
+    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4",marginBottom:12}},"Maintenance"),
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16}}, tabBtn("maintenance","Maintenance"), tabBtn("products","Products")),
     sysTab==="products" ? React.createElement(ProductsPanel,null) : React.createElement(MaintenancePanel,null)
   );
@@ -7693,8 +7693,8 @@ function MaintenancePanel() {
   // alerts
   var overdue=systems.filter(function(s){return sysStatus(s)==="overdue";});
   var soon=systems.filter(function(s){return sysStatus(s)==="soon";});
-  var SURF="rgba(250,242,229,0.05)";
-  var SURF2="rgba(250,242,229,0.04)";
+  var SURF="#f7f1e3";
+  var SURF2="#f7f1e3";
 
   return React.createElement("div",null,
     // header
@@ -7705,13 +7705,13 @@ function MaintenancePanel() {
     React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.35)",fontFamily:"DM Sans,sans-serif",marginBottom:16,marginTop:2}},"Track maintenance schedules for every part of your home"),
 
     // alert banners
-    overdue.length>0&&React.createElement("div",{style:{background:"rgba(226,75,74,0.08)",border:"0.5px solid rgba(226,75,74,0.2)",borderRadius:10,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#f0997b",marginBottom:10}},
+    overdue.length>0&&React.createElement("div",{style:{background:"rgba(160,92,16,0.1)",border:"0.5px solid rgba(160,92,16,0.25)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#a05c10",marginBottom:10}},
       React.createElement("span",{style:{fontSize:15}},"\u26a0\ufe0f"),
       overdue.length===1
         ? (overdue[0].name+" is overdue")
         : (overdue.length+" systems are overdue")
     ),
-    soon.length>0&&React.createElement("div",{style:{background:"rgba(239,159,39,0.08)",border:"0.5px solid rgba(239,159,39,0.18)",borderRadius:10,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#ef9f27",marginBottom:10}},
+    soon.length>0&&React.createElement("div",{style:{background:"rgba(26,46,61,0.08)",border:"1px solid rgba(26,46,61,0.12)",borderRadius:8,padding:"9px 13px",display:"flex",alignItems:"center",gap:9,fontSize:12,color:"#4a6275",marginBottom:10}},
       React.createElement("span",{style:{fontSize:15}},"\u23f0"),
       soon.length===1
         ? (soon[0].name+" due soon")
@@ -7730,7 +7730,7 @@ function MaintenancePanel() {
             var status=sysStatus(sys);
             var statusColor=sysStatusColor(status);
             var typeIcon=(SYS_ICONS.find(function(s){return s.id===sys.type;})||SYS_ICONS[SYS_ICONS.length-1]).emoji;
-            return React.createElement("div",{key:sys.id||i,style:{background:SURF,border:HBORD,borderRadius:10,padding:"12px 12px 10px",display:"flex",flexDirection:"column",gap:6,cursor:"pointer"},
+            return React.createElement("div",{key:sys.id||i,style:{background:SURF,border:HBORD,borderRadius:8,padding:"12px 12px 10px",display:"flex",flexDirection:"column",gap:6,cursor:"pointer"},
               onClick:function(){setDetail(i);}},
               React.createElement("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
                 React.createElement("span",{style:{fontSize:20}},typeIcon),
@@ -7752,33 +7752,33 @@ function MaintenancePanel() {
       var sys=systems[detail];
       var status=sysStatus(sys);
       var freqLabel=(SYS_FREQ.find(function(f){return f.id===sys.freq;})||{label:sys.freq||"—"}).label;
-      return React.createElement("div",{style:{background:SURF2,border:HBORD,borderRadius:12,padding:"16px",marginTop:4}},
+      return React.createElement("div",{style:{background:SURF2,border:HBORD,borderRadius:8,padding:"16px",marginTop:4}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}},
           React.createElement("span",{style:{fontSize:14,fontWeight:500,color:HWHITE}},sys.name),
           React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
             React.createElement("button",{onClick:function(){setEditIdx(detail);setForm({name:sys.name,type:sys.type||"other",freq:sys.freq||"1y",lastDone:sys.lastDone||"",nextDue:sys.nextDue||"",notes:sys.notes||""});setAdding(true);setDetail(null);},style:{fontSize:11,color:HGOLD,background:"rgba(200,169,122,0.1)",border:"0.5px solid rgba(200,169,122,0.25)",borderRadius:6,padding:"3px 9px",cursor:"pointer"}},"Edit"),
-            React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.3)",cursor:"pointer",fontSize:16,padding:"0 2px"}},"✕")
+            React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:16,padding:"0 2px"}},"✕")
           )
         ),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
-          React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
-            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Frequency"),
+          React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Frequency"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},freqLabel)
           ),
-          React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
-            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Status"),
+          React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Status"),
             React.createElement("p",{style:{fontSize:13,color:sysStatusColor(status),margin:0}},sysStatusLabel(sys))
           ),
-          sys.lastDone&&React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
-            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Last done"),
+          sys.lastDone&&React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Last done"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.lastDone)
           ),
-          (sys.nextDue||sysNextDate(sys.lastDone,sys.freq))&&React.createElement("div",{style:{background:"rgba(250,242,229,0.03)",borderRadius:8,padding:"8px 10px"}},
-            React.createElement("p",{style:{fontSize:10,color:"rgba(250,248,244,0.35)",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Next due"),
+          (sys.nextDue||sysNextDate(sys.lastDone,sys.freq))&&React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
+            React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Next due"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},sys.nextDue||sysNextDate(sys.lastDone,sys.freq))
           )
         ),
-        sys.notes&&React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.45)",lineHeight:1.6,margin:"0 0 12px",fontStyle:"italic"}},sys.notes),
+        sys.notes&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",lineHeight:1.6,margin:"0 0 12px",fontStyle:"italic"}},sys.notes),
         React.createElement("div",{style:{display:"flex",gap:8}},
           React.createElement("button",{onClick:function(){markDone(detail);},style:{flex:1,background:"rgba(29,158,117,0.12)",border:"0.5px solid rgba(29,158,117,0.25)",borderRadius:8,padding:"8px",color:"#5dcaa5",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:500}},"\u2713 Mark done today"),
           React.createElement("button",{onClick:function(){if(window.confirm("Delete "+sys.name+"?")){deleteSystem(detail);setDetail(null);}},style:{background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.18)",borderRadius:8,padding:"8px 12px",color:"rgba(240,153,123,0.7)",fontSize:13,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Delete")
@@ -7799,7 +7799,7 @@ function MaintenancePanel() {
       ),
       React.createElement("div",{style:{marginBottom:"0.75rem"}},
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Frequency"),
-        React.createElement("select",{value:form.freq,onChange:function(e){setForm(function(f){return Object.assign({},f,{freq:e.target.value});});},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:HBORD,borderRadius:8,padding:"0.5rem 0.7rem",color:HWHITE,fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none"}},
+        React.createElement("select",{value:form.freq,onChange:function(e){setForm(function(f){return Object.assign({},f,{freq:e.target.value});});},style:{width:"100%",background:"rgba(30,46,82,0.95)",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#faf8f4",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none"}},
           SYS_FREQ.map(function(f){return React.createElement("option",{key:f.id,value:f.id},f.label);})
         )
       ),
