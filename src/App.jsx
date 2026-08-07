@@ -10065,6 +10065,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
+        <style>{"@media (max-width:480px){.af-home-grid-2{grid-template-columns:1fr !important}}"}</style>
         {/* Custom dark header — SecHead itself closes over the outer (light)
             T, so it's not used here; this matches AnchorVault's own header
             styling (HGOLD/HWHITE) instead. No back button here — HomeTab is
@@ -10095,7 +10096,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
                 {hasAlerts ? "A few things need attention." : "Everything running smoothly."}
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.6rem 0.9rem"}}>
+              <div className="af-home-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.6rem 0.9rem",minHeight:56}}>
                 <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
                   🧹 {activeZone ? (activeZone.name + " · " + zoneTasksRemaining + " task" + (zoneTasksRemaining!==1?"s":"") + " left") : "No zones set up"}
                 </div>

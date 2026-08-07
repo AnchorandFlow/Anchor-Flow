@@ -24,11 +24,7 @@ function safeUrl(raw) {
 // ── Global input/select color fix (prevents browser black-text override) ──────
 const VAULT_INPUT_STYLE = `
   .af-vault input, .af-vault select, .af-vault textarea {
-    color: #faf8f4 !important;
     caret-color: #c8a97a !important;
-  }
-  .af-vault input::placeholder, .af-vault textarea::placeholder {
-    color: rgba(250,248,244,0.35) !important;
   }
   .af-vault select option {
     background: #243A5A;
@@ -36,9 +32,12 @@ const VAULT_INPUT_STYLE = `
   }
   .af-vault input:-webkit-autofill,
   .af-vault input:-webkit-autofill:focus {
-    -webkit-text-fill-color: #faf8f4 !important;
-    -webkit-box-shadow: 0 0 0px 1000px #2E486B inset !important;
     transition: background-color 5000s ease-in-out 0s;
+  }
+  .af-card-grid-2 { min-width: 0; }
+  .af-card-grid-2 > * { min-height: 56px; }
+  @media (max-width: 480px) {
+    .af-card-grid-2 { grid-template-columns: 1fr !important; }
   }
 `
 
@@ -5324,7 +5323,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               }
               return (
                 <div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+                  <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
                     {activeTrips.map(function(trip){ return renderTripCard(trip, false) })}
                     {/* Dashed add tile inside the grid — matches MaintenancePanel's system-grid add tile (~5704) */}
                     <div onClick={openAdd} style={{ background:"rgba(250,242,229,0.02)", border:"1px dashed rgba(250,242,229,0.13)", borderRadius:8, minHeight:100, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4, cursor:"pointer" }}>
@@ -6720,7 +6719,7 @@ function HFamilyTab(props) {
   return React.createElement(React.Fragment,null,
     maternalSource&&React.createElement("div",{style:{background:"rgba(200,169,122,0.06)",border:"0.5px solid rgba(200,169,122,0.2)",borderRadius:8,padding:"0.55rem 0.85rem",fontSize:12,color:"rgba(200,169,122,0.7)",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:6}},"🔗 Maternal side inherited from ",React.createElement("strong",null,maternalSource.name)," · updates automatically"),
     (relatives.length>0||inheritedMaternalEntries.length>0)&&React.createElement(HCard,{style:{marginBottom:"0.9rem"}},React.createElement(HCardHead,{icon:"📊",label:"Hereditary risk summary"}),RISKS.filter(function(r){return riskMap[r.key];}).map(function(r){var pct=Math.round((riskMap[r.key]/maxCount)*100);return React.createElement("div",{key:r.key,style:{display:"flex",alignItems:"center",padding:"0.3rem 0",borderBottom:HBORD2}},React.createElement("span",{style:{fontSize:12,color:"#1a2e3d",minWidth:130}},r.label),React.createElement("div",{style:{flex:1,margin:"0 12px",height:3,background:"rgba(26,46,61,0.08)",borderRadius:2}},React.createElement("div",{style:{width:pct+"%",height:3,borderRadius:2,background:r.color}})),React.createElement("span",{style:{fontSize:11,minWidth:60,textAlign:"right",color:r.color}},riskMap[r.key]+(riskMap[r.key]===1?" relative":" relatives")));}),React.createElement("p",{style:{fontSize:11,color:"#4a6275",margin:"0.5rem 0 0",fontStyle:"italic"}},"Not a medical assessment — share with your provider")),
-    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.9rem"}},React.createElement(SideCard,{title:"Maternal side",icon:"👩",rels:maternalAll}),React.createElement(SideCard,{title:"Paternal side",icon:"👨",rels:paternal})),
+    React.createElement("div",{className:"af-card-grid-2",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.9rem"}},React.createElement(SideCard,{title:"Maternal side",icon:"👩",rels:maternalAll}),React.createElement(SideCard,{title:"Paternal side",icon:"👨",rels:paternal})),
     other.length>0&&React.createElement(HCard,{style:{marginTop:"0.9rem"}},React.createElement(HCardHead,{icon:"👤",label:"Other relatives"}),other.map(function(r){return React.createElement(RelCard,{key:r.id,rel:r});})),
     open&&React.createElement(HModal,{title:"Add family member",onClose:function(){setOpen(false);}},
       React.createElement(HSelect,{label:"Relationship",value:form.role,onChange:function(v){setForm(function(f){return Object.assign({},f,{role:v});});},options:ROLE_OPTS}),
@@ -7760,7 +7759,7 @@ function MaintenancePanel() {
             React.createElement("button",{onClick:function(){setDetail(null);},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:16,padding:"0 2px"}},"✕")
           )
         ),
-        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
+        React.createElement("div",{className:"af-card-grid-2",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}},
           React.createElement("div",{style:{background:"rgba(26,46,61,0.05)",borderRadius:8,padding:"8px 10px"}},
             React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Frequency"),
             React.createElement("p",{style:{fontSize:13,color:HWHITE,margin:0}},freqLabel)
@@ -8527,48 +8526,48 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   function DashCard({ id, icon, label, summary, onOpen, defaultOpen }) {
     var [open, setOpen] = useState(false)
     var hasAlert = summary.alert
-    var borderColor = hasAlert ? "rgba(200,131,74,0.35)" : "rgba(250,242,229,0.1)"
-    var bgColor = "rgba(250,242,229,0.04)"
+    var borderColor = hasAlert ? "rgba(160,92,16,0.35)" : "rgba(26,46,61,0.1)"
+    var bgColor = "#f7f1e3"
 
     return (
-      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 16, marginBottom: 12, breakInside: "avoid", WebkitColumnBreakInside: "avoid", overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 8, marginBottom: 12, breakInside: "avoid", WebkitColumnBreakInside: "avoid", overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         {/* Header — always visible */}
         <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ padding: "13px 16px", cursor: "pointer" }}>
           {/* Title row */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
-            <div style={{ flex: 1, minWidth: 0, fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.01em", lineHeight: 1.15 }}>{label}</div>
-            {summary.count > 0 && <div style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.7)", background: "rgba(200,169,122,0.1)", borderRadius: 20, padding: "1px 7px" }}>{summary.count}</div>}
-            <span style={{ fontSize: 11, color: "rgba(250,248,244,0.35)", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{icon}</span>
+            <div style={{ flex: 1, minWidth: 0, fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#1a2e3d", letterSpacing: "0.01em", lineHeight: 1.15 }}>{label}</div>
+            {summary.count > 0 && <div style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: "#1a2e3d", background: "rgba(26,46,61,0.12)", borderRadius: 4, padding: "1px 7px" }}>{summary.count}</div>}
+            <span style={{ fontSize: 11, color: "#4a6275", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
           </div>
           {/* Summary line(s) — full width, aligned under the title */}
           <div style={{ paddingLeft: 30, marginTop: 4 }}>
             {summary.highlight
-              ? <div style={{ fontSize: 12, color: "rgba(250,248,244,0.6)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.highlight}</div>
-              : <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 13, color: "rgba(250,248,244,0.4)", fontStyle: "italic" }}>Nothing added yet</div>
+              ? <div style={{ fontSize: 12, color: "#1a2e3d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.highlight}</div>
+              : <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 13, color: "#4a6275", fontStyle: "italic" }}>Nothing added yet</div>
             }
             {summary.countdown && summary.count > 0 && (
-              <div style={{ fontSize: 11, fontWeight: 700, color: hasAlert ? "#c8834a" : "#c8a97a", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.countdown}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: hasAlert ? "#a05c10" : "#4a6275", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{summary.countdown}</div>
             )}
           </div>
         </div>
 
         {/* Expanded content */}
         {open && (
-          <div style={{ borderTop: "1px solid rgba(250,242,229,0.07)", padding: "10px 16px 14px" }}>
+          <div style={{ borderTop: "1px solid rgba(26,46,61,0.08)", padding: "10px 16px 14px" }}>
             {summary.count === 0 ? (
-              <div style={{ fontSize: 12, color: "rgba(250,248,244,0.35)", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>Nothing here yet — tap Open to add.</div>
+              <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>Nothing here yet — tap Open to add.</div>
             ) : (
               <div style={{ marginBottom: 10 }}>
                 {(summary.entries || []).map(function(e, i) {
                   return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < (summary.entries.length - 1) ? "1px solid rgba(250,242,229,0.05)" : "none" }}>
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < (summary.entries.length - 1) ? "1px solid rgba(26,46,61,0.06)" : "none" }}>
                       <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#c8a97a", flexShrink: 0, opacity: 0.6 }}/>
-                      <span style={{ flex: 1, fontSize: 12, color: "rgba(250,248,244,0.75)", fontFamily: "DM Sans,sans-serif" }}>
+                      <span style={{ flex: 1, fontSize: 12, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>
                         {e.label || e.name || e.text || "—"}
-                        {e.sub && <span style={{ color: "rgba(250,248,244,0.4)", marginLeft: 6 }}>{e.sub}</span>}
+                        {e.sub && <span style={{ color: "#4a6275", marginLeft: 6 }}>{e.sub}</span>}
                       </span>
-                      {e.badge && <span style={{ fontSize: 10, fontWeight: 700, color: e.badgeAlert ? "#c8834a" : "#c8a97a" }}>{e.badge}</span>}
+                      {e.badge && <span style={{ fontSize: 10, fontWeight: 700, color: e.badgeAlert ? "#a05c10" : "#4a6275" }}>{e.badge}</span>}
                     </div>
                   )
                 })}
@@ -8684,46 +8683,46 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   return (
     <div style={{ paddingBottom: "2rem" }}>
       <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid rgba(250,242,229,0.1)" }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 28, fontWeight: 700, color: "#faf8f4", letterSpacing: "0.02em", lineHeight: 1 }}>Anchor</div>
-        <div style={{ fontSize: 13, color: "rgba(200,169,122,0.85)", fontFamily: "DM Sans,sans-serif", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 28, fontWeight: 700, color: "#1a2e3d", letterSpacing: "0.02em", lineHeight: 1 }}>Anchor</div>
+        <div style={{ fontSize: 13, color: "#c2d4e0", fontFamily: "DM Sans,sans-serif", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", marginBottom: 18, background: "rgba(200,169,122,0.07)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 14 }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}>👁️</span>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 16px", marginBottom: 18, background: "#ddeaf4", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8 }}>
+        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>👁️</span>
         <div>
-          <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(200,169,122,0.8)", fontWeight: 700, marginBottom: 3 }}>At a glance</div>
-          <div style={{ fontSize: 14, color: "rgba(250,248,244,0.9)", fontFamily: "Cormorant Garamond,serif", fontStyle: "italic", lineHeight: 1.45 }}>{glanceText}</div>
+          <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a6275", fontWeight: 700, marginBottom: 3 }}>At a glance</div>
+          <div style={{ fontSize: 14, color: "#1a2e3d", fontFamily: "Cormorant Garamond,serif", fontStyle: "italic", lineHeight: 1.45 }}>{glanceText}</div>
         </div>
       </div>
 
-      <div style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.1)", borderRadius: 16, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ fontSize: 18 }}>🍽️</span>
-            <div><div style={{ fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>This Week's Dinners</div><div style={{ fontSize: 11, color: "rgba(250,248,244,0.45)" }}>{plannedCount} of 7 planned</div></div>
+            <div><div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>This Week's Dinners</div><div style={{ fontSize: 11, color: "#4a6275" }}>{plannedCount} of 7 planned</div></div>
           </div>
           <span onClick={function(){ onNavigate("meals"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>Plan →</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 14px" }}>
+        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 14px" }}>
           {dinnerRows.map(function(r){ return (
-            <div key={r.day} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0", borderBottom: "1px solid rgba(250,242,229,0.05)" }}>
-              <span style={{ fontSize: 11, color: "rgba(250,248,244,0.5)", flexShrink: 0 }}>{r.day.slice(0,3)}</span>
-              <span style={{ fontSize: 12, color: r.dinner ? "rgba(250,248,244,0.85)" : "rgba(250,248,244,0.25)", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
+            <div key={r.day} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
+              <span style={{ fontSize: 11, color: "#1a2e3d", flexShrink: 0 }}>{r.day.slice(0,3)}</span>
+              <span style={{ fontSize: 12, color: r.dinner ? "#1a2e3d" : "#4a6275", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
             </div>
           ); })}
         </div>
       </div>
 
-      <div style={{ background: "rgba(250,242,229,0.04)", border: "1px solid rgba(250,242,229,0.1)", borderRadius: 16, padding: "14px 16px", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px 16px", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ fontSize: 18 }}>🛒</span>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#faf8f4", fontFamily: "DM Sans,sans-serif" }}>Quick Add to Shopping</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>Quick Add to Shopping</div>
           </div>
           <span onClick={function(){ onNavigate("shop"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>List →</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <input value={shopVal} onChange={function(e){ setShopVal(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter") quickAddShop(); }} placeholder="Add an item..." style={{ flex: 1, background: "rgba(250,242,229,0.06)", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 8, padding: "9px 12px", color: "#faf8f4", fontFamily: "DM Sans,sans-serif", fontSize: 13, outline: "none" }} />
+          <input value={shopVal} onChange={function(e){ setShopVal(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter") quickAddShop(); }} placeholder="Add an item..." style={{ flex: 1, background: "rgba(26,46,61,0.05)", border: "0.5px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "9px 12px", color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", fontSize: 13, outline: "none" }} />
           <button onClick={quickAddShop} style={{ background: "#c8a97a", color: "#2E486B", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>Add</button>
         </div>
         {shopMsg && <div style={{ fontSize: 11, color: "#9ed4be", marginTop: 7, fontStyle: "italic" }}>{shopMsg}</div>}
@@ -8731,7 +8730,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
       {allCardsEmpty ? (
         <div style={{ padding: "24px 16px", textAlign: "center" }}>
-          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, color: "rgba(250,248,244,0.4)", fontStyle: "italic", lineHeight: 1.5 }}>
+          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, color: "#4a6275", fontStyle: "italic", lineHeight: 1.5 }}>
             Add your first thing — celebrations, pets, moments, and more will show up here once you start.
           </div>
         </div>
@@ -8882,7 +8881,7 @@ function SubscriptionsSection() {
       React.createElement("button", { style: tabBtn("perks"), onClick: function() { setTab("perks") } }, "Perks & Discounts")
     ),
     tab === "subs" && React.createElement("div", null,
-      subs.length > 0 && React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
+      subs.length > 0 && React.createElement("div", { className: "af-card-grid-2", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 } },
         React.createElement("div", { style: { background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "10px 12px" } },
           React.createElement("div", { style: { fontSize: 10, color: "#4a6275", marginBottom: 3, fontFamily: "DM Sans,sans-serif" } }, "Monthly total"),
           React.createElement("div", { style: { fontSize: 20, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, "$" + monthly.toFixed(2))
