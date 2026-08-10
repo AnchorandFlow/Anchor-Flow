@@ -12523,6 +12523,37 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if ((!activeChild || ids.indexOf(activeChild) === -1) && learningKids.length > 0) { setActiveChild(learningKids[0].id); }
     }, [learningKids.length]);
 
+    // One-time migration: fold legacy per-child trips[] into beyond[] as
+    // cat:"Field Trip" entries (Field Trips section merged into Beyond the
+    // Transcript/Classroom). Guarded on actual trips data existing, so this
+    // is a no-op — and never re-fires — once every child's trips[] is empty.
+    React.useEffect(function() {
+      var shared = lhGet(lighthouse, "shared", {});
+      var childIds = Object.keys(shared);
+      var needsMigration = childIds.some(function(id) { return Array.isArray(shared[id].trips) && shared[id].trips.length > 0; });
+      if (!needsMigration) return;
+      setLighthouse(function(prev) {
+        var prevShared = Object.assign({}, lhGet(prev, "shared", {}));
+        var nextShared = Object.assign({}, prevShared);
+        Object.keys(prevShared).forEach(function(id) {
+          var child = prevShared[id];
+          var childTrips = Array.isArray(child.trips) ? child.trips : [];
+          if (childTrips.length === 0) return;
+          var migrated = childTrips.map(function(t) {
+            return {
+              id: t.id || uid(), what: t.place || "", cat: "Field Trip", date: t.date || "",
+              skill: "", note: "", subj: Array.isArray(t.subj) ? t.subj : [],
+              saw: t.saw || "", learned: t.learned || "", moment: t.moment || "", followup: t.followup || "",
+              includeSummary: false
+            };
+          });
+          var existingBeyond = Array.isArray(child.beyond) ? child.beyond : [];
+          nextShared[id] = Object.assign({}, child, { beyond: existingBeyond.concat(migrated), trips: [] });
+        });
+        return Object.assign({}, prev, { shared: nextShared });
+      });
+    }, []); // one-time on mount — deliberately no deps
+
     // One-time silent migration (rebuild decision #3): lighthouse.modes[id] is the
     // single source of truth for a child's learning mode going forward. If a child
     // has a legacy schoolData[id].type but no lighthouse mode yet, copy it over once.
@@ -14758,15 +14789,38 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
 
       // ── Beyond the Transcript / Classroom ────────────────────────────────────
+      // Field Trips (formerly its own section) is now cat:"Field Trip" here —
+      // it gets an expanded field set (subjects + saw/learned/moment/followup)
+      // in place of the generic skill/note fields. See migration effect in
+      // LearningTab for how legacy trips[] records were folded in.
       function BeyondSection() {
+        function toggleSubj(val) {
+          var cur = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
+          var next = cur.indexOf(val)>=0 ? cur.filter(function(x){ return x!==val; }) : cur.concat([val]);
+          fSetLive("subj", next);
+        }
         function BeyondForm(onSave) {
+          var isTrip = fv("cat","")==="Field Trip";
+          var curSubj = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
           return formCard(
             <div>
-              {fieldRow("What *", <input defaultValue={fv("what","")} onChange={fSet("what")} autoFocus style={inp()}/>)}
+              {fieldRow(isTrip?"Place *":"What *", <input defaultValue={fv("what","")} onChange={fSet("what")} autoFocus style={inp()}/>)}
               {fieldRow("Category", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_BEYOND_CATS.map(function(c){ return pillToggle(c, fv("cat","")===c, function(){ fSetLive("cat", c); }); })}</div>)}
               {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-              {fieldRow("Skill or theme", <input defaultValue={fv("skill","")} onChange={fSet("skill")} style={inp()}/>)}
-              {fieldRow("Note", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
+              {isTrip ? (
+                <div>
+                  {fieldRow("Subjects", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){ toggleSubj(s); }); })}</div>)}
+                  {fieldRow("What we saw", <textarea defaultValue={fv("saw","")} onChange={fSet("saw")} style={inp({ height:50, resize:"vertical" })}/>)}
+                  {fieldRow("What we learned", <textarea defaultValue={fv("learned","")} onChange={fSet("learned")} style={inp({ height:50, resize:"vertical" })}/>)}
+                  {fieldRow("A moment", <textarea defaultValue={fv("moment","")} onChange={fSet("moment")} style={inp({ height:44, resize:"vertical" })}/>)}
+                  {fieldRow("Follow-up ideas", <textarea defaultValue={fv("followup","")} onChange={fSet("followup")} style={inp({ height:44, resize:"vertical" })}/>)}
+                </div>
+              ) : (
+                <div>
+                  {fieldRow("Skill or theme", <input defaultValue={fv("skill","")} onChange={fSet("skill")} style={inp()}/>)}
+                  {fieldRow("Note", <textarea defaultValue={fv("note","")} onChange={fSet("note")} style={inp({ height:56, resize:"vertical" })}/>)}
+                </div>
+              )}
               <label style={{ display:"flex", alignItems:"center", gap:"0.4rem", fontSize:"0.78rem", color:"#7a7568", cursor:"pointer", marginBottom:"0.5rem" }}>
                 <input type="checkbox" checked={!!fv("includeSummary",false)} onChange={fChk("includeSummary")} style={{ cursor:"pointer" }}/>
                 Include in summaries
@@ -14775,12 +14829,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
           );
         }
+        function beyondFieldsFromForm() {
+          return { cat:fv("cat",""), date:fv("date",""), skill:(fv("skill","")).trim(), note:(fv("note","")).trim(), subj:fv("subj",[]), saw:(fv("saw","")).trim(), learned:(fv("learned","")).trim(), moment:(fv("moment","")).trim(), followup:(fv("followup","")).trim(), includeSummary:!!fv("includeSummary",false) };
+        }
         return (
           <SectionShell tabName="library" sectionName="beyond" emoji="🌎" title={beyondLabel} defaultOpen={false}>
             {lhAddMode!=="beyond" && <button type="button" onClick={function(){ openAdd("beyond",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Entry</button>}
             {lhAddMode==="beyond" && BeyondForm(function(){
               var what=(fv("what","")).trim(); if(!what) return;
-              lhSaveAdd("beyond", { id:uid(), what:what, cat:fv("cat",""), date:fv("date",""), skill:(fv("skill","")).trim(), note:(fv("note","")).trim(), includeSummary:!!fv("includeSummary",false) });
+              lhSaveAdd("beyond", Object.assign({ id:uid(), what:what }, beyondFieldsFromForm()));
               closeForm();
             })}
             {beyonds.length===0 && lhAddMode!=="beyond" && <div style={emptyTextStyle}>No entries yet.</div>}
@@ -14788,10 +14845,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               if (lhEditId === bx.id) {
                 return <div key={bx.id}>{BeyondForm(function(){
                   var what=(fv("what","")).trim(); if(!what) return;
-                  lhSaveUpdate("beyond", bx.id, { what:what, cat:fv("cat",""), date:fv("date",""), skill:(fv("skill","")).trim(), note:(fv("note","")).trim(), includeSummary:!!fv("includeSummary",false) });
+                  lhSaveUpdate("beyond", bx.id, Object.assign({ what:what }, beyondFieldsFromForm()));
                   closeForm();
                 })}</div>;
               }
+              var isTrip = bx.cat==="Field Trip";
+              var subj = Array.isArray(bx.subj) ? bx.subj : [];
               return (
                 <div key={bx.id} style={itemRowStyle}>
                   <div style={{ flex:1 }}>
@@ -14800,70 +14859,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       {bx.cat && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{bx.cat}</span>}
                       {bx.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(bx.date)}</span>}
                     </div>
-                    {bx.skill && <div style={{ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.2rem" }}>Skill: {bx.skill}</div>}
-                    {bx.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{bx.note}</div>}
+                    {isTrip ? (
+                      <div>
+                        {subj.length>0 && <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.3rem" }}>{subj.map(function(s){ return <span key={s} style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.63rem", fontWeight:700, borderRadius:"2rem", padding:"1px 7px" }}>{s}</span>; })}</div>}
+                        {bx.saw && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.3rem" }}><strong>Saw:</strong> {bx.saw}</div>}
+                        {bx.learned && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.15rem" }}><strong>Learned:</strong> {bx.learned}</div>}
+                        {bx.moment && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{bx.moment}</div>}
+                      </div>
+                    ) : (
+                      <div>
+                        {bx.skill && <div style={{ fontSize:"0.75rem", color:"#8a8578", marginTop:"0.2rem" }}>Skill: {bx.skill}</div>}
+                        {bx.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{bx.note}</div>}
+                      </div>
+                    )}
                   </div>
                   <button type="button" onClick={function(){ openEdit(bx.id, bx); }} style={editBtnStyle}>Edit</button>
                   <button type="button" onClick={function(){ lhSaveDel("beyond", bx.id); }} style={delBtnStyle}>✕</button>
-                </div>
-              );
-            })}
-          </SectionShell>
-        );
-      }
-
-      // ── Field Trips ───────────────────────────────────────────────────────
-      function TripsSection() {
-        function toggleSubj(val) {
-          var cur = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
-          var next = cur.indexOf(val)>=0 ? cur.filter(function(x){ return x!==val; }) : cur.concat([val]);
-          fSetLive("subj", next);
-        }
-        function TripForm(onSave) {
-          var curSubj = Array.isArray(fv("subj",[])) ? fv("subj",[]) : [];
-          return formCard(
-            <div>
-              {fieldRow("Place *", <input defaultValue={fv("place","")} onChange={fSet("place")} autoFocus style={inp()}/>)}
-              {fieldRow("Date", <input type="date" defaultValue={fv("date","")} onChange={fSet("date")} style={inp()}/>)}
-              {fieldRow("Subjects", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_TRIP_SUBJ.map(function(s){ return pillToggle(s, curSubj.indexOf(s)>=0, function(){ toggleSubj(s); }); })}</div>)}
-              {fieldRow("What we saw", <textarea defaultValue={fv("saw","")} onChange={fSet("saw")} style={inp({ height:50, resize:"vertical" })}/>)}
-              {fieldRow("What we learned", <textarea defaultValue={fv("learned","")} onChange={fSet("learned")} style={inp({ height:50, resize:"vertical" })}/>)}
-              {fieldRow("A moment", <textarea defaultValue={fv("moment","")} onChange={fSet("moment")} style={inp({ height:44, resize:"vertical" })}/>)}
-              {fieldRow("Follow-up ideas", <textarea defaultValue={fv("followup","")} onChange={fSet("followup")} style={inp({ height:44, resize:"vertical" })}/>)}
-              {formBtns(onSave)}
-            </div>
-          );
-        }
-        return (
-          <SectionShell tabName="library" sectionName="trips" emoji="✈️" title="Field Trips" defaultOpen={false}>
-            {lhAddMode!=="trip" && <button type="button" onClick={function(){ openAdd("trip",{ subj:[] }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Trip</button>}
-            {lhAddMode==="trip" && TripForm(function(){
-              var place=(fv("place","")).trim(); if(!place) return;
-              lhSaveAdd("trips", { id:uid(), place:place, date:fv("date",""), who:[activeChild], subj:fv("subj",[]), saw:(fv("saw","")).trim(), learned:(fv("learned","")).trim(), moment:(fv("moment","")).trim(), followup:(fv("followup","")).trim() });
-              closeForm();
-            })}
-            {trips.length===0 && lhAddMode!=="trip" && <div style={emptyTextStyle}>No trips yet.</div>}
-            {trips.map(function(tr) {
-              if (lhEditId === tr.id) {
-                return <div key={tr.id}>{TripForm(function(){
-                  var place=(fv("place","")).trim(); if(!place) return;
-                  lhSaveUpdate("trips", tr.id, { place:place, date:fv("date",""), subj:fv("subj",[]), saw:(fv("saw","")).trim(), learned:(fv("learned","")).trim(), moment:(fv("moment","")).trim(), followup:(fv("followup","")).trim() });
-                  closeForm();
-                })}</div>;
-              }
-              var subj = Array.isArray(tr.subj) ? tr.subj : [];
-              return (
-                <div key={tr.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{tr.place}</div>
-                    {tr.date && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{fmtMonthDay(tr.date)}</div>}
-                    {subj.length>0 && <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.3rem" }}>{subj.map(function(s){ return <span key={s} style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.63rem", fontWeight:700, borderRadius:"2rem", padding:"1px 7px" }}>{s}</span>; })}</div>}
-                    {tr.saw && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.3rem" }}><strong>Saw:</strong> {tr.saw}</div>}
-                    {tr.learned && <div style={{ fontSize:"0.76rem", color:"#5a5a50", marginTop:"0.15rem" }}><strong>Learned:</strong> {tr.learned}</div>}
-                    {tr.moment && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{tr.moment}</div>}
-                  </div>
-                  <button type="button" onClick={function(){ openEdit(tr.id, tr); }} style={editBtnStyle}>Edit</button>
-                  <button type="button" onClick={function(){ lhSaveDel("trips", tr.id); }} style={delBtnStyle}>✕</button>
                 </div>
               );
             })}
@@ -14951,7 +14962,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{ background:LC.cream, borderRadius:"1rem", padding:"1rem" }}>
           <BooksSection/>
           <BeyondSection/>
-          <TripsSection/>
           <ResourcesSection/>
           <KeepsakesSection/>
         </div>
