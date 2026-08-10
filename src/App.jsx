@@ -15841,7 +15841,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
 
-        <div style={{maxWidth:(tab==="flowhome"?1100:700),margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
+        {/* Was maxWidth:(tab==="flowhome"?1100:700) — every other tab (Today, Calendar,
+            Exhale, Waves, Tide Pool, Lighthouse, Meals, Shopping, Cove, Home, Career,
+            Settings) shares this one wrapper, so a per-tab cap left them all narrower
+            than Flow and the Anchor vault (already 1100px) for no product reason.
+            Universal 1100 matches both; max-width only caps, so mobile is unaffected. */}
+        <div style={{maxWidth:1100,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
           {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","brain","lighthouse","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
