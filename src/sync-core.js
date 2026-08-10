@@ -444,9 +444,10 @@ export function sanitizeHouseholdData(data) {
     }
     // exhale_waves: { daily:[], weekly:[], seasonal:[], custom:[] } (Exhale
     // Phase 2), each entry a wave card { id, name, tasks:[{id,text,
-    // estimatedMinutes,done}], plus dayOfWeek (weekly, 0-6) or month
-    // (seasonal, 1-12) }. Validated per-field, same reasoning as
-    // exhale_buckets above.
+    // estimatedMinutes,done}], lastReset (per-wave reset tracking), plus
+    // dayOfWeek (weekly, 0-6), month (seasonal, 1-12), or intervalDays
+    // (custom — unset means one-time, never auto-resets). Validated
+    // per-field, same reasoning as exhale_buckets above.
     if (data["exhale_waves"] !== undefined && data["exhale_waves"] !== null &&
         typeof data["exhale_waves"] === "object" && !Array.isArray(data["exhale_waves"])) {
       var ew = data["exhale_waves"];
@@ -458,10 +459,11 @@ export function sanitizeHouseholdData(data) {
           done: typeof t.done === "boolean" ? t.done : false,
         })) : [];
       };
-      var sanitizeWaveList = function(list, extraFields) {
+      var sanitizeWaveList = function(list, numFields) {
         return Array.isArray(list) ? list.filter(w => w && typeof w === "object" && !Array.isArray(w)).map(w => {
           var out2 = { id: w.id, name: typeof w.name === "string" ? w.name : "", tasks: sanitizeWaveTasks(w.tasks) };
-          (extraFields||[]).forEach(f => { if (typeof w[f] === "number") out2[f] = w[f]; });
+          if (typeof w.lastReset === "string") out2.lastReset = w.lastReset;
+          (numFields||[]).forEach(f => { if (typeof w[f] === "number") out2[f] = w[f]; });
           return out2;
         }) : [];
       };
@@ -469,7 +471,7 @@ export function sanitizeHouseholdData(data) {
         daily: sanitizeWaveList(ew.daily),
         weekly: sanitizeWaveList(ew.weekly, ["dayOfWeek"]),
         seasonal: sanitizeWaveList(ew.seasonal, ["month"]),
-        custom: sanitizeWaveList(ew.custom),
+        custom: sanitizeWaveList(ew.custom, ["intervalDays"]),
       };
     }
     // safe_harbor: pass through as object; merge-on-receive happens in applyHouseholdKey

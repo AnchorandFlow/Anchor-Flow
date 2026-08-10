@@ -8029,7 +8029,6 @@ Respond ONLY in valid JSON:
   // cross-device sync pulls. The af-data-changed listener below is what
   // keeps this view correct against both.
   _hfRenders.WavesSection = function WavesSection() {
-    var WAVE_LAST_RESET_KEY = "af_exhale_wave_last_reset";
     var WAVE_DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     var WAVE_MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     var TEAL = "#2E9B8F";
@@ -8044,8 +8043,12 @@ Respond ONLY in valid JSON:
     function seedWaveTasks(texts) {
       return texts.map(function(text) { return { id: uid(), text: text, estimatedMinutes: null, done: false }; });
     }
+    function stampWaveList(list, todayStr) {
+      return list.map(function(w) { return Object.assign({}, w, { lastReset: todayStr }); });
+    }
     function seedWaves() {
-      return {
+      var todayStr = TODAY.toISOString().split("T")[0];
+      var raw = {
         daily: [
           { id: uid(), name: "Morning reset", tasks: seedWaveTasks([
             "Make beds", "Check school folders", "Feed pets", "Vitamins", "Wipe kitchen counters", "Empty dishwasher",
@@ -8082,6 +8085,12 @@ Respond ONLY in valid JSON:
           ])},
         ],
       };
+      return {
+        daily: stampWaveList(raw.daily, todayStr),
+        weekly: stampWaveList(raw.weekly, todayStr),
+        seasonal: stampWaveList(raw.seasonal, todayStr),
+        custom: stampWaveList(raw.custom, todayStr),
+      };
     }
 
     var [waves, setWaves] = useState(function() { return readWaves(); }); // null until seeded/loaded
@@ -8092,6 +8101,7 @@ Respond ONLY in valid JSON:
     var [newWaveName, setNewWaveName] = useState("");
     var [newWaveDay, setNewWaveDay] = useState(0);
     var [newWaveMonth, setNewWaveMonth] = useState(1);
+    var [newWaveInterval, setNewWaveInterval] = useState("");
     var [waveTaskInputFor, setWaveTaskInputFor] = useState(null);
     var [waveTaskText, setWaveTaskText] = useState("");
 
@@ -8119,26 +8129,49 @@ Respond ONLY in valid JSON:
       return function() { window.removeEventListener("storage", onExternal); window.removeEventListener("af-data-changed", onExternal); };
     }, []);
 
-    // Seed-once + daily midnight auto-reset — same logic Exhale Phase 2 had.
+    // Seed-once + per-wave auto-reset — each wave tracks its own lastReset
+    // date (not a single shared key) since daily/weekly/seasonal/custom each
+    // reset on a different schedule. See waveNeedsReset below for the rule
+    // per type. A wave with no lastReset yet (pre-upgrade data) is stamped
+    // with today's date but NOT cleared — avoids wiping in-progress checks
+    // the moment this ships.
+    function waveNeedsReset(type, w, todayStr) {
+      if (!w.lastReset || w.lastReset === todayStr) return false;
+      if (type === "daily") return true;
+      if (type === "weekly") return TODAY.getDay() === w.dayOfWeek;
+      if (type === "seasonal") {
+        if ((TODAY.getMonth() + 1) !== w.month) return false;
+        var lr = new Date(w.lastReset + "T00:00:00");
+        return lr.getFullYear() !== TODAY.getFullYear() || (lr.getMonth() + 1) !== w.month;
+      }
+      if (type === "custom") {
+        if (!w.intervalDays || w.intervalDays <= 0) return false; // no interval set — one-time, never auto-resets
+        var lr2 = new Date(w.lastReset + "T00:00:00");
+        var diffDays = Math.floor((TODAY - lr2) / 86400000);
+        return diffDays >= w.intervalDays;
+      }
+      return false;
+    }
     useEffect(function() {
       var existing = readWaves();
       if (!existing) {
         persistWaves(seedWaves());
-        try { localStorage.setItem(WAVE_LAST_RESET_KEY, TODAY.toISOString().split("T")[0]); } catch(e) {}
         return;
       }
       var todayStr = TODAY.toISOString().split("T")[0];
-      var lastReset = null;
-      try { lastReset = localStorage.getItem(WAVE_LAST_RESET_KEY); } catch(e) {}
-      if (lastReset !== todayStr) {
-        var nw = Object.assign({}, existing, {
-          daily: (existing.daily||[]).map(function(w) {
-            return Object.assign({}, w, { tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
-          })
+      var changed = false;
+      var nw = {};
+      ["daily","weekly","seasonal","custom"].forEach(function(type) {
+        nw[type] = (existing[type]||[]).map(function(w) {
+          if (!w.lastReset) { changed = true; return Object.assign({}, w, { lastReset: todayStr }); }
+          if (waveNeedsReset(type, w, todayStr)) {
+            changed = true;
+            return Object.assign({}, w, { lastReset: todayStr, tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
+          }
+          return w;
         });
-        persistWaves(nw);
-        try { localStorage.setItem(WAVE_LAST_RESET_KEY, todayStr); } catch(e) {}
-      }
+      });
+      if (changed) persistWaves(nw);
     }, []); // one-time on mount — deliberately no deps
 
     function wavesList() { return waves || emptyWaves(); }
@@ -8146,10 +8179,11 @@ Respond ONLY in valid JSON:
     function addWave(type, name, extra) {
       var txt = (name||"").trim();
       if (!txt) return;
-      var w = Object.assign({ id: uid(), name: txt, tasks: [] }, extra||{});
+      var todayStr = TODAY.toISOString().split("T")[0];
+      var w = Object.assign({ id: uid(), name: txt, tasks: [], lastReset: todayStr }, extra||{});
       var cur = wavesList();
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).concat([w]) }));
-      setAddWaveOpenFor(null); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1);
+      setAddWaveOpenFor(null); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); setNewWaveInterval("");
     }
     function renameWave(type, id, name) {
       var cur = wavesList();
@@ -8191,9 +8225,10 @@ Respond ONLY in valid JSON:
     }
     function resetWave(type, waveId) {
       var cur = wavesList();
+      var todayStr = TODAY.toISOString().split("T")[0];
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
         if (w.id!==waveId) return w;
-        return Object.assign({}, w, { tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
+        return Object.assign({}, w, { lastReset: todayStr, tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
       })}));
     }
     function toggleWaveSection(type) {
@@ -8297,13 +8332,20 @@ Respond ONLY in valid JSON:
                             );})}
                           </div>
                         )}
+                        {type==="custom" && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                            <input value={newWaveInterval} onChange={(e) => setNewWaveInterval(e.target.value.replace(/[^0-9]/g,""))}
+                              placeholder="e.g. 30" style={{ width: 56, fontSize: 12, padding: "5px 8px", border: br, borderRadius: 7, background: T.surface, color: T.textDark, boxSizing: "border-box" }} />
+                            <span style={{ fontSize: 11, color: T.textSoft }}>days between resets (leave blank for one-time — never auto-resets)</span>
+                          </div>
+                        )}
                         <div style={{ display: "flex", gap: 6 }}>
                           <button onClick={() => setAddWaveOpenFor(null)} style={{ flex: 1, background: "none", border: br, borderRadius: 7, padding: "6px", fontSize: 11.5, color: T.textSoft, cursor: "pointer" }}>Cancel</button>
-                          <button onClick={() => addWave(type, newWaveName, type==="weekly"?{dayOfWeek:newWaveDay}:type==="seasonal"?{month:newWaveMonth}:{})} style={{ flex: 2, background: TEAL, color: "#fff", border: "none", borderRadius: 7, padding: "6px", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Create</button>
+                          <button onClick={() => addWave(type, newWaveName, type==="weekly"?{dayOfWeek:newWaveDay}:type==="seasonal"?{month:newWaveMonth}:type==="custom"&&newWaveInterval?{intervalDays:parseInt(newWaveInterval,10)}:{})} style={{ flex: 2, background: TEAL, color: "#fff", border: "none", borderRadius: 7, padding: "6px", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Create</button>
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => { setAddWaveOpenFor(type); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); }} style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 8, border: br, background: "transparent", color: T.blue, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Add wave</button>
+                      <button onClick={() => { setAddWaveOpenFor(type); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); setNewWaveInterval(""); }} style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 8, border: br, background: "transparent", color: T.blue, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Add wave</button>
                     )}
                   </div>
                 )}
