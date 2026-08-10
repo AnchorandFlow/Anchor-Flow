@@ -61,6 +61,7 @@ const A = {
   radius:      8,   // standard card corner radius
   radiusBadge: 4,   // badge corner radius
   iconSize:    28,  // icon-circle diameter (width/height)
+  cardPadding: "16px 18px",  // standard card/row wrapper padding — bumped from the prior ad-hoc 12-16px range toward Flow's 20px card scale, kept proportional for compact list rows
 }
 
 const NAV = [
@@ -644,7 +645,7 @@ function InventorySection({ onAddToShopping }) {
 
           {/* ── Add form ── */}
           {addingFav ? (
-            <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px", marginBottom: 14 }}>
+            <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 14 }}>
 
               {/* Photo upload */}
               <div style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
@@ -1701,7 +1702,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
       <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
 
       {adding && (
-        <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "16px", marginBottom: 16 }}>
+        <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
             {CELEBRATION_TYPES.map(function(t) {
               return (
@@ -1882,7 +1883,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 {CELEB_CARD_ORDER.map(function(cardId) {
                   var meta = CELEB_CARD_META[cardId]
                   return (
-                    <div key={cardId} onClick={function() { setActiveCelebCard(cardId) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "12px 14px", cursor: "pointer" }}>
+                    <div key={cardId} onClick={function() { setActiveCelebCard(cardId) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, cursor: "pointer" }}>
                       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, marginBottom: 8 }}>{meta.icon}</div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }}>{meta.title}</div>
                       <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{celebCardPreview(detailCeleb, cardId)}</div>
@@ -2294,7 +2295,7 @@ function PetsSection() {
         })}
       </div>
       {adding ? (
-        <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 16, marginBottom: 12 }}>
+        <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", marginBottom: 14 }}>New pet</div>
           <label style={labelStyle}>Name *</label>
           <input value={newPetForm.name} onChange={function(e) { setNewPetForm(function(p){return{...p,name:e.target.value}}) }} placeholder="Pet's name" style={{...inputStyle, marginBottom: 10}} />
@@ -2365,7 +2366,7 @@ function PetsSection() {
       {/* ID Tags */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>🏷 ID & Registration</div>
-        <div style={{ background: cardBg, border: "1px solid " + border, borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ background: cardBg, border: "1px solid " + border, borderRadius: 8, padding:A.cardPadding, display: "flex", flexDirection: "column", gap: 10 }}>
           {[{key:"rabies",label:"Rabies tag #"},{key:"chip",label:"Microchip #"},{key:"registration",label:"Registration #"}].map(function(f) {
             return (
               <div key={f.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2394,7 +2395,7 @@ function PetsSection() {
           <button onClick={function() { setAddingVaccine(function(p){return !p}) }} style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 7, padding: "3px 10px", fontSize: 11, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
         </div>
         {addingVaccine && (
-          <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+          <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 10 }}>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <div style={{ flex: 2 }}>
                 <label style={labelStyle}>Vaccine</label>
@@ -2464,7 +2465,7 @@ function PetsSection() {
           <button onClick={function() { setAddingMed(function(p){return !p}) }} style={{ background: "rgba(200,169,122,0.1)", border: "1px solid rgba(200,169,122,0.2)", borderRadius: 7, padding: "3px 10px", fontSize: 11, color: sand, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
         </div>
         {addingMed && (
-          <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+          <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 10 }}>
             <input value={medForm.name} onChange={function(e) { setMedForm(function(p){return{...p,name:e.target.value}}) }} placeholder="Medication name *" style={{...inputStyle, marginBottom: 8}} />
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <input value={medForm.dose} onChange={function(e) { setMedForm(function(p){return{...p,dose:e.target.value}}) }} placeholder="Dose (e.g. 25mg)" style={{...inputStyle, flex:1}} />
@@ -2568,7 +2569,7 @@ function PetsSection() {
       {/* Notes */}
       <div>
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(250,248,244,0.25)", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>📝 Notes</div>
-        <textarea value={activePet.notes || ""} onChange={function(e) { updatePet(activePet.id, { notes: e.target.value }) }} placeholder="Vet info, allergies, special care notes…" rows={3} style={{ width: "100%", background: cardBg, border: "1px solid " + border, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+        <textarea value={activePet.notes || ""} onChange={function(e) { updatePet(activePet.id, { notes: e.target.value }) }} placeholder="Vet info, allergies, special care notes…" rows={3} style={{ width: "100%", background: cardBg, border: "1px solid " + border, borderRadius: 8, padding:A.cardPadding, fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
       </div>
     </div>
   )
@@ -3266,7 +3267,7 @@ function TravelProfileSection() {
       <div style={{ fontSize:12, color:"rgba(250,248,244,0.42)", fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
 
       {/* Passports */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         {sectionHead("📘","Passport")}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ display:"flex", gap:8 }}>
@@ -3294,7 +3295,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Second passport */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         {sectionHead("📘","Second Passport (optional)")}
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           <div style={{ display:"flex", gap:8 }}>
@@ -3312,7 +3313,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Trusted Traveler */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         {sectionHead("🛂","Trusted Traveler Programs")}
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {[
@@ -3343,7 +3344,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Airline Frequent Flyer */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("✈️","Frequent Flyer Numbers")}
           <button onClick={addFF} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
@@ -3381,7 +3382,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Hotel Loyalty */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("🏨","Hotel Loyalty Programs")}
           <button onClick={addHotel} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
@@ -3419,7 +3420,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Preferences */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         {sectionHead("⭐","Preferences")}
         <div style={{ display:"flex", gap:8 }}>
           <div style={{ flex:1 }}>{field("preferredAirline","Preferred airline","e.g. Delta")}</div>
@@ -3428,7 +3429,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Luggage */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("🧳","Luggage")}
           <button onClick={addLuggage} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
@@ -3457,7 +3458,7 @@ function TravelProfileSection() {
       </div>
 
       {/* Emergency Travel Contacts */}
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:14 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           {sectionHead("🚨","Emergency Travel Contacts")}
           <button onClick={addContact} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.2)", borderRadius:7, padding:"3px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0, marginTop:-4 }}>+ Add</button>
@@ -3562,7 +3563,7 @@ function TripCard(props) {
 function TripCardTile(props) {
   var accent = props.accent || "#c8a97a"
   return (
-    <div onClick={props.onClick} style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:"12px 14px", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+    <div onClick={props.onClick} style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:A.cardPadding, cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
       <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
@@ -3803,7 +3804,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     var empty = !hasPassport && trusted.length===0 && ff.length===0 && hotels.length===0 && !p.preferredAirline && !p.preferredHotel
 
     return (
-      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"14px 16px", marginBottom:18 }}>
+      <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:18 }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom: empty?0:12 }}>
           <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d", display:"flex", alignItems:"center", gap:6 }}>🧳 Travel Wallet</div>
           <button onClick={function(){ if (onNavigate) onNavigate("travel") }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"4px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, flexShrink:0 }}>Edit</button>
@@ -4791,7 +4792,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   )}
                   {(detailTrip.transportation||[]).map(function(tr) {
                     return (
-                      <div key={tr.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={tr.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
                           <span style={{ fontSize:18 }}>{TRANSPORT_TYPE_ICONS[tr.type]||"🧳"}</span>
                           <span style={{ fontSize:14, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{tr.carrier || tr.type || "Untitled leg"}</span>
@@ -4840,7 +4841,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   )}
                   {(detailTrip.lodging||[]).map(function(lg) {
                     return (
-                      <div key={lg.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={lg.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                           <div>
                             <label style={labelStyle}>Name</label>
@@ -4880,7 +4881,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   )}
                   {reservationsList().map(function(r) {
                     return (
-                      <div key={r.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={r.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                           <div style={{ display:"flex", gap:8 }}>
                             <div style={{ flex:2 }}>
@@ -4928,7 +4929,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   )}
                   {activitiesList().map(function(a) {
                     return (
-                      <div key={a.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={a.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                           <div onClick={function(){ toggleActivity(a.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(a.done?"#6ab5a0":"rgba(250,242,229,0.2)"), background:a.done?"#6ab5a0":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
                             {a.done ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
@@ -4963,7 +4964,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   )}
                   {diningList().map(function(d) {
                     return (
-                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                           <div onClick={function(){ toggleDiningSpot(d.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(d.visited?"#b5856a":"rgba(250,242,229,0.2)"), background:d.visited?"#b5856a":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
                             {d.visited ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
@@ -5026,7 +5027,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                     )}
                     {expenses.map(function(e){
                       return (
-                        <div key={e.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                        <div key={e.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                           <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                             <div style={{ flex:2 }}>
                               <label style={labelStyle}>Description</label>
@@ -5067,7 +5068,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   {documentsList().map(function(d) {
                     var expiry = documentExpiryStatus(d)
                     return (
-                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+(expiry?(expiry==="expired"?"rgba(226,75,74,0.4)":"rgba(224,147,122,0.4)"):border), borderRadius:8, padding:"12px 14px", marginBottom:10 }}>
+                      <div key={d.id} style={{ background:cardBg, border:"1px solid "+(expiry?(expiry==="expired"?"rgba(226,75,74,0.4)":"rgba(224,147,122,0.4)"):border), borderRadius:8, padding:A.cardPadding, marginBottom:10 }}>
                         <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                           <div onClick={function(){ toggleDocument(d.id) }} style={{ width:20, height:20, borderRadius:5, border:"1.5px solid "+(d.confirmed?"#6A9BB5":"rgba(250,242,229,0.2)"), background:d.confirmed?"#6A9BB5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer", marginTop:16 }}>
                             {d.confirmed ? <span style={{color:"#fff",fontSize:11}}>✓</span> : null}
@@ -5325,7 +5326,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 // already renders "Past" as a text badge, which is the spec-correct way to
                 // carry status (badge/border only, never whole-card opacity).
                 return (
-                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"12px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
+                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
                     <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
                       <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
                       <TripCountdownBadge trip={trip} />
@@ -6419,7 +6420,7 @@ var PERSON_COLORS = ["#6A9BB5","#c8a97a","#7a9e8e","#a07ab5","#d98a6e","#6ab5a0"
 
 function HBadge(props) { var b=HBADGE[props.type]||HBADGE.gray; return React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:4,whiteSpace:"nowrap",background:b.bg,color:b.color}},props.label); }
 function HCondPill(props) { var p=HPILL[props.type]||HPILL.other; return React.createElement("span",{style:{fontSize:11,padding:"2px 9px",borderRadius:4,background:p.bg,color:p.color}},props.label); }
-function HCard(props) { return React.createElement("div",{style:Object.assign({background:HSURF,border:HBORD,borderRadius:8,padding:"0.9rem 1.1rem"},props.style||{})},props.children); }
+function HCard(props) { return React.createElement("div",{style:Object.assign({background:HSURF,border:HBORD,borderRadius:8,padding:A.cardPadding},props.style||{})},props.children); }
 function HCardHead(props) {
   return React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.7rem"}},
     React.createElement("span",{style:{fontSize:13,fontWeight:500,color:HWHITE,display:"flex",alignItems:"center",gap:8}},React.createElement("span",{style:{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}},props.icon),props.label),
@@ -6912,7 +6913,7 @@ function HPersonCard(props) {
   var SURF="#f7f1e3";
   var SURF2="#f7f1e3";
   var BORD2="1px solid rgba(26,46,61,0.08)";
-  return React.createElement("div",{onClick:function(){onOpen(pid);},style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}},
+  return React.createElement("div",{onClick:function(){onOpen(pid);},style:{background:SURF,border:HBORD,borderRadius:8,padding:A.cardPadding,cursor:"pointer",display:"flex",flexDirection:"column",gap:10}},
     // header
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
@@ -7411,7 +7412,7 @@ function HouseFileSection() {
         React.createElement("button",{onClick:function(){if(window.confirm("Delete this record?")){deleteCard(card.id);}},style:{fontSize:11,color:"rgba(240,153,123,0.6)",background:"rgba(226,75,74,0.06)",border:"0.5px solid rgba(226,75,74,0.15)",borderRadius:6,padding:"4px 10px",cursor:"pointer"}},"Delete")
       ),
       // checklist
-      card.type==="checklist"&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",marginBottom:12}},
+      card.type==="checklist"&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:A.cardPadding,marginBottom:12}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}},
           React.createElement("span",{style:{fontSize:12,color:"#4a6275",fontFamily:"DM Sans,sans-serif"}},(doneCount+" of "+totalCount+" collected")),
           doneCount===totalCount&&totalCount>0&&React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:4,background:"rgba(29,158,117,0.15)",color:"#2e7a46"}},"Complete \u2713")
@@ -7430,7 +7431,7 @@ function HouseFileSection() {
         })
       ),
       // fields
-      card.type==="note"&&(card.fields||[]).filter(function(f){return f.value;}).length>0&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",marginBottom:12}},
+      card.type==="note"&&(card.fields||[]).filter(function(f){return f.value;}).length>0&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:A.cardPadding,marginBottom:12}},
         (card.fields||[]).map(function(f,i){
           if(!f.value) return null;
           return React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:BORD2,gap:12}},
@@ -7440,7 +7441,7 @@ function HouseFileSection() {
         })
       ),
       // notes
-      card.notes&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:"14px 16px",marginBottom:12}},
+      card.notes&&React.createElement("div",{style:{background:SURF,border:HBORD,borderRadius:8,padding:A.cardPadding,marginBottom:12}},
         React.createElement("p",{style:{fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 6px"}},"Notes"),
         React.createElement("p",{style:{fontSize:13,color:"#1a2e3d",lineHeight:1.65,margin:0}},card.notes)
       )
@@ -7479,7 +7480,7 @@ function HouseFileSection() {
             var doneC=(card.items||[]).filter(function(i){return i.done;}).length;
             var totalC=(card.items||[]).length;
             var filledFields=(card.fields||[]).filter(function(f){return f.value;}).length;
-            return React.createElement("div",{key:card.id,onClick:function(){setDetail(card.id);},style:{background:SURF,border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}},
+            return React.createElement("div",{key:card.id,onClick:function(){setDetail(card.id);},style:{background:SURF,border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:A.cardPadding,cursor:"pointer",display:"flex",alignItems:"center",gap:12}},
               React.createElement("span",{style:{fontSize:20,flexShrink:0}},cat.emoji),
               React.createElement("div",{style:{flex:1,minWidth:0}},
                 React.createElement("p",{style:{fontSize:13,fontWeight:500,color:"#1a2e3d",margin:"0 0 3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},card.title),
@@ -8025,7 +8026,7 @@ function RecurringRemindersSection() {
   var availableBuiltins = BUILTIN_REMINDERS.filter(function(b){return !existingBuiltinIds.includes(b.id)})
 
   var S = {
-    card: { background:"#f7f1e3", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:"14px 16px", marginBottom:8 },
+    card: { background:"#f7f1e3", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:A.cardPadding, marginBottom:8 },
     lbl: { fontSize:11, fontWeight:700, color:"#4a6275", textTransform:"uppercase", letterSpacing:"0.09em", marginBottom:6, display:"block", fontFamily:"DM Sans,sans-serif" },
     inp: { width:"100%", background:"rgba(26,46,61,0.05)", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", marginBottom:12, boxSizing:"border-box" },
     sel: { width:"100%", background:"rgba(26,46,61,0.05)", border:"1px solid rgba(26,46,61,0.1)", borderRadius:8, padding:"8px 10px", fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:12, boxSizing:"border-box" },
@@ -8166,7 +8167,7 @@ function RecurringRemindersSection() {
             <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
               {availableBuiltins.map(function(b){
                 return(
-                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"10px 14px",cursor:"pointer",textAlign:"left"}}>
+                  <button key={b.id} onClick={function(){openNew(b)}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:A.cardPadding,cursor:"pointer",textAlign:"left"}}>
                     <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
                     <div style={{flex:1}}>
                       <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
@@ -8198,7 +8199,7 @@ function RecurringRemindersSection() {
         var alert = days!=null&&days<=1
         var overdue = days!=null&&days<0
         return(
-          <div key={r.id} style={{background:A.card,border:"1px solid "+((alert||overdue)?"rgba(160,92,16,0.3)":A.border),borderRadius:A.radius,padding:"13px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
+          <div key={r.id} style={{background:A.card,border:"1px solid "+((alert||overdue)?"rgba(160,92,16,0.3)":A.border),borderRadius:A.radius,padding:A.cardPadding,marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
             <span style={{fontSize:22,flexShrink:0}}>{r.emoji}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:700,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{r.label}</div>
@@ -8762,7 +8763,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         </div>
       )}
 
-      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px 16px", marginBottom: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ fontSize: 18 }}>🍽️</span>
@@ -8780,7 +8781,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         </div>
       </div>
 
-      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "14px 16px", marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <span style={{ fontSize: 18 }}>🛒</span>
@@ -8931,7 +8932,7 @@ function SubscriptionsSection() {
   var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
   var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : "0.5px solid rgba(250,242,229,0.08)", borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
   var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 8, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
-  var cardStyle = { background: SURF, border: BORD, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }
+  var cardStyle = { background: SURF, border: BORD, borderRadius: 8, padding:A.cardPadding, marginBottom: 8 }
   var modalBg = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }
   var modalBox = { background: "#2E486B", border: "0.5px solid rgba(200,169,122,0.2)", borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }
   return React.createElement("div", { style: { paddingBottom: "2rem" } },
@@ -9180,7 +9181,7 @@ function RippleSection() {
       return React.createElement("div", { key: group.label, style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 10, color: "rgba(200,169,122,0.7)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontFamily: "DM Sans,sans-serif", fontWeight: 700 } }, group.label),
         group.items.map(function(r) {
-          return React.createElement("div", { key: r.id, style: { background: SURF, border: BORD, borderRadius: 10, padding: "10px 12px", marginBottom: 8 } },
+          return React.createElement("div", { key: r.id, style: { background: SURF, border: BORD, borderRadius: 10, padding:A.cardPadding, marginBottom: 8 } },
             React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
               React.createElement("div", { style: { flex: 1 } },
                 React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, r.name),
@@ -9321,8 +9322,11 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto", padding: "24px 20px" }}>
-        <div style={{ maxWidth: 560, margin: "0 auto" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto" }}>
+        {/* Matches Flow's page container exactly (App.jsx's maxWidth:1100 branch) —
+            maxWidth only caps width, so this has no effect below 1100px and mobile
+            layout is unchanged; only desktop gets the wider column. */}
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "1.1rem 0.9rem 0.5rem" }}>
           {activeSection !== "home" && (
             <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
           )}
