@@ -8580,7 +8580,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     var bgColor = "#f7f1e3"
 
     return (
-      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 8, marginBottom: 12, breakInside: "avoid", WebkitColumnBreakInside: "avoid", overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+      <div style={{ background: bgColor, border: "1px solid " + borderColor, borderRadius: 8, marginBottom: 12, overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
         {/* Header — always visible */}
         <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ padding: "13px 16px", cursor: "pointer" }}>
           {/* Title row */}
@@ -8803,7 +8803,12 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           </div>
         </div>
       ) : (
-        <div style={{ columnWidth: 260, columnGap: 12 }}>
+        // Was CSS multi-column (columnWidth:260) — at the wider post-density-fix
+        // container that packed ~4 narrow columns instead of a clean 2-column
+        // layout, since columnWidth caps each column rather than stretching to
+        // fill the row. af-card-grid-2 already has the right shape: 2 columns
+        // that fill available width on desktop, 1 on mobile (<480px).
+        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
           {leftCards.concat(rightCards).map(renderCard)}
         </div>
       )}
