@@ -14628,6 +14628,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var BOOK_STATUSES = [["reading","Reading"],["finished","Finished"],["want","Want to Read"]];
     var LH_BEYOND_CATS = ["Field Trip","Museum","Park","Sport","Art","Volunteer","Other"];
     var LH_TRIP_SUBJ = ["History","Science","Art","Literature","Geography","Other"];
+    var LH_RESOURCE_TYPES = ["Website","App","Book","Physical Resource"];
+    var LH_RESOURCE_TYPE_LABELS = { "Website":"Websites", "App":"Apps", "Book":"Books", "Physical Resource":"Physical Resources" };
 
     function LibraryArea() {
       // Uncontrolled lhForm — same fix as PlanArea/RecordsArea/GrowthArea (see
@@ -14688,10 +14690,38 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var resourceRecords = curricula.length > 0 ? curricula : lhSubjects.map(function(s){ return { id:s, subject:s, name:"", website:"", notes:"" }; });
       var beyondLabel = childMode==="homeschool" ? "Beyond the Transcript" : "Beyond the Classroom";
       var summaryLabel = childMode==="school" ? "Keepsakes" : "Summaries";
+      // resources[] lives at lighthouse.shared.resources — a sibling of the
+      // child-id-keyed entries in shared, not nested under one child — since
+      // a resource can be shared across children (childId left unset) or
+      // scoped to one via childId.
+      var allResources = Array.isArray(sharedAll.resources) ? sharedAll.resources : [];
 
       function lhSaveAdd(field, item) { setLighthouse(function(prev) { return lhAddItem(prev, activeChild, field, item); }); }
       function lhSaveUpdate(field, id, patch) { setLighthouse(function(prev) { return lhUpdateItem(prev, activeChild, field, id, patch); }); }
       function lhSaveDel(field, id) { setLighthouse(function(prev) { return lhDeleteItem(prev, activeChild, field, id); }); }
+      function lhResourceAdd(item) {
+        setLighthouse(function(prev) {
+          var shared = Object.assign({}, lhGet(prev, "shared", {}));
+          shared.resources = (Array.isArray(shared.resources) ? shared.resources : []).concat([item]);
+          return Object.assign({}, prev, { shared: shared });
+        });
+      }
+      function lhResourceUpdate(id, patch) {
+        setLighthouse(function(prev) {
+          var shared = Object.assign({}, lhGet(prev, "shared", {}));
+          var list = Array.isArray(shared.resources) ? shared.resources : [];
+          shared.resources = list.map(function(r) { return r.id===id ? Object.assign({}, r, patch) : r; });
+          return Object.assign({}, prev, { shared: shared });
+        });
+      }
+      function lhResourceDel(id) {
+        setLighthouse(function(prev) {
+          var shared = Object.assign({}, lhGet(prev, "shared", {}));
+          var list = Array.isArray(shared.resources) ? shared.resources : [];
+          shared.resources = list.filter(function(r) { return r.id!==id; });
+          return Object.assign({}, prev, { shared: shared });
+        });
+      }
 
       // ── Books ─────────────────────────────────────────────────────────────
       function BooksSection() {
@@ -14882,24 +14912,113 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         );
       }
 
-      // ── Learning Resources — read-only; editable in Plan → Subjects ─────────
+      // ── Learning Resources ────────────────────────────────────────────────
+      // A browsable library of websites/apps/books/physical resources, distinct
+      // from the curricula records edited in Plan → Subjects (kept below, unchanged,
+      // via the "Manage in Plan →" link — resources[] does not replace curricula).
       function ResourcesSection() {
+        var [resSearch, setResSearch] = React.useState("");
+        var visibleResources = allResources.filter(function(r) { return !r.childId || r.childId===activeChild; });
+        var q = resSearch.trim().toLowerCase();
+        var filteredResources = q ? visibleResources.filter(function(r) { return (r.subject||"").toLowerCase().indexOf(q)>=0; }) : visibleResources;
+        var subjSuggestions = resourceRecords.map(function(r){ return r.subject; }).filter(Boolean);
+
+        function ResourceForm(onSave) {
+          var type = fv("type","Website");
+          return formCard(
+            <div>
+              {fieldRow("Title *", <input defaultValue={fv("title","")} onChange={fSet("title")} autoFocus style={inp()}/>)}
+              {fieldRow("Type", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{LH_RESOURCE_TYPES.map(function(t){ return pillToggle(t, type===t, function(){ fSetLive("type", t); }); })}</div>)}
+              {(type==="Website"||type==="App") && fieldRow("URL", <input defaultValue={fv("url","")} onChange={fSet("url")} placeholder="https://…" style={inp()}/>)}
+              {type==="App" && fieldRow("App name", <input defaultValue={fv("appName","")} onChange={fSet("appName")} style={inp()}/>)}
+              {type==="Book" && fieldRow("Author", <input defaultValue={fv("author","")} onChange={fSet("author")} style={inp()}/>)}
+              {fieldRow("Grade level", <input defaultValue={fv("gradeLevel","")} onChange={fSet("gradeLevel")} placeholder="e.g. 3rd grade" style={inp()}/>)}
+              {fieldRow("Subject", <div><input list="lh-resource-subjects" defaultValue={fv("subject","")} onChange={fSet("subject")} style={inp()}/><datalist id="lh-resource-subjects">{subjSuggestions.map(function(s){ return <option key={s} value={s}/>; })}</datalist></div>)}
+              {fieldRow("Associated child", <div style={{ display:"flex", gap:"0.4rem", flexWrap:"wrap" }}>{pillToggle("Any child", !fv("childId",""), function(){ fSetLive("childId", ""); })}{learningKids.map(function(p){ return pillToggle(p.name, fv("childId","")===p.id, function(){ fSetLive("childId", p.id); }); })}</div>)}
+              {fieldRow("Login / subscription note", <div><input defaultValue={fv("loginNote","")} onChange={fSet("loginNote")} style={inp()}/><div style={{ fontSize:"0.7rem", color:"#9a9488", marginTop:"0.2rem" }}>Don't store passwords</div></div>)}
+              {fieldRow("Notes", <textarea defaultValue={fv("notes","")} onChange={fSet("notes")} style={inp({ height:56, resize:"vertical" })}/>)}
+              {formBtns(onSave)}
+            </div>
+          );
+        }
+        function resourceFromForm() {
+          return {
+            title:(fv("title","")).trim(), type:fv("type","Website"), url:(fv("url","")).trim(),
+            appName:(fv("appName","")).trim(), author:(fv("author","")).trim(), subject:(fv("subject","")).trim(),
+            childId:fv("childId",""), gradeLevel:(fv("gradeLevel","")).trim(),
+            loginNote:(fv("loginNote","")).trim(), notes:(fv("notes","")).trim()
+          };
+        }
+        function ResourceRow(r) {
+          if (lhEditId === r.id) {
+            return <div key={r.id}>{ResourceForm(function(){
+              var f = resourceFromForm(); if (!f.title) return;
+              lhResourceUpdate(r.id, f);
+              closeForm();
+            })}</div>;
+          }
+          var childName = r.childId ? ((learningKids.find(function(p){ return p.id===r.childId; })||{}).name||"") : "";
+          return (
+            <div key={r.id} style={itemRowStyle}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.title}</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" }}>
+                  {r.subject && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{r.subject}</span>}
+                  {r.gradeLevel && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{r.gradeLevel}</span>}
+                  {childName && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{childName}</span>}
+                </div>
+                {r.type==="App" && r.appName && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.appName}</div>}
+                {r.type==="Book" && r.author && <div style={{ fontSize:"0.78rem", color:"#8a8578" }}>by {r.author}</div>}
+                {r.url && (r.type==="Website"||r.type==="App") && <a href={r.url.indexOf("http")===0?r.url:"https://"+r.url} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.url}</a>}
+                {r.loginNote && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>🔒 {r.loginNote}</div>}
+                {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
+              </div>
+              <button type="button" onClick={function(){ openEdit(r.id, r); }} style={editBtnStyle}>Edit</button>
+              <button type="button" onClick={function(){ lhResourceDel(r.id); }} style={delBtnStyle}>✕</button>
+            </div>
+          );
+        }
+
         return (
           <SectionShell tabName="library" sectionName="resources" emoji="🔗" title="Learning Resources" defaultOpen={false}>
-            {resourceRecords.length===0 && <div style={emptyTextStyle}>No resources added yet. Add subjects in Plan to see them here.</div>}
-            {resourceRecords.map(function(r) {
+            {allResources.length>0 && (
+              <input value={resSearch} onChange={function(e){ setResSearch(e.target.value); }} placeholder="Filter by subject…" style={inp({ marginBottom:"0.65rem" })}/>
+            )}
+            {lhAddMode!=="resource" && <button type="button" onClick={function(){ openAdd("resource",{ type:"Website", childId:activeChild }); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Resource</button>}
+            {lhAddMode==="resource" && ResourceForm(function(){
+              var f = resourceFromForm(); if (!f.title) return;
+              lhResourceAdd(Object.assign({ id:uid() }, f));
+              closeForm();
+            })}
+            {filteredResources.length===0 && lhAddMode!=="resource" && <div style={emptyTextStyle}>{allResources.length===0?"No resources added yet.":"No resources match that subject."}</div>}
+            {LH_RESOURCE_TYPES.map(function(type) {
+              var items = filteredResources.filter(function(r){ return r.type===type; });
+              if (items.length===0) return null;
               return (
-                <div key={r.id} style={itemRowStyle}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.subject}</div>
-                    {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
-                    {r.website && <a href={r.website.indexOf("http")===0?r.website:"https://"+r.website} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.website}</a>}
-                    {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
-                  </div>
+                <div key={type} style={{ marginBottom:"0.85rem" }}>
+                  <div style={subheadStyle}>{LH_RESOURCE_TYPE_LABELS[type]}</div>
+                  {items.map(ResourceRow)}
                 </div>
               );
             })}
-            <button type="button" onClick={function(){ setLearningSubTab("plan"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.4rem" }}>Manage in Plan →</button>
+
+            <div style={{ borderTop:"1px solid #F0EBDF", marginTop:"0.5rem", paddingTop:"0.85rem" }}>
+              <div style={subheadStyle}>Curricula (from Plan)</div>
+              {resourceRecords.length===0 && <div style={emptyTextStyle}>No curricula added yet. Add subjects in Plan to see them here.</div>}
+              {resourceRecords.map(function(r) {
+                return (
+                  <div key={r.id} style={itemRowStyle}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.subject}</div>
+                      {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
+                      {r.website && <a href={r.website.indexOf("http")===0?r.website:"https://"+r.website} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.website}</a>}
+                      {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+              <button type="button" onClick={function(){ setLearningSubTab("plan"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.4rem" }}>Manage in Plan →</button>
+            </div>
           </SectionShell>
         );
       }
