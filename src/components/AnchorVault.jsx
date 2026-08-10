@@ -4668,6 +4668,12 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               {activeTripCard === "packing" && (function(){
                 var sections = normalizePackingSections(detailTrip.packing)
                 var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
+                // Fix 4 (Travel redesign): packing sections are the existing free-form
+                // "categories" (Clothing/Toiletries/etc. or whatever the user names
+                // them) — now rendered as coral mini-cards side by side instead of a
+                // vertical stack, so a light-card-appropriate input style is needed
+                // (the shared inputStyle above is tuned for dark cards).
+                var packLightInput = Object.assign({}, inputStyle, { background:"rgba(26,46,61,0.05)", color:"#1a2e3d" })
                 return (
                   <div>
                     <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>{allItems.filter(function(i){return i.done}).length} of {allItems.length} packed</div>
@@ -4678,41 +4684,45 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                     {sections.length === 0 && (
                       <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:12 }}>No packing sections yet.</div>
                     )}
-                    {sections.map(function(sec){
-                      var open = !collapsedPackingSections[sec.id]
-                      return (
-                        <div key={sec.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, marginBottom:12, overflow:"hidden" }}>
-                          <div onClick={function(){ setCollapsedPackingSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
-                            <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
-                            <span style={{ fontSize:11, color:muted, flexShrink:0 }}>{sec.items.filter(function(i){return i.done}).length}/{sec.items.length}</span>
-                            <button onClick={function(e){ e.stopPropagation(); deletePackingSection(sec.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.4)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
-                            <span style={{ fontSize:10, color:muted, transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
-                          </div>
-                          {open && (
-                            <div style={{ padding:"0 12px 12px" }}>
-                              {sec.items.length === 0 && (
-                                <div style={{ fontSize:12, color:"#4a6275", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
-                              )}
-                              {sec.items.map(function(item){
-                                return (
-                                  <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.06)" }}>
-                                    <div onClick={function(){ togglePackingItem(sec.id, item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(250,242,229,0.2)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
-                                      {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
-                                    </div>
-                                    <span style={{ flex:1, fontSize:13, color:item.done?"#4a6275":"#1a2e3d", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
-                                    <button onClick={function(){ removePackingItem(sec.id, item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"#4a6275", cursor:"pointer", padding:"0 2px" }}>✕</button>
-                                  </div>
-                                )
-                              })}
-                              <div style={{ display:"flex", gap:8, marginTop:8 }}>
-                                <input value={packItemDrafts[sec.id]||""} onChange={function(e){ var v=e.target.value; setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:v}) }) }} onKeyDown={function(e){ if(e.key==="Enter"){ addPackingItemToSection(sec.id, packItemDrafts[sec.id]||""); setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) } }} placeholder="Add an item…" style={Object.assign({},inputStyle,{flex:1})}/>
-                                <button onClick={function(){ addPackingItemToSection(sec.id, packItemDrafts[sec.id]||""); setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) }} style={{ background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"0 14px", color:"#a07ab5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
+                    {sections.length > 0 && (
+                      <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+                        {sections.map(function(sec){
+                          var open = !collapsedPackingSections[sec.id]
+                          return (
+                            <div key={sec.id} style={{ background:"#fde5dc", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, overflow:"hidden" }}>
+                              <div onClick={function(){ setCollapsedPackingSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
+                                <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, minWidth:0, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                                <span style={{ fontSize:11, color:"#8a5c48", flexShrink:0 }}>{sec.items.filter(function(i){return i.done}).length}/{sec.items.length}</span>
+                                <button onClick={function(e){ e.stopPropagation(); deletePackingSection(sec.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.5)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
+                                <span style={{ fontSize:10, color:"#8a5c48", transform:open?"rotate(180deg)":"none", transition:"transform 0.2s", flexShrink:0 }}>▾</span>
                               </div>
+                              {open && (
+                                <div style={{ padding:"0 12px 12px" }}>
+                                  {sec.items.length === 0 && (
+                                    <div style={{ fontSize:12, color:"#8a5c48", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
+                                  )}
+                                  {sec.items.map(function(item){
+                                    return (
+                                      <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.08)" }}>
+                                        <div onClick={function(){ togglePackingItem(sec.id, item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(26,46,61,0.25)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
+                                          {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
+                                        </div>
+                                        <span style={{ flex:1, fontSize:13, color:item.done?"#8a5c48":"#1a2e3d", fontFamily:"DM Sans,sans-serif", textDecoration:item.done?"line-through":"none" }}>{item.text}</span>
+                                        <button onClick={function(){ removePackingItem(sec.id, item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"#8a5c48", cursor:"pointer", padding:"0 2px" }}>✕</button>
+                                      </div>
+                                    )
+                                  })}
+                                  <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                                    <input value={packItemDrafts[sec.id]||""} onChange={function(e){ var v=e.target.value; setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:v}) }) }} onKeyDown={function(e){ if(e.key==="Enter"){ addPackingItemToSection(sec.id, packItemDrafts[sec.id]||""); setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) } }} placeholder="Add an item…" style={Object.assign({},packLightInput,{flex:1})}/>
+                                    <button onClick={function(){ addPackingItemToSection(sec.id, packItemDrafts[sec.id]||""); setPackItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) }} style={{ background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"0 14px", color:"#a07ab5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )
-                    })}
+                          )
+                        })}
+                      </div>
+                    )}
                     <div style={{ display:"flex", gap:8, marginTop:8 }}>
                       <input value={newPackingSectionTitle} onChange={function(e){ setNewPackingSectionTitle(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter"){ addPackingSection(newPackingSectionTitle); setNewPackingSectionTitle("") } }} placeholder="New section name…" style={Object.assign({},inputStyle,{flex:1})}/>
                       <button onClick={function(){ addPackingSection(newPackingSectionTitle); setNewPackingSectionTitle("") }} style={{ background:"rgba(200,169,122,0.15)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"0 14px", color:sand, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>+ Section</button>
