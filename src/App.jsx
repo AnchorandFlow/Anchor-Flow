@@ -6446,25 +6446,29 @@ Respond ONLY in valid JSON:
       return null;
     })();
 
-    // Lighthouse monthly focus pill — same hide-when-empty pattern as
-    // homeFocusWave above (no "Home Focus" naming collision: this is a
-    // separate 🎯 pill, homeFocusWave's 🏠 pill is untouched). Kid name is
-    // only prefixed when more than one homeschool kid has a focus set —
-    // a single-homeschooler household just shows the focus text, matching
-    // homeFocusWave's own terseness.
-    var lhMonthlyFocusToday = (function(){
+    // Today's Lighthouse week-plan subjects — same weekPlan[TODAY_NAME] source
+    // as the lhweek task-list entries in mergedTodayTasks below, collapsed to
+    // bare subject names for a compact pill instead of one task row per kid
+    // per subject. Deduped across kids (two kids both doing "Math" today shows
+    // "Math" once), capped at 3 with a "+N" suffix — this is a glance pill,
+    // not the full list (that lives in the task rows / Lighthouse → Plan → Week).
+    var todaySchoolSubjects = (function(){
       try {
         var lhModes = lhGet(lighthouseForToday, "modes", {});
-        var lhHomeschool = lhGet(lighthouseForToday, "homeschool", {});
         var hsKids = (people||[]).filter(function(p){ return personIsMinor(p) && lhModes[p.id]==="homeschool"; });
-        var withFocus = hsKids.map(function(p){
-          var hsChild = lhHomeschool[p.id] || defaultLhHsChild();
-          var focus = typeof hsChild.monthly === "string" ? hsChild.monthly.trim() : "";
-          return focus ? { name: p.name, focus: focus } : null;
-        }).filter(Boolean);
-        if (!withFocus.length) return null;
-        var first = withFocus[0];
-        return { text: withFocus.length>1 ? first.name+" — "+first.focus : first.focus };
+        var names = [];
+        hsKids.forEach(function(p){
+          var childSchoolHs = (schoolData[p.id] && schoolData[p.id].homeschool) || {};
+          var weekPlanToday = (childSchoolHs.weekPlan && childSchoolHs.weekPlan[TODAY_NAME]) || null;
+          var subjectsToday = (weekPlanToday && Array.isArray(weekPlanToday.subjects)) ? weekPlanToday.subjects : [];
+          subjectsToday.forEach(function(s){
+            if (s && s.name && names.indexOf(s.name) === -1) names.push(s.name);
+          });
+        });
+        if (!names.length) return null;
+        var shown = names.slice(0, 3);
+        var extra = names.length - shown.length;
+        return { text: shown.join(" · ") + (extra > 0 ? " +" + extra : "") };
       } catch(e) { return null; }
     })();
 
@@ -6722,11 +6726,11 @@ Respond ONLY in valid JSON:
               if(!weatherLocation) return(<button onClick={requestWeatherLocation} style={{fontSize:"0.6rem",color:T.textFaint,background:"none",border:"1px solid "+T.border,borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>);
               return null;
             })()}
-            {homeFocusWave&&homeFocusWave.name&&(
-              <span style={{fontSize:"0.72rem",fontWeight:700,color:"#1C3A2E",background:"#EBF5F3",border:"1px solid #6ABAAA55",borderRadius:"2rem",padding:"0.2rem 0.7rem"}}>🏠 {homeFocusWave.name}</span>
-            )}
-            {lhMonthlyFocusToday&&lhMonthlyFocusToday.text&&(
-              <span style={{fontSize:"0.72rem",fontWeight:700,color:"#1C6B5E",background:"#E3F3EF",border:"1px solid #2f8f7a55",borderRadius:"2rem",padding:"0.2rem 0.7rem"}}>🎯 {lhMonthlyFocusToday.text}</span>
+            {/* Cleaning-zone (🏠) and monthly-focus (🎯) pills removed from this strip —
+                🏠 stays in the Status strip below (homeFocusWave var untouched), 🎯
+                removed entirely per Today-strip cleanup. */}
+            {todaySchoolSubjects&&todaySchoolSubjects.text&&(
+              <span style={{fontSize:"0.72rem",fontWeight:700,color:"#5a5a50",background:"#F3EFE7",border:"1px solid #C9A45B55",borderRadius:"2rem",padding:"0.2rem 0.7rem"}}>📚 {todaySchoolSubjects.text}</span>
             )}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
@@ -6770,7 +6774,6 @@ Respond ONLY in valid JSON:
             <span>·</span>
             <span>🍽 {(!noMealPlanned&&todayMeal.dinner)?"Dinner planned":"Dinner not planned"}</span>
             {homeFocusWave&&homeFocusWave.name&&(<><span>·</span><span>🏠 {homeFocusWave.name}</span></>)}
-            {lhMonthlyFocusToday&&lhMonthlyFocusToday.text&&(<><span>·</span><span>🎯 {lhMonthlyFocusToday.text}</span></>)}
           </div>
         )}
         {/* ── Compass strip — quiet, not collapsible, but readable ── */}
