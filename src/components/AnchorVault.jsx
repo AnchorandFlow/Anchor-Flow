@@ -38,10 +38,15 @@ const VAULT_INPUT_STYLE = `
   .af-card-grid-2 > * { min-height: 56px; }
   .af-card-grid-3 { min-width: 0; }
   .af-card-grid-4 { min-width: 0; }
+  .af-trip-mini-grid { min-width: 0; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 768px) {
+    .af-trip-mini-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
   @media (max-width: 480px) {
     .af-card-grid-2 { grid-template-columns: 1fr !important; }
     .af-card-grid-3 { grid-template-columns: 1fr 1fr !important; }
     .af-card-grid-4 { grid-template-columns: 1fr 1fr !important; }
+    .af-trip-mini-grid { grid-template-columns: 1fr !important; }
   }
 `
 
@@ -3591,6 +3596,22 @@ var TRIP_STATUS_COLORS = {
   "Completed":   "rgba(150,150,150,0.5)",
   "Cancelled":   "rgba(184,100,100,0.6)"
 }
+// Landing-page expanded-card mini-grid (Travel redesign, Fix 1+2) — a lighter,
+// pastel-on-light-card preview grid distinct from CARD_META's dark-card accent
+// colors used inside the full trip detail view. Deliberately only 9 of
+// CARD_META's 13 ids (no dining/weather/emergencyInfo/photos) per spec.
+var TRIP_MINI_CARD_ORDER = ["transportation","lodging","packing","itinerary","activities","reservations","budget","documents","notes"]
+var TRIP_MINI_CARD_COLORS = {
+  transportation: "#dbeeff",
+  lodging:        "#d4ede0",
+  packing:        "#fde5dc",
+  itinerary:      "#fdeede",
+  activities:     "#d8eeea",
+  reservations:   "#fdf3d4",
+  budget:         "#fdf0c4",
+  documents:      "#dde6ef",
+  notes:          "#f5e0e8"
+}
 // Echoes PackingTemplatesPanel's DEFAULT_PACKING_TEMPLATES trip types (flight,
 // roadtrip, beach, camping) plus a couple more, for icon/theme consistency
 // across the Travel redesign.
@@ -3959,6 +3980,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   // the chevron toggle.
   var s_pastCollapsed = useState(true)
   var collapsedPastAdventures = s_pastCollapsed[0]; var setCollapsedPastAdventures = s_pastCollapsed[1]
+  // Landing-page trip card expand/collapse (Fix 1) — per-trip, local-only
+  // (not synced), collapsed by default. Map of tripId -> bool.
+  var s_expandedTrips = useState({})
+  var expandedTripIds = s_expandedTrips[0]; var setExpandedTripIds = s_expandedTrips[1]
   // Import-from-saved-packing-template panel: closed / choosing a template /
   // a template chosen (showing the merge-vs-replace choice).
   var s_importOpen = useState(false)
@@ -5325,29 +5350,128 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 if (!b.endDate) return -1
                 return a.endDate < b.endDate ? 1 : a.endDate > b.endDate ? -1 : 0
               })
+              // Fix 2's split value/sub-label preview per mini-card category, run per
+              // trip for the landing page (CARD_RENDERERS' single-line preview strings
+              // further down do the same underlying computation for the one open
+              // detailTrip — left untouched; this is deliberately separate so neither
+              // view risks breaking the other).
+              function tripCategoryPreview(trip, category) {
+                if (category==="transportation") {
+                  var trList = trip.transportation||[]
+                  var trFirst = trList[0]
+                  return { value: trFirst ? (trFirst.carrier||trFirst.type||"Trip added") : "None yet", sub: trFirst ? ((trFirst.departure||"")+(trList.length>1?" +"+(trList.length-1)+" more":"")).trim()||null : null }
+                }
+                if (category==="lodging") {
+                  var lgList = trip.lodging||[]
+                  var lgFirst = lgList[0]
+                  return { value: lgFirst ? (lgFirst.name||"Lodging added") : "None yet", sub: lgList.length>1 ? "+"+(lgList.length-1)+" more" : null }
+                }
+                if (category==="packing") {
+                  var sections = normalizePackingSections(trip.packing)
+                  var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
+                  return { value: allItems.length===0 ? "None yet" : allItems.filter(function(i){return i.done}).length+"/"+allItems.length+" packed", sub:null }
+                }
+                if (category==="itinerary") {
+                  var days = normalizeItineraryDays(trip.itinerary)
+                  var allActs = days.reduce(function(acc,d){ return acc.concat(d.activities) }, [])
+                  return { value: days.length===0 ? "None yet" : days.length+" day"+(days.length===1?"":"s"), sub: days.length===0 ? null : allActs.length+" activit"+(allActs.length===1?"y":"ies") }
+                }
+                if (category==="activities") {
+                  var actList = normalizeActivities(trip.activities)
+                  return { value: actList.length===0 ? "None yet" : actList.filter(function(i){return i.done}).length+"/"+actList.length+" done", sub:null }
+                }
+                if (category==="reservations") {
+                  var resList = normalizeReservations(trip.reservations)
+                  return { value: resList.length===0 ? "None yet" : resList.length+(resList.length===1?" reservation":" reservations"), sub:null }
+                }
+                if (category==="budget") {
+                  var b = trip.budget || {}
+                  var est = parseFloat(b.estimated)
+                  var expenses = normalizeExpenses(b)
+                  var spentTotal = expensesTotal(expenses)
+                  var remaining = !isNaN(est) ? (est - spentTotal) : null
+                  return { value: remaining===null ? "None yet" : "$"+spentTotal.toLocaleString()+" of $"+est.toLocaleString(), sub: remaining===null ? null : (remaining<0 ? "$"+Math.abs(remaining).toLocaleString()+" over" : "$"+remaining.toLocaleString()+" left") }
+                }
+                if (category==="documents") {
+                  var docList = normalizeDocuments(trip.documents)
+                  var warnCount = docList.filter(function(d){ return documentExpiryStatus(d)!==null }).length
+                  return { value: docList.length===0 ? "None yet" : docList.filter(function(i){return i.confirmed}).length+"/"+docList.length+" ready", sub: warnCount>0 ? "⚠️ "+warnCount+" expiring soon" : null }
+                }
+                if (category==="notes") {
+                  var notesLine = (trip.notes||"").split("\n")[0].trim()
+                  return { value: notesLine ? (notesLine.length>40?notesLine.slice(0,40)+"…":notesLine) : "None yet", sub:null }
+                }
+                return { value:"None yet", sub:null }
+              }
+              function categoryHasContent(trip, category) { return tripCategoryPreview(trip, category).value !== "None yet" }
+
               function renderTripCard(trip, mutedStyle) {
                 // mutedStyle (past trips) no longer dims the whole card — TripCountdownBadge
                 // already renders "Past" as a text badge, which is the spec-correct way to
                 // carry status (badge/border only, never whole-card opacity).
+                var isExpanded = !!expandedTripIds[trip.id]
+                function toggleExpand(e) { if (e) e.stopPropagation(); setExpandedTripIds(function(p){ return Object.assign({},p,{[trip.id]:!p[trip.id]}) }) }
+
+                if (!isExpanded) {
+                  return (
+                    <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"10px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontSize:18, flexShrink:0 }}>{trip.icon || "🧳"}</span>
+                      <span style={{ flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:"#1a2e3d" }}>{trip.name || "Untitled trip"}</span>
+                      <TripCountdownBadge trip={trip} />
+                      {trip.status ? <span title={trip.status} style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[trip.status]||sand, flexShrink:0 }}/> : null}
+                      <button onClick={toggleExpand} title="Expand" style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, color:muted, flexShrink:0, padding:2, transform:"rotate(0deg)" }}>▾</button>
+                    </div>
+                  )
+                }
+
+                var filledCount = TRIP_MINI_CARD_ORDER.filter(function(c){ return categoryHasContent(trip, c) }).length
+                var progressPct = Math.round(filledCount / TRIP_MINI_CARD_ORDER.length * 100)
                 return (
-                  <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, cursor:"pointer", display:"flex", flexDirection:"column", gap:6 }}>
-                    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
-                      <span style={{ fontSize:20 }}>{trip.icon || "🧳"}</span>
+                  <div key={trip.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, display:"flex", flexDirection:"column", gap:10 }}>
+                    <div onClick={function(){ openDetail(trip) }} style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer" }}>
+                      <span style={{ fontSize:20, flexShrink:0 }}>{trip.icon || "🧳"}</span>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d", lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
+                        {trip.destination ? <div style={{ fontSize:12, color:"#4a6275" }}>{trip.destination}</div> : null}
+                        {(trip.startDate || trip.endDate) ? (
+                          <div style={{ fontSize:11, color:muted, marginTop:2 }}>
+                            {formatTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + formatTripDate(trip.endDate) : ""}
+                          </div>
+                        ) : null}
+                      </div>
                       <TripCountdownBadge trip={trip} />
                     </div>
-                    <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d", lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
-                    {trip.destination ? <div style={{ fontSize:12, color:"#4a6275" }}>{trip.destination}</div> : null}
-                    {(trip.startDate || trip.endDate) ? (
-                      <div style={{ fontSize:11, color:muted }}>
-                        {formatTripDate(trip.startDate)}{trip.startDate && trip.endDate ? " – " + formatTripDate(trip.endDate) : ""}
-                      </div>
-                    ) : null}
                     {trip.status ? (
-                      <div style={{ display:"flex", alignItems:"center", gap:5, marginTop:2 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                         <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[trip.status]||sand, display:"inline-block", flexShrink:0 }}/>
                         <span style={{ fontSize:11, color:TRIP_STATUS_COLORS[trip.status]||sand }}>{trip.status}</span>
                       </div>
                     ) : null}
+                    <div>
+                      <div style={{ height:5, borderRadius:3, background:"rgba(26,46,61,0.08)", overflow:"hidden" }}>
+                        <div style={{ height:"100%", width:progressPct+"%", background:"#c8a97a", borderRadius:3, transition:"width 0.2s" }}/>
+                      </div>
+                      <div style={{ fontSize:10, color:muted, marginTop:3 }}>{filledCount} of {TRIP_MINI_CARD_ORDER.length} planned</div>
+                    </div>
+                    <div className="af-trip-mini-grid" style={{ display:"grid", gap:8 }}>
+                      {TRIP_MINI_CARD_ORDER.map(function(c){
+                        var meta = CARD_META[c]
+                        var pv = tripCategoryPreview(trip, c)
+                        return (
+                          <div key={c} onClick={function(e){ e.stopPropagation(); openDetail(trip); setActiveTripCard(c) }} style={{ background:TRIP_MINI_CARD_COLORS[c], borderRadius:8, padding:"8px 10px", cursor:"pointer", display:"flex", flexDirection:"column", gap:2, minWidth:0 }}>
+                            <span style={{ fontSize:10, fontWeight:800, textTransform:"uppercase", letterSpacing:"0.05em", color:"#1a2e3d", opacity:0.6 }}>{meta.title}</span>
+                            <span style={{ fontSize:12, fontWeight:700, color:"#1a2e3d", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{pv.value}</span>
+                            {pv.sub ? <span style={{ fontSize:10, color:"#1a2e3d", opacity:0.6, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{pv.sub}</span> : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      <button onClick={function(e){ e.stopPropagation(); openDetail(trip); setActiveTripCard("packing") }} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"6px 10px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>📦 Packing</button>
+                      <button onClick={function(e){ e.stopPropagation(); openDetail(trip); setActiveTripCard("itinerary") }} style={{ background:"rgba(217,138,110,0.12)", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, padding:"6px 10px", fontSize:11, color:"#d98a6e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>🗓️ Itinerary</button>
+                      <button onClick={function(e){ e.stopPropagation(); openEdit(trip) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"6px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip</button>
+                    </div>
+                    <button onClick={toggleExpand} title="Collapse" style={{ alignSelf:"center", background:"none", border:"none", cursor:"pointer", fontSize:11, color:muted, padding:2, transform:"rotate(180deg)" }}>▾</button>
                   </div>
                 )
               }
