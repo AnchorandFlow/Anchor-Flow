@@ -1709,6 +1709,11 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
                   </label>
                 </div>
               </div>
+              {/* Manual status flags — not derived from the work schedule, just a quick "is this true today" toggle. */}
+              <div style={{display:"flex",gap:"0.35rem",marginTop:"0.4rem"}}>
+                <button onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{inSchool:!x.inSchool}):x;});});}} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(p.inSchool?T.blue:T.border),background:p.inSchool?T.blue:"transparent",color:p.inSchool?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🎒 In school</button>
+                <button onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{working:!x.working}):x;});});}} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(p.working?T.blue:T.border),background:p.working?T.blue:"transparent",color:p.working?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💼 Working</button>
+              </div>
             </div>
           );
         })}
@@ -6705,6 +6710,22 @@ Respond ONLY in valid JSON:
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);if(n&&(n.indexOf(".")!==-1||n.indexOf("@")!==-1))return "";var shown=n||"there";return ", "+(shown.charAt(0).toUpperCase()+shown.slice(1));})()} {greetingEmoji}</div>
           </div>
+          {/* Manual "in school"/"working" status flags set in Settings — shown here only when at least one person has one on. */}
+          {(function(){
+            var flagged=people.filter(function(p){return p&&p.name&&(p.inSchool||p.working);});
+            if(flagged.length===0) return null;
+            return (
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.35rem"}}>
+                {flagged.map(function(p){
+                  return (
+                    <span key={p.id} style={{fontSize:"0.68rem",fontWeight:700,color:T.textMid,background:T.bgAlt,border:"1px solid "+T.borderSoft,borderRadius:"2rem",padding:"0.15rem 0.6rem",display:"inline-flex",alignItems:"center",gap:"0.25rem"}}>
+                      {p.name}{p.inSchool&&<span>🎒</span>}{p.working&&<span>💼</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
