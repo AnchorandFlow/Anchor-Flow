@@ -37,7 +37,13 @@ export const SYNC_KEYS = [
   // Reminders & notifications
   "notifications","recurring","notifSettings",
   // App preferences & state that should survive a reset
-  "sections","flowMode","preferredName","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
+  // preferredName is deliberately NOT here — see the per-person storage note
+  // near af_preferredNames in HomeFlow (App.jsx). It used to be a single
+  // shared household string; syncing it meant whoever last typed into
+  // "What should Compass call you?" set it for every person on every
+  // device (the "Mama boss" bug). It's now local-only, keyed by personId,
+  // same as af_myPersonId.
+  "sections","flowMode","flowGreetingTone","weatherLocation","burnoutChecked","aiMemory",
   // Anchor Vault — shared household data
   // celebgifts retired (Phase 3): migrated into gifts on read, no longer
   // synced independently.
@@ -250,8 +256,8 @@ const _SANITIZE_HANDLED = new Set([
   // (WORK-1). Same shape class as gifts — object keyed by person id, needs
   // its own guard so a misclassified array doesn't vanish every sync.
   "work_schedules",
-  // Scalars
-  "mealCount","mealThemeEnabled","preferredName","flowGreetingTone","weatherLocation","flowMode",
+  // Scalars (preferredName intentionally excluded — see SYNC_KEYS comment)
+  "mealCount","mealThemeEnabled","flowGreetingTone","weatherLocation","flowMode",
   // Objects
   "familyProfile","aiMemory","collapsedStores","mealThemes","calColorLabels",
   "schoolData","cove_items_v1","cove_sections_v1","notifSettings","sections",
@@ -350,8 +356,8 @@ export function sanitizeHouseholdData(data) {
     // Scalar values
     if (typeof data.mealCount === "number") out.mealCount = data.mealCount;
     if (typeof data.mealThemeEnabled === "boolean") out.mealThemeEnabled = data.mealThemeEnabled;
-    // String scalars
-    ["preferredName","flowGreetingTone","weatherLocation","flowMode","mealsWeekOf"].forEach(k => {
+    // String scalars (preferredName intentionally excluded — see SYNC_KEYS comment)
+    ["flowGreetingTone","weatherLocation","flowMode","mealsWeekOf"].forEach(k => {
       if (typeof data[k] === "string") out[k] = data[k];
     });
     // Boolean scalars

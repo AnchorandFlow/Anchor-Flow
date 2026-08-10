@@ -632,7 +632,14 @@ function readHouseholdState() {
   SYNC_KEYS.forEach(function (k) {
     try { st[k] = JSON.parse(localStorage.getItem("af_" + k)); } catch (e) { st[k] = null; }
   });
-  try { st.preferredName = JSON.parse(localStorage.getItem("af_preferredName")); } catch (e) {}
+  // preferredName is per-person now (af_preferredNames = {personId: name}),
+  // resolved here for whoever this device's af_myPersonId currently is —
+  // see the "Mama boss" fix comment near chooseMyPersonId in HomeFlow.
+  try {
+    var _rhsPid = localStorage.getItem("af_myPersonId") || null;
+    var _rhsNames = JSON.parse(localStorage.getItem("af_preferredNames") || "{}");
+    st.preferredName = (_rhsPid && _rhsNames && _rhsNames[_rhsPid]) || null;
+  } catch (e) { st.preferredName = null; }
   // F-97: myPersonId is deliberately NOT in SYNC_KEYS (session-local, never
   // synced — see the useState comment in HomeFlow), so it needs its own line
   // here, same as preferredName above.
@@ -3992,7 +3999,6 @@ function createLocalBackup() {
       return Object.assign({}, prev, {recentSuggestions: fresh.concat(added)});
     });
   }
-  const [preferredName,setPreferredName]       = useSaved("preferredName","");
   const [flowGreetingTone,setFlowGreetingTone] = useSaved("flowGreetingTone","warm");
   const [dailySummaryScheduled,setDailySummaryScheduled] = useSaved("dailySummaryScheduled",null);
   // Weather
@@ -4190,6 +4196,39 @@ function createLocalBackup() {
     setMyPersonId(id);
     setShowWhoAmI(false);
     try { window.dispatchEvent(new CustomEvent("af-myPersonId-changed")); } catch {}
+  }
+  // preferredName ("What should Compass call you?") used to be one shared
+  // household string (see myDisplayName's "Mama boss" comment above) — whoever
+  // typed into it last set it for every person on every device, since it was
+  // synced via useSaved. Storage is now keyed by person (af_preferredNames =
+  // {personId: name}), read/written for myPersonId only, and kept local/
+  // per-device like af_myPersonId itself: plain localStorage, no useSaved, no
+  // dirty-marking, never synced. One-time migration below seeds the current
+  // person's slot from the old shared key so nobody's already-typed name is
+  // silently lost by this change — after that read, the legacy key is inert.
+  const [preferredNamesLocal, setPreferredNamesLocal] = useState(function(){
+    try {
+      var v = JSON.parse(localStorage.getItem("af_preferredNames") || "{}");
+      var map = (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+      var pid = (function(){ try { return localStorage.getItem("af_myPersonId")||null; } catch { return null; } })();
+      if (pid && !map[pid]) {
+        var legacy = (function(){ try { return JSON.parse(localStorage.getItem("af_preferredName")||"null"); } catch { return null; } })();
+        if (legacy) {
+          map = Object.assign({}, map, { [pid]: legacy });
+          try { localStorage.setItem("af_preferredNames", JSON.stringify(map)); } catch {}
+        }
+      }
+      return map;
+    } catch { return {}; }
+  });
+  const preferredName = (myPersonId && preferredNamesLocal[myPersonId]) || "";
+  function setPreferredName(name){
+    if (!myPersonId) return;
+    setPreferredNamesLocal(function(prev){
+      var next = Object.assign({}, prev, { [myPersonId]: name });
+      try { localStorage.setItem("af_preferredNames", JSON.stringify(next)); } catch {}
+      return next;
+    });
   }
   // "This is me" entry in Settings reopens this same modal — mirrors the
   // af-open-sunset pattern above.
@@ -6734,7 +6773,7 @@ Respond ONLY in valid JSON:
             )}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);return n&&n.indexOf(".")===-1&&n.indexOf("@")===-1?", "+(n.charAt(0).toUpperCase()+n.slice(1)):"";})()} {greetingEmoji}</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);if(n&&(n.indexOf(".")!==-1||n.indexOf("@")!==-1))return "";var shown=n||"there";return ", "+(shown.charAt(0).toUpperCase()+shown.slice(1));})()} {greetingEmoji}</div>
           </div>
         </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
