@@ -8030,6 +8030,7 @@ Respond ONLY in valid JSON:
   // keeps this view correct against both.
   _hfRenders.WavesSection = function WavesSection() {
     var WAVE_DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var WAVE_DAY_LABELS_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     var WAVE_MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     var TEAL = "#2E9B8F";
     function emptyWaves() { return { daily: [], weekly: [], seasonal: [], custom: [] }; }
@@ -8246,6 +8247,13 @@ Respond ONLY in valid JSON:
     function toggleWaveSection(type) {
       setWaveSectionOpen(function(prev) { return Object.assign({}, prev, { [type]: !prev[type] }); });
     }
+    function waveScheduleLabel(type, w) {
+      if (type==="daily") return "Resets daily";
+      if (type==="weekly") return "Resets every " + (WAVE_DAY_LABELS_FULL[w.dayOfWeek]||"week");
+      if (type==="seasonal") return "Resets each season";
+      if (type==="custom") return w.intervalDays ? "Resets every "+w.intervalDays+" day"+(w.intervalDays!==1?"s":"") : "Does not reset";
+      return "";
+    }
     function waveDaysAgoLabel(dateStr) {
       var d = new Date(dateStr + "T00:00:00");
       var diff = Math.round((TODAY - d) / 86400000);
@@ -8298,6 +8306,7 @@ Respond ONLY in valid JSON:
                                 <span onClick={(e) => { e.stopPropagation(); setEditingWaveId(w.id); }} title="Tap to rename" style={{ fontSize: 13, fontWeight: 700, color: T.textDark, cursor: "text" }}>{w.name}</span>
                               )}
                               <div style={{ fontSize: 10.5, color: T.textSoft, marginTop: 1 }}>{subtitle}{type==="weekly"&&typeof w.dayOfWeek==="number"?" · "+WAVE_DAY_LABELS[w.dayOfWeek]:""}{type==="seasonal"&&typeof w.month==="number"?" · "+WAVE_MONTH_LABELS[w.month-1]:""}</div>
+                              <div style={{ fontSize: 10, color: T.textSoft, opacity: 0.6, marginTop: 1 }}>{waveScheduleLabel(type, w)}</div>
                               {lastCompleted && <div style={{ fontSize: 10, color: T.textSoft, opacity: 0.75, marginTop: 1 }}>Last completed {waveDaysAgoLabel(lastCompleted.date)} · {lastCompleted.checked}/{lastCompleted.total}</div>}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); deleteWave(type, w.id); }} style={{ background: "none", border: "none", color: "#8B0000", fontSize: 14, cursor: "pointer", flexShrink: 0, padding: "0 2px" }}>✕</button>
