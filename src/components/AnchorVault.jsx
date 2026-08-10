@@ -5243,7 +5243,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               "Edit trip info" header button, which opens the existing formTrip
               modal. Previously this card had its own always-editable inputs, a
               second, parallel edit surface for the exact same fields as the
-              modal — removed rather than kept in sync with a duplicate draft. */}
+              modal — removed rather than kept in sync with a duplicate draft.
+              Fix 3 (Travel redesign): added a matching "Edit trip info" button
+              directly on this card (same modal, not a second edit surface) plus
+              the Notes field, which this read-only summary was missing. */}
           <TripCard icon="📋" title="Overview" accent={sand} defaultOpen={true}>
             <div style={{ display:"flex", flexDirection:"column", gap:12, paddingTop:10 }}>
               <div>
@@ -5275,6 +5278,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>Not set</div>
                 )}
               </div>
+              <div>
+                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Notes</label>
+                <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", whiteSpace:"pre-wrap" }}>{detailTrip.notes || "No notes yet."}</div>
+              </div>
+              <button onClick={function(){ openEdit(detailTrip) }} style={{ alignSelf:"flex-start", background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip info</button>
             </div>
           </TripCard>
 
