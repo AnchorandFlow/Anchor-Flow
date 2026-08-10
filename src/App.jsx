@@ -1633,8 +1633,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
   var [newMemberBirthday,setNewMemberBirthday]=useState("");
   var [newMemberRole,setNewMemberRole]=useState("");
   var [settingsOpen,setSettingsOpen]=useState({family:true});
-  var [workScheduleOpenFor,setWorkScheduleOpenFor]=useState(null);
-  var WORK_SCHEDULE_COLORS=["#5E8FA0","#7a9e8e","#c4a882","#b87265","#8878b8","#e8a838"];
+  // updateWorkSchedule/workSchedules kept — the Settings UI that used to call
+  // this here was removed (work schedule editing now lives in Calendar's day
+  // view), but the data + helper stay so nothing else depending on them breaks.
   function updateWorkSchedule(personId,patch){
     setWorkSchedules(function(prev){
       var cur=(prev&&prev[personId])||{days:[],type:"regular",color:"",notes:""};
@@ -1707,77 +1708,6 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
                     <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
                   </label>
                 </div>
-              </div>
-              {/* WORK-1: per-person work schedule, collapsible below the main row */}
-              <div style={{marginTop:"0.4rem"}}>
-                <button onClick={function(){setWorkScheduleOpenFor(workScheduleOpenFor===p.id?null:p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.72rem",color:T.textSoft,fontWeight:600,fontFamily:"inherit",display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.2rem 0"}}>
-                  💼 Work schedule{(workSchedules[p.id]&&workSchedules[p.id].days&&workSchedules[p.id].days.length>0)?" ("+workSchedules[p.id].days.length+" days)":""}
-                </button>
-                {workScheduleOpenFor===p.id&&(function(){
-                  var sched=workSchedules[p.id]||{days:[],type:"regular",color:"",notes:"",dates:[],startTime:"",endTime:""};
-                  var isIrregular=sched.type==="irregular";
-                  var isOvernight=sched.type==="overnight";
-                  var swatch=sched.color||T.blue;
-                  return (
-                    <div style={{background:T.surface,borderRadius:"0.7rem",padding:"0.6rem 0.7rem",marginTop:"0.3rem",border:"1px solid "+T.borderSoft}}>
-                      {isIrregular?(
-                        // WORK-1: irregular shifts have no fixed weekday pattern —
-                        // individual dates the person adds/removes instead.
-                        <div style={{marginBottom:"0.5rem"}}>
-                          <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.4rem"}}>
-                            <input type="date" id={"wsDate_"+p.id} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",flex:1})}}/>
-                            <button onClick={function(){
-                              var el=document.getElementById("wsDate_"+p.id);
-                              var v=el&&el.value;
-                              if(!v)return;
-                              var cur=sched.dates||[];
-                              if(cur.includes(v))return;
-                              updateWorkSchedule(p.id,{dates:[...cur,v].sort()});
-                              if(el)el.value="";
-                            }} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.5rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}}>+ Add date</button>
-                          </div>
-                          <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap"}}>
-                            {(sched.dates||[]).length===0&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic"}}>No shift dates added yet.</div>}
-                            {(sched.dates||[]).map(function(d){
-                              return <button key={d} onClick={function(){updateWorkSchedule(p.id,{dates:sched.dates.filter(function(x){return x!==d;})});}} title="Tap to remove" style={{background:swatch,color:"#fff",border:"none",borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{d} ✕</button>;
-                            })}
-                          </div>
-                        </div>
-                      ):(
-                        <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
-                          {MEAL_DAYS.map(function(day){
-                            var on=(sched.days||[]).includes(day);
-                            return <button key={day} onClick={function(){updateWorkSchedule(p.id,{days:on?sched.days.filter(function(d){return d!==day;}):[...(sched.days||[]),day]});}} style={{background:on?swatch:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?swatch:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
-                          })}
-                        </div>
-                      )}
-                      {isOvernight&&(
-                        // WORK-1: overnight shift start/end times, used to render
-                        // "Mon night → Tue morning, 10pm–6am" style labels elsewhere.
-                        <div style={{display:"flex",gap:"0.4rem",alignItems:"center",marginBottom:"0.5rem"}}>
-                          <input type="time" value={sched.startTime||""} onChange={function(e){updateWorkSchedule(p.id,{startTime:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",width:"auto"})}}/>
-                          <span style={{fontSize:"0.7rem",color:T.textFaint}}>→</span>
-                          <input type="time" value={sched.endTime||""} onChange={function(e){updateWorkSchedule(p.id,{endTime:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",width:"auto"})}}/>
-                          <span style={{fontSize:"0.66rem",color:T.textFaint}}>(next morning)</span>
-                        </div>
-                      )}
-                      <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",alignItems:"center",marginBottom:"0.5rem"}}>
-                        <select value={sched.type||"regular"} onChange={function(e){updateWorkSchedule(p.id,{type:e.target.value});}} style={{...inp({fontSize:"0.75rem",padding:"0.2rem 0.4rem",width:"auto"})}}>
-                          <option value="regular">Regular</option>
-                          <option value="irregular">Irregular</option>
-                          <option value="on-call">On-call</option>
-                          <option value="overnight">Overnight</option>
-                        </select>
-                        <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
-                          {WORK_SCHEDULE_COLORS.map(function(c){return(
-                            <button key={c} onClick={function(){updateWorkSchedule(p.id,{color:c});}} style={{width:16,height:16,borderRadius:"50%",background:c,border:sched.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",flexShrink:0}}/>
-                          );})}
-                        </div>
-                      </div>
-                      <input value={sched.notes||""} onChange={function(e){updateWorkSchedule(p.id,{notes:e.target.value});}} placeholder="Notes (optional)" style={{...inp({fontSize:"0.75rem",padding:"0.25rem 0.5rem",width:"100%"})}}/>
-                    </div>
-                  );
-                })()}
               </div>
             </div>
           );
