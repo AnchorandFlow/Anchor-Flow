@@ -268,6 +268,9 @@ function ghostBtn(extra) { return Object.assign({ background:"none", color:"#4a6
 // ── Print styles ──────────────────────────────────────────────────────────────
 var PRINT_CSS = "@media print { .af-sh-no-print { display:none !important; } .af-sh-print { color:#000 !important; background:#fff !important; } }"
 
+// ── Mobile grid stacking ────────────────────────────────────────────────────
+var MOBILE_CSS = "@media (max-width: 480px) { .af-sh-grid-2 { grid-template-columns: 1fr !important; } .af-sh-grid-3 { grid-template-columns: 1fr 1fr !important; } }"
+
 export default function SafeHarbor() {
   var [tab,        setTab]        = useState("ourPlan")
   var [data,       setData]       = useState(loadData)
@@ -532,6 +535,7 @@ export default function SafeHarbor() {
   return (
     <div style={{ paddingBottom:"3rem", fontFamily:SANS }}>
       <style>{PRINT_CSS}</style>
+      <style>{MOBILE_CSS}</style>
 
       {/* ── Header ── */}
       <div style={{ marginBottom:16, paddingBottom:14, borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
@@ -578,7 +582,7 @@ export default function SafeHarbor() {
           )}
 
           {/* Summary row */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:9, marginBottom:16 }}>
+          <div className="af-sh-grid-3" style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:9, marginBottom:16 }}>
             {[
               { n:String(t3Count), l:"Grab items" },
               { n:String((data.hazards||[]).length), l:"Local plans" },
@@ -936,7 +940,7 @@ export default function SafeHarbor() {
           </div>
 
           {/* Hazard toggle grid */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
+          <div className="af-sh-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
             {HAZARD_META.map(function(h) {
               var on = (data.hazards||[]).indexOf(h.id) !== -1
               return (

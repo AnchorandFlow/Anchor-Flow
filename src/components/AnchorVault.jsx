@@ -36,8 +36,12 @@ const VAULT_INPUT_STYLE = `
   }
   .af-card-grid-2 { min-width: 0; }
   .af-card-grid-2 > * { min-height: 56px; }
+  .af-card-grid-3 { min-width: 0; }
+  .af-card-grid-4 { min-width: 0; }
   @media (max-width: 480px) {
     .af-card-grid-2 { grid-template-columns: 1fr !important; }
+    .af-card-grid-3 { grid-template-columns: 1fr 1fr !important; }
+    .af-card-grid-4 { grid-template-columns: 1fr 1fr !important; }
   }
 `
 
@@ -5364,7 +5368,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                         <span style={{ fontSize:11, color:muted, transform:collapsedPastAdventures?"rotate(0deg)":"rotate(180deg)", transition:"transform 0.2s" }}>▾</span>
                       </div>
                       {!collapsedPastAdventures && (
-                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
+                        <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginTop:10 }}>
                           {pastTrips.map(function(trip){ return renderTripCard(trip, true) })}
                         </div>
                       )}
@@ -5647,11 +5651,11 @@ function CResumeTab({ pid, career, setCareer }) {
               ),
               // Inline edit form
               isEditing&&React.createElement("div",{style:{padding:"12px"},onClick:function(e){e.stopPropagation()}},
-                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+                React.createElement("div",{className:"af-card-grid-2",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
                   React.createElement("input",{value:editForm.title,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{title:e.target.value})})},placeholder:"Job title",style:C_INP_STYLE}),
                   React.createElement("input",{value:editForm.company,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{company:e.target.value})})},placeholder:"Company",style:C_INP_STYLE})
                 ),
-                React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
+                React.createElement("div",{className:"af-card-grid-2",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}},
                   React.createElement("input",{value:editForm.from,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{from:e.target.value})})},placeholder:"From (e.g. 2022)",style:C_INP_STYLE}),
                   React.createElement("input",{value:editForm.to,onChange:function(e){setEditForm(function(f){return Object.assign({},f,{to:e.target.value})})},placeholder:"To (or 'present')",style:C_INP_STYLE})
                 ),
@@ -5701,7 +5705,7 @@ function CResumeTab({ pid, career, setCareer }) {
     adding&&React.createElement(CModal,{title:"Add work history",onClose:function(){setAdding(false);}},
       React.createElement(CInput,{label:"Job title",value:form.title,onChange:function(v){setForm(function(f){return Object.assign({},f,{title:v})});},placeholder:"e.g. Senior Designer"}),
       React.createElement(CInput,{label:"Company",value:form.company,onChange:function(v){setForm(function(f){return Object.assign({},f,{company:v})});},placeholder:"e.g. Acme Co."}),
-      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}},
+      React.createElement("div",{className:"af-card-grid-2",style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}},
         React.createElement(CInput,{label:"From",value:form.from,onChange:function(v){setForm(function(f){return Object.assign({},f,{from:v})});},placeholder:"2020"}),
         React.createElement(CInput,{label:"To",value:form.to,onChange:function(v){setForm(function(f){return Object.assign({},f,{to:v})});},placeholder:"2023 or present"})),
       React.createElement(CTextarea,{label:"Notes",value:form.desc,onChange:function(v){setForm(function(f){return Object.assign({},f,{desc:v})});},placeholder:"What you built, led, or accomplished…",rows:3}),
@@ -6199,7 +6203,7 @@ function CareerSection() {
               React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
             ),
             // 4 stat grid
-            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:stats.jobs.length||stats.goalList.length?12:0}},
+            React.createElement("div",{className:"af-card-grid-4",style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:stats.jobs.length||stats.goalList.length?12:0}},
               React.createElement("div",{style:{background:CSURF2,borderRadius:8,padding:"7px 8px"}},
                 React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Active apps"),
                 React.createElement("p",{style:{fontSize:17,fontWeight:500,color:CAREER_WHITE,margin:0}},stats.activeJobs)
@@ -6923,7 +6927,7 @@ function HPersonCard(props) {
       React.createElement("span",{style:{fontSize:11,color:"#4a6275"}},">")
     ),
     // 3 mini stats
-    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
+    React.createElement("div",{className:"af-card-grid-3",style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}},
       React.createElement("div",{style:{background:SURF2,borderRadius:8,padding:"7px 8px"}},
         React.createElement("p",{style:{fontSize:10,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",margin:"0 0 2px"}},"Meds"),
         React.createElement("p",{style:{fontSize:17,fontWeight:500,color:HWHITE,margin:0}},meds)
@@ -7752,7 +7756,7 @@ function MaintenancePanel() {
           React.createElement("div",null,"No systems added yet."),
           React.createElement("div",{style:{marginTop:4,fontSize:12}},"Track HVAC filters, water heaters, and anything that needs regular maintenance.")
         )
-      : React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}},
+      : React.createElement("div",{className:"af-card-grid-3",style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}},
           systems.map(function(sys,i){
             var status=sysStatus(sys);
             var statusColor=sysStatusColor(status);
@@ -9041,7 +9045,7 @@ function SubscriptionsSection() {
         ),
         modal === "sub" && React.createElement("div", null,
           React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Service name"), React.createElement("input", { style: inp, placeholder: "e.g. Netflix, Spotify", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
-          React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
+          React.createElement("div", { className: "af-card-grid-2", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 } },
             React.createElement("div", null, React.createElement("label", { style: lbl }, "Amount ($)"), React.createElement("input", { style: inp, type: "number", placeholder: "0.00", value: form.amount||"", onChange: function(e) { setForm(Object.assign({},form,{amount:e.target.value})) } })),
             React.createElement("div", null, React.createElement("label", { style: lbl }, "Billing cycle"),
               React.createElement("select", { style: inp, value: form.cycle||"monthly", onChange: function(e) { setForm(Object.assign({},form,{cycle:e.target.value})) } },
