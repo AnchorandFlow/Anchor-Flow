@@ -444,10 +444,12 @@ export function sanitizeHouseholdData(data) {
     }
     // exhale_waves: { daily:[], weekly:[], seasonal:[], custom:[] } (Exhale
     // Phase 2), each entry a wave card { id, name, tasks:[{id,text,
-    // estimatedMinutes,done}], lastReset (per-wave reset tracking), plus
-    // dayOfWeek (weekly, 0-6), month (seasonal, 1-12), or intervalDays
-    // (custom — unset means one-time, never auto-resets). Validated
-    // per-field, same reasoning as exhale_buckets above.
+    // estimatedMinutes,done}], lastReset (per-wave reset tracking),
+    // history:[{date,name,type,checked,total}] (last 10 completion records,
+    // appended on each reset), plus dayOfWeek (weekly, 0-6), month
+    // (seasonal, 1-12), or intervalDays (custom — unset means one-time,
+    // never auto-resets). Validated per-field, same reasoning as
+    // exhale_buckets above.
     if (data["exhale_waves"] !== undefined && data["exhale_waves"] !== null &&
         typeof data["exhale_waves"] === "object" && !Array.isArray(data["exhale_waves"])) {
       var ew = data["exhale_waves"];
@@ -459,10 +461,20 @@ export function sanitizeHouseholdData(data) {
           done: typeof t.done === "boolean" ? t.done : false,
         })) : [];
       };
+      var sanitizeWaveHistory = function(history) {
+        return Array.isArray(history) ? history.filter(h => h && typeof h === "object" && !Array.isArray(h)).map(h => ({
+          date: typeof h.date === "string" ? h.date : "",
+          name: typeof h.name === "string" ? h.name : "",
+          type: typeof h.type === "string" ? h.type : "",
+          checked: typeof h.checked === "number" ? h.checked : 0,
+          total: typeof h.total === "number" ? h.total : 0,
+        })).slice(-10) : [];
+      };
       var sanitizeWaveList = function(list, numFields) {
         return Array.isArray(list) ? list.filter(w => w && typeof w === "object" && !Array.isArray(w)).map(w => {
           var out2 = { id: w.id, name: typeof w.name === "string" ? w.name : "", tasks: sanitizeWaveTasks(w.tasks) };
           if (typeof w.lastReset === "string") out2.lastReset = w.lastReset;
+          if (Array.isArray(w.history)) out2.history = sanitizeWaveHistory(w.history);
           (numFields||[]).forEach(f => { if (typeof w[f] === "number") out2[f] = w[f]; });
           return out2;
         }) : [];

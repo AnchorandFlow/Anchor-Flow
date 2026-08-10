@@ -8166,7 +8166,7 @@ Respond ONLY in valid JSON:
           if (!w.lastReset) { changed = true; return Object.assign({}, w, { lastReset: todayStr }); }
           if (waveNeedsReset(type, w, todayStr)) {
             changed = true;
-            return Object.assign({}, w, { lastReset: todayStr, tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
+            return Object.assign({}, w, { lastReset: todayStr, history: withWaveHistory(type, w, todayStr), tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
           }
           return w;
         });
@@ -8223,16 +8223,35 @@ Respond ONLY in valid JSON:
         return Object.assign({}, w, { tasks: (w.tasks||[]).filter(function(t) { return t.id!==taskId; }) });
       })}));
     }
+    // Completion history: appended (oldest→newest) whenever a wave resets,
+    // auto or manual, before its checked items are cleared. Capped at the
+    // last 10 records per wave (rolling).
+    function waveHistoryEntry(type, w, todayStr) {
+      var total = (w.tasks||[]).length;
+      var checked = (w.tasks||[]).filter(function(t) { return t.done; }).length;
+      return { date: todayStr, name: w.name, type: type, checked: checked, total: total };
+    }
+    function withWaveHistory(type, w, todayStr) {
+      var hist = (w.history||[]).concat([waveHistoryEntry(type, w, todayStr)]);
+      return hist.length > 10 ? hist.slice(hist.length - 10) : hist;
+    }
     function resetWave(type, waveId) {
       var cur = wavesList();
       var todayStr = TODAY.toISOString().split("T")[0];
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
         if (w.id!==waveId) return w;
-        return Object.assign({}, w, { lastReset: todayStr, tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
+        return Object.assign({}, w, { lastReset: todayStr, history: withWaveHistory(type, w, todayStr), tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
       })}));
     }
     function toggleWaveSection(type) {
       setWaveSectionOpen(function(prev) { return Object.assign({}, prev, { [type]: !prev[type] }); });
+    }
+    function waveDaysAgoLabel(dateStr) {
+      var d = new Date(dateStr + "T00:00:00");
+      var diff = Math.round((TODAY - d) / 86400000);
+      if (diff <= 0) return "today";
+      if (diff === 1) return "yesterday";
+      return diff + " days ago";
     }
     function waveEstMinutes(w) {
       var withEst = (w.tasks||[]).filter(function(t) { return typeof t.estimatedMinutes==="number" && t.estimatedMinutes>0; });
@@ -8264,6 +8283,7 @@ Respond ONLY in valid JSON:
                       var isExpanded = expandedWaveId===w.id;
                       var est = waveEstMinutes(w);
                       var subtitle = (w.tasks||[]).length + " task" + ((w.tasks||[]).length!==1?"s":"") + (est ? " · Est. "+est+" min" : "");
+                      var lastCompleted = w.history && w.history.length ? w.history[w.history.length-1] : null;
                       return (
                         <div key={w.id} style={{ borderRadius: 10, border: "1px solid "+TEAL+"55", borderTop: "3px solid "+TEAL, marginBottom: 8, overflow: "hidden" }}>
                           <div onClick={() => setExpandedWaveId(isExpanded?null:w.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", cursor: "pointer" }}>
@@ -8278,6 +8298,7 @@ Respond ONLY in valid JSON:
                                 <span onClick={(e) => { e.stopPropagation(); setEditingWaveId(w.id); }} title="Tap to rename" style={{ fontSize: 13, fontWeight: 700, color: T.textDark, cursor: "text" }}>{w.name}</span>
                               )}
                               <div style={{ fontSize: 10.5, color: T.textSoft, marginTop: 1 }}>{subtitle}{type==="weekly"&&typeof w.dayOfWeek==="number"?" · "+WAVE_DAY_LABELS[w.dayOfWeek]:""}{type==="seasonal"&&typeof w.month==="number"?" · "+WAVE_MONTH_LABELS[w.month-1]:""}</div>
+                              {lastCompleted && <div style={{ fontSize: 10, color: T.textSoft, opacity: 0.75, marginTop: 1 }}>Last completed {waveDaysAgoLabel(lastCompleted.date)} · {lastCompleted.checked}/{lastCompleted.total}</div>}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); deleteWave(type, w.id); }} style={{ background: "none", border: "none", color: "#8B0000", fontSize: 14, cursor: "pointer", flexShrink: 0, padding: "0 2px" }}>✕</button>
                             <span style={{ fontSize: 11, color: T.textSoft, flexShrink: 0, transform: isExpanded?"rotate(180deg)":"none", transition: "transform .15s", display: "inline-block" }}>▾</span>
