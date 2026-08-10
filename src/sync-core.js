@@ -406,26 +406,37 @@ export function sanitizeHouseholdData(data) {
       });
       out.gifts = safeGifts;
     }
-    // work_schedules: object map { personId: {days:[], type, color, notes, dates:[], startTime, endTime} }
-    // (WORK-1). Same validation shape as gifts — map itself must be an
-    // object (not array), and each person's entry must be an object with
-    // days actually an array (nulls filtered); a malformed per-person entry
-    // is dropped rather than rejecting the whole map.
+    // work_schedules: object map { personId: { scheduleType:"set"|"varied"|
+    // "on-call", days:{dayName:[{start,end},...]}, dates:{isoDate:[{start,end},...]},
+    // onCallDays:[dayName,...], notes } } (WORK-2 — Set/Varied/On-call with up
+    // to 2 split-shift blocks per day/date, replacing the old flat
+    // days[]/type/color/startTime/endTime shape). A malformed per-person
+    // entry is dropped rather than rejecting the whole map, same as before.
     if (data.work_schedules && typeof data.work_schedules === "object" && !Array.isArray(data.work_schedules)) {
       const safeSchedules = {};
+      const sanitizeShiftMap = (m) => {
+        const out2 = {};
+        if (m && typeof m === "object" && !Array.isArray(m)) {
+          Object.keys(m).forEach(k => {
+            if (Array.isArray(m[k])) {
+              out2[k] = m[k].filter(s => s && typeof s === "object" && !Array.isArray(s)).map(s => ({
+                start: typeof s.start === "string" ? s.start : "",
+                end: typeof s.end === "string" ? s.end : "",
+              }));
+            }
+          });
+        }
+        return out2;
+      };
       Object.keys(data.work_schedules).forEach(pid => {
         const s = data.work_schedules[pid];
         if (s && typeof s === "object" && !Array.isArray(s)) {
           safeSchedules[pid] = {
-            days: Array.isArray(s.days) ? s.days.filter(d => d != null) : [],
-            type: typeof s.type === "string" ? s.type : "regular",
-            color: typeof s.color === "string" ? s.color : "",
+            scheduleType: ["set","varied","on-call"].indexOf(s.scheduleType) !== -1 ? s.scheduleType : "set",
+            days: sanitizeShiftMap(s.days),
+            dates: sanitizeShiftMap(s.dates),
+            onCallDays: Array.isArray(s.onCallDays) ? s.onCallDays.filter(d => typeof d === "string") : [],
             notes: typeof s.notes === "string" ? s.notes : "",
-            // WORK-1: irregular-shift dates and overnight start/end times —
-            // dropped silently by this whitelist before this fix (Batch 3).
-            dates: Array.isArray(s.dates) ? s.dates.filter(d => d != null) : [],
-            startTime: typeof s.startTime === "string" ? s.startTime : "",
-            endTime: typeof s.endTime === "string" ? s.endTime : "",
           };
         }
       });

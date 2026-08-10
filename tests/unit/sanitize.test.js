@@ -60,9 +60,9 @@ const PLAUSIBLE = {
   // gifts: person-keyed map (Phase 3) — was a flat array of people before.
   // celebgifts/moments retired entirely (no longer in SYNC_KEYS).
   gifts:              { p1: [{ id:"g1", personId:"p1", title:"wine", notes:"", price:20, url:"", imageUrl:"", purchased:false, private:false, occasion:"Anniversary", assignedCelebId:"cel1" }] },
-  // work_schedules: per-person recurring work schedule (WORK-1). Object map,
-  // same shape class as gifts — keyed by personId, not an array.
-  work_schedules:     { p1: { days:["Monday","Tuesday","Wednesday","Thursday","Friday"], type:"regular", color:"#5E8FA0", notes:"" } },
+  // work_schedules: per-person work schedule (WORK-2 — Set/Varied/On-call).
+  // Object map, same shape class as gifts — keyed by personId, not an array.
+  work_schedules:     { p1: { scheduleType:"set", days:{ Monday:[{start:"09:00",end:"17:00"}] }, dates:{}, onCallDays:[], notes:"" } },
   inventory:          [{ id:"inv1", name:"pasta", qty:3 }],
   pets:               [{ id:"pet1", name:"Buddy", type:"dog" }],
   ripples:            [{ id:"rip1", text:"family vacation" }],

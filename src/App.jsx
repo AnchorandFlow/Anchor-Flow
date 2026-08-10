@@ -7038,6 +7038,55 @@ Respond ONLY in valid JSON:
     );
   }
 
+  // ── Work schedule (WORK-2) ───────────────────────────────────────────────
+  // Redesign of the old FamilySection editor (Regular/Irregular/On-call/
+  // Overnight, one shared weekday set, at most one start/end pair total) into
+  // three schedule types — Set (weekly), Varied (specific dates), On-call (day
+  // markers only, no times) — each day/date under Set/Varied carrying up to 2
+  // shift blocks (split shifts). Lives in Calendar's day view now, not Settings.
+  var WS_TIME_OPTIONS = (function(){
+    var out=[];
+    for(var h=0;h<24;h++){
+      for(var m=0;m<60;m+=30){
+        var hh=String(h).padStart(2,"0"), mm=String(m).padStart(2,"0");
+        var ampm=h<12?"am":"pm", h12=h%12||12;
+        out.push({value:hh+":"+mm, label:h12+(m===0?"":":"+mm)+ampm});
+      }
+    }
+    return out;
+  })();
+  function wsFmtTime(t){ var o=WS_TIME_OPTIONS.find(function(x){return x.value===t;}); return o?o.label:(t||"?"); }
+  function wsEmptySchedule(){ return { scheduleType:"set", days:{}, dates:{}, onCallDays:[], notes:"" }; }
+  // Legacy shapes (type:"regular"/"irregular"/"on-call"/"overnight", flat days[]/
+  // dates[], single startTime/endTime, color) are normalized on read rather than
+  // migrated in storage — every consumer goes through this function, and saving
+  // via the new editor naturally rewrites a person's entry into the new shape.
+  function wsNormalizeSchedule(s){
+    if(!s) return wsEmptySchedule();
+    if(s.scheduleType) return Object.assign(wsEmptySchedule(), s);
+    var notes=typeof s.notes==="string"?s.notes:"";
+    if(s.type==="on-call") return Object.assign(wsEmptySchedule(), { scheduleType:"on-call", onCallDays:Array.isArray(s.days)?s.days.slice():[], notes:notes });
+    if(s.type==="irregular"){
+      var dates={};
+      (Array.isArray(s.dates)?s.dates:[]).forEach(function(d){ dates[d]=[]; });
+      return Object.assign(wsEmptySchedule(), { scheduleType:"varied", dates:dates, notes:notes });
+    }
+    // "regular" and the dropped "overnight" option both land as Set — overnight's
+    // single start/end (if any) becomes that day's one shift block.
+    var days={};
+    var shift=(s.type==="overnight"&&(s.startTime||s.endTime))?[{start:s.startTime||"",end:s.endTime||""}]:[];
+    (Array.isArray(s.days)?s.days:[]).forEach(function(d){ days[d]=shift.slice(); });
+    return Object.assign(wsEmptySchedule(), { scheduleType:"set", days:days, notes:notes });
+  }
+  // Returns {kind:"shifts",shifts:[...]}, {kind:"on-call"}, or null (nothing that date).
+  function wsActiveForDate(sched, dateIso, dayName){
+    if(!sched) return null;
+    if(sched.scheduleType==="set") return (sched.days&&sched.days[dayName])?{kind:"shifts",shifts:sched.days[dayName]}:null;
+    if(sched.scheduleType==="varied") return (sched.dates&&sched.dates[dateIso])?{kind:"shifts",shifts:sched.dates[dateIso]}:null;
+    if(sched.scheduleType==="on-call") return (sched.onCallDays||[]).indexOf(dayName)!==-1?{kind:"on-call"}:null;
+    return null;
+  }
+
   // ── Calendar Tab ────────────────────────────────────────────────────────────
   _hfRenders.CalendarTab = function CalendarTab() {
     const year=calViewDate.getFullYear(), month=calViewDate.getMonth();
@@ -7116,32 +7165,30 @@ Respond ONLY in valid JSON:
         var wd=workDays[dateStr];
         items.push({key:"wd_"+dateStr, date:dateStr, cat:"work", title:CAL_YEAR_WORKDAY_LABELS[wd.type]||"Work", personId:null, icon:"💼"});
       });
-      // WORK-1: per-person recurring work schedule (af_work_schedules) — a
-      // weekly weekday pattern, distinct from the date-keyed workDays above.
+      // WORK-2: per-person work schedule (af_work_schedules) — Set (weekly
+      // pattern), Varied (specific dates), or On-call (day markers, no times).
+      // Distinct from the date-keyed workDays above.
       Object.keys(workSchedules).forEach(function(personId){
-        var sched=workSchedules[personId];
-        if(!sched) return;
+        var sched=wsNormalizeSchedule(workSchedules[personId]);
         var person=people.find(function(p){return p.id===personId;});
         var personName=person?person.name:"Work";
-        var isOvernight=sched.type==="overnight";
-        var typeSuffix=isOvernight
-          ? (" (overnight"+(sched.startTime&&sched.endTime?", "+sched.startTime+"→"+sched.endTime+" next morning":"")+")")
-          : (sched.type&&sched.type!=="regular")?" ("+sched.type.replace("-"," ")+")":"";
-        // WORK-1: irregular has no weekday pattern — walk sched.dates directly
-        // instead of scanning the year for a matching day-of-week.
-        if(sched.type==="irregular"){
-          (sched.dates||[]).forEach(function(dateStr2){
+        var typeSuffix=sched.scheduleType==="on-call"?" (on-call)":"";
+        // Varied has no weekday pattern — walk sched.dates directly instead of
+        // scanning the year for a matching day-of-week.
+        if(sched.scheduleType==="varied"){
+          Object.keys(sched.dates||{}).forEach(function(dateStr2){
             var d=new Date(dateStr2+"T00:00:00");
             if(d.getFullYear()!==yr) return;
             items.push({key:"ws_"+personId+"_"+dateStr2, date:dateStr2, cat:"work", title:personName+" working"+typeSuffix, personId:personId, icon:"💼"});
           });
           return;
         }
-        if(!Array.isArray(sched.days)||sched.days.length===0) return;
+        var activeDays=sched.scheduleType==="on-call"?(sched.onCallDays||[]):Object.keys(sched.days||{});
+        if(activeDays.length===0) return;
         var dCur=new Date(yr,0,1); var dEnd=new Date(yr,11,31);
         while(dCur<=dEnd){
           var dayName=DAY_NAMES[dCur.getDay()];
-          if(sched.days.includes(dayName)){
+          if(activeDays.indexOf(dayName)!==-1){
             var dateStr2b=localDateStr(dCur);
             items.push({key:"ws_"+personId+"_"+dateStr2b, date:dateStr2b, cat:"work", title:personName+" working"+typeSuffix, personId:personId, icon:"💼"});
           }
@@ -7159,6 +7206,92 @@ Respond ONLY in valid JSON:
     }
     const [showCalNotif,setShowCalNotif]=useState(null);
     const [cnd,setCnd]=useState(""); const [cnt,setCnt]=useState(""); const [cnn,setCnn]=useState("");
+
+    // ── WORK-2: work schedule modal state ──────────────────────────────────
+    const [wsModalOpen,setWsModalOpen]=useState(false);
+    const [wsForm,setWsForm]=useState(null);
+    const [wsForPeople,setWsForPeople]=useState([]);
+    const [wsNewVariedDate,setWsNewVariedDate]=useState("");
+    function wsOpenNew(){ setWsForm(wsEmptySchedule()); setWsForPeople([]); setWsNewVariedDate(""); setWsModalOpen(true); }
+    function wsOpenEdit(personId){ setWsForm(wsNormalizeSchedule(workSchedules[personId])); setWsForPeople([personId]); setWsNewVariedDate(""); setWsModalOpen(true); }
+    function wsToggleForPerson(personId){ setWsForPeople(function(prev){ return prev.indexOf(personId)!==-1?prev.filter(function(x){return x!==personId;}):prev.concat([personId]); }); }
+    function wsSetType(t){ setWsForm(function(f){ return Object.assign({},f,{scheduleType:t}); }); }
+    function wsToggleSetDay(day){
+      setWsForm(function(f){
+        var days=Object.assign({},f.days);
+        if(days[day]) delete days[day]; else days[day]=[{start:"",end:""}];
+        return Object.assign({},f,{days:days});
+      });
+    }
+    function wsToggleOnCallDay(day){
+      setWsForm(function(f){
+        var cur=f.onCallDays||[];
+        var next=cur.indexOf(day)!==-1?cur.filter(function(x){return x!==day;}):cur.concat([day]);
+        return Object.assign({},f,{onCallDays:next});
+      });
+    }
+    function wsAddVariedDate(){
+      if(!wsNewVariedDate) return;
+      setWsForm(function(f){
+        var dates=Object.assign({},f.dates);
+        if(!dates[wsNewVariedDate]) dates[wsNewVariedDate]=[{start:"",end:""}];
+        return Object.assign({},f,{dates:dates});
+      });
+      setWsNewVariedDate("");
+    }
+    function wsRemoveVariedDate(d){
+      setWsForm(function(f){
+        var dates=Object.assign({},f.dates);
+        delete dates[d];
+        return Object.assign({},f,{dates:dates});
+      });
+    }
+    function wsUpdateShift(bucket,key,idx,patch){
+      setWsForm(function(f){
+        var map=Object.assign({},f[bucket]);
+        var shifts=(map[key]||[]).slice();
+        shifts[idx]=Object.assign({},shifts[idx],patch);
+        map[key]=shifts;
+        return Object.assign({},f,{[bucket]:map});
+      });
+    }
+    function wsAddShift(bucket,key){
+      setWsForm(function(f){
+        var map=Object.assign({},f[bucket]);
+        var shifts=(map[key]||[]).slice();
+        if(shifts.length>=2) return f;
+        shifts.push({start:"",end:""});
+        map[key]=shifts;
+        return Object.assign({},f,{[bucket]:map});
+      });
+    }
+    function wsRemoveShift(bucket,key,idx){
+      setWsForm(function(f){
+        var map=Object.assign({},f[bucket]);
+        var shifts=(map[key]||[]).slice();
+        shifts.splice(idx,1);
+        map[key]=shifts;
+        return Object.assign({},f,{[bucket]:map});
+      });
+    }
+    function wsSave(){
+      if(wsForPeople.length===0||!wsForm){ setWsModalOpen(false); return; }
+      var clean={ scheduleType:wsForm.scheduleType, days:wsForm.days||{}, dates:wsForm.dates||{}, onCallDays:wsForm.onCallDays||[], notes:(wsForm.notes||"").trim() };
+      setWorkSchedules(function(prev){
+        var next=Object.assign({},prev);
+        wsForPeople.forEach(function(pid){ next[pid]=clean; });
+        return next;
+      });
+      setWsModalOpen(false); setWsForm(null); setWsForPeople([]);
+    }
+    function wsDeletePerson(personId){
+      setWorkSchedules(function(prev){
+        var next=Object.assign({},prev);
+        delete next[personId];
+        return next;
+      });
+    }
+
     return (
       <div>
         <SecHead emoji="📆" title="Calendar" sub="All your events in one place" onBack={function(){goTab("anchor");}}/>
@@ -7423,6 +7556,162 @@ Respond ONLY in valid JSON:
                 </div>
               );
             })()}
+            {(function(){
+              var _wsIso=localDateStr(calViewDate);
+              var _wsDayName=DAY_NAMES[calViewDate.getDay()];
+              var _wsActive=people.map(function(p){
+                var sched=wsNormalizeSchedule(workSchedules[p.id]);
+                var active=wsActiveForDate(sched,_wsIso,_wsDayName);
+                return active?{person:p,active:active}:null;
+              }).filter(Boolean);
+              return (
+                <div style={{marginBottom:"0.75rem"}}>
+                  <button onClick={wsOpenNew} style={{background:"rgba(30,58,95,0.06)",border:"1px solid rgba(30,58,95,0.14)",borderRadius:"0.5rem",padding:"0.32rem 0.7rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,color:"#1e3a5f",fontFamily:"inherit"}}>💼 Work schedule</button>
+                  {_wsActive.length>0&&(
+                    <div style={{marginTop:"0.4rem",display:"flex",flexDirection:"column",gap:"0.2rem"}}>
+                      {_wsActive.map(function(row){
+                        var p=row.person,a=row.active;
+                        var label=a.kind==="on-call"?"On-call":((a.shifts||[]).filter(function(s){return s.start&&s.end;}).map(function(s){return wsFmtTime(s.start)+"–"+wsFmtTime(s.end);}).join(", ")||"Working (no hours set)");
+                        return (
+                          <div key={p.id} onClick={function(){wsOpenEdit(p.id);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.72rem",color:T.textMid,cursor:"pointer"}}>
+                            <span style={{width:8,height:8,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+                            <span style={{fontWeight:700}}>{p.name}</span>
+                            <span>{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {wsModalOpen&&wsForm&&(
+              <div onClick={function(){setWsModalOpen(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+                <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+                    <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>💼 Work Schedule</span>
+                    <button onClick={function(){setWsModalOpen(false);}} style={{background:"none",border:"none",fontSize:"1.1rem",cursor:"pointer",color:T.textSoft}}>×</button>
+                  </div>
+                  {people.filter(function(p){return workSchedules[p.id];}).length>0&&(
+                    <div style={{marginBottom:"0.9rem"}}>
+                      <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Current schedules</div>
+                      {people.filter(function(p){return workSchedules[p.id];}).map(function(p){
+                        var s=wsNormalizeSchedule(workSchedules[p.id]);
+                        var typeLabel=s.scheduleType==="set"?"Set":s.scheduleType==="varied"?"Varied":"On-call";
+                        var daysList=s.scheduleType==="on-call"?(s.onCallDays||[]):Object.keys(s.scheduleType==="varied"?s.dates:s.days);
+                        return (
+                          <div key={p.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                            <span style={{width:10,height:10,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:"0.8rem",fontWeight:700,color:T.textDark}}>{p.name} <span style={{fontWeight:500,color:T.textSoft}}>· {typeLabel}</span></div>
+                              <div style={{fontSize:"0.68rem",color:T.textFaint}}>{daysList.length>0?daysList.map(function(d){return d.slice(0,3);}).join(", "):"No days set"}</div>
+                            </div>
+                            <button onClick={function(){wsOpenEdit(p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.blue,fontWeight:700,fontFamily:"inherit"}}>Edit</button>
+                            <button onClick={function(){wsDeletePerson(p.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:"0.7rem",color:T.rose,fontFamily:"inherit"}}>Remove</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div style={{fontSize:"0.68rem",fontWeight:800,color:T.textSoft,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:"0.4rem"}}>Work for:</div>
+                  <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap",marginBottom:"0.7rem"}}>
+                    {people.map(function(p){
+                      var on=wsForPeople.indexOf(p.id)!==-1;
+                      return <button key={p.id} onClick={function(){wsToggleForPerson(p.id);}} style={{padding:"0.22rem 0.65rem",borderRadius:"50px",border:"1.5px solid "+(on?(p.color||T.blue):T.border),background:on?(p.color||T.blue):"transparent",color:on?"#fff":T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{p.name}</button>;
+                    })}
+                  </div>
+                  <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.8rem"}}>
+                    {[["set","Set"],["varied","Varied"],["on-call","On-call"]].map(function(t){
+                      var active=wsForm.scheduleType===t[0];
+                      return <button key={t[0]} onClick={function(){wsSetType(t[0]);}} style={{flex:1,padding:"0.4rem 0.3rem",borderRadius:"0.5rem",border:"1.5px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textMid,fontSize:"0.75rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t[1]}</button>;
+                    })}
+                  </div>
+                  {wsForm.scheduleType==="set"&&(
+                    <div style={{marginBottom:"0.8rem"}}>
+                      <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.5rem"}}>
+                        {DAY_NAMES.map(function(day){
+                          var on=!!wsForm.days[day];
+                          return <button key={day} onClick={function(){wsToggleSetDay(day);}} style={{background:on?T.blue:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
+                        })}
+                      </div>
+                      {DAY_NAMES.filter(function(day){return wsForm.days[day];}).map(function(day){
+                        return (
+                          <div key={day} style={{marginBottom:"0.5rem",paddingLeft:"0.3rem"}}>
+                            <div style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid,marginBottom:"0.25rem"}}>{day}</div>
+                            {(wsForm.days[day]||[]).map(function(shift,idx){
+                              return (
+                                <div key={idx} style={{display:"flex",alignItems:"center",gap:"0.3rem",marginBottom:"0.25rem"}}>
+                                  <select value={shift.start} onChange={function(e){wsUpdateShift("days",day,idx,{start:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.3rem",width:"auto",flex:1})}}>
+                                    <option value="">Start</option>
+                                    {WS_TIME_OPTIONS.map(function(o){return <option key={o.value} value={o.value}>{o.label}</option>;})}
+                                  </select>
+                                  <span style={{fontSize:"0.68rem",color:T.textFaint}}>→</span>
+                                  <select value={shift.end} onChange={function(e){wsUpdateShift("days",day,idx,{end:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.3rem",width:"auto",flex:1})}}>
+                                    <option value="">End</option>
+                                    {WS_TIME_OPTIONS.map(function(o){return <option key={o.value} value={o.value}>{o.label}</option>;})}
+                                  </select>
+                                  {(wsForm.days[day]||[]).length>1&&<button onClick={function(){wsRemoveShift("days",day,idx);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.72rem"}}>✕</button>}
+                                </div>
+                              );
+                            })}
+                            {(wsForm.days[day]||[]).length<2&&<button onClick={function(){wsAddShift("days",day);}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.68rem",fontWeight:700,padding:0,fontFamily:"inherit"}}>+ Add shift</button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {wsForm.scheduleType==="varied"&&(
+                    <div style={{marginBottom:"0.8rem"}}>
+                      <div style={{display:"flex",gap:"0.35rem",marginBottom:"0.5rem"}}>
+                        <input type="date" value={wsNewVariedDate} onChange={function(e){setWsNewVariedDate(e.target.value);}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.4rem",flex:1})}}/>
+                        <button onClick={wsAddVariedDate} style={{background:T.white,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.5rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:600,fontFamily:"inherit"}}>+ Add date</button>
+                      </div>
+                      {Object.keys(wsForm.dates).length===0&&<div style={{fontSize:"0.68rem",color:T.textFaint,fontStyle:"italic",marginBottom:"0.4rem"}}>No dates added yet.</div>}
+                      {Object.keys(wsForm.dates).sort().map(function(d){
+                        return (
+                          <div key={d} style={{marginBottom:"0.5rem",paddingLeft:"0.3rem"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:"0.4rem",marginBottom:"0.25rem"}}>
+                              <span style={{fontSize:"0.7rem",fontWeight:700,color:T.textMid}}>{d}</span>
+                              <button onClick={function(){wsRemoveVariedDate(d);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.68rem",fontFamily:"inherit"}}>Remove date</button>
+                            </div>
+                            {(wsForm.dates[d]||[]).map(function(shift,idx){
+                              return (
+                                <div key={idx} style={{display:"flex",alignItems:"center",gap:"0.3rem",marginBottom:"0.25rem"}}>
+                                  <select value={shift.start} onChange={function(e){wsUpdateShift("dates",d,idx,{start:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.3rem",width:"auto",flex:1})}}>
+                                    <option value="">Start</option>
+                                    {WS_TIME_OPTIONS.map(function(o){return <option key={o.value} value={o.value}>{o.label}</option>;})}
+                                  </select>
+                                  <span style={{fontSize:"0.68rem",color:T.textFaint}}>→</span>
+                                  <select value={shift.end} onChange={function(e){wsUpdateShift("dates",d,idx,{end:e.target.value});}} style={{...inp({fontSize:"0.72rem",padding:"0.2rem 0.3rem",width:"auto",flex:1})}}>
+                                    <option value="">End</option>
+                                    {WS_TIME_OPTIONS.map(function(o){return <option key={o.value} value={o.value}>{o.label}</option>;})}
+                                  </select>
+                                  {(wsForm.dates[d]||[]).length>1&&<button onClick={function(){wsRemoveShift("dates",d,idx);}} style={{background:"none",border:"none",cursor:"pointer",color:T.rose,fontSize:"0.72rem"}}>✕</button>}
+                                </div>
+                              );
+                            })}
+                            {(wsForm.dates[d]||[]).length<2&&<button onClick={function(){wsAddShift("dates",d);}} style={{background:"none",border:"none",cursor:"pointer",color:T.blue,fontSize:"0.68rem",fontWeight:700,padding:0,fontFamily:"inherit"}}>+ Add shift</button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {wsForm.scheduleType==="on-call"&&(
+                    <div style={{display:"flex",gap:"0.3rem",flexWrap:"wrap",marginBottom:"0.8rem"}}>
+                      {DAY_NAMES.map(function(day){
+                        var on=(wsForm.onCallDays||[]).indexOf(day)!==-1;
+                        return <button key={day} onClick={function(){wsToggleOnCallDay(day);}} style={{background:on?T.blue:T.white,color:on?"#fff":T.textMid,border:"1.5px solid "+(on?T.blue:T.border),borderRadius:"2rem",padding:"0.2rem 0.55rem",cursor:"pointer",fontSize:"0.68rem",fontWeight:700,fontFamily:"inherit"}}>{day.slice(0,2)}</button>;
+                      })}
+                    </div>
+                  )}
+                  <input value={wsForm.notes||""} onChange={function(e){setWsForm(function(f){return Object.assign({},f,{notes:e.target.value});});}} placeholder="Notes (optional)" style={{...inp({fontSize:"0.75rem",padding:"0.3rem 0.5rem",width:"100%",marginBottom:"0.8rem",boxSizing:"border-box"})}}/>
+                  <div style={{display:"flex",gap:"0.4rem",justifyContent:"flex-end"}}>
+                    <button onClick={function(){setWsModalOpen(false);}} style={btnS({fontSize:"0.78rem",padding:"0.4rem 0.85rem"})}>Cancel</button>
+                    <button onClick={wsSave} disabled={wsForPeople.length===0} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.9rem",opacity:wsForPeople.length===0?0.5:1,cursor:wsForPeople.length===0?"default":"pointer"})}>Save</button>
+                  </div>
+                </div>
+              </div>
+            )}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
               var _pc=getPersonColor(e.forPerson, people);
