@@ -336,6 +336,14 @@ export default function ExhaleSection(props) {
   var [bucketInputTarget, setBucketInputTarget] = useState(0);
   var [bucketAddOpenFor, setBucketAddOpenFor] = useState(null);
   var [bucketAddText, setBucketAddText] = useState("");
+  // Checkbox bulk delete — select mode is per-bucket (idx -> bool), selected
+  // item ids are a single flat set (item ids are globally unique, so no
+  // bucket-scoping needed there; only one bucket can be in select mode at a
+  // time in practice since entering it elsewhere doesn't clear this, but
+  // ids from other buckets simply won't appear since their rows aren't
+  // rendered with checkboxes unless that bucket is also in select mode).
+  var [selectModeBucket, setSelectModeBucket] = useState({});
+  var [selectedItemIds, setSelectedItemIds] = useState({});
   // Pointer-based drag between/within buckets — same idiom as Cove's
   // itemPointerDown (App.jsx CoveTab), not native HTML5 drag-and-drop.
   var [dragFromId, setDragFromId] = useState(null);
@@ -449,6 +457,59 @@ export default function ExhaleSection(props) {
     var nb = Object.assign({}, buckets, { items: buckets.items.filter(function(it) { return it.id !== id; }) });
     persistBuckets(nb);
     if (expandedItemId === id) setExpandedItemId(null);
+  }
+
+  // Quick X button — deletes immediately, no confirm. Kept separate from
+  // deleteBucketItem above (which the expanded view's "Delete" chip still
+  // uses) so that existing confirm-before-delete behavior isn't touched.
+  function deleteBucketItemImmediate(id) {
+    var nb = Object.assign({}, buckets, { items: buckets.items.filter(function(it) { return it.id !== id; }) });
+    persistBuckets(nb);
+    if (expandedItemId === id) setExpandedItemId(null);
+    setSelectedItemIds(function(prev) {
+      if (!(id in prev)) return prev;
+      var n = Object.assign({}, prev); delete n[id]; return n;
+    });
+  }
+
+  function toggleSelectMode(idx) {
+    setSelectModeBucket(function(prev) {
+      var next = Object.assign({}, prev, { [idx]: !prev[idx] });
+      return next;
+    });
+    // Leaving select mode (or entering a different bucket's) clears any
+    // checked items so a stale selection can't linger into a later session.
+    setSelectedItemIds(function(prev) {
+      var n = {};
+      Object.keys(prev).forEach(function(id) {
+        var it = buckets.items.find(function(x) { return x.id === id; });
+        if (it && it.bucketIndex === idx) return; // dropping this bucket's selections
+        n[id] = true;
+      });
+      return n;
+    });
+  }
+
+  function toggleItemSelected(id) {
+    setSelectedItemIds(function(prev) {
+      var n = Object.assign({}, prev);
+      if (n[id]) delete n[id]; else n[id] = true;
+      return n;
+    });
+  }
+
+  function deleteSelectedItems(idx) {
+    var idsInBucket = buckets.items.filter(function(it) { return it.bucketIndex === idx && selectedItemIds[it.id]; }).map(function(it) { return it.id; });
+    if (idsInBucket.length === 0) return;
+    var idSet = {}; idsInBucket.forEach(function(id) { idSet[id] = true; });
+    var nb = Object.assign({}, buckets, { items: buckets.items.filter(function(it) { return !idSet[it.id]; }) });
+    persistBuckets(nb);
+    setSelectedItemIds(function(prev) {
+      var n = Object.assign({}, prev);
+      idsInBucket.forEach(function(id) { delete n[id]; });
+      return n;
+    });
+    if (expandedItemId && idSet[expandedItemId]) setExpandedItemId(null);
   }
 
   function moveBucketItemForward(id) {
@@ -1184,6 +1245,8 @@ export default function ExhaleSection(props) {
     var nextIdx = (idx + 1) % buckets.bucketNames.length;
     var nextName = buckets.bucketNames[nextIdx];
     var isDropTarget = dragOverId === null && bucketDragItem.current.from && bucketDragItem.current.toBucket === idx;
+    var selectMode = !!selectModeBucket[idx];
+    var selectedCount = bItems.filter(function(it) { return selectedItemIds[it.id]; }).length;
     return (
       <div key={idx} data-bucketidx={idx}
         style={{ borderRadius: 12, border: br, borderTop: "3px solid " + accent, background: bgP, overflow: "hidden" }}>
@@ -1200,6 +1263,8 @@ export default function ExhaleSection(props) {
               style={{ flex: 1, fontSize: 14, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
           )}
           <span style={{ fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
+          <button onClick={(e) => { e.stopPropagation(); toggleSelectMode(idx); }}
+            style={{ background: selectMode ? accent : "transparent", color: selectMode ? "white" : txS, border: selectMode ? "none" : br, borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>{selectMode ? "Done" : "Select"}</button>
           <button onClick={(e) => { e.stopPropagation(); setBucketAddOpenFor(bucketAddOpenFor === idx ? null : idx); setOpenBuckets(function(p) { return Object.assign({}, p, { [idx]: true }); }); }}
             style={{ background: accent, color: "white", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>+ Add</button>
           <span style={{ fontSize: 11, color: txS, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
@@ -1207,6 +1272,12 @@ export default function ExhaleSection(props) {
 
         {isOpen && (
           <div style={{ padding: "0 12px 10px", minHeight: 8, background: isDropTarget ? "rgba(27,46,79,0.04)" : "transparent" }}>
+            {selectMode && selectedCount > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <button onClick={() => deleteSelectedItems(idx)}
+                  style={{ background: "#8B0000", color: "white", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Delete selected ({selectedCount})</button>
+              </div>
+            )}
             {bucketAddOpenFor === idx && (
               <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                 <input autoFocus value={bucketAddText} onChange={(e) => setBucketAddText(e.target.value)}
@@ -1226,12 +1297,18 @@ export default function ExhaleSection(props) {
               var isExpanded = expandedItemId === item.id;
               var isBeingDragged = dragFromId === item.id;
               var isDragOverThis = dragOverId === item.id;
+              var isSelected = !!selectedItemIds[item.id];
               return (
-                <div key={item.id} data-bucketitemid={item.id}
+                <div key={item.id} data-bucketitemid={item.id} className="af-exhale-row"
                   style={{ borderRadius: 8, border: br, padding: "8px 10px", marginBottom: 6, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
-                    <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
-                      style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, marginTop: 2, touchAction: "none" }}>⠿</span>
+                    {selectMode ? (
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)}
+                        style={{ flexShrink: 0, marginTop: 2, cursor: "pointer" }} />
+                    ) : (
+                      <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
+                        style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, marginTop: 2, touchAction: "none" }}>⠿</span>
+                    )}
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || accent, marginTop: 5, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setExpandedItemId(isExpanded ? null : item.id)}>
                       <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
@@ -1241,6 +1318,9 @@ export default function ExhaleSection(props) {
                     </div>
                     <span onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
                       style={{ fontSize: 11, color: txS, cursor: "pointer", flexShrink: 0, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>⌄</span>
+                    <button onClick={(e) => { e.stopPropagation(); deleteBucketItemImmediate(item.id); }}
+                      className="af-exhale-x" aria-label="Delete item"
+                      style={{ background: "none", border: "none", color: txS, fontSize: 13, lineHeight: 1, padding: "0 2px", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>×</button>
                   </div>
                   {isExpanded && (
                     <div style={{ marginTop: 8 }}>
@@ -1265,6 +1345,9 @@ export default function ExhaleSection(props) {
 
   return (
     <div style={{ fontFamily: "var(--font-sans,sans-serif)", fontSize: 13 }}>
+      {/* Quick-delete × button: hidden until hover on hover-capable (desktop)
+          devices, always visible where hover isn't available (touch/mobile). */}
+      <style>{"\n        .af-exhale-x { opacity: 0; }\n        .af-exhale-row:hover .af-exhale-x { opacity: 1; }\n        @media (hover: none) { .af-exhale-x { opacity: 1; } }\n      "}</style>
       {/* App bar */}
       <div style={{ background: NAVY, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
         <span>💨</span>
