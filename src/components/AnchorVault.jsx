@@ -1066,6 +1066,151 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     return function() { window.removeEventListener("af-data-changed", onRefresh) }
   }, [])
 
+  // ── Gift system consolidation — Holidays ─────────────────────────────────
+  // af_holidayGifts — a NEW, separate key, deliberately NOT reusing af_gifts.
+  // af_gifts is read directly by celebGifts() below (feeds every celebration's
+  // "N of 7 planned" + the celebration detail's Gift Ideas card) and by a
+  // second, independent reader in AnchorDashboard's celebSummary() — both
+  // assume the current person-keyed-list shape. Reshaping af_gifts itself
+  // would silently break both. af_holidayGifts holds only the new
+  // {holidays:[{id,name,emoji,date,people:[{personId,items:[]}]}]} shape;
+  // af_gifts is left completely untouched, so celebGifts/celebSummary keep
+  // working exactly as before.
+  const [holidayGifts, setHolidayGiftsState] = useState(function() {
+    try {
+      var raw = JSON.parse(localStorage.getItem("af_holidayGifts") || "null")
+      if (raw && typeof raw === "object" && Array.isArray(raw.holidays)) return raw
+    } catch {}
+    return null // null = not yet migrated/initialized this device
+  })
+  function saveHolidayGifts(next) {
+    setHolidayGiftsState(next)
+    try { localStorage.setItem("af_holidayGifts", JSON.stringify(next)) } catch {}
+    try { afVaultChanged("holidayGifts") } catch {}
+  }
+  React.useEffect(function() {
+    function onHolidayRefresh(e) {
+      if (!e.detail?.key || e.detail.key === "holidayGifts") {
+        try {
+          var raw = JSON.parse(localStorage.getItem("af_holidayGifts") || "null")
+          if (raw && typeof raw === "object" && Array.isArray(raw.holidays)) setHolidayGiftsState(raw)
+        } catch {}
+      }
+    }
+    window.addEventListener("af-data-changed", onHolidayRefresh)
+    return function() { window.removeEventListener("af-data-changed", onHolidayRefresh) }
+  }, [])
+  // One-time migration: fold existing af_gifts Christmas/Easter/custom lists
+  // into af_holidayGifts. Birthday lists are skipped — birthdays already
+  // surface via the Events section (celebEntries). Christmas and Easter
+  // always get a holiday entry (even with zero items) with every current
+  // roster person represented, matching the existing auto-seed guarantee
+  // ("every person always has Birthday/Christmas/Easter lists") so the new
+  // Holidays section isn't empty for a household that just hasn't added
+  // gift items yet. Never deletes af_gifts — only reads it once to seed the
+  // new store; the old data stays in place, just no longer shown anywhere
+  // once the old accordion UI is removed.
+  function migrateOldGiftsToHolidays() {
+    var oldGifts = {}
+    try {
+      var raw = JSON.parse(localStorage.getItem("af_gifts") || "null")
+      if (raw && typeof raw === "object" && !Array.isArray(raw)) oldGifts = raw
+    } catch {}
+    var roster = hLoadPeople()
+    var christmas = { id: "hol_christmas", name: "Christmas", emoji: "🎄", date: "12-25", people: [] }
+    var easter = { id: "hol_easter", name: "Easter", emoji: "🥚", date: null, people: [] }
+    roster.forEach(function(p) {
+      christmas.people.push({ personId: p.id, items: [] })
+      easter.people.push({ personId: p.id, items: [] })
+    })
+    function personEntry(holiday, personId) {
+      var e = holiday.people.find(function(x) { return x.personId === personId })
+      if (!e) { e = { personId: personId, items: [] }; holiday.people.push(e) }
+      return e
+    }
+    var customMap = {}
+    Object.keys(oldGifts).forEach(function(pid) {
+      if (pid === "holiday_lists") return
+      var lists = oldGifts[pid]
+      if (!Array.isArray(lists)) return
+      lists.forEach(function(list) {
+        if (!list || list.type === "birthday") return
+        var items = (list.gifts || []).map(function(g) {
+          return { id: g.id || (Date.now().toString()+Math.random().toString(36).slice(2,6)), text: g.title || "", bought: !!g.purchased, price: g.price != null ? g.price : null }
+        })
+        if (list.type === "christmas") { personEntry(christmas, pid).items = items; return }
+        if (list.type === "easter") { personEntry(easter, pid).items = items; return }
+        var key = (list.name || "Holiday").trim().toLowerCase()
+        if (!customMap[key]) customMap[key] = { id: "hol_custom_"+key.replace(/[^a-z0-9]/g,"_")+"_"+Date.now().toString(36), name: list.name || "Holiday", emoji: "🎁", date: null, people: [] }
+        personEntry(customMap[key], pid).items = items
+      })
+    })
+    return [christmas, easter].concat(Object.keys(customMap).map(function(k) { return customMap[k] }))
+  }
+  React.useEffect(function() {
+    if (holidayGifts) return
+    if (localStorage.getItem("af_holidaygifts_migrated_v1") === "1") {
+      saveHolidayGifts({ holidays: [] })
+      return
+    }
+    var holidays = migrateOldGiftsToHolidays()
+    localStorage.setItem("af_holidaygifts_migrated_v1", "1")
+    saveHolidayGifts({ holidays: holidays })
+  }, [])
+  function updateHoliday(holidayId, patch) {
+    if (!holidayGifts) return
+    saveHolidayGifts({ holidays: holidayGifts.holidays.map(function(h) { return h.id === holidayId ? Object.assign({}, h, patch) : h }) })
+  }
+  function addHoliday(name, emoji) {
+    if (!holidayGifts || !name || !name.trim()) return
+    var roster = hLoadPeople()
+    var h = { id: "hol_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), name: name.trim(), emoji: emoji || "🎉", date: null, people: roster.map(function(p) { return { personId: p.id, items: [] } }) }
+    saveHolidayGifts({ holidays: holidayGifts.holidays.concat([h]) })
+    return h.id
+  }
+  function removeHoliday(holidayId) {
+    if (!holidayGifts) return
+    saveHolidayGifts({ holidays: holidayGifts.holidays.filter(function(h) { return h.id !== holidayId }) })
+  }
+  function holidayPersonEntry(holiday, personId) {
+    return (holiday.people || []).find(function(x) { return x.personId === personId }) || { personId: personId, items: [] }
+  }
+  function addHolidayItem(holidayId, personId, fields) {
+    if (!holidayGifts) return
+    var item = Object.assign({ id: Date.now().toString()+Math.random().toString(36).slice(2,6), text: "", bought: false, price: null }, fields)
+    saveHolidayGifts({ holidays: holidayGifts.holidays.map(function(h) {
+      if (h.id !== holidayId) return h
+      var found = false
+      var people = (h.people || []).map(function(pe) {
+        if (pe.personId !== personId) return pe
+        found = true
+        return Object.assign({}, pe, { items: (pe.items || []).concat([item]) })
+      })
+      if (!found) people = people.concat([{ personId: personId, items: [item] }])
+      return Object.assign({}, h, { people: people })
+    }) })
+  }
+  function updateHolidayItem(holidayId, personId, itemId, patch) {
+    if (!holidayGifts) return
+    saveHolidayGifts({ holidays: holidayGifts.holidays.map(function(h) {
+      if (h.id !== holidayId) return h
+      return Object.assign({}, h, { people: (h.people || []).map(function(pe) {
+        if (pe.personId !== personId) return pe
+        return Object.assign({}, pe, { items: (pe.items || []).map(function(it) { return it.id === itemId ? Object.assign({}, it, patch) : it }) })
+      }) })
+    }) })
+  }
+  function removeHolidayItem(holidayId, personId, itemId) {
+    if (!holidayGifts) return
+    saveHolidayGifts({ holidays: holidayGifts.holidays.map(function(h) {
+      if (h.id !== holidayId) return h
+      return Object.assign({}, h, { people: (h.people || []).map(function(pe) {
+        if (pe.personId !== personId) return pe
+        return Object.assign({}, pe, { items: (pe.items || []).filter(function(it) { return it.id !== itemId }) })
+      }) })
+    }) })
+  }
+
   // One-time defensive migration: the old af_gifts shape was a flat array of
   // {id,name,relation,occasions:[{id,type,date,gifts:[{id,item,cost,url,
   // photo,bought}]}]} (GiftsSection, never actually reachable in the UI —
