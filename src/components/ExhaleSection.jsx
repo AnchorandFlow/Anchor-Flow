@@ -375,6 +375,23 @@ export default function ExhaleSection(props) {
   // rendered with checkboxes unless that bucket is also in select mode).
   var [selectModeBucket, setSelectModeBucket] = useState({});
   var [selectedItemIds, setSelectedItemIds] = useState({});
+  // Filter by person/category — local-only (not synced), per bucket:
+  // { [bucketIdx]: { personId, categoryId } }. Independent single-select per
+  // dimension (an item has at most one person and one category, so "person A
+  // AND person B" would always be empty) — "All" just clears both.
+  var [bucketFilters, setBucketFilters] = useState({});
+  function getBucketFilter(idx) { return bucketFilters[idx] || { personId: null, categoryId: null }; }
+  function setBucketPersonFilter(idx, personId) {
+    var cur = getBucketFilter(idx);
+    setBucketFilters(function(prev) { return Object.assign({}, prev, { [idx]: { personId: cur.personId === personId ? null : personId, categoryId: cur.categoryId } }); });
+  }
+  function setBucketCategoryFilter(idx, categoryId) {
+    var cur = getBucketFilter(idx);
+    setBucketFilters(function(prev) { return Object.assign({}, prev, { [idx]: { personId: cur.personId, categoryId: cur.categoryId === categoryId ? null : categoryId } }); });
+  }
+  function clearBucketFilter(idx) {
+    setBucketFilters(function(prev) { return Object.assign({}, prev, { [idx]: { personId: null, categoryId: null } }); });
+  }
   // Pointer-based drag between/within buckets — same idiom as Cove's
   // itemPointerDown (App.jsx CoveTab), not native HTML5 drag-and-drop.
   var [dragFromId, setDragFromId] = useState(null);
@@ -1287,6 +1304,21 @@ export default function ExhaleSection(props) {
     var isDropTarget = dragOverId === null && bucketDragItem.current.from && bucketDragItem.current.toBucket === idx;
     var selectMode = !!selectModeBucket[idx];
     var selectedCount = bItems.filter(function(it) { return selectedItemIds[it.id]; }).length;
+    // Filter by person/category — counts computed off the full bucket (bItems)
+    // so pill options stay stable while a filter is active; filteredItems is
+    // what actually renders as rows.
+    var peopleInBucket = {}, categoriesInBucket = {};
+    bItems.forEach(function(it) {
+      if (it.personId) peopleInBucket[it.personId] = (peopleInBucket[it.personId] || 0) + 1;
+      if (it.categoryId) categoriesInBucket[it.categoryId] = (categoriesInBucket[it.categoryId] || 0) + 1;
+    });
+    var hasAnyAssignment = Object.keys(peopleInBucket).length > 0 || Object.keys(categoriesInBucket).length > 0;
+    var bucketFilter = getBucketFilter(idx);
+    var filteredItems = bItems.filter(function(it) {
+      if (bucketFilter.personId && it.personId !== bucketFilter.personId) return false;
+      if (bucketFilter.categoryId && it.categoryId !== bucketFilter.categoryId) return false;
+      return true;
+    });
     return (
       <div key={idx} data-bucketidx={idx}
         style={{ borderRadius: 12, border: br, borderTop: "3px solid " + accent, background: bgP, overflow: "hidden" }}>
@@ -1329,11 +1361,42 @@ export default function ExhaleSection(props) {
               </div>
             )}
 
+            {hasAnyAssignment && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 8 }}>
+                <button onClick={() => clearBucketFilter(idx)}
+                  style={{ background: (!bucketFilter.personId && !bucketFilter.categoryId) ? accent : bgS, color: (!bucketFilter.personId && !bucketFilter.categoryId) ? "white" : txS, border: "none", borderRadius: 20, padding: "2px 9px", fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}>All ({bItems.length})</button>
+                {householdPeople.filter(function(p) { return peopleInBucket[p.id]; }).map(function(p) {
+                  var active = bucketFilter.personId === p.id;
+                  var pc = p.color || "#888";
+                  return (
+                    <button key={"pf" + p.id} onClick={() => setBucketPersonFilter(idx, p.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, background: active ? pc + "22" : bgS, border: "1px solid " + (active ? pc : "transparent"), borderRadius: 20, padding: "2px 9px", fontSize: 10.5, color: txS, cursor: "pointer" }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: pc, flexShrink: 0 }} />
+                      {p.name} ({peopleInBucket[p.id]})
+                    </button>
+                  );
+                })}
+                {categories.filter(function(c) { return categoriesInBucket[c.id]; }).map(function(c) {
+                  var active = bucketFilter.categoryId === c.id;
+                  return (
+                    <button key={"cf" + c.id} onClick={() => setBucketCategoryFilter(idx, c.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, background: active ? c.color + "22" : bgS, border: "1px solid " + (active ? c.color : "transparent"), borderRadius: 20, padding: "2px 9px", fontSize: 10.5, color: txS, cursor: "pointer" }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                      {c.label} ({categoriesInBucket[c.id]})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {bItems.length === 0 && (
               <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "6px 0" }}>Nothing here yet.</div>
             )}
+            {bItems.length > 0 && filteredItems.length === 0 && (
+              <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "6px 0" }}>No items match this filter.</div>
+            )}
 
-            {bItems.map(function(item) {
+            {filteredItems.map(function(item) {
               var isExpanded = expandedItemId === item.id;
               var isBeingDragged = dragFromId === item.id;
               var isDragOverThis = dragOverId === item.id;
