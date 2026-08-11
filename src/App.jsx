@@ -13365,10 +13365,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {subjects.length === 0 && !isAdding && <div style={{ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" }}>No subjects planned</div>}
             {subjects.map(function(s, idx) {
               return (
-                <div key={s.id||idx} style={{ display:"flex", alignItems:"center", gap:"0.4rem", padding:"0.3rem 0", borderBottom:"1px solid #F0EBDF" }}>
-                  <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer" }}/>
-                  <span style={{ flex:1, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none" }}>{s.name}{s.title?": "+s.title:""}</span>
-                  <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
+                <div key={s.id||idx} style={{ padding:"0.4rem 0", borderBottom:"1px solid #F0EBDF" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
+                    <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer", flexShrink:0 }}/>
+                    <span style={{ fontSize:"0.68rem", fontWeight:800, color:LC.seaglass, flexShrink:0 }}>{s.name}</span>
+                    <input defaultValue={s.title||""} onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{title:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }} placeholder="Lesson title" style={{ flex:1, minWidth:0, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none", border:"none", background:"transparent", outline:"none", fontFamily:"inherit" }}/>
+                    <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem", flexShrink:0 }}>✕</button>
+                  </div>
+                  {/* Fix 1: per-subject notes — replaces the old day-level dayNotes
+                      textarea that used to float below all subjects. */}
+                  <textarea
+                    defaultValue={s.notes||""}
+                    onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{notes:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }}
+                    placeholder="Notes…"
+                    style={inp({ marginTop:"0.3rem", marginLeft:"1.5rem", width:"calc(100% - 1.5rem)", fontSize:"0.76rem", minHeight:"32px", resize:"vertical" })}
+                  />
                 </div>
               );
             })}
@@ -13385,17 +13396,41 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 })}
               </div>
             )}
-            <textarea
-              defaultValue={plan.dayNotes||""}
-              onBlur={function(e){ saveDayPlan(day, { dayNotes: e.target.value }); }}
-              placeholder="Day notes…"
-              style={inp({ marginTop:"0.5rem", fontSize:"0.78rem", minHeight:"40px", resize:"vertical" })}
-            />
           </SectionShell>
         );
       }
 
       function PlanWeek() {
+        // Fix 1 migration: fold each day's now-removed dayNotes into its first
+        // subject's notes (creating one if the day somehow has notes but no
+        // subjects would have nowhere to land — left alone in that edge case,
+        // nothing to migrate onto). One-time per mount; homeschool weekPlan
+        // only, so this is a no-op (and cheap) for school-mode children.
+        React.useEffect(function() {
+          if (childMode !== "homeschool") return;
+          var needsMigration = PLAN_SCHOOL_DAYS.some(function(d) {
+            var plan = schWeekPlan[d];
+            return plan && typeof plan.dayNotes === "string" && plan.dayNotes.trim() && Array.isArray(plan.subjects) && plan.subjects.length > 0;
+          });
+          if (!needsMigration) return;
+          var next = Object.assign({}, schWeekPlan);
+          PLAN_SCHOOL_DAYS.forEach(function(d) {
+            var plan = next[d];
+            if (!plan || typeof plan.dayNotes !== "string" || !plan.dayNotes.trim() || !Array.isArray(plan.subjects) || plan.subjects.length === 0) return;
+            var firstSubj = plan.subjects[0];
+            var mergedNotes = (firstSubj.notes && firstSubj.notes.trim()) ? (firstSubj.notes.trim() + "\n" + plan.dayNotes.trim()) : plan.dayNotes.trim();
+            var updatedSubjects = plan.subjects.map(function(s, i) { return i===0 ? Object.assign({}, s, { notes: mergedNotes }) : s; });
+            next[d] = Object.assign({}, plan, { subjects: updatedSubjects, dayNotes: "" });
+          });
+          setSchoolData(function(prev) {
+            var nextAll = Object.assign({}, prev);
+            var existingChild = nextAll[activeChild] || {};
+            var existingHs = existingChild.homeschool || {};
+            nextAll[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { weekPlan: next }) });
+            return nextAll;
+          });
+        }, []); // one-time on mount — deliberately no deps
+
         if (childMode === "school") {
           var schoolAll = lhGet(lighthouse, "school", {});
           var schoolChild = schoolAll[activeChild] || defaultLhSchoolChild();
