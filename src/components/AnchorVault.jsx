@@ -1519,6 +1519,37 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     setOpenLists(function(p) { var n = Object.assign({}, p); n[key] = !n[key]; return n })
   }
 
+  // ── Holidays section UI state ────────────────────────────────────────────
+  const [holidayOpenOverride, setHolidayOpenOverride] = useState({}) // holidayId -> bool, only set once user toggles
+  const [expandedHolidayPerson, setExpandedHolidayPerson] = useState({}) // "holidayId:personId" -> bool
+  const [addingHoliday, setAddingHoliday] = useState(false)
+  const [newHolidayName, setNewHolidayName] = useState("")
+  const [addingHolidayItemFor, setAddingHolidayItemFor] = useState(null) // { holidayId, personId } or null
+  const [holidayItemDraft, setHolidayItemDraft] = useState({ text: "", price: "" })
+  function holidayDaysAway(dateStr) {
+    if (!dateStr) return null
+    var parts = String(dateStr).split("-")
+    if (parts.length !== 2) return null
+    var month = parseInt(parts[0], 10), day = parseInt(parts[1], 10)
+    if (!month || !day) return null
+    var now = new Date(); now.setHours(0,0,0,0)
+    var next = new Date(now.getFullYear(), month-1, day)
+    if (next < now) next.setFullYear(next.getFullYear()+1)
+    return Math.round((next - now) / 86400000)
+  }
+  function isHolidayOpen(holiday) {
+    if (holiday.id in holidayOpenOverride) return holidayOpenOverride[holiday.id]
+    var d = holidayDaysAway(holiday.date)
+    return d !== null && d <= 180
+  }
+  function toggleHolidayOpen(holidayId, current) {
+    setHolidayOpenOverride(function(p) { var n = Object.assign({}, p); n[holidayId] = !current; return n })
+  }
+  function toggleHolidayPersonExpanded(holidayId, personId) {
+    var key = holidayId + ":" + personId
+    setExpandedHolidayPerson(function(p) { var n = Object.assign({}, p); n[key] = !n[key]; return n })
+  }
+
   const [budgetItemDraft, setBudgetItemDraft] = useState({ desc: "", amount: "" })
   const [foodDraft, setFoodDraft] = useState({ item: "", who: "", dietary: "" })
   const [usedRecipeConfirm, setUsedRecipeConfirm] = useState(null)
@@ -2024,6 +2055,99 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
       {celebTab === "gifts" && (
         <div>
+          {/* Holidays section (gift system consolidation) — collapsible cards
+              per holiday, one row per household member inside each. */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>Holidays</div>
+            {holidayGifts && holidayGifts.holidays.length === 0 && !addingHoliday && (
+              <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "8px 0 12px" }}>No holidays yet.</div>
+            )}
+            {holidayGifts && holidayGifts.holidays.map(function(h) {
+              var open = isHolidayOpen(h)
+              var daysAway = holidayDaysAway(h.date)
+              var roster = hLoadPeople()
+              return (
+                <div key={h.id} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
+                  <div onClick={function() { toggleHolidayOpen(h.id, open) }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{h.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#1a2e3d" }}>{h.name}</div>
+                      <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                        {h.date ? h.date : "No date set"}{daysAway !== null ? " · " + (daysAway === 0 ? "Today!" : daysAway + " days away") : ""}
+                      </div>
+                    </div>
+                    <button onClick={function(ev) { ev.stopPropagation(); removeHoliday(h.id) }} aria-label="Delete holiday" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#4a6275", flexShrink: 0 }}>✕</button>
+                    <span style={{ fontSize: 11, color: "#4a6275", transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", flexShrink: 0 }}>▾</span>
+                  </div>
+                  {open && (
+                    <div style={{ padding: "0 14px 14px" }}>
+                      {roster.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic" }}>No people yet.</div>}
+                      {roster.map(function(p) {
+                        var pe = holidayPersonEntry(h, p.id)
+                        var items = pe.items || []
+                        var bought = items.filter(function(it) { return it.bought }).length
+                        var pKey = h.id + ":" + p.id
+                        var pOpen = !!expandedHolidayPerson[pKey]
+                        var isAddingHere = addingHolidayItemFor && addingHolidayItemFor.holidayId === h.id && addingHolidayItemFor.personId === p.id
+                        return (
+                          <div key={p.id} style={{ background: "rgba(26,46,61,0.05)", border: "1px solid rgba(26,46,61,0.08)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
+                            <div onClick={function() { toggleHolidayPersonExpanded(h.id, p.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}>
+                              <span style={{ width: 10, height: 10, borderRadius: "50%", background: p.color || "#c8a97a", flexShrink: 0 }} />
+                              <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{p.name}</span>
+                              <span style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{items.length === 0 ? "Not started" : bought + " of " + items.length + " bought"}</span>
+                              <span style={{ fontSize: 11, color: "#4a6275", transform: pOpen ? "rotate(180deg)" : "none", transition: "transform .15s", flexShrink: 0 }}>▾</span>
+                            </div>
+                            {pOpen && (
+                              <div style={{ padding: "0 12px 12px" }}>
+                                {items.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", marginBottom: 8 }}>No gift ideas yet.</div>}
+                                {items.map(function(it) {
+                                  return (
+                                    <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
+                                      <div onClick={function() { updateHolidayItem(h.id, p.id, it.id, { bought: !it.bought }) }} style={{ width: 16, height: 16, borderRadius: 4, border: "1.5px solid " + (it.bought ? "#c8a97a" : "rgba(26,46,61,0.25)"), background: it.bought ? "#c8a97a" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                                        {it.bought ? <span style={{ color: "#fff", fontSize: 10 }}>✓</span> : null}
+                                      </div>
+                                      <span style={{ flex: 1, fontSize: 13, color: it.bought ? "#4a6275" : "#1a2e3d", fontFamily: "DM Sans,sans-serif", textDecoration: it.bought ? "line-through" : "none" }}>{it.text}</span>
+                                      {it.price != null && <span style={{ fontSize: 11, color: "#4a6275" }}>${it.price}</span>}
+                                      <button onClick={function() { removeHolidayItem(h.id, p.id, it.id) }} style={{ background: "none", border: "none", fontSize: 11, color: "#4a6275", cursor: "pointer", padding: "0 2px" }}>✕</button>
+                                    </div>
+                                  )
+                                })}
+                                {isAddingHere ? (
+                                  <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                                    <input autoFocus value={holidayItemDraft.text} onChange={function(e) { setHolidayItemDraft(function(p2) { return Object.assign({}, p2, { text: e.target.value }) }) }} placeholder="Gift idea…" style={Object.assign({}, INP, { flex: 2, minWidth: 120 })} />
+                                    <input value={holidayItemDraft.price} onChange={function(e) { setHolidayItemDraft(function(p2) { return Object.assign({}, p2, { price: e.target.value }) }) }} placeholder="$" type="number" style={Object.assign({}, INP, { flex: 1, minWidth: 60 })} />
+                                    <button onClick={function() {
+                                      if (!holidayItemDraft.text.trim()) return
+                                      addHolidayItem(h.id, p.id, { text: holidayItemDraft.text.trim(), price: holidayItemDraft.price ? parseFloat(holidayItemDraft.price) : null })
+                                      setHolidayItemDraft({ text: "", price: "" }); setAddingHolidayItemFor(null)
+                                    }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                                    <button onClick={function() { setHolidayItemDraft({ text: "", price: "" }); setAddingHolidayItemFor(null) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={function() { setHolidayItemDraft({ text: "", price: "" }); setAddingHolidayItemFor({ holidayId: h.id, personId: p.id }) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            {addingHoliday ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                <input autoFocus value={newHolidayName} onChange={function(e) { setNewHolidayName(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter" && newHolidayName.trim()) { addHoliday(newHolidayName); setNewHolidayName(""); setAddingHoliday(false) } }} placeholder="Holiday name (e.g. Valentine's Day)…" style={Object.assign({}, INP, { flex: 1 })} />
+                <button onClick={function() { if (newHolidayName.trim()) { addHoliday(newHolidayName); setNewHolidayName(""); setAddingHoliday(false) } }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
+                <button onClick={function() { setNewHolidayName(""); setAddingHoliday(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
+              </div>
+            ) : (
+              <div onClick={function() { setAddingHoliday(true) }} style={{ border: "1px dashed rgba(200,169,122,0.4)", borderRadius: 10, padding: "12px", textAlign: "center", color: "#c8a97a", fontSize: 13, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add holiday</div>
+            )}
+          </div>
+
+          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>All gift lists</div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
             <button onClick={function() { setGiftsAZ(!giftsAZ) }} style={{ fontSize: 11, color: giftsAZ?"#c8a97a":"#1a2e3d", background: giftsAZ?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(giftsAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "4px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>{giftsAZ?"A–Z ✓":"A–Z"}</button>
           </div>
