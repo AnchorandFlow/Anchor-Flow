@@ -12811,6 +12811,39 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     }, []); // one-time on mount — deliberately no deps
 
+    // Fix 2: silent weekly rollover for homeschool weekPlan, every Sunday.
+    // Week identifier is the ISO date of that week's Sunday (not a Monday-start
+    // ISO week number, to stay consistent with this app's Sunday-anchored week
+    // elsewhere — see CalendarTab's getWeekDates). Clears lesson/notes/done on
+    // every subject but keeps the subject name, so recurring weekly subjects
+    // don't need re-adding. Runs once per LearningTab mount across all
+    // learningKids; a no-op once every child's weekPlanLastReset already
+    // matches this week's Sunday.
+    React.useEffect(function() {
+      var d = new Date(TODAY); d.setHours(0,0,0,0); d.setDate(d.getDate() - d.getDay());
+      var thisWeekStart = localDateStr(d);
+      var changed = false;
+      var nextAll = Object.assign({}, schoolData);
+      learningKids.forEach(function(p) {
+        var childSchool = nextAll[p.id];
+        var hs = childSchool && childSchool.homeschool;
+        if (!hs || !hs.weekPlan) return;
+        if (hs.weekPlanLastReset === thisWeekStart) return;
+        changed = true;
+        var clearedPlan = {};
+        Object.keys(hs.weekPlan).forEach(function(day) {
+          var dayPlan = hs.weekPlan[day] || {};
+          var subjects = Array.isArray(dayPlan.subjects) ? dayPlan.subjects : [];
+          clearedPlan[day] = Object.assign({}, dayPlan, {
+            subjects: subjects.map(function(s) { return Object.assign({}, s, { title:"", notes:"", done:false }); }),
+            dayNotes: ""
+          });
+        });
+        nextAll[p.id] = Object.assign({}, childSchool, { homeschool: Object.assign({}, hs, { weekPlan: clearedPlan, weekPlanLastReset: thisWeekStart }) });
+      });
+      if (changed) setSchoolData(nextAll);
+    }, []); // one-time on mount — deliberately no deps
+
     // One-time silent migration (rebuild decision #3): lighthouse.modes[id] is the
     // single source of truth for a child's learning mode going forward. If a child
     // has a legacy schoolData[id].type but no lighthouse mode yet, copy it over once.
