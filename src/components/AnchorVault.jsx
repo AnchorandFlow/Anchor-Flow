@@ -5432,9 +5432,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
 
                 if (!isExpanded) {
                   return (
-                    <div key={trip.id} onClick={function(){ openDetail(trip) }} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"10px 12px", cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:18, flexShrink:0 }}>{trip.icon || "🧳"}</span>
-                      <span style={{ flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:"#1a2e3d" }}>{trip.name || "Untitled trip"}</span>
+                    <div key={trip.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
+                      {/* Bug 1 fix: navigation is scoped to just this icon+name span
+                          (its own onClick) instead of the whole row, so the chevron
+                          never has to out-compete a parent click handler. */}
+                      <span onClick={function(){ openDetail(trip) }} style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                        <span style={{ fontSize:18, flexShrink:0 }}>{trip.icon || "🧳"}</span>
+                        <span style={{ flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:"#1a2e3d" }}>{trip.name || "Untitled trip"}</span>
+                      </span>
                       <TripCountdownBadge trip={trip} />
                       {trip.status ? <span title={trip.status} style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[trip.status]||sand, flexShrink:0 }}/> : null}
                       <button onClick={toggleExpand} title="Expand" style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, color:muted, flexShrink:0, padding:2, transform:"rotate(0deg)" }}>▾</button>
@@ -5446,7 +5451,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 var progressPct = Math.round(filledCount / TRIP_MINI_CARD_ORDER.length * 100)
                 return (
                   <div key={trip.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, display:"flex", flexDirection:"column", gap:10 }}>
-                    <div onClick={function(){ openDetail(trip) }} style={{ display:"flex", alignItems:"flex-start", gap:8, cursor:"pointer" }}>
+                    {/* Bug 1 fix: header is informational only now — navigation lives
+                        on the explicit "Open trip" button below, not an implicit
+                        whole-header click. */}
+                    <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
                       <span style={{ fontSize:20, flexShrink:0 }}>{trip.icon || "🧳"}</span>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:16, fontWeight:700, color:"#1a2e3d", lineHeight:1.2 }}>{trip.name || "Untitled trip"}</div>
@@ -5485,6 +5493,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                       })}
                     </div>
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      <button onClick={function(e){ e.stopPropagation(); openDetail(trip) }} style={{ background:"rgba(122,158,142,0.15)", border:"1px solid rgba(122,158,142,0.35)", borderRadius:8, padding:"6px 10px", fontSize:11, color:"#4a7a63", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>Open trip →</button>
                       <button onClick={function(e){ e.stopPropagation(); openDetail(trip); setActiveTripCard("packing") }} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"6px 10px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>📦 Packing</button>
                       <button onClick={function(e){ e.stopPropagation(); openDetail(trip); setActiveTripCard("itinerary") }} style={{ background:"rgba(217,138,110,0.12)", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, padding:"6px 10px", fontSize:11, color:"#d98a6e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>🗓️ Itinerary</button>
                       <button onClick={function(e){ e.stopPropagation(); openEdit(trip) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"6px 10px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip</button>
