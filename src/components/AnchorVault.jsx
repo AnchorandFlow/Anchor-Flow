@@ -42,6 +42,13 @@ const VAULT_INPUT_STYLE = `
   @media (max-width: 768px) {
     .af-trip-mini-grid { grid-template-columns: repeat(2, 1fr) !important; }
   }
+  .af-trip-detail-grid { min-width: 0; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 600px) {
+    .af-trip-detail-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  }
+  @media (max-width: 380px) {
+    .af-trip-detail-grid { grid-template-columns: repeat(1, 1fr) !important; }
+  }
   @media (max-width: 480px) {
     .af-card-grid-2 { grid-template-columns: 1fr !important; }
     .af-card-grid-3 { grid-template-columns: 1fr 1fr !important; }
@@ -3667,18 +3674,19 @@ var CARD_META = {
   photos:         { icon:"📷", title:"Photos",           accent:"#4a6275" }
 }
 
-// Fixed structural grouping for the trip detail view — a static id -> group
+// Before/During grouping for the trip detail view (replaces the old 4-group
+// Logistics/While You're There/Prep/Extras layout) — a static id -> section
 // lookup, not a stored field. cardOrder/hiddenCardIds still fully control
-// which cards show and their relative order; this only determines which
-// fixed section a visible card renders under. Overview isn't part of this
-// system at all (pinned above, unaffected).
-var CARD_GROUPS_ORDER = ["logistics","whileThere","prep","extras"]
-var CARD_GROUP_LABELS = { logistics:"Logistics", whileThere:"While You're There", prep:"Prep", extras:"Extras" }
-var CARD_GROUP_OF = {
-  transportation:"logistics", lodging:"logistics", documents:"logistics",
-  itinerary:"whileThere", activities:"whileThere", dining:"whileThere", reservations:"whileThere",
-  packing:"prep", budget:"prep",
-  weather:"extras", notes:"extras", emergencyInfo:"extras", photos:"extras"
+// which cards show and their relative order; this only determines which of
+// the 2 fixed sections a visible card renders under.
+var TRIP_DETAIL_SECTIONS_ORDER = ["before","during"]
+var TRIP_DETAIL_SECTION_LABELS = { before:"Before the trip", during:"During the trip" }
+var TRIP_DETAIL_SECTION_OF = {
+  transportation:"before", lodging:"before", packing:"before", reservations:"before", budget:"before", documents:"before",
+  // photos isn't in the spec's Before/During lists — not dropping it silently
+  // (it's still shown for Completed trips, see availableCardIds), placed in
+  // During to match its old "extras" grouping.
+  itinerary:"during", activities:"during", dining:"during", notes:"during", weather:"during", emergencyInfo:"during", photos:"during"
 }
 
 function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
@@ -3774,6 +3782,60 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     var n = Math.round((e-s)/86400000) + 1
     return n > 0 ? n : null
   }
+
+  // Moved up from the landing-page-only IIFE (Large countdown block, Travel
+  // redesign) — the detail-page header's "X of 9 cards started" progress line
+  // needs the same per-category has-content check the landing-page mini-grid
+  // uses, so this now lives at TripsSection's top level where both can reach it.
+  function tripCategoryPreview(trip, category) {
+    if (category==="transportation") {
+      var trList = trip.transportation||[]
+      var trFirst = trList[0]
+      return { value: trFirst ? (trFirst.carrier||trFirst.type||"Trip added") : "None yet", sub: trFirst ? ((trFirst.departure||"")+(trList.length>1?" +"+(trList.length-1)+" more":"")).trim()||null : null }
+    }
+    if (category==="lodging") {
+      var lgList = trip.lodging||[]
+      var lgFirst = lgList[0]
+      return { value: lgFirst ? (lgFirst.name||"Lodging added") : "None yet", sub: lgList.length>1 ? "+"+(lgList.length-1)+" more" : null }
+    }
+    if (category==="packing") {
+      var sections = normalizePackingSections(trip.packing)
+      var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
+      return { value: allItems.length===0 ? "None yet" : allItems.filter(function(i){return i.done}).length+"/"+allItems.length+" packed", sub:null }
+    }
+    if (category==="itinerary") {
+      var days = normalizeItineraryDays(trip.itinerary)
+      var allActs = days.reduce(function(acc,d){ return acc.concat(d.activities) }, [])
+      return { value: days.length===0 ? "None yet" : days.length+" day"+(days.length===1?"":"s"), sub: days.length===0 ? null : allActs.length+" activit"+(allActs.length===1?"y":"ies") }
+    }
+    if (category==="activities") {
+      var actList = normalizeActivities(trip.activities)
+      return { value: actList.length===0 ? "None yet" : actList.filter(function(i){return i.done}).length+"/"+actList.length+" done", sub:null }
+    }
+    if (category==="reservations") {
+      var resList = normalizeReservations(trip.reservations)
+      return { value: resList.length===0 ? "None yet" : resList.length+(resList.length===1?" reservation":" reservations"), sub:null }
+    }
+    if (category==="budget") {
+      var b = trip.budget || {}
+      var est = parseFloat(b.estimated)
+      var expenses = normalizeExpenses(b)
+      var spentTotal = expensesTotal(expenses)
+      var remaining = !isNaN(est) ? (est - spentTotal) : null
+      return { value: remaining===null ? "None yet" : "$"+spentTotal.toLocaleString()+" of $"+est.toLocaleString(), sub: remaining===null ? null : (remaining<0 ? "$"+Math.abs(remaining).toLocaleString()+" over" : "$"+remaining.toLocaleString()+" left") }
+    }
+    if (category==="documents") {
+      var docList = normalizeDocuments(trip.documents)
+      var warnCount = docList.filter(function(d){ return documentExpiryStatus(d)!==null }).length
+      return { value: docList.length===0 ? "None yet" : docList.filter(function(i){return i.confirmed}).length+"/"+docList.length+" ready", sub: warnCount>0 ? "⚠️ "+warnCount+" expiring soon" : null }
+    }
+    if (category==="notes") {
+      var notesLine = (trip.notes||"").split("\n")[0].trim()
+      return { value: notesLine ? (notesLine.length>40?notesLine.slice(0,40)+"…":notesLine) : "None yet", sub:null }
+    }
+    return { value:"None yet", sub:null }
+  }
+  function categoryHasContent(trip, category) { return tripCategoryPreview(trip, category).value !== "None yet" }
 
   // Adapted from TravelProfileSection's ExpiryBadge (~3077) — same small pill
   // styling, different logic: a trip counts down to a start date and flags an
@@ -5238,7 +5300,6 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 {tripLengthDays(detailTrip) ? " · "+tripLengthDays(detailTrip)+" day"+(tripLengthDays(detailTrip)===1?"":"s") : ""}
               </span>
             )}
-            <TripCountdownBadge trip={detailTrip} />
             {detailTrip.status && (
               <span style={{ display:"flex", alignItems:"center", gap:5 }}>
                 <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[detailTrip.status]||sand, display:"inline-block", flexShrink:0 }}/>
@@ -5258,23 +5319,50 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
             <button onClick={function(){ openEdit(detailTrip) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip info</button>
           </div>
 
-          {CARD_GROUPS_ORDER.map(function(g) {
-            var idsInGroup = cardOrder.filter(function(id){ return CARD_GROUP_OF[id]===g })
-            if (idsInGroup.length === 0) return null
+          {/* Large countdown block (Travel redesign) — replaces the small
+              TripCountdownBadge that used to sit in the header row above. */}
+          {(function(){
+            var start = daysUntil(detailTrip.startDate)
+            var end = daysUntil(detailTrip.endDate)
+            var effectiveEnd = end !== null ? end : start
+            var inProgress = start !== null && start <= 0 && effectiveEnd !== null && effectiveEnd >= 0
+            var isPast = effectiveEnd !== null && effectiveEnd < 0
+            var len = tripLengthDays(detailTrip)
+            var filledCount = TRIP_MINI_CARD_ORDER.filter(function(c){ return categoryHasContent(detailTrip, c) }).length
+            var dayNum = len ? Math.min(len, -start + 1) : (start !== null ? -start + 1 : null)
             return (
-              <div key={g} style={{ marginBottom:18 }}>
-                {/* Section header — same pattern as Cove's region headers (border-top +
-                    uppercase small-caps + item-count badge), re-expressed with this
-                    file's own dark-theme tokens rather than Cove's T.* values */}
-                <div style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 0 8px", borderTop:"1px solid "+border, marginTop:4 }}>
-                  <span style={{ flex:1, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:muted, fontFamily:"DM Sans,sans-serif" }}>{CARD_GROUP_LABELS[g]}</span>
-                  <span style={{ fontSize:10, color:"#1a2e3d", background:"rgba(26,46,61,0.12)", borderRadius:4, padding:"1px 7px" }}>{idsInGroup.length}</span>
+              <div style={{ background:"#ddeaf4", borderRadius:8, padding:"12px 16px", marginBottom:18, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+                {isPast ? (
+                  <div style={{ fontSize:16, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>Trip completed{detailTrip.endDate?" · "+formatTripDate(detailTrip.endDate):""}</div>
+                ) : inProgress ? (
+                  <div>
+                    <div style={{ fontSize:20, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>In progress</div>
+                    {(len && dayNum) ? <div style={{ fontSize:12, color:muted, marginTop:2 }}>Day {dayNum} of {len}</div> : null}
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize:36, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", lineHeight:1 }}>{start!==null?start:"—"}</div>
+                    <div style={{ fontSize:12, color:muted, marginTop:2 }}>{start!==null?"days away":"No date set"}</div>
+                  </div>
+                )}
+                <div style={{ textAlign:"right" }}>
+                  {detailTrip.startDate && <div style={{ fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{formatTripDate(detailTrip.startDate)}</div>}
+                  <div style={{ fontSize:11, color:muted, marginTop:2 }}>{filledCount} of {TRIP_MINI_CARD_ORDER.length} cards started</div>
                 </div>
-                {/* 2-column grid — same auto-fit pattern as Health's person-card grid
-                    (~6126), not a rigid 1fr 1fr, so it collapses to 1 column on mobile
-                    the same way Health's already does */}
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))", gap:12 }}>
-                  {idsInGroup.map(function(id) {
+              </div>
+            )
+          })()}
+
+          {TRIP_DETAIL_SECTIONS_ORDER.map(function(sec) {
+            var idsInSection = cardOrder.filter(function(id){ return TRIP_DETAIL_SECTION_OF[id]===sec })
+            if (idsInSection.length === 0) return null
+            return (
+              <div key={sec} style={{ marginBottom:18 }}>
+                <div style={{ padding:"0 0 8px" }}>
+                  <span style={{ fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"#4a6275", fontFamily:"DM Sans,sans-serif" }}>{TRIP_DETAIL_SECTION_LABELS[sec]}</span>
+                </div>
+                <div className="af-trip-detail-grid" style={{ display:"grid", gap:12 }}>
+                  {idsInSection.map(function(id) {
                     return CARD_RENDERERS[id] ? CARD_RENDERERS[id]() : null
                   })}
                 </div>
@@ -5330,61 +5418,6 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 if (!b.endDate) return -1
                 return a.endDate < b.endDate ? 1 : a.endDate > b.endDate ? -1 : 0
               })
-              // Fix 2's split value/sub-label preview per mini-card category, run per
-              // trip for the landing page (CARD_RENDERERS' single-line preview strings
-              // further down do the same underlying computation for the one open
-              // detailTrip — left untouched; this is deliberately separate so neither
-              // view risks breaking the other).
-              function tripCategoryPreview(trip, category) {
-                if (category==="transportation") {
-                  var trList = trip.transportation||[]
-                  var trFirst = trList[0]
-                  return { value: trFirst ? (trFirst.carrier||trFirst.type||"Trip added") : "None yet", sub: trFirst ? ((trFirst.departure||"")+(trList.length>1?" +"+(trList.length-1)+" more":"")).trim()||null : null }
-                }
-                if (category==="lodging") {
-                  var lgList = trip.lodging||[]
-                  var lgFirst = lgList[0]
-                  return { value: lgFirst ? (lgFirst.name||"Lodging added") : "None yet", sub: lgList.length>1 ? "+"+(lgList.length-1)+" more" : null }
-                }
-                if (category==="packing") {
-                  var sections = normalizePackingSections(trip.packing)
-                  var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
-                  return { value: allItems.length===0 ? "None yet" : allItems.filter(function(i){return i.done}).length+"/"+allItems.length+" packed", sub:null }
-                }
-                if (category==="itinerary") {
-                  var days = normalizeItineraryDays(trip.itinerary)
-                  var allActs = days.reduce(function(acc,d){ return acc.concat(d.activities) }, [])
-                  return { value: days.length===0 ? "None yet" : days.length+" day"+(days.length===1?"":"s"), sub: days.length===0 ? null : allActs.length+" activit"+(allActs.length===1?"y":"ies") }
-                }
-                if (category==="activities") {
-                  var actList = normalizeActivities(trip.activities)
-                  return { value: actList.length===0 ? "None yet" : actList.filter(function(i){return i.done}).length+"/"+actList.length+" done", sub:null }
-                }
-                if (category==="reservations") {
-                  var resList = normalizeReservations(trip.reservations)
-                  return { value: resList.length===0 ? "None yet" : resList.length+(resList.length===1?" reservation":" reservations"), sub:null }
-                }
-                if (category==="budget") {
-                  var b = trip.budget || {}
-                  var est = parseFloat(b.estimated)
-                  var expenses = normalizeExpenses(b)
-                  var spentTotal = expensesTotal(expenses)
-                  var remaining = !isNaN(est) ? (est - spentTotal) : null
-                  return { value: remaining===null ? "None yet" : "$"+spentTotal.toLocaleString()+" of $"+est.toLocaleString(), sub: remaining===null ? null : (remaining<0 ? "$"+Math.abs(remaining).toLocaleString()+" over" : "$"+remaining.toLocaleString()+" left") }
-                }
-                if (category==="documents") {
-                  var docList = normalizeDocuments(trip.documents)
-                  var warnCount = docList.filter(function(d){ return documentExpiryStatus(d)!==null }).length
-                  return { value: docList.length===0 ? "None yet" : docList.filter(function(i){return i.confirmed}).length+"/"+docList.length+" ready", sub: warnCount>0 ? "⚠️ "+warnCount+" expiring soon" : null }
-                }
-                if (category==="notes") {
-                  var notesLine = (trip.notes||"").split("\n")[0].trim()
-                  return { value: notesLine ? (notesLine.length>40?notesLine.slice(0,40)+"…":notesLine) : "None yet", sub:null }
-                }
-                return { value:"None yet", sub:null }
-              }
-              function categoryHasContent(trip, category) { return tripCategoryPreview(trip, category).value !== "None yet" }
-
               function renderTripCard(trip, mutedStyle) {
                 // mutedStyle (past trips) no longer dims the whole card — TripCountdownBadge
                 // already renders "Past" as a text badge, which is the spec-correct way to
