@@ -1387,14 +1387,6 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   }
   function personLists(personId) { return gifts[personId] || [] }
   function savePersonLists(personId, lists) { saveGifts(Object.assign({}, gifts, { [personId]: lists })) }
-  function addPersonList(personId, name, type) {
-    if (!name.trim()) return
-    savePersonLists(personId, [...personLists(personId), { id: Date.now().toString()+Math.random().toString(36).slice(2,6), name: name.trim(), type: type || "custom", gifts: [] }])
-  }
-  function renamePersonList(personId, listId, name) {
-    if (!name.trim()) return
-    savePersonLists(personId, personLists(personId).map(function(l) { return l.id === listId ? Object.assign({}, l, { name: name.trim() }) : l }))
-  }
   // Finds a person's list by name, creating a "custom" one if none matches —
   // used when adding a gift idea from a celebration's Gift Ideas card, where
   // there's a celebration name/type but not necessarily an existing list.
@@ -1445,14 +1437,6 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   }
   function assignGiftToCeleb(personId, listId, giftId, celebId) { updateGiftInList(personId, listId, giftId, { assignedCelebId: celebId }) }
   function unassignGift(personId, listId, giftId) { updateGiftInList(personId, listId, giftId, { assignedCelebId: null }) }
-  // Private gifts are hidden everywhere from the device user who is the
-  // gift's own recipient — not just their title, the whole entry (counts,
-  // badges, previews included), so nothing leaks a surprise indirectly.
-  function visibleListGifts(personId, list) {
-    var g = (list && list.gifts) || []
-    if (myPersonId && myPersonId === personId) return g.filter(function(x) { return !x.private })
-    return g
-  }
   // All gifts relevant to a celebration: anything explicitly assigned to it
   // (assignedCelebId match, any person's any list), plus — if the
   // celebration has a linked person (auto-created birthdays do) — that
@@ -1473,18 +1457,6 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
     })
     return result
   }
-  function personDisplayName(personId) {
-    if (personId === "unassigned") return "Unassigned"
-    var roster = hLoadPeople()
-    var p = roster.find(function(x) { return x.id === personId })
-    if (p) return p.name
-    if (personId.indexOf("celeb_") === 0) {
-      var c = celebrations.find(function(x) { return x.id === personId.slice(6) })
-      if (c) return c.name
-    }
-    return "Unknown"
-  }
-
   // Level 2/3 nav (same pattern as Travel's detailTripId/activeTripCard):
   // detailCelebId null = list view; string = that celebration's detail
   // page. activeCelebCard null = the detail page's card grid; string =
@@ -1496,28 +1468,13 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
   // Draft input state for the planning sub-cards.
   const [guestDraft, setGuestDraft] = useState("")
-  // Gifts tab UI state. Lists (Birthday/Christmas/Easter/custom) live under
-  // each person now, not as a separate global section — openPersonSections
-  // defaults OPEN (undefined !== false), openLists (keyed "personId:listId")
-  // defaults COLLAPSED, matching the chevron convention used elsewhere.
-  const [openPersonSections, setOpenPersonSections] = useState({})
-  const [openLists, setOpenLists] = useState({})
-  const [giftsAZ, setGiftsAZ] = useState(false)
-  const [renamingListId, setRenamingListId] = useState(null)
-  const [renameDraft, setRenameDraft] = useState("")
-  const [addingListFor, setAddingListFor] = useState(null) // personId or null
-  const [newListName, setNewListName] = useState("")
+  // addingGiftTarget/giftDraft are still used by the celebration detail
+  // view's Gift Ideas card (untouched) — the old Gifts-tab person/list
+  // accordion that used to sit alongside them (openPersonSections, openLists,
+  // giftsAZ, renamingListId, addingListFor, etc.) was removed in the gift
+  // system consolidation; those are gone with it.
   const [addingGiftTarget, setAddingGiftTarget] = useState(null) // { personId, listId, celebId? } or null
   const [giftDraft, setGiftDraft] = useState({ title: "", notes: "", price: "", url: "", imageUrl: "", assignedTo: "", private: false })
-
-  function isPersonOpen(personId) { return openPersonSections[personId] !== false }
-  function togglePersonOpen(personId) {
-    setOpenPersonSections(function(p) { var n = Object.assign({}, p); n[personId] = !isPersonOpen(personId); return n })
-  }
-  function toggleListOpen(personId, listId) {
-    var key = personId + ":" + listId
-    setOpenLists(function(p) { var n = Object.assign({}, p); n[key] = !n[key]; return n })
-  }
 
   // ── Holidays section UI state ────────────────────────────────────────────
   const [holidayOpenOverride, setHolidayOpenOverride] = useState({}) // holidayId -> bool, only set once user toggles
@@ -2147,74 +2104,30 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
             )}
           </div>
 
-          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>All gift lists</div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-            <button onClick={function() { setGiftsAZ(!giftsAZ) }} style={{ fontSize: 11, color: giftsAZ?"#c8a97a":"#1a2e3d", background: giftsAZ?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(giftsAZ?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "4px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" }}>{giftsAZ?"A–Z ✓":"A–Z"}</button>
-          </div>
-          {(function() {
-            var roster = hLoadPeople()
-            var giftPersonIds = Array.from(new Set(roster.map(function(p) { return p.id }).concat(Object.keys(gifts).filter(function(k) { return k !== "holiday_lists" }))))
-            if (giftPersonIds.length === 0) return <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No people yet.</div>
-            return giftPersonIds.map(function(personId) {
-              var name = personDisplayName(personId)
-              var lists = personLists(personId)
-              var personOpen = isPersonOpen(personId)
+          {/* Events section (gift system consolidation) — read-only, sourced
+              directly from celebEntries (no separate storage: gifts for these
+              live on the celebration itself via celebGifts, untouched here).
+              Clicking a row opens the existing celebration detail view. */}
+          <div>
+            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>Events</div>
+            {celebEntries.length === 0 && (
+              <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "8px 0" }}>No events yet — add one from the Celebrations tab.</div>
+            )}
+            {celebEntries.slice().sort(function(a, b) { return a.diff - b.diff }).map(function(e) {
               return (
-                <div key={personId} style={{ marginBottom: 16, background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, overflow: "hidden" }}>
-                  <div onClick={function() { togglePersonOpen(personId) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px", cursor: "pointer" }}>
-                    <div style={{ flex: 1, fontFamily: "Cormorant Garamond,serif", fontSize: 15, fontWeight: 700, color: "#1a2e3d" }}>{name}</div>
-                    <span style={{ color: "#4a6275", fontSize: "0.62rem", display: "inline-block", transform: personOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
-                  </div>
-                  {personOpen && (
-                    <div style={{ padding: "0 14px 14px" }}>
-                      {lists.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No lists yet.</div>}
-                      {lists.map(function(list) {
-                        var listKey = personId + ":" + list.id
-                        var listOpen = !!openLists[listKey]
-                        var visibleItems = visibleListGifts(personId, list)
-                        if (giftsAZ) visibleItems = visibleItems.slice().sort(function(a, b) { return (a.title||"").localeCompare(b.title||"") })
-                        var isAddingHere = addingGiftTarget && addingGiftTarget.personId === personId && addingGiftTarget.listId === list.id
-                        return (
-                          <div key={list.id} style={{ background: "rgba(26,46,61,0.05)", border: "1px solid rgba(26,46,61,0.08)", borderRadius: 8, marginBottom: 8, overflow: "hidden" }}>
-                            <div onClick={function() { if (renamingListId !== list.id) toggleListOpen(personId, list.id) }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer" }}>
-                              {renamingListId === list.id ? (
-                                <input autoFocus value={renameDraft} onChange={function(e) { setRenameDraft(e.target.value) }} onClick={function(e) { e.stopPropagation() }}
-                                  onKeyDown={function(e) { if (e.key === "Enter") { renamePersonList(personId, list.id, renameDraft); setRenamingListId(null) } if (e.key === "Escape") setRenamingListId(null) }}
-                                  onBlur={function() { if (renameDraft.trim()) renamePersonList(personId, list.id, renameDraft); setRenamingListId(null) }}
-                                  style={Object.assign({}, INP, { flex: 1 })} />
-                              ) : (
-                                <div onClick={function(e) { e.stopPropagation(); setRenamingListId(list.id); setRenameDraft(list.name) }} style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", cursor: "text" }}>{list.name}</div>
-                              )}
-                              <span style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{visibleItems.length}</span>
-                              <span style={{ color: "#4a6275", fontSize: "0.62rem", display: "inline-block", transform: listOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}>▾</span>
-                            </div>
-                            {listOpen && (
-                              <div style={{ padding: "0 12px 12px" }}>
-                                {visibleItems.length === 0 && <div style={{ fontSize: 12, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", marginBottom: 8 }}>No gift ideas yet.</div>}
-                                {visibleItems.map(function(g) { return renderGiftRow(g, list.id, {}) })}
-                                {isAddingHere ? renderGiftAddForm(function() { submitGiftDraft(personId, list.id, null) }) : (
-                                  <button onClick={function() { resetGiftDraft(); setAddingGiftTarget({ personId: personId, listId: list.id }) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add gift</button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                      {addingListFor === personId ? (
-                        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                          <input autoFocus value={newListName} onChange={function(e) { setNewListName(e.target.value) }} onKeyDown={function(e) { if (e.key === "Enter") { addPersonList(personId, newListName, "custom"); setNewListName(""); setAddingListFor(null) } }} placeholder="List name (e.g. Easter basket)…" style={Object.assign({}, INP, { flex: 1 })} />
-                          <button onClick={function() { addPersonList(personId, newListName, "custom"); setNewListName(""); setAddingListFor(null) }} style={{ background: "#c8a97a", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#243A5A", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 700 }}>Add</button>
-                          <button onClick={function() { setAddingListFor(null) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
-                        </div>
-                      ) : (
-                        <button onClick={function() { setNewListName(""); setAddingListFor(personId) }} style={{ marginTop: 6, background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add list</button>
-                      )}
+                <div key={e.id} onClick={function() { openCelebDetail(e.id); setCelebTab("celebrations") }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "10px 14px", marginBottom: 8, cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{e.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{e.name}</div>
+                    <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                      {e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.planned} of {e.planTotal} planned
                     </div>
-                  )}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", flexShrink: 0, textAlign: "right", whiteSpace: "nowrap" }}>{e.countdown}</div>
                 </div>
               )
-            })
-          })()}
+            })}
+          </div>
         </div>
       )}
       </>)}
