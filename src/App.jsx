@@ -6589,7 +6589,10 @@ Respond ONLY in valid JSON:
           if (!s) return;
           var id = "lhweek-"+p.id+"-"+(s.id||s.name);
           if (seen[id]) return; seen[id]=1;
-          out.push({ id:id, text:p.name+" — "+s.name+(s.title?": "+s.title:""), done:!!s.done, source:"lhweek" });
+          // Fix 3: text kept as the flat fallback string; childName/subjectName/
+          // lesson/notes are the structured fields the stacked row rendering
+          // (Today's task-list rows, below) actually reads.
+          out.push({ id:id, text:p.name+" — "+s.name+(s.title?": "+s.title:""), done:!!s.done, source:"lhweek", childName:p.name, subjectName:s.name, lesson:s.title||"", notes:s.notes||"" });
         });
       });
       return out;
@@ -6885,10 +6888,18 @@ Respond ONLY in valid JSON:
                   : pinnedTodayTasks.map(function(t){
                       var readOnly = t.source==="lhweek";
                       return(
-                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0.1rem"}}>
+                      <div key={t.id} style={{display:"flex",alignItems:readOnly?"flex-start":"center",gap:"0.5rem",padding:"0.3rem 0.1rem"}}>
                         <span style={{color:"#5C7C94",fontSize:"0.85rem",flexShrink:0}}>⠿</span>
-                        <div onClick={readOnly?undefined:function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?"#5E8FA0":"#7AB3D4"),background:t.done?"#5E8FA0":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:readOnly?"default":"pointer",flexShrink:0,opacity:readOnly?0.5:1}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
-                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                        <div onClick={readOnly?undefined:function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?"#5E8FA0":"#7AB3D4"),background:t.done?"#5E8FA0":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:readOnly?"default":"pointer",flexShrink:0,opacity:readOnly?0.5:1,marginTop:readOnly?1:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                        {readOnly ? (
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.childName} — {t.subjectName}</div>
+                            {t.lesson && <div style={{fontSize:"0.74rem",color:T.textFaint,marginTop:1}}>{t.lesson}</div>}
+                            {t.notes && <div style={{fontSize:"0.72rem",color:T.textFaint,marginTop:1,fontStyle:"italic"}}>{t.notes}</div>}
+                          </div>
+                        ) : (
+                          <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                        )}
                         <button onClick={function(){unpinTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"#5C7C94",fontSize:"0.8rem"}}>×</button>
                       </div>
                     );})
@@ -6901,10 +6912,18 @@ Respond ONLY in valid JSON:
                   var tag = t.source==="exhale" ? {label:"Exhale",bg:"#EBF5F3",tx:"#1C3A2E"} : t.source==="wave" ? {label:"Wave",bg:"#D9EFEC",tx:"#12463D"} : (t.source==="lhloop"||t.source==="lhweek") ? {label:"Lighthouse",bg:"#E3F3EF",tx:"#1C6B5E"} : null;
                   var readOnly = t.source==="lhweek";
                   return (
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0.1rem"}}>
+                    <div key={t.id} style={{display:"flex",alignItems:readOnly?"flex-start":"center",gap:"0.5rem",padding:"0.32rem 0.1rem"}}>
                       <span onPointerDown={function(e){focusPinPointerDown(e,t.id);}} style={{color:T.textFaint,fontSize:"0.85rem",flexShrink:0,cursor:"grab",touchAction:"none"}}>⠿</span>
-                      <div onClick={readOnly?undefined:function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:readOnly?"default":"pointer",flexShrink:0,opacity:readOnly?0.5:1}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
-                      <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                      <div onClick={readOnly?undefined:function(){toggleMergedTaskDone(t);}} style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:readOnly?"default":"pointer",flexShrink:0,opacity:readOnly?0.5:1,marginTop:readOnly?1:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
+                      {readOnly ? (
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.childName} — {t.subjectName}</div>
+                          {t.lesson && <div style={{fontSize:"0.74rem",color:T.textFaint,marginTop:1}}>{t.lesson}</div>}
+                          {t.notes && <div style={{fontSize:"0.72rem",color:T.textFaint,marginTop:1,fontStyle:"italic"}}>{t.notes}</div>}
+                        </div>
+                      ) : (
+                        <span style={{flex:1,fontSize:"0.85rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                      )}
                       {tag&&<span style={{fontSize:"0.62rem",fontWeight:700,color:tag.tx,background:tag.bg,borderRadius:"2rem",padding:"1px 7px",flexShrink:0}}>{tag.label}</span>}
                     </div>
                   );
@@ -13557,6 +13576,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var monthlyFocus = typeof hsChild.monthly === "string" ? hsChild.monthly : "";
         var monthlyGoals = Array.isArray(hsChild.monthlyGoals) ? hsChild.monthlyGoals : [];
         var monthlyBook = typeof hsChild.monthlyBook === "string" ? hsChild.monthlyBook : "";
+        // Fix 4: read-only summary of the current week's weekPlan — editing
+        // still only happens in Plan → Week, same "read-only elsewhere,
+        // editable in Week" convention as Today's lhweek rows.
+        var [expandedWeekDays, setExpandedWeekDays] = React.useState({});
         function AddMonthlyGoalRow() {
           var [adding, setAdding] = React.useState(false);
           var [text, setText] = React.useState("");
@@ -13576,6 +13599,45 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         }
         return (
           <div>
+            <SectionShell tabName="plan-month" sectionName="weeksubjects" emoji="📚" title="This Week's Subjects" defaultOpen={true}>
+              {PLAN_SCHOOL_DAYS.map(function(day) {
+                var plan = getDayPlan(day);
+                var subjects = plan.subjects || [];
+                var isExpanded = !!expandedWeekDays[day];
+                return (
+                  <div key={day} style={{ marginBottom:"0.5rem", borderBottom:"1px solid #F0EBDF", paddingBottom:"0.4rem" }}>
+                    <div onClick={function(){ setExpandedWeekDays(function(p){ return Object.assign({},p,{[day]:!p[day]}); }); }} style={{ display:"flex", alignItems:"center", gap:"0.5rem", cursor:"pointer" }}>
+                      <span style={{ flex:1, fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" }}>{day}</span>
+                      <span style={{ fontSize:"0.7rem", color:"#9a9488" }}>{subjects.length} subject{subjects.length===1?"":"s"}</span>
+                      {subjects.length>0 && <span style={{ fontSize:"0.7rem", color:"#9a9488", transform:isExpanded?"rotate(180deg)":"none", transition:"transform 0.2s" }}>▾</span>}
+                    </div>
+                    {subjects.length===0
+                      ? <div style={{ color:"#9a9488", fontSize:"0.78rem", fontStyle:"italic", marginTop:"0.25rem" }}>No subjects planned</div>
+                      : <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem" }}>
+                          {subjects.map(function(s) {
+                            return <span key={s.id} style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.68rem", fontWeight:700, borderRadius:"2rem", padding:"2px 9px" }}>{s.name}</span>;
+                          })}
+                        </div>
+                    }
+                    {isExpanded && subjects.length>0 && (
+                      <div style={{ marginTop:"0.4rem" }}>
+                        {subjects.map(function(s) {
+                          return (
+                            <div key={s.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.6rem", padding:"0.5rem 0.7rem", marginBottom:"0.35rem" }}>
+                              <div style={{ fontSize:"0.78rem", fontWeight:700, color:"#3a3a34" }}>{s.name}</div>
+                              {s.title && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.15rem" }}>{s.title}</div>}
+                              {s.notes && <div style={{ fontSize:"0.72rem", color:"#8a8578", marginTop:"0.15rem", fontStyle:"italic" }}>{s.notes}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <button type="button" onClick={function(){ setPlanSubTab("week"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.2rem" }}>Edit in Week →</button>
+            </SectionShell>
+
             <SectionShell tabName="plan-month" sectionName="focus" emoji="🎯" title="This Month's Focus" defaultOpen={true}>
               <textarea
                 defaultValue={monthlyFocus}
