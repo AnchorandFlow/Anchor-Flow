@@ -5246,59 +5246,17 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
               </span>
             )}
           </div>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:18 }}>
+          {/* Compact header strip (Travel redesign) — the large read-only
+              Overview TripCard (name/destination/dates/status/notes) that used
+              to sit here is removed entirely; "Edit trip info" (renamed from
+              "Edit trip") in this row is now the only way to open the edit
+              modal from the detail page header. */}
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
             <button onClick={function(){ addReservation(); setActiveTripCard("reservations") }} style={{ background:"rgba(142,142,181,0.12)", border:"1px solid rgba(142,142,181,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:"#8e8eb5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>＋ Reservation</button>
             <button onClick={function(){ setActiveTripCard("itinerary") }} style={{ background:"rgba(217,138,110,0.12)", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:"#d98a6e", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>＋ Itinerary item</button>
             <button onClick={function(){ setActiveTripCard("packing") }} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>📦 Packing</button>
-            <button onClick={function(){ openEdit(detailTrip) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip</button>
+            <button onClick={function(){ openEdit(detailTrip) }} style={{ background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip info</button>
           </div>
-
-          {/* Phase B: read-only summary — editing now happens only through the
-              "Edit trip info" header button, which opens the existing formTrip
-              modal. Previously this card had its own always-editable inputs, a
-              second, parallel edit surface for the exact same fields as the
-              modal — removed rather than kept in sync with a duplicate draft.
-              Fix 3 (Travel redesign): added a matching "Edit trip info" button
-              directly on this card (same modal, not a second edit surface) plus
-              the Notes field, which this read-only summary was missing. */}
-          <TripCard icon="📋" title="Overview" accent={sand} defaultOpen={true}>
-            <div style={{ display:"flex", flexDirection:"column", gap:12, paddingTop:10 }}>
-              <div>
-                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Trip name</label>
-                <div style={{ fontSize:15, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.name || "Untitled trip"}</div>
-              </div>
-              <div>
-                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Destination</label>
-                <div style={{ fontSize:15, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.destination || "Not set"}</div>
-              </div>
-              <div style={{ display:"flex", gap:24 }}>
-                <div>
-                  <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Start date</label>
-                  <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.startDate ? formatTripDate(detailTrip.startDate) : "Not set"}</div>
-                </div>
-                <div>
-                  <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>End date</label>
-                  <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{detailTrip.endDate ? formatTripDate(detailTrip.endDate) : "Not set"}</div>
-                </div>
-              </div>
-              <div>
-                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Status</label>
-                {detailTrip.status ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                    <span style={{ width:7, height:7, borderRadius:"50%", background:TRIP_STATUS_COLORS[detailTrip.status]||sand, display:"inline-block", flexShrink:0 }}/>
-                    <span style={{ fontSize:14, color:TRIP_STATUS_COLORS[detailTrip.status]||sand, fontFamily:"DM Sans,sans-serif" }}>{detailTrip.status}</span>
-                  </div>
-                ) : (
-                  <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>Not set</div>
-                )}
-              </div>
-              <div>
-                <label style={Object.assign({},labelStyle,{color:"#4a6275"})}>Notes</label>
-                <div style={{ fontSize:14, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", whiteSpace:"pre-wrap" }}>{detailTrip.notes || "No notes yet."}</div>
-              </div>
-              <button onClick={function(){ openEdit(detailTrip) }} style={{ alignSelf:"flex-start", background:"rgba(200,169,122,0.12)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"7px 12px", fontSize:12, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600 }}>✏️ Edit trip info</button>
-            </div>
-          </TripCard>
 
           {CARD_GROUPS_ORDER.map(function(g) {
             var idsInGroup = cardOrder.filter(function(id){ return CARD_GROUP_OF[id]===g })
