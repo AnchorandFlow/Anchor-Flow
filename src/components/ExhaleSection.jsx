@@ -400,6 +400,88 @@ export default function ExhaleSection(props) {
 
   function persistBuckets(nb) { setBuckets(nb); lsSet(LS_B, nb); }
 
+  // ── Compass smart features — inert unless compassEnabled ──────────────────
+  var compassEnabled = !!props.compassEnabled;
+
+  // Fix 3: auto-categorize suggestion on add. Per-item suggestion, dismissed
+  // or applied individually; never persisted, never blocks the add itself.
+  var [compassSuggestions, setCompassSuggestions] = useState({});
+  async function requestCompassSuggestion(item) {
+    if (categories.length === 0 && householdPeople.length === 0) return;
+    try {
+      var catList = categories.map(function(c) { return c.id + ": " + c.label; }).join("\n") || "(none)";
+      var peopleList = householdPeople.map(function(p) { return p.id + ": " + p.name; }).join("\n") || "(none)";
+      var system = "You are a household task assistant. Given a short task description, suggest the best matching category and person from the provided lists, ONLY if one clearly applies. Respond ONLY with JSON: {\"categoryId\":null,\"personId\":null}. Use ONLY the exact ids provided, or null.";
+      var userMsg = "Categories (id: label):\n" + catList + "\n\nHousehold members (id: name):\n" + peopleList + "\n\nTask: " + item.text;
+      var r = await fetch("/api/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 150, system: system, messages: [{ role: "user", content: userMsg }] }) });
+      if (!r.ok) return;
+      var d = await r.json();
+      var txtBlock = (d.content && d.content.find(function(b) { return b.type === "text"; })) || {};
+      var parsed = JSON.parse((txtBlock.text || "{}").replace(/```json|```/g, "").trim());
+      var cat = parsed.categoryId ? categories.find(function(c) { return c.id === parsed.categoryId; }) : null;
+      var person = parsed.personId ? householdPeople.find(function(p) { return p.id === parsed.personId; }) : null;
+      if (!cat && !person) return;
+      setCompassSuggestions(function(prev) {
+        return Object.assign({}, prev, { [item.id]: { categoryId: cat ? cat.id : null, categoryLabel: cat ? cat.label : null, personId: person ? person.id : null, personName: person ? person.name : null } });
+      });
+    } catch (e) { /* suggestion is best-effort — never surfaces an error to the user */ }
+  }
+  function applyCompassSuggestion(itemId) {
+    var sug = compassSuggestions[itemId];
+    if (!sug) return;
+    var patch = {};
+    if (sug.categoryId) patch.categoryId = sug.categoryId;
+    if (sug.personId) patch.personId = sug.personId;
+    updateBucketItem(itemId, patch);
+    dismissCompassSuggestion(itemId);
+  }
+  function dismissCompassSuggestion(itemId) {
+    setCompassSuggestions(function(prev) { var next = Object.assign({}, prev); delete next[itemId]; return next; });
+  }
+
+  // Fix 4: stale item nudge, Exhaled bucket (index 0) only. "Stale" = sitting
+  // in bucket 0 for more than 7 days. Referenced by bucketIndex, not name,
+  // since bucket names are user-renameable (same convention used elsewhere
+  // in this file for the Exhaled bucket).
+  var STALE_MS = 7 * 24 * 60 * 60 * 1000;
+  var STALE_NUDGE_LS_KEY = "af_exhale_compass_nudge_last_shown";
+  var staleItems = buckets.items
+    .filter(function(it) { return it.bucketIndex === 0 && !it.archived && (Date.now() - (it.createdAt || 0)) > STALE_MS; })
+    .sort(function(a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  var [staleReviewIds, setStaleReviewIds] = useState({});
+  var [staleNudgeShownToday, setStaleNudgeShownToday] = useState(function() {
+    return localStorage.getItem(STALE_NUDGE_LS_KEY) === new Date().toDateString();
+  });
+  var showStaleNudge = compassEnabled && staleItems.length > 0 && !staleNudgeShownToday;
+  useEffect(function() {
+    if (showStaleNudge) {
+      localStorage.setItem(STALE_NUDGE_LS_KEY, new Date().toDateString());
+      setStaleNudgeShownToday(true);
+    }
+  }, [showStaleNudge]);
+  function reviewStaleItems() {
+    var ids = {};
+    staleItems.forEach(function(it) { ids[it.id] = true; });
+    setStaleReviewIds(ids);
+    setOpenBuckets(function(p) { return Object.assign({}, p, { 0: true }); });
+  }
+  function moveOldestStaleToSomeday() {
+    if (staleItems.length === 0) return;
+    updateBucketItem(staleItems[0].id, { bucketIndex: buckets.bucketNames.length - 1 });
+  }
+  // Lets "Review now" force-expand every stale item (overlaying the normal
+  // single-expandedItemId model) while still letting each one be individually
+  // collapsed afterward.
+  function toggleItemExpanded(id) {
+    var isExp = expandedItemId === id || !!staleReviewIds[id];
+    if (isExp) {
+      setExpandedItemId(function(cur) { return cur === id ? null : cur; });
+      if (staleReviewIds[id]) setStaleReviewIds(function(prev) { var next = Object.assign({}, prev); delete next[id]; return next; });
+    } else {
+      setExpandedItemId(id);
+    }
+  }
+
   // One-time migration: af_exhale_groups (column data) → af_exhale_buckets.
   // Flag-gated (not just "buckets.items.length===0") so a household that
   // later archives/deletes every bucket item never re-migrates and silently
@@ -489,6 +571,7 @@ export default function ExhaleSection(props) {
     var item = { id: uuidv4(), text: txt, notes: "", bucketIndex: bucketIndex, createdAt: Date.now(), color: BUCKET_COLORS[bucketIndex % BUCKET_COLORS.length] };
     var nb = Object.assign({}, buckets, { items: [item].concat(buckets.items) });
     persistBuckets(nb);
+    if (compassEnabled) requestCompassSuggestion(item);
   }
 
   function updateBucketItem(id, patch) {
@@ -1344,6 +1427,19 @@ export default function ExhaleSection(props) {
 
         {isOpen && (
           <div style={{ padding: "0 12px 10px", minHeight: 8, background: isDropTarget ? "rgba(27,46,79,0.04)" : "transparent" }}>
+            {idx === 0 && showStaleNudge && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, padding: "8px 10px", borderRadius: 8, background: accent + "14", border: "1px solid " + accent + "33" }}>
+                <div style={{ fontSize: 11.5, color: txP }}>
+                  You have {staleItems.length} item{staleItems.length === 1 ? "" : "s"} sitting here for over a week. Ready to act on any?
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={reviewStaleItems}
+                    style={{ background: accent, color: "white", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Review now</button>
+                  <button onClick={moveOldestStaleToSomeday}
+                    style={{ background: "none", border: "1px solid " + accent, color: accent, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer" }}>Move oldest to Someday</button>
+                </div>
+              </div>
+            )}
             {selectMode && selectedCount > 0 && (
               <div style={{ marginBottom: 8 }}>
                 <button onClick={() => deleteSelectedItems(idx)}
@@ -1397,7 +1493,7 @@ export default function ExhaleSection(props) {
             )}
 
             {filteredItems.map(function(item) {
-              var isExpanded = expandedItemId === item.id;
+              var isExpanded = expandedItemId === item.id || !!staleReviewIds[item.id];
               var isBeingDragged = dragFromId === item.id;
               var isDragOverThis = dragOverId === item.id;
               var isSelected = !!selectedItemIds[item.id];
@@ -1421,18 +1517,29 @@ export default function ExhaleSection(props) {
                         style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, marginTop: 2, touchAction: "none" }}>⠿</span>
                     )}
                     {dotColor && <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, marginTop: 5, flexShrink: 0 }} />}
-                    <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setExpandedItemId(isExpanded ? null : item.id)}>
+                    <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => toggleItemExpanded(item.id)}>
                       <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
                       {!isExpanded && item.notes && (
                         <div style={{ fontSize: 10.5, marginTop: 2, opacity: 0.7, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.notes}</div>
                       )}
                     </div>
-                    <span onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
+                    <span onClick={() => toggleItemExpanded(item.id)}
                       style={{ fontSize: 11, color: txS, cursor: "pointer", flexShrink: 0, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>⌄</span>
                     <button onClick={(e) => { e.stopPropagation(); deleteBucketItemImmediate(item.id); }}
                       className="af-exhale-x" aria-label="Delete item"
                       style={{ background: "none", border: "none", color: txS, fontSize: 13, lineHeight: 1, padding: "0 2px", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>×</button>
                   </div>
+                  {compassSuggestions[item.id] && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, padding: "4px 7px", borderRadius: 6, background: accent + "14", fontSize: 10.5, color: txS }}>
+                      <span style={{ flex: 1 }}>
+                        Compass suggests: {[compassSuggestions[item.id].categoryLabel, compassSuggestions[item.id].personName].filter(Boolean).join(" · ")} — Apply?
+                      </span>
+                      <button onClick={(e) => { e.stopPropagation(); applyCompassSuggestion(item.id); }}
+                        style={{ background: accent, color: "white", border: "none", borderRadius: 5, padding: "2px 7px", fontSize: 10, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>Apply</button>
+                      <button onClick={(e) => { e.stopPropagation(); dismissCompassSuggestion(item.id); }}
+                        style={{ background: "none", border: "none", color: txS, fontSize: 12, cursor: "pointer", padding: "0 2px", flexShrink: 0 }}>×</button>
+                    </div>
+                  )}
                   {isExpanded && (
                     <div style={{ marginTop: 8 }}>
                       <textarea value={item.notes || ""} onChange={(e) => updateBucketItem(item.id, { notes: e.target.value })}

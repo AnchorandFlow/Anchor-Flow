@@ -16497,6 +16497,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 householdId={householdId}
                 myPersonId={myPersonId}
                 people={people}
+                compassEnabled={compassEnabled}
                 onSave={function(items, labels) {
                   setExhaleItems(items);
                   setExhaleLabels(labels);
