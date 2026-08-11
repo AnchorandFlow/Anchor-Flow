@@ -931,6 +931,15 @@ const CELEBRATION_TYPES = [
 // is written now so Phase 1's status count is forward-compatible with
 // Phase 2 filling those fields in, without another pass over this list.
 var PLANNING_DIMENSIONS = ["guestList","gifts","budget","food","decorations","activities","todo"]
+// Celebrations redesign — pastel card color per type, with a darker matching
+// accent for the planning progress bar. CELEBRATION_TYPES has 9 ids; the
+// spec's palette only names 5 (birthday/holiday/anniversary/milestone/other)
+// — graduation/party/wedding/babyshower fold into "other" rather than being
+// left uncolored.
+var CELEB_TYPE_COLORS = { birthday:"#fde5dc", holiday:"#d4ede0", anniversary:"#dbeeff", milestone:"#fdf3d4", other:"#f5e0e8" }
+var CELEB_TYPE_ACCENT = { birthday:"#d98a6e", holiday:"#7a9e8e", anniversary:"#7aa8c8", milestone:"#c8a97a", other:"#c4849a" }
+function celebCardColor(typeId) { return CELEB_TYPE_COLORS[typeId] || CELEB_TYPE_COLORS.other }
+function celebCardAccent(typeId) { return CELEB_TYPE_ACCENT[typeId] || CELEB_TYPE_ACCENT.other }
 function planningFilledCount(c, hasGifts) {
   var n = 0
   if (Array.isArray(c.guestList) && c.guestList.length > 0) n++
@@ -988,6 +997,9 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   const [celebType, setCelebType] = useState("birthday")
   const [form, setForm] = useState({ name: "", month: "", day: "", year: "", notes: "" })
   const [filter, setFilter] = useState("upcoming")
+  // "Past this year" section — collapsed by default, same convention as
+  // Travel's "Past Adventures" collapsible.
+  const [pastCollapsed, setPastCollapsed] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ name: "", month: "", day: "", year: "", notes: "", type: "birthday" })
   const [celebTab, setCelebTab] = useState("celebrations")
@@ -1568,6 +1580,31 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   const past = all.filter(function(e) { return e.diff < 0 })
   const shown = filter === "upcoming" ? upcoming : all
 
+  // Featured "Next Up" panel — celebEntries always rolls a passed date
+  // forward to its next occurrence (see the map above), so diff is never
+  // negative and all[0] (sorted ascending) is always the single nearest
+  // celebration, independent of the Upcoming/All tab filter below. Only
+  // null when there are no celebrations at all.
+  const nextUp = all.length > 0 ? all[0] : null
+  const gridEntries = shown.filter(function(e) { return !nextUp || e.id !== nextUp.id })
+
+  // "Past this year" — celebEntries above always looks at the *next*
+  // occurrence, so its diff is never negative; this is a separate pass over
+  // the raw celebrations comparing against this literal calendar year's
+  // date (same date math passedThisYear above already uses for its count),
+  // producing full displayable entries instead of just a number.
+  const pastThisYearEntries = celebrations.filter(function(c) {
+    const thisYearDate = new Date(year, c.month-1, c.day)
+    return thisYearDate < now
+  }).map(function(c) {
+    const typeInfo = CELEBRATION_TYPES.find(function(t) { return t.id === c.type }) || CELEBRATION_TYPE_OTHER
+    const thisYearDate = new Date(year, c.month-1, c.day)
+    const diff = Math.round((thisYearDate - now) / 86400000)
+    const cGifts = celebGifts(c.id, c.personId)
+    const planned = planningFilledCount(c, cGifts.length > 0)
+    return { ...c, typeInfo, diff, emoji: typeInfo.emoji, planned: planned, planTotal: PLANNING_DIMENSIONS.length }
+  }).sort(function(a, b) { return b.diff - a.diff })
+
   const detailCeleb = detailCelebId ? celebEntries.find(function(c) { return c.id === detailCelebId }) : null
   // F-recipes: a recipe matches this celebration when any of its occasion
   // tags appears as a substring of the celebration's name (case-insensitive) —
@@ -1717,6 +1754,29 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
       </div>
       <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
 
+      {/* Featured "Next Up" panel (Celebrations redesign) */}
+      {nextUp && (
+        <div onClick={function() { openCelebDetail(nextUp.id) }} style={{ background: "#ddeaf4", borderRadius: 10, padding: "14px 16px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span style={{ fontSize: 26, flexShrink: 0 }}>{nextUp.emoji}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{nextUp.name}</div>
+              <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                {nextUp.month && MONTHS[nextUp.month-1]+" "+nextUp.day}{" · "}{nextUp.typeInfo && nextUp.typeInfo.label}{" · "}{nextUp.planned} of {nextUp.planTotal} planned
+              </div>
+            </div>
+          </div>
+          {nextUp.diff === 0 ? (
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", flexShrink: 0 }}>🎉 Today!</div>
+          ) : (
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", lineHeight: 1 }}>{nextUp.diff}</div>
+              <div style={{ fontSize: 12, color: "#4a6275", marginTop: 2 }}>days away</div>
+            </div>
+          )}
+        </div>
+      )}
+
       {adding && (
         <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, padding:A.cardPadding, marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
@@ -1756,43 +1816,65 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
         })}
       </div>
 
-      {shown.length === 0 && <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
-      {shown.map(function(e, i) {
-        const isPast = e.diff < 0
-        const cGifts = celebGifts(e.id, e.personId)
-        const boughtCount = cGifts.filter(function(g) { return g.purchased }).length
-        const hasGifts = cGifts.length > 0
-
-        return (
-          <div key={e.id || i} onClick={function() { openCelebDetail(e.id) }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 10, overflow: "hidden", cursor: "pointer" }}>
-            {/* Card header — icon, name, type, countdown */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px 8px" }}>
-              <div style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{e.emoji}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: isPast ? "#4a6275" : "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>{e.label}</span>
-                  {hasGifts && <span style={{ fontSize: 12 }} title={boughtCount + "/" + cGifts.length + " bought"}>🎁</span>}
-                  {hasGifts && boughtCount < cGifts.length && <span style={{ fontSize: 9, background: "rgba(200,131,74,0.2)", color: "#c8834a", borderRadius: 8, padding: "1px 5px", fontFamily: "DM Sans,sans-serif", fontWeight: 700 }}>{cGifts.length - boughtCount} to get</span>}
+      {gridEntries.length === 0 && <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", textAlign: "center", padding: "32px 0" }}>No celebrations yet — tap + Add to get started.</div>}
+      {gridEntries.length > 0 && (
+        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {gridEntries.map(function(e) {
+            const bg = celebCardColor(e.type)
+            const accent = celebCardAccent(e.type)
+            return (
+              <div key={e.id} onClick={function() { openCelebDetail(e.id) }} style={{ background: bg, borderRadius: 10, padding: "12px 14px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 16, flexShrink: 0 }}>{e.emoji}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
+                  {/* Delete stays — the only way to remove a celebration; not in the
+                      spec's "each card shows" list but dropping it would be a real
+                      functionality loss (no delete exists in the detail view). */}
+                  <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} aria-label="Delete celebration" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "0 2px", color: "#4a6275", flexShrink: 0 }}>✕</button>
                 </div>
-                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
-                  {e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.typeInfo && e.typeInfo.label}
-                  {" · "}<span style={{ color: isPast ? "#4a6275" : e.diff<=7 ? "#c8834a" : "#1a2e3d", fontWeight: e.diff<=7 && !isPast ? 700 : 500 }}>{e.countdown}</span>
+                <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.typeInfo && e.typeInfo.label}</div>
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", lineHeight: 1 }}>{e.diff}</div>
+                    <div style={{ fontSize: 10, color: "#4a6275", marginTop: 1 }}>days</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif", whiteSpace: "nowrap" }}>{e.planned} of {e.planTotal}</div>
                 </div>
-                {e.notes && <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2, fontStyle: "italic" }}>{e.notes}</div>}
+                <div style={{ height: 4, borderRadius: 2, background: "rgba(26,46,61,0.12)", overflow: "hidden" }}>
+                  <div style={{ width: (e.planned/e.planTotal*100)+"%", height: "100%", background: accent, transition: "width 0.3s" }} />
+                </div>
               </div>
-              <button onClick={function(ev) { ev.stopPropagation(); save(celebrations.filter(function(x) { return x.id !== e.id })) }} aria-label="Delete celebration" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, padding: "2px 3px", color: "#4a6275", flexShrink: 0 }}>✕</button>
-            </div>
+            )
+          })}
+        </div>
+      )}
 
-            {/* Planning status — N of 7 planning cards have content */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 14px 10px" }}>
-              <div style={{ flex: 1, height: 4, background: "rgba(26,46,61,0.1)", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: (e.planned/e.planTotal*100)+"%", height: "100%", background: e.planned===0 ? "rgba(250,242,229,0.12)" : "#c8a97a", transition: "width 0.3s" }} />
-              </div>
-              <span style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif", whiteSpace: "nowrap" }}>{e.planned} of {e.planTotal} planned</span>
-            </div>
+      {/* Past this year — collapsed by default, muted cards, no countdown. */}
+      {pastThisYearEntries.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div onClick={function() { setPastCollapsed(function(p) { return !p }) }} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "8px 0", borderTop: "0.5px solid rgba(250,242,229,0.08)" }}>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif" }}>Past this year ({pastThisYearEntries.length})</span>
+            <span style={{ fontSize: 11, color: "rgba(250,248,244,0.4)", transform: pastCollapsed ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}>▾</span>
           </div>
-        )
-      })}
+          {!pastCollapsed && (
+            <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+              {pastThisYearEntries.map(function(e) {
+                const bg = celebCardColor(e.type)
+                return (
+                  <div key={e.id} onClick={function() { openCelebDetail(e.id) }} style={{ background: bg, borderRadius: 10, padding: "12px 14px", cursor: "pointer", opacity: 0.6, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{e.emoji}</span>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{e.month && MONTHS[e.month-1]+" "+e.day}{" · "}{e.typeInfo && e.typeInfo.label}</div>
+                    <div style={{ fontSize: 10, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{e.planned} of {e.planTotal} planned</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
       </>)}
 
       {celebTab === "gifts" && (
