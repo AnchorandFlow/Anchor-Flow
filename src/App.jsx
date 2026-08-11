@@ -2358,6 +2358,23 @@ async function refreshAuthToken() {
   return p;
 }
 
+// Zombie-session recovery: clearZombieAuthKeys() handles the localStorage side
+// (pure, unit-tested in tests/protocol/sync.test.js — left untouched) — this
+// wraps it with unregistering any active service worker, so a stale worker
+// can't keep serving an old bundle into the next login attempt. Called at
+// every "refresh failed, zombie session detected" site instead of calling
+// clearZombieAuthKeys() directly.
+function recoverFromAuthFailure() {
+  clearZombieAuthKeys();
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      }).catch(function() {});
+    }
+  } catch (e) {}
+}
+
 // Hydration guard flag — see setSaved. True until ~1.5s after first mount.
 let _afHydrating = true;
 function _afEndHydration(){ _afHydrating = false; }
@@ -2593,7 +2610,7 @@ function HomeFlow({ recoveryToken }) {
           setAuthToken(newToken);
         } else {
           console.warn("[AF AUTH] boot refresh failed — zombie session detected");
-          clearZombieAuthKeys();
+          recoverFromAuthFailure();
           setAuthToken(null);
           setAuthUser(null);
           setShowAuthModal(true);
@@ -2917,7 +2934,7 @@ function createLocalBackup() {
         setAuthToken(null);
         setAuthUser(null);
         setShowAuthModal(true);
-        clearZombieAuthKeys();
+        recoverFromAuthFailure();
         showInAppBanner("Session expired — please sign in again.", "error");
       } else if (e?.message?.toLowerCase().includes("failed to fetch") || e?.message?.toLowerCase().includes("networkerror") || e?.message?.toLowerCase().includes("network request failed")) {
         console.warn("[AF SYNC] stale-check network error — push paused", e.message);
@@ -3033,7 +3050,7 @@ function createLocalBackup() {
         setAuthToken(null);
         setAuthUser(null);
         setShowAuthModal(true);
-        clearZombieAuthKeys();
+        recoverFromAuthFailure();
         showInAppBanner("Session expired — please sign in again.", "error");
         return;
       }
@@ -3540,7 +3557,7 @@ function createLocalBackup() {
           setAuthToken(null);
           setAuthUser(null);
           setShowAuthModal(true);
-          clearZombieAuthKeys();
+          recoverFromAuthFailure();
           showInAppBanner("Session expired — please sign in again.", "error");
           clearInterval(interval);
           clearTimeout(initial);
