@@ -3557,7 +3557,7 @@ function TripCard(props) {
           {/* Circular icon badge — same shape/sizing convention as Health's HPersonCard avatar (~5921), tinted from this card's own accent instead of a solid person-color */}
           <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
           <div>
-            <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
+            <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:500, color:"#1a2e3d", lineHeight:1.2 }}>{props.title}</div>
             {/* Always-visible content preview, even collapsed — same stat/status-text convention as HPersonCard's preview rows (~5942) */}
             {props.preview && <div style={{ fontSize:11, color:props.previewColor||"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
           </div>
@@ -3586,7 +3586,7 @@ function TripCardTile(props) {
     <div onClick={props.onClick} style={{ background:bg, border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:A.cardPadding, cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
       <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
+        <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:500, color:"#1a2e3d", lineHeight:1.2 }}>{props.title}</div>
         {props.preview && <div style={{ fontSize:11, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{props.preview}</div>}
       </div>
       <span style={{ fontSize:16, color:"#4a6275", flexShrink:0 }}>›</span>
@@ -5337,17 +5337,22 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 ) : inProgress ? (
                   <div>
                     <div style={{ fontSize:20, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>In progress</div>
-                    {(len && dayNum) ? <div style={{ fontSize:12, color:muted, marginTop:2 }}>Day {dayNum} of {len}</div> : null}
+                    {/* Bug fix: this block sits on a pale-blue background, not the
+                        dark navy page background — TripsSection's own `muted` is
+                        near-white/low-opacity (tuned for dark backgrounds) and was
+                        rendering invisibly here. #4a6275 matches the secondary-text
+                        color already used on light cards elsewhere in this file. */}
+                    {(len && dayNum) ? <div style={{ fontSize:12, color:"#4a6275", marginTop:2 }}>Day {dayNum} of {len}</div> : null}
                   </div>
                 ) : (
                   <div>
                     <div style={{ fontSize:36, fontWeight:700, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif", lineHeight:1 }}>{start!==null?start:"—"}</div>
-                    <div style={{ fontSize:12, color:muted, marginTop:2 }}>{start!==null?"days away":"No date set"}</div>
+                    <div style={{ fontSize:12, color:"#4a6275", marginTop:2 }}>{start!==null?"days away":"No date set"}</div>
                   </div>
                 )}
                 <div style={{ textAlign:"right" }}>
                   {detailTrip.startDate && <div style={{ fontSize:13, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>{formatTripDate(detailTrip.startDate)}</div>}
-                  <div style={{ fontSize:11, color:muted, marginTop:2 }}>{filledCount} of {TRIP_MINI_CARD_ORDER.length} cards started</div>
+                  <div style={{ fontSize:11, color:"#4a6275", marginTop:2 }}>{filledCount} of {TRIP_MINI_CARD_ORDER.length} cards started</div>
                 </div>
               </div>
             )
