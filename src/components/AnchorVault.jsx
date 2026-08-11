@@ -3571,8 +3571,12 @@ function TripCard(props) {
 // TripCard, untouched, until their own turn.
 function TripCardTile(props) {
   var accent = props.accent || "#c8a97a"
+  // Bug 2 fix: bg lets callers pass the category's pastel color (TRIP_MINI_CARD_COLORS)
+  // to match the landing-page mini-grid; falls back to the original sand card for any
+  // TripCardTile caller that doesn't pass one (dining, emergencyInfo — not in that palette).
+  var bg = props.bg || "#f7f1e3"
   return (
-    <div onClick={props.onClick} style={{ background:"#f7f1e3", border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:A.cardPadding, cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+    <div onClick={props.onClick} style={{ background:bg, border:"1px solid "+accent+"33", borderRadius:8, marginBottom:12, overflow:"hidden", padding:A.cardPadding, cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
       <div style={{ width:30, height:30, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{props.icon}</div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:accent, lineHeight:1.2 }}>{props.title}</div>
@@ -4542,7 +4546,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var trPreview = trList.length===0 ? "No transportation added yet." :
         (trFirst.carrier||trFirst.type||"Trip added")+(trFirst.departure?" · "+trFirst.departure:"")+(trList.length>1?" +"+(trList.length-1)+" more":"")
       return (
-        <TripCardTile key="transportation" icon={CARD_META.transportation.icon} title={CARD_META.transportation.title} accent={CARD_META.transportation.accent} preview={trPreview} onClick={function(){ setActiveTripCard("transportation") }}/>
+        <TripCardTile key="transportation" icon={CARD_META.transportation.icon} title={CARD_META.transportation.title} accent={CARD_META.transportation.accent} bg={TRIP_MINI_CARD_COLORS.transportation} preview={trPreview} onClick={function(){ setActiveTripCard("transportation") }}/>
       )
     },
     lodging: function(){
@@ -4551,7 +4555,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var lgPreview = lgList.length===0 ? "No lodging added yet." :
         (lgFirst.name||"Lodging added")+(lgList.length>1?" +"+(lgList.length-1)+" more":"")
       return (
-        <TripCardTile key="lodging" icon={CARD_META.lodging.icon} title={CARD_META.lodging.title} accent={CARD_META.lodging.accent} preview={lgPreview} onClick={function(){ setActiveTripCard("lodging") }}/>
+        <TripCardTile key="lodging" icon={CARD_META.lodging.icon} title={CARD_META.lodging.title} accent={CARD_META.lodging.accent} bg={TRIP_MINI_CARD_COLORS.lodging} preview={lgPreview} onClick={function(){ setActiveTripCard("lodging") }}/>
       )
     },
     packing: function(){
@@ -4559,7 +4563,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var allItems = sections.reduce(function(acc,s){ return acc.concat(s.items) }, [])
       var packPreview = allItems.length===0 ? "No packing items added yet." : allItems.filter(function(i){return i.done}).length+"/"+allItems.length+" packed"
       return (
-        <TripCardTile key="packing" icon={CARD_META.packing.icon} title={CARD_META.packing.title} accent={CARD_META.packing.accent} preview={packPreview} onClick={function(){ setActiveTripCard("packing") }}/>
+        <TripCardTile key="packing" icon={CARD_META.packing.icon} title={CARD_META.packing.title} accent={CARD_META.packing.accent} bg={TRIP_MINI_CARD_COLORS.packing} preview={packPreview} onClick={function(){ setActiveTripCard("packing") }}/>
       )
     },
     itinerary: function(){
@@ -4567,21 +4571,21 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var allActs = days.reduce(function(acc,d){ return acc.concat(d.activities) }, [])
       var itinPreview = days.length===0 ? "No itinerary yet." : days.length+" day"+(days.length===1?"":"s")+" · "+allActs.length+" activit"+(allActs.length===1?"y":"ies")
       return (
-        <TripCardTile key="itinerary" icon={CARD_META.itinerary.icon} title={CARD_META.itinerary.title} accent={CARD_META.itinerary.accent} preview={itinPreview} onClick={function(){ setActiveTripCard("itinerary") }}/>
+        <TripCardTile key="itinerary" icon={CARD_META.itinerary.icon} title={CARD_META.itinerary.title} accent={CARD_META.itinerary.accent} bg={TRIP_MINI_CARD_COLORS.itinerary} preview={itinPreview} onClick={function(){ setActiveTripCard("itinerary") }}/>
       )
     },
     activities: function(){
       var actList = normalizeActivities(detailTrip.activities)
       var actPreview = actList.length===0 ? "No activities added yet." : actList.filter(function(i){return i.done}).length+"/"+actList.length+" done"
       return (
-        <TripCardTile key="activities" icon={CARD_META.activities.icon} title={CARD_META.activities.title} accent={CARD_META.activities.accent} preview={actPreview} onClick={function(){ setActiveTripCard("activities") }}/>
+        <TripCardTile key="activities" icon={CARD_META.activities.icon} title={CARD_META.activities.title} accent={CARD_META.activities.accent} bg={TRIP_MINI_CARD_COLORS.activities} preview={actPreview} onClick={function(){ setActiveTripCard("activities") }}/>
       )
     },
     reservations: function(){
       var resList = normalizeReservations(detailTrip.reservations)
       var resPreview = resList.length===0 ? "No reservations added yet." : resList.length+(resList.length===1?" reservation":" reservations")
       return (
-        <TripCardTile key="reservations" icon={CARD_META.reservations.icon} title={CARD_META.reservations.title} accent={CARD_META.reservations.accent} preview={resPreview} onClick={function(){ setActiveTripCard("reservations") }}/>
+        <TripCardTile key="reservations" icon={CARD_META.reservations.icon} title={CARD_META.reservations.title} accent={CARD_META.reservations.accent} bg={TRIP_MINI_CARD_COLORS.reservations} preview={resPreview} onClick={function(){ setActiveTripCard("reservations") }}/>
       )
     },
     budget: function(){
@@ -4593,7 +4597,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var budgetPreview = remaining===null ? "No budget set yet." : "$"+spentTotal.toLocaleString()+" of $"+est.toLocaleString()+" planned"
       var budgetPreviewColor = remaining!==null && remaining<0 ? "#e07070" : undefined
       return (
-        <TripCardTile key="budget" icon={CARD_META.budget.icon} title={CARD_META.budget.title} accent={CARD_META.budget.accent} preview={budgetPreview} previewColor={budgetPreviewColor} onClick={function(){ setActiveTripCard("budget") }}/>
+        <TripCardTile key="budget" icon={CARD_META.budget.icon} title={CARD_META.budget.title} accent={CARD_META.budget.accent} bg={TRIP_MINI_CARD_COLORS.budget} preview={budgetPreview} previewColor={budgetPreviewColor} onClick={function(){ setActiveTripCard("budget") }}/>
       )
     },
     documents: function(){
@@ -4601,7 +4605,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var warnCount = docList.filter(function(d){ return documentExpiryStatus(d)!==null }).length
       var docPreview = docList.length===0 ? "No documents added yet." : docList.filter(function(i){return i.confirmed}).length+"/"+docList.length+" ready"+(warnCount>0?" · ⚠️ "+warnCount+" expiring soon":"")
       return (
-        <TripCardTile key="documents" icon={CARD_META.documents.icon} title={CARD_META.documents.title} accent={CARD_META.documents.accent} preview={docPreview} previewColor={warnCount>0?"#e0937a":undefined} onClick={function(){ setActiveTripCard("documents") }}/>
+        <TripCardTile key="documents" icon={CARD_META.documents.icon} title={CARD_META.documents.title} accent={CARD_META.documents.accent} bg={TRIP_MINI_CARD_COLORS.documents} preview={docPreview} previewColor={warnCount>0?"#e0937a":undefined} onClick={function(){ setActiveTripCard("documents") }}/>
       )
     },
     dining: function(){
@@ -4627,7 +4631,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       var notesLine = (detailTrip.notes||"").split("\n")[0].trim()
       var notesPreview = notesLine ? (notesLine.length>60?notesLine.slice(0,60)+"…":notesLine) : "No notes yet."
       return (
-        <TripCardTile key="notes" icon={CARD_META.notes.icon} title={CARD_META.notes.title} accent={CARD_META.notes.accent} preview={notesPreview} onClick={function(){ setActiveTripCard("notes") }}/>
+        <TripCardTile key="notes" icon={CARD_META.notes.icon} title={CARD_META.notes.title} accent={CARD_META.notes.accent} bg={TRIP_MINI_CARD_COLORS.notes} preview={notesPreview} onClick={function(){ setActiveTripCard("notes") }}/>
       )
     },
     emergencyInfo: function(){
