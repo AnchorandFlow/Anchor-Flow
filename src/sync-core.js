@@ -82,6 +82,11 @@ export const SYNC_KEYS = [
   // exhale_groups (kept registered, no longer written to) so existing sync
   // isn't disturbed.
   "exhale_buckets",
+  // exhale_categories: person/category tagging on bucket items — array of
+  // {id,label,color}, shared across all buckets. A new key, not reusing
+  // exhale_color_labels (that one is a colorId->labelString rename map for
+  // the old Kanban board's fixed palette, a different shape entirely).
+  "exhale_categories",
   // exhale_waves: Exhale Phase 2 — { daily:[], weekly:[], seasonal:[],
   // custom:[] }, each an array of wave cards with their own tasks. Today.jsx
   // already reads this key defensively; this is where it gets populated.
@@ -306,6 +311,10 @@ export function sanitizeHouseholdData(data) {
      // Exhale board columns. Same guard class as countdowns — top-level
      // array + null entries only, sub-field shapes unvalidated.
      "exhale_columns",
+     // exhale_categories: array of { id, label, color } — person/category
+     // tags on bucket items, shared across all buckets. Same simple flat-
+     // object guard class as exhale_columns/countdowns above.
+     "exhale_categories",
      // Home Phase 3: home_projects ({id,name,status,budget,notes,tasks:[]}),
      // home_documents ({id,name,type,expiryDate,notes,url}), home_supplies
      // ({id,name,quantity,needToRestock}). Same guard class as trips/

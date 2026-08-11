@@ -16496,6 +16496,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 initialLabels={exhaleLabels}
                 householdId={householdId}
                 myPersonId={myPersonId}
+                people={people}
                 onSave={function(items, labels) {
                   setExhaleItems(items);
                   setExhaleLabels(labels);

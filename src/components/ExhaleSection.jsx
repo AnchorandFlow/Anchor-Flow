@@ -47,6 +47,19 @@ var LS_L    = "af_exhale_labels";
 var LS_CL   = "af_exhale_color_labels";
 var LS_P    = "af_exhale_people";
 var LS_COLS = "af_exhale_columns";
+// Person assignment + category tags — a new key, deliberately not reusing
+// LS_CL (af_exhale_color_labels): that key's actual shape is a color-id ->
+// label-string rename map for the old Kanban board's fixed palette, not a
+// list of {id,label,color} category objects.
+var LS_CAT = "af_exhale_categories";
+var CATEGORY_COLOR_PRESETS = [
+  { id: "coral",     label: "Coral",      color: "#d98a6e" },
+  { id: "sage",      label: "Sage",       color: "#7a9e8e" },
+  { id: "sky",       label: "Sky blue",   color: "#7aa8c8" },
+  { id: "butter",    label: "Butter",     color: "#c8a97a" },
+  { id: "dustyrose", label: "Dusty rose", color: "#c4849a" },
+  { id: "navy",      label: "Navy",       color: "#1B2E4F" },
+];
 var EXHALE_V2 = localStorage.getItem("af_exhale_v2") !== "false";
 
 // Exhale Phase 1 — bucket cards replace the column Kanban board as the
@@ -324,6 +337,24 @@ export default function ExhaleSection(props) {
 
   // ── Exhale Phase 1 — bucket state ──────────────────────────────────────────
   var myPersonId = props.myPersonId || null;
+  // The real household roster, passed in the same way myPersonId already is —
+  // named householdPeople, not `people`, since this file already has its own
+  // unrelated `people` state above (the old Kanban board's internal fake
+  // people list for its retired assignedTo field, af_exhale_people).
+  var householdPeople = props.people || [];
+  var [categories, setCategories] = useState(function() { return lsGet(LS_CAT, []); });
+  var [addingCategoryFor, setAddingCategoryFor] = useState(null); // itemId or null
+  var [newCategoryLabel, setNewCategoryLabel] = useState("");
+  var [newCategoryColor, setNewCategoryColor] = useState(CATEGORY_COLOR_PRESETS[0].color);
+  function persistCategories(next) {
+    setCategories(next);
+    lsSet(LS_CAT, next);
+  }
+  function addCategory(label, color) {
+    var cat = { id: uuidv4(), label: label, color: color };
+    persistCategories(categories.concat([cat]));
+    return cat.id;
+  }
   var [buckets, setBuckets] = useState(function() {
     var b = lsGet(LS_B, null);
     if (b && typeof b === "object" && Array.isArray(b.bucketNames) && Array.isArray(b.items)) return b;
@@ -451,6 +482,15 @@ export default function ExhaleSection(props) {
   }
 
   function archiveBucketItem(id) { updateBucketItem(id, { archived: true }); }
+
+  function togglePersonAssignment(itemId, personId) {
+    var it = buckets.items.find(function(x) { return x.id === itemId; });
+    updateBucketItem(itemId, { personId: (it && it.personId === personId) ? null : personId });
+  }
+  function toggleCategoryAssignment(itemId, categoryId) {
+    var it = buckets.items.find(function(x) { return x.id === itemId; });
+    updateBucketItem(itemId, { categoryId: (it && it.categoryId === categoryId) ? null : categoryId });
+  }
 
   function deleteBucketItem(id, text) {
     if (!window.confirm("Delete \"" + (text || "this item") + "\"?")) return;
@@ -1298,6 +1338,10 @@ export default function ExhaleSection(props) {
               var isBeingDragged = dragFromId === item.id;
               var isDragOverThis = dragOverId === item.id;
               var isSelected = !!selectedItemIds[item.id];
+              // Color dot priority: assigned person, else category, else no dot.
+              var assignedPerson = item.personId ? householdPeople.find(function(p) { return p.id === item.personId; }) : null;
+              var assignedCategory = (!assignedPerson && item.categoryId) ? categories.find(function(c) { return c.id === item.categoryId; }) : null;
+              var dotColor = assignedPerson ? assignedPerson.color : (assignedCategory ? assignedCategory.color : null);
               return (
                 <div key={item.id} data-bucketitemid={item.id} className="af-exhale-row"
                   style={{ borderRadius: 8, border: br, padding: "8px 10px", marginBottom: 6, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2 }}>
@@ -1309,7 +1353,7 @@ export default function ExhaleSection(props) {
                       <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
                         style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, marginTop: 2, touchAction: "none" }}>⠿</span>
                     )}
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || accent, marginTop: 5, flexShrink: 0 }} />
+                    {dotColor && <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, marginTop: 5, flexShrink: 0 }} />}
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setExpandedItemId(isExpanded ? null : item.id)}>
                       <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
                       {!isExpanded && item.notes && (
@@ -1327,6 +1371,67 @@ export default function ExhaleSection(props) {
                       <textarea value={item.notes || ""} onChange={(e) => updateBucketItem(item.id, { notes: e.target.value })}
                         placeholder="Notes..." rows={2}
                         style={{ width: "100%", border: br, borderRadius: 6, padding: "6px 8px", fontSize: 11.5, resize: "none", background: bgP, color: txP, fontFamily: "inherit", marginBottom: 6 }} />
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, color: txS, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Assign to</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {householdPeople.length === 0 && <div style={{ fontSize: 11, color: txS, fontStyle: "italic" }}>No household members yet.</div>}
+                          {householdPeople.map(function(p) {
+                            var active = item.personId === p.id;
+                            var pc = p.color || "#888";
+                            return (
+                              <button key={p.id} onClick={() => togglePersonAssignment(item.id, p.id)}
+                                style={{ display: "flex", alignItems: "center", gap: 5, background: active ? pc + "22" : bgP, border: "1px solid " + (active ? pc : "var(--color-border-tertiary,#e0e0e0)"), borderRadius: 20, padding: "3px 9px", fontSize: 11, color: txP, cursor: "pointer" }}>
+                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: pc, flexShrink: 0 }} />
+                                {p.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, color: txS, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>Category</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                          {categories.map(function(c) {
+                            var active = item.categoryId === c.id;
+                            return (
+                              <button key={c.id} onClick={() => toggleCategoryAssignment(item.id, c.id)}
+                                style={{ display: "flex", alignItems: "center", gap: 5, background: active ? c.color + "22" : bgP, border: "1px solid " + (active ? c.color : "var(--color-border-tertiary,#e0e0e0)"), borderRadius: 20, padding: "3px 9px", fontSize: 11, color: txP, cursor: "pointer" }}>
+                                <span style={{ width: 8, height: 8, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                                {c.label}
+                              </button>
+                            );
+                          })}
+                          <button onClick={() => { setAddingCategoryFor(addingCategoryFor === item.id ? null : item.id); setNewCategoryLabel(""); setNewCategoryColor(CATEGORY_COLOR_PRESETS[0].color); }}
+                            style={{ background: "none", border: br, borderRadius: 20, padding: "3px 9px", fontSize: 11, color: txS, cursor: "pointer" }}>+ New</button>
+                        </div>
+                        {addingCategoryFor === item.id && (
+                          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+                            <input autoFocus value={newCategoryLabel} onChange={(e) => setNewCategoryLabel(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Escape") { setAddingCategoryFor(null); } }}
+                              placeholder="Category name..." style={{ padding: "5px 8px", fontSize: 11.5, border: br, borderRadius: 6, background: bgP, color: txP, fontFamily: "inherit" }} />
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {CATEGORY_COLOR_PRESETS.map(function(preset) {
+                                var sel = newCategoryColor === preset.color;
+                                return (
+                                  <span key={preset.id} onClick={() => setNewCategoryColor(preset.color)} title={preset.label}
+                                    style={{ width: 18, height: 18, borderRadius: "50%", background: preset.color, cursor: "pointer", border: sel ? "2px solid " + txP : "2px solid transparent" }} />
+                                );
+                              })}
+                            </div>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button onClick={() => {
+                                var label = newCategoryLabel.trim();
+                                if (!label) return;
+                                var newId = addCategory(label, newCategoryColor);
+                                toggleCategoryAssignment(item.id, newId);
+                                setNewCategoryLabel(""); setAddingCategoryFor(null);
+                              }} style={{ background: accent, color: "white", border: "none", borderRadius: 7, padding: "5px 12px", fontSize: 11, cursor: "pointer" }}>Add</button>
+                              <button onClick={() => { setNewCategoryLabel(""); setAddingCategoryFor(null); }}
+                                style={{ background: "none", border: br, borderRadius: 7, padding: "5px 12px", fontSize: 11, color: txS, cursor: "pointer" }}>Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button onClick={() => moveBucketItemForward(item.id)} style={{ ...chip, background: bgP }}>→ {nextName}</button>
                         <button onClick={() => archiveBucketItem(item.id)} style={{ ...chip, background: bgP }}>Archive</button>
