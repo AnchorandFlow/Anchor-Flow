@@ -6954,7 +6954,7 @@ function HHistoryTab(props) {
   return React.createElement(React.Fragment,null,
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"🩺",label:"Conditions & diagnoses",onAdd:function(){setForm({name:"",detail:"",status:"Stable"});setEditId(null);setOpen(true);}}),
       items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No conditions added yet"),
-      items.map(function(it){var badge=it.status==="Improving"?"ok":it.status==="Worsening"?"allergy":it.status==="Resolved"?"alive":it.status==="Monitoring"?"due":"gray";return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.detail,badge:badge,badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
+      items.map(function(it){var badge=it.status==="Improving"?"ok":it.status==="Worsening"?"allergy":it.status==="Resolved"?"alive":"gray";return React.createElement(HItemRow,{key:it.id,name:it.name,detail:it.detail,badge:badge,badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});})),
     open&&React.createElement(HModal,{title:editId?"Edit condition":"Add condition / diagnosis",onClose:function(){setOpen(false);setEditId(null);}},
       React.createElement(HInput,{label:"Condition name",value:form.name,onChange:function(v){setForm(function(f){return Object.assign({},f,{name:v});});},placeholder:"e.g. Asthma"}),
       React.createElement(HInput,{label:"Details",value:form.detail,onChange:function(v){setForm(function(f){return Object.assign({},f,{detail:v});});},placeholder:"e.g. Diagnosed 2008"}),
@@ -7015,7 +7015,7 @@ function HImmunizeTab(props) {
     React.createElement(HCard,null,React.createElement(HCardHead,{icon:"💉",label:"Immunizations",onAdd:function(){setForm({name:"",date:"",nextDue:"",status:"Up to date",addReminder:false});setEditId(null);setOpen(true);}}),
       items.length===0&&React.createElement("p",{style:{fontSize:12,color:"#4a6275",textAlign:"center",padding:"0.75rem 0"}},"No immunizations added yet"),
       items.map(function(it){
-        var badge=it.status==="Up to date"?"ok":it.status==="Overdue"?"allergy":"due";
+        var badge=it.status==="Up to date"?"ok":it.status==="Overdue"?"allergy":it.status==="Declined"?"gray":"due";
         var detail=[it.date,it.nextDue?"Next: "+it.nextDue:""].filter(Boolean).join(" · ");
         return React.createElement(HItemRow,{key:it.id,name:it.name,detail:detail,badge:badge,badgeLabel:it.status,onEdit:function(){startEdit(it);},onDelete:function(){remove(it.id);}});
       })),
