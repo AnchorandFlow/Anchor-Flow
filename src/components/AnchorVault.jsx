@@ -9746,7 +9746,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "#f2ead8"), transition: "background 0.3s", overflowY: "auto" }}>
         {/* Matches Flow's page container exactly (App.jsx's maxWidth:1100 branch) —
             maxWidth only caps width, so this has no effect below 1100px and mobile
             layout is unchanged; only desktop gets the wider column. */}
