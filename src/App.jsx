@@ -1296,6 +1296,26 @@ const CAL_COLOR_OPTIONS = [
   {color:"#b87265",label:"Rose"},{color:"#8878b8",label:"Lavender"},{color:"#e8a838",label:"Gold"},
   {color:"#7ab8a8",label:"Teal"},{color:"#c878a8",label:"Pink"},
 ];
+// School category sub-types — a dedicated field/color map, deliberately NOT
+// drawn from CAL_COLOR_OPTIONS/calColorLabels (the household's renameable
+// generic color palette). Reusing one of those hexes for "School Day" would
+// risk silently displaying whatever custom label a household already gave
+// that hex instead of the school sub-type name.
+const SCHOOL_EVENT_TYPES = [
+  {id:"school_day", label:"School Day", color:"#5CADA0"},
+  {id:"holiday",     label:"Holiday",    color:"#8AAE93"},
+  {id:"half_day",    label:"Half Day",   color:"#D9BB6E"},
+  {id:"no_school",   label:"No School",  color:"#C98A82"},
+];
+function schoolTypeInfo(id){ return SCHOOL_EVENT_TYPES.find(function(t){return t.id===id;}) || null; }
+// Only School Day / Half Day are actual attendance-tracked instructional
+// days — Holiday/No School mean no school was scheduled at all, so they
+// must NOT write present/half/absent (that would misrepresent an absence).
+function schoolTypeAttendanceStatus(schoolType){
+  if (schoolType==="school_day") return "present";
+  if (schoolType==="half_day") return "half";
+  return null;
+}
 
 // ── Meal Bank Data ────────────────────────────────────────────────────────────
 const MEAL_BANK_DATA = [
@@ -5242,7 +5262,7 @@ Respond ONLY with valid JSON array, no markdown:
 
   function localDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
   function calDayFromStr(str){ if(!str)return null; const [y,m,d]=str.split("-").map(Number); return new Date(y,m-1,d); }
-  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null}); setCalFormMode("add"); setCalFormId(null); }
+  function openAddEvent(prefillDate){ setCalFormInit({title:"",date:prefillDate||"",time:"",color:"#6A9BB5",colorLabel:calColorLabels["#6A9BB5"]||"",colorCustom:"",note:"",repeat:"",forPerson:null,responsibleParent:null,schoolType:null}); setCalFormMode("add"); setCalFormId(null); }
   function openEditEvent(e){ setCalFormInit({...e,colorCustom:e.colorCustom||""}); setCalFormId(e.id); setCalFormMode("edit"); }
   function closeCalForm(){ setCalFormMode(null); setCalFormId(null); setCalFormInit(null); }
 
@@ -7429,9 +7449,10 @@ Respond ONLY in valid JSON:
                       var _rp=resolveResponsibleParent(e.responsibleParent);
                       var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
                       var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
+                      var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
                       return (
-                        <div key={e.id} style={{background:e.forPerson?_pc.bg:(e.color+"28"),borderLeft:"2.5px solid "+(e.forPerson?_pc.border:e.color),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:e.forPerson?_pc.text:e.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
-                          <span style={{overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{e.title}</span>
+                        <div key={e.id} style={{background:_sch?(_sch.color+"28"):(e.forPerson?_pc.bg:(e.color+"28")),borderLeft:"2.5px solid "+(_sch?_sch.color:(e.forPerson?_pc.border:e.color)),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:_sch?_sch.color:(e.forPerson?_pc.text:e.color),whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{_sch?_sch.label+": ":""}{e.title}</span>
                           {_rpPerson&&<span style={{marginLeft:2,fontSize:"6px",fontWeight:800,flexShrink:0,opacity:0.85}}>{personMarker(_rpPerson)}</span>}
                         </div>
                       );
@@ -7501,9 +7522,10 @@ Respond ONLY in valid JSON:
                           var _pc=getPersonColor(e.forPerson, people);
                           var _rp=resolveResponsibleParent(e.responsibleParent);
                           var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
-                          var _bg=e.forPerson?_pc.bg:(e.color||T.blue);
-                          var _col=e.forPerson?_pc.text:"#fff";
-                          return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{e.title}</div>);
+                          var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+                          var _bg=_sch?_sch.color:(e.forPerson?_pc.bg:(e.color||T.blue));
+                          var _col=_sch?"#fff":(e.forPerson?_pc.text:"#fff");
+                          return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson&&!_sch?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{_sch?"🏫 "+_sch.label+": ":""}{e.title}</div>);
                         })
                     }
                   </div>
@@ -7768,7 +7790,8 @@ Respond ONLY in valid JSON:
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
             {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
               var _pc=getPersonColor(e.forPerson, people);
-              var _dotColor=e.forPerson?_pc.border:e.color;
+              var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+              var _dotColor=_sch?_sch.color:(e.forPerson?_pc.border:e.color);
               var _rp=resolveResponsibleParent(e.responsibleParent);
               var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
               var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
@@ -7784,7 +7807,8 @@ Respond ONLY in valid JSON:
                     {_rpPerson&&<div style={{width:16,height:16,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"9px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
                   </div>
                   {e.forPerson&&<div style={{fontSize:"0.66rem",color:_pc.text,fontWeight:700,marginTop:"0.1rem"}}>for {getPersonDisplayName(e.forPerson,people)}</div>}
-                  {e.colorLabel&&!e.forPerson&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel}</div>}
+                  {_sch&&<div style={{fontSize:"0.66rem",color:_sch.color,fontWeight:700,marginTop:"0.1rem"}}>🏫 {_sch.label}</div>}
+                  {!_sch&&e.colorLabel&&!e.forPerson&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel}</div>}
                   {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
                   {notifications.some(function(n){return n.entityId===e.id;})&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
                 </div>
@@ -7821,7 +7845,8 @@ Respond ONLY in valid JSON:
             {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
             :eventsForDay(selectedDay.getDate()).map(function(e){
               var _pc=getPersonColor(e.forPerson, people);
-              var _dotColor=e.forPerson?_pc.border:e.color;
+              var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+              var _dotColor=_sch?_sch.color:(e.forPerson?_pc.border:e.color);
               var _rp=resolveResponsibleParent(e.responsibleParent);
               var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
               var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
@@ -7829,7 +7854,7 @@ Respond ONLY in valid JSON:
               <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
                   <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
-                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{e.forPerson?getPersonDisplayName(e.forPerson,people):(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||"")}</span>
+                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{_sch?_sch.label:(e.forPerson?getPersonDisplayName(e.forPerson,people):(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||""))}</span>
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
@@ -16152,6 +16177,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // ── Calendar Event Form Modal ────────────────────────────────────────────────
   _hfRenders.CalEventFormModal = function CalEventFormModal(){
     const[f,setF]=useState(calFormInit||{title:"",date:"",time:"",color:"#6A9BB5",colorLabel:"",colorCustom:"",note:""});
+    // schoolData lives in LearningTab (a sibling render fn, not this one's
+    // closure) as its own useSaved("schoolData") call — this is a second,
+    // independent hook instance onto the same af_schoolData key. Safe because
+    // this modal only writes on Save, which only happens while the user is on
+    // the Calendar tab, so LearningTab (and its own in-memory copy) is
+    // unmounted at that moment; it re-reads localStorage fresh next time it mounts.
+    const [schoolDataForAttendance,setSchoolDataForAttendance]=useSaved("schoolData",{});
     const prevMode=useRef(calFormMode);
     if(prevMode.current!==calFormMode){
       prevMode.current=calFormMode;
@@ -16175,6 +16207,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if(f.remindDate&&f.remindTime) {
         const eid = calFormMode==="add" ? (calEvents.length+"_new") : calFormId;
         addNotification(eid, f.title, f.remindDate, f.remindTime, f.note||"", "calendar");
+      }
+      // School Day/Half Day events feed Lighthouse attendance (Holiday/No
+      // School are non-instructional days and don't touch it — see
+      // schoolTypeAttendanceStatus). "Family" fans out to every in-school kid;
+      // a specific person only writes for them; "Anyone"/empty is ambiguous
+      // and is skipped.
+      const attStatus=schoolTypeAttendanceStatus(f.schoolType);
+      if(attStatus){
+        const targetIds=f.forPerson==="family"
+          ? people.filter(function(p){return p&&p.inSchool===true&&personIsMinor(p);}).map(function(p){return p.id;})
+          : (f.forPerson?[f.forPerson]:[]);
+        if(targetIds.length>0){
+          setSchoolDataForAttendance(function(prev){
+            const next=Object.assign({},prev);
+            targetIds.forEach(function(childId){
+              const existingChild=next[childId]||{type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
+              const existingHs=existingChild.homeschool||{};
+              const nextAtt=Object.assign({},existingHs.attendance||{},{[f.date]:attStatus});
+              next[childId]=Object.assign({},existingChild,{homeschool:Object.assign({},existingHs,{attendance:nextAtt})});
+            });
+            return next;
+          });
+        }
       }
       closeCalForm();setSelectedDay(null);
     }
@@ -16209,6 +16264,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               })}
             </div>
           </div>
+        </div>
+        {/* Category — School, with sub-types. Kept separate from the generic
+            Colour picker below (own dedicated color map), see SCHOOL_EVENT_TYPES. */}
+        <div style={{marginBottom:"0.9rem"}}>
+          <label style={lbl}>Category</label>
+          <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.5rem"}}>
+            <button type="button" onClick={()=>setF(p=>({...p,schoolType:null}))} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(!f.schoolType?T.blue:T.border),background:!f.schoolType?T.bluePale:"transparent",color:!f.schoolType?T.blue:T.textMid,fontSize:"0.74rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>None</button>
+            <button type="button" onClick={()=>setF(p=>({...p,schoolType:p.schoolType||SCHOOL_EVENT_TYPES[0].id}))} style={{padding:"0.28rem 0.75rem",borderRadius:"50px",border:"1.5px solid "+(f.schoolType?T.blue:T.border),background:f.schoolType?T.bluePale:"transparent",color:f.schoolType?T.blue:T.textMid,fontSize:"0.74rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🏫 School</button>
+          </div>
+          {f.schoolType&&(
+            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+              {SCHOOL_EVENT_TYPES.map(function(st){
+                var active=f.schoolType===st.id;
+                return (
+                  <button type="button" key={st.id} onClick={()=>setF(p=>({...p,schoolType:st.id}))} style={{display:"flex",alignItems:"center",gap:"0.3rem",padding:"0.26rem 0.7rem",borderRadius:"50px",border:"1.5px solid "+(active?st.color:T.border),background:active?st.color+"22":"transparent",color:active?st.color:T.textMid,fontSize:"0.72rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:st.color,flexShrink:0}}/>
+                    {st.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         {/* Inline reminder */}
         <div style={{marginBottom:"0.9rem",background:T.bgAlt,border:"1px solid "+T.border,borderRadius:"0.8rem",padding:"0.75rem 0.9rem"}}>
