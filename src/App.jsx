@@ -995,6 +995,33 @@ function seedBirthdayCelebrations(peopleList) {
     window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "celebrations" } }));
   } catch (e) {}
 }
+// Onboarding Fix 2: wires the wizard's "Empty your head" step payload (real,
+// user-edited starter items — the wizard tells the user "these cards are
+// real") into the actual Exhale bucket store. Only acts if Exhale is
+// currently empty (never overwrites/duplicates onto existing items — matters
+// for the Settings "re-run" merge-mode path). Does NOT own the
+// af_exhale_starter_seeded flag — ExhaleSection.jsx's own first-mount check
+// is the single source of truth for "has the first-use decision been made,"
+// and will see these real items already present and skip its own tutorial-
+// card fallback, exactly like it would for any other pre-existing data.
+function seedExhaleStarterCards(exhaleCards) {
+  if (!exhaleCards || exhaleCards.length === 0) return;
+  try {
+    var existing = JSON.parse(localStorage.getItem("af_exhale_buckets") || "null");
+    var hasItems = existing && Array.isArray(existing.items) && existing.items.length > 0;
+    if (hasItems) return;
+    var bucketNames = (existing && Array.isArray(existing.bucketNames) && existing.bucketNames.length > 0) ? existing.bucketNames : ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"];
+    var newItems = exhaleCards.map(function(c) {
+      return { id: uid(), text: c.title, notes: "", bucketIndex: 0, createdAt: Date.now() };
+    });
+    var next = { bucketNames: bucketNames, items: newItems };
+    localStorage.setItem("af_exhale_buckets", JSON.stringify(next));
+    try {
+      var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+      if (!dirty.includes("exhale_buckets")) { dirty.push("exhale_buckets"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
+    } catch (e2) {}
+  } catch (e) {}
+}
 // Effective age for a person: birthday-derived if available, else legacy numeric age.
 function personAge(p) { return p && p.birthday ? ageFromBirthday(p.birthday) : (p && p.age != null ? p.age : null); }
 function personIsMinor(p) { var a = personAge(p); return a !== null && a < 18; }
@@ -4575,9 +4602,9 @@ function createLocalBackup() {
         });
       }
     }
-    // TODO(OB-0): payload.exhaleCards has no destination yet — insertion lives in
-    // ExhaleSection.jsx's Realtime path (supabase.from("exhale_cards").insert), not
-    // reachable from here without new plumbing.
+    if (payload.exhaleCards) {
+      seedExhaleStarterCards(payload.exhaleCards);
+    }
     if (payload.mode) {
       var MODE_MAP = {calm:"Smooth", busy:"Busy", survival:"Survival"};
       var mappedMode = MODE_MAP[payload.mode];

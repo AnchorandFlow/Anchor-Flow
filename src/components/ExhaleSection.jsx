@@ -78,6 +78,20 @@ var EXHALE_BUCKETS_V2_MIGRATED_FLAG = "af_exhale_buckets_v2_migrated";
 var DEFAULT_BUCKET_NAMES = ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"];
 var BUCKET_COLORS = ["#4A9E8E", "#6ABAAA", "#7AB3D4", "#8BAF8B", "#A99AC4"];
 function defaultBuckets() { return { bucketNames: DEFAULT_BUCKET_NAMES.slice(), items: [] }; }
+// Onboarding Fix 2 — starter cards. Single source of truth for "has the
+// first-use decision been made yet": onboarding's own seedExhaleStarterCards
+// (App.jsx, wires the wizard's real user-edited cards) writes items directly
+// but never touches this flag — it relies on this check seeing those items
+// already present and skipping the tutorial fallback below, same as it would
+// for any other pre-existing data. Checked once per mount, not per-render,
+// so deleting every item afterward (the whole point of "dismissable") never
+// resurrects these.
+var EXHALE_STARTER_SEEDED_FLAG = "af_exhale_starter_seeded";
+var EXHALE_STARTER_CARDS = [
+  "Welcome to Exhale — dump anything on your mind here",
+  "Try moving items to Today or Tomorrow using the arrow",
+  "Add a thought and assign it to a family member",
+];
 
 // First-run seed: migrates any existing af_exhale_labels customization
 // (or the initialLabels prop) onto the new {id,label,color,emoji} shape,
@@ -400,6 +414,20 @@ export default function ExhaleSection(props) {
   var bucketDragItem = useRef({ from: null, fromBucket: null, toBucket: null, toIdx: null, clone: null });
 
   function persistBuckets(nb) { setBuckets(nb); lsSet(LS_B, nb); }
+
+  // Onboarding Fix 2 — starter cards, first-mount only (see
+  // EXHALE_STARTER_SEEDED_FLAG comment above for why this owns the flag).
+  useEffect(function() {
+    if (localStorage.getItem(EXHALE_STARTER_SEEDED_FLAG)) return;
+    if (buckets.items.length === 0) {
+      var starterItems = EXHALE_STARTER_CARDS.map(function(text) {
+        return { id: uuidv4(), text: text, notes: "", bucketIndex: 0, createdAt: Date.now(), isExample: true };
+      });
+      persistBuckets(Object.assign({}, buckets, { items: starterItems.concat(buckets.items) }));
+    }
+    localStorage.setItem(EXHALE_STARTER_SEEDED_FLAG, "1");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Compass smart features — inert unless compassEnabled ──────────────────
   var compassEnabled = !!props.compassEnabled;
@@ -1519,7 +1547,10 @@ export default function ExhaleSection(props) {
                     )}
                     {dotColor && <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, marginTop: 5, flexShrink: 0 }} />}
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => toggleItemExpanded(item.id)}>
-                      <div style={{ fontSize: 12.5, lineHeight: 1.4, color: txP }}>{item.text}</div>
+                      <div style={{ fontSize: 12.5, lineHeight: 1.4, color: item.isExample ? txS : txP, fontStyle: item.isExample ? "italic" : "normal", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>{item.text}</span>
+                        {item.isExample && <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.03em", textTransform: "uppercase", color: txS, background: bgS, borderRadius: 4, padding: "1px 5px", flexShrink: 0, fontStyle: "normal" }}>example</span>}
+                      </div>
                       {!isExpanded && item.notes && (
                         <div style={{ fontSize: 10.5, marginTop: 2, opacity: 0.7, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.notes}</div>
                       )}
