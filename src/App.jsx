@@ -2581,7 +2581,7 @@ const _hfComps   = {};
   'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab','WavesSection',
-  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab',
+  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
@@ -5361,7 +5361,7 @@ Respond ONLY with valid JSON array, no markdown:
           ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab, WavesSection,
-          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab,
+          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
@@ -10894,6 +10894,177 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {subsList.length>4&&<div style={{fontSize:"0.72rem",color:"#4a6275",marginTop:"0.2rem"}}>+{subsList.length-4} more</div>}
             </>)}
             <button onClick={function(){openVaultSection("subs");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Subscriptions →</button>
+          </div>)}
+        </div>
+      </div>
+    );
+  }
+
+  // Sidebar sibling to Home — same "sand page / full-bleed navy content
+  // area / sand accordion cards" look as HomeTab (byte-for-byte copied
+  // wrapper, T object, and hub helpers, since every _hfRenders.X tab in
+  // this file owns its own independent copy of these rather than sharing
+  // one — see the comment atop HomeTab). Summary-only accordions for
+  // Health/Career/Pets, same "read af_* directly, link out to the fuller
+  // AnchorVault section" pattern as Home's own Maintenance/Subscriptions/
+  // Reminders cards — not full add/edit/delete here.
+  _hfRenders.PeopleTab = function PeopleTab(){
+    var T = {
+      textDark:"#faf8f4", textMid:"rgba(250,248,244,0.78)", textSoft:"rgba(250,248,244,0.55)", textFaint:"rgba(250,248,244,0.35)",
+      surface:"#f7f1e3", bgAlt:"rgba(250,242,229,0.09)",
+      border:"rgba(250,242,229,0.16)", borderSoft:"rgba(250,242,229,0.1)",
+      blue:"#7aa8c8", blueDark:"#5a88ac", bluePale:"rgba(122,168,200,0.16)",
+      sage:"#7eb89a", sageDark:"#5e9878", sagePale:"rgba(126,184,154,0.16)",
+      sand:"#c8a97a", sandDark:"#a88a5e", sandPale:"rgba(200,169,122,0.16)",
+      rose:"#c87a8a", roseDark:"#a85a6a", rosePale:"rgba(200,122,138,0.16)",
+      lavender:"#a89ad0", lavPale:"rgba(168,154,208,0.16)",
+    };
+    function card(x){ return Object.assign({background:T.surface,border:"1px solid rgba(26,46,61,0.1)",borderRadius:"0.5rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
+    var [peopleHubOpen, setPeopleHubOpen] = useState({health:false, career:false, pets:false});
+    function toggleHub(k){ setPeopleHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
+    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
+    var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
+    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+
+    // `people` is HomeFlow's own top-level roster state (useSaved("people",...)) —
+    // already live/in-sync via closure, no raw localStorage read needed here,
+    // unlike the af_health/af_career/af_pets reads below (those aren't lifted
+    // into HomeFlow state, so they follow the same direct-read convention
+    // Home's own Maintenance/Inventory/Subscriptions/Reminders cards use).
+    var householdPeople = (people||[]).filter(function(p){return p&&p.name;});
+
+    var healthData = (function(){ try { var v=JSON.parse(localStorage.getItem("af_health")||"{}"); return v&&typeof v==="object"?v:{}; } catch(e){ return {}; } })();
+    var healthRows = householdPeople.map(function(p){
+      var pd = healthData[p.id]||{};
+      var appts = pd.appointments||pd.history||[];
+      var meds = pd.medications||pd.meds||[];
+      var hasData = appts.length||meds.length||(pd.allergies||[]).length||(pd.immunizations||[]).length;
+      var status = !hasData ? "No records yet" : (meds.length ? meds.length+" active med"+(meds.length!==1?"s":"") : "Up to date");
+      return { id:p.id, name:p.name, color:p.color, tracked:hasData, status:status };
+    });
+    var healthTrackedCount = healthRows.filter(function(r){return r.tracked;}).length;
+
+    var careerData = (function(){ try { var v=JSON.parse(localStorage.getItem("af_career")||"{}"); return v&&typeof v==="object"?v:{}; } catch(e){ return {}; } })();
+    var careerRows = householdPeople.map(function(p){
+      var pd = careerData[p.id]||{};
+      var jobs = pd.jobs||[]; var wins = pd.wins||[];
+      var activeJobs = jobs.filter(function(j){return j.status!=="Rejected"&&j.status!=="Withdrawn";}).length;
+      var status = activeJobs ? activeJobs+" active application"+(activeJobs!==1?"s":"") : (wins.length ? wins.length+" win"+(wins.length!==1?"s":"")+" logged" : "Nothing tracked");
+      return { id:p.id, name:p.name, color:p.color, activeJobs:activeJobs, status:status };
+    });
+    var careerActiveCount = careerRows.filter(function(r){return r.activeJobs>0;}).length;
+
+    var petsList = (function(){ try { var v=JSON.parse(localStorage.getItem("af_pets")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+    // Mirrors AnchorVault's own petsSummary() proximity rule: only vaccines
+    // due today or later count as "next" — anything overdue/undated is
+    // ignored for this preview rather than shown as alarmingly negative.
+    function petNextVet(p){
+      var now = new Date(); now.setHours(0,0,0,0);
+      var soonest=null, soonestDays=null;
+      (p.vaccines||[]).forEach(function(v){
+        if(!v.due) return;
+        var d=new Date(v.due+"T00:00:00");
+        var days=Math.round((d-now)/86400000);
+        if(days>=0 && (soonestDays===null||days<soonestDays)){ soonestDays=days; soonest=v; }
+      });
+      if(!soonest) return null;
+      return { name:soonest.name, days:soonestDays };
+    }
+    var petsUpToDateCount = petsList.filter(function(p){ return !petNextVet(p); }).length;
+    var petsSoonest = null;
+    petsList.forEach(function(p){
+      var nv = petNextVet(p);
+      if(nv && (!petsSoonest || nv.days<petsSoonest.days)) petsSoonest = { pet:p.name, vax:nv.name, days:nv.days };
+    });
+
+    var healthPreview = householdPeople.length===0 ? "No household members" : (householdPeople.length+" member"+(householdPeople.length!==1?"s":"")+" · "+(healthTrackedCount===householdPeople.length&&householdPeople.length>0?"All health records current":healthTrackedCount>0?healthTrackedCount+" of "+householdPeople.length+" tracked":"No records yet"));
+    var overviewStatus = householdPeople.length===0 ? "Add people in Settings to get started." : (healthTrackedCount===householdPeople.length ? "All health records current." : "Some health records still need attention.");
+
+    return(
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
+          <span style={{fontSize:"1.2rem"}}>👥</span>
+          <div>
+            <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>People</h1>
+            <p style={{margin:"0.15rem 0 0",color:T.textSoft,fontSize:"0.79rem",fontWeight:500}}>Your household</p>
+          </div>
+        </div>
+
+        {/* ══════════════ Overview ══════════════ */}
+        <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
+            {householdPeople.length>0 ? (householdPeople.length+" household member"+(householdPeople.length!==1?"s":"")) : "No household members yet"}
+          </div>
+          <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>{overviewStatus}</div>
+        </div>
+
+        {/* ══════════════ Health ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("health");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🩺</span>
+            <h2 style={hubTitleStyle}>Health</h2>
+            {!peopleHubOpen.health && hubPreview(healthPreview)}
+            {hubChevron(peopleHubOpen.health)}
+          </div>
+          {peopleHubOpen.health&&(<div style={{marginTop:"0.75rem"}}>
+            {healthRows.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
+            ) : healthRows.map(function(r){return(
+              <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+                <span style={{width:10,height:10,borderRadius:"50%",background:r.color||T.blue,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{r.status}</span>
+              </div>
+            );})}
+            <button onClick={function(){openVaultSection("health");}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Health →</button>
+          </div>)}
+        </div>
+
+        {/* ══════════════ Career ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("career");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>📋</span>
+            <h2 style={hubTitleStyle}>Career</h2>
+            {!peopleHubOpen.career && hubPreview(careerActiveCount>0 ? (careerActiveCount+" member"+(careerActiveCount!==1?"s":"")+" with active applications") : "Nothing active")}
+            {hubChevron(peopleHubOpen.career)}
+          </div>
+          {peopleHubOpen.career&&(<div style={{marginTop:"0.75rem"}}>
+            {careerRows.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
+            ) : careerRows.map(function(r){return(
+              <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+                <span style={{width:10,height:10,borderRadius:"50%",background:r.color||T.lavender,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{r.status}</span>
+              </div>
+            );})}
+            <button onClick={function(){openVaultSection("career");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Career →</button>
+          </div>)}
+        </div>
+
+        {/* ══════════════ Pets ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("pets");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🐾</span>
+            <h2 style={hubTitleStyle}>Pets</h2>
+            {!peopleHubOpen.pets && hubPreview(petsList.length>0 ? (petsList.length+" pet"+(petsList.length!==1?"s":"")+" · "+(petsSoonest?petsSoonest.pet+" "+petsSoonest.vax+" in "+petsSoonest.days+"d":"All up to date")) : "No pets yet")}
+            {hubChevron(peopleHubOpen.pets)}
+          </div>
+          {peopleHubOpen.pets&&(<div style={{marginTop:"0.75rem"}}>
+            {petsList.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No pets yet — add your first in Pets</div>
+            ) : petsList.map(function(p,i){
+              var nv = petNextVet(p);
+              return (
+                <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+                  <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{p.name}{p.type?" · "+p.type:""}</span>
+                  <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{nv?nv.name+" in "+nv.days+"d":"Up to date"}</span>
+                </div>
+              );
+            })}
+            <button onClick={function(){openVaultSection("pets");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Pets →</button>
           </div>)}
         </div>
       </div>
@@ -16639,7 +16810,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             Universal 1100 matches both; max-width only caps, so mobile is unaffected. */}
         <div style={{maxWidth:1100,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","brain","lighthouse","settings"].map(t=>{
+          {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","people","brain","lighthouse","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -16652,6 +16823,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="tidepool" && <SectionErrorBoundary label="Tide Pool"><TidePoolTab/></SectionErrorBoundary>}
                 {t==="cove"     && <SectionErrorBoundary label="Cove"><CoveTab/></SectionErrorBoundary>}
                 {t==="home"     && <SectionErrorBoundary label="Home"><HomeTab/></SectionErrorBoundary>}
+                {t==="people"   && <SectionErrorBoundary label="People"><PeopleTab/></SectionErrorBoundary>}
                 {t==="brain"    && <SectionErrorBoundary label="Exhale"><ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}
@@ -17090,14 +17262,13 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "shop", label: "Shopping", emoji: "🛒" },
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
+      { id: "people", label: "People", emoji: "👥" },
       // Maintenance (vault:"systems"), Inventory, Reminders (vault:"recurring"),
-      // and Subscriptions (vault:"subs") nav entries removed — all reachable
-      // via Home → tabs / summary card → "Open →" now. Components and their
-      // underlying data are untouched, just no standalone sidebar entry.
-      { vault: "health", label: "Health", emoji: "🩺" },
-      ...(featureFlags.careerEnabled ? [{ vault: "career", label: "Career", emoji: "📋" }] : []),
+      // Subscriptions (vault:"subs"), Health, Career, and Pets nav entries
+      // removed — all reachable via Home/People → tabs / summary card →
+      // "Open →" now. Components and their underlying data are untouched,
+      // just no standalone sidebar entry.
       ...(featureFlags.celebrationsEnabled ? [{ vault: "gifts", label: "Celebrate", emoji: "🎉" }] : []),
-      { vault: "pets", label: "Pets", emoji: "🐾" },
       { vault: "trips", label: "Travel", emoji: "🧳" },
       ...(featureFlags.safeHarborEnabled ? [{ vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" }] : []),
     ]},
