@@ -644,7 +644,7 @@ function InventorySection({ onAddToShopping }) {
 
   return (
     <div>
-      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#1a2e3d", marginBottom: 4 }}>Inventory</div>
+      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Inventory</div>
 
       <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid rgba(250,242,229,0.1)", marginBottom: 16 }}>
         {[["inventory","📦 Inventory"],["favorites","⭐ Favorites"]].map(function(pair) {
@@ -1882,10 +1882,10 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
       {celebTab === "celebrations" && (<>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#1a2e3d" }}>Celebrations</div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4" }}>Celebrations</div>
         <button onClick={function() { setAdding(function(p) { return !p }); setForm({ name: "", month: "", day: "", year: "", notes: "" }) }} style={{ background: "rgba(200,169,122,0.12)", border: "1px solid rgba(200,169,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#c8a97a", fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add</button>
       </div>
-      <div style={{ fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
+      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginBottom: 16 }}>{upcoming.length} upcoming · {passedThisYear} passed this year</div>
 
       {/* Featured "Next Up" panel (Celebrations redesign) */}
       {nextUp && (
@@ -2015,7 +2015,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
           {/* Holidays section (gift system consolidation) — collapsible cards
               per holiday, one row per household member inside each. */}
           <div style={{ marginBottom: 24 }}>
-            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#1a2e3d", marginBottom: 10 }}>Holidays</div>
+            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>Holidays</div>
             {holidayGifts && holidayGifts.holidays.length === 0 && !addingHoliday && (
               <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "8px 0 12px" }}>No holidays yet.</div>
             )}
@@ -2109,7 +2109,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
               live on the celebration itself via celebGifts, untouched here).
               Clicking a row opens the existing celebration detail view. */}
           <div>
-            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#1a2e3d", marginBottom: 10 }}>Events</div>
+            <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#faf8f4", marginBottom: 10 }}>Events</div>
             {celebEntries.length === 0 && (
               <div style={{ fontSize: 13, color: "#4a6275", fontStyle: "italic", fontFamily: "DM Sans,sans-serif", padding: "8px 0" }}>No events yet — add one from the Celebrations tab.</div>
             )}
@@ -2135,15 +2135,15 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
       {/* Level 2/3 — celebration detail view + planning sub-cards */}
       {detailCeleb && (
         <div>
-          <button onClick={backToCelebrations} style={{ background: "none", border: "none", cursor: "pointer", color: "#1a2e3d", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 14px 0", display: "flex", alignItems: "center", gap: 5 }}>← Back to Celebrations</button>
+          <button onClick={backToCelebrations} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(200,169,122,0.7)", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 14px 0", display: "flex", alignItems: "center", gap: 5 }}>← Back to Celebrations</button>
 
           {!activeCelebCard ? (
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
                 <div style={{ fontSize: 32, flexShrink: 0 }}>{detailCeleb.emoji}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 20, fontWeight: 700, color: "#1a2e3d" }}>{detailCeleb.label}</div>
-                  <div style={{ fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
+                  <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 20, fontWeight: 700, color: "#faf8f4" }}>{detailCeleb.label}</div>
+                  <div style={{ fontSize: 12, color: "rgba(250,248,244,0.42)", fontFamily: "DM Sans,sans-serif", marginTop: 2 }}>
                     {detailCeleb.month && MONTHS[detailCeleb.month-1]+" "+detailCeleb.day}{" · "}{detailCeleb.typeInfo && detailCeleb.typeInfo.label}{" · "}{detailCeleb.countdown}
                   </div>
                 </div>
@@ -2548,8 +2548,8 @@ function PetsSection() {
 
   if (!activePet) return (
     <div>
-      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#1a2e3d", marginBottom: 4 }}>Pets</div>
-      <div style={{ fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 20 }}>Health records, vaccines, medications and tags — all in one place.</div>
+      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: warm, marginBottom: 4 }}>Pets</div>
+      <div style={{ fontSize: 12, color: muted, fontFamily: "DM Sans,sans-serif", marginBottom: 20 }}>Health records, vaccines, medications and tags — all in one place.</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
         {pets.map(function(pet) {
           const upcoming = (pet.vaccines||[]).filter(function(v) { return v.due && petDaysUntil(v.due) !== null && petDaysUntil(v.due) <= 30 && petDaysUntil(v.due) >= 0 })
@@ -2620,10 +2620,10 @@ function PetsSection() {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <button onClick={function() { setActivePetId(null) }} style={{ background: "none", border: "none", color: "#1a2e3d", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>← All pets</button>
+        <button onClick={function() { setActivePetId(null) }} style={{ background: "none", border: "none", color: muted, cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "4px 0" }}>← All pets</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#1a2e3d" }}>{activePet.name}</div>
-          <div style={{ fontSize: 11, color: "#4a6275", fontFamily: "DM Sans,sans-serif" }}>{activePet.type}{activePet.breed ? " · " + activePet.breed : ""}{activePet.dob ? " · born " + new Date(activePet.dob).getFullYear() : ""}</div>
+          <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: warm }}>{activePet.name}</div>
+          <div style={{ fontSize: 11, color: muted, fontFamily: "DM Sans,sans-serif" }}>{activePet.type}{activePet.breed ? " · " + activePet.breed : ""}{activePet.dob ? " · born " + new Date(activePet.dob).getFullYear() : ""}</div>
         </div>
         <button onClick={function() { save(pets.filter(function(p) { return p.id !== activePetId })); setActivePetId(null) }} style={{ background: "none", border: "none", color: "rgba(200,80,80,0.4)", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" }}>remove</button>
       </div>
@@ -3543,8 +3543,8 @@ function TravelProfileSection() {
 
   return (
     <div>
-      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:"#1a2e3d", marginBottom:4 }}>Travel Profile</div>
-      <div style={{ fontSize:12, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
+      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel Profile</div>
+      <div style={{ fontSize:12, color:"rgba(250,248,244,0.42)", fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Loyalty numbers, travel documents and credentials — all in one place.</div>
 
       {/* Passports */}
       <div style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:A.cardPadding, marginBottom:14 }}>
@@ -4989,10 +4989,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
           {activeTripCard ? (
             // ── Level 3: full-page card detail view ──────────────────────────
             <div>
-              <button onClick={function(){ setActiveTripCard(null) }} style={{ background:"none", border:"none", color:"#1a2e3d", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to {detailTrip.name || "trip"}</button>
+              <button onClick={function(){ setActiveTripCard(null) }} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to {detailTrip.name || "trip"}</button>
               <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}>
                 <div style={{ width:36, height:36, borderRadius:"50%", background:(CARD_META[activeTripCard]||{}).accent||sand, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>{(CARD_META[activeTripCard]||{}).icon}</div>
-                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:"#1a2e3d" }}>{(CARD_META[activeTripCard]||{}).title}</div>
+                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:warm }}>{(CARD_META[activeTripCard]||{}).title}</div>
               </div>
 
               {activeTripCard === "packing" && (function(){
@@ -5542,7 +5542,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
           ) : (
           <div>
           {/* Same "← Anchor Home" back-link style as AnchorVault's own top-level nav (~7384) */}
-          <button onClick={backToTrips} style={{ background:"none", border:"none", color:"#1a2e3d", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
+          <button onClick={backToTrips} style={{ background:"none", border:"none", color:"rgba(200,169,122,0.7)", cursor:"pointer", fontSize:13, fontFamily:"DM Sans,sans-serif", padding:"0 0 16px 0", display:"flex", alignItems:"center", gap:5 }}>← Back to Trips</button>
 
           {/* Header/banner (Phase C): trip identity + at-a-glance facts, primary
               quick actions front and center. Customize Cards demoted to a small
@@ -5551,8 +5551,8 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
             <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0 }}>
               <span style={{ fontSize:26, flexShrink:0 }}>{detailTrip.icon || "🧳"}</span>
               <div style={{ minWidth:0 }}>
-                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:"#1a2e3d", lineHeight:1.2 }}>{detailTrip.name || "Untitled trip"}</div>
-                {detailTrip.destination && <div style={{ fontSize:13, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{detailTrip.destination}</div>}
+                <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:700, color:warm, lineHeight:1.2 }}>{detailTrip.name || "Untitled trip"}</div>
+                {detailTrip.destination && <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginTop:2 }}>{detailTrip.destination}</div>}
               </div>
             </div>
             <button onClick={function(){ setManageOpen(true) }} title="Customize cards" style={{ background:"rgba(250,242,229,0.06)", border:"1px solid rgba(250,242,229,0.15)", borderRadius:8, padding:"6px 10px", fontSize:14, color:"#1a2e3d", cursor:"pointer", flexShrink:0 }}>⋮</button>
@@ -5643,8 +5643,8 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
         </div>
       ) : (
         <div>
-          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:"#1a2e3d", marginBottom:4 }}>Travel</div>
-          <div style={{ fontSize:12, color:"#4a6275", fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
+          <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:22, fontWeight:600, color:warm, marginBottom:4 }}>Travel</div>
+          <div style={{ fontSize:12, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:20 }}>Every trip you're planning or have taken — dates, destination, and status at a glance.</div>
 
           <TravelWalletCard />
 
@@ -6600,10 +6600,10 @@ function CareerSection() {
   if(!detail) {
     return React.createElement("div",null,
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#1a2e3d"}},"Career"),
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:CAREER_MODAL_TEXT}},"Career"),
         React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:CAREER_GOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
       ),
-      React.createElement("p",{style:{fontSize:12,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to open"),
       React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:12}},
         people.map(function(p,i){
           var stats=getStats(p.id);
@@ -7503,10 +7503,10 @@ function HealthSection() {
     return React.createElement("div",null,
       // header
       React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}},
-        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#1a2e3d"}},"Health"),
+        React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:HMODAL_TEXT}},"Health"),
         React.createElement("button",{onClick:function(){setAddingPerson(true);},style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add person")
       ),
-      React.createElement("p",{style:{fontSize:12,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(250,248,244,0.4)",fontFamily:"DM Sans,sans-serif",marginBottom:18,marginTop:2}},"Tap a card to view details"),
       // Responsive person card grid — single column on phones (was fixed 2-col and cut off on mobile)
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(240px, 1fr))",gap:12}},
         people.map(function(p){
@@ -7871,7 +7871,7 @@ function HouseFileSection() {
   return React.createElement("div",null,
     // header
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}},
-      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#1a2e3d"}},"House File"),
+      React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4"}},"House File"),
       React.createElement("button",{onClick:openAdd,style:{fontSize:12,color:HGOLD,background:"rgba(200,169,122,0.08)",border:"0.5px solid rgba(200,169,122,0.28)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"\u002B Add record")
     ),
     // category pills
@@ -8096,7 +8096,7 @@ function HomeSystemsSection() {
     return React.createElement("button",{onClick:function(){setSysTab(id);},style:{flex:1,background:active?"rgba(200,169,122,0.15)":"transparent",color:active?HGOLD:"rgba(250,248,244,0.5)",border:"0.5px solid "+(active?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),borderRadius:8,padding:"8px 0",fontSize:12.5,fontWeight:active?700:500,cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},label);
   }
   return React.createElement("div",null,
-    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#1a2e3d",marginBottom:12}},"Maintenance"),
+    React.createElement("div",{style:{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:600,color:"#faf8f4",marginBottom:12}},"Maintenance"),
     React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16}}, tabBtn("maintenance","Maintenance"), tabBtn("products","Products")),
     sysTab==="products" ? React.createElement(ProductsPanel,null) : React.createElement(MaintenancePanel,null)
   );
@@ -8459,8 +8459,8 @@ function RecurringRemindersSection() {
     return (
       <div>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
-          <button onClick={function(){setEditing(null);setDraft(null)}} style={{background:"none",border:"none",color:"#1a2e3d",fontSize:20,cursor:"pointer",padding:0}}>←</button>
-          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:700,color:"#1a2e3d"}}>
+          <button onClick={function(){setEditing(null);setDraft(null)}} style={{background:"none",border:"none",color:GOLD,fontSize:20,cursor:"pointer",padding:0}}>←</button>
+          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:20,fontWeight:700,color:"#faf8f4"}}>
             {editing==="new"?"Add Reminder":"Edit Reminder"}
           </div>
         </div>
@@ -8569,11 +8569,11 @@ function RecurringRemindersSection() {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:22}}>🔁</span>
-          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:700,color:"#1a2e3d"}}>Recurring Reminders</div>
+          <div style={{fontFamily:"Cormorant Garamond,serif",fontSize:22,fontWeight:700,color:"#faf8f4"}}>Recurring Reminders</div>
         </div>
         <button onClick={function(){openNew(null)}} style={{background:"rgba(200,169,122,0.12)",border:"1px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"6px 12px",fontSize:12,color:GOLD,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600}}>+ Custom</button>
       </div>
-      <div style={{fontSize:12,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginBottom:16,lineHeight:1.5}}>Set it once, never forget it again.</div>
+      <div style={{fontSize:12,color:FAINT,fontFamily:"DM Sans,sans-serif",marginBottom:16,lineHeight:1.5}}>Set it once, never forget it again.</div>
 
       {/* Built-in quick-adds */}
       {availableBuiltins.length>0&&(
@@ -9272,8 +9272,8 @@ function AnchorSettings() {
 
   return (
     <div>
-      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#1a2e3d", marginBottom: 4 }}>Anchor Settings</div>
-      <div style={{ fontSize: 12, color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 20, lineHeight: 1.5 }}>Customise which sections appear in your Anchor Vault.</div>
+      <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 600, color: "#faf8f4", marginBottom: 4 }}>Anchor Settings</div>
+      <div style={{ fontSize: 12, color: "rgba(250,248,244,0.4)", fontFamily: "DM Sans,sans-serif", marginBottom: 20, lineHeight: 1.5 }}>Customise which sections appear in your Anchor Vault.</div>
 
       <div style={{ background: "rgba(250,242,229,0.03)", border: "1px solid rgba(250,242,229,0.07)", borderRadius: 14, padding: "4px 16px" }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(200,169,122,0.6)", textTransform: "uppercase", letterSpacing: "0.09em", padding: "12px 0 4px", fontFamily: "DM Sans,sans-serif" }}>Visible sections</div>
@@ -9362,8 +9362,8 @@ function SubscriptionsSection() {
   return React.createElement("div", { style: { paddingBottom: "2rem" } },
     React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 } },
       React.createElement("div", null,
-        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: "#1a2e3d" } }, "Subscriptions"),
-        React.createElement("div", { style: { fontSize: 12, color: "#4a6275", marginTop: 2 } }, "Track what you pay, save & earn")
+        React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 22, fontWeight: 700, color: WHITE } }, "Subscriptions"),
+        React.createElement("div", { style: { fontSize: 12, color: "rgba(250,248,244,0.5)", marginTop: 2 } }, "Track what you pay, save & earn")
       ),
       (tab==="subs" && subs.length>1) && React.createElement("button", { onClick: function(){ setAzSort(!azSort) }, style: { fontSize: 11, color: azSort?GOLD:"rgba(250,248,244,0.5)", background: azSort?"rgba(200,169,122,0.12)":"transparent", border: "0.5px solid "+(azSort?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.12)"), borderRadius: 7, padding: "5px 11px", cursor: "pointer", fontFamily: "DM Sans,sans-serif" } }, azSort?"A\u2013Z \u2713":"A\u2013Z")
     ),
@@ -9746,13 +9746,13 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "#f2ead8"), transition: "background 0.3s", overflowY: "auto" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto" }}>
         {/* Matches Flow's page container exactly (App.jsx's maxWidth:1100 branch) —
             maxWidth only caps width, so this has no effect below 1100px and mobile
             layout is unchanged; only desktop gets the wider column. */}
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "1.1rem 0.9rem 0.5rem" }}>
           {activeSection !== "home" && (
-            <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "#1a2e3d", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
+            <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
           )}
           {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
           {activeSection === "recurring" && <RecurringRemindersSection />}

@@ -1205,7 +1205,7 @@ function saveWorkDays(wd) {
 const THEMES = {
   calm: {
     label:"Calm", emoji:"🌿",
-    bg:"#f2ead8", bgAlt:"#EDE8DF", surface:"#FDFAF5", border:"#D4CCB8", borderSoft:"#E0D8C8",
+    bg:"#F5F0E8", bgAlt:"#EDE8DF", surface:"#FDFAF5", border:"#D4CCB8", borderSoft:"#E0D8C8",
     sage:"#7a9e8e", sageDark:"#4d7a6a", sageLight:"#a0c0b0", sagePale:"#deeee8",
     sand:"#c4a882", sandDark:"#9a7a52", sandLight:"#ddc8a0", sandPale:"#f0e4d0",
     blue:"#5E8FA0", blueDark:"#4a7a94", blueLight:"#96bdd0", bluePale:"#dceef0",
