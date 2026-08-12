@@ -962,6 +962,39 @@ function ageFromBirthday(birthday) {
   if (md < 0 || (md === 0 && t.getDate() < bd)) age--;
   return age >= 0 ? age : null;
 }
+// Onboarding Fix 1 / Lighthouse: idempotently ensure every person with a
+// birthday has a matching af_celebrations entry. Mirrors AnchorVault.jsx's
+// own "auto-create birthday celebrations from household roster" effect
+// (CelebrationsSection, on mount) byte-for-byte — same shape, same dedupe
+// rule (personId, falling back to name+type), same deterministic id — so
+// this can safely run from other trigger points (onboarding complete, first
+// Lighthouse open) without ever producing a duplicate or a second, divergent
+// entry shape. Reads/writes af_celebrations directly (not React state) since
+// AnchorVault.jsx doesn't export the hook that owns it.
+function seedBirthdayCelebrations(peopleList) {
+  try {
+    var raw = JSON.parse(localStorage.getItem("af_celebrations") || "[]");
+    var celebrations = Array.isArray(raw) ? raw : [];
+    var missing = (peopleList || []).filter(function(p) {
+      if (!p || !p.birthday) return false;
+      var parts = String(p.birthday).split("-");
+      if (parts.length !== 3) return false;
+      return !celebrations.some(function(c) { return c.type === "birthday" && (c.personId === p.id || c.name === p.name); });
+    });
+    if (missing.length === 0) return;
+    var additions = missing.map(function(p) {
+      var parts = p.birthday.split("-");
+      return { id: "pb_" + p.id, type: "birthday", name: p.name, month: parseInt(parts[1], 10), day: parseInt(parts[2], 10), year: parseInt(parts[0], 10) || null, notes: "", personId: p.id };
+    });
+    var next = celebrations.concat(additions);
+    localStorage.setItem("af_celebrations", JSON.stringify(next));
+    try {
+      var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
+      if (!dirty.includes("celebrations")) { dirty.push("celebrations"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
+    } catch (e2) {}
+    window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "celebrations" } }));
+  } catch (e) {}
+}
 // Effective age for a person: birthday-derived if available, else legacy numeric age.
 function personAge(p) { return p && p.birthday ? ageFromBirthday(p.birthday) : (p && p.age != null ? p.age : null); }
 function personIsMinor(p) { var a = personAge(p); return a !== null && a < 18; }
@@ -4474,36 +4507,38 @@ function createLocalBackup() {
     }
     if (payload.people && payload.people.length > 0) {
       if (mergeMode) {
-        setPeople(function(prev) {
-          // Matching is by trimmed, case-insensitive name only — the wizard payload
-          // never carries the original person id (buildPayload strips people down to
-          // {name, birthday}). LIMITATION: two existing people who share the same
-          // name (e.g. two kids both named "Alex") are indistinguishable to this
-          // match and a re-run entry for that name will merge into whichever of them
-          // is found first, rather than prompting for which one. Not solved here —
-          // flagging for a future fix if it comes up in practice.
-          var merged = (prev || []).slice(); // never delete an existing person
-          payload.people.forEach(function(np) {
-            var matchIdx = merged.findIndex(function(ep) {
-              return ep.name && np.name && ep.name.trim().toLowerCase() === np.name.trim().toLowerCase();
-            });
-            if (matchIdx !== -1) {
-              if (np.birthday) {
-                var derivedAge = ageFromBirthday(np.birthday);
-                merged[matchIdx] = Object.assign({}, merged[matchIdx], {
-                  birthday: np.birthday, age: derivedAge, isMinor: derivedAge != null && derivedAge < 18
-                });
-              }
-              // no birthday supplied on the re-run for an existing match — leave as-is
-            } else {
-              merged.push(shapeOnboardingPerson(np, merged.length));
-            }
+        // Matching is by trimmed, case-insensitive name only — the wizard payload
+        // never carries the original person id (buildPayload strips people down to
+        // {name, birthday}). LIMITATION: two existing people who share the same
+        // name (e.g. two kids both named "Alex") are indistinguishable to this
+        // match and a re-run entry for that name will merge into whichever of them
+        // is found first, rather than prompting for which one. Not solved here —
+        // flagging for a future fix if it comes up in practice.
+        // Computed outside setPeople (was previously the functional-updater body)
+        // so the final array is available afterward to seed birthday celebrations from.
+        var merged = (people || []).slice(); // never delete an existing person
+        payload.people.forEach(function(np) {
+          var matchIdx = merged.findIndex(function(ep) {
+            return ep.name && np.name && ep.name.trim().toLowerCase() === np.name.trim().toLowerCase();
           });
-          return merged;
+          if (matchIdx !== -1) {
+            if (np.birthday) {
+              var derivedAge = ageFromBirthday(np.birthday);
+              merged[matchIdx] = Object.assign({}, merged[matchIdx], {
+                birthday: np.birthday, age: derivedAge, isMinor: derivedAge != null && derivedAge < 18
+              });
+            }
+            // no birthday supplied on the re-run for an existing match — leave as-is
+          } else {
+            merged.push(shapeOnboardingPerson(np, merged.length));
+          }
         });
+        setPeople(merged);
+        seedBirthdayCelebrations(merged);
       } else {
         var shapedPeople = payload.people.map(function(p, i) { return shapeOnboardingPerson(p, i); });
         setPeople(shapedPeople);
+        seedBirthdayCelebrations(shapedPeople);
         // Bug fix: onboarding collects names but never resolved "who am I" on
         // this device — myDisplayName() prioritizes people[myPersonId].name
         // over preferredName (F-97, the "Mama boss" fix), so without this the
@@ -4515,8 +4550,6 @@ function createLocalBackup() {
           chooseMyPersonId(shapedPeople[0].id);
         }
       }
-      // TODO(OB-0): payload.people[].birthday should also seed Lighthouse per-child
-      // records — no seeding helper exists yet.
     }
     if (payload.zip) {
       setFamilyProfile(function(prev) {
@@ -12851,6 +12884,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var ids = learningKids.map(function(p){ return p.id; });
       if ((!activeChild || ids.indexOf(activeChild) === -1) && learningKids.length > 0) { setActiveChild(learningKids[0].id); }
     }, [learningKids.length]);
+
+    // Onboarding Fix 1: "first Lighthouse open" trigger. Idempotent (see
+    // seedBirthdayCelebrations) — harmless to also run every time this tab
+    // mounts, and covers households that skipped/predate onboarding, or
+    // added a birthday after the fact.
+    React.useEffect(function() { seedBirthdayCelebrations(allPeople); }, []); // eslint-disable-line
 
     // One-time migration: fold legacy per-child trips[] into beyond[] as
     // cat:"Field Trip" entries (Field Trips section merged into Beyond the
