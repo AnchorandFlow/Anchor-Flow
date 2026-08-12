@@ -12787,6 +12787,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function setActiveChild(id) { _setActiveChild(id); try { if (id) sessionStorage.setItem("af_learningActiveChild", id); else sessionStorage.removeItem("af_learningActiveChild"); } catch(_e) {} }
     function setLearningSubTab(t) { _setLearningSubTab(t); try { sessionStorage.setItem("af_learningSubTab", t); } catch(_e) {} }
 
+    // Single shared attendance write path — used by both Plan → Today's
+    // "Attendance Today" buttons and Growth's "Attendance Record" grid, so
+    // the two UIs can never drift onto different keys again. Writes to BOTH
+    // mirrors (schoolData's homeschool.attendance, which Overview/Records
+    // prefer, and Lighthouse's homeschool.daily[date].attendance, the older
+    // per-day record) on every edit so neither can shadow a fresh edit to
+    // the other on the next read.
+    function setAttendance(dateIso, status) {
+      setSchoolData(function(prev) {
+        var next = Object.assign({}, prev);
+        var existingChild = next[activeChild] || defaultSchoolChild();
+        var existingHs = existingChild.homeschool || {};
+        var nextAtt = Object.assign({}, existingHs.attendance || {});
+        if (status) nextAtt[dateIso] = status; else delete nextAtt[dateIso];
+        next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { attendance: nextAtt }) });
+        return next;
+      });
+      setLighthouse(function(prev) {
+        var hsAllPrev = lhGet(prev, "homeschool", {});
+        var hsChildPrev = hsAllPrev[activeChild] || defaultLhHsChild();
+        var dailyPrev = (hsChildPrev.daily && typeof hsChildPrev.daily === "object") ? hsChildPrev.daily : {};
+        var nextDaily = Object.assign({}, dailyPrev);
+        var dayPrev = (nextDaily[dateIso] && typeof nextDaily[dateIso] === "object") ? nextDaily[dateIso] : {};
+        nextDaily[dateIso] = Object.assign({}, dayPrev, { attendance: status });
+        return lhHsPatch(prev, activeChild, { daily: nextDaily });
+      });
+    }
+
     var allPeople = people.filter(function(p) { return p && p.name; });
     var learningKids = allPeople.filter(function(p) { return personIsMinor(p); });
 
@@ -12963,19 +12991,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             onAction={function(){ setLearningSubTab("plan"); }} />
         );
 
-        // 2. Attendance Snapshot — prefer School's grid, fall back to Lighthouse's daily attendance
+        // 2. Attendance Snapshot — both Today's toggle and the Attendance Record
+        // write through the same setAttendance (top of LearningTab) now, so
+        // for any date logged since that fix the two mirrors already agree.
+        // Still union both by date (rather than "prefer whichever total is
+        // non-zero") so dates logged only via the older Today toggle, before
+        // that unification, still count here too.
         var thisYear = String(new Date().getFullYear());
-        function countPresent(obj, field) {
-          return Object.keys(obj||{}).filter(function(d){
-            if (d.slice(0,4) !== thisYear) return false;
-            var v = field ? (obj[d] && obj[d][field]) : obj[d];
-            return v === "present";
-          }).length;
-        }
         var schAttendance = (childSchool.homeschool && childSchool.homeschool.attendance) || {};
-        var schPresentCount = countPresent(schAttendance, null);
-        var lhPresentCount = countPresent(hsChild.daily, "attendance");
-        var presentCount = schPresentCount > 0 ? schPresentCount : lhPresentCount;
+        var lhDaily = (hsChild.daily && typeof hsChild.daily === "object") ? hsChild.daily : {};
+        var presentCount = (function() {
+          var dates = {};
+          Object.keys(schAttendance).forEach(function(d){ dates[d] = true; });
+          Object.keys(lhDaily).forEach(function(d){ dates[d] = true; });
+          var count = 0;
+          Object.keys(dates).forEach(function(d) {
+            if (d.slice(0,4) !== thisYear) return;
+            var v = schAttendance[d] || (lhDaily[d] && lhDaily[d].attendance) || null;
+            if (v === "present") count++;
+          });
+          return count;
+        })();
         var daysRequired = (childSchool.homeschool && childSchool.homeschool.umbrella && childSchool.homeschool.umbrella.daysRequired) || null;
         cards.push(
           <DashCard key="attendance" sectionKey="attendance" defaultOpen={false} emoji="📋" title="Attendance Snapshot"
@@ -13284,7 +13320,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           );
         }
 
-        function toggleAtt(v) { patchDay(todayIso, { attendance: att===v ? null : v }); }
+        // Routed through the shared setAttendance (top of LearningTab) — not
+        // patchDay — so this writes to the same schoolData mirror that Growth's
+        // Attendance Record and Overview's Attendance Snapshot read from.
+        function toggleAtt(v) { setAttendance(todayIso, att===v ? null : v); }
         function saveEntry() {
           var subj=(fv("subject","")).trim(); if (!subj) return;
           var item = { id:uid(), subject:subj, title:(fv("title","")).trim(), notes:(fv("notes","")).trim(), done:false };
@@ -14559,28 +14598,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return next;
         });
       }
-      // Attendance writes to BOTH mirrors on every edit so neither can shadow a
-      // fresh edit to the other on the next read (see comment above GrowthArea).
-      function setAttendance(dateIso, status) {
-        setSchoolData(function(prev) {
-          var next = Object.assign({}, prev);
-          var existingChild = next[activeChild] || defaultSchoolChild();
-          var existingHs = existingChild.homeschool || {};
-          var nextAtt = Object.assign({}, existingHs.attendance || {});
-          if (status) nextAtt[dateIso] = status; else delete nextAtt[dateIso];
-          next[activeChild] = Object.assign({}, existingChild, { homeschool: Object.assign({}, existingHs, { attendance: nextAtt }) });
-          return next;
-        });
-        setLighthouse(function(prev) {
-          var hsAllPrev = lhGet(prev, "homeschool", {});
-          var hsChildPrev = hsAllPrev[activeChild] || defaultLhHsChild();
-          var dailyPrev = (hsChildPrev.daily && typeof hsChildPrev.daily === "object") ? hsChildPrev.daily : {};
-          var nextDaily = Object.assign({}, dailyPrev);
-          var dayPrev = (nextDaily[dateIso] && typeof nextDaily[dateIso] === "object") ? nextDaily[dateIso] : {};
-          nextDaily[dateIso] = Object.assign({}, dayPrev, { attendance: status });
-          return lhHsPatch(prev, activeChild, { daily: nextDaily });
-        });
-      }
+      // setAttendance is shared (defined once, top of LearningTab) — Plan's
+      // "Attendance Today" uses it too, see the comment there.
       function getAttendanceStatus(dateIso) {
         var schVal = schAttendance[dateIso];
         if (schVal) return schVal;
