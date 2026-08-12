@@ -17507,7 +17507,12 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
               if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); setVaultReturnTo(null); }, pillColor(pill.label), _kidsDim); }
               var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
               if (hidden) return null;
-              var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), _kidsDim);
+              // Also active while the vault is open if it was reached via this
+              // row's own "Open X →" buttons (af-open-vault's returnTo) — those
+              // don't touch navSel, so without this a tab like Home/People/
+              // Horizon loses its highlight the moment its own link opens the
+              // vault, with nothing else gaining one in its place.
+              var a2 = (!showAnchor && navSel === "c-"+pill.label+"-"+it.id) || (showAnchor && vaultReturnTo === it.id); return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), _kidsDim);
             });
             return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })
