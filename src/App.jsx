@@ -10392,7 +10392,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // Info is its own new card/key below, not a Systems rename in data terms
     // — af_homeSystems is untouched and still synced, just orphaned from UI.
     // ══════════════════════════════════════════════════════════════════════
-    var [homeHubOpen, setHomeHubOpen] = useState({info:true, cleaning:false, maintenance:false, inventory:false, projects:false, documents:false});
+    var [homeHubOpen, setHomeHubOpen] = useState({info:true, cleaning:false, maintenance:false, inventory:false, projects:false, documents:false, reminders:false, subs:false});
     function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
@@ -10565,6 +10565,54 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setAddingDocument(false); setEditingDocId(null);
     }
     function deleteDocument(id){ setHomeDocuments(function(p){return p.filter(function(x){return x.id!==id;});}); }
+
+    // ── Reminders — af_recurring, the SAME key AnchorVault's fuller Recurring
+    // Reminders section reads/writes (useSaved persists to "af_"+key and
+    // marks it dirty for sync automatically, so no separate plumbing is
+    // needed to stay in sync with that view). This is a deliberately simple
+    // inline version — weekly-day reminders only, no builtin templates —
+    // not a reimplementation of every field/type that section supports.
+    var [reminders, setReminders] = useSaved("recurring", []);
+    var [addingReminder, setAddingReminder] = useState(false);
+    var [editingReminderId, setEditingReminderId] = useState(null);
+    var [reminderForm, setReminderForm] = useState({label:"",emoji:"🔁",day:"1",freq:"weekly"});
+    var REMINDER_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    function openNewReminder(){ setReminderForm({label:"",emoji:"🔁",day:"1",freq:"weekly"}); setEditingReminderId(null); setAddingReminder(true); }
+    function openEditReminder(r){ setReminderForm({label:r.label||"",emoji:r.emoji||"🔁",day:String(r.day!=null?r.day:1),freq:r.freq||"weekly"}); setEditingReminderId(r.id); setAddingReminder(true); }
+    function saveReminder(){
+      if(!reminderForm.label.trim()) return;
+      var patch = {label:reminderForm.label.trim(),emoji:reminderForm.emoji||"🔁",type:"weekly_day",day:parseInt(reminderForm.day,10),freq:reminderForm.freq};
+      if(editingReminderId) setReminders(function(p){return p.map(function(x){return x.id===editingReminderId?Object.assign({},x,patch):x;});});
+      else setReminders(function(p){return p.concat([Object.assign({id:uid(),lastDone:null,active:true},patch)]);});
+      setAddingReminder(false); setEditingReminderId(null);
+    }
+    function deleteReminder(id){ setReminders(function(p){return p.filter(function(x){return x.id!==id;});}); }
+    function markReminderDone(id){ setReminders(function(p){return p.map(function(x){return x.id===id?Object.assign({},x,{lastDone:new Date().toISOString().slice(0,10)}):x;});}); }
+    function reminderNextLabel(r){
+      if(r.type&&r.type!=="weekly_day") return r.freq||"recurring";
+      var day = r.day!=null?r.day:1;
+      return REMINDER_DAYS[day]||"—";
+    }
+
+    // ── Subscriptions — af_subs, the SAME key AnchorVault's fuller
+    // Subscriptions section reads/writes. Simple inline version: name,
+    // amount, cycle, renewal date — not coupons/perks (those stay in the
+    // fuller section only). ─────────────────────────────────────────────
+    var [subs, setSubs] = useSaved("subs", []);
+    var [addingSub, setAddingSub] = useState(false);
+    var [editingSubId, setEditingSubId] = useState(null);
+    var [subForm, setSubForm] = useState({name:"",cycle:"monthly",amount:"",renewDate:""});
+    var SUB_CYCLES = ["monthly","yearly","weekly","quarterly"];
+    function openNewSub(){ setSubForm({name:"",cycle:"monthly",amount:"",renewDate:""}); setEditingSubId(null); setAddingSub(true); }
+    function openEditSub(s){ setSubForm({name:s.name||"",cycle:s.cycle||"monthly",amount:s.amount!=null?String(s.amount):"",renewDate:s.renewDate||""}); setEditingSubId(s.id); setAddingSub(true); }
+    function saveSub(){
+      if(!subForm.name.trim()) return;
+      var patch = {name:subForm.name.trim(),cycle:subForm.cycle,amount:parseFloat(subForm.amount)||0,renewDate:subForm.renewDate};
+      if(editingSubId) setSubs(function(p){return p.map(function(x){return x.id===editingSubId?Object.assign({},x,patch):x;});});
+      else setSubs(function(p){return p.concat([Object.assign({id:uid()},patch)]);});
+      setAddingSub(false); setEditingSubId(null);
+    }
+    function deleteSub(id){ setSubs(function(p){return p.filter(function(x){return x.id!==id;});}); }
 
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
@@ -10978,6 +11026,95 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div style={{display:"flex",gap:"0.5rem"}}>
                     <button onClick={function(){setAddingDocument(false);setEditingDocId(null);}} style={btnS()}>Cancel</button>
                     <button onClick={saveDocument} style={btnP("#1a2e3d")}>{editingDocId?"Save Changes":"Create Document"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            )}
+          </div>)}
+        </div>
+
+        {/* ══════════════ 7. Reminders ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("reminders");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🔁</span>
+            <h2 style={hubTitleStyle}>Reminders</h2>
+            {!homeHubOpen.reminders && hubPreview(reminders.length>0 ? (reminders.length+" reminder"+(reminders.length!==1?"s":"")) : "No reminders yet")}
+            <button onClick={function(e){e.stopPropagation();openNewReminder();}} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {hubChevron(homeHubOpen.reminders)}
+          </div>
+          {homeHubOpen.reminders&&(<div style={{marginTop:"0.75rem"}}>
+            {reminders.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No reminders yet — trash day, recycling, anything recurring.</div>}
+            {reminders.map(function(r){return(
+              <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                <span onClick={function(){openEditReminder(r);}} style={{flex:1,display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",minWidth:0}}>
+                  <span style={{fontSize:"1rem",flexShrink:0}}>{r.emoji||"🔁"}</span>
+                  <span style={{fontSize:"0.84rem",color:"#1a2e3d",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</span>
+                </span>
+                <span style={{fontSize:"0.72rem",color:"#4a6275",flexShrink:0}}>{reminderNextLabel(r)}</span>
+                <button onClick={function(){markReminderDone(r.id);}} title="Mark done today" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}><Icon name="check" size={13} color={"#4a6275"}/></button>
+                <button onClick={function(){deleteReminder(r.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+              </div>
+            );})}
+            {addingReminder&&(
+              <ModalBox title={editingReminderId?"Edit Reminder":"New Reminder"} onClose={function(){setAddingReminder(false);setEditingReminderId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Label</label><input value={reminderForm.label} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{label:e.target.value});});}} placeholder="e.g. Take out trash" style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Emoji (optional)</label><input value={reminderForm.emoji} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} style={inp()}/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Day</label>
+                  <select value={reminderForm.day} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{day:e.target.value});});}} style={inp()}>
+                    {REMINDER_DAYS.map(function(d,i){return <option key={d} value={i}>{d}</option>;})}
+                  </select>
+                </div>
+                <div style={{marginBottom:"1rem"}}><label style={lbl}>Frequency</label>
+                  <select value={reminderForm.freq} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{freq:e.target.value});});}} style={inp()}>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Every 2 weeks</option>
+                  </select>
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingReminderId?<button onClick={function(){deleteReminder(editingReminderId);setAddingReminder(false);setEditingReminderId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingReminder(false);setEditingReminderId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveReminder} style={btnP(T.sage)}>{editingReminderId?"Save Changes":"Create"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            )}
+          </div>)}
+        </div>
+
+        {/* ══════════════ 8. Subscriptions ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("subs");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🔄</span>
+            <h2 style={hubTitleStyle}>Subscriptions</h2>
+            {!homeHubOpen.subs && hubPreview(subs.length>0 ? (subs.length+" subscription"+(subs.length!==1?"s":"")) : "No subscriptions yet")}
+            <button onClick={function(e){e.stopPropagation();openNewSub();}} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {hubChevron(homeHubOpen.subs)}
+          </div>
+          {homeHubOpen.subs&&(<div style={{marginTop:"0.75rem"}}>
+            {subs.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No subscriptions tracked yet.</div>}
+            {subs.map(function(s){return(
+              <div key={s.id} onClick={function(){openEditSub(s);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",cursor:"pointer",borderBottom:"1px solid "+T.borderSoft}}>
+                <span style={{flex:1,fontSize:"0.84rem",color:"#1a2e3d",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.name}</span>
+                <span style={{fontSize:"0.72rem",color:"#4a6275",flexShrink:0}}>{s.amount?("$"+s.amount+" / "+s.cycle):s.cycle}</span>
+                <button onClick={function(e){e.stopPropagation();deleteSub(s.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+              </div>
+            );})}
+            {addingSub&&(
+              <ModalBox title={editingSubId?"Edit Subscription":"New Subscription"} onClose={function(){setAddingSub(false);setEditingSubId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Name</label><input value={subForm.name} onChange={function(e){setSubForm(function(p){return Object.assign({},p,{name:e.target.value});});}} placeholder="e.g. Netflix" style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Amount</label><input type="number" step="0.01" value={subForm.amount} onChange={function(e){setSubForm(function(p){return Object.assign({},p,{amount:e.target.value});});}} placeholder="0.00" style={inp()}/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Billing Cycle</label>
+                  <select value={subForm.cycle} onChange={function(e){setSubForm(function(p){return Object.assign({},p,{cycle:e.target.value});});}} style={inp()}>
+                    {SUB_CYCLES.map(function(c){return <option key={c} value={c}>{c}</option>;})}
+                  </select>
+                </div>
+                <div style={{marginBottom:"1rem"}}><label style={lbl}>Renewal Date</label><input type="date" value={subForm.renewDate} onChange={function(e){setSubForm(function(p){return Object.assign({},p,{renewDate:e.target.value});});}} style={inp()}/></div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingSubId?<button onClick={function(){deleteSub(editingSubId);setAddingSub(false);setEditingSubId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingSub(false);setEditingSubId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveSub} style={btnP(T.sage)}>{editingSubId?"Save Changes":"Create"}</button>
                   </div>
                 </div>
               </ModalBox>

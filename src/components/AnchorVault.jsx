@@ -9028,28 +9028,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     )
   }
 
-  // Same header visuals as DashCard (icon circle, title, chevron) but opens
-  // to arbitrary children instead of a fixed summary+"Open →" link — for
-  // sections embedded fully inline (Reminders, Subscriptions) rather than
-  // summarized-with-a-link-out.
-  function HomeAccordionCard({ icon, label, children }) {
-    var [open, setOpen] = useState(false)
-    return (
-      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 12, overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
-        <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ padding: "13px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{icon}</span>
-          <div style={{ flex: 1, minWidth: 0, fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#1a2e3d", letterSpacing: "0.01em", lineHeight: 1.15 }}>{label}</div>
-          <span style={{ fontSize: 11, color: "#4a6275", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
-        </div>
-        {open && (
-          <div style={{ borderTop: "1px solid rgba(26,46,61,0.08)", padding: "10px 16px 14px" }}>
-            {children}
-          </div>
-        )}
-      </div>
-    )
-  }
-
   // ── Build summaries ────────────────────────────────────────────────────────
   var celeb = celebSummary()
   var pets = petsSummary()
@@ -9125,11 +9103,9 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
   var leftCards = [
     { id:"gifts", icon:"🎉", label:"Celebrations & Gifts", summary:{ count: celeb.count, highlight: celeb.highlight, countdown: celeb.countdown, alert: celeb.soon || celeb.alert, entries: celebEntries } },
-    // Recurring Reminders' old summary+link card removed — superseded by the
-    // always-visible "🔁 Reminders" full-inline accordion below (see
-    // HomeAccordionCard), which replaces this feature's only vault entry
-    // point now that it's off the sidebar. Keeping both would just be two
-    // different cards for the same feature.
+    // Recurring Reminders' old summary+link card removed — Reminders (and
+    // Subscriptions) now live exclusively as accordion sections in App.jsx's
+    // HomeTab (the sidebar Home icon), not anywhere in this vault dashboard.
     { id:"inventory", icon:"📦", label:"Inventory", summary:{ ...inventory, entries: inventoryEntries } },
     { id:"trips", icon:"🧳", label:"Travel", summary: travelSum },
     { id:"safeharbor", icon:"⚓", label:"Safe Harbor", summary: safeHarborSum }
@@ -9233,13 +9209,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           {leftCards.concat(rightCards).map(renderCard)}
         </div>
       )}
-
-      {/* Reminders/Subscriptions — always visible (not presence-gated like the
-          cards above), since removing them from the sidebar left this as
-          their only entry point in the vault. Full sections inline, not a
-          summary + "Open →" link. */}
-      <HomeAccordionCard icon="🔁" label="Reminders"><RecurringRemindersSection/></HomeAccordionCard>
-      <HomeAccordionCard icon="🔄" label="Subscriptions"><SubscriptionsSection/></HomeAccordionCard>
     </div>
   )
 }
