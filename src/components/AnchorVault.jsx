@@ -7965,26 +7965,14 @@ function HouseFileSection() {
 // ── Home section wrapper (Systems + House File tabs) ──────────────────────────
 function HomeSection() {
   var s_tab=useState("systems"); var homeTab=s_tab[0]; var setHomeTab=s_tab[1];
-  function homeTabBtn(id,label){
-    var active=homeTab===id;
-    return React.createElement("button",{onClick:function(){setHomeTab(id);},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:active?"2px solid "+HGOLD:"2px solid transparent",color:active?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,fontFamily:"DM Sans,sans-serif",fontWeight:active?600:400}},label);
-  }
   return React.createElement("div",null,
-    // top tab row — overflowX:"auto" (not flexWrap) matches the tab-bar
-    // pattern used elsewhere in this file (e.g. Career/Health subtabs at
-    // ~6678/7558): scrolls horizontally on narrow viewports instead of
-    // wrapping onto a second row, which risked getting clipped by an
-    // overflow-hidden ancestor.
-    React.createElement("div",{style:{display:"flex",gap:0,borderBottom:HBORD,marginBottom:20,overflowX:"auto"}},
-      homeTabBtn("systems","🔧 Maintenance"),
-      homeTabBtn("file","📁 House File"),
-      homeTabBtn("recurring","🔁 Reminders"),
-      homeTabBtn("subs","🔄 Subscriptions")
+    // top tab row
+    React.createElement("div",{style:{display:"flex",gap:0,borderBottom:HBORD,marginBottom:20}},
+      React.createElement("button",{onClick:function(){setHomeTab("systems");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="systems"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="systems"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="systems"?600:400}},"🔧 Maintenance"),
+      React.createElement("button",{onClick:function(){setHomeTab("file");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="file"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="file"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="file"?600:400}},"📁 House File")
     ),
     homeTab==="systems"&&React.createElement(HomeSystemsSection,null),
-    homeTab==="file"&&React.createElement(HouseFileSection,null),
-    homeTab==="recurring"&&React.createElement(RecurringRemindersSection,null),
-    homeTab==="subs"&&React.createElement(SubscriptionsSection,null)
+    homeTab==="file"&&React.createElement(HouseFileSection,null)
   );
 }
 
@@ -8935,29 +8923,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     }
   }
 
-  function recurringDashSummary() {
-    var list = recurLoad()
-    if (!list || !list.length) return { highlight:null, countdown:null, count:0 }
-    var active = list.filter(function(r){return r.active!==false})
-    if (!active.length) return { highlight:null, countdown:null, count:0 }
-    var withDays = active.map(function(r){ return {...r, days:daysUntilReminder(r)} }).sort(function(a,b){
-      if(a.days==null) return 1; if(b.days==null) return -1; return a.days-b.days
-    })
-    var soon = withDays.filter(function(r){return r.days!=null&&r.days<=1})
-    var soonest = withDays[0]
-    var soonestBadge = soonest&&soonest.days!=null ? nextDateLabel(soonest.days) : null
-    var entries = withDays.slice(0,4).map(function(r){
-      return { label:r.emoji+" "+r.label, badge:nextDateLabel(r.days), badgeAlert:r.days!=null&&r.days<=1 }
-    })
-    return {
-      highlight: withDays.map(function(r){return r.emoji+" "+r.label}).slice(0,3).join(" · "),
-      countdown: soonest ? soonest.emoji+" "+soonest.label+" — "+(soonestBadge||"") : null,
-      count: active.length,
-      alert: soon.length>0,
-      entries: entries
-    }
-  }
-
   function safeHarborSummary() {
     try {
       var sh = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
@@ -9063,6 +9028,28 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     )
   }
 
+  // Same header visuals as DashCard (icon circle, title, chevron) but opens
+  // to arbitrary children instead of a fixed summary+"Open →" link — for
+  // sections embedded fully inline (Reminders, Subscriptions) rather than
+  // summarized-with-a-link-out.
+  function HomeAccordionCard({ icon, label, children }) {
+    var [open, setOpen] = useState(false)
+    return (
+      <div style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 12, overflow: "hidden", transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.12)" }}>
+        <div onClick={function() { setOpen(function(p) { return !p }) }} style={{ padding: "13px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>{icon}</span>
+          <div style={{ flex: 1, minWidth: 0, fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#1a2e3d", letterSpacing: "0.01em", lineHeight: 1.15 }}>{label}</div>
+          <span style={{ fontSize: 11, color: "#4a6275", flexShrink: 0, transition: "transform 0.2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+        </div>
+        {open && (
+          <div style={{ borderTop: "1px solid rgba(26,46,61,0.08)", padding: "10px 16px 14px" }}>
+            {children}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ── Build summaries ────────────────────────────────────────────────────────
   var celeb = celebSummary()
   var pets = petsSummary()
@@ -9072,7 +9059,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var health = healthSummary()
   var inventory = inventorySummary()
   var careerSum = careerSummary()
-  var trashSum = recurringDashSummary()
   var safeHarborSum = safeHarborSummary()
 
   // Format celebration entries for display — include 🎁 if gifts recorded
@@ -9139,7 +9125,11 @@ function AnchorDashboard({ onNavigate, calEvents }) {
 
   var leftCards = [
     { id:"gifts", icon:"🎉", label:"Celebrations & Gifts", summary:{ count: celeb.count, highlight: celeb.highlight, countdown: celeb.countdown, alert: celeb.soon || celeb.alert, entries: celebEntries } },
-    { id:"recurring", icon:"🔁", label:"Recurring Reminders", summary: trashSum },
+    // Recurring Reminders' old summary+link card removed — superseded by the
+    // always-visible "🔁 Reminders" full-inline accordion below (see
+    // HomeAccordionCard), which replaces this feature's only vault entry
+    // point now that it's off the sidebar. Keeping both would just be two
+    // different cards for the same feature.
     { id:"inventory", icon:"📦", label:"Inventory", summary:{ ...inventory, entries: inventoryEntries } },
     { id:"trips", icon:"🧳", label:"Travel", summary: travelSum },
     { id:"safeharbor", icon:"⚓", label:"Safe Harbor", summary: safeHarborSum }
@@ -9243,6 +9233,13 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           {leftCards.concat(rightCards).map(renderCard)}
         </div>
       )}
+
+      {/* Reminders/Subscriptions — always visible (not presence-gated like the
+          cards above), since removing them from the sidebar left this as
+          their only entry point in the vault. Full sections inline, not a
+          summary + "Open →" link. */}
+      <HomeAccordionCard icon="🔁" label="Reminders"><RecurringRemindersSection/></HomeAccordionCard>
+      <HomeAccordionCard icon="🔄" label="Subscriptions"><SubscriptionsSection/></HomeAccordionCard>
     </div>
   )
 }
