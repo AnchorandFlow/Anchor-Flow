@@ -10569,19 +10569,70 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // ── Reminders — af_recurring, the SAME key AnchorVault's fuller Recurring
     // Reminders section reads/writes (useSaved persists to "af_"+key and
     // marks it dirty for sync automatically, so no separate plumbing is
-    // needed to stay in sync with that view). This is a deliberately simple
-    // inline version — weekly-day reminders only, no builtin templates —
-    // not a reimplementation of every field/type that section supports.
+    // needed to stay in sync with that view). Simple inline version, but
+    // covers all 3 shapes that section's BUILTIN_REMINDERS templates need
+    // (weekly_day / weekly_days / interval) through one unified control —
+    // a day-checkbox row plus a frequency select — rather than three
+    // separate type-specific mini-forms like the fuller section has.
     var [reminders, setReminders] = useSaved("recurring", []);
     var [addingReminder, setAddingReminder] = useState(false);
     var [editingReminderId, setEditingReminderId] = useState(null);
-    var [reminderForm, setReminderForm] = useState({label:"",emoji:"🔁",day:"1",freq:"weekly"});
+    var [reminderForm, setReminderForm] = useState({label:"",emoji:"🔁",days:[1],freq:"weekly",builtinId:null});
+    var [showReminderBuiltins, setShowReminderBuiltins] = useState(false);
     var REMINDER_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    function openNewReminder(){ setReminderForm({label:"",emoji:"🔁",day:"1",freq:"weekly"}); setEditingReminderId(null); setAddingReminder(true); }
-    function openEditReminder(r){ setReminderForm({label:r.label||"",emoji:r.emoji||"🔁",day:String(r.day!=null?r.day:1),freq:r.freq||"weekly"}); setEditingReminderId(r.id); setAddingReminder(true); }
+    // Frequencies with dayBased:true use the day-checkbox row (weekly_day if
+    // exactly one day ends up picked, weekly_days if more than one); the
+    // interval ones (every3mo/every6mo/yearly) hide it — there's no day to pick.
+    var REMINDER_FREQS = [
+      {value:"weekly", label:"Weekly", dayBased:true},
+      {value:"biweekly", label:"Every 2 weeks", dayBased:true},
+      {value:"monthly", label:"Monthly", dayBased:true},
+      {value:"every3mo", label:"Every 3 months", dayBased:false},
+      {value:"every6mo", label:"Every 6 months", dayBased:false},
+      {value:"yearly", label:"Yearly", dayBased:false},
+    ];
+    // Copied from AnchorVault.jsx's BUILTIN_REMINDERS (not exported/shared —
+    // per the "simple inline version" convention already used for the rest
+    // of this accordion). Keep in sync by hand if that list changes.
+    var BUILTIN_REMINDERS = [
+      { id:"trash",       emoji:"🗑️",  label:"Trash",               defaultFreq:"weekly",   hint:"Which day is trash pickup?" },
+      { id:"recycling",   emoji:"♻️",  label:"Recycling",            defaultFreq:"biweekly", hint:"Which day is recycling pickup?" },
+      { id:"yard_waste",  emoji:"🌿",  label:"Yard Waste Pickup",    defaultFreq:"weekly",   hint:"Pickup day (often seasonal)" },
+      { id:"bulk_pickup", emoji:"🛋️",  label:"Bulk / Heavy Trash",   defaultFreq:"monthly",  hint:"Large item pickup day" },
+      { id:"street_sweep",emoji:"🚗",  label:"Street Sweeping",      defaultFreq:"weekly",   hint:"Move your car — ticketing day" },
+      { id:"hvac_filter", emoji:"💨",  label:"HVAC Filter Change",   defaultFreq:"every3mo", hint:"Every 1–3 months depending on filter type" },
+      { id:"water_filter",emoji:"💧",  label:"Water Filter",         defaultFreq:"every3mo", hint:"Fridge, under-sink, or pitcher" },
+      { id:"smoke_detect",emoji:"🔋",  label:"Smoke Detector Batteries", defaultFreq:"every6mo", hint:"Test & replace batteries twice a year" },
+      { id:"gutters",     emoji:"🏠",  label:"Gutter Cleaning",      defaultFreq:"every6mo", hint:"Spring and fall" },
+      { id:"septic",      emoji:"🔩",  label:"Septic Tank Service",  defaultFreq:"yearly",   hint:"Every 3–5 years — set to yearly and note it" },
+      { id:"watering",    emoji:"🌱",  label:"Yard Watering",        defaultFreq:"weekly",   hint:"Pick the days you water — Mon, Wed, Sat, etc." },
+    ];
+    var existingReminderBuiltinIds = reminders.map(function(r){return r.builtinId;}).filter(Boolean);
+    var availableReminderBuiltins = BUILTIN_REMINDERS.filter(function(b){return !existingReminderBuiltinIds.includes(b.id);});
+    function openNewReminder(){ setReminderForm({label:"",emoji:"🔁",days:[1],freq:"weekly",builtinId:null}); setEditingReminderId(null); setAddingReminder(true); }
+    function openEditReminder(r){
+      var days = Array.isArray(r.days)&&r.days.length ? r.days.slice() : (r.day!=null ? [r.day] : []);
+      setReminderForm({label:r.label||"",emoji:r.emoji||"🔁",days:days,freq:r.freq||"weekly",builtinId:r.builtinId||null});
+      setEditingReminderId(r.id); setAddingReminder(true);
+    }
+    function openReminderFromBuiltin(template){
+      setReminderForm({label:template.label,emoji:template.emoji,days:[],freq:template.defaultFreq,builtinId:template.id});
+      setEditingReminderId(null); setAddingReminder(true); setShowReminderBuiltins(false);
+    }
+    function toggleReminderDay(i){
+      setReminderForm(function(p){
+        var days = p.days.indexOf(i)!==-1 ? p.days.filter(function(d){return d!==i;}) : p.days.concat([i]);
+        return Object.assign({},p,{days:days});
+      });
+    }
     function saveReminder(){
       if(!reminderForm.label.trim()) return;
-      var patch = {label:reminderForm.label.trim(),emoji:reminderForm.emoji||"🔁",type:"weekly_day",day:parseInt(reminderForm.day,10),freq:reminderForm.freq};
+      var freqMeta = REMINDER_FREQS.filter(function(f){return f.value===reminderForm.freq;})[0] || REMINDER_FREQS[0];
+      var days = reminderForm.days.slice().sort(function(a,b){return a-b;});
+      var patch = {label:reminderForm.label.trim(),emoji:reminderForm.emoji||"🔁",freq:reminderForm.freq,builtinId:reminderForm.builtinId||null};
+      if (!freqMeta.dayBased) { patch.type="interval"; patch.day=null; patch.days=[]; }
+      else if (days.length<=1) { patch.type="weekly_day"; patch.day=days.length?days[0]:1; patch.days=[]; }
+      else { patch.type="weekly_days"; patch.day=null; patch.days=days; }
       if(editingReminderId) setReminders(function(p){return p.map(function(x){return x.id===editingReminderId?Object.assign({},x,patch):x;});});
       else setReminders(function(p){return p.concat([Object.assign({id:uid(),lastDone:null,active:true},patch)]);});
       setAddingReminder(false); setEditingReminderId(null);
@@ -10589,7 +10640,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function deleteReminder(id){ setReminders(function(p){return p.filter(function(x){return x.id!==id;});}); }
     function markReminderDone(id){ setReminders(function(p){return p.map(function(x){return x.id===id?Object.assign({},x,{lastDone:new Date().toISOString().slice(0,10)}):x;});}); }
     function reminderNextLabel(r){
-      if(r.type&&r.type!=="weekly_day") return r.freq||"recurring";
+      if(r.type==="interval"){
+        var f = REMINDER_FREQS.filter(function(x){return x.value===r.freq;})[0];
+        return f?f.label:(r.freq||"recurring");
+      }
+      if(r.type==="weekly_days"&&Array.isArray(r.days)&&r.days.length){
+        return r.days.slice().sort(function(a,b){return a-b;}).map(function(d){return REMINDER_DAYS[d].slice(0,3);}).join(", ");
+      }
       var day = r.day!=null?r.day:1;
       return REMINDER_DAYS[day]||"—";
     }
@@ -11043,6 +11100,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.reminders)}
           </div>
           {homeHubOpen.reminders&&(<div style={{marginTop:"0.75rem"}}>
+            {availableReminderBuiltins.length>0&&(
+              <div style={{marginBottom:"0.7rem"}}>
+                <button onClick={function(){setShowReminderBuiltins(function(p){return !p;});}} style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:"7px 14px",fontSize:12,color:T.textMid,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span>➕ Add from common reminders</span>
+                  <span style={{opacity:0.5,fontSize:10}}>{showReminderBuiltins?"▲":"▼"}</span>
+                </button>
+                {showReminderBuiltins&&(
+                  <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
+                    {availableReminderBuiltins.map(function(b){return(
+                      <button key={b.id} onClick={function(){openReminderFromBuiltin(b);}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"0.6rem 0.75rem",cursor:"pointer",textAlign:"left"}}>
+                        <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
+                          <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
+                        </div>
+                        <span style={{fontSize:11,color:"#a05c10",fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
+                      </button>
+                    );})}
+                  </div>
+                )}
+              </div>
+            )}
             {reminders.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No reminders yet — trash day, recycling, anything recurring.</div>}
             {reminders.map(function(r){return(
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",borderBottom:"1px solid "+T.borderSoft}}>
@@ -11059,17 +11138,23 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <ModalBox title={editingReminderId?"Edit Reminder":"New Reminder"} onClose={function(){setAddingReminder(false);setEditingReminderId(null);}}>
                 <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Label</label><input value={reminderForm.label} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{label:e.target.value});});}} placeholder="e.g. Take out trash" style={inp()} autoFocus/></div>
                 <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Emoji (optional)</label><input value={reminderForm.emoji} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} style={inp()}/></div>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Day</label>
-                  <select value={reminderForm.day} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{day:e.target.value});});}} style={inp()}>
-                    {REMINDER_DAYS.map(function(d,i){return <option key={d} value={i}>{d}</option>;})}
-                  </select>
-                </div>
-                <div style={{marginBottom:"1rem"}}><label style={lbl}>Frequency</label>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Frequency</label>
                   <select value={reminderForm.freq} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{freq:e.target.value});});}} style={inp()}>
-                    <option value="weekly">Weekly</option>
-                    <option value="biweekly">Every 2 weeks</option>
+                    {REMINDER_FREQS.map(function(f){return <option key={f.value} value={f.value}>{f.label}</option>;})}
                   </select>
                 </div>
+                {(REMINDER_FREQS.filter(function(f){return f.value===reminderForm.freq;})[0]||REMINDER_FREQS[0]).dayBased && (
+                  <div style={{marginBottom:"1rem"}}><label style={lbl}>Day(s)</label>
+                    <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
+                      {REMINDER_DAYS.map(function(d,i){
+                        var active = reminderForm.days.indexOf(i)!==-1;
+                        return (
+                          <button key={d} type="button" onClick={function(){toggleReminderDay(i);}} style={{padding:"0.3rem 0.6rem",borderRadius:"1rem",border:"1.5px solid "+(active?T.sage:T.border),background:active?T.sagePale:"transparent",color:active?T.sageDark:T.textMid,fontSize:"0.72rem",fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit"}}>{d.slice(0,3)}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
                   {editingReminderId?<button onClick={function(){deleteReminder(editingReminderId);setAddingReminder(false);setEditingReminderId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
                   <div style={{display:"flex",gap:"0.5rem"}}>
