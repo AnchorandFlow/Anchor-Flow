@@ -935,7 +935,27 @@ function lhChildTabs(modes, childId) {
   var mode = (modes && childId) ? (modes[childId] || null) : null;
   if (mode === "homeschool") return SHARED.concat(["plan","loops"]);
   if (mode === "school")     return SHARED.concat(["week","homework","comms","grades"]);
+  if (mode === "preschool")  return ["hub","overview","books","goals"];
   return SHARED;
+}
+// ── person.schoolType — replaces the old inSchool boolean + af_schoolData[id].type
+// as the single source of truth for a child's Lighthouse visibility/mode (Batch C).
+// "none" of these has anything to do with the calendar event SCHOOL_EVENT_TYPES /
+// f.schoolType used by the Add Event form (school_day/half_day/holiday/no_school)
+// — same field name, unrelated concept, don't conflate the two.
+var LEGACY_SCHOOL_TYPE_MAP = { homeschool:"homeschool", public:"public", private:"private", "co-op":"public", online:"public", other:"public" };
+function migratedSchoolType(p, legacySchoolData) {
+  if (p && p.schoolType) return p.schoolType;
+  var legacy = legacySchoolData && p && legacySchoolData[p.id] && legacySchoolData[p.id].type;
+  if (legacy && LEGACY_SCHOOL_TYPE_MAP[legacy]) return LEGACY_SCHOOL_TYPE_MAP[legacy];
+  if (p && p.inSchool === true) return "homeschool";
+  return "none";
+}
+function schoolTypeToLhMode(schoolType) {
+  if (schoolType === "homeschool") return "homeschool";
+  if (schoolType === "public" || schoolType === "private") return "school";
+  if (schoolType === "preschool") return "preschool";
+  return null;
 }
 function lhChallengeAutoProgress(books) {
   if (!Array.isArray(books)) return 0;
@@ -1785,9 +1805,10 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
                   <ColorPicker value={p.color||"#6A9BB5"} size={18} onChange={function(c){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}}/>
                 </div>
               </div>
-              {/* Manual status flags — not derived from the work schedule, just a quick "is this true today" toggle. */}
+              {/* Manual status flag — not derived from the work schedule, just a quick "is
+                  this true today" toggle. School type (replaces the old "In school" pill
+                  here) now lives in its own School section below, minors-only. */}
               <div style={{display:"flex",gap:"0.35rem",marginTop:"0.4rem"}}>
-                <button onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{inSchool:!x.inSchool}):x;});});}} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(p.inSchool?T.blue:T.border),background:p.inSchool?T.blue:"transparent",color:p.inSchool?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🎒 In school</button>
                 <button onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{working:!x.working}):x;});});}} style={{padding:"0.18rem 0.6rem",borderRadius:"50px",border:"1.5px solid "+(p.working?T.blue:T.border),background:p.working?T.blue:"transparent",color:p.working?"#fff":T.textMid,fontSize:"0.68rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💼 Working</button>
               </div>
             </div>
@@ -1926,30 +1947,25 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
 
 
 
-  // ── school type per kid state ──
-  // af_schoolData is also read/written by the Learning tab (Records/Plan) — same key
-  var [sData,setSDataLocal]=useState(function(){
+  // ── school type per kid (Batch C) ──
+  // person.schoolType is the single source of truth now — read-only here for its
+  // legacy fallback (migratedSchoolType) so a not-yet-migrated kid still displays
+  // the right pill selected. af_schoolData itself is never written from here
+  // anymore; it's still read/written by the Learning tab for its own content
+  // (curricula/lessons/attendance), just no longer for the "type" field.
+  var [sData]=useState(function(){
     try{var s=localStorage.getItem("af_schoolData");var parsed=s?JSON.parse(s):{};return parsed&&typeof parsed==="object"?parsed:{};}catch{return {};}
   });
-  // Learning (Phase 2) reads lighthouse.modes[id] as the single source of truth for a
-  // child's learning mode. This picker still writes the richer schoolData[id].type
-  // (Homeschool/Public/Private/Co-op/Online/Other) as before, and now also keeps
-  // lighthouse.modes in sync so Learning's Overview reflects changes made here.
-  // Learning only understands the binary homeschool/school split: "homeschool" maps
-  // straight across, every other type maps to "school", and clearing the type
-  // (re-tapping the selected option) clears the Learning mode too.
   var [lhDataForSettings,setLhDataForSettings]=useSaved("lighthouse",defaultLighthouse());
-  function setKidSchoolType(kidId,type){
-    var next=Object.assign({},sData);
-    if(!next[kidId]) next[kidId]={type:null,public:{teachers:[],calEvents:[],spiritDays:[],teacherAppWeek:{},schedule:"",notes:""},homeschool:{umbrella:{},curricula:[],lessons:[],activities:[],attendance:{}}};
-    next[kidId]=Object.assign({},next[kidId],{type:type});
-    setSDataLocal(next);
-    try{localStorage.setItem("af_schoolData",JSON.stringify(next));}catch{}
+  function setPersonSchoolType(personId,schoolType){
+    setPeople(function(prev){
+      return prev.map(function(x){return x.id===personId?Object.assign({},x,{schoolType:schoolType}):x;});
+    });
+    var mode=schoolTypeToLhMode(schoolType);
     setLhDataForSettings(function(prev){
       var prevModes=lhGet(prev,"modes",{});
       var nextModes=Object.assign({},prevModes);
-      if(type){ nextModes[kidId]=type==="homeschool"?"homeschool":"school"; }
-      else { delete nextModes[kidId]; }
+      if(mode){ nextModes[personId]=mode; } else { delete nextModes[personId]; }
       return Object.assign({},prev,{modes:nextModes});
     });
   }
@@ -2120,15 +2136,13 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
             <div style={{color:T.textSoft,fontSize:"0.82rem",lineHeight:1.6}}>Add children in the <strong>Family</strong> section above to set up school preferences.</div>
           )}
           {minorKids.map(function(kid){
-            var kidD = (sData||{})[kid.id];
-            var currentType = kidD&&kidD.type;
+            var currentType = kid.schoolType || migratedSchoolType(kid, sData);
             var SCHOOL_TYPES = [
               {value:"homeschool", label:"Homeschool",      emoji:"🏠", desc:"Learning at home — full curriculum"},
-              {value:"public",     label:"Public school",   emoji:"🏫", desc:"Standard public school"},
-              {value:"private",    label:"Private school",  emoji:"🎓", desc:"Private or charter school"},
-              {value:"co-op",      label:"Co-op / hybrid",  emoji:"🤝", desc:"Mix of home and group learning"},
-              {value:"online",     label:"Online school",   emoji:"💻", desc:"Accredited online program"},
-              {value:"other",      label:"Other",           emoji:"📋", desc:"Something else entirely"},
+              {value:"public",     label:"Public School",   emoji:"🏫", desc:"Standard public school"},
+              {value:"private",    label:"Private School",  emoji:"🎓", desc:"Private or charter school"},
+              {value:"preschool",  label:"Preschool",        emoji:"🧸", desc:"Early learning, not yet school-age curriculum"},
+              {value:"none",       label:"Not school-age",   emoji:"👶", desc:"Not in school or a learning program yet"},
             ];
             return(
               <div key={kid.id} style={{marginBottom:"0.85rem",padding:"0.75rem",borderRadius:"0.9rem",border:"1.5px solid "+T.borderSoft,background:T.surface}}>
@@ -2141,7 +2155,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
                   {SCHOOL_TYPES.map(function(type){
                     var selected = currentType===type.value;
                     return(
-                      <button key={type.value} onClick={function(){setKidSchoolType(kid.id,selected?null:type.value);}} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0.75rem",borderRadius:"0.7rem",border:"1.5px solid "+(selected?T.blue:T.border),background:selected?T.bluePale:"transparent",cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
+                      <button key={type.value} onClick={function(){setPersonSchoolType(kid.id,type.value);}} style={{display:"flex",alignItems:"center",gap:"0.65rem",padding:"0.55rem 0.75rem",borderRadius:"0.7rem",border:"1.5px solid "+(selected?T.blue:T.border),background:selected?T.bluePale:"transparent",cursor:"pointer",fontFamily:"inherit",textAlign:"left",width:"100%",transition:"all 0.15s"}}>
                         <span style={{fontSize:"1.05rem",flexShrink:0}}>{type.emoji}</span>
                         <div style={{flex:1}}>
                           <div style={{fontSize:"0.84rem",fontWeight:700,color:selected?T.blue:T.textDark}}>{type.label}</div>
@@ -4040,6 +4054,38 @@ function createLocalBackup() {
   // needed here so Today's merged task list can surface loop/week-plan items
   // without threading LearningTab's local state through props.
   const [lighthouseForToday, setLighthouseForToday] = useSaved("lighthouse", defaultLighthouse());
+  // Migration (Batch C): backfill person.schoolType — the new single source of
+  // truth for Lighthouse visibility/mode — for any minor who has a signal
+  // under one of the two old systems (inSchool boolean, or af_schoolData[id].type
+  // via Settings' old School section) but hasn't been touched under the new one
+  // yet. Additive only: never overwrites a schoolType that's already set, and
+  // never touches the old fields themselves — no data loss. Re-runs (cheaply,
+  // it's a no-op once caught up) whenever the people roster changes, so a child
+  // added later via onboarding/Family still gets picked up.
+  useEffect(function(){
+    var minors = (people||[]).filter(function(p){ return p && p.name && personIsMinor(p); });
+    if (minors.some(function(p){ return !p.schoolType; })) {
+      setPeople(function(prev){
+        return (prev||[]).map(function(p){
+          if (!p || !personIsMinor(p) || p.schoolType) return p;
+          return Object.assign({}, p, { schoolType: migratedSchoolType(p, schoolData) });
+        });
+      });
+    }
+    var modes = lhGet(lighthouseForToday, "modes", {});
+    var modePatch = null;
+    minors.forEach(function(p){
+      var st = p.schoolType || migratedSchoolType(p, schoolData);
+      var mode = schoolTypeToLhMode(st);
+      if (mode && modes[p.id] !== mode) { if (!modePatch) modePatch = {}; modePatch[p.id] = mode; }
+    });
+    if (modePatch) {
+      setLighthouseForToday(function(prev){
+        var prevModes = lhGet(prev, "modes", {});
+        return Object.assign({}, prev, { modes: Object.assign({}, prevModes, modePatch) });
+      });
+    }
+  }, [people.map(function(p){ return p&&p.id; }).join(",")]);
   // Quick Capture
   const [captureOpen,setCaptureOpen]           = useState(false);
   const [captureText,setCaptureText]           = useState("");
@@ -6812,16 +6858,16 @@ Respond ONLY in valid JSON:
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);if(n&&(n.indexOf(".")!==-1||n.indexOf("@")!==-1))return "";var shown=n||"there";return ", "+(shown.charAt(0).toUpperCase()+shown.slice(1));})()} {greetingEmoji}</div>
           </div>
-          {/* Manual "in school"/"working" status flags set in Settings — shown here only when at least one person has one on. */}
+          {/* Manual "school type"/"working" status flags set in Settings — shown here only when at least one person has one on. */}
           {(function(){
-            var flagged=people.filter(function(p){return p&&p.name&&(p.inSchool||p.working);});
+            var flagged=people.filter(function(p){return p&&p.name&&((p.schoolType&&p.schoolType!=="none")||p.working);});
             if(flagged.length===0) return null;
             return (
               <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.35rem"}}>
                 {flagged.map(function(p){
                   return (
                     <span key={p.id} style={{fontSize:"0.68rem",fontWeight:700,color:T.textMid,background:T.bgAlt,border:"1px solid "+T.borderSoft,borderRadius:"2rem",padding:"0.15rem 0.6rem",display:"inline-flex",alignItems:"center",gap:"0.25rem"}}>
-                      {p.name}{p.inSchool&&<span>🎒</span>}{p.working&&<span>💼</span>}
+                      {p.name}{p.schoolType&&p.schoolType!=="none"&&<span>🎒</span>}{p.working&&<span>💼</span>}
                     </span>
                   );
                 })}
@@ -13151,11 +13197,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     var allPeople = people.filter(function(p) { return p && p.name; });
-    // Fix 1: Lighthouse only tracks kids marked "in school" (Settings' 🎒
-    // toggle) — allMinors (unfiltered) exists only to tell apart "no kids at
-    // all" from "kids exist but none are marked in school" for the empty state.
+    // Lighthouse only tracks kids with a real schoolType (Settings' School
+    // section) — "none" ("Not school-age") and unset both stay hidden.
+    // allMinors (unfiltered) exists only to tell apart "no kids at all" from
+    // "kids exist but none have a schoolType set" for the empty state.
     var allMinors = allPeople.filter(function(p) { return personIsMinor(p); });
-    var learningKids = allMinors.filter(function(p) { return p.inSchool === true; });
+    var learningKids = allMinors.filter(function(p) { return p.schoolType && p.schoolType !== "none"; });
 
     React.useEffect(function() {
       var ids = learningKids.map(function(p){ return p.id; });
@@ -15931,7 +15978,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
           <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>No children marked as in school. Update in Settings.</div>
+          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>No children have a school type set yet. Update in Settings.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -16602,7 +16649,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       const attStatus=schoolTypeAttendanceStatus(f.schoolType);
       if(attStatus){
         const targetIds=f.forPerson==="family"
-          ? people.filter(function(p){return p&&p.inSchool===true&&personIsMinor(p);}).map(function(p){return p.id;})
+          ? people.filter(function(p){return p&&p.schoolType&&p.schoolType!=="none"&&personIsMinor(p);}).map(function(p){return p.id;})
           : (f.forPerson?[f.forPerson]:[]);
         if(targetIds.length>0){
           setSchoolDataForAttendance(function(prev){
