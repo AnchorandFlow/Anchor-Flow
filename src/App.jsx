@@ -11100,28 +11100,31 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.reminders)}
           </div>
           {homeHubOpen.reminders&&(<div style={{marginTop:"0.75rem"}}>
-            {availableReminderBuiltins.length>0&&(
-              <div style={{marginBottom:"0.7rem"}}>
-                <button onClick={function(){setShowReminderBuiltins(function(p){return !p;});}} style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:"7px 14px",fontSize:12,color:T.textMid,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <span>➕ Add from common reminders</span>
-                  <span style={{opacity:0.5,fontSize:10}}>{showReminderBuiltins?"▲":"▼"}</span>
-                </button>
-                {showReminderBuiltins&&(
-                  <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
-                    {availableReminderBuiltins.map(function(b){return(
-                      <button key={b.id} onClick={function(){openReminderFromBuiltin(b);}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"0.6rem 0.75rem",cursor:"pointer",textAlign:"left"}}>
-                        <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
-                          <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
-                        </div>
-                        <span style={{fontSize:11,color:"#a05c10",fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
-                      </button>
-                    );})}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Always visible now, regardless of availableReminderBuiltins.length —
+                previously this whole block (button included) was gated on
+                length>0, so once every builtin had been added it silently
+                disappeared instead of just showing an empty/"all added" list. */}
+            <div style={{marginBottom:"0.7rem"}}>
+              <button onClick={function(){setShowReminderBuiltins(function(p){return !p;});}} style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:"7px 14px",fontSize:12,color:T.textMid,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span>➕ Add from common reminders</span>
+                <span style={{opacity:0.5,fontSize:10}}>{showReminderBuiltins?"▲":"▼"}</span>
+              </button>
+              {showReminderBuiltins&&(
+                <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
+                  {availableReminderBuiltins.length===0 && <div style={{fontSize:"0.78rem",color:"#4a6275",fontStyle:"italic",padding:"0.4rem 0.2rem"}}>You've already added all the common reminders.</div>}
+                  {availableReminderBuiltins.map(function(b){return(
+                    <button key={b.id} onClick={function(){openReminderFromBuiltin(b);}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"0.6rem 0.75rem",cursor:"pointer",textAlign:"left"}}>
+                      <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
+                        <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
+                      </div>
+                      <span style={{fontSize:11,color:"#a05c10",fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
+                    </button>
+                  );})}
+                </div>
+              )}
+            </div>
             {reminders.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No reminders yet — trash day, recycling, anything recurring.</div>}
             {reminders.map(function(r){return(
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",borderBottom:"1px solid "+T.borderSoft}}>
