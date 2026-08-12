@@ -13644,6 +13644,74 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         // still only happens in Plan → Week, same "read-only elsewhere,
         // editable in Week" convention as Today's lhweek rows.
         var [expandedWeekDays, setExpandedWeekDays] = React.useState({});
+        // Fix 5: curriculum planning — flat per-week entries, following the
+        // same "not month-keyed, just current fields" convention as
+        // monthlyFocus/monthlyGoals/monthlyBook above (this screen has never
+        // tracked which calendar month it's for, so this doesn't either).
+        var monthCurriculum = (hsChild.monthCurriculum && typeof hsChild.monthCurriculum === "object") ? hsChild.monthCurriculum : {};
+        var CURRICULUM_WEEKS = ["Week 1", "Week 2", "Week 3", "Week 4"];
+        var [curWeek, setCurWeek] = React.useState("Week 1");
+        var [addingCur, setAddingCur] = React.useState(false);
+        function saveCurriculumWeek(week, entries) {
+          applyHs({ monthCurriculum: Object.assign({}, monthCurriculum, { [week]: entries }) });
+        }
+        function CurriculumAddRow() {
+          // Cross-populates from the same subjectNameList Week/Records use —
+          // "Other…" covers a subject that isn't in that list yet.
+          var [subj, setSubj] = React.useState(subjectNameList.length > 0 ? subjectNameList[0] : "__other__");
+          var [customSubj, setCustomSubj] = React.useState("");
+          var [material, setMaterial] = React.useState("");
+          function save() {
+            var finalSubj = (subj === "__other__" ? customSubj : subj).trim();
+            if (!finalSubj) return;
+            var weekEntries = Array.isArray(monthCurriculum[curWeek]) ? monthCurriculum[curWeek] : [];
+            saveCurriculumWeek(curWeek, weekEntries.concat([{ id:uid(), subject:finalSubj, material:material.trim() }]));
+            setMaterial(""); setCustomSubj(""); setAddingCur(false);
+          }
+          return (
+            <div style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.8rem", marginBottom:"0.5rem" }}>
+              <select value={subj} onChange={function(e){ setSubj(e.target.value); }} style={inp({ fontSize:"0.8rem", marginBottom:"0.4rem" })}>
+                {subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}
+                <option value="__other__">Other…</option>
+              </select>
+              {subj === "__other__" && <input value={customSubj} onChange={function(e){ setCustomSubj(e.target.value); }} placeholder="Subject name" style={inp({ fontSize:"0.82rem", marginBottom:"0.4rem" })} autoFocus/>}
+              <input value={material} onChange={function(e){ setMaterial(e.target.value); }} placeholder="Lesson / material for this week" style={inp({ fontSize:"0.82rem", marginBottom:"0.5rem" })}/>
+              <div style={{ display:"flex", gap:"0.4rem" }}>
+                <button type="button" onClick={save} style={btnP(LC.seaglass,{ fontSize:"0.78rem" })}>Add</button>
+                <button type="button" onClick={function(){ setAddingCur(false); }} style={btnS({ fontSize:"0.78rem" })}>Cancel</button>
+              </div>
+            </div>
+          );
+        }
+        function CurriculumSection() {
+          var weekEntries = Array.isArray(monthCurriculum[curWeek]) ? monthCurriculum[curWeek] : [];
+          return (
+            <SectionShell tabName="plan-month" sectionName="curriculum" emoji="📘" title="Curriculum Planning" defaultOpen={true}>
+              <div style={{ display:"flex", gap:"0.4rem", marginBottom:"0.75rem", flexWrap:"wrap" }}>
+                {CURRICULUM_WEEKS.map(function(w) {
+                  var active = curWeek === w;
+                  var count = Array.isArray(monthCurriculum[w]) ? monthCurriculum[w].length : 0;
+                  return (
+                    <button type="button" key={w} onClick={function(){ setCurWeek(w); setAddingCur(false); }} style={{ padding:"0.28rem 0.75rem", borderRadius:"50px", border:"1.5px solid "+(active?LC.seaglass:"#D8D2C4"), background:active?LC.seaglass+"22":"transparent", color:active?LC.seaglass:"#7a7568", fontSize:"0.76rem", fontWeight:active?700:500, cursor:"pointer", fontFamily:"inherit" }}>{w}{count>0?" ("+count+")":""}</button>
+                  );
+                })}
+              </div>
+              {weekEntries.length === 0 && <div style={{ color:"#9a9488", fontSize:"0.82rem", fontStyle:"italic", padding:"0.3rem 0" }}>No curriculum planned for {curWeek} yet.</div>}
+              {weekEntries.map(function(entry) {
+                return (
+                  <div key={entry.id} style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" }}>{entry.subject}</div>
+                      {entry.material && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.15rem" }}>{entry.material}</div>}
+                    </div>
+                    <button type="button" onClick={function(){ saveCurriculumWeek(curWeek, weekEntries.filter(function(x){ return x.id!==entry.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                  </div>
+                );
+              })}
+              {addingCur ? <CurriculumAddRow/> : <button type="button" onClick={function(){ setAddingCur(true); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.78rem", fontFamily:"inherit" }}>+ Add curriculum entry</button>}
+            </SectionShell>
+          );
+        }
         function AddMonthlyGoalRow() {
           var [adding, setAdding] = React.useState(false);
           var [text, setText] = React.useState("");
@@ -13701,6 +13769,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               })}
               <button type="button" onClick={function(){ setPlanSubTab("week"); }} style={{ background:"none", border:"none", cursor:"pointer", color:LC.seaglass, fontWeight:700, fontSize:"0.78rem", padding:0, marginTop:"0.2rem" }}>Edit in Week →</button>
             </SectionShell>
+
+            <CurriculumSection/>
 
             <SectionShell tabName="plan-month" sectionName="focus" emoji="🎯" title="This Month's Focus" defaultOpen={true}>
               <textarea
