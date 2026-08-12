@@ -10532,90 +10532,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var inventoryItems = Object.keys(inventoryByCategory).reduce(function(acc,cat){ return acc.concat(Array.isArray(inventoryByCategory[cat])?inventoryByCategory[cat]:[]); }, []);
     var inventoryLow = inventoryItems.filter(function(i){ return i && i.stocked===false; });
 
-    // ── Reminders — af_recurring, the SAME key AnchorVault's fuller Recurring
-    // Reminders section reads/writes (useSaved persists to "af_"+key and
-    // marks it dirty for sync automatically, so no separate plumbing is
-    // needed to stay in sync with that view). Simple inline version, but
-    // covers all 3 shapes that section's BUILTIN_REMINDERS templates need
-    // (weekly_day / weekly_days / interval) through one unified control —
-    // a day-checkbox row plus a frequency select — rather than three
-    // separate type-specific mini-forms like the fuller section has.
-    var [reminders, setReminders] = useSaved("recurring", []);
-    var [addingReminder, setAddingReminder] = useState(false);
-    var [editingReminderId, setEditingReminderId] = useState(null);
-    var [reminderForm, setReminderForm] = useState({label:"",emoji:"🔁",days:[1],freq:"weekly",builtinId:null});
-    var [showReminderBuiltins, setShowReminderBuiltins] = useState(false);
+    // ── Reminders — af_recurring. Same "summary + link" pattern as
+    // Maintenance/Subscriptions above: read-only preview here (direct
+    // localStorage read, same convention as maintenanceSystems/subsList),
+    // full add/edit/delete/common-suggestions only in the fuller
+    // AnchorVault RecurringRemindersSection via "Open Reminders →".
     var REMINDER_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    // Frequencies with dayBased:true use the day-checkbox row (weekly_day if
-    // exactly one day ends up picked, weekly_days if more than one); the
-    // interval ones (every3mo/every6mo/yearly) hide it — there's no day to pick.
-    var REMINDER_FREQS = [
-      {value:"weekly", label:"Weekly", dayBased:true},
-      {value:"biweekly", label:"Every 2 weeks", dayBased:true},
-      {value:"monthly", label:"Monthly", dayBased:true},
-      {value:"every3mo", label:"Every 3 months", dayBased:false},
-      {value:"every6mo", label:"Every 6 months", dayBased:false},
-      {value:"yearly", label:"Yearly", dayBased:false},
-    ];
-    // Copied from AnchorVault.jsx's BUILTIN_REMINDERS (not exported/shared —
-    // per the "simple inline version" convention already used for the rest
-    // of this accordion). Keep in sync by hand if that list changes.
-    var BUILTIN_REMINDERS = [
-      { id:"trash",       emoji:"🗑️",  label:"Trash",               defaultFreq:"weekly",   hint:"Which day is trash pickup?" },
-      { id:"recycling",   emoji:"♻️",  label:"Recycling",            defaultFreq:"biweekly", hint:"Which day is recycling pickup?" },
-      { id:"yard_waste",  emoji:"🌿",  label:"Yard Waste Pickup",    defaultFreq:"weekly",   hint:"Pickup day (often seasonal)" },
-      { id:"bulk_pickup", emoji:"🛋️",  label:"Bulk / Heavy Trash",   defaultFreq:"monthly",  hint:"Large item pickup day" },
-      { id:"street_sweep",emoji:"🚗",  label:"Street Sweeping",      defaultFreq:"weekly",   hint:"Move your car — ticketing day" },
-      { id:"hvac_filter", emoji:"💨",  label:"HVAC Filter Change",   defaultFreq:"every3mo", hint:"Every 1–3 months depending on filter type" },
-      { id:"water_filter",emoji:"💧",  label:"Water Filter",         defaultFreq:"every3mo", hint:"Fridge, under-sink, or pitcher" },
-      { id:"smoke_detect",emoji:"🔋",  label:"Smoke Detector Batteries", defaultFreq:"every6mo", hint:"Test & replace batteries twice a year" },
-      { id:"gutters",     emoji:"🏠",  label:"Gutter Cleaning",      defaultFreq:"every6mo", hint:"Spring and fall" },
-      { id:"septic",      emoji:"🔩",  label:"Septic Tank Service",  defaultFreq:"yearly",   hint:"Every 3–5 years — set to yearly and note it" },
-      { id:"watering",    emoji:"🌱",  label:"Yard Watering",        defaultFreq:"weekly",   hint:"Pick the days you water — Mon, Wed, Sat, etc." },
-    ];
-    var existingReminderBuiltinIds = reminders.map(function(r){return r.builtinId;}).filter(Boolean);
-    var availableReminderBuiltins = BUILTIN_REMINDERS.filter(function(b){return !existingReminderBuiltinIds.includes(b.id);});
-    function openNewReminder(){ setReminderForm({label:"",emoji:"🔁",days:[1],freq:"weekly",builtinId:null}); setEditingReminderId(null); setAddingReminder(true); }
-    function openEditReminder(r){
-      var days = Array.isArray(r.days)&&r.days.length ? r.days.slice() : (r.day!=null ? [r.day] : []);
-      setReminderForm({label:r.label||"",emoji:r.emoji||"🔁",days:days,freq:r.freq||"weekly",builtinId:r.builtinId||null});
-      setEditingReminderId(r.id); setAddingReminder(true);
-    }
-    function openReminderFromBuiltin(template){
-      setReminderForm({label:template.label,emoji:template.emoji,days:[],freq:template.defaultFreq,builtinId:template.id});
-      setEditingReminderId(null); setAddingReminder(true); setShowReminderBuiltins(false);
-    }
-    function toggleReminderDay(i){
-      setReminderForm(function(p){
-        var days = p.days.indexOf(i)!==-1 ? p.days.filter(function(d){return d!==i;}) : p.days.concat([i]);
-        return Object.assign({},p,{days:days});
-      });
-    }
-    function saveReminder(){
-      if(!reminderForm.label.trim()) return;
-      var freqMeta = REMINDER_FREQS.filter(function(f){return f.value===reminderForm.freq;})[0] || REMINDER_FREQS[0];
-      var days = reminderForm.days.slice().sort(function(a,b){return a-b;});
-      var patch = {label:reminderForm.label.trim(),emoji:reminderForm.emoji||"🔁",freq:reminderForm.freq,builtinId:reminderForm.builtinId||null};
-      if (!freqMeta.dayBased) { patch.type="interval"; patch.day=null; patch.days=[]; }
-      else if (days.length<=1) { patch.type="weekly_day"; patch.day=days.length?days[0]:1; patch.days=[]; }
-      else { patch.type="weekly_days"; patch.day=null; patch.days=days; }
-      if(editingReminderId) setReminders(function(p){return p.map(function(x){return x.id===editingReminderId?Object.assign({},x,patch):x;});});
-      else setReminders(function(p){return p.concat([Object.assign({id:uid(),lastDone:null,active:true},patch)]);});
-      setAddingReminder(false); setEditingReminderId(null);
-    }
-    function deleteReminder(id){ setReminders(function(p){return p.filter(function(x){return x.id!==id;});}); }
-    function markReminderDone(id){ setReminders(function(p){return p.map(function(x){return x.id===id?Object.assign({},x,{lastDone:new Date().toISOString().slice(0,10)}):x;});}); }
-    function reminderNextLabel(r){
-      if(r.type==="interval"){
-        var f = REMINDER_FREQS.filter(function(x){return x.value===r.freq;})[0];
-        return f?f.label:(r.freq||"recurring");
-      }
-      if(r.type==="weekly_days"&&Array.isArray(r.days)&&r.days.length){
-        return r.days.slice().sort(function(a,b){return a-b;}).map(function(d){return REMINDER_DAYS[d].slice(0,3);}).join(", ");
-      }
+    var REMINDER_FREQ_LABELS = {weekly:"Weekly", biweekly:"Every 2 weeks", monthly:"Monthly", every3mo:"Every 3 months", every6mo:"Every 6 months", yearly:"Yearly"};
+    var remindersList = (function(){ try { var v=JSON.parse(localStorage.getItem("af_recurring")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+    function reminderLabel(r){
+      if(r.type==="interval") return REMINDER_FREQ_LABELS[r.freq]||r.freq||"recurring";
+      if(r.type==="weekly_days"&&Array.isArray(r.days)&&r.days.length) return r.days.slice().sort(function(a,b){return a-b;}).map(function(d){return REMINDER_DAYS[d].slice(0,3);}).join(", ");
       var day = r.day!=null?r.day:1;
       return REMINDER_DAYS[day]||"—";
     }
+    // Lightweight day-of-week proximity only (ignores biweekly/monthly
+    // precision, and interval reminders have no day at all) — good enough
+    // to sort a preview; the full section computes this properly.
+    function reminderDaysUntil(r){
+      if(r.type==="interval") return null;
+      var days = (r.type==="weekly_days"&&Array.isArray(r.days)&&r.days.length) ? r.days : (r.day!=null?[r.day]:[1]);
+      var now = new Date(); var dow = now.getDay(); var min = null;
+      days.forEach(function(d){ var diff=(d-dow+7)%7; if(min===null||diff<min) min=diff; });
+      return min;
+    }
+    var remindersSorted = remindersList.slice().sort(function(a,b){
+      var da=reminderDaysUntil(a), db=reminderDaysUntil(b);
+      if(da==null) return 1; if(db==null) return -1; return da-db;
+    });
 
     // ── Subscriptions — af_subs. Same "summary + link" pattern as
     // Maintenance/Inventory above: a read-only preview here (direct
@@ -10897,83 +10841,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>)}
         </div>
 
-        {/* ══════════════ 7. Reminders ══════════════ */}
+        {/* ══════════════ 7. Reminders (existing vault section — summary + link) ══════════════ */}
         <div style={{...card()}}>
           <div onClick={function(){toggleHub("reminders");}} style={hubHeaderStyle}>
             <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🔁</span>
             <h2 style={hubTitleStyle}>Reminders</h2>
-            {!homeHubOpen.reminders && hubPreview(reminders.length>0 ? (reminders.length+" reminder"+(reminders.length!==1?"s":"")) : "No reminders yet")}
-            <button onClick={function(e){e.stopPropagation();openNewReminder();}} style={{...btnP(T.sage,{fontSize:"0.72rem",padding:"0.3rem 0.65rem"})}}>+ Add</button>
+            {!homeHubOpen.reminders && hubPreview(remindersSorted[0] ? (remindersSorted[0].label+" · "+reminderLabel(remindersSorted[0])) : "No reminders yet")}
             {hubChevron(homeHubOpen.reminders)}
           </div>
           {homeHubOpen.reminders&&(<div style={{marginTop:"0.75rem"}}>
-            {/* Always visible now, regardless of availableReminderBuiltins.length —
-                previously this whole block (button included) was gated on
-                length>0, so once every builtin had been added it silently
-                disappeared instead of just showing an empty/"all added" list. */}
-            <div style={{marginBottom:"0.7rem"}}>
-              <button onClick={function(){setShowReminderBuiltins(function(p){return !p;});}} style={{background:T.bgAlt,border:"1px solid "+T.border,borderRadius:8,padding:"7px 14px",fontSize:12,color:T.textMid,fontFamily:"DM Sans,sans-serif",cursor:"pointer",fontWeight:600,width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <span>➕ Add from common reminders</span>
-                <span style={{opacity:0.5,fontSize:10}}>{showReminderBuiltins?"▲":"▼"}</span>
-              </button>
-              {showReminderBuiltins&&(
-                <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:6}}>
-                  {availableReminderBuiltins.length===0 && <div style={{fontSize:"0.78rem",color:"#4a6275",fontStyle:"italic",padding:"0.4rem 0.2rem"}}>You've already added all the common reminders.</div>}
-                  {availableReminderBuiltins.map(function(b){return(
-                    <button key={b.id} onClick={function(){openReminderFromBuiltin(b);}} style={{display:"flex",alignItems:"center",gap:10,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.1)",borderRadius:8,padding:"0.6rem 0.75rem",cursor:"pointer",textAlign:"left"}}>
-                      <span style={{fontSize:20,flexShrink:0}}>{b.emoji}</span>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:600,color:"#1a2e3d",fontFamily:"DM Sans,sans-serif"}}>{b.label}</div>
-                        <div style={{fontSize:11,color:"#4a6275",fontFamily:"DM Sans,sans-serif",marginTop:1}}>{b.hint}</div>
-                      </div>
-                      <span style={{fontSize:11,color:"#a05c10",fontFamily:"DM Sans,sans-serif",fontWeight:600,flexShrink:0}}>Add →</span>
-                    </button>
-                  );})}
-                </div>
-              )}
-            </div>
-            {reminders.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No reminders yet — trash day, recycling, anything recurring.</div>}
-            {reminders.map(function(r){return(
-              <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                <span onClick={function(){openEditReminder(r);}} style={{flex:1,display:"flex",alignItems:"center",gap:"0.4rem",cursor:"pointer",minWidth:0}}>
-                  <span style={{fontSize:"1rem",flexShrink:0}}>{r.emoji||"🔁"}</span>
-                  <span style={{fontSize:"0.84rem",color:"#1a2e3d",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.label}</span>
-                </span>
-                <span style={{fontSize:"0.72rem",color:"#4a6275",flexShrink:0}}>{reminderNextLabel(r)}</span>
-                <button onClick={function(){markReminderDone(r.id);}} title="Mark done today" style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}><Icon name="check" size={13} color={"#4a6275"}/></button>
-                <button onClick={function(){deleteReminder(r.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",flexShrink:0}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+            {remindersSorted.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No reminders yet — add your first in Reminders</div>
+            ) : (<>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Next Due</div>
+              <div style={{...card({background:T.sandPale,border:"1.5px solid "+T.sand+"55",marginBottom:"0.6rem"})}}>
+                <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d"}}>{remindersSorted[0].emoji||"🔁"} {remindersSorted[0].label}</div>
+                <div style={{fontSize:"0.8rem",color:"#4a6275",marginTop:"0.15rem"}}>{reminderLabel(remindersSorted[0])}</div>
               </div>
-            );})}
-            {addingReminder&&(
-              <ModalBox title={editingReminderId?"Edit Reminder":"New Reminder"} onClose={function(){setAddingReminder(false);setEditingReminderId(null);}}>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Label</label><input value={reminderForm.label} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{label:e.target.value});});}} placeholder="e.g. Take out trash" style={inp()} autoFocus/></div>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Emoji (optional)</label><input value={reminderForm.emoji} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{emoji:e.target.value});});}} style={inp()}/></div>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Frequency</label>
-                  <select value={reminderForm.freq} onChange={function(e){setReminderForm(function(p){return Object.assign({},p,{freq:e.target.value});});}} style={inp()}>
-                    {REMINDER_FREQS.map(function(f){return <option key={f.value} value={f.value}>{f.label}</option>;})}
-                  </select>
-                </div>
-                {(REMINDER_FREQS.filter(function(f){return f.value===reminderForm.freq;})[0]||REMINDER_FREQS[0]).dayBased && (
-                  <div style={{marginBottom:"1rem"}}><label style={lbl}>Day(s)</label>
-                    <div style={{display:"flex",gap:"0.35rem",flexWrap:"wrap"}}>
-                      {REMINDER_DAYS.map(function(d,i){
-                        var active = reminderForm.days.indexOf(i)!==-1;
-                        return (
-                          <button key={d} type="button" onClick={function(){toggleReminderDay(i);}} style={{padding:"0.3rem 0.6rem",borderRadius:"1rem",border:"1.5px solid "+(active?T.sage:T.border),background:active?T.sagePale:"transparent",color:active?T.sageDark:T.textMid,fontSize:"0.72rem",fontWeight:active?700:500,cursor:"pointer",fontFamily:"inherit"}}>{d.slice(0,3)}</button>
-                        );
-                      })}
-                    </div>
+              {remindersSorted.length>1&&(<>
+                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Upcoming</div>
+                {remindersSorted.slice(1,4).map(function(r){return(
+                  <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
+                    <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.emoji||"🔁"} {r.label}</span>
+                    <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{reminderLabel(r)}</span>
                   </div>
-                )}
-                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
-                  {editingReminderId?<button onClick={function(){deleteReminder(editingReminderId);setAddingReminder(false);setEditingReminderId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
-                  <div style={{display:"flex",gap:"0.5rem"}}>
-                    <button onClick={function(){setAddingReminder(false);setEditingReminderId(null);}} style={btnS()}>Cancel</button>
-                    <button onClick={saveReminder} style={btnP(T.sage)}>{editingReminderId?"Save Changes":"Create"}</button>
-                  </div>
-                </div>
-              </ModalBox>
-            )}
+                );})}
+              </>)}
+            </>)}
+            <button onClick={function(){openVaultSection("recurring");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Reminders →</button>
           </div>)}
         </div>
 
