@@ -1278,7 +1278,7 @@ const TABS = [
   {id:"waves",    label:"Waves",    emoji:"〰️"},
   {id:"home",     label:"Home",     emoji:"🏠"},
   {id:"brain",    label:"Mind",     emoji:"💭"},
-  {id:"lighthouse",    label:"Lighthouse",    emoji:"🌱"},
+  {id:"lighthouse",    label:"Lighthouse",    emoji:"📚"},
   {id:"settings",    label:"Settings",    emoji:"⚙️"},
 ];
 const PRIMARY_TABS = ["anchor","calendar","meals","shop"];
@@ -12816,7 +12816,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     var allPeople = people.filter(function(p) { return p && p.name; });
-    var learningKids = allPeople.filter(function(p) { return personIsMinor(p); });
+    // Fix 1: Lighthouse only tracks kids marked "in school" (Settings' 🎒
+    // toggle) — allMinors (unfiltered) exists only to tell apart "no kids at
+    // all" from "kids exist but none are marked in school" for the empty state.
+    var allMinors = allPeople.filter(function(p) { return personIsMinor(p); });
+    var learningKids = allMinors.filter(function(p) { return p.inSchool === true; });
 
     React.useEffect(function() {
       var ids = learningKids.map(function(p){ return p.id; });
@@ -15492,9 +15496,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     if (allPeople.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
           <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add people in Settings to start tracking learning records.</div>
+          <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
+        </div>
+      );
+    }
+
+    if (allMinors.length === 0) {
+      return (
+        <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
+          <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
+          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -15503,9 +15518,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     if (learningKids.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
-          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🌱</div>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📚</div>
           <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.4rem", color: T.textDark, marginBottom: "0.5rem" }}>Lighthouse</div>
-          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>Add children to your People list in Settings to track school info.</div>
+          <div style={{ color: T.textMid, fontSize: "0.88rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>No children marked as in school. Update in Settings.</div>
           <button onClick={function() { goTab("settings"); }} style={btnP(T.sage)}>Go to Settings</button>
         </div>
       );
@@ -15518,7 +15533,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <button onClick={function(){ goTab("anchor"); }} style={{ background:"none", border:"none", cursor:"pointer", padding:"2px 4px", display:"flex", alignItems:"center", opacity:0.5, flexShrink:0 }}>
               <span style={{ fontSize:17, color:T.textSoft, lineHeight:1 }}>←</span>
             </button>
-            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>🌱 Lighthouse</div>
+            <div style={{ fontFamily: "Cormorant Garamond, serif", fontSize: "1.45rem", color: T.textDark }}>📚 Lighthouse</div>
           </div>
         </div>
 
@@ -16937,7 +16952,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "brain",    label: "Exhale",        emoji: "💭" },
       { id: "waves",    label: "Waves", emoji: "〰️" },
       ...(featureFlags.tidePoolEnabled ? [{ id: "tidepool", label: "Tide Pool", emoji: "🏝️" }] : []),
-      ...(featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "🌱" }] : []),
+      ...(featureFlags.lighthouseEnabled ? [{ id: "lighthouse", label: "Lighthouse", emoji: "📚" }] : []),
     ]},
     { label: "Anchor", emoji: "🏠", kind: "group", items: [
       ...(featureFlags.mealsEnabled ? [{ id: "meals", label: "Meals", emoji: "🍽️" }] : []),
