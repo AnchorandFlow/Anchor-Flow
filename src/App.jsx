@@ -2581,7 +2581,7 @@ const _hfComps   = {};
   'ModalBox','PersonPill','AnchorCheckItem','TaskRow','DraggableTaskList',
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab','WavesSection',
-  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab',
+  'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab','HorizonTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
@@ -5361,7 +5361,7 @@ Respond ONLY with valid JSON array, no markdown:
           ModalBox, PersonPill, AnchorCheckItem, TaskRow, DraggableTaskList,
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab, WavesSection,
-          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab,
+          MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab, HorizonTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
@@ -11065,6 +11065,167 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               );
             })}
             <button onClick={function(){openVaultSection("pets");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Pets →</button>
+          </div>)}
+        </div>
+      </div>
+    );
+  }
+
+  // Sidebar sibling to Home/People — same look and "read af_* directly,
+  // link out to the fuller AnchorVault section" pattern (see the comment
+  // atop HomeTab for why every _hfRenders.X tab owns its own copy of the
+  // wrapper/T-object/hub helpers rather than sharing one).
+  _hfRenders.HorizonTab = function HorizonTab(){
+    var T = {
+      textDark:"#faf8f4", textMid:"rgba(250,248,244,0.78)", textSoft:"rgba(250,248,244,0.55)", textFaint:"rgba(250,248,244,0.35)",
+      surface:"#f7f1e3", bgAlt:"rgba(250,242,229,0.09)",
+      border:"rgba(250,242,229,0.16)", borderSoft:"rgba(250,242,229,0.1)",
+      blue:"#7aa8c8", blueDark:"#5a88ac", bluePale:"rgba(122,168,200,0.16)",
+      sage:"#7eb89a", sageDark:"#5e9878", sagePale:"rgba(126,184,154,0.16)",
+      sand:"#c8a97a", sandDark:"#a88a5e", sandPale:"rgba(200,169,122,0.16)",
+      rose:"#c87a8a", roseDark:"#a85a6a", rosePale:"rgba(200,122,138,0.16)",
+      lavender:"#a89ad0", lavPale:"rgba(168,154,208,0.16)",
+    };
+    function card(x){ return Object.assign({background:T.surface,border:"1px solid rgba(26,46,61,0.1)",borderRadius:"0.5rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
+    var [horizonHubOpen, setHorizonHubOpen] = useState({travel:false, celebrations:false, safeharbor:false});
+    function toggleHub(k){ setHorizonHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
+    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"horizon"}})); } catch(e) {} }
+    var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
+    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+
+    var MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    // Mirrors AnchorVault's own daysUntilDate(dateStr) — full YYYY-MM-DD
+    // respects the actual year (no wrap), used for trips (fixed dates).
+    function daysUntilDate(dateStr){
+      if(!dateStr) return null;
+      var now=new Date(); now.setHours(0,0,0,0);
+      var parts=dateStr.split("-");
+      if(parts.length!==3) return null;
+      var target=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10));
+      return Math.round((target-now)/86400000);
+    }
+
+    // ── Travel — af_trips ───────────────────────────────────────────────
+    var tripsList = (function(){ try { var v=JSON.parse(localStorage.getItem("af_trips")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+    // Mirrors AnchorVault's nextTripSummary(): days>0 only (a trip starting
+    // today isn't "upcoming" by that convention, so this matches it exactly).
+    var upcomingTrips = tripsList
+      .map(function(t){ return { trip:t, days:daysUntilDate(t.startDate) }; })
+      .filter(function(x){ return x.days!==null && x.days>0; })
+      .sort(function(a,b){ return a.days-b.days; });
+    var nextTrip = upcomingTrips[0] || null;
+
+    // ── Celebrations — af_celebrations ───────────────────────────────────
+    var celebList = (function(){ try { var v=JSON.parse(localStorage.getItem("af_celebrations")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
+    // Local color-per-type map — CELEBRATION_TYPES itself lives in
+    // AnchorVault.jsx (9 ids, no colors of its own), not exported/shared,
+    // so this is a small standalone mapping just for the preview dot.
+    var CELEB_TYPE_COLORS = {birthday:T.rose, anniversary:T.lavender, graduation:T.sage, holiday:T.sand, party:T.blue, milestone:T.rose, wedding:T.lavender, babyshower:T.sand, other:T.blue};
+    var celebEntries = celebList.map(function(c){
+      var now=new Date(); now.setHours(0,0,0,0);
+      var next=new Date(now.getFullYear(), (c.month||1)-1, c.day||1);
+      if(next<now) next.setFullYear(next.getFullYear()+1);
+      var diff=Math.round((next-now)/86400000);
+      return { id:c.id, name:c.name||"Celebration", type:c.type||"other", diff:diff, dateLabel:MONTHS_SHORT[(c.month||1)-1]+" "+(c.day||1) };
+    }).sort(function(a,b){ return a.diff-b.diff; });
+    var nextCeleb = celebEntries[0] || null;
+
+    // ── Safe Harbor — af_safe_harbor ─────────────────────────────────────
+    var safeHarborData = (function(){ try { var v=JSON.parse(localStorage.getItem("af_safe_harbor")||"null"); return v&&typeof v==="object"?v:null; } catch(e){ return null; } })();
+    var grabItemCount = safeHarborData ? (safeHarborData.grabItems||[]).length : 0;
+    var hazardCount = safeHarborData ? (safeHarborData.hazards||[]).length : 0;
+    var lastReviewed = safeHarborData ? (safeHarborData.lastReviewed||null) : null;
+
+    var overviewLines = [];
+    if(nextTrip) overviewLines.push("🧳 "+nextTrip.trip.name+" in "+nextTrip.days+"d");
+    if(nextCeleb) overviewLines.push("🎉 "+nextCeleb.name+" in "+nextCeleb.diff+"d");
+    overviewLines.push("⚓ "+(lastReviewed ? "Reviewed "+lastReviewed : "Never reviewed"));
+
+    return(
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
+          <span style={{fontSize:"1.2rem"}}>🌅</span>
+          <div>
+            <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>Horizon</h1>
+            <p style={{margin:"0.15rem 0 0",color:T.textSoft,fontSize:"0.79rem",fontWeight:500}}>What's ahead</p>
+          </div>
+        </div>
+
+        {/* ══════════════ Overview ══════════════ */}
+        <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
+            {(nextTrip||nextCeleb) ? "Coming up." : "Nothing on the horizon yet."}
+          </div>
+          {overviewLines.map(function(line,i){ return <div key={i} style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.6}}>{line}</div>; })}
+        </div>
+
+        {/* ══════════════ Travel ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("travel");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🧳</span>
+            <h2 style={hubTitleStyle}>Travel</h2>
+            {!horizonHubOpen.travel && hubPreview(nextTrip ? (nextTrip.trip.name+" in "+nextTrip.days+"d") : "No upcoming trips")}
+            {hubChevron(horizonHubOpen.travel)}
+          </div>
+          {horizonHubOpen.travel&&(<div style={{marginTop:"0.75rem"}}>
+            {upcomingTrips.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No upcoming trips — add your first in Travel</div>
+            ) : upcomingTrips.slice(0,4).map(function(x){return(
+              <div key={x.trip.id||x.trip.name} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{x.trip.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{x.trip.startDate} · {x.days}d</span>
+              </div>
+            );})}
+            <button onClick={function(){openVaultSection("trips");}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Travel →</button>
+          </div>)}
+        </div>
+
+        {/* ══════════════ Celebrations ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("celebrations");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🎉</span>
+            <h2 style={hubTitleStyle}>Celebrations</h2>
+            {!horizonHubOpen.celebrations && hubPreview(nextCeleb ? (nextCeleb.name+" in "+nextCeleb.diff+"d") : "No upcoming celebrations")}
+            {hubChevron(horizonHubOpen.celebrations)}
+          </div>
+          {horizonHubOpen.celebrations&&(<div style={{marginTop:"0.75rem"}}>
+            {celebEntries.length===0 ? (
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No celebrations yet — add your first in Celebrations</div>
+            ) : celebEntries.slice(0,3).map(function(c){return(
+              <div key={c.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+                <span style={{width:10,height:10,borderRadius:"50%",background:CELEB_TYPE_COLORS[c.type]||T.blue,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{c.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{c.dateLabel} · {c.diff}d</span>
+              </div>
+            );})}
+            <button onClick={function(){openVaultSection("gifts");}} style={btnP(T.rose,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Celebrations →</button>
+          </div>)}
+        </div>
+
+        {/* ══════════════ Safe Harbor ══════════════ */}
+        <div style={{...card()}}>
+          <div onClick={function(){toggleHub("safeharbor");}} style={hubHeaderStyle}>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>⚓</span>
+            <h2 style={hubTitleStyle}>Safe Harbor</h2>
+            {!horizonHubOpen.safeharbor && hubPreview(grabItemCount+" item"+(grabItemCount!==1?"s":"")+" · "+(lastReviewed?"Reviewed "+lastReviewed:"Never reviewed"))}
+            {hubChevron(horizonHubOpen.safeharbor)}
+          </div>
+          {horizonHubOpen.safeharbor&&(<div style={{marginTop:"0.75rem"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Grab items</span>
+              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{grabItemCount}</span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Local plans</span>
+              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{hazardCount}</span>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
+              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Last reviewed</span>
+              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{lastReviewed||"Never"}</span>
+            </div>
+            <button onClick={function(){openVaultSection("safeharbor");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Safe Harbor →</button>
           </div>)}
         </div>
       </div>
@@ -16810,7 +16971,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             Universal 1100 matches both; max-width only caps, so mobile is unaffected. */}
         <div style={{maxWidth:1100,margin:"0 auto",padding:"1.1rem 0.9rem 0.5rem"}}>
           {/* Only render tabs that have been visited — avoids mounting all 9 on load */}
-          {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","people","brain","lighthouse","settings"].map(t=>{
+          {["anchor","flowhome","calendar","waves","meals","shop","tidepool","cove","home","people","horizon","brain","lighthouse","settings"].map(t=>{
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
@@ -16824,6 +16985,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="cove"     && <SectionErrorBoundary label="Cove"><CoveTab/></SectionErrorBoundary>}
                 {t==="home"     && <SectionErrorBoundary label="Home"><HomeTab/></SectionErrorBoundary>}
                 {t==="people"   && <SectionErrorBoundary label="People"><PeopleTab/></SectionErrorBoundary>}
+                {t==="horizon"  && <SectionErrorBoundary label="Horizon"><HorizonTab/></SectionErrorBoundary>}
                 {t==="brain"    && <SectionErrorBoundary label="Exhale"><ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}
@@ -17270,14 +17432,13 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
       { id: "people", label: "People", emoji: "👥" },
+      { id: "horizon", label: "Horizon", emoji: "🌅" },
       // Maintenance (vault:"systems"), Inventory, Reminders (vault:"recurring"),
-      // Subscriptions (vault:"subs"), Health, Career, and Pets nav entries
-      // removed — all reachable via Home/People → tabs / summary card →
-      // "Open →" now. Components and their underlying data are untouched,
-      // just no standalone sidebar entry.
-      ...(featureFlags.celebrationsEnabled ? [{ vault: "gifts", label: "Celebrate", emoji: "🎉" }] : []),
-      { vault: "trips", label: "Travel", emoji: "🧳" },
-      ...(featureFlags.safeHarborEnabled ? [{ vault: "safeharbor", label: "Safe Harbor", emoji: "⚓" }] : []),
+      // Subscriptions (vault:"subs"), Health, Career, Pets, Celebrate
+      // (vault:"gifts"), Travel (vault:"trips"), and Safe Harbor nav entries
+      // removed — all reachable via Home/People/Horizon → tabs / summary
+      // card → "Open →" now. Components and their underlying data are
+      // untouched, just no standalone sidebar entry.
     ]},
     { vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" },
   ]

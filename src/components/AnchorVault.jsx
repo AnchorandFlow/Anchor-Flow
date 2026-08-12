@@ -9657,6 +9657,12 @@ function afVaultChanged(key) {
   } catch(e) {}
 }
 
+// Sidebar tabs whose own "Open X →" buttons dispatch af-open-vault with a
+// returnTo value — the vault's back link shows "← <label>" and leaves the
+// vault entirely (via onReturnTo) instead of the plain in-vault
+// "← Anchor Home" (which stays inside the vault, activeSection="home").
+var RETURN_TO_LABELS = { home: "Home", people: "People", horizon: "Horizon" };
+
 export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo }) {
   // Recipes tab lives in HomeFlow/MealsTab (App.jsx), a sibling component
   // FlowWrapper renders separately from AnchorVault — there's no prop path
@@ -9739,13 +9745,14 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
                sand page background outside it. */
             <div style={{ background: "#2b3d52", borderRadius: 14, padding: "20px 16px 28px", margin: "0 auto", maxWidth: 1100 }}>
               {activeSection !== "home" && (
-                // Context-aware back link: sections opened via Home/People tabs'
-                // "Open X →" buttons (returnTo set on the af-open-vault dispatch)
-                // leave the vault entirely and land back on that sidebar tab —
-                // different from the plain "← Anchor Home" case below, which
-                // stays inside the vault (its own dashboard, activeSection="home").
-                (returnTo === "people" || returnTo === "home") ? (
-                  <button onClick={function() { if (onReturnTo) onReturnTo(returnTo); }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← {returnTo === "people" ? "People" : "Home"}</button>
+                // Context-aware back link: sections opened via Home/People/Horizon
+                // tabs' "Open X →" buttons (returnTo set on the af-open-vault
+                // dispatch) leave the vault entirely and land back on that
+                // sidebar tab — different from the plain "← Anchor Home" case
+                // below, which stays inside the vault (its own dashboard,
+                // activeSection="home").
+                (RETURN_TO_LABELS[returnTo]) ? (
+                  <button onClick={function() { if (onReturnTo) onReturnTo(returnTo); }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← {RETURN_TO_LABELS[returnTo]}</button>
                 ) : (
                   <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
                 )
