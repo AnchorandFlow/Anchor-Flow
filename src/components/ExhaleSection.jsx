@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import ColorPicker from "./ColorPicker.jsx";
 
 var CARD_COLORS = [
   { id: "seafoam", bg: "#C2E8DA", bd: "#85BFAB", tx: "#1C3A2E" },
@@ -1583,14 +1584,8 @@ export default function ExhaleSection(props) {
                             <input autoFocus value={newCategoryLabel} onChange={(e) => setNewCategoryLabel(e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Escape") { setAddingCategoryFor(null); } }}
                               placeholder="Category name..." style={{ padding: "5px 8px", fontSize: 11.5, border: br, borderRadius: 6, background: bgP, color: txP, fontFamily: "inherit" }} />
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {CATEGORY_COLOR_PRESETS.map(function(preset) {
-                                var sel = newCategoryColor === preset.color;
-                                return (
-                                  <span key={preset.id} onClick={() => setNewCategoryColor(preset.color)} title={preset.label}
-                                    style={{ width: 18, height: 18, borderRadius: "50%", background: preset.color, cursor: "pointer", border: sel ? "2px solid " + txP : "2px solid transparent" }} />
-                                );
-                              })}
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <ColorPicker value={newCategoryColor} onChange={setNewCategoryColor} size={20} />
                             </div>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => {

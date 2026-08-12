@@ -1,6 +1,7 @@
 const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import ExhaleSection from './components/ExhaleSection.jsx';
+import ColorPicker from './components/ColorPicker.jsx';
 import { askFamily, ageBracket, isPersonMinor, buildCompassContext, getDailyBriefing } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
@@ -1701,12 +1702,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
                   {ROLES.map(function(r){return <option key={r} value={r}>{r}</option>;})}
                 </select>
                 <div style={{display:"flex",gap:"0.25rem",flexWrap:"wrap",alignItems:"center"}}>
-                  {["#6A9BB5","#7a9e8e","#c4a882","#b87265","#8878b8","#7ab8a8","#c878a8","#e8a838","#6b9e6b","#4a7a9e"].map(function(c){return(
-                    <button key={c} onClick={function(){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{width:18,height:18,borderRadius:"50%",background:c,border:p.color===c?"3px solid "+T.textDark:"2px solid transparent",cursor:"pointer",transition:"border 0.15s",flexShrink:0}}/>
-                  );})}
-                  <label title="Custom color" style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+T.border,background:p.color,cursor:"pointer",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                    <input type="color" value={p.color||"#6A9BB5"} onChange={function(e){var c=e.target.value;setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}} style={{opacity:0,position:"absolute",inset:0,width:"100%",height:"100%",cursor:"pointer",border:"none",padding:0}}/>
-                  </label>
+                  <ColorPicker value={p.color||"#6A9BB5"} size={18} onChange={function(c){setPeople(function(prev){return prev.map(function(x){return x.id===p.id?Object.assign({},x,{color:c}):x;});});}}/>
                 </div>
               </div>
               {/* Manual status flags — not derived from the work schedule, just a quick "is this true today" toggle. */}
