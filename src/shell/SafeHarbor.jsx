@@ -539,8 +539,8 @@ export default function SafeHarbor() {
 
       {/* ── Header ── */}
       <div style={{ marginBottom:16, paddingBottom:14, borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
-        <div style={{ fontFamily:SERIF, fontSize:26, fontWeight:700, color:"#faf8f4", lineHeight:1 }}>⚓ Safe Harbor</div>
-        <div style={{ fontSize:12, color:G.muted, marginTop:5, lineHeight:1.5 }}>Your family's quiet plan for when life gets loud.</div>
+        <div style={{ fontFamily:SERIF, fontSize:26, fontWeight:700, color:"#1a2e3d", lineHeight:1 }}>⚓ Safe Harbor</div>
+        <div style={{ fontSize:12, color:"#4a6275", marginTop:5, lineHeight:1.5 }}>Your family's quiet plan for when life gets loud.</div>
         {data.lastReviewed && <div style={{ fontSize:11, color:G.gold, marginTop:4, opacity:0.7 }}>Last reviewed {data.lastReviewed}</div>}
       </div>
 
