@@ -10394,7 +10394,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // ══════════════════════════════════════════════════════════════════════
     var [homeHubOpen, setHomeHubOpen] = useState({info:true, cleaning:false, maintenance:false, inventory:false, reminders:false, subs:false});
     function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
-    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
+    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"home"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
     var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
     var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
@@ -10922,7 +10922,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function card(x){ return Object.assign({background:T.surface,border:"1px solid rgba(26,46,61,0.1)",borderRadius:"0.5rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
     var [peopleHubOpen, setPeopleHubOpen] = useState({health:false, career:false, pets:false});
     function toggleHub(k){ setPeopleHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
-    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section}})); } catch(e) {} }
+    function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"people"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
     var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
     var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
@@ -17232,12 +17232,19 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   // "open here" instruction, cleared by TripsSection once it's consumed so a
   // later fresh visit to Trips doesn't get stuck reopening the same trip.
   const [vaultTripId, setVaultTripId] = React.useState(null);
+  // Which outer sidebar tab (if any) a vault visit should return to on
+  // "back" — set from af-open-vault's returnTo detail (Home/People tabs'
+  // "Open X →" buttons), and explicitly reset to null everywhere else the
+  // vault is opened directly from the sidebar itself, so it can't leak a
+  // stale "← People"/"← Home" into an unrelated vault visit.
+  const [vaultReturnTo, setVaultReturnTo] = React.useState(null);
   React.useEffect(function() {
     function h(e) {
       var d = (e && e.detail) || {};
       setShowAnchor(true);
       setVaultSection(d.section || "home");
       setVaultTripId(d.tripId || null);
+      setVaultReturnTo(d.returnTo || null);
     }
     window.addEventListener("af-open-vault", h);
     return function() { window.removeEventListener("af-open-vault", h); };
@@ -17330,13 +17337,13 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
               return (<button key={(it.id?"t-"+it.id:it.vault?"v-"+it.vault:it.label)+"-row"} onClick={onClick} title={it.label} aria-label={it.label} style={{ background: active ? col.glow : "none", border: "none", borderLeft: "3px solid "+(active ? col.accent : "transparent"), borderRadius: "0 8px 8px 0", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: dim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "15px", lineHeight: 1, opacity: active?1:0.75 }}>{it.emoji}</span>{!dim && <span style={{ fontSize: "6.5px", color: active ? col.accent : "rgba(200,169,122,0.70)", fontWeight: active?700:500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.15 }}>{it.label}</span>}</button>);
             }
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today"), false); }
-            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); }, pillColor("Ripples"), navDim); }
+            if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); setVaultReturnTo(null); }, pillColor("Ripples"), navDim); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
+            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
             if (!isOpen) return header;
             var _kidsDim = navDim && !_navExempt;
             var kids = pill.items.map(function(it){
-              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); }, pillColor(pill.label), _kidsDim); }
+              if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); setVaultReturnTo(null); }, pillColor(pill.label), _kidsDim); }
               var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
               if (hidden) return null;
               var a2 = !showAnchor && navSel === "c-"+pill.label+"-"+it.id; return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), _kidsDim);
@@ -17359,7 +17366,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             display: none !important;
           }
         `}</style>
-        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} /></SectionErrorBoundary>}
+        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} returnTo={vaultReturnTo} onReturnTo={function(tabId){ setShowAnchor(false); _setActiveTab(tabId); }} /></SectionErrorBoundary>}
 
         <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
           <ErrorBoundary>

@@ -9657,7 +9657,7 @@ function afVaultChanged(key) {
   } catch(e) {}
 }
 
-export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed }) {
+export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo }) {
   // Recipes tab lives in HomeFlow/MealsTab (App.jsx), a sibling component
   // FlowWrapper renders separately from AnchorVault — there's no prop path
   // from here to there. Navigate the same way AnchorVault already talks to
@@ -9739,7 +9739,16 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
                sand page background outside it. */
             <div style={{ background: "#2b3d52", borderRadius: 14, padding: "20px 16px 28px", margin: "0 auto", maxWidth: 1100 }}>
               {activeSection !== "home" && (
-                <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
+                // Context-aware back link: sections opened via Home/People tabs'
+                // "Open X →" buttons (returnTo set on the af-open-vault dispatch)
+                // leave the vault entirely and land back on that sidebar tab —
+                // different from the plain "← Anchor Home" case below, which
+                // stays inside the vault (its own dashboard, activeSection="home").
+                (returnTo === "people" || returnTo === "home") ? (
+                  <button onClick={function() { if (onReturnTo) onReturnTo(returnTo); }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← {returnTo === "people" ? "People" : "Home"}</button>
+                ) : (
+                  <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
+                )
               )}
               {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
               {activeSection === "recurring" && <RecurringRemindersSection />}
