@@ -394,51 +394,14 @@ export default function FlowHome(props) {
         </div>
       )}
 
-      {/* Mode-impact: Survival shows ONLY Up Next (above) + Today's Tasks —
+      {/* Mode-impact: Survival shows ONLY Up Next (above) — the redundant
+          Today's Tasks card that used to render here was removed.
           Calendar/Dinner/Work and the 2-col grid itself don't render at all.
           Smooth/Busy keep the full grid; Busy just tightens spacing. */}
-      {flowMode === "Survival" ? (
-        <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <div style={{ flex: 1, height: 8, background: C.mist, borderRadius: 4, overflow: "hidden" }}>
-              <div style={{ width: pct + "%", height: "100%", background: C.sea, transition: "width .3s" }} />
-            </div>
-            <div style={{ fontSize: ".68rem", color: C.t3, whiteSpace: "nowrap" }}>{doneCount} of {todayTasks.length}</div>
-          </div>
-          {todayTasks.length === 0 ? (
-            <div style={{ fontSize: ".82rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF, padding: "10px 0" }}>No tasks today — enjoy the open water.</div>
-          ) : todayTasks.slice(0, 10).map(function (t) {
-            return (
-              <div key={t.id} onClick={function () { toggleTask(t.id); }} style={{ display: "flex", alignItems: "center", gap: 11, padding: "8px 0", borderBottom: "1px solid " + C.cream, cursor: "pointer" }}>
-                <div style={{ width: 19, height: 19, borderRadius: "50%", border: "1.5px solid " + (t.done ? C.green : "#c4ccd4"), background: t.done ? C.green : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".6rem", flexShrink: 0 }}>{t.done ? "✓" : ""}</div>
-                <div style={{ flex: 1, fontSize: ".84rem", color: t.done ? C.t3 : C.t1, textDecoration: t.done ? "line-through" : "none" }}>{t.text || t.title}</div>
-              </div>
-            );
-          })}
-        </Card>
-      ) : (
+      {flowMode === "Survival" ? null : (
       <div className="af-flow-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: flowMode === "Busy" ? 10 : 16, alignItems: "start", marginBottom: flowMode === "Busy" ? 14 : 20 }}>
         {/* LEFT column */}
         <div style={{ display: "flex", flexDirection: "column", gap: flowMode === "Busy" ? 10 : 16 }}>
-          <Card eyebrow="Flow" title="Today's Tasks" link={{ label: "Open →", onClick: function () { go("anchor"); } }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <div style={{ flex: 1, height: 8, background: C.mist, borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ width: pct + "%", height: "100%", background: C.sea, transition: "width .3s" }} />
-              </div>
-              <div style={{ fontSize: ".68rem", color: C.t3, whiteSpace: "nowrap" }}>{doneCount} of {todayTasks.length}</div>
-            </div>
-            {todayTasks.length === 0 ? (
-              <div style={{ fontSize: ".82rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF, padding: "10px 0" }}>No tasks today — enjoy the open water.</div>
-            ) : todayTasks.slice(0, 10).map(function (t) {
-              return (
-                <div key={t.id} onClick={function () { toggleTask(t.id); }} style={{ display: "flex", alignItems: "center", gap: 11, padding: "8px 0", borderBottom: "1px solid " + C.cream, cursor: "pointer" }}>
-                  <div style={{ width: 19, height: 19, borderRadius: "50%", border: "1.5px solid " + (t.done ? C.green : "#c4ccd4"), background: t.done ? C.green : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".6rem", flexShrink: 0 }}>{t.done ? "✓" : ""}</div>
-                  <div style={{ flex: 1, fontSize: ".84rem", color: t.done ? C.t3 : C.t1, textDecoration: t.done ? "line-through" : "none" }}>{t.text || t.title}</div>
-                </div>
-              );
-            })}
-          </Card>
-
           <Card eyebrow="Calendar" title="This Week" link={{ label: "Full →", onClick: function () { go("calendar"); } }}>
             {upcoming.length === 0 ? (
               <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Nothing scheduled — an open week.</div>
