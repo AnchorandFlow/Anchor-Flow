@@ -9067,7 +9067,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"},{id:"bank",label:"Meal Bank",emoji:"📋"}];
 
     return (
-      <div>
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks"
           onBack={function(){goTab("anchor");}}
           action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
@@ -10169,7 +10169,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
 
     return(
-      <div>
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"} onBack={function(){goTab("anchor");}}/>
 
         {shoppingItems.length>0&&(
@@ -12848,7 +12848,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     return (
-      <div style={{paddingBottom:"2rem"}}>
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh",paddingBottom:"2rem"}}>
         <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
             <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
