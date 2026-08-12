@@ -4549,7 +4549,7 @@ function createLocalBackup() {
   function shapeOnboardingPerson(p, colorIdx) {
     var bday = p.birthday || null;
     var derivedAge = ageFromBirthday(bday);
-    return {
+    var shaped = {
       id: uid(),
       name: p.name,
       color: PC[colorIdx % PC.length],
@@ -4558,8 +4558,10 @@ function createLocalBackup() {
       role: null,
       isMinor: derivedAge != null && derivedAge < 18,
       marker: null,
-      inSchool: !!p.inSchool
+      schoolType: p.schoolType || "none"
     };
+    if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { shaped.tidePoolEnabled = p.tidePoolEnabled; }
+    return shaped;
   }
 
   // handleOnboardingComplete/handleOnboardingSkip — never log `payload` (names/birthdays).
@@ -4603,10 +4605,19 @@ function createLocalBackup() {
               });
             }
             // no birthday supplied on the re-run for an existing match — leave as-is
-            // inSchool: same asymmetric convention as birthday above — only ever
-            // turns it ON via a re-run merge, never silently clears an existing true.
-            if (np.inSchool) {
-              merged[matchIdx] = Object.assign({}, merged[matchIdx], { inSchool: true });
+            // schoolType: same asymmetric convention as birthday above — only ever
+            // applies a real value via a re-run merge, never silently downgrades an
+            // existing real schoolType to "none" (buildPayload defaults unanswered
+            // kids to "none", which is indistinguishable from an explicit choice —
+            // safer to just never let a re-run clear something already set).
+            if (np.schoolType && np.schoolType !== "none") {
+              merged[matchIdx] = Object.assign({}, merged[matchIdx], { schoolType: np.schoolType });
+            }
+            // tidePoolEnabled has no such ambiguity — buildPayload only includes the
+            // key at all when the user made an explicit Yes/No choice ("Maybe later"
+            // omits it), so both true and false are safe to apply directly.
+            if (np.tidePoolEnabled === true || np.tidePoolEnabled === false) {
+              merged[matchIdx] = Object.assign({}, merged[matchIdx], { tidePoolEnabled: np.tidePoolEnabled });
             }
           } else {
             merged.push(shapeOnboardingPerson(np, merged.length));
@@ -11337,7 +11348,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
   _hfRenders.TidePoolTab = function TidePoolTab() {
-    var realKids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||personIsMinor(p); });
+    // tidePoolEnabled===false (set via onboarding's per-child "No, hide it") excludes
+    // a kid from the live tab entirely. Unset/true both show — "Maybe later" and the
+    // pre-Batch-C default both mean "enabled but not configured", same as always.
+    var realKids = people.filter(function(p){ return (p.role==="Kid"||p.role==="Teen"||personIsMinor(p)) && p.tidePoolEnabled!==false; });
     var rosterEmpty = realKids.length===0;
     // Display-only fallback so the tab renders when the roster hasn't loaded.
     // NEVER used to rebuild/prune saved coveData — see initializer below.
@@ -17196,7 +17210,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
       {showFirstVoyage&&<FirstVoyageWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
       {showFirstVoyageRerun&&<FirstVoyageWizard
-        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", inSchool:!!p.inSchool}; })}
+        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", schoolType:p.schoolType||"", tidePoolEnabled:p.tidePoolEnabled}; })}
         onComplete={handleFirstVoyageRerunComplete}
         onSkip={handleFirstVoyageRerunSkip}
       />}

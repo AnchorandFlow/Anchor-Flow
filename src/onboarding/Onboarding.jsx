@@ -288,7 +288,7 @@ function StepBasics(props) {
     props.set('people', d.people.filter(function (p) { return p.id !== id; }));
   }
   function handleAddPerson() {
-    props.set('people', d.people.concat([{ id: uid(), name: '', birthday: '', inSchool: false }]));
+    props.set('people', d.people.concat([{ id: uid(), name: '', birthday: '' }]));
   }
   var zipStyle = Object.assign({}, S.input, { width: 120 });
   return (
@@ -546,43 +546,133 @@ function StepBirthdays(props) {
 }
 
 // ---------------------------------------------------------------------------
-// Step (conditional) — Who's in school? Same toggle as Settings' per-person
-// "in school" pill. Only offered for people the birthday already marks as a
+// Step (conditional) — How does each child learn right now? Same 5-option
+// schoolType used by Settings' School section (App.jsx) — "homeschool" |
+// "public" | "private" | "preschool" | "none" — replacing the old binary
+// "in school" toggle. Only offered for people the birthday already marks as a
 // minor — someone who skipped StepBirthdays entirely won't show up here
 // (nothing to detect them by), which is why StepBirthdays runs first.
 // ---------------------------------------------------------------------------
 
-function InSchoolRow(props) {
-  var person = props.person;
-  function handleChange(next) { props.onChange(person.id, next); }
+var SCHOOL_TYPE_OPTIONS = [
+  { value: 'homeschool', label: 'Homeschool',      emoji: '\uD83C\uDFE0' },
+  { value: 'public',     label: 'Public School',   emoji: '\uD83C\uDFEB' },
+  { value: 'private',    label: 'Private School',  emoji: '\uD83C\uDF93' },
+  { value: 'preschool',  label: 'Preschool',       emoji: '\uD83E\uDDF8' },
+  { value: 'none',       label: 'Not school-age',  emoji: '\uD83D\uDC76' }
+];
+
+function SchoolTypePill(props) {
+  function handleClick() { props.onSelect(props.option.value); }
   return (
-    <div style={S_toggleRow}>
-      <div style={{ flex: 1 }}>
-        <p style={S.cardTitle}>{person.name}</p>
+    <button type="button" onClick={handleClick} style={props.selected ? S_pillOn : S_pill}>
+      {props.option.emoji + ' ' + props.option.label}
+    </button>
+  );
+}
+
+function SchoolTypeRow(props) {
+  var person = props.person;
+  function handleSelect(value) { props.onChange(person.id, value); }
+  return (
+    <div style={S.card}>
+      <p style={S.cardTitle}>{'How does ' + person.name + ' learn right now?'}</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+        {SCHOOL_TYPE_OPTIONS.map(function (opt) {
+          return <SchoolTypePill key={opt.value} option={opt}
+            selected={person.schoolType === opt.value} onSelect={handleSelect} />;
+        })}
       </div>
-      <Toggle on={!!person.inSchool} onChange={handleChange} label={person.name + ' in school'} />
     </div>
   );
 }
 
-function StepInSchool(props) {
+function StepSchoolType(props) {
   var d = props.data;
   var children = d.people.filter(function (p) {
     return p.name.trim() !== '' && isMinorLocal(p.birthday);
   });
   function handleChange(id, value) {
     var next = d.people.map(function (p) {
-      return p.id === id ? Object.assign({}, p, { inSchool: value }) : p;
+      return p.id === id ? Object.assign({}, p, { schoolType: value }) : p;
     });
     props.set('people', next);
   }
   return (
     <StepShell index={props.index} total={props.total}
-      title="Who's in school?"
-      subtitle="This turns on Lighthouse tracking for the kids you flip it on for. Change anytime in Settings."
+      title="How do your kids learn?"
+      subtitle="This shapes what Lighthouse shows for each child. Change anytime in Settings."
       onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
       {children.map(function (p) {
-        return <InSchoolRow key={p.id} person={p} onChange={handleChange} />;
+        return <SchoolTypeRow key={p.id} person={p} onChange={handleChange} />;
+      })}
+    </StepShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Step (conditional) — Per-child Tide Pool opt-in. Same gating as
+// StepSchoolType (children only, skipped entirely if there are none), and
+// always runs right after it. "Maybe later" deliberately clears the field
+// rather than writing a value — that's the existing default (every kid gets
+// Tide Pool) so picking it can't regress anyone relative to skipping this
+// step entirely.
+// ---------------------------------------------------------------------------
+
+var TIDE_POOL_OPTIONS = [
+  { value: true,  label: 'Yes, set it up' },
+  { value: null,  label: 'Maybe later' },
+  { value: false, label: 'No, hide it' }
+];
+
+function TidePoolPill(props) {
+  function handleClick() { props.onSelect(props.option.value); }
+  return (
+    <button type="button" onClick={handleClick} style={props.selected ? S_pillOn : S_pill}>
+      {props.option.label}
+    </button>
+  );
+}
+
+function TidePoolRow(props) {
+  var person = props.person;
+  function handleSelect(value) { props.onChange(person.id, value); }
+  var current = person.tidePoolEnabled === true ? true
+    : (person.tidePoolEnabled === false ? false : null);
+  return (
+    <div style={S.card}>
+      <p style={S.cardTitle}>{'Would you like to use Tide Pool with ' + person.name + '?'}</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+        {TIDE_POOL_OPTIONS.map(function (opt) {
+          return <TidePoolPill key={String(opt.value)} option={opt}
+            selected={current === opt.value} onSelect={handleSelect} />;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepTidePool(props) {
+  var d = props.data;
+  var children = d.people.filter(function (p) {
+    return p.name.trim() !== '' && isMinorLocal(p.birthday);
+  });
+  function handleChange(id, value) {
+    var next = d.people.map(function (p) {
+      if (p.id !== id) { return p; }
+      var copy = Object.assign({}, p);
+      if (value === null) { delete copy.tidePoolEnabled; } else { copy.tidePoolEnabled = value; }
+      return copy;
+    });
+    props.set('people', next);
+  }
+  return (
+    <StepShell index={props.index} total={props.total}
+      title="Tide Pool for your kids"
+      subtitle="Chores and treasures, kid by kid. Change anytime in Settings."
+      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
+      {children.map(function (p) {
+        return <TidePoolRow key={p.id} person={p} onChange={handleChange} />;
       })}
     </StepShell>
   );
@@ -630,10 +720,12 @@ export function buildInitialData(props) {
   var people;
   if (props.initialPeople && props.initialPeople.length) {
     people = props.initialPeople.map(function (p) {
-      return { id: uid(), name: p.name || '', birthday: p.birthday || '', inSchool: !!p.inSchool };
+      var person = { id: uid(), name: p.name || '', birthday: p.birthday || '', schoolType: p.schoolType || '' };
+      if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { person.tidePoolEnabled = p.tidePoolEnabled; }
+      return person;
     });
   } else {
-    people = [{ id: uid(), name: '', birthday: '', inSchool: false }];
+    people = [{ id: uid(), name: '', birthday: '' }];
   }
   return {
     householdName: props.initialHouseholdName || '',
@@ -655,7 +747,11 @@ export function buildPayload(d) {
     zip: d.zip,
     people: d.people
       .filter(function (p) { return p.name.trim() !== ''; })
-      .map(function (p) { return { name: p.name.trim(), birthday: p.birthday, inSchool: !!p.inSchool }; }),
+      .map(function (p) {
+        var person = { name: p.name.trim(), birthday: p.birthday, schoolType: p.schoolType || 'none' };
+        if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { person.tidePoolEnabled = p.tidePoolEnabled; }
+        return person;
+      }),
     features: Object.assign({}, d.features),
     areaSettings: {
       mealsPerDay: d.mealsPerDay,
@@ -684,7 +780,7 @@ function computeSteps(data) {
   var hasChild = data.people.some(function (p) {
     return p.name.trim() !== '' && isMinorLocal(p.birthday);
   });
-  if (hasChild) { steps.push(StepInSchool); }
+  if (hasChild) { steps.push(StepSchoolType); steps.push(StepTidePool); }
   steps.push(StepMode);
   return steps;
 }
