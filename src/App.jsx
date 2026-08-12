@@ -4511,7 +4511,8 @@ function createLocalBackup() {
       age: derivedAge,
       role: null,
       isMinor: derivedAge != null && derivedAge < 18,
-      marker: null
+      marker: null,
+      inSchool: !!p.inSchool
     };
   }
 
@@ -4556,6 +4557,11 @@ function createLocalBackup() {
               });
             }
             // no birthday supplied on the re-run for an existing match — leave as-is
+            // inSchool: same asymmetric convention as birthday above — only ever
+            // turns it ON via a re-run merge, never silently clears an existing true.
+            if (np.inSchool) {
+              merged[matchIdx] = Object.assign({}, merged[matchIdx], { inSchool: true });
+            }
           } else {
             merged.push(shapeOnboardingPerson(np, merged.length));
           }
@@ -16897,7 +16903,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
       {showFirstVoyage&&<FirstVoyageWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
       {showFirstVoyageRerun&&<FirstVoyageWizard
-        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||""}; })}
+        initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", inSchool:!!p.inSchool}; })}
         onComplete={handleFirstVoyageRerunComplete}
         onSkip={handleFirstVoyageRerunSkip}
       />}

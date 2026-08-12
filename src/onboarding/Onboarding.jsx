@@ -164,6 +164,29 @@ function uid() {
   return 'ob_' + Date.now().toString(36) + '_' + uidCounter;
 }
 
+// Local, self-contained mirror of App.jsx's ageFromBirthday/personIsMinor —
+// this module owns no persistence and imports nothing from the host app (see
+// header), so "who's a child" for StepInSchool is computed independently
+// rather than threaded in as a prop.
+function ageFromBirthdayLocal(birthday) {
+  if (!birthday) { return null; }
+  var parts = String(birthday).split('-');
+  if (parts.length !== 3) { return null; }
+  var by = parseInt(parts[0], 10);
+  var bm = parseInt(parts[1], 10) - 1;
+  var bd = parseInt(parts[2], 10);
+  if (isNaN(by) || isNaN(bm) || isNaN(bd)) { return null; }
+  var t = new Date();
+  var age = t.getFullYear() - by;
+  var md = t.getMonth() - bm;
+  if (md < 0 || (md === 0 && t.getDate() < bd)) { age -= 1; }
+  return age >= 0 ? age : null;
+}
+function isMinorLocal(birthday) {
+  var age = ageFromBirthdayLocal(birthday);
+  return age !== null && age < 18;
+}
+
 // ---------------------------------------------------------------------------
 // Small shared components (module scope — focus-loss rule)
 // ---------------------------------------------------------------------------
@@ -265,7 +288,7 @@ function StepBasics(props) {
     props.set('people', d.people.filter(function (p) { return p.id !== id; }));
   }
   function handleAddPerson() {
-    props.set('people', d.people.concat([{ id: uid(), name: '', birthday: '' }]));
+    props.set('people', d.people.concat([{ id: uid(), name: '', birthday: '', inSchool: false }]));
   }
   var zipStyle = Object.assign({}, S.input, { width: 120 });
   return (
@@ -480,6 +503,92 @@ function StepExhale(props) {
 }
 
 // ---------------------------------------------------------------------------
+// Step (conditional) — Set birthdays. Only shown for anyone who left the
+// birthday field blank back in StepBasics (it's optional there) — this is a
+// follow-up nudge, not the first place birthdays are asked. Feeds Fix 1's
+// birthday-celebration auto-seeding on the host side.
+// ---------------------------------------------------------------------------
+
+function BirthdayPromptRow(props) {
+  var person = props.person;
+  function handleChange(e) { props.onChange(person.id, e.target.value); }
+  var dateStyle = Object.assign({}, S.input, { flex: 1 });
+  var nameStyle = { flex: 1.2, fontSize: 13, fontWeight: 500, color: NAVY };
+  var rowStyle = { display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' };
+  return (
+    <div style={rowStyle}>
+      <div style={nameStyle}>{person.name}</div>
+      <input style={dateStyle} type="date" value={person.birthday}
+        onChange={handleChange} aria-label={person.name + ' birthday'} />
+    </div>
+  );
+}
+
+function StepBirthdays(props) {
+  var d = props.data;
+  var missing = d.people.filter(function (p) { return p.name.trim() !== '' && !p.birthday; });
+  function handleChange(id, value) {
+    var next = d.people.map(function (p) {
+      return p.id === id ? Object.assign({}, p, { birthday: value }) : p;
+    });
+    props.set('people', next);
+  }
+  return (
+    <StepShell index={props.index} total={props.total}
+      title="Set birthdays"
+      subtitle={'We’ll remember these for you — birthday celebrations show up automatically once they’re in.'}
+      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
+      {missing.map(function (p) {
+        return <BirthdayPromptRow key={p.id} person={p} onChange={handleChange} />;
+      })}
+    </StepShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Step (conditional) — Who's in school? Same toggle as Settings' per-person
+// "in school" pill. Only offered for people the birthday already marks as a
+// minor — someone who skipped StepBirthdays entirely won't show up here
+// (nothing to detect them by), which is why StepBirthdays runs first.
+// ---------------------------------------------------------------------------
+
+function InSchoolRow(props) {
+  var person = props.person;
+  function handleChange(next) { props.onChange(person.id, next); }
+  return (
+    <div style={S_toggleRow}>
+      <div style={{ flex: 1 }}>
+        <p style={S.cardTitle}>{person.name}</p>
+      </div>
+      <Toggle on={!!person.inSchool} onChange={handleChange} label={person.name + ' in school'} />
+    </div>
+  );
+}
+
+function StepInSchool(props) {
+  var d = props.data;
+  var children = d.people.filter(function (p) {
+    return p.name.trim() !== '' && isMinorLocal(p.birthday);
+  });
+  function handleChange(id, value) {
+    var next = d.people.map(function (p) {
+      return p.id === id ? Object.assign({}, p, { inSchool: value }) : p;
+    });
+    props.set('people', next);
+  }
+  return (
+    <StepShell index={props.index} total={props.total}
+      title="Who's in school?"
+      subtitle="This turns on Lighthouse tracking for the kids you flip it on for. Change anytime in Settings."
+      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
+      {children.map(function (p) {
+        return <InSchoolRow key={p.id} person={p} onChange={handleChange} />;
+      })}
+    </StepShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Step 5 — Pick your mode
 // ---------------------------------------------------------------------------
 
@@ -521,10 +630,10 @@ export function buildInitialData(props) {
   var people;
   if (props.initialPeople && props.initialPeople.length) {
     people = props.initialPeople.map(function (p) {
-      return { id: uid(), name: p.name || '', birthday: p.birthday || '' };
+      return { id: uid(), name: p.name || '', birthday: p.birthday || '', inSchool: !!p.inSchool };
     });
   } else {
-    people = [{ id: uid(), name: '', birthday: '' }];
+    people = [{ id: uid(), name: '', birthday: '', inSchool: false }];
   }
   return {
     householdName: props.initialHouseholdName || '',
@@ -546,7 +655,7 @@ export function buildPayload(d) {
     zip: d.zip,
     people: d.people
       .filter(function (p) { return p.name.trim() !== ''; })
-      .map(function (p) { return { name: p.name.trim(), birthday: p.birthday }; }),
+      .map(function (p) { return { name: p.name.trim(), birthday: p.birthday, inSchool: !!p.inSchool }; }),
     features: Object.assign({}, d.features),
     areaSettings: {
       mealsPerDay: d.mealsPerDay,
@@ -560,7 +669,25 @@ export function buildPayload(d) {
   };
 }
 
-var STEP_COMPONENTS = [StepBasics, StepRooms, StepDetails, StepExhale, StepMode];
+// Dynamic step list — StepBirthdays/StepInSchool only included when relevant
+// (someone missing a birthday / a detected child, respectively). Recomputed
+// only at navigation time (goNext/goBack), never on every render, so a step
+// already on screen can't have its content swapped out from under the user
+// mid-edit just because they filled in the last blank birthday it was
+// showing — see the comments on those two step components for why order matters.
+function computeSteps(data) {
+  var steps = [StepBasics, StepRooms, StepDetails, StepExhale];
+  var hasMissingBirthday = data.people.some(function (p) {
+    return p.name.trim() !== '' && !p.birthday;
+  });
+  if (hasMissingBirthday) { steps.push(StepBirthdays); }
+  var hasChild = data.people.some(function (p) {
+    return p.name.trim() !== '' && isMinorLocal(p.birthday);
+  });
+  if (hasChild) { steps.push(StepInSchool); }
+  steps.push(StepMode);
+  return steps;
+}
 
 export default function OnboardingWizard(props) {
   var stateArr = useState(function () { return buildInitialData(props); });
@@ -569,6 +696,9 @@ export default function OnboardingWizard(props) {
   var stepArr = useState(0);
   var step = stepArr[0];
   var setStep = stepArr[1];
+  var stepsArr = useState(function () { return computeSteps(data); });
+  var steps = stepsArr[0];
+  var setSteps = stepsArr[1];
 
   function set(field, value) {
     setData(function (prev) {
@@ -578,10 +708,14 @@ export default function OnboardingWizard(props) {
     });
   }
   function goNext() {
-    setStep(function (s) { return Math.min(s + 1, STEP_COMPONENTS.length - 1); });
+    var nextSteps = computeSteps(data);
+    setSteps(nextSteps);
+    setStep(function (s) { return Math.min(s + 1, nextSteps.length - 1); });
     if (typeof window !== 'undefined') { window.scrollTo(0, 0); }
   }
   function goBack() {
+    var prevSteps = computeSteps(data);
+    setSteps(prevSteps);
     setStep(function (s) { return Math.max(s - 1, 0); });
   }
   function finish() {
@@ -591,11 +725,11 @@ export default function OnboardingWizard(props) {
     props.onSkip();
   }
 
-  var Step = STEP_COMPONENTS[step];
+  var Step = steps[step];
   return (
     <div style={S.overlay}>
       <Step data={data} set={set}
-        index={step} total={STEP_COMPONENTS.length}
+        index={step} total={steps.length}
         onNext={goNext} onBack={step > 0 ? goBack : null}
         onFinish={finish} onSkipAll={skipAll} />
     </div>
