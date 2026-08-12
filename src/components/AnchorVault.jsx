@@ -7965,14 +7965,22 @@ function HouseFileSection() {
 // ── Home section wrapper (Systems + House File tabs) ──────────────────────────
 function HomeSection() {
   var s_tab=useState("systems"); var homeTab=s_tab[0]; var setHomeTab=s_tab[1];
+  function homeTabBtn(id,label){
+    var active=homeTab===id;
+    return React.createElement("button",{onClick:function(){setHomeTab(id);},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:active?"2px solid "+HGOLD:"2px solid transparent",color:active?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:active?600:400}},label);
+  }
   return React.createElement("div",null,
     // top tab row
-    React.createElement("div",{style:{display:"flex",gap:0,borderBottom:HBORD,marginBottom:20}},
-      React.createElement("button",{onClick:function(){setHomeTab("systems");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="systems"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="systems"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="systems"?600:400}},"🔧 Maintenance"),
-      React.createElement("button",{onClick:function(){setHomeTab("file");},style:{padding:"8px 18px",fontSize:13,background:"none",border:"none",borderBottom:homeTab==="file"?"2px solid "+HGOLD:"2px solid transparent",color:homeTab==="file"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif",fontWeight:homeTab==="file"?600:400}},"📁 House File")
+    React.createElement("div",{style:{display:"flex",gap:0,borderBottom:HBORD,marginBottom:20,flexWrap:"wrap"}},
+      homeTabBtn("systems","🔧 Maintenance"),
+      homeTabBtn("file","📁 House File"),
+      homeTabBtn("recurring","🔁 Reminders"),
+      homeTabBtn("subs","🔄 Subscriptions")
     ),
     homeTab==="systems"&&React.createElement(HomeSystemsSection,null),
-    homeTab==="file"&&React.createElement(HouseFileSection,null)
+    homeTab==="file"&&React.createElement(HouseFileSection,null),
+    homeTab==="recurring"&&React.createElement(RecurringRemindersSection,null),
+    homeTab==="subs"&&React.createElement(SubscriptionsSection,null)
   );
 }
 

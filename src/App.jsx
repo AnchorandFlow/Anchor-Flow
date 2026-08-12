@@ -17178,14 +17178,12 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "shop", label: "Shopping", emoji: "🛒" },
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
-      { vault: "recurring", label: "Reminders", emoji: "🔁" },
-      // Maintenance (vault:"systems") and Inventory nav entries removed —
-      // both reachable via Home → summary card → "Open →" now. Components
-      // and af_vaultSystems/af_inventory data are untouched, just no
-      // standalone sidebar entry.
+      // Maintenance (vault:"systems"), Inventory, Reminders (vault:"recurring"),
+      // and Subscriptions (vault:"subs") nav entries removed — all reachable
+      // via Home → tabs / summary card → "Open →" now. Components and their
+      // underlying data are untouched, just no standalone sidebar entry.
       { vault: "health", label: "Health", emoji: "🩺" },
       ...(featureFlags.careerEnabled ? [{ vault: "career", label: "Career", emoji: "📋" }] : []),
-      { vault: "subs", label: "Subscriptions", emoji: "🔄" },
       ...(featureFlags.celebrationsEnabled ? [{ vault: "gifts", label: "Celebrate", emoji: "🎉" }] : []),
       { vault: "pets", label: "Pets", emoji: "🐾" },
       { vault: "trips", label: "Travel", emoji: "🧳" },
