@@ -9068,15 +9068,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
-        <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks"
+        <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks" color="#faf8f4"
           onBack={function(){goTab("anchor");}}
           action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
             {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
           </button>}/>
 
-        <div style={{display:"flex",gap:4,borderBottom:`1px solid ${T.border}`,marginBottom:"0.85rem"}}>
+        <div style={{display:"flex",gap:4,borderBottom:"1px solid #c8a96e",marginBottom:"0.85rem"}}>
           {[{id:"meals",label:"Meals"},{id:"recipes",label:"Recipes"}].map(tt=>(
-            <button key={tt.id} onClick={()=>setMealsTopTab(tt.id)} style={{background:"none",border:"none",borderBottom:mealsTopTab===tt.id?`2px solid ${T.sage}`:"2px solid transparent",padding:"0.5rem 1rem",fontSize:"0.85rem",color:mealsTopTab===tt.id?T.sageDark:T.textMid,fontFamily:"inherit",cursor:"pointer",fontWeight:mealsTopTab===tt.id?700:500}}>{tt.label}</button>
+            <button key={tt.id} onClick={()=>setMealsTopTab(tt.id)} style={{background:"none",border:"none",borderBottom:mealsTopTab===tt.id?"2px solid #c8a96e":"2px solid transparent",padding:"0.5rem 1rem",fontSize:"0.85rem",color:mealsTopTab===tt.id?"#f7f1e3":"#a8c4d4",fontFamily:"inherit",cursor:"pointer",fontWeight:mealsTopTab===tt.id?700:500}}>{tt.label}</button>
           ))}
         </div>
 
@@ -10170,7 +10170,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
-        <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"} onBack={function(){goTab("anchor");}}/>
+        <SecHead emoji="🛒" title="Shopping List" sub={shoppingItems.filter(function(i){return !i.done;}).length+" items remaining"} color="#faf8f4" onBack={function(){goTab("anchor");}}/>
 
         {shoppingItems.length>0&&(
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:"0.5rem",marginBottom:"0.65rem"}}>
@@ -12855,18 +12855,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
             </button>
             <div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:"#faf8f4"}}>🪸 Cove</div>
               <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
             </div>
           </div>
         </div>
 
-        <div style={{display:"flex",borderBottom:"1px solid "+T.border}}>
+        <div style={{display:"flex",borderBottom:"1px solid #c8a96e"}}>
           {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
             var active=coveTab===t.id;
             return(
               <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
-                style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?"#f7f1e3":"#a8c4d4",background:"transparent",border:"none",borderBottom:"2px solid "+(active?"#c8a96e":"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                 {t.label}
                 {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
               </button>
@@ -12880,7 +12880,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               var active=catFilter===cat;
               return(
                 <button key={cat} onClick={function(){setCatFilter(cat);}}
-                  style={{fontSize:"0.7rem",padding:"3px 10px",borderRadius:999,border:"1px solid "+(active?T.blue:T.border),background:active?T.blue:"transparent",color:active?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}>
+                  style={{fontSize:"0.7rem",padding:"3px 10px",borderRadius:999,border:"1px solid "+(active?T.blue:"#c8a96e"),background:active?T.blue:"transparent",color:active?"#fff":"#a8c4d4",cursor:"pointer",fontFamily:"inherit"}}>
                   {CAT_LABELS[cat]}
                 </button>
               );
