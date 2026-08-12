@@ -10582,7 +10582,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <span style={{fontSize:"1.2rem"}}>🏡</span>
           <div>
             <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>Home</h1>
-            <p style={{margin:"0.15rem 0 0",color:T.textSoft,fontSize:"0.79rem",fontWeight:500}}>Your household operations center</p>
+            <p style={{margin:"0.15rem 0 0",color:"#c2d4e0",fontSize:"0.79rem",fontWeight:500}}>Your household operations center</p>
           </div>
         </div>
 
@@ -10988,7 +10988,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <span style={{fontSize:"1.2rem"}}>👥</span>
           <div>
             <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>People</h1>
-            <p style={{margin:"0.15rem 0 0",color:T.textSoft,fontSize:"0.79rem",fontWeight:500}}>Your household</p>
+            <p style={{margin:"0.15rem 0 0",color:"#c2d4e0",fontSize:"0.79rem",fontWeight:500}}>Your household</p>
           </div>
         </div>
 
@@ -11149,7 +11149,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <span style={{fontSize:"1.2rem"}}>🌅</span>
           <div>
             <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>Horizon</h1>
-            <p style={{margin:"0.15rem 0 0",color:T.textSoft,fontSize:"0.79rem",fontWeight:500}}>What's ahead</p>
+            <p style={{margin:"0.15rem 0 0",color:"#c2d4e0",fontSize:"0.79rem",fontWeight:500}}>What's ahead</p>
           </div>
         </div>
 
