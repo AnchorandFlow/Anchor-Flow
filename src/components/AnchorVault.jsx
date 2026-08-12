@@ -1889,7 +1889,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
 
       {/* Featured "Next Up" panel (Celebrations redesign) */}
       {nextUp && (
-        <div onClick={function() { openCelebDetail(nextUp.id) }} style={{ background: "#ddeaf4", borderRadius: 10, padding: "14px 16px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div onClick={function() { openCelebDetail(nextUp.id) }} style={{ background: "#ddeaf4", borderRadius: 8, padding: "14px 16px", marginBottom: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span style={{ fontSize: 26, flexShrink: 0 }}>{nextUp.emoji}</span>
             <div style={{ minWidth: 0 }}>
@@ -1956,7 +1956,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
             const bg = celebCardColor(e.type)
             const accent = celebCardAccent(e.type)
             return (
-              <div key={e.id} onClick={function() { openCelebDetail(e.id) }} style={{ background: bg, borderRadius: 10, padding: "12px 14px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+              <div key={e.id} onClick={function() { openCelebDetail(e.id) }} style={{ background: bg, borderRadius: 8, padding: "12px 14px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 16, flexShrink: 0 }}>{e.emoji}</span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
@@ -1994,7 +1994,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
               {pastThisYearEntries.map(function(e) {
                 const bg = celebCardColor(e.type)
                 return (
-                  <div key={e.id} onClick={function() { openCelebDetail(e.id) }} style={{ background: bg, borderRadius: 10, padding: "12px 14px", cursor: "pointer", opacity: 0.6, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                  <div key={e.id} onClick={function() { openCelebDetail(e.id) }} style={{ background: bg, borderRadius: 8, padding: "12px 14px", cursor: "pointer", opacity: 0.6, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>{e.emoji}</span>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 500, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
@@ -2024,7 +2024,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
               var daysAway = holidayDaysAway(h.date)
               var roster = hLoadPeople()
               return (
-                <div key={h.id} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 10, marginBottom: 10, overflow: "hidden" }}>
+                <div key={h.id} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 10, overflow: "hidden" }}>
                   <div onClick={function() { toggleHolidayOpen(h.id, open) }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}>
                     <span style={{ fontSize: 20, flexShrink: 0 }}>{h.emoji}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -2100,7 +2100,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
                 <button onClick={function() { setNewHolidayName(""); setAddingHoliday(false) }} style={{ background: "rgba(26,46,61,0.06)", border: "none", borderRadius: 8, padding: "9px 14px", fontSize: 13, color: "#4a6275", cursor: "pointer" }}>Cancel</button>
               </div>
             ) : (
-              <div onClick={function() { setAddingHoliday(true) }} style={{ border: "1px dashed rgba(200,169,122,0.4)", borderRadius: 10, padding: "12px", textAlign: "center", color: "#c8a97a", fontSize: 13, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add holiday</div>
+              <div onClick={function() { setAddingHoliday(true) }} style={{ border: "1px dashed rgba(200,169,122,0.4)", borderRadius: 8, padding: "12px", textAlign: "center", color: "#c8a97a", fontSize: 13, fontFamily: "DM Sans,sans-serif", cursor: "pointer", fontWeight: 600 }}>+ Add holiday</div>
             )}
           </div>
 
@@ -6323,7 +6323,7 @@ function CGoalsTab({ pid, career, setCareer, personName }) {
               var isEditing=editingId===g.id;
               var steps=g.steps||[];
               var doneSteps=steps.filter(function(s){return s.done;}).length;
-              return React.createElement("div",{key:g.id,style:{background:CAREER_SURF,border:CAREER_BORD,borderRadius:10,overflow:"hidden"}},
+              return React.createElement("div",{key:g.id,style:{background:CAREER_SURF,border:CAREER_BORD,borderRadius:8,overflow:"hidden"}},
                 !isEditing&&React.createElement("div",{style:{padding:"10px 12px"}},
                   React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:10}},
                     React.createElement("button",{onClick:function(){toggle(g.id);},style:{width:18,height:18,borderRadius:4,border:"1.5px solid rgba(200,169,122,0.4)",background:"none",cursor:"pointer",flexShrink:0,marginTop:2}}),
@@ -8187,7 +8187,7 @@ function MaintenancePanel() {
             );
           }),
           // add tile
-          React.createElement("div",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.13)",borderRadius:10,minHeight:90,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer"}},
+          React.createElement("div",{onClick:function(){setAdding(true);setEditIdx(null);setForm({name:"",type:"other",freq:"1y",lastDone:"",nextDue:"",notes:""});},style:{background:"rgba(250,242,229,0.02)",border:"0.5px dashed rgba(250,242,229,0.13)",borderRadius:8,minHeight:90,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:"pointer"}},
             React.createElement("span",{style:{fontSize:20,color:"rgba(250,248,244,0.18)"}},"+"),
             React.createElement("span",{style:{fontSize:11,color:"rgba(250,248,244,0.28)",fontFamily:"DM Sans,sans-serif"}},"Add")
           )
@@ -9583,7 +9583,7 @@ function RippleSection() {
       return React.createElement("div", { key: group.label, style: { marginBottom: 8 } },
         React.createElement("div", { style: { fontSize: 10, color: "rgba(200,169,122,0.7)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8, fontFamily: "DM Sans,sans-serif", fontWeight: 700 } }, group.label),
         group.items.map(function(r) {
-          return React.createElement("div", { key: r.id, style: { background: SURF, border: BORD, borderRadius: 10, padding:A.cardPadding, marginBottom: 8 } },
+          return React.createElement("div", { key: r.id, style: { background: SURF, border: BORD, borderRadius: 8, padding:A.cardPadding, marginBottom: 8 } },
             React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" } },
               React.createElement("div", { style: { flex: 1 } },
                 React.createElement("div", { style: { fontSize: 14, fontWeight: 600, color: WHITE, fontFamily: "DM Sans,sans-serif" } }, r.name),
