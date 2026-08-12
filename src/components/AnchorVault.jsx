@@ -9746,29 +9746,39 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)"), transition: "background 0.3s", overflowY: "auto" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "#f2ead8"), transition: "background 0.3s", overflowY: "auto" }}>
         {/* Matches Flow's page container exactly (App.jsx's maxWidth:1100 branch) —
             maxWidth only caps width, so this has no effect below 1100px and mobile
             layout is unchanged; only desktop gets the wider column. */}
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "1.1rem 0.9rem 0.5rem" }}>
-          {activeSection !== "home" && (
-            <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
+          {activeSection === "ripples" ? (
+            <RipplesRoom />
+          ) : (
+            /* Navy card container — every non-ripples section renders inside this
+               one wrapper (rather than each section owning its own), so every
+               internal branch/detail-view of every section is covered for free,
+               and nothing can be added later that accidentally sits bare on the
+               sand page background outside it. */
+            <div style={{ background: "#2b3d52", borderRadius: 14, padding: "20px 16px 28px", margin: "0 auto", maxWidth: 1100 }}>
+              {activeSection !== "home" && (
+                <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
+              )}
+              {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
+              {activeSection === "recurring" && <RecurringRemindersSection />}
+              {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
+              {activeSection === "systems" && <HomeSection />}
+              {activeSection === "health" && <HealthSection />}
+              {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} onOpenRecipe={handleOpenRecipe} onBrowseRecipes={handleBrowseRecipes} />}
+              {activeSection === "pets" && <PetsSection />}
+              {activeSection === "moments" && <MomentsSection />}
+              {activeSection === "travel" && <TravelProfileSection />}
+              {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} onNavigate={setActiveSection} />}
+              {activeSection === "career" && <CareerSection />}
+              {activeSection === "settings" && <AnchorSettings />}
+              {activeSection === "subs" && <SubscriptionsSection />}
+              {activeSection === "safeharbor" && <SafeHarbor />}
+            </div>
           )}
-          {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
-          {activeSection === "recurring" && <RecurringRemindersSection />}
-          {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
-          {activeSection === "systems" && <HomeSection />}
-          {activeSection === "health" && <HealthSection />}
-          {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} onOpenRecipe={handleOpenRecipe} onBrowseRecipes={handleBrowseRecipes} />}
-          {activeSection === "pets" && <PetsSection />}
-          {activeSection === "moments" && <MomentsSection />}
-          {activeSection === "travel" && <TravelProfileSection />}
-          {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} onNavigate={setActiveSection} />}
-          {activeSection === "career" && <CareerSection />}
-          {activeSection === "settings" && <AnchorSettings />}
-          {activeSection === "subs" && <SubscriptionsSection />}
-          {activeSection === "ripples" && <RipplesRoom />}
-          {activeSection === "safeharbor" && <SafeHarbor />}
         </div>
       </div>
     </div>
