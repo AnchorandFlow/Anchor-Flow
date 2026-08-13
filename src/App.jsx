@@ -11496,12 +11496,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     return (
       <div>
-        <div style={{textAlign:"center",marginBottom:"1.25rem",position:"relative"}}>
-          <button onClick={function(){goTab("anchor");}} style={{position:"absolute",left:0,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5}}>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
+          <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
             <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
           </button>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
-          <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+          <div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
+            <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+          </div>
         </div>
 
         {/* Kid selector */}

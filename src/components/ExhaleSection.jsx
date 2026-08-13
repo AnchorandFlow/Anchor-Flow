@@ -1441,10 +1441,10 @@ export default function ExhaleSection(props) {
             <input autoFocus defaultValue={bucketName} onClick={(e) => e.stopPropagation()}
               onBlur={(e) => renameBucket(idx, e.target.value.trim() || bucketName)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") e.target.blur(); }}
-              style={{ flex: 1, fontSize: 14, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
+              style={{ flex: 1, fontSize: 18, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
           ) : (
             <span onClick={(e) => { e.stopPropagation(); setEditingBucketIdx(idx); }} title="Tap to rename"
-              style={{ flex: 1, fontSize: 14, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
+              style={{ flex: 1, fontSize: 18, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
           )}
           <span style={{ fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
           <button onClick={(e) => { e.stopPropagation(); toggleSelectMode(idx); }}
@@ -1667,7 +1667,7 @@ export default function ExhaleSection(props) {
               <input value={bucketInputText} onChange={(e) => setBucketInputText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { addBucketItem(bucketInputText, bucketInputTarget); setBucketInputText(""); } }}
                 placeholder="+ Exhale a thought"
-                style={{ flex: 1, padding: "8px 11px", fontSize: 13, border: br, borderRadius: 8, background: bgP, color: txP }} />
+                style={{ flex: 1, padding: "8px 11px", fontSize: 15, border: br, borderRadius: 8, background: bgP, color: txP }} />
               <button onClick={() => { addBucketItem(bucketInputText, bucketInputTarget); setBucketInputText(""); }}
                 style={{ background: NAVY, color: "white", border: "none", borderRadius: 8, padding: "7px 13px", fontSize: 12, cursor: "pointer" }}>+ Add</button>
             </div>
