@@ -10,13 +10,21 @@ import { useState, useEffect } from "react";
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
 
-// Brighter teal room palette (locked June 12)
+// Lighter, airier teal room palette (Batch — softened from the original
+// "brighter teal" locked June 12; keeps the same hue, just lifted).
 var C = {
-  bg1: "#3E8B91", bg2: "#2B7378", bg3: "#1E5B63",
+  bg1: "#68A5A9", bg2: "#5A9296", bg3: "#4B7C82",
   sea: "#b7d4cf", sand: "#d8c6a3", cream: "#f5f0e8",
   t1: "#f5f0e8", t2: "rgba(245,240,232,.72)", t3: "rgba(245,240,232,.40)",
   card: "rgba(30,91,99,.45)", cardSolid: "rgba(23,71,78,.7)",
   border: "rgba(183,212,207,.14)",
+  // Sand card variant — some cards (quote/tradition entries) use this opaque
+  // warm sand instead of the teal glass above, for variety. Matches
+  // AnchorVault's own #f7f1e3 card convention, so it needs its own dark-on-
+  // light text/accent set — the cream (t1/t2/t3) and light-teal (sea) tones
+  // above are unreadable against it.
+  sandBg: "#f7f1e3", sandBorder: "rgba(26,46,61,0.12)",
+  sandT1: "#1a2e3d", sandT2: "#3d5568", sandT3: "#4a6275", sandAccent: "#2B7378",
 };
 
 // Map real categories -> a dot color + display label for the timeline
@@ -355,9 +363,9 @@ export default function RipplesRoom(props) {
             </div>
           ) : quoteRipples.map(function (r) {
             return (
-              <div key={r.id} onClick={function () { openRippleEdit(r); }} style={{ padding: "14px 16px", background: C.card, border: "1px solid " + C.border, borderRadius: 11, cursor: "pointer" }}>
-                <div style={{ fontFamily: SERIF, fontSize: "1.05rem", fontStyle: "italic", color: C.t1, lineHeight: 1.4 }}>{r.name}</div>
-                <div style={{ fontSize: ".66rem", color: C.t3, marginTop: 6 }}>{[r.who, fmtDate(r.date, { month: "long", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ")}</div>
+              <div key={r.id} onClick={function () { openRippleEdit(r); }} style={{ padding: "14px 16px", background: C.sandBg, border: "1px solid " + C.sandBorder, borderRadius: 11, cursor: "pointer" }}>
+                <div style={{ fontFamily: SERIF, fontSize: "1.05rem", fontStyle: "italic", color: C.sandT1, lineHeight: 1.4 }}>{r.name}</div>
+                <div style={{ fontSize: ".66rem", color: C.sandT3, marginTop: 6 }}>{[r.who, fmtDate(r.date, { month: "long", day: "numeric", year: "numeric" })].filter(Boolean).join(" · ")}</div>
               </div>
             );
           })}
@@ -437,21 +445,21 @@ export default function RipplesRoom(props) {
             var days = daysUntil(t.when);
             var years = t.years || [];
             return (
-              <div key={t.id} onClick={function () { openEdit(t); }} style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 14, padding: "16px 18px", cursor: "pointer" }}>
+              <div key={t.id} onClick={function () { openEdit(t); }} style={{ background: C.sandBg, border: "1px solid " + C.sandBorder, borderRadius: 14, padding: "16px 18px", cursor: "pointer" }}>
                 <div style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>
                   <div style={{ fontSize: "1.9rem", flexShrink: 0, lineHeight: 1 }}>{t.emoji}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: SERIF, fontSize: "1.15rem", color: C.t1, lineHeight: 1.3 }}>{t.title}</div>
-                    <div style={{ fontSize: ".64rem", color: C.t3, marginTop: 3 }}>
+                    <div style={{ fontFamily: SERIF, fontSize: "1.15rem", color: C.sandT1, lineHeight: 1.3 }}>{t.title}</div>
+                    <div style={{ fontSize: ".64rem", color: C.sandT3, marginTop: 3 }}>
                       {t.when ? fmtMonthDay(t.when) + " · " : ""}Started {t.startedYear} · {years.length} year{years.length === 1 ? "" : "s"} running
                     </div>
-                    {t.description && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: ".86rem", color: C.t2, marginTop: 8, lineHeight: 1.5 }}>"{t.description}"</div>}
+                    {t.description && <div style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: ".86rem", color: C.sandT2, marginTop: 8, lineHeight: 1.5 }}>"{t.description}"</div>}
 
                     {/* Year pills */}
                     {years.length > 0 && (
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 10 }}>
                         {years.map(function (y) {
-                          return <span key={y} style={{ fontSize: ".6rem", padding: "2px 8px", borderRadius: 20, background: C.sand + "22", border: "0.5px solid " + C.sand + "55", color: C.sand }}>{y}</span>;
+                          return <span key={y} style={{ fontSize: ".6rem", padding: "2px 8px", borderRadius: 20, background: C.sandAccent + "18", border: "0.5px solid " + C.sandAccent + "55", color: C.sandAccent }}>{y}</span>;
                         })}
                       </div>
                     )}
@@ -459,12 +467,12 @@ export default function RipplesRoom(props) {
                     {/* Countdown + mark celebrated */}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
                       {days !== null && (
-                        <span style={{ fontSize: ".64rem", color: C.sea }}>
+                        <span style={{ fontSize: ".64rem", color: C.sandAccent }}>
                           {days === 0 ? "🎉 Today!" : days === 1 ? "Tomorrow" : days + " days away"}
                         </span>
                       )}
                       {years.indexOf(THIS_YEAR) === -1 && (
-                        <div onClick={function (e) { e.stopPropagation(); markCelebrated(t.id); }} style={{ fontSize: ".64rem", padding: "3px 10px", borderRadius: 20, border: "1px solid " + C.border, color: C.sea, cursor: "pointer" }}>✓ Celebrated this year</div>
+                        <div onClick={function (e) { e.stopPropagation(); markCelebrated(t.id); }} style={{ fontSize: ".64rem", padding: "3px 10px", borderRadius: 20, border: "1px solid " + C.sandBorder, color: C.sandAccent, cursor: "pointer" }}>✓ Celebrated this year</div>
                       )}
                     </div>
                   </div>
