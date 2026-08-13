@@ -16939,7 +16939,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 forceReload();
               }
             } catch(e) { forceReload(); }
-          }} style={{background:"rgba(200,169,122,0.25)",border:"1px solid rgba(200,169,122,0.5)",borderRadius:"0.5rem",color:"#c8a97a",fontSize:"0.75rem",fontWeight:700,padding:"0.3rem 0.7rem",cursor:"pointer",fontFamily:"inherit",flexShrink:0,minHeight:36,minWidth:36}}>Refresh Now</button>
+          }} style={{background:"#c8a97a",border:"none",borderRadius:"0.5rem",color:"#1a2744",fontSize:"0.75rem",fontWeight:700,padding:"0.5rem 0.9rem",cursor:"pointer",fontFamily:"inherit",flexShrink:0,minHeight:44,minWidth:44,boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>Refresh Now</button>
           <span onClick={function(){setStaleBanner(false);}} style={{fontSize:"0.75rem",opacity:0.5,cursor:"pointer",flexShrink:0,padding:"0.25rem"}}>✕</span>
         </div>
       )}
