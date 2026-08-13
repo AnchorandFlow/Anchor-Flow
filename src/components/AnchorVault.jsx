@@ -5696,11 +5696,13 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
 
                 if (!isExpanded) {
                   return (
-                    <div key={trip.id} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
-                      {/* Bug 1 fix: navigation is scoped to just this icon+name span
-                          (its own onClick) instead of the whole row, so the chevron
-                          never has to out-compete a parent click handler. */}
-                      <span onClick={function(){ openDetail(trip) }} style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                    <div key={trip.id} onClick={toggleExpand} style={{ background:cardBg, border:"1px solid "+border, borderRadius:8, padding:"10px 12px", display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
+                      {/* Batch D — full row now expands (toggleExpand, above, already
+                          stops propagation so the chevron button doesn't double-fire).
+                          The icon+name span keeps its own distinct action — jump
+                          straight to the trip's detail view — via its own
+                          stopPropagation, same pattern as Waves' rename-vs-expand split. */}
+                      <span onClick={function(e){ e.stopPropagation(); openDetail(trip) }} style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:8, cursor:"pointer" }}>
                         <span style={{ fontSize:18, flexShrink:0 }}>{trip.icon || "🧳"}</span>
                         <span style={{ flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"Cormorant Garamond,serif", fontSize:15, fontWeight:700, color:"#1a2e3d" }}>{trip.name || "Untitled trip"}</span>
                       </span>

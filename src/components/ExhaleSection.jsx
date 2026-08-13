@@ -1532,7 +1532,8 @@ export default function ExhaleSection(props) {
               var dotColor = assignedPerson ? assignedPerson.color : (assignedCategory ? assignedCategory.color : null);
               return (
                 <div key={item.id} data-bucketitemid={item.id} className="af-exhale-row"
-                  style={{ borderRadius: 8, border: br, padding: "5px 8px", marginBottom: 4, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2 }}>
+                  onClick={() => toggleItemExpanded(item.id)}
+                  style={{ borderRadius: 8, border: br, padding: "5px 8px", marginBottom: 4, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2, cursor: "pointer" }}>
                   {/* Condensed-rows fix: this padding/margin/gap only affects the
                       collapsed row shell — everything inside {isExpanded && (...)}
                       below (textarea, Assign to/Category rows, action chips) is
@@ -1540,6 +1541,7 @@ export default function ExhaleSection(props) {
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
                     {selectMode ? (
                       <input type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)}
+                        onClick={(e) => e.stopPropagation()}
                         style={{ flexShrink: 0, marginTop: 2, cursor: "pointer" }} />
                     ) : (
                       <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
