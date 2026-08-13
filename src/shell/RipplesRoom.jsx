@@ -10,21 +10,25 @@ import { useState, useEffect } from "react";
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
 
-// Lighter, airier teal room palette (Batch — softened from the original
-// "brighter teal" locked June 12; keeps the same hue, just lifted).
+// Brighter teal room palette (locked June 12)
 var C = {
-  bg1: "#68A5A9", bg2: "#5A9296", bg3: "#4B7C82",
+  bg1: "#3E8B91", bg2: "#2B7378", bg3: "#1E5B63",
   sea: "#b7d4cf", sand: "#d8c6a3", cream: "#f5f0e8",
   t1: "#f5f0e8", t2: "rgba(245,240,232,.72)", t3: "rgba(245,240,232,.40)",
   card: "rgba(30,91,99,.45)", cardSolid: "rgba(23,71,78,.7)",
   border: "rgba(183,212,207,.14)",
-  // Sand card variant — some cards (quote/tradition entries) use this opaque
+  // Sand card variant — the "record a memory" prompt card uses this opaque
   // warm sand instead of the teal glass above, for variety. Matches
   // AnchorVault's own #f7f1e3 card convention, so it needs its own dark-on-
   // light text/accent set — the cream (t1/t2/t3) and light-teal (sea) tones
   // above are unreadable against it.
   sandBg: "#f7f1e3", sandBorder: "rgba(26,46,61,0.12)",
   sandT1: "#1a2e3d", sandT2: "#3d5568", sandT3: "#4a6275", sandAccent: "#2B7378",
+  // Light-teal card variant — milestone/memory display cards (the Timeline
+  // list and "On This Day" highlight) use this instead of the dark teal
+  // glass, for visual distinction. Opaque and light, so it reuses the sand
+  // variant's dark-on-light text/accent set above rather than duplicating it.
+  teal2: "#b8d8d8", teal2Border: "rgba(26,46,61,0.12)", teal2Line: "rgba(26,46,61,.15)",
 };
 
 // Map real categories -> a dot color + display label for the timeline
@@ -262,51 +266,51 @@ export default function RipplesRoom(props) {
       {tab === "timeline" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           {onThisDay && (
-            <div style={{ display: "flex", gap: 11, alignItems: "flex-start", padding: "13px 15px", background: C.card, border: "1px solid " + C.border, borderRadius: 12 }}>
+            <div style={{ display: "flex", gap: 11, alignItems: "flex-start", padding: "13px 15px", background: C.teal2, border: "1px solid " + C.teal2Border, borderRadius: 12 }}>
               <span style={{ fontSize: "1.35rem" }}>✨</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: ".58rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 3 }}>On This Day · {fmtDate(onThisDay.date, { month: "long", day: "numeric", year: "numeric" })}</div>
-                <div style={{ fontSize: ".88rem", color: C.t1, fontFamily: SERIF, fontStyle: "italic", lineHeight: 1.4 }}>{onThisDay.name}</div>
-                {onThisDay.who && <div style={{ fontSize: ".61rem", color: C.t3, marginTop: 3 }}>{onThisDay.who}</div>}
+                <div style={{ fontSize: ".58rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sandAccent, marginBottom: 3 }}>On This Day · {fmtDate(onThisDay.date, { month: "long", day: "numeric", year: "numeric" })}</div>
+                <div style={{ fontSize: ".88rem", color: C.sandT1, fontFamily: SERIF, fontStyle: "italic", lineHeight: 1.4 }}>{onThisDay.name}</div>
+                {onThisDay.who && <div style={{ fontSize: ".61rem", color: C.sandT3, marginTop: 3 }}>{onThisDay.who}</div>}
               </div>
             </div>
           )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
             {/* Timeline list */}
-            <div style={{ background: C.card, border: "1px solid " + C.border, borderRadius: 14, padding: "16px 18px" }}>
+            <div style={{ background: C.teal2, border: "1px solid " + C.teal2Border, borderRadius: 14, padding: "16px 18px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <div>
-                  <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, opacity: .8 }}>Timeline</div>
-                  <div style={{ fontFamily: SERIF, fontSize: "1.1rem", color: C.t1 }}>Memories & Milestones</div>
+                  <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sandAccent, opacity: .8 }}>Timeline</div>
+                  <div style={{ fontFamily: SERIF, fontSize: "1.1rem", color: C.sandT1 }}>Memories & Milestones</div>
                 </div>
               </div>
               {sorted.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 12px" }}>
                   <div style={{ fontSize: "1.8rem", opacity: .3, marginBottom: 8 }}>🌊</div>
-                  <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: C.t1, marginBottom: 6 }}>The story starts here</div>
-                  <div style={{ fontSize: ".76rem", color: C.t3, lineHeight: 1.6 }}>Capture first words, lost teeth, goals scored — anything worth remembering.</div>
+                  <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: C.sandT1, marginBottom: 6 }}>The story starts here</div>
+                  <div style={{ fontSize: ".76rem", color: C.sandT3, lineHeight: 1.6 }}>Capture first words, lost teeth, goals scored — anything worth remembering.</div>
                 </div>
               ) : sorted.slice(0, 30).map(function (r) {
                 var cs = catStyle(r.category);
                 return (
                   <div key={r.id} style={{ display: "flex", gap: 11, marginBottom: 14 }}>
-                    <div style={{ fontFamily: SERIF, fontStyle: "italic", color: C.t3, fontSize: ".76rem", width: 46, flexShrink: 0, paddingTop: 1 }}>{fmtDate(r.date)}</div>
+                    <div style={{ fontFamily: SERIF, fontStyle: "italic", color: C.sandT3, fontSize: ".76rem", width: 46, flexShrink: 0, paddingTop: 1 }}>{fmtDate(r.date)}</div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                       <div style={{ width: 9, height: 9, borderRadius: "50%", background: cs.color, boxShadow: "0 0 6px " + cs.color + "88" }} />
-                      <div style={{ width: 1, flex: 1, background: "rgba(183,212,207,.15)", marginTop: 4 }} />
+                      <div style={{ width: 1, flex: 1, background: C.teal2Line, marginTop: 4 }} />
                     </div>
                     <div style={{ flex: 1, paddingBottom: 2 }}>
-                      <div style={{ fontSize: ".82rem", color: C.t1, lineHeight: 1.37 }}>{r.name}</div>
-                      {r.note && <div style={{ fontSize: ".72rem", color: C.t2, marginTop: 2, lineHeight: 1.4 }}>{r.note}</div>}
+                      <div style={{ fontSize: ".82rem", color: C.sandT1, lineHeight: 1.37 }}>{r.name}</div>
+                      {r.note && <div style={{ fontSize: ".72rem", color: C.sandT2, marginTop: 2, lineHeight: 1.4 }}>{r.note}</div>}
                       {r.photo && (
                         <div style={{ marginTop: 7, borderRadius: 8, overflow: "hidden" }}>
                           <img src={r.photo} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", display: "block", borderRadius: 8 }} />
                         </div>
                       )}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 4, flexWrap: "wrap" }}>
-                        {r.who && <span style={{ fontSize: ".64rem", color: C.t3 }}>{r.who}</span>}
-                        <span style={{ fontSize: ".6rem", padding: "1px 8px", borderRadius: 20, background: cs.color + "26", color: cs.color }}>{cs.label}</span>
+                        {r.who && <span style={{ fontSize: ".64rem", color: C.sandT3 }}>{r.who}</span>}
+                        <span style={{ fontSize: ".6rem", padding: "1px 8px", borderRadius: 20, background: cs.color + "26", color: C.sandT1 }}>{cs.label}</span>
                       </div>
                     </div>
                   </div>
@@ -327,14 +331,14 @@ export default function RipplesRoom(props) {
                 })}
               </div>
 
-              <div style={{ padding: 16, background: C.cardSolid, border: "1px solid " + C.border, borderRadius: 11 }}>
-                <div style={{ fontSize: ".56rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.sea, marginBottom: 8, opacity: .8 }}>Today's Ripple Prompt</div>
-                <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: C.t1, fontStyle: "italic", lineHeight: 1.55, marginBottom: 12 }}>"What's one moment from today worth holding onto?"</div>
-                <div onClick={function () { quickAdd(null); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(183,212,207,.07)", border: "1px solid rgba(183,212,207,.14)", borderRadius: 8, cursor: "pointer" }}>
-                  <span style={{ opacity: .25, fontSize: ".85rem" }}>✎</span>
-                  <span style={{ fontSize: ".75rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>Just a sentence or two is enough.</span>
+              <div style={{ padding: 16, background: C.sandBg, border: "1px solid " + C.sandBorder, borderRadius: 11 }}>
+                <div style={{ fontSize: ".56rem", letterSpacing: ".18em", textTransform: "uppercase", color: C.sandAccent, marginBottom: 8, opacity: .8 }}>Today's Ripple Prompt</div>
+                <div style={{ fontFamily: SERIF, fontSize: "1.05rem", color: C.sandT1, fontStyle: "italic", lineHeight: 1.55, marginBottom: 12 }}>"What's one moment from today worth holding onto?"</div>
+                <div onClick={function () { quickAdd(null); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "rgba(26,46,61,.05)", border: "1px solid " + C.sandBorder, borderRadius: 8, cursor: "pointer" }}>
+                  <span style={{ opacity: .35, fontSize: ".85rem" }}>✎</span>
+                  <span style={{ fontSize: ".75rem", color: C.sandT3, fontStyle: "italic", fontFamily: SERIF }}>Just a sentence or two is enough.</span>
                 </div>
-                <div style={{ fontSize: ".6rem", color: C.t3, marginTop: 8, textAlign: "right" }}>from Compass 🧭</div>
+                <div style={{ fontSize: ".6rem", color: C.sandT3, marginTop: 8, textAlign: "right" }}>from Compass 🧭</div>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
