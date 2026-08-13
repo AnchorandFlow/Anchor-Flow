@@ -9131,7 +9131,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   return (
     <div style={{ paddingBottom: "2rem" }}>
       <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid rgba(250,242,229,0.1)" }}>
-        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 28, fontWeight: 700, color: "#1a2e3d", letterSpacing: "0.02em", lineHeight: 1 }}>Anchor</div>
+        <div style={{ fontFamily: "Cormorant Garamond,serif", fontSize: 28, fontWeight: 700, color: "#f7f1e3", letterSpacing: "0.02em", lineHeight: 1 }}>Anchor</div>
         <div style={{ fontSize: 13, color: "#c2d4e0", fontFamily: "DM Sans,sans-serif", marginTop: 6, fontStyle: "italic", lineHeight: 1.5 }}>A place to hold what matters most — your people, your home, your story.</div>
       </div>
 

@@ -8700,7 +8700,7 @@ Respond ONLY in valid JSON:
             return (
               <div key={type} style={{ borderRadius: 12, border: br, background: T.surface, overflow: "hidden" }}>
                 <div onClick={() => toggleWaveSection(type)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", cursor: "pointer", background: T.bgAlt }}>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: T.textDark, flex: 1 }}>{label}</span>
+                  <span style={{ fontSize: 20, fontWeight: 700, color: T.textDark, flex: 1 }}>{label}</span>
                   <span style={{ fontSize: 11, color: T.textSoft }}>{list.length}</span>
                   <span style={{ fontSize: 11, color: T.textSoft, transform: isSectionOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
                 </div>
@@ -8721,9 +8721,9 @@ Respond ONLY in valid JSON:
                                 <input autoFocus defaultValue={w.name} onClick={(e) => e.stopPropagation()}
                                   onBlur={(e) => renameWave(type, w.id, e.target.value.trim()||w.name)}
                                   onKeyDown={(e) => { if (e.key==="Enter"||e.key==="Escape") e.target.blur(); }}
-                                  style={{ fontSize: 16, fontWeight: 700, border: "none", borderBottom: "1.5px solid "+TEAL, background: "transparent", color: T.textDark, outline: "none", fontFamily: "inherit", width: "100%" }} />
+                                  style={{ fontSize: 17, fontWeight: 700, border: "none", borderBottom: "1.5px solid "+TEAL, background: "transparent", color: T.textDark, outline: "none", fontFamily: "inherit", width: "100%" }} />
                               ) : (
-                                <span onClick={(e) => { e.stopPropagation(); setEditingWaveId(w.id); }} title="Tap to rename" style={{ fontSize: 16, fontWeight: 700, color: T.textDark, cursor: "text" }}>{w.name}</span>
+                                <span onClick={(e) => { e.stopPropagation(); setEditingWaveId(w.id); }} title="Tap to rename" style={{ fontSize: 17, fontWeight: 700, color: T.textDark, cursor: "text" }}>{w.name}</span>
                               )}
                               <div style={{ fontSize: 10.5, color: T.textSoft, marginTop: 1 }}>{subtitle}{type==="weekly"&&typeof w.dayOfWeek==="number"?" · "+WAVE_DAY_LABELS[w.dayOfWeek]:""}{type==="seasonal"&&typeof w.month==="number"?" · "+WAVE_MONTH_LABELS[w.month-1]:""}</div>
                               <div style={{ fontSize: 10, color: T.textSoft, opacity: 0.6, marginTop: 1 }}>{waveScheduleLabel(type, w)}</div>

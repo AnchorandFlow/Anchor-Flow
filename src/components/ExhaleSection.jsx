@@ -1656,7 +1656,7 @@ export default function ExhaleSection(props) {
       {/* App bar */}
       <div style={{ background: NAVY, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
         <span>💨</span>
-        <span style={{ color: "#E8C76A" }}>Exhale</span>
+        <span style={{ color: "#E8C76A", fontSize: 22 }}>Exhale</span>
         <span style={{ marginLeft: "auto", fontSize: 10 }}>{totalVisible} items</span>
       </div>
 
