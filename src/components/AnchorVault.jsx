@@ -8968,6 +8968,82 @@ function AnchorDashboard({ onNavigate, calEvents }) {
     } catch { return { highlight: null, countdown: null, count: 0 } }
   }
 
+  // ── "Heads Up" panel — small cross-section pull of the most urgent
+  // due/expiring items across sections, so a household doesn't have to open
+  // every card to notice something's overdue. Celebrations are deliberately
+  // excluded (already surfaced in "At a glance" above — would be redundant).
+  // Career has no license/certification data model in this app, so it's not
+  // a source here. Each builder returns {cat,color,emoji,text,days} — days is
+  // null only for the Safe Harbor "never reviewed" nudge, which has no date.
+  function headsUpPets() {
+    var out = []
+    readPets().forEach(function(p) {
+      (p.vaccines || []).forEach(function(v) {
+        if (!v.due) return
+        var d = daysUntilDate(v.due)
+        if (d !== null && d <= 30) out.push({ cat: "pets", color: "#7EAEB4", emoji: "🐾", text: p.name + " " + v.name + " due", days: d })
+      })
+    })
+    return out
+  }
+  function headsUpTravel() {
+    var out = []
+    try {
+      var tp = JSON.parse(localStorage.getItem("af_travel_profile") || "{}")
+      var docs = [
+        { label: "Passport", key: tp.passportExp },
+        { label: "Passport", key: tp.passport2Exp },
+        { label: "TSA PreCheck", key: tp.tsaExp },
+        { label: "Global Entry", key: tp.geExp },
+      ]
+      docs.forEach(function(x) {
+        if (!x.key) return
+        var d = daysUntilDate(x.key)
+        if (d !== null && d <= 90) out.push({ cat: "travel", color: "#c8a97a", emoji: "📋", text: x.label + " expires", days: d })
+      })
+    } catch (e) {}
+    return out
+  }
+  function headsUpReminders() {
+    var out = []
+    recurLoad().forEach(function(r) {
+      if (r.active === false) return
+      var d = daysUntilReminder(r)
+      if (d !== null && d <= 0) out.push({ cat: "reminders", color: "#a05c10", emoji: r.emoji || "⏰", text: (r.label || "Reminder") + " due", days: d })
+    })
+    return out
+  }
+  function headsUpSubs() {
+    var out = []
+    try {
+      var subs = JSON.parse(localStorage.getItem("af_subs") || "[]")
+      if (Array.isArray(subs)) subs.forEach(function(s) {
+        if (!s.renewDate) return
+        var d = daysUntilDate(s.renewDate)
+        if (d !== null && d >= 0 && d <= 7) out.push({ cat: "subs", color: "#7a9e8e", emoji: "🔄", text: s.name + " renews", days: d })
+      })
+    } catch (e) {}
+    return out
+  }
+  function headsUpSafeHarbor() {
+    try {
+      var sh = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
+      if (sh && !sh.lastReviewed) return [{ cat: "safeharbor", color: "#2b3d52", emoji: "⚓", text: "Safe Harbor never reviewed", days: null }]
+    } catch (e) {}
+    return []
+  }
+  function headsUpDaysLabel(days) {
+    if (days == null) return null
+    if (days < 0) return Math.abs(days) + (Math.abs(days) === 1 ? " day" : " days") + " overdue"
+    if (days === 0) return "today"
+    return days + (days === 1 ? " day" : " days")
+  }
+  function headsUpItems() {
+    var items = headsUpPets().concat(headsUpTravel(), headsUpReminders(), headsUpSubs(), headsUpSafeHarbor())
+    items.sort(function(a, b) { return (a.days == null ? 9999 : a.days) - (b.days == null ? 9999 : b.days) })
+    return items.slice(0, 4)
+  }
+
   // ── Card component ─────────────────────────────────────────────────────────
   function DashCard({ id, icon, label, summary, onOpen, defaultOpen }) {
     var [open, setOpen] = useState(false)
@@ -9038,6 +9114,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var inventory = inventorySummary()
   var careerSum = careerSummary()
   var safeHarborSum = safeHarborSummary()
+  var headsUp = headsUpItems()
 
   // Format celebration entries for display — include 🎁 if gifts recorded
   var celebEntries = (celeb.entries || []).map(function(e) {
@@ -9143,19 +9220,23 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         </div>
       </div>
 
-      {/* Batch E Fix 1 — next upcoming trip countdown. nextTripSummary()
-          already guards startDate > today, so nothing renders here for a
-          trip that's today, in progress, or past. */}
-      {nextTrip && (
-        <div onClick={function() { onNavigate("trips") }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", marginBottom: 18, background: "#ddeaf4", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, cursor: "pointer" }}>
-          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🧳</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a6275", fontWeight: 700, marginBottom: 3 }}>Next trip</div>
-            <div style={{ fontSize: 14, color: "#1a2e3d", fontFamily: "Cormorant Garamond,serif", fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextTrip.name}</div>
-            <div style={{ fontSize: 12, color: "#4a6275", marginTop: 2 }}>
-              {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}
-              {nextTrip.date && " · " + nextTrip.date}
-            </div>
+      {/* "Heads Up" — cross-section pull of the most urgent due/expiring
+          items (pets vaccines, travel docs, reminders, subscriptions, Safe
+          Harbor never-reviewed). Hidden entirely when nothing qualifies —
+          see headsUpItems() for the per-source thresholds. */}
+      {headsUp.length > 0 && (
+        <div style={{ padding: "12px 16px", marginBottom: 18, background: "#ddeaf4", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a6275", fontWeight: 700, marginBottom: 8 }}>Heads Up</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {headsUp.map(function(it, i) {
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: it.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#1a2e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.emoji} {it.text}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: (it.days != null && it.days < 0) ? "#a05c10" : "#4a6275", flexShrink: 0 }}>{headsUpDaysLabel(it.days)}</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -9207,6 +9288,21 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         // that fill available width on desktop, 1 on mobile (<480px).
         <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
           {leftCards.concat(rightCards).map(renderCard)}
+        </div>
+      )}
+
+      {/* Next upcoming trip countdown — moved below the card grid. */}
+      {nextTrip && (
+        <div onClick={function() { onNavigate("trips") }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", marginTop: 12, background: "#ddeaf4", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, cursor: "pointer" }}>
+          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🧳</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a6275", fontWeight: 700, marginBottom: 3 }}>Next trip</div>
+            <div style={{ fontSize: 14, color: "#1a2e3d", fontFamily: "Cormorant Garamond,serif", fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextTrip.name}</div>
+            <div style={{ fontSize: 12, color: "#4a6275", marginTop: 2 }}>
+              {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}
+              {nextTrip.date && " · " + nextTrip.date}
+            </div>
+          </div>
         </div>
       )}
     </div>
