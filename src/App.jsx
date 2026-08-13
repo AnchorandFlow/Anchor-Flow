@@ -473,6 +473,20 @@ try {
   }
 } catch {}
 
+// Batch B — minimal-mode defaults for genuinely new users. Reads
+// af_onboardingState directly (not the onboardingState React state declared
+// later in HomeFlow, and not isExistingHousehold() again) — by the time this
+// runs, the migration above has already written complete:true for any
+// household with real existing data, so an incomplete/absent state here
+// reliably means "brand new, empty household," regardless of whether
+// ONBOARDING_V1 itself is even on.
+function isNewUserForDefaults() {
+  try {
+    var s = JSON.parse(localStorage.getItem("af_onboardingState") || "null");
+    return !s || !s.complete;
+  } catch (e) { return true; }
+}
+
 // ── RootErrorBoundary — app-level catch, branded recovery ────────────────────
 // Wraps FlowWrapper in App and HomeFlow in FlowWrapper. Shows a calm, branded
 // screen that never suggests clearing storage and never exposes raw error text.
@@ -1874,7 +1888,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,sections,setSections}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -1898,7 +1912,6 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
       return Object.assign({},p,{[key]:!current});
     });
   }
-
 
   // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
   // Pass settingsOpen + toggleSetting down explicitly.
@@ -2027,6 +2040,20 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
           </Row>
           <Row label="Safe Harbor" sub="Emergency plans and vital info, ready when you need them">
             <Toggle on={safeHarborEnabled!==false} onToggle={function(){setSafeHarborEnabled(safeHarborEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          {/* Batch B — sidebar sections, not FEATURE_FLAG_KEYS. New users start
+              with these off (minimal mode); this is how they turn them back on. */}
+          <Row label="Home" sub="Cleaning, maintenance, and household operations">
+            <Toggle on={sections.home!==false} onToggle={function(){setSections(function(p){return Object.assign({},p,{home:p.home===false?true:false});});}} color={T.sage}/>
+          </Row>
+          <Row label="People" sub="Health, pets, and career for your household">
+            <Toggle on={sections.people!==false} onToggle={function(){setSections(function(p){return Object.assign({},p,{people:p.people===false?true:false});});}} color={T.sage}/>
+          </Row>
+          <Row label="Horizon" sub="Travel, celebrations, and what's ahead">
+            <Toggle on={sections.horizon!==false} onToggle={function(){setSections(function(p){return Object.assign({},p,{horizon:p.horizon===false?true:false});});}} color={T.sage}/>
+          </Row>
+          <Row label="Cove" sub="Lists, notes, and ideas">
+            <Toggle on={sections.cove!==false} onToggle={function(){setSections(function(p){return Object.assign({},p,{cove:p.cove===false?true:false});});}} color={T.sage}/>
           </Row>
           <div style={{paddingTop:"0.75rem",paddingBottom:"0.5rem",borderBottom:"1px solid "+T.borderSoft}}>
             <div style={{fontSize:"0.85rem",fontWeight:600,color:T.textDark,marginBottom:"0.45rem"}}>Greeting tone</div>
@@ -2504,10 +2531,17 @@ function markKeyDirty(key) {
 var FEATURE_FLAG_KEYS = ["tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","compassEnabled"];
 function readFeatureFlags() {
   var out = {};
+  // Batch B — Tide Pool/Lighthouse default OFF for genuinely new users
+  // (minimal-mode first run). Every other flag keeps the pre-existing
+  // default-on behavior — none of them gate any nav visibility today (see
+  // isNewUserForDefaults() for why "new" is safe to compute here).
+  var newUserOffKeys = { tidePoolEnabled: true, lighthouseEnabled: true };
+  var isNew = isNewUserForDefaults();
   FEATURE_FLAG_KEYS.forEach(function(k) {
     try {
       var s = localStorage.getItem("af_"+k);
-      out[k] = s === null ? true : JSON.parse(s);
+      if (s !== null) { out[k] = JSON.parse(s); return; }
+      out[k] = (isNew && newUserOffKeys[k]) ? false : true;
     } catch (e) { out[k] = true; }
   });
   return out;
@@ -3944,7 +3978,13 @@ function createLocalBackup() {
   const [burnoutChecked,setBurnoutChecked]     = useSaved("burnoutChecked",[]);
   const [homeSystems,setHomeSystems]           = useSaved("homeSystems",HOME_SYSTEMS_DEFAULT);
   const [rhythm,setRhythm]                     = useSaved("rhythm",DEFAULT_RHYTHM);
-  const [sections,setSections]                 = useSaved("sections",{anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true,school:true});
+  // Batch B — new users start with Home/People/Horizon/Cove off (minimal
+  // mode); existing users keep the exact default they've always had. Only
+  // the initial useSaved fallback branches — once af_sections is written for
+  // real (by anyone, new or existing), this branch never runs again.
+  const [sections,_setSectionsRaw] = useSaved("sections", isNewUserForDefaults()
+    ? {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:false,brain:true,tidepool:true,cove:false,school:true,people:false,horizon:false}
+    : {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true,school:true});
   const [coveData,setCoveData]                 = useSaved("coveData",null);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
@@ -4011,6 +4051,17 @@ function createLocalBackup() {
   function setCareerEnabled(v){ try{ localStorage.setItem("af_careerEnabled", JSON.stringify(v)); }catch(e){} _setCareerEnabled(v); dispatchFeaturesChanged(); }
   function setSafeHarborEnabled(v){ try{ localStorage.setItem("af_safeHarborEnabled", JSON.stringify(v)); }catch(e){} _setSafeHarborEnabled(v); dispatchFeaturesChanged(); }
   function setCompassEnabled(v){ try{ localStorage.setItem("af_compassEnabled", JSON.stringify(v)); }catch(e){} _setCompassEnabled(v); dispatchFeaturesChanged(); }
+  // Batch B — sections gets the exact same direct-write-then-dispatch
+  // treatment as the feature flags above, for the same reason: FlowWrapper's
+  // "af-sections-changed" listener (already wired, previously unused —
+  // nothing ever called setSections before this) re-reads localStorage, so
+  // the write here has to land before the event fires.
+  function setSections(next){
+    var resolved = typeof next === "function" ? next(sections) : next;
+    try{ localStorage.setItem("af_sections", JSON.stringify(resolved)); }catch(e){}
+    _setSectionsRaw(resolved);
+    try{ window.dispatchEvent(new CustomEvent("af-sections-changed")); }catch(e){}
+  }
   const [notifications,setNotifications]       = useSaved("notifications",[]);
   const [aiMemory,setAiMemory]                 = useSaved("aiMemory",{});
   // Compass Phase 1 Fix 5 — behavioral signals live under af_aiMemory.signals
@@ -17056,6 +17107,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   careerEnabled={careerEnabled} setCareerEnabled={setCareerEnabled}
                   safeHarborEnabled={safeHarborEnabled} setSafeHarborEnabled={setSafeHarborEnabled}
                   compassEnabled={compassEnabled} setCompassEnabled={setCompassEnabled}
+                  sections={sections} setSections={setSections}
                 /></SectionErrorBoundary>}
                 {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
@@ -17349,8 +17401,14 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     forceUpdate();
     window.dispatchEvent(new CustomEvent("af-set-tab", { detail: t }));
   }, []);
+  // Batch B — same new-user-aware default as HomeFlow's own sections
+  // useSaved fallback (~App.jsx:3969) — this is the sibling-component copy
+  // PILLARS actually reads for nav gating, so it needs the identical branch.
   const [sections, setSections] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("af_sections") || "null") || {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} } catch { return {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true} }
+    var fallback = isNewUserForDefaults()
+      ? {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:false,brain:true,school:true,cove:false,people:false,horizon:false}
+      : {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,school:true};
+    try { return JSON.parse(localStorage.getItem("af_sections") || "null") || fallback } catch { return fallback }
   })
   React.useEffect(() => {
     const onStorage = (e) => {
@@ -17524,7 +17582,10 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             var _kidsDim = navDim && !_navExempt;
             var kids = pill.items.map(function(it){
               if (it.vault) { var av2 = showAnchor && vaultSection === it.vault && navSel === "v-"+it.vault; return rowBtn(it, av2, function(){ setNavSel("v-"+it.vault); setShowAnchor(true); setVaultSection(it.vault); setVaultReturnTo(null); }, pillColor(pill.label), _kidsDim); }
-              var hidden = it.id !== "anchor" && it.id !== "cove" && sections && sections[it.id] === false;
+              // Batch B — Cove's exemption removed: it now respects
+              // sections.cove like Home/People/Horizon (existing users keep
+              // their current true default, so this is a no-op for them).
+              var hidden = it.id !== "anchor" && sections && sections[it.id] === false;
               if (hidden) return null;
               // Also active while the vault is open if it was reached via this
               // row's own "Open X →" buttons (af-open-vault's returnTo) — those
