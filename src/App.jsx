@@ -6576,32 +6576,6 @@ Respond ONLY in valid JSON:
       return null;
     })();
 
-    // Today's Lighthouse week-plan subjects — same weekPlan[TODAY_NAME] source
-    // as the lhweek task-list entries in mergedTodayTasks below, collapsed to
-    // bare subject names for a compact pill instead of one task row per kid
-    // per subject. Deduped across kids (two kids both doing "Math" today shows
-    // "Math" once), capped at 3 with a "+N" suffix — this is a glance pill,
-    // not the full list (that lives in the task rows / Lighthouse → Plan → Week).
-    var todaySchoolSubjects = (function(){
-      try {
-        var lhModes = lhGet(lighthouseForToday, "modes", {});
-        var hsKids = (people||[]).filter(function(p){ return personIsMinor(p) && lhModes[p.id]==="homeschool"; });
-        var names = [];
-        hsKids.forEach(function(p){
-          var childSchoolHs = (schoolData[p.id] && schoolData[p.id].homeschool) || {};
-          var weekPlanToday = (childSchoolHs.weekPlan && childSchoolHs.weekPlan[TODAY_NAME]) || null;
-          var subjectsToday = (weekPlanToday && Array.isArray(weekPlanToday.subjects)) ? weekPlanToday.subjects : [];
-          subjectsToday.forEach(function(s){
-            if (s && s.name && names.indexOf(s.name) === -1) names.push(s.name);
-          });
-        });
-        if (!names.length) return null;
-        var shown = names.slice(0, 3);
-        var extra = names.length - shown.length;
-        return { text: shown.join(" · ") + (extra > 0 ? " +" + extra : "") };
-      } catch(e) { return null; }
-    })();
-
     // ── Today redesign — Exhale "Today" bucket (bucketIndex 1, positional —
     // buckets are a fixed 5-slot layout, so this is stable even if the
     // household renamed the bucket) ───────────────────────────────────────────
@@ -6859,32 +6833,14 @@ Respond ONLY in valid JSON:
               if(!weatherLocation) return(<button onClick={requestWeatherLocation} style={{fontSize:"0.6rem",color:T.textFaint,background:"none",border:"1px solid "+T.border,borderRadius:"50px",padding:"1px 7px",cursor:"pointer",fontFamily:"inherit"}}>+ weather</button>);
               return null;
             })()}
-            {/* Cleaning-zone (🏠) and monthly-focus (🎯) pills removed from this strip —
-                🏠 stays in the Status strip below (homeFocusWave var untouched), 🎯
-                removed entirely per Today-strip cleanup. */}
-            {todaySchoolSubjects&&todaySchoolSubjects.text&&(
-              <span style={{fontSize:"0.72rem",fontWeight:700,color:"#5a5a50",background:"#F3EFE7",border:"1px solid #C9A45B55",borderRadius:"2rem",padding:"0.2rem 0.7rem"}}>📚 {todaySchoolSubjects.text}</span>
-            )}
+            {/* Cleaning-zone (🏠), monthly-focus (🎯), school-subjects (📚), and the
+                per-person schoolType/working name-pill row have all been removed from
+                Today — the date/weather strip now shows only date + weather. 🏠 stays
+                in the Status strip below (homeFocusWave var untouched). */}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.95rem",fontWeight:700,color:"#2f8f7a",lineHeight:1.1}}>{greeting}{(function(){var n=myDisplayName(people,myPersonId,preferredName,authUser);if(n&&(n.indexOf(".")!==-1||n.indexOf("@")!==-1))return "";var shown=n||"there";return ", "+(shown.charAt(0).toUpperCase()+shown.slice(1));})()} {greetingEmoji}</div>
           </div>
-          {/* Manual "school type"/"working" status flags set in Settings — shown here only when at least one person has one on. */}
-          {(function(){
-            var flagged=people.filter(function(p){return p&&p.name&&((p.schoolType&&p.schoolType!=="none")||p.working);});
-            if(flagged.length===0) return null;
-            return (
-              <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem",marginTop:"0.35rem"}}>
-                {flagged.map(function(p){
-                  return (
-                    <span key={p.id} style={{fontSize:"0.68rem",fontWeight:700,color:T.textMid,background:T.bgAlt,border:"1px solid "+T.borderSoft,borderRadius:"2rem",padding:"0.15rem 0.6rem",display:"inline-flex",alignItems:"center",gap:"0.25rem"}}>
-                      {p.name}{p.schoolType&&p.schoolType!=="none"&&<span>🎒</span>}{p.working&&<span>💼</span>}
-                    </span>
-                  );
-                })}
-              </div>
-            );
-          })()}
         </div>
         {/* ── Mode strip (Calm / Busy / Survival) ── */}
         <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem"}}>
