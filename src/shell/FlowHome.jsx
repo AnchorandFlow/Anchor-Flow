@@ -97,65 +97,6 @@ function reminderDueLabel(days) {
   return "in " + days + " days";
 }
 
-// Same manual YYYY-MM-DD part parsing as AnchorVault's daysUntil/TripCountdownBadge
-// (~AnchorVault.jsx:3606) — avoids the timezone ambiguity of new Date(dateStr).
-function daysUntilDate(dateStr) {
-  if (!dateStr) return null;
-  var now = new Date(); now.setHours(0, 0, 0, 0);
-  var parts = dateStr.split("-");
-  if (parts.length === 3 && parts[0].length === 4) {
-    return Math.round((new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])) - now) / 86400000);
-  }
-  return null;
-}
-function tripCountdown(trip) {
-  var start = daysUntilDate(trip.startDate);
-  var end = daysUntilDate(trip.endDate);
-  if (start === null) return null;
-  var effectiveEnd = end !== null ? end : start;
-  if (start <= 0 && effectiveEnd >= 0) return "in progress";
-  if (start === 0) return "today";
-  if (start === 1) return "in 1 day";
-  return "in " + start + " days";
-}
-
-function NextTripCard() {
-  var s_trips = useState(function () { return rd("trips", []); });
-  var trips = s_trips[0]; var setTrips = s_trips[1];
-
-  useEffect(function () {
-    function refresh(e) {
-      if (!e || !e.detail || !e.detail.key || e.detail.key === "trips") setTrips(rd("trips", []));
-    }
-    window.addEventListener("af-data-changed", refresh);
-    return function () { window.removeEventListener("af-data-changed", refresh); };
-  }, []);
-
-  if (!Array.isArray(trips)) trips = [];
-  var todayISO = new Date().toISOString().slice(0, 10);
-  var upcoming = trips.filter(function (t) { return t && t.status !== "Completed" && (!t.endDate || t.endDate >= todayISO); })
-    .sort(function (a, b) { return (a.startDate || "") < (b.startDate || "") ? -1 : 1; });
-  var next = upcoming[0] || null;
-  var countdown = next ? tripCountdown(next) : null;
-
-  return (
-    <Card eyebrow="Anchor" title="Next Trip" open={false} link={{ label: "Open →", onClick: function () { goVault("trips"); } }}>
-      {next ? (
-        <div onClick={function () { goVault("trips", next.id); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-          <span style={{ fontSize: "1.3rem", flexShrink: 0 }}>{next.icon || "✈️"}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: ".84rem", color: C.t1, fontWeight: 500 }}>{next.name}</div>
-            <div style={{ fontSize: ".7rem", color: C.t3 }}>{next.destination}</div>
-          </div>
-          {countdown && <div style={{ fontSize: ".7rem", color: C.sea, fontWeight: 600, flexShrink: 0, whiteSpace: "nowrap" }}>{countdown}</div>}
-        </div>
-      ) : (
-        <div style={{ fontSize: ".8rem", color: C.t3, fontStyle: "italic", fontFamily: SERIF }}>No upcoming trips — <span onClick={function () { goVault("trips"); }} style={{ color: C.sea, cursor: "pointer" }}>plan one →</span></div>
-      )}
-    </Card>
-  );
-}
-
 function Card(props) {
   var [open, setOpen] = useState(props.open !== false);
   return (
@@ -512,8 +453,6 @@ export default function FlowHome(props) {
               );
             })}
           </Card>
-
-          <NextTripCard />
         </div>
       )}
       </>)}
