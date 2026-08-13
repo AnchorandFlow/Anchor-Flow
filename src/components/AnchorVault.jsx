@@ -9190,6 +9190,10 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   var rightCards = [
     { id:"health", icon:"🩺", label:"Health", summary:{ ...health, entries: healthEntries } },
     { id:"pets", icon:"🐾", label:"Pets", summary:{ ...pets, entries: petEntries } },
+    // Next Trip — not a real DashCard (no accordion/entries; it's a single
+    // countdown), so renderCard special-cases this id instead of going
+    // through the generic summary-driven path below.
+    { id:"nexttrip", custom: true },
     { id:"career", icon:"📋", label:"Career", summary: careerSum }
   ]
   // Cards for empty sections are hidden entirely rather than shown with a
@@ -9198,6 +9202,25 @@ function AnchorDashboard({ onNavigate, calEvents }) {
   // section gets its first entry (summary.count flips from 0), so nothing
   // here is ever permanently hidden — it's purely presence-based.
   function renderCard(c){
+    if (c.id === "nexttrip") {
+      if (!nextTrip) return null;
+      return (
+        <div key="nexttrip" onClick={function() { onNavigate("trips") }} style={{ background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, marginBottom: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", cursor: "pointer" }}>
+          <div style={{ padding: "13px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🧳</span>
+              <div style={{ flex: 1, minWidth: 0, fontFamily: "Cormorant Garamond,serif", fontSize: 17, fontWeight: 700, color: "#1a2e3d", letterSpacing: "0.01em", lineHeight: 1.15 }}>Next Trip</div>
+            </div>
+            <div style={{ paddingLeft: 38, marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "#1a2e3d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{nextTrip.name}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#4a6275", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}{nextTrip.date && " · " + nextTrip.date}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
     if (!c.summary || c.summary.count === 0) return null;
     return <DashCard key={c.id} id={c.id} icon={c.icon} label={c.label} onOpen={onNavigate} summary={c.summary} />;
   }
@@ -9249,11 +9272,11 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           </div>
           <span onClick={function(){ onNavigate("meals"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>Plan →</span>
         </div>
-        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 14px" }}>
+        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 10px" }}>
           {dinnerRows.map(function(r){ return (
             <div key={r.day} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "2px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
               <span style={{ fontSize: 10, color: "#1a2e3d", flexShrink: 0 }}>{r.day.slice(0,3)}</span>
-              <span style={{ fontSize: 11, color: r.dinner ? "#1a2e3d" : "#4a6275", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
+              <span style={{ fontSize: 10, color: r.dinner ? "#1a2e3d" : "#4a6275", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
             </div>
           ); })}
         </div>
@@ -9288,21 +9311,6 @@ function AnchorDashboard({ onNavigate, calEvents }) {
         // that fill available width on desktop, 1 on mobile (<480px).
         <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" }}>
           {leftCards.concat(rightCards).map(renderCard)}
-        </div>
-      )}
-
-      {/* Next upcoming trip countdown — moved below the card grid. */}
-      {nextTrip && (
-        <div onClick={function() { onNavigate("trips") }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", marginTop: 12, background: "#ddeaf4", border: "1px solid rgba(26,46,61,0.1)", borderRadius: 8, cursor: "pointer" }}>
-          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#2b3d52", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🧳</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4a6275", fontWeight: 700, marginBottom: 3 }}>Next trip</div>
-            <div style={{ fontSize: 14, color: "#1a2e3d", fontFamily: "Cormorant Garamond,serif", fontWeight: 700, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nextTrip.name}</div>
-            <div style={{ fontSize: 12, color: "#4a6275", marginTop: 2 }}>
-              {nextTrip.days === 1 ? "Tomorrow" : nextTrip.days + " days away"}
-              {nextTrip.date && " · " + nextTrip.date}
-            </div>
-          </div>
         </div>
       )}
     </div>
