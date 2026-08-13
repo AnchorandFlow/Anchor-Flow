@@ -9168,11 +9168,11 @@ function AnchorDashboard({ onNavigate, calEvents }) {
           </div>
           <span onClick={function(){ onNavigate("meals"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>Plan →</span>
         </div>
-        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 14px" }}>
+        <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 14px" }}>
           {dinnerRows.map(function(r){ return (
-            <div key={r.day} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
-              <span style={{ fontSize: 11, color: "#1a2e3d", flexShrink: 0 }}>{r.day.slice(0,3)}</span>
-              <span style={{ fontSize: 12, color: r.dinner ? "#1a2e3d" : "#4a6275", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
+            <div key={r.day} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "2px 0", borderBottom: "1px solid rgba(26,46,61,0.06)" }}>
+              <span style={{ fontSize: 10, color: "#1a2e3d", flexShrink: 0 }}>{r.day.slice(0,3)}</span>
+              <span style={{ fontSize: 11, color: r.dinner ? "#1a2e3d" : "#4a6275", textAlign: "right", fontStyle: r.dinner?"normal":"italic" }}>{r.dinner || "—"}</span>
             </div>
           ); })}
         </div>

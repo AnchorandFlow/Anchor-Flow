@@ -1662,7 +1662,7 @@ export default function ExhaleSection(props) {
 
         <div>
           {/* Quick capture */}
-          <div style={{ padding: "10px 12px", borderBottom: br, background: bgP }}>
+          <div style={{ padding: "10px 12px", borderBottom: br, background: bgP, borderRadius: 12 }}>
             <div style={{ display: "flex", gap: 8 }}>
               <input value={bucketInputText} onChange={(e) => setBucketInputText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { addBucketItem(bucketInputText, bucketInputTarget); setBucketInputText(""); } }}
