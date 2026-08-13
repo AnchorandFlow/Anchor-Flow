@@ -1913,22 +1913,6 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
     });
   }
 
-  // Batch B — "Customize sidebar" deep-link. FlowWrapper's button sets this
-  // sessionStorage flag before navigating here; consumed once on mount, then
-  // cleared so a plain visit to Settings never re-triggers the scroll.
-  React.useEffect(function(){
-    var target = null;
-    try { target = sessionStorage.getItem("af_settings_scrollto"); sessionStorage.removeItem("af_settings_scrollto"); } catch(e) {}
-    if (!target) return;
-    setSettingsOpen(function(p){ return Object.assign({},p,{[target]:true}); });
-    setTimeout(function(){
-      try {
-        var el = document.getElementById("settings-sec-"+target);
-        if (el) el.scrollIntoView({behavior:"smooth", block:"start"});
-      } catch(e) {}
-    }, 60);
-  }, []);
-
   // Section is defined outside SettingsTab (below) to avoid remount-on-rerender.
   // Pass settingsOpen + toggleSetting down explicitly.
   function Sec(props){ return Section(Object.assign({},props,{settingsOpen,toggleSetting,T})); }
@@ -17614,10 +17598,6 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {/* Batch B — always visible, muted so it doesn't compete with the
-              main nav above. Flags which Settings section to force-open +
-              scroll to (consumed once by SettingsTab's own mount effect). */}
-          <button onClick={function(){ try{ sessionStorage.setItem("af_settings_scrollto","flow"); }catch(e){} setShowAnchor(false); _setActiveTab("settings"); }} title="Customize sidebar" aria-label="Customize sidebar" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", opacity: 0.5 }}><span style={{ fontSize: "13px" }}>⚙</span><span style={{ fontSize: "6px", color: "rgba(200,169,122,0.55)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.02em", textTransform: "uppercase", textAlign: "center", lineHeight: 1.1 }}>Customize</span></button>
           <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" aria-label="Sunset — end of day reset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
           <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" aria-label="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "16px", opacity: 0.82 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
           <button onClick={function(){ try{window.dispatchEvent(new CustomEvent("af-open-feedback"));}catch{} }} title="Send feedback" aria-label="Send feedback" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "14px", opacity: 0.6 }}>💬</span></button>
