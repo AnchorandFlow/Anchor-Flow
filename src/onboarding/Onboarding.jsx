@@ -118,7 +118,7 @@ var FEATURE_DEFS = [
     body: 'Chores and treasures for your kids \u2014 they collect shells to open their treasure box. Set your own, too.' },
   { key: 'lighthouse', emoji: '\uD83D\uDCD6', name: 'Lighthouse', on: true,
     body: 'One place for family learning \u2014 school activities, homeschool plans, reading challenges, and more.' },
-  { key: 'celebrations', emoji: '\uD83C\uDF89', name: 'Celebrations', on: true,
+  { key: 'celebrations', emoji: '\uD83C\uDF89', name: 'Celebrations', on: false,
     body: 'Birthdays and countdowns, remembered for you.' },
   { key: 'meals', emoji: '\uD83C\uDF7D\uFE0F', name: 'Meals', on: true,
     body: 'Plan dinners (and more) without the 5 PM scramble.' },
