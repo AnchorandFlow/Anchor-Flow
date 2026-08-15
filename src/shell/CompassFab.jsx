@@ -4,7 +4,10 @@
 //
 // Usage in App.jsx: mount once near the root of HomeFlow's return:
 //   <CompassFab/>
-// Self-contained — reads household state itself, no props required.
+// Self-contained — reads household state itself, no props required, EXCEPT the
+// optional Plus gate: pass gated={true} + onGated={fn} to intercept opening the
+// chat panel with a paywall callback instead. Both default to inert (never gates)
+// so existing callers with no props behave exactly as before.
 
 import { useState, useRef, useEffect } from "react";
 import { askFamily } from "../compass/compassEngine";
@@ -24,7 +27,9 @@ function renderCompassText(text) {
   });
 }
 
-export default function CompassFab() {
+export default function CompassFab(props) {
+  const gated = props && props.gated;
+  const onGated = props && props.onGated;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [thread, setThread] = useState([]); // {q, a, details} | {q, error}
@@ -36,7 +41,10 @@ export default function CompassFab() {
     if (endRef.current) endRef.current.scrollIntoView({ behavior: "smooth" });
   }, [thread, busy]);
 
-  function toggle() { setOpen(!open); }
+  function toggle() {
+    if (!open && gated) { onGated && onGated(); return; }
+    setOpen(!open);
+  }
 
   function send() {
     var q = input.trim();

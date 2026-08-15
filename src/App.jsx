@@ -26,6 +26,9 @@ import { BUILD_STAMP } from "./buildStamp.js"
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
 // The module's own default export is itself named OnboardingWizard.
 import FirstVoyageWizard from "./onboarding/Onboarding.jsx"
+import { BILLING_V1 } from "./billing/entitlement.js"
+import useSubscription from "./billing/useSubscription.js"
+import PlusModal from "./billing/PlusModal.jsx"
 
 // ── F-19: in-app confirm/prompt ───────────────────────────────────────────────
 // Native window.confirm/prompt/alert are unreliable in iOS standalone PWA mode —
@@ -1741,7 +1744,7 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   );
 }
 
-function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,T,inp,btnP,PC,ROLES}){
+function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,T,inp,btnP,PC,ROLES,plusGateActive,onPlusGate}){
   React.useEffect(function(){AF_DEBUG&&console.log("[AF MOUNT] FamilySection");return function(){AF_DEBUG&&console.log("[AF UNMOUNT] FamilySection");};},[]);
   var _fsRender=React.useRef(0);_fsRender.current++;AF_DEBUG&&console.count("[AF RENDER] Family-section");
   var [newMemberName,setNewMemberName]=useState("");
@@ -1780,6 +1783,9 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
   }
   function addMember(){
     if(!newMemberName.trim())return;
+    // Batch — Plus gate: a 2nd+ household member requires Plus. No-op while
+    // plusGateActive is false (BILLING_V1 off, or already premium).
+    if(plusGateActive && people.length>=1){ onPlusGate && onPlusGate("Adding more household members"); return; }
     var bday=newMemberBirthday.trim()||null;
     var derivedAge=ageFromBirthday(bday);
     setPeople(function(p){return[...p,{id:uid(),name:newMemberName.trim(),color:PC[p.length%PC.length],birthday:bday,age:derivedAge,role:newMemberRole||null,isMinor:derivedAge!=null&&derivedAge<18,marker:null}];});
@@ -1888,7 +1894,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,sections,setSections}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,sections,setSections,plusGateActive,onPlusGate}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -1997,6 +2003,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
         familyProfile={familyProfile} setFamilyProfile={setFamilyProfile}
         workSchedules={workSchedules} setWorkSchedules={setWorkSchedules}
         T={T} inp={inp} btnP={btnP} PC={PC} ROLES={ROLES}
+        plusGateActive={plusGateActive} onPlusGate={onPlusGate}
       />
 
       {/* OB-0 commit 5 — First Voyage re-run entry point. ONBOARDING_V1-gated, same
@@ -2693,6 +2700,12 @@ function HomeFlow({ recoveryToken }) {
     } catch(e) {}
   }, []);
   const [householdId,setHouseholdId]= useSaved("householdId",null);
+  // Batch — Plus paywall. sub.isPremium only ever matters while BILLING_V1 is true
+  // (entitlement.js); while it's false every gate below is a no-op, so this costs
+  // nothing for existing users. plusModalFeature holds the feature-name label shown
+  // in the modal header, or null when closed.
+  const sub = useSubscription(householdId, _afReadToken);
+  const [plusModalFeature, setPlusModalFeature] = useState(null);
   const [householdOwnerId,setHouseholdOwnerId]= useSaved("householdOwnerId",null);
   const [syncStatus, setSyncStatus] = useState("idle"); // idle | syncing | synced | error
   const [lastSyncTime,setLastSyncTime] = useState(null);
@@ -6943,7 +6956,7 @@ Respond ONLY in valid JSON:
         <div ref={function(el){if(el)window._rippleBannerEl=el;}}>
           <RippleNotificationBanner />
         </div>
-        <CompassFab/>
+        <CompassFab gated={BILLING_V1 && !sub.isPremium} onGated={function(){ setPlusModalFeature("Ask Compass"); }}/>
 
         {/* ── Schedule / Dinner / Tasks / Compass Suggests — mode-adaptive ── */}
         <div style={{display:"flex",flexDirection:"column",gap:flowMode==="Busy"?"0.5rem":"0.75rem"}}>
@@ -17108,6 +17121,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   safeHarborEnabled={safeHarborEnabled} setSafeHarborEnabled={setSafeHarborEnabled}
                   compassEnabled={compassEnabled} setCompassEnabled={setCompassEnabled}
                   sections={sections} setSections={setSections}
+                  plusGateActive={BILLING_V1 && !sub.isPremium}
+                  onPlusGate={function(featureName){ setPlusModalFeature(featureName); }}
                 /></SectionErrorBoundary>}
                 {t==="ai" && <SectionErrorBoundary label="Compass"><RippleTab/></SectionErrorBoundary>}
               </div>
@@ -17187,6 +17202,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
       {/* AI accessible from header button */}
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)} pendingMessage={pendingChatMessage} onConsumePending={()=>setPendingChatMessage(null)}/>}
+      {plusModalFeature&&<PlusModal featureName={plusModalFeature} getToken={_afReadToken} onClose={function(){ setPlusModalFeature(null); }}/>}
       {showEndOfDay&&<SunsetClose weatherData={weatherData} onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
       {showWhoAmI&&<WhoAmIModal/>}
       {showFeedback&&(
@@ -17379,7 +17395,21 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 }
 
 
+// Plus paywall — nav-level gate list (Part 3). Waves/Lighthouse/Tide Pool/Home/
+// People/Horizon/Cove only; Today, Flow's Calendar+Exhale, Meals, Shopping,
+// and Ripples must never appear here.
+var PLUS_GATED_NAV_IDS = { waves:true, lighthouse:true, tidepool:true, home:true, people:true, horizon:true, cove:true };
+
 function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
+  // Batch — Plus paywall, nav-level gates. Same sibling-component pattern as
+  // sections/featureFlags below: FlowWrapper and HomeFlow are siblings, not
+  // parent/child, so this independently reads householdId rather than
+  // threading it through props.
+  const [householdIdLocal] = React.useState(function() {
+    try { return JSON.parse(localStorage.getItem("af_householdId") || "null"); } catch (e) { return null; }
+  });
+  const sub = useSubscription(householdIdLocal, _afReadToken);
+  const [plusModalFeature, setPlusModalFeature] = React.useState(null);
   const [openGroup, setOpenGroup] = React.useState(function() {
     try { var g = sessionStorage.getItem("af_openGroup"); return g || null; } catch { return null; }
   });
@@ -17577,7 +17607,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today"), false); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); setVaultReturnTo(null); }, pillColor("Ripples"), navDim); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
+            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ if (BILLING_V1 && !sub.isPremium) { setPlusModalFeature("Home"); return; } setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
             if (!isOpen) return header;
             var _kidsDim = navDim && !_navExempt;
             var kids = pill.items.map(function(it){
@@ -17592,7 +17622,15 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
               // don't touch navSel, so without this a tab like Home/People/
               // Horizon loses its highlight the moment its own link opens the
               // vault, with nothing else gaining one in its place.
-              var a2 = (!showAnchor && navSel === "c-"+pill.label+"-"+it.id) || (showAnchor && vaultReturnTo === it.id); return rowBtn(it, a2, function(){ setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id); }, pillColor(pill.label), _kidsDim);
+              var a2 = (!showAnchor && navSel === "c-"+pill.label+"-"+it.id) || (showAnchor && vaultReturnTo === it.id);
+              // Plus paywall — nav-level gate. No-op while BILLING_V1 is false
+              // (or already premium): PLUS_GATED_NAV_IDS is only consulted when
+              // the gate could actually fire, so this never affects any other id.
+              function onKidClick(){
+                if (PLUS_GATED_NAV_IDS[it.id] && BILLING_V1 && !sub.isPremium) { setPlusModalFeature(it.label); return; }
+                setNavSel("c-"+pill.label+"-"+it.id); setShowAnchor(false); _setActiveTab(it.id);
+              }
+              return rowBtn(it, a2, onKidClick, pillColor(pill.label), _kidsDim);
             });
             return (<div key={pill.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", paddingBottom: "3px", marginBottom: "2px" }}>{header}{kids}</div>);
           })
@@ -17620,6 +17658,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           </ErrorBoundary>
         </div>
       </div>
+      {plusModalFeature && <PlusModal featureName={plusModalFeature} getToken={_afReadToken} onClose={function(){ setPlusModalFeature(null); }}/>}
     </div>
   )
 }
