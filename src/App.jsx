@@ -978,9 +978,11 @@ function lhChallengeAutoProgress(books) {
   if (!Array.isArray(books)) return 0;
   return books.filter(function(b) { return b.status === "finished"; }).length;
 }
-// First Voyage onboarding wizard flag (OB-0 commit 4). Defaults OFF. Auto-launch
-// gate lives in HomeFlow (showFirstVoyage) and reuses isExistingHousehold() above.
-var ONBOARDING_V1 = localStorage.getItem("af_onboarding_v1") === "true";
+// First Voyage onboarding wizard flag (OB-0 commit 4). Hardcoded on — nothing
+// ever wrote the old af_onboarding_v1 localStorage key, so the flag could never
+// flip true in practice. Auto-launch gate lives in HomeFlow (showFirstVoyage)
+// and reuses isExistingHousehold() above.
+var ONBOARDING_V1 = true;
 const TODAY = new Date();
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
