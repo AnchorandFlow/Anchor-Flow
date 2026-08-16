@@ -14000,11 +14000,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {isAdding && formCard(
               <div>
                 {fieldRow("Subject", subjectNameList.length>0
-                  ? <select defaultValue={fv("name","")} onChange={fSet("name")} style={inp()}>{subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}</select>
+                  ? <select defaultValue={fv("name","")} onChange={fSet("name")} style={inp()}>
+                      {subjectNameList.map(function(s){ return <option key={s} value={s}>{s}</option>; })}
+                      <option value="__other__">Other…</option>
+                    </select>
                   : <input defaultValue={fv("name","")} onChange={fSet("name")} placeholder="Math, Reading…" style={inp()} autoFocus/>)}
+                {/* Fix 3: escape hatch for anything that isn't a formal subject —
+                    field trips, religion, "making cookies" — without adding it to
+                    the real curriculum/subject list. */}
+                {fv("name","")==="__other__" && fieldRow("What is it?", <input defaultValue={fv("otherName","")} onChange={fSet("otherName")} placeholder="Field trip, cookies, religion…" style={inp()} autoFocus/>)}
                 {fieldRow("Lesson title", <input defaultValue={fv("title","")} onChange={fSet("title")} style={inp()}/>)}
                 {formBtns(function(){
-                  var n=(fv("name","")).trim(); if(!n) return;
+                  var n=(fv("name","")==="__other__" ? fv("otherName","") : fv("name","")).trim(); if(!n) return;
                   saveDayPlan(day, { subjects: subjects.concat([{ id:uid(), name:n, title:(fv("title","")).trim(), todo:"", notes:"", done:false }]) });
                   closeForm();
                 })}
@@ -14520,7 +14527,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       function SubjectsSection() {
         return (
           <div style={{ marginTop:"1rem", paddingTop:"1rem", borderTop:"1px solid #E7E1D4" }}>
-          <SectionShell tabName="plan" sectionName="subjects" emoji="📚" title="Subjects" defaultOpen={false}>
+          <SectionShell tabName="plan" sectionName="subjects" emoji="📚" title="Curriculum" defaultOpen={false}>
             {lhAddMode !== "subject" && <button type="button" onClick={function(){ openAdd("subject",{}); }} style={btnP(LC.seaglass,{ fontSize:"0.8rem", marginBottom:"0.65rem" })}>+ Add Subject</button>}
             {lhAddMode === "subject" && formCard(
               <div>
