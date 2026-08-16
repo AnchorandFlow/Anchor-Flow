@@ -683,10 +683,14 @@ export default function ExhaleSection(props) {
 
   function moveBucketItemForward(id) {
     var n = buckets.bucketNames.length;
-    updateBucketItem(id, { bucketIndex: function() {
-      var it = buckets.items.find(function(x) { return x.id === id; });
-      return it ? (it.bucketIndex + 1) % n : 0;
-    }() });
+    var it = buckets.items.find(function(x) { return x.id === id; });
+    if (!it) return;
+    var nextIdx = (it.bucketIndex + 1) % n;
+    updateBucketItem(id, { bucketIndex: nextIdx });
+    // Bug fix: moving an item into a bucket that defaults collapsed (Tomorrow/
+    // This Weekend/Someday — see openBuckets init) looked like the item had
+    // vanished, since nothing ever opened the destination. Auto-open it here.
+    setOpenBuckets(function(prev) { return Object.assign({}, prev, { [nextIdx]: true }); });
   }
 
   function renameBucket(idx, name) {
@@ -699,6 +703,15 @@ export default function ExhaleSection(props) {
 
   function toggleBucketOpen(idx) {
     setOpenBuckets(function(prev) { return Object.assign({}, prev, { [idx]: !prev[idx] }); });
+  }
+
+  // Header "Collapse all" — closes every bucket, including Exhaled/Today
+  // (which default open). No expand-all counterpart: opening one back up is
+  // a single tap.
+  function collapseAllBuckets() {
+    var next = {};
+    for (var i = 0; i < buckets.bucketNames.length; i++) { next[i] = false; }
+    setOpenBuckets(next);
   }
 
   // Pointer-based drag for bucket items — same idiom as Cove's
@@ -759,6 +772,10 @@ export default function ExhaleSection(props) {
       var toIdx2 = toId ? arr.findIndex(function(i) { return i.id === toId; }) : -1;
       if (toIdx2 === -1) arr.push(moved); else arr.splice(toIdx2, 0, moved);
       persistBuckets(Object.assign({}, buckets, { items: arr }));
+      // Same fix as moveBucketItemForward — a drag drop into a collapsed
+      // bucket (Tomorrow/This Weekend/Someday) must open it, or the moved
+      // item looks like it vanished.
+      setOpenBuckets(function(prev) { return Object.assign({}, prev, { [toBucket]: true }); });
     }
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerup", onUp, { once: true });
@@ -1545,7 +1562,7 @@ export default function ExhaleSection(props) {
                         style={{ flexShrink: 0, marginTop: 2, cursor: "pointer" }} />
                     ) : (
                       <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
-                        style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, marginTop: 2, touchAction: "none" }}>⠿</span>
+                        style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, padding: "6px 8px", margin: "-6px -8px -6px -2px", touchAction: "none" }}>⠿</span>
                     )}
                     {dotColor && <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, marginTop: 5, flexShrink: 0 }} />}
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => toggleItemExpanded(item.id)}>
@@ -1659,7 +1676,10 @@ export default function ExhaleSection(props) {
       <div style={{ background: NAVY, padding: "10px 16px", display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
         <span>💨</span>
         <span style={{ color: "#E8C76A", fontSize: 22 }}>Exhale</span>
-        <span style={{ marginLeft: "auto", fontSize: 10 }}>{totalVisible} items</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={collapseAllBuckets} style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", background: "none", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "3px 7px", cursor: "pointer" }}>Collapse all</button>
+          <span style={{ fontSize: 10 }}>{totalVisible} items</span>
+        </div>
       </div>
 
         <div>
