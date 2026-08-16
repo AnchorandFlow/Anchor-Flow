@@ -13680,6 +13680,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     ];
     function dayTypeInfo(id) { return DAY_TYPES.find(function(t){ return t.id===id; }) || null; }
 
+    // Fix 4 — push a Lighthouse week-plan subject or activity onto the real
+    // family calendar (calEvents/setCalEvents, declared in HomeFlow — reachable
+    // here via closure; not to be confused with the Lighthouse-internal "school
+    // calendar" lists that shadow the name `calEvents` locally elsewhere in this
+    // file, e.g. RecordsArea's public.calEvents). weekPlan only ever represents
+    // the current week (it silently rolls over every Sunday — see the reset
+    // effect above), so "Monday" always means this week's Monday.
+    function weekPlanDayToDate(dayName) {
+      var idx = PLAN_SCHOOL_DAYS.indexOf(dayName);
+      if (idx===-1) return null;
+      return addDays(getSundayOf(isoFromDate(TODAY)), idx+1);
+    }
+    function addLighthouseItemToCalendar(evt) {
+      setCalEvents(function(prev){ return prev.concat([Object.assign({id:uid(), time:"", color:LC.seaglass, colorLabel:"Lighthouse", note:""}, evt)]); });
+    }
+
     function PlanArea() {
       var [planSubTab, _setPlanSubTab] = React.useState(function(){ try { var s = sessionStorage.getItem("af_learningPlanSubTab"); if (s && (s!=="loops" || childMode==="homeschool") && (s!=="year" || childMode==="homeschool") && (s!=="month" || childMode==="homeschool")) return s; } catch(_e) {} return "today"; });
       function setPlanSubTab(t) { _setPlanSubTab(t); try { sessionStorage.setItem("af_learningPlanSubTab", t); } catch(_e) {} }
@@ -13970,6 +13986,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var plan = getDayPlan(day);
         var subjects = plan.subjects || [];
         var isAdding = lhAddMode === "week-subj-"+day;
+        // Fix 4 — session-local "just added" flags, keyed by subject id (not
+        // persisted; purely a button-label confirmation).
+        var addedState = useState({});
+        var addedSubjIds = addedState[0], setAddedSubjIds = addedState[1];
+        function addSubjectToCalendar(s) {
+          var dateStr = weekPlanDayToDate(day);
+          if (!dateStr) return;
+          addLighthouseItemToCalendar({ title: (s.title && s.title.trim()) ? (s.name+": "+s.title.trim()) : s.name, date: dateStr, note: s.notes||"" });
+          setAddedSubjIds(function(prev){ return Object.assign({}, prev, {[s.id]: true}); });
+        }
         return (
           <SectionShell tabName="plan-week" sectionName={day} emoji="🗓️" title={day} defaultOpen={false}
             right={subjects.length>0 ? <span style={{ fontSize:"0.68rem", color:"#8a8578", flexShrink:0 }}>{subjects.filter(function(s){return s.done;}).length}/{subjects.length}</span> : null}>
@@ -13984,6 +14010,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer", flexShrink:0 }}/>
                     <span style={{ fontSize:"0.68rem", fontWeight:800, color:LC.seaglass, flexShrink:0 }}>{s.name}</span>
                     <input defaultValue={s.title||""} onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{title:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }} placeholder="Lesson title" style={{ flex:1, minWidth:0, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none", border:"none", background:"transparent", outline:"none", fontFamily:"inherit" }}/>
+                    <button type="button" onClick={function(){ addSubjectToCalendar(s); }} title="Add to Calendar" style={{ background:"none", border:"none", cursor:"pointer", color: addedSubjIds[s.id] ? LC.seaglass : "#8a8578", fontSize:"0.74rem", flexShrink:0 }}>{addedSubjIds[s.id] ? "✓" : "📅"}</button>
                     <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem", flexShrink:0 }}>✕</button>
                   </div>
                   {/* Fix 1: per-subject notes — replaces the old day-level dayNotes
@@ -14768,6 +14795,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var sorted = activities.slice().sort(function(a,b){ return (a.date||"") < (b.date||"") ? -1:1; });
         var upcoming = sorted.filter(function(a){ return a.date >= todayIso; });
         var past = sorted.filter(function(a){ return a.date < todayIso; });
+        // Fix 4 — session-local "just added" flags, same pattern as WeekDayCard.
+        var addedState = useState({});
+        var addedActivityIds = addedState[0], setAddedActivityIds = addedState[1];
+        function addActivityToCalendar(a) {
+          if (!a.date) return;
+          addLighthouseItemToCalendar({ title: a.title, date: a.date, time: a.time||"", note: [a.location,a.notes].filter(Boolean).join(" · ") });
+          setAddedActivityIds(function(prev){ return Object.assign({}, prev, {[a.id]: true}); });
+        }
         function renderRow(a) {
           if (lhEditId === a.id) {
             return formCard(
@@ -14792,6 +14827,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[a.date?fmtMonthDay(a.date):"", a.time, a.location].filter(Boolean).join(" · ")}</div>
                 {a.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{a.notes}</div>}
               </div>
+              {a.date && <button type="button" onClick={function(){ addActivityToCalendar(a); }} title="Add to Calendar" style={Object.assign({}, editBtnStyle, addedActivityIds[a.id] ? {color:LC.seaglass} : null)}>{addedActivityIds[a.id] ? "✓ Added" : "📅 Add to Calendar"}</button>}
               <button type="button" onClick={function(){ openEdit(a.id, a); }} style={editBtnStyle}>Edit</button>
               <button type="button" onClick={function(){ saveHs({ activities: activities.filter(function(x){ return x.id!==a.id; }) }); }} style={delBtnStyle}>✕</button>
             </div>
