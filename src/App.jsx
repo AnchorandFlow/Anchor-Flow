@@ -8490,7 +8490,7 @@ Respond ONLY in valid JSON:
       return list.map(function(w) { return Object.assign({}, w, { lastReset: todayStr }); });
     }
     function seedWaves() {
-      var todayStr = TODAY.toISOString().split("T")[0];
+      var todayStr = localDateStr(TODAY); // Fix 3 — local date, not UTC (was toISOString())
       var raw = {
         daily: [
           { id: uid(), name: "Morning reset", tasks: seedWaveTasks([
@@ -8545,6 +8545,12 @@ Respond ONLY in valid JSON:
     var [newWaveDay, setNewWaveDay] = useState(0);
     var [newWaveMonth, setNewWaveMonth] = useState(1);
     var [newWaveInterval, setNewWaveInterval] = useState("");
+    var [newWaveIntervalUnit, setNewWaveIntervalUnit] = useState("days");
+    // Fix 1 — edit path for schedule-only fields (dayOfWeek/month/intervalDays)
+    // on an already-created wave. Separate from editingWaveId (name rename).
+    var [editingScheduleId, setEditingScheduleId] = useState(null);
+    var [editScheduleInterval, setEditScheduleInterval] = useState("");
+    var [editScheduleIntervalUnit, setEditScheduleIntervalUnit] = useState("days");
     var [waveTaskInputFor, setWaveTaskInputFor] = useState(null);
     var [waveTaskText, setWaveTaskText] = useState("");
 
@@ -8601,7 +8607,7 @@ Respond ONLY in valid JSON:
         persistWaves(seedWaves());
         return;
       }
-      var todayStr = TODAY.toISOString().split("T")[0];
+      var todayStr = localDateStr(TODAY); // Fix 3 — local date, not UTC (was toISOString())
       var changed = false;
       var nw = {};
       ["daily","weekly","seasonal","custom"].forEach(function(type) {
@@ -8622,22 +8628,30 @@ Respond ONLY in valid JSON:
     function addWave(type, name, extra) {
       var txt = (name||"").trim();
       if (!txt) return;
-      var todayStr = TODAY.toISOString().split("T")[0];
+      var todayStr = localDateStr(TODAY); // Fix 3 — local date, not UTC (was toISOString())
       var w = Object.assign({ id: uid(), name: txt, tasks: [], lastReset: todayStr }, extra||{});
       var cur = wavesList();
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).concat([w]) }));
-      setAddWaveOpenFor(null); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); setNewWaveInterval("");
+      setAddWaveOpenFor(null); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); setNewWaveInterval(""); setNewWaveIntervalUnit("days");
     }
     function renameWave(type, id, name) {
       var cur = wavesList();
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) { return w.id===id ? Object.assign({}, w, { name:name }) : w; }) }));
       setEditingWaveId(null);
     }
-    async function deleteWave(type, id) {
+    // Fix 1 — edit the schedule-only fields (dayOfWeek/month/intervalDays) of an
+    // already-created wave. Name and tasks were already editable in place; this
+    // was the missing piece (delete-and-recreate was previously the only path).
+    function updateWaveSchedule(type, id, patch) {
+      var cur = wavesList();
+      persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) { return w.id===id ? Object.assign({}, w, patch) : w; }) }));
+      setEditingScheduleId(null);
+    }
+    // Fix 2 — no confirmation dialog on wave delete (direct delete).
+    function deleteWave(type, id) {
       var cur = wavesList();
       var w = (cur[type]||[]).find(function(x) { return x.id===id; });
       if (!w) return;
-      if ((w.tasks||[]).length>0 && !(await afConfirm("Delete \""+w.name+"\" and all its tasks?", {confirmText:"Delete", danger:true}))) return;
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).filter(function(x) { return x.id!==id; }) }));
       if (expandedWaveId===id) setExpandedWaveId(null);
     }
@@ -8680,7 +8694,7 @@ Respond ONLY in valid JSON:
     }
     function resetWave(type, waveId) {
       var cur = wavesList();
-      var todayStr = TODAY.toISOString().split("T")[0];
+      var todayStr = localDateStr(TODAY); // Fix 3 — local date, not UTC (was toISOString())
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
         if (w.id!==waveId) return w;
         return Object.assign({}, w, { lastReset: todayStr, history: withWaveHistory(type, w, todayStr), tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
@@ -8689,11 +8703,29 @@ Respond ONLY in valid JSON:
     function toggleWaveSection(type) {
       setWaveSectionOpen(function(prev) { return Object.assign({}, prev, { [type]: !prev[type] }); });
     }
+    // Fix 5 — custom wave intervals: only intervalDays (a raw number of days) is
+    // ever persisted; Days/Weeks/Months is just an input convenience that gets
+    // converted on save, and the human-readable label is derived back from the
+    // stored days (prefers the largest clean unit) rather than storing the
+    // original unit chosen at creation/edit time.
+    function waveIntervalToDays(value, unit) {
+      var n = parseInt(value, 10);
+      if (!n || n<=0) return null;
+      if (unit==="months") return n*30;
+      if (unit==="weeks") return n*7;
+      return n;
+    }
+    function intervalDaysToHuman(days) {
+      if (!days || days<=0) return null;
+      if (days % 30 === 0) { var m = days/30; return "every "+m+" month"+(m!==1?"s":""); }
+      if (days % 7 === 0) { var wk = days/7; return "every "+wk+" week"+(wk!==1?"s":""); }
+      return "every "+days+" day"+(days!==1?"s":"");
+    }
     function waveScheduleLabel(type, w) {
       if (type==="daily") return "Resets daily";
       if (type==="weekly") return "Resets every " + (WAVE_DAY_LABELS_FULL[w.dayOfWeek]||"week");
       if (type==="seasonal") return "Resets each season";
-      if (type==="custom") return w.intervalDays ? "Resets every "+w.intervalDays+" day"+(w.intervalDays!==1?"s":"") : "Does not reset";
+      if (type==="custom") return w.intervalDays ? "Resets "+intervalDaysToHuman(w.intervalDays) : "Does not reset";
       return "";
     }
     function waveDaysAgoLabel(dateStr) {
@@ -8703,12 +8735,6 @@ Respond ONLY in valid JSON:
       if (diff === 1) return "yesterday";
       return diff + " days ago";
     }
-    function waveEstMinutes(w) {
-      var withEst = (w.tasks||[]).filter(function(t) { return typeof t.estimatedMinutes==="number" && t.estimatedMinutes>0; });
-      if (withEst.length===0) return null;
-      return withEst.reduce(function(sum,t) { return sum+t.estimatedMinutes; }, 0);
-    }
-
     var br = "0.5px solid "+T.borderSoft;
 
     return (
@@ -8731,8 +8757,7 @@ Respond ONLY in valid JSON:
                     {list.length===0 && <div style={{ fontSize: 11.5, color: T.textSoft, fontStyle: "italic", padding: "4px 2px 8px" }}>No {label.replace("🌊 ","").toLowerCase()} yet.</div>}
                     {list.map(function(w) {
                       var isExpanded = expandedWaveId===w.id;
-                      var est = waveEstMinutes(w);
-                      var subtitle = (w.tasks||[]).length + " task" + ((w.tasks||[]).length!==1?"s":"") + (est ? " · Est. "+est+" min" : "");
+                      var subtitle = (w.tasks||[]).length + " task" + ((w.tasks||[]).length!==1?"s":"");
                       var lastCompleted = w.history && w.history.length ? w.history[w.history.length-1] : null;
                       return (
                         <div key={w.id} style={{ borderRadius: 10, border: "1px solid "+TEAL+"55", borderTop: "3px solid "+TEAL, marginBottom: 8, overflow: "hidden" }}>
@@ -8748,7 +8773,45 @@ Respond ONLY in valid JSON:
                                 <span onClick={(e) => { e.stopPropagation(); setEditingWaveId(w.id); }} title="Tap to rename" style={{ fontSize: 17, fontWeight: 700, color: T.textDark, cursor: "text" }}>{w.name}</span>
                               )}
                               <div style={{ fontSize: 10.5, color: T.textSoft, marginTop: 1 }}>{subtitle}{type==="weekly"&&typeof w.dayOfWeek==="number"?" · "+WAVE_DAY_LABELS[w.dayOfWeek]:""}{type==="seasonal"&&typeof w.month==="number"?" · "+WAVE_MONTH_LABELS[w.month-1]:""}</div>
-                              <div style={{ fontSize: 10, color: T.textSoft, opacity: 0.6, marginTop: 1 }}>{waveScheduleLabel(type, w)}</div>
+                              {editingScheduleId===w.id ? (
+                                <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 3, display: "flex", flexDirection: "column", gap: 4 }}>
+                                  {type==="weekly" && (
+                                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                      {WAVE_DAY_LABELS.map(function(d, i) { return (
+                                        <button key={i} onClick={() => updateWaveSchedule(type, w.id, {dayOfWeek:i})} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 20, border: w.dayOfWeek===i?"1.5px solid "+TEAL:br, background: w.dayOfWeek===i?TEAL+"22":T.surface, color: w.dayOfWeek===i?TEAL:T.textDark, cursor: "pointer" }}>{d}</button>
+                                      );})}
+                                    </div>
+                                  )}
+                                  {type==="seasonal" && (
+                                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                      {WAVE_MONTH_LABELS.map(function(m, i) { return (
+                                        <button key={i} onClick={() => updateWaveSchedule(type, w.id, {month:i+1})} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 20, border: w.month===(i+1)?"1.5px solid "+TEAL:br, background: w.month===(i+1)?TEAL+"22":T.surface, color: w.month===(i+1)?TEAL:T.textDark, cursor: "pointer" }}>{m}</button>
+                                      );})}
+                                    </div>
+                                  )}
+                                  {type==="custom" && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                      <input autoFocus value={editScheduleInterval} onChange={(e) => setEditScheduleInterval(e.target.value.replace(/[^0-9]/g,""))}
+                                        placeholder="e.g. 2" style={{ width: 50, fontSize: 11, padding: "3px 6px", border: br, borderRadius: 6, background: T.surface, color: T.textDark }} />
+                                      <select value={editScheduleIntervalUnit} onChange={(e) => setEditScheduleIntervalUnit(e.target.value)}
+                                        style={{ fontSize: 11, padding: "3px 5px", border: br, borderRadius: 6, background: T.surface, color: T.textDark }}>
+                                        <option value="days">Days</option>
+                                        <option value="weeks">Weeks</option>
+                                        <option value="months">Months</option>
+                                      </select>
+                                      <button onClick={() => updateWaveSchedule(type, w.id, {intervalDays: waveIntervalToDays(editScheduleInterval, editScheduleIntervalUnit)})}
+                                        style={{ fontSize: 10.5, padding: "3px 8px", borderRadius: 6, background: TEAL, color: "#fff", border: "none", cursor: "pointer" }}>Save</button>
+                                    </div>
+                                  )}
+                                  <button onClick={() => setEditingScheduleId(null)} style={{ alignSelf: "flex-start", fontSize: 10, padding: 0, background: "none", border: "none", color: T.textSoft, cursor: "pointer", textDecoration: "underline" }}>Cancel</button>
+                                </div>
+                              ) : (
+                                <div onClick={(e) => { if (type!=="daily") { e.stopPropagation(); setEditingScheduleId(w.id); setEditScheduleInterval(w.intervalDays?String(w.intervalDays):""); setEditScheduleIntervalUnit("days"); } }}
+                                  title={type!=="daily"?"Tap to edit schedule":undefined}
+                                  style={{ fontSize: 10, color: T.textSoft, opacity: 0.6, marginTop: 1, cursor: type!=="daily"?"pointer":"default", textDecoration: type!=="daily"?"underline":"none", textDecorationStyle: "dotted" }}>
+                                  {waveScheduleLabel(type, w)}
+                                </div>
+                              )}
                               {lastCompleted && <div style={{ fontSize: 10, color: T.textSoft, opacity: 0.75, marginTop: 1 }}>Last completed {waveDaysAgoLabel(lastCompleted.date)} · {lastCompleted.checked}/{lastCompleted.total}</div>}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); deleteWave(type, w.id); }} style={{ background: "none", border: "none", color: "#8B0000", fontSize: 14, cursor: "pointer", flexShrink: 0, padding: "0 2px" }}>✕</button>
@@ -8762,8 +8825,6 @@ Respond ONLY in valid JSON:
                                     <div onClick={() => updateWaveTask(type, w.id, t.id, { done: !t.done })} style={{ width: 17, height: 17, borderRadius: "50%", border: "2px solid "+(t.done?TEAL:"#aaa"), background: t.done?TEAL:"transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{t.done && <span style={{ color:"#fff", fontSize: 9 }}>✓</span>}</div>
                                     <input value={t.text} onChange={(e) => updateWaveTask(type, w.id, t.id, { text: e.target.value })}
                                       style={{ flex: 1, fontSize: 12.5, color: T.textDark, textDecoration: t.done?"line-through":"none", border: "none", background: "transparent", outline: "none", fontFamily: "inherit", minWidth: 0 }} />
-                                    <input value={t.estimatedMinutes||""} onChange={(e) => { var v=e.target.value.replace(/[^0-9]/g,""); updateWaveTask(type, w.id, t.id, { estimatedMinutes: v?parseInt(v,10):null }); }}
-                                      placeholder="min" style={{ width: 40, fontSize: 11, border: br, borderRadius: 5, padding: "2px 4px", background: T.surface, color: T.textDark, flexShrink: 0 }} />
                                     <button onClick={() => deleteWaveTask(type, w.id, t.id, t.text)} style={{ background: "none", border: "none", color: T.textSoft, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>✕</button>
                                   </div>
                                 );
@@ -8805,19 +8866,25 @@ Respond ONLY in valid JSON:
                           </div>
                         )}
                         {type==="custom" && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
                             <input value={newWaveInterval} onChange={(e) => setNewWaveInterval(e.target.value.replace(/[^0-9]/g,""))}
-                              placeholder="e.g. 30" style={{ width: 56, fontSize: 12, padding: "5px 8px", border: br, borderRadius: 7, background: T.surface, color: T.textDark, boxSizing: "border-box" }} />
-                            <span style={{ fontSize: 11, color: T.textSoft }}>days between resets (leave blank for one-time — never auto-resets)</span>
+                              placeholder="e.g. 2" style={{ width: 56, fontSize: 12, padding: "5px 8px", border: br, borderRadius: 7, background: T.surface, color: T.textDark, boxSizing: "border-box" }} />
+                            <select value={newWaveIntervalUnit} onChange={(e) => setNewWaveIntervalUnit(e.target.value)}
+                              style={{ fontSize: 12, padding: "5px 6px", border: br, borderRadius: 7, background: T.surface, color: T.textDark }}>
+                              <option value="days">Days</option>
+                              <option value="weeks">Weeks</option>
+                              <option value="months">Months</option>
+                            </select>
+                            <span style={{ fontSize: 11, color: T.textSoft }}>between resets (leave blank for one-time — never auto-resets)</span>
                           </div>
                         )}
                         <div style={{ display: "flex", gap: 6 }}>
                           <button onClick={() => setAddWaveOpenFor(null)} style={{ flex: 1, background: "none", border: br, borderRadius: 7, padding: "6px", fontSize: 11.5, color: T.textSoft, cursor: "pointer" }}>Cancel</button>
-                          <button onClick={() => addWave(type, newWaveName, type==="weekly"?{dayOfWeek:newWaveDay}:type==="seasonal"?{month:newWaveMonth}:type==="custom"&&newWaveInterval?{intervalDays:parseInt(newWaveInterval,10)}:{})} style={{ flex: 2, background: TEAL, color: "#fff", border: "none", borderRadius: 7, padding: "6px", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Create</button>
+                          <button onClick={() => addWave(type, newWaveName, type==="weekly"?{dayOfWeek:newWaveDay}:type==="seasonal"?{month:newWaveMonth}:type==="custom"&&newWaveInterval?{intervalDays:waveIntervalToDays(newWaveInterval,newWaveIntervalUnit)}:{})} style={{ flex: 2, background: TEAL, color: "#fff", border: "none", borderRadius: 7, padding: "6px", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Create</button>
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => { setAddWaveOpenFor(type); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); setNewWaveInterval(""); }} style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 8, border: br, background: "transparent", color: T.blue, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Add wave</button>
+                      <button onClick={() => { setAddWaveOpenFor(type); setNewWaveName(""); setNewWaveDay(0); setNewWaveMonth(1); setNewWaveInterval(""); setNewWaveIntervalUnit("days"); }} style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 8, border: br, background: "transparent", color: T.blue, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Add wave</button>
                     )}
                   </div>
                 )}
