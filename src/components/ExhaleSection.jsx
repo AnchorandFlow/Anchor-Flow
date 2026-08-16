@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import ColorPicker from "./ColorPicker.jsx";
+import UndoToast from "./UndoToast.jsx";
 
 var CARD_COLORS = [
   { id: "seafoam", bg: "#C2E8DA", bd: "#85BFAB", tx: "#1C3A2E" },
@@ -415,6 +416,23 @@ export default function ExhaleSection(props) {
 
   function persistBuckets(nb) { setBuckets(nb); lsSet(LS_B, nb); }
 
+  // Undo toast — one at a time (a new action replaces whatever's showing).
+  // Pattern: mutators below snapshot `buckets` *before* they persist the
+  // change, and undoFn just re-persists that snapshot wholesale. Timer lives
+  // in a ref (not state) so setting it doesn't trigger an extra render.
+  var [undoToast, setUndoToast] = useState(null); // { message, undoFn }
+  var undoTimeoutRef = useRef(null);
+  function showUndoToast(message, undoFn) {
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    setUndoToast({ message: message, undoFn: undoFn });
+    undoTimeoutRef.current = setTimeout(function() { setUndoToast(null); undoTimeoutRef.current = null; }, 4000);
+  }
+  function handleUndoClick() {
+    if (undoTimeoutRef.current) { clearTimeout(undoTimeoutRef.current); undoTimeoutRef.current = null; }
+    if (undoToast && undoToast.undoFn) undoToast.undoFn();
+    setUndoToast(null);
+  }
+
   // Onboarding Fix 2 — starter cards, first-mount only (see
   // EXHALE_STARTER_SEEDED_FLAG comment above for why this owns the flag).
   useEffect(function() {
@@ -632,6 +650,8 @@ export default function ExhaleSection(props) {
   // deleteBucketItem above (which the expanded view's "Delete" chip still
   // uses) so that existing confirm-before-delete behavior isn't touched.
   function deleteBucketItemImmediate(id) {
+    var existed = buckets.items.some(function(it) { return it.id === id; });
+    var snapshot = buckets;
     var nb = Object.assign({}, buckets, { items: buckets.items.filter(function(it) { return it.id !== id; }) });
     persistBuckets(nb);
     if (expandedItemId === id) setExpandedItemId(null);
@@ -639,6 +659,7 @@ export default function ExhaleSection(props) {
       if (!(id in prev)) return prev;
       var n = Object.assign({}, prev); delete n[id]; return n;
     });
+    if (existed) showUndoToast("Item deleted", function() { persistBuckets(snapshot); });
   }
 
   function toggleSelectMode(idx) {
@@ -685,12 +706,14 @@ export default function ExhaleSection(props) {
     var n = buckets.bucketNames.length;
     var it = buckets.items.find(function(x) { return x.id === id; });
     if (!it) return;
+    var snapshot = buckets;
     var nextIdx = (it.bucketIndex + 1) % n;
     updateBucketItem(id, { bucketIndex: nextIdx });
     // Bug fix: moving an item into a bucket that defaults collapsed (Tomorrow/
     // This Weekend/Someday — see openBuckets init) looked like the item had
     // vanished, since nothing ever opened the destination. Auto-open it here.
     setOpenBuckets(function(prev) { return Object.assign({}, prev, { [nextIdx]: true }); });
+    showUndoToast("Item moved to " + buckets.bucketNames[nextIdx], function() { persistBuckets(snapshot); });
   }
 
   function renameBucket(idx, name) {
@@ -1719,6 +1742,7 @@ export default function ExhaleSection(props) {
             </div>
           </div>
         </div>
+      <UndoToast toast={undoToast} onUndo={handleUndoClick} />
     </div>
   );
 }

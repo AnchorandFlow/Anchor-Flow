@@ -2,6 +2,7 @@ const AF_DEBUG = false; // flip to true when debugging
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from "react";
 import ExhaleSection from './components/ExhaleSection.jsx';
 import ColorPicker from './components/ColorPicker.jsx';
+import UndoToast from './components/UndoToast.jsx';
 import { askFamily, ageBracket, isPersonMinor, buildCompassContext, getDailyBriefing } from "./compass/compassEngine";
 import TodayBriefing from "./shell/TodayBriefing";
 import CompassFab from "./shell/CompassFab";
@@ -8557,6 +8558,23 @@ Respond ONLY in valid JSON:
     var [waveTaskInputFor, setWaveTaskInputFor] = useState(null);
     var [waveTaskText, setWaveTaskText] = useState("");
 
+    // Undo toast — one at a time (a new action replaces whatever's showing).
+    // Pattern: mutators below snapshot `waves` *before* they persist the
+    // change, and undoFn just re-persists that snapshot wholesale. Timer
+    // lives in a ref (not state) so setting it doesn't trigger an extra render.
+    var [undoToast, setUndoToast] = useState(null); // { message, undoFn }
+    var undoTimeoutRef = useRef(null);
+    function showUndoToast(message, undoFn) {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setUndoToast({ message: message, undoFn: undoFn });
+      undoTimeoutRef.current = setTimeout(function() { setUndoToast(null); undoTimeoutRef.current = null; }, 4000);
+    }
+    function handleUndoClick() {
+      if (undoTimeoutRef.current) { clearTimeout(undoTimeoutRef.current); undoTimeoutRef.current = null; }
+      if (undoToast && undoToast.undoFn) undoToast.undoFn();
+      setUndoToast(null);
+    }
+
     function persistWaves(nw) {
       setWaves(nw);
       try { localStorage.setItem("af_exhale_waves", JSON.stringify(nw)); } catch(e) {}
@@ -8655,8 +8673,10 @@ Respond ONLY in valid JSON:
       var cur = wavesList();
       var w = (cur[type]||[]).find(function(x) { return x.id===id; });
       if (!w) return;
+      var snapshot = cur;
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).filter(function(x) { return x.id!==id; }) }));
       if (expandedWaveId===id) setExpandedWaveId(null);
+      showUndoToast("\""+w.name+"\" deleted", function() { persistWaves(snapshot); });
     }
     function addWaveTask(type, waveId, text) {
       var txt = (text||"").trim();
@@ -8697,11 +8717,14 @@ Respond ONLY in valid JSON:
     }
     function resetWave(type, waveId) {
       var cur = wavesList();
+      var w = (cur[type]||[]).find(function(x) { return x.id===waveId; });
+      var snapshot = cur;
       var todayStr = localDateStr(TODAY); // Fix 3 — local date, not UTC (was toISOString())
       persistWaves(Object.assign({}, cur, { [type]: (cur[type]||[]).map(function(w) {
         if (w.id!==waveId) return w;
         return Object.assign({}, w, { lastReset: todayStr, history: withWaveHistory(type, w, todayStr), tasks: (w.tasks||[]).map(function(t) { return Object.assign({}, t, { done:false }); }) });
       })}));
+      if (w) showUndoToast("\""+w.name+"\" reset", function() { persistWaves(snapshot); });
     }
     function toggleWaveSection(type) {
       setWaveSectionOpen(function(prev) { return Object.assign({}, prev, { [type]: !prev[type] }); });
@@ -8895,6 +8918,7 @@ Respond ONLY in valid JSON:
             );
           })}
         </div>
+        <UndoToast toast={undoToast} onUndo={handleUndoClick} />
       </div>
     );
   }
