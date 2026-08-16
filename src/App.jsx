@@ -1143,7 +1143,7 @@ const CAL_YEAR_CATEGORIES = [
   { id:"deadlines",    label:"Deadlines",         color:"#C47A7A" },
   { id:"other",        label:"General/Other",     color:"#8A8A8A" },
 ];
-function calYearCatColor(catId){ var c=CAL_YEAR_CATEGORIES.find(function(x){return x.id===catId;}); return c?c.color:"#8A8A8A"; }
+function calYearCatColor(catId){ var c=CAL_YEAR_CATEGORIES.find(function(x){return x.id===catId;}); return c?c.color:"#5A5A5A"; }
 function calYearMarkerCat(label){
   var l=(label||"").toLowerCase();
   if(l.indexOf("custody")!==-1) return "custody";
@@ -8047,8 +8047,11 @@ Respond ONLY in valid JSON:
                         style={{height:cellSize,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",cursor:"pointer",position:"relative",background:spanItem?calYearCatColor(spanItem.cat)+"2A":"transparent",borderRadius:"3px"}}>
                         <div style={{width:cellSize<24?14:18,height:cellSize<24?14:18,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:cellSize<24?"0.52rem":"0.62rem",fontWeight:todayFlag?800:500,display:"flex",alignItems:"center",justifyContent:"center"}}>{day}</div>
                         {dots.length>0&&(
-                          <div style={{display:"flex",gap:"1px",marginTop:"1px"}}>
-                            {dots.map(function(it,di){return <span key={di} style={{width:4,height:4,borderRadius:"50%",background:calYearCatColor(it.cat),display:"inline-block"}}/>;})}
+                          <div style={{display:"flex",gap:"2px",marginTop:"1px"}}>
+                            {/* Fix 1: was 4x4 with no border — nearly invisible at cellSize
+                                as small as 16. Bigger + a subtle border for contrast against
+                                any background (light or dark category tint). */}
+                            {dots.map(function(it,di){return <span key={di} style={{width:6,height:6,borderRadius:"50%",background:calYearCatColor(it.cat),border:"0.5px solid rgba(0,0,0,0.15)",display:"inline-block"}}/>;})}
                           </div>
                         )}
                         {dayItems.length>3&&<span style={{fontSize:"0.45rem",color:T.textFaint,fontWeight:700,lineHeight:1}}>+{dayItems.length-3}</span>}
@@ -9757,13 +9760,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <div key={m} style={{marginBottom:"0.9rem"}}>
                 <label style={lbl}>{m}</label>
                 <div style={{display:"flex",gap:"0.4rem"}}>
-                  <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1})}}/>
-                  {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"auto",flex:"none",fontSize:"0.74rem"})}}>
-                    <option value="">From recipes…</option>
-                    {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>}
+                  {/* Fix 2: the meal name is the thing being edited — make it the visually
+                      prominent element. Was the shared inp() default (0.87rem), same as
+                      every other generic input in the app. */}
+                  <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1,fontSize:"1.05rem",fontWeight:600,padding:"0.75rem 0.9rem"})}}/>
                   <MealBankDrawer mealType={m} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(meal){setEditMeal(function(p){return {...p,[m]:meal.name};});}} onAddToShopping={addIngredientToShopping}/>
                 </div>
+                {/* Fix 2: recipe picker moved below the meal input and shrunk further —
+                    was inline with the input at 0.74rem, now clearly secondary. */}
+                {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"100%",fontSize:"0.72rem",padding:"0.4rem 0.6rem",marginTop:"0.35rem"})}}>
+                  <option value="">From recipes…</option>
+                  {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>}
               </div>
             ))}
             <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea defaultValue={editMeal.notes||""} onBlur={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none"})}}/></div>
@@ -11292,7 +11300,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
-          <span style={{fontSize:"1.2rem"}}>🌅</span>
+          <span style={{fontSize:"1.2rem"}}>🗺</span>
           <div>
             <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>Horizon</h1>
             <p style={{margin:"0.15rem 0 0",color:"#c2d4e0",fontSize:"0.79rem",fontWeight:500}}>What's ahead</p>
@@ -17681,7 +17689,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
       { id: "people", label: "People", emoji: "👥" },
-      { id: "horizon", label: "Horizon", emoji: "🌅" },
+      { id: "horizon", label: "Horizon", emoji: "🗺" },
       // Maintenance (vault:"systems"), Inventory, Reminders (vault:"recurring"),
       // Subscriptions (vault:"subs"), Health, Career, Pets, Celebrate
       // (vault:"gifts"), Travel (vault:"trips"), and Safe Harbor nav entries
@@ -17778,7 +17786,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" aria-label="Sunset — end of day reset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌅</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
+          <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" aria-label="Sunset — end of day reset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌇</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
           <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" aria-label="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "16px", opacity: 0.82 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
           <button onClick={function(){ try{window.dispatchEvent(new CustomEvent("af-open-feedback"));}catch{} }} title="Send feedback" aria-label="Send feedback" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "14px", opacity: 0.6 }}>💬</span></button>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
