@@ -11485,6 +11485,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [selIdx, setSelIdx] = useState(0);
     var [chestOpen, setChestOpen] = useState(false);
     var [histOpen, setHistOpen] = useState(false);
+    var [bonusHistOpen, setBonusHistOpen] = useState(false);
     var [selectedTreasure, setSelectedTreasure] = useState(null);
     var [claimed, setClaimed] = useState(null);
     var [flyName, setFlyName] = useState("");
@@ -11545,7 +11546,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
     function giveShell() {
       if(!flyName.trim()) return;
-      updateKid({shells: kid.shells + flyPts});
+      // Fix 1: the reason was previously required (gated the whole function) but
+      // then discarded — never persisted anywhere. Now saved as its own earn-side
+      // history, parallel to rewardHistory (which only ever logged spending).
+      var entry = {id:uid(), reason:flyName.trim(), pts:flyPts, date:new Date().toISOString()};
+      var hist = [entry].concat((kid.bonusHistory||[])).slice(0,50);
+      updateKid({shells: kid.shells + flyPts, bonusHistory: hist});
       setFlyName("");
     }
 
@@ -11761,6 +11767,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </select>
               <button onClick={giveShell} style={{...btnP(T.sand),fontSize:"0.8rem",padding:"0.42rem 0.85rem",whiteSpace:"nowrap"}}>+ Bonus Tide</button>
             </div>
+            {/* Fix 1: bonus (earn-side) history — so the child can see why they
+                earned it, right where bonuses are given. Mirrors Reward history's
+                open/collapsed pattern below. */}
+            {(kid.bonusHistory||[]).length>0 && (
+              <div style={{marginTop:"0.65rem"}}>
+                <div onClick={function(){setBonusHistOpen(!bonusHistOpen);}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
+                  <div style={{fontSize:"0.76rem",fontWeight:700,color:T.textSoft}}>Bonus history</div>
+                  <span style={{fontSize:"0.72rem",color:T.textFaint}}>{bonusHistOpen?"Hide":((kid.bonusHistory||[]).length+" given")}</span>
+                </div>
+                {bonusHistOpen && (
+                  <div style={{marginTop:"0.4rem"}}>
+                    {(kid.bonusHistory||[]).map(function(h){
+                      return (
+                        <div key={h.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.3rem 0",borderBottom:"1px solid "+T.borderSoft,fontSize:"0.78rem"}}>
+                          <span style={{flex:1,color:T.textDark}}>{h.reason}</span>
+                          <span style={{color:"#8a6a3a",fontSize:"0.72rem",fontWeight:600}}>+{h.pts} 🐚</span>
+                          <span style={{color:T.textFaint,fontSize:"0.7rem",minWidth:"56px",textAlign:"right"}}>{h.date?new Date(h.date).toLocaleDateString(undefined,{month:"short",day:"numeric"}):""}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
