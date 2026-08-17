@@ -4317,6 +4317,15 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   var collapsedPackingSections = s_collapsedPackSecs[0]; var setCollapsedPackingSections = s_collapsedPackSecs[1]
   var s_packDrafts = useState({})
   var packItemDrafts = s_packDrafts[0]; var setPackItemDrafts = s_packDrafts[1]
+  // Pointer-based drag for packing items — same idiom as ExhaleSection's
+  // bucketItemPointerDown: a ref holds mutable drag state across the gesture
+  // (no re-render needed mid-drag), these two useStates exist only for the
+  // dragged-item/drop-target visual feedback.
+  var packDragItem = useRef({ from:null, fromSecId:null, toSecId:null, toItemId:null, clone:null })
+  var s_packDragFrom = useState(null)
+  var packDragFromId = s_packDragFrom[0]; var setPackDragFromId = s_packDragFrom[1]
+  var s_packDragOverSec = useState(null)
+  var packDragOverSecId = s_packDragOverSec[0]; var setPackDragOverSecId = s_packDragOverSec[1]
   var s_newPackSec = useState("")
   var newPackingSectionTitle = s_newPackSec[0]; var setNewPackingSectionTitle = s_newPackSec[1]
   var s_collapsedItinDays = useState({})
@@ -4444,6 +4453,88 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       if (s.id!==secId) return s
       return Object.assign({}, s, { items: s.items.filter(function(it){ return it.id!==itemId }) })
     }))
+  }
+  // Pointer-based drag to reorder a packing item within its section, or move
+  // it to a different section. Same clone/ghost + elementFromPoint hit-test
+  // approach as ExhaleSection's bucketItemPointerDown. Hit-tests item rows
+  // via data-pack-item-id (the item's id — stable as items reorder, unlike
+  // an index) for insertion position, and section cards via
+  // data-pack-section-idx (the section's position in packingSections()) for
+  // which section is the current drop target.
+  function packItemPointerDown(e, secId, item) {
+    packDragItem.current.from = item.id
+    packDragItem.current.fromSecId = secId
+    packDragItem.current.toSecId = secId
+    packDragItem.current.toItemId = null
+    setPackDragFromId(item.id)
+    setPackDragOverSecId(secId)
+
+    var rowEl = e.currentTarget.closest("[data-pack-item-id]") || e.currentTarget
+    var clone = rowEl.cloneNode(true)
+    clone.setAttribute("data-pack-drag-clone", "1")
+    clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.9;z-index:9999;width:"+rowEl.offsetWidth+"px;background:#fde5dc;border:1.5px solid rgba(160,122,181,0.5);border-radius:8px;padding:5px 10px;box-shadow:0 4px 18px rgba(0,0,0,0.18);"
+    clone.style.left = (e.clientX - 20) + "px"
+    clone.style.top  = (e.clientY - 16) + "px"
+    document.body.appendChild(clone)
+    packDragItem.current.clone = clone
+
+    function onMove(ev) {
+      clone.style.left = (ev.clientX - 20) + "px"
+      clone.style.top  = (ev.clientY - 16) + "px"
+      clone.style.display = "none"
+      var el = document.elementFromPoint(ev.clientX, ev.clientY)
+      clone.style.display = ""
+      var secEl = el && el.closest("[data-pack-section-idx]")
+      var secIdx = secEl ? parseInt(secEl.getAttribute("data-pack-section-idx"), 10) : -1
+      var curSections = packingSections()
+      var toSecId = (secIdx >= 0 && curSections[secIdx]) ? curSections[secIdx].id : packDragItem.current.fromSecId
+      packDragItem.current.toSecId = toSecId
+      setPackDragOverSecId(toSecId)
+      var row = el && el.closest("[data-pack-item-id]")
+      if (row) {
+        var rid = row.getAttribute("data-pack-item-id")
+        packDragItem.current.toItemId = (rid !== packDragItem.current.from) ? rid : null
+      } else {
+        packDragItem.current.toItemId = null
+      }
+    }
+    function cleanup() {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", cleanup)
+      document.querySelectorAll("[data-pack-drag-clone]").forEach(function(el){ try { el.remove() } catch(err) {} })
+      packDragItem.current.clone = null
+      setPackDragFromId(null); setPackDragOverSecId(null)
+    }
+    function onUp() {
+      var fromId = packDragItem.current.from
+      var fromSecId = packDragItem.current.fromSecId
+      var toSecId = packDragItem.current.toSecId
+      var toItemId = packDragItem.current.toItemId
+      packDragItem.current.from = packDragItem.current.toItemId = null
+      cleanup()
+      if (!fromId || !fromSecId || !toSecId) return
+      var current = packingSections()
+      var fromSec = current.find(function(s){ return s.id===fromSecId })
+      var movedItem = fromSec && fromSec.items.find(function(it){ return it.id===fromId })
+      if (!movedItem) return
+      var withoutMoved = current.map(function(s){
+        if (s.id!==fromSecId) return s
+        return Object.assign({}, s, { items: s.items.filter(function(it){ return it.id!==fromId }) })
+      })
+      var next = withoutMoved.map(function(s){
+        if (s.id!==toSecId) return s
+        var items = s.items.slice()
+        var insertAt = toItemId ? items.findIndex(function(it){ return it.id===toItemId }) : -1
+        if (insertAt === -1) items.push(movedItem); else items.splice(insertAt, 0, movedItem)
+        return Object.assign({}, s, { items: items })
+      })
+      savePackingSections(next)
+    }
+    window.addEventListener("pointermove", onMove, { passive:true })
+    window.addEventListener("pointerup", onUp, { once:true })
+    window.addEventListener("pointercancel", cleanup, { once:true })
+    e.preventDefault()
   }
   // Reads profile.alwaysBring directly from af_travel_profile — TripsSection
   // has no other connection to TravelProfileSection's state, same cross-
@@ -5135,10 +5226,11 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                     )}
                     {sections.length > 0 && (
                       <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
-                        {sections.map(function(sec){
+                        {sections.map(function(sec, secIdx){
                           var open = !collapsedPackingSections[sec.id]
+                          var isDropTarget = packDragFromId && packDragOverSecId === sec.id
                           return (
-                            <div key={sec.id} style={{ background:"#fde5dc", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, overflow:"hidden" }}>
+                            <div key={sec.id} data-pack-section-idx={secIdx} style={{ background:"#fde5dc", border:"1.5px solid "+(isDropTarget?"#a07ab5":"rgba(217,138,110,0.3)"), borderRadius:8, overflow:"hidden", transition:"border-color .1s" }}>
                               <div onClick={function(){ setCollapsedPackingSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
                                 <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, minWidth:0, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
                                 <span style={{ fontSize:11, color:"#8a5c48", flexShrink:0 }}>{sec.items.filter(function(i){return i.done}).length}/{sec.items.length}</span>
@@ -5151,8 +5243,10 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                                     <div style={{ fontSize:12, color:"#8a5c48", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
                                   )}
                                   {sec.items.map(function(item){
+                                    var isDragging = packDragFromId === item.id
                                     return (
-                                      <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.08)" }}>
+                                      <div key={item.id} data-pack-item-id={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.08)", opacity:isDragging?0.35:1, background:isDragging?"rgba(160,122,181,0.08)":"transparent" }}>
+                                        <span onPointerDown={function(e){ packItemPointerDown(e, sec.id, item) }} style={{ cursor:"grab", color:"#8a5c48", fontSize:13, flexShrink:0, padding:"4px 4px", margin:"-4px 0 -4px -4px", touchAction:"none" }}>⠿</span>
                                         <div onClick={function(){ togglePackingItem(sec.id, item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(26,46,61,0.25)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
                                           {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
                                         </div>
