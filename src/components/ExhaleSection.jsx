@@ -378,6 +378,10 @@ export default function ExhaleSection(props) {
   });
   var [openBuckets, setOpenBuckets] = useState({ 0: true, 1: true, 2: false, 3: false, 4: false });
   var [expandedItemId, setExpandedItemId] = useState(null);
+  // Direct bucket routing (Fix 4) — which item's "Move to..." menu is open,
+  // one at a time. Replaced the old forward-only "→ {nextName}" chip, which
+  // could only step to the adjacent bucket.
+  var [moveMenuForItemId, setMoveMenuForItemId] = useState(null);
   var [editingBucketIdx, setEditingBucketIdx] = useState(null);
   var [bucketInputText, setBucketInputText] = useState("");
   var [bucketInputTarget, setBucketInputTarget] = useState(0);
@@ -628,8 +632,6 @@ export default function ExhaleSection(props) {
     persistBuckets(nb);
   }
 
-  function archiveBucketItem(id) { updateBucketItem(id, { archived: true }); }
-
   function togglePersonAssignment(itemId, personId) {
     var it = buckets.items.find(function(x) { return x.id === itemId; });
     updateBucketItem(itemId, { personId: (it && it.personId === personId) ? null : personId });
@@ -702,18 +704,18 @@ export default function ExhaleSection(props) {
     if (expandedItemId && idSet[expandedItemId]) setExpandedItemId(null);
   }
 
-  function moveBucketItemForward(id) {
-    var n = buckets.bucketNames.length;
+  // Fix 4 — direct bucket routing: jump to any bucket, not just one step
+  // forward. Replaces the old moveBucketItemForward (single-step "→ next").
+  function moveBucketItemTo(id, destIdx) {
     var it = buckets.items.find(function(x) { return x.id === id; });
-    if (!it) return;
+    if (!it || it.bucketIndex === destIdx) return;
     var snapshot = buckets;
-    var nextIdx = (it.bucketIndex + 1) % n;
-    updateBucketItem(id, { bucketIndex: nextIdx });
+    updateBucketItem(id, { bucketIndex: destIdx });
     // Bug fix: moving an item into a bucket that defaults collapsed (Tomorrow/
     // This Weekend/Someday — see openBuckets init) looked like the item had
     // vanished, since nothing ever opened the destination. Auto-open it here.
-    setOpenBuckets(function(prev) { return Object.assign({}, prev, { [nextIdx]: true }); });
-    showUndoToast("Item moved to " + buckets.bucketNames[nextIdx], function() { persistBuckets(snapshot); });
+    setOpenBuckets(function(prev) { return Object.assign({}, prev, { [destIdx]: true }); });
+    showUndoToast("Item moved to " + buckets.bucketNames[destIdx], function() { persistBuckets(snapshot); });
   }
 
   function renameBucket(idx, name) {
@@ -795,7 +797,7 @@ export default function ExhaleSection(props) {
       var toIdx2 = toId ? arr.findIndex(function(i) { return i.id === toId; }) : -1;
       if (toIdx2 === -1) arr.push(moved); else arr.splice(toIdx2, 0, moved);
       persistBuckets(Object.assign({}, buckets, { items: arr }));
-      // Same fix as moveBucketItemForward — a drag drop into a collapsed
+      // Same fix as moveBucketItemTo — a drag drop into a collapsed
       // bucket (Tomorrow/This Weekend/Someday) must open it, or the moved
       // item looks like it vanished.
       setOpenBuckets(function(prev) { return Object.assign({}, prev, { [toBucket]: true }); });
@@ -1451,8 +1453,6 @@ export default function ExhaleSection(props) {
     var bItems = visibleBucketItems(idx);
     var isOpen = !!openBuckets[idx];
     var accent = BUCKET_COLORS[idx % BUCKET_COLORS.length];
-    var nextIdx = (idx + 1) % buckets.bucketNames.length;
-    var nextName = buckets.bucketNames[nextIdx];
     var isDropTarget = dragOverId === null && bucketDragItem.current.from && bucketDragItem.current.toBucket === idx;
     var selectMode = !!selectModeBucket[idx];
     var selectedCount = bItems.filter(function(it) { return selectedItemIds[it.id]; }).length;
@@ -1674,10 +1674,20 @@ export default function ExhaleSection(props) {
                           </div>
                         )}
                       </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button onClick={() => moveBucketItemForward(item.id)} style={{ ...chip, background: bgP }}>→ {nextName}</button>
-                        <button onClick={() => archiveBucketItem(item.id)} style={{ ...chip, background: bgP }}>Archive</button>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", position: "relative" }}>
+                        <button onClick={(e) => { e.stopPropagation(); setMoveMenuForItemId(moveMenuForItemId === item.id ? null : item.id); }} style={{ ...chip, background: bgP }}>Move to… ▾</button>
                         <button onClick={() => deleteBucketItem(item.id, item.text)} style={{ ...chip, background: bgP, color: "#8B0000", border: "0.5px solid rgba(180,0,0,0.3)" }}>Delete</button>
+                        {moveMenuForItemId === item.id && (
+                          <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, background: bgP, border: br, borderRadius: 8, boxShadow: "0 4px 14px rgba(0,0,0,0.18)", zIndex: 20, minWidth: 150, overflow: "hidden" }}>
+                            {buckets.bucketNames.map(function(name, destIdx) {
+                              if (destIdx === item.bucketIndex) return null;
+                              return (
+                                <button key={destIdx} onClick={() => { moveBucketItemTo(item.id, destIdx); setMoveMenuForItemId(null); }}
+                                  style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", fontSize: 12, background: "none", border: "none", cursor: "pointer", color: txP }}>{name}</button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
