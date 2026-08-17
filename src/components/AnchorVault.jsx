@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
+import ColorPicker from "./ColorPicker.jsx"
 import MomentsSection from "./MomentsSection"
 import DosingTracker from "./DosingTracker"
 import RipplesRoom from "../shell/RipplesRoom"
@@ -4326,6 +4327,13 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   var packDragFromId = s_packDragFrom[0]; var setPackDragFromId = s_packDragFrom[1]
   var s_packDragOverSec = useState(null)
   var packDragOverSecId = s_packDragOverSec[0]; var setPackDragOverSecId = s_packDragOverSec[1]
+  // Same pattern again, one level up — dragging a whole section card to
+  // reorder it within packingSections().
+  var packSectionDragItem = useRef({ from:null, toIdx:null, clone:null })
+  var s_packSecDragFrom = useState(null)
+  var packSectionDragFromId = s_packSecDragFrom[0]; var setPackSectionDragFromId = s_packSecDragFrom[1]
+  var s_packSecDragOver = useState(null)
+  var packSectionDragOverIdx = s_packSecDragOver[0]; var setPackSectionDragOverIdx = s_packSecDragOver[1]
   var s_newPackSec = useState("")
   var newPackingSectionTitle = s_newPackSec[0]; var setNewPackingSectionTitle = s_newPackSec[1]
   var s_collapsedItinDays = useState({})
@@ -4417,19 +4425,22 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   function normalizePackingSections(raw) {
     var list = Array.isArray(raw) ? raw : []
     if (list.length > 0 && list[0] && list[0].items === undefined && list[0].text !== undefined) {
-      return [{ id:"legacy", title:"Packing List", items: list.map(function(it){ return { id:it.id, text:it.text, done:!!it.done } }) }]
+      return [{ id:"legacy", title:"Packing List", color:"#f7f1e3", items: list.map(function(it){ return { id:it.id, text:it.text, done:!!it.done } }) }]
     }
     return list.map(function(sec){
-      return { id:sec.id, title: sec.title || "Untitled", items:(sec.items||[]).map(function(it){ return { id:it.id, text:it.text, done:!!it.done } }) }
+      return { id:sec.id, title: sec.title || "Untitled", color: sec.color || "#f7f1e3", items:(sec.items||[]).map(function(it){ return { id:it.id, text:it.text, done:!!it.done } }) }
     })
   }
   function packingSections() { return normalizePackingSections(detailTrip && detailTrip.packing) }
   function savePackingSections(sections) { if (!detailTrip) return; updateTrip(detailTrip.id, { packing: sections }) }
   function addPackingSection(title) {
-    savePackingSections([...packingSections(), { id:Date.now().toString(), title: (title||"").trim()||"New section", items:[] }])
+    savePackingSections([...packingSections(), { id:Date.now().toString(), title: (title||"").trim()||"New section", color:"#f7f1e3", items:[] }])
   }
   function renamePackingSection(secId, title) {
     savePackingSections(packingSections().map(function(s){ return s.id===secId ? Object.assign({},s,{title:title}) : s }))
+  }
+  function setPackingSectionColor(secId, color) {
+    savePackingSections(packingSections().map(function(s){ return s.id===secId ? Object.assign({},s,{color:color}) : s }))
   }
   function deletePackingSection(secId) {
     if (!window.confirm("Delete this section and all its items?")) return
@@ -4530,6 +4541,69 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
         return Object.assign({}, s, { items: items })
       })
       savePackingSections(next)
+    }
+    window.addEventListener("pointermove", onMove, { passive:true })
+    window.addEventListener("pointerup", onUp, { once:true })
+    window.addEventListener("pointercancel", cleanup, { once:true })
+    e.preventDefault()
+  }
+  // Pointer-based drag to reorder whole packing sections — same clone/ghost +
+  // elementFromPoint approach as packItemPointerDown one level up, hit-testing
+  // only data-pack-section-idx (there's no cross-list to move a section into).
+  function packSectionPointerDown(e, secId) {
+    packSectionDragItem.current.from = secId
+    packSectionDragItem.current.toIdx = null
+    setPackSectionDragFromId(secId)
+
+    var cardEl = e.currentTarget.closest("[data-pack-section-idx]") || e.currentTarget
+    var clone = cardEl.cloneNode(true)
+    clone.setAttribute("data-pack-section-drag-clone", "1")
+    clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:"+cardEl.offsetWidth+"px;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.22);"
+    clone.style.left = (e.clientX - 20) + "px"
+    clone.style.top  = (e.clientY - 16) + "px"
+    document.body.appendChild(clone)
+    packSectionDragItem.current.clone = clone
+
+    function onMove(ev) {
+      clone.style.left = (ev.clientX - 20) + "px"
+      clone.style.top  = (ev.clientY - 16) + "px"
+      clone.style.display = "none"
+      var el = document.elementFromPoint(ev.clientX, ev.clientY)
+      clone.style.display = ""
+      var secEl = el && el.closest("[data-pack-section-idx]")
+      if (secEl) {
+        var idx = parseInt(secEl.getAttribute("data-pack-section-idx"), 10)
+        packSectionDragItem.current.toIdx = idx
+        setPackSectionDragOverIdx(idx)
+      } else {
+        packSectionDragItem.current.toIdx = null
+        setPackSectionDragOverIdx(null)
+      }
+    }
+    function cleanup() {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", cleanup)
+      document.querySelectorAll("[data-pack-section-drag-clone]").forEach(function(el){ try { el.remove() } catch(err) {} })
+      packSectionDragItem.current.clone = null
+      setPackSectionDragFromId(null); setPackSectionDragOverIdx(null)
+    }
+    function onUp() {
+      var fromId = packSectionDragItem.current.from
+      var toIdx = packSectionDragItem.current.toIdx
+      packSectionDragItem.current.from = packSectionDragItem.current.toIdx = null
+      cleanup()
+      if (!fromId || toIdx === null || toIdx === undefined) return
+      var current = packingSections()
+      var fromIdx = current.findIndex(function(s){ return s.id===fromId })
+      if (fromIdx === -1 || fromIdx === toIdx) return
+      var targetId = current[toIdx] && current[toIdx].id
+      var arr = current.slice()
+      var moved = arr[fromIdx]
+      arr.splice(fromIdx, 1)
+      var newIdx = targetId ? arr.findIndex(function(s){ return s.id===targetId }) : -1
+      if (newIdx === -1) arr.push(moved); else arr.splice(newIdx, 0, moved)
+      savePackingSections(arr)
     }
     window.addEventListener("pointermove", onMove, { passive:true })
     window.addEventListener("pointerup", onUp, { once:true })
@@ -5228,10 +5302,16 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                       <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
                         {sections.map(function(sec, secIdx){
                           var open = !collapsedPackingSections[sec.id]
-                          var isDropTarget = packDragFromId && packDragOverSecId === sec.id
+                          var isItemDropTarget = packDragFromId && packDragOverSecId === sec.id
+                          var isSectionDropTarget = packSectionDragFromId && packSectionDragFromId !== sec.id && packSectionDragOverIdx === secIdx
+                          var isSectionDragging = packSectionDragFromId === sec.id
                           return (
-                            <div key={sec.id} data-pack-section-idx={secIdx} style={{ background:"#fde5dc", border:"1.5px solid "+(isDropTarget?"#a07ab5":"rgba(217,138,110,0.3)"), borderRadius:8, overflow:"hidden", transition:"border-color .1s" }}>
+                            <div key={sec.id} data-pack-section-idx={secIdx} style={{ background:sec.color||"#f7f1e3", border:"1.5px solid "+((isItemDropTarget||isSectionDropTarget)?"#a07ab5":"rgba(217,138,110,0.3)"), borderRadius:8, transition:"border-color .1s, opacity .1s", opacity:isSectionDragging?0.4:1 }}>
                               <div onClick={function(){ setCollapsedPackingSections(function(p){ return Object.assign({},p,{[sec.id]:!p[sec.id]}) }) }} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", cursor:"pointer" }}>
+                                <span onPointerDown={function(e){ packSectionPointerDown(e, sec.id) }} style={{ cursor:"grab", color:"#8a5c48", fontSize:13, flexShrink:0, padding:"4px 2px", margin:"-4px 0 -4px -4px", touchAction:"none" }}>⠿</span>
+                                <span onClick={function(e){ e.stopPropagation() }} style={{ flexShrink:0, display:"flex" }}>
+                                  <ColorPicker value={sec.color} onChange={function(c){ setPackingSectionColor(sec.id, c) }} size={16} />
+                                </span>
                                 <input value={sec.title} onClick={function(e){ e.stopPropagation() }} onChange={function(e){ renamePackingSection(sec.id, e.target.value) }} style={{ flex:1, minWidth:0, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
                                 <span style={{ fontSize:11, color:"#8a5c48", flexShrink:0 }}>{sec.items.filter(function(i){return i.done}).length}/{sec.items.length}</span>
                                 <button onClick={function(e){ e.stopPropagation(); deletePackingSection(sec.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.5)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
