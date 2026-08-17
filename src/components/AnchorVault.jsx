@@ -2989,6 +2989,22 @@ var DEFAULT_PACKING_TEMPLATES = [
   }
 ]
 
+// One-off household packing checklist — separate from DEFAULT_PACKING_TEMPLATES
+// above (which is the multi-template "Import list" system with no edit UI).
+// This seeds af_packing_template (singular key) the first time it's read;
+// after that the stored copy is the source of truth and this constant is
+// never consulted again for that household.
+var MASTER_PACKING_TEMPLATE_SEED = [
+  { title: "Lindsey", items: ["Pants","Shirts","Dress","Underwear","Bras","Shoes/flip flops/sandals","Pajamas","Bathing suit","Cover-up","Jacket","Sunglasses x2","Glasses","Hat","Cell phone charger/battery pack","Jewelry","Makeup","Shampoo/conditioner","Hair products","Crimper/hair dryer","Clips","Brush","Deo","Toothbrush/toothpaste","Sunscreen","Chapstick","Bug/eucalyptus","Nail file","Advil","Arnica/muscle mist","Pads/tampons","Snore thing"] },
+  { title: "Rylan", items: ["Pants","Shirts","Underwear","Socks","Shoes/flip flops/crocs","Pajamas","Bathing suit","Jacket","Blanket","Stuffed animal","Sunglasses","Hat","Computer/charger","Download movies","Toys","Car toy","Coloring/learning","Airplane tray","Toothbrush/toothpaste","Hair gel","Chapstick","Tattoos","Snorkel/goggles"] },
+  { title: "Madi", items: ["Outfits","Diapers/swim diapers","Bathing suit","Cover up/diaper","Wipes","Socks/shoes","Pajamas x2","Sleep sack","Sound machine","Jacket","Blankets","Burp cloths/bibs","Backpack","Sunglasses","Stuffed animal","Hat","Toys","Diaper bag stocked","Airplane tray","iPad/extra phone","Toothbrush/toothpaste","Aquaphor","Lotion","Shampoo","Diaper cream","Bows","Snacks"] },
+  { title: "Kinzlee", items: [] },
+  { title: "Diaper bag", items: ["Madi table","Madi toys","Diapers","Wipes","Sanitizing wipes","Disposable table things","Bib","Spoon","Sunglasses x4","Water bottles","Seat belt extender","Tampons","Advil","Hairbrush/ties","Chapstick","Bibs","Trash bags","Burp cloths"] },
+  { title: "Rys suitcase", items: ["Tush baby","Chair","Outfit per person","Diapers","Tupperware cups","Bibs/burp cloths","Snacks","Chargers/battery pack/extension cord","Jackets","Luggage straps","Ry's car seat","Sling","Blanket"] },
+  { title: "General/Shared", items: ["Spoons","Nightlights","Stroller/bag/cup holder","Laundry soap/bags/lingerie bags","Beach toys","Beach towels","Powder sand","Laundry bags","Air tags","Airplane bed thing","Tray table covers","Madi car seat/booster seat","Cash"] },
+  { title: "To-Do before leaving", items: ["Download music/games/videos","Label luggage","Charge everything/battery pack","Back up phones","Turn on tracking","Taxes","Moving reimbursement"] },
+]
+
 var PACK_CATS = ["Clothing","Accessories","Toiletries","Health","Electronics","Entertainment","Comfort","Sleep","Feeding","Travel","Baby essentials","Baby extras","Beach / outdoor","Travel gear","Adult","Older kids","Baby","Family","Shared","Face","Tools","Skin","Extras","Car essentials","Car extras","Beach","Flight extras","Travel docs","Documents","Daily essentials","Activities","Before leaving","Admin","Kids stuff","Misc","Kids"]
 
 // ── Expanded Packing Modal ────────────────────────────────────────────────────
@@ -4320,6 +4336,20 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   var importOpen = s_importOpen[0]; var setImportOpen = s_importOpen[1]
   var s_importTemplate = useState(null)
   var importSelectedTemplate = s_importTemplate[0]; var setImportSelectedTemplate = s_importTemplate[1]
+  // Master packing template — af_packing_template (singular), its own editable
+  // checklist independent of any trip. masterLoadOpen is the merge-vs-replace
+  // choice sheet (skipped entirely when the trip's own list is empty — nothing
+  // to merge with or replace); masterEditOpen is the template's own editor.
+  var s_masterLoadOpen = useState(false)
+  var masterLoadOpen = s_masterLoadOpen[0]; var setMasterLoadOpen = s_masterLoadOpen[1]
+  var s_masterEditOpen = useState(false)
+  var masterEditOpen = s_masterEditOpen[0]; var setMasterEditOpen = s_masterEditOpen[1]
+  var s_masterItemDrafts = useState({})
+  var masterItemDrafts = s_masterItemDrafts[0]; var setMasterItemDrafts = s_masterItemDrafts[1]
+  var s_newMasterSectionTitle = useState("")
+  var newMasterSectionTitle = s_newMasterSectionTitle[0]; var setNewMasterSectionTitle = s_newMasterSectionTitle[1]
+  var s_masterTemplate = useState(function(){ return readMasterTemplate() })
+  var masterTemplateSections = s_masterTemplate[0]; var setMasterTemplateSectionsRaw = s_masterTemplate[1]
   // Notes full-page view: local draft + 500ms debounced auto-save (500ms
   // per spec), so every keystroke doesn't write to storage. No existing
   // debounce pattern in this file to match — this is a new one, not
@@ -4516,6 +4546,93 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     })
     savePackingSections(incoming)
     return true
+  }
+
+  // ── Master packing template — af_packing_template (singular), separate from
+  // af_packing_templates above. Seeded once from MASTER_PACKING_TEMPLATE_SEED,
+  // then fully independent: editing it never touches any trip's packing list,
+  // and editing a trip's list never touches this. Same normalized shape as a
+  // trip's packing sections ([{id,title,items:[{id,text,done}]}]) so it can be
+  // dropped straight into a trip's list without any conversion step.
+  function seedMasterTemplateSections() {
+    return MASTER_PACKING_TEMPLATE_SEED.map(function(sec, si){
+      return { id:"mt_"+si, title: sec.title, items: sec.items.map(function(text, ii){ return { id:"mt_"+si+"_"+ii, text:text, done:false } }) }
+    })
+  }
+  function readMasterTemplate() {
+    try {
+      var raw = localStorage.getItem("af_packing_template")
+      var parsed = raw ? JSON.parse(raw) : null
+      if (Array.isArray(parsed)) return normalizePackingSections(parsed)
+    } catch {}
+    var seeded = seedMasterTemplateSections()
+    try { localStorage.setItem("af_packing_template", JSON.stringify(seeded)) } catch {}
+    return seeded
+  }
+  function saveMasterTemplateSections(sections) {
+    setMasterTemplateSectionsRaw(sections)
+    try { localStorage.setItem("af_packing_template", JSON.stringify(sections)) } catch {}
+  }
+  function addMasterSection(title) {
+    saveMasterTemplateSections([...masterTemplateSections, { id:uidLocal(), title:(title||"").trim()||"New section", items:[] }])
+  }
+  function renameMasterSection(secId, title) {
+    saveMasterTemplateSections(masterTemplateSections.map(function(s){ return s.id===secId ? Object.assign({},s,{title:title}) : s }))
+  }
+  function deleteMasterSection(secId) {
+    if (!window.confirm("Delete this section and all its items from the master template?")) return
+    saveMasterTemplateSections(masterTemplateSections.filter(function(s){ return s.id!==secId }))
+  }
+  function addMasterItem(secId, text) {
+    if (!text || !text.trim()) return
+    saveMasterTemplateSections(masterTemplateSections.map(function(s){
+      if (s.id!==secId) return s
+      return Object.assign({}, s, { items:[...s.items, { id:uidLocal(), text:text.trim(), done:false }] })
+    }))
+  }
+  function renameMasterItem(secId, itemId, text) {
+    saveMasterTemplateSections(masterTemplateSections.map(function(s){
+      if (s.id!==secId) return s
+      return Object.assign({}, s, { items: s.items.map(function(it){ return it.id===itemId ? Object.assign({},it,{text:text}) : it }) })
+    }))
+  }
+  function removeMasterItem(secId, itemId) {
+    saveMasterTemplateSections(masterTemplateSections.map(function(s){
+      if (s.id!==secId) return s
+      return Object.assign({}, s, { items: s.items.filter(function(it){ return it.id!==itemId }) })
+    }))
+  }
+  // Loads the master template into the current trip. "replace" overwrites the
+  // trip's packing list outright (fresh ids so edits there never alias back to
+  // the template); "merge" folds each master section into a same-titled trip
+  // section if one exists, else appends it as a new section — same matching
+  // rule importTemplateMerge above uses.
+  function loadMasterTemplateInto(mode) {
+    if (!detailTrip) return
+    if (mode === "replace") {
+      var replaced = masterTemplateSections.map(function(sec){
+        return { id:uidLocal(), title:sec.title, items: sec.items.map(function(it){ return { id:uidLocal(), text:it.text, done:false } }) }
+      })
+      savePackingSections(replaced)
+      return
+    }
+    var current = packingSections()
+    masterTemplateSections.forEach(function(inc){
+      var existingIdx = current.findIndex(function(s){ return s.title === inc.title })
+      var newItems = inc.items.map(function(it){ return { id:uidLocal(), text:it.text, done:false } })
+      if (existingIdx !== -1) {
+        current = current.map(function(s, i){ return i===existingIdx ? Object.assign({}, s, { items:[...s.items, ...newItems] }) : s })
+      } else {
+        current = current.concat([{ id:uidLocal(), title: inc.title, items: newItems }])
+      }
+    })
+    savePackingSections(current)
+  }
+  // Entry point for the "📋 Load master template" button — an empty trip list
+  // has nothing to merge with or replace, so skip the prompt and just load.
+  function openMasterTemplateLoad() {
+    if (packingSections().length === 0) { loadMasterTemplateInto("replace"); return }
+    setMasterLoadOpen(true)
   }
 
   // ── Itinerary — day-by-day shape, full-page detail view (Level 3 nav) ────
@@ -5008,6 +5125,8 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                   <div>
                     <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>{allItems.filter(function(i){return i.done}).length} of {allItems.length} packed</div>
                     <button onClick={function(){ setImportOpen(true) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"5px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📥 Import list</button>
+                    <button onClick={openMasterTemplateLoad} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"5px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📋 Load master template</button>
+                    <button onClick={function(){ setMasterEditOpen(true) }} style={{ background:"none", border:"1px solid rgba(250,248,244,0.15)", borderRadius:7, padding:"5px 12px", fontSize:11, color:muted, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>✏️ Edit master template</button>
                     {sections.length === 0 && readAlwaysBring().length > 0 && (
                       <button onClick={copyAlwaysBring} style={{ background:"rgba(160,122,181,0.12)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:7, padding:"5px 12px", fontSize:11, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📋 Copy from Always Bring ({readAlwaysBring().length})</button>
                     )}
@@ -5091,6 +5210,72 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                         <button onClick={function(){ setImportSelectedTemplate(null) }} style={{ width:"100%", background:"none", border:"none", color:muted, fontSize:12, fontFamily:"DM Sans,sans-serif", cursor:"pointer", padding:"6px 0" }}>← Choose a different list</button>
                       </div>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {masterLoadOpen && (
+                // Merge-vs-replace choice for the master template — same shape as
+                // importOpen's choice step above, just without the template-picker
+                // step first since there's only ever one master template.
+                <div style={{ position:"fixed", inset:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={function(){ setMasterLoadOpen(false) }}>
+                  <div onClick={function(e){ e.stopPropagation() }} style={{ background:"#1a2744", borderRadius:"18px 18px 0 0", padding:20, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", boxSizing:"border-box" }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:19, fontWeight:700, color:warm }}>📋 Master Packing List</div>
+                      <button onClick={function(){ setMasterLoadOpen(false) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.4)", cursor:"pointer", fontSize:18 }}>✕</button>
+                    </div>
+                    <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>This trip already has a packing list. Replace it or merge the master template into it?</div>
+                    <button onClick={function(){ loadMasterTemplateInto("merge"); setMasterLoadOpen(false) }} style={{ width:"100%", background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:10, padding:"10px 14px", color:"#a07ab5", fontSize:13, fontWeight:600, fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:8 }}>Merge with current list</button>
+                    <button onClick={function(){ loadMasterTemplateInto("replace"); setMasterLoadOpen(false) }} style={{ width:"100%", background:"rgba(226,75,74,0.08)", border:"1px solid rgba(226,75,74,0.25)", borderRadius:10, padding:"10px 14px", color:"rgba(240,153,123,0.9)", fontSize:13, fontWeight:600, fontFamily:"DM Sans,sans-serif", cursor:"pointer", marginBottom:8 }}>Replace current list</button>
+                  </div>
+                </div>
+              )}
+
+              {masterEditOpen && (
+                // Master template's own editor — a starting point, not locked:
+                // sections and items can be renamed, added, and deleted here,
+                // independent of any trip's packing list. Reuses the same coral
+                // mini-card layout as the trip packing view, minus the packed
+                // checkbox (a template item is never "packed") plus an inline
+                // rename input on each item, which the trip view doesn't have.
+                <div style={{ position:"fixed", inset:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={function(){ setMasterEditOpen(false) }}>
+                  <div onClick={function(e){ e.stopPropagation() }} style={{ background:"#1a2744", borderRadius:"18px 18px 0 0", padding:20, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))", width:"min(560px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", boxSizing:"border-box" }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+                      <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:19, fontWeight:700, color:warm }}>✏️ Edit Master Packing List</div>
+                      <button onClick={function(){ setMasterEditOpen(false) }} style={{ background:"none", border:"none", color:"rgba(250,248,244,0.4)", cursor:"pointer", fontSize:18 }}>✕</button>
+                    </div>
+                    <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:16 }}>Changes here update the template for every future trip — they don't touch any trip's current packing list.</div>
+                    <div className="af-card-grid-2" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:12 }}>
+                      {masterTemplateSections.map(function(sec){
+                        return (
+                          <div key={sec.id} style={{ background:"#fde5dc", border:"1px solid rgba(217,138,110,0.3)", borderRadius:8, overflow:"hidden", padding:"10px 12px" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                              <input value={sec.title} onChange={function(e){ renameMasterSection(sec.id, e.target.value) }} style={{ flex:1, minWidth:0, fontSize:14, fontWeight:700, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                              <button onClick={function(){ deleteMasterSection(sec.id) }} style={{ background:"none", border:"none", color:"rgba(200,80,80,0.5)", cursor:"pointer", fontSize:12, flexShrink:0 }}>✕</button>
+                            </div>
+                            {sec.items.length === 0 && (
+                              <div style={{ fontSize:12, color:"#8a5c48", fontStyle:"italic", fontFamily:"DM Sans,sans-serif", marginBottom:8 }}>No items in this section yet.</div>
+                            )}
+                            {sec.items.map(function(item){
+                              return (
+                                <div key={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.08)" }}>
+                                  <input value={item.text} onChange={function(e){ renameMasterItem(sec.id, item.id, e.target.value) }} style={{ flex:1, minWidth:0, fontSize:13, color:"#1a2e3d", background:"transparent", border:"none", outline:"none", fontFamily:"DM Sans,sans-serif" }}/>
+                                  <button onClick={function(){ removeMasterItem(sec.id, item.id) }} style={{ background:"none", border:"none", fontSize:11, color:"#8a5c48", cursor:"pointer", padding:"0 2px" }}>✕</button>
+                                </div>
+                              )
+                            })}
+                            <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                              <input value={masterItemDrafts[sec.id]||""} onChange={function(e){ var v=e.target.value; setMasterItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:v}) }) }} onKeyDown={function(e){ if(e.key==="Enter"){ addMasterItem(sec.id, masterItemDrafts[sec.id]||""); setMasterItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) } }} placeholder="Add an item…" style={Object.assign({}, inputStyle, { background:"rgba(26,46,61,0.05)", color:"#1a2e3d", flex:1 })}/>
+                              <button onClick={function(){ addMasterItem(sec.id, masterItemDrafts[sec.id]||""); setMasterItemDrafts(function(p){ return Object.assign({},p,{[sec.id]:""}) }) }} style={{ background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.3)", borderRadius:8, padding:"0 14px", color:"#a07ab5", fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>Add</button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                      <input value={newMasterSectionTitle} onChange={function(e){ setNewMasterSectionTitle(e.target.value) }} onKeyDown={function(e){ if(e.key==="Enter"){ addMasterSection(newMasterSectionTitle); setNewMasterSectionTitle("") } }} placeholder="New section name…" style={Object.assign({},inputStyle,{flex:1})}/>
+                      <button onClick={function(){ addMasterSection(newMasterSectionTitle); setNewMasterSectionTitle("") }} style={{ background:"rgba(200,169,122,0.15)", border:"1px solid rgba(200,169,122,0.3)", borderRadius:8, padding:"0 14px", color:sand, fontSize:12, cursor:"pointer", fontFamily:"DM Sans,sans-serif", fontWeight:600 }}>+ Section</button>
+                    </div>
                   </div>
                 </div>
               )}
