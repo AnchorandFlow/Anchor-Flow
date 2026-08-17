@@ -9797,20 +9797,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <label style={lbl}>{m}</label>
                 <div style={{display:"flex",gap:"0.4rem"}}>
                   {/* Fix 2: the meal name is the thing being edited — make it the visually
-                      prominent element. Was the shared inp() default (0.87rem), same as
-                      every other generic input in the app. */}
-                  <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1,fontSize:"1.05rem",fontWeight:600,padding:"0.75rem 0.9rem"})}}/>
+                      prominent element: bigger text (18px) and a taller tap target
+                      (44px min-height), not the shared inp() default (0.87rem/no min-height)
+                      every other generic input in the app uses. */}
+                  <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1,fontSize:"18px",fontWeight:600,padding:"0.75rem 0.9rem",minHeight:"44px",boxSizing:"border-box"})}}/>
                   <MealBankDrawer mealType={m} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(meal){setEditMeal(function(p){return {...p,[m]:meal.name};});}} onAddToShopping={addIngredientToShopping}/>
                 </div>
-                {/* Fix 2: recipe picker moved below the meal input and shrunk further —
-                    was inline with the input at 0.74rem, now clearly secondary. */}
-                {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"100%",fontSize:"0.72rem",padding:"0.4rem 0.6rem",marginTop:"0.35rem"})}}>
+                {/* Fix 2: recipe picker stays below the meal name, smaller/secondary text (13px). */}
+                {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"100%",fontSize:"13px",padding:"0.4rem 0.6rem",marginTop:"0.35rem"})}}>
                   <option value="">From recipes…</option>
                   {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>}
               </div>
             ))}
-            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea defaultValue={editMeal.notes||""} onBlur={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none"})}}/></div>
+            <div style={{marginBottom:"0.9rem"}}><label style={lbl}>Notes</label><textarea defaultValue={editMeal.notes||""} onBlur={e=>setEditMeal(p=>({...p,notes:e.target.value}))} placeholder="Dietary notes, prep reminders…" style={{...inp({height:65,resize:"none",fontSize:"13px"})}}/></div>
             <div style={{marginBottom:"0.9rem"}}>
               <label style={lbl}>Grocery items needed</label>
               <div style={{display:"flex",flexDirection:"column",gap:"0.4rem"}}>
