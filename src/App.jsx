@@ -7253,6 +7253,18 @@ Respond ONLY in valid JSON:
           </div>
         )}
 
+        {/* ── Sunset — end of day close (moved off the sidebar nav; same
+            af-open-sunset trigger the old sidebar icon used, just fired from
+            here instead — functionality unchanged, only its location). ── */}
+        <div onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} style={{background:"linear-gradient(135deg,rgba(58,107,138,0.06),rgba(200,169,122,0.09))",border:"1.5px solid "+T.sand+"40",borderRadius:"1.1rem",padding:"0.9rem 1rem",marginTop:"0.75rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.65rem"}}>
+          <span style={{fontSize:"1.3rem"}}>🌇</span>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>Sunset</div>
+            <div style={{fontSize:"0.78rem",color:T.textSoft}}>Close out your day</div>
+          </div>
+          <span style={{fontSize:"0.9rem",color:T.textFaint}}>→</span>
+        </div>
+
       </div>
     );
   }
@@ -17810,7 +17822,6 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           })
         )}
         <div style={{ marginTop: "auto", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <button onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} title="Sunset" aria-label="Sunset — end of day reset" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "15px", opacity: 0.82 }}>🌇</span><span style={{ fontSize: "6.5px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.03em", textTransform: "uppercase" }}>Sunset</span></button>
           <button onClick={() => { setShowAnchor(false); _setActiveTab("settings"); }} title="Settings" aria-label="Settings" style={{ background: (!showAnchor && activeTab === "settings") ? "rgba(200,169,122,0.14)" : "none", border: "none", cursor: "pointer", padding: "8px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}><span style={{ fontSize: "16px", opacity: 0.82 }}>⚙️</span><span style={{ fontSize: "7px", color: "rgba(200,169,122,0.72)", fontWeight: 500, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>Settings</span></button>
           <button onClick={function(){ try{window.dispatchEvent(new CustomEvent("af-open-feedback"));}catch{} }} title="Send feedback" aria-label="Send feedback" style={{ background: "none", border: "none", cursor: "pointer", padding: "7px 0", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}><span style={{ fontSize: "14px", opacity: 0.6 }}>💬</span></button>
           <button onClick={onSignOut} title="Sign out" style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 0", width: "56px", display: "flex", justifyContent: "center", opacity: 0.3, color: "#faf8f4", fontSize: "11px", fontFamily: "DM Sans, sans-serif" }}>sign out</button>
