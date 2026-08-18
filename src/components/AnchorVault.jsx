@@ -9003,7 +9003,7 @@ function RecurringRemindersSection() {
 }
 
 
-function AnchorDashboard({ onNavigate, calEvents }) {
+function AnchorDashboard({ onNavigate, onGoToFlowTab, calEvents }) {
   calEvents = calEvents || []
 
   // ── Live data readers ──────────────────────────────────────────────────────
@@ -9631,7 +9631,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
             <span style={{ fontSize: 18 }}>🍽️</span>
             <div><div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>This Week's Dinners</div><div style={{ fontSize: 11, color: "#4a6275" }}>{plannedCount} of 7 planned</div></div>
           </div>
-          <span onClick={function(){ onNavigate("meals"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>Plan →</span>
+          <span onClick={function(){ onGoToFlowTab("meals"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>Plan →</span>
         </div>
         <div className="af-card-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 10px" }}>
           {dinnerRows.map(function(r){ return (
@@ -9649,7 +9649,7 @@ function AnchorDashboard({ onNavigate, calEvents }) {
             <span style={{ fontSize: 18 }}>🛒</span>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }}>Quick Add to Shopping</div>
           </div>
-          <span onClick={function(){ onNavigate("shop"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>List →</span>
+          <span onClick={function(){ onGoToFlowTab("shop"); }} style={{ fontSize: 11, color: "#c8a97a", cursor: "pointer" }}>List →</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <input value={shopVal} onChange={function(e){ setShopVal(e.target.value); }} onKeyDown={function(e){ if(e.key==="Enter") quickAddShop(); }} placeholder="Add an item..." style={{ flex: 1, background: "rgba(26,46,61,0.05)", border: "0.5px solid rgba(26,46,61,0.1)", borderRadius: 8, padding: "9px 12px", color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", fontSize: 13, outline: "none" }} />
@@ -10148,6 +10148,12 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
     try { window.dispatchEvent(new CustomEvent("af-open-recipes-tab")); } catch {}
     onClose()
   }
+  // Dashboard "Plan →" / "List →" cards: same cross-app hop as handleOpenRecipe —
+  // close the vault and dispatch af-set-tab so App.jsx switches to the Flow tab.
+  function handleGoToFlowTab(tabId) {
+    try { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: tabId })); } catch {}
+    onClose()
+  }
   calEvents = calEvents || []
   vaultSection = vaultSection || "home"
 
@@ -10222,7 +10228,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
                   <button onClick={function() { setActiveSection("home") }} style={{ background: "none", border: "none", color: "rgba(200,169,122,0.7)", cursor: "pointer", fontSize: 13, fontFamily: "DM Sans,sans-serif", padding: "0 0 16px 0", display: "flex", alignItems: "center", gap: 5 }}>← Anchor Home</button>
                 )
               )}
-              {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} calEvents={calEvents} />}
+              {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} onGoToFlowTab={handleGoToFlowTab} calEvents={calEvents} />}
               {activeSection === "recurring" && <RecurringRemindersSection />}
               {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
               {activeSection === "systems" && <HomeSection />}
