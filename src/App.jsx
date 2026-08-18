@@ -7256,13 +7256,12 @@ Respond ONLY in valid JSON:
         {/* ── Sunset — end of day close (moved off the sidebar nav; same
             af-open-sunset trigger the old sidebar icon used, just fired from
             here instead — functionality unchanged, only its location). ── */}
-        <div onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} style={{background:"linear-gradient(135deg,rgba(58,107,138,0.06),rgba(200,169,122,0.09))",border:"1.5px solid "+T.sand+"40",borderRadius:"1.1rem",padding:"0.9rem 1rem",marginTop:"0.75rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.65rem"}}>
-          <span style={{fontSize:"1.3rem"}}>🌇</span>
+        <div onClick={function(){ window.dispatchEvent(new CustomEvent("af-open-sunset")); }} style={{background:"linear-gradient(135deg,#f4a261 0%,#e76f51 40%,#9b5de5 80%,#2b3d52 100%)",border:"1.5px solid "+T.sand+"40",borderRadius:"1.1rem",padding:"0.9rem 1rem",marginTop:"0.75rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.65rem"}}>
           <div style={{flex:1}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>Sunset</div>
-            <div style={{fontSize:"0.78rem",color:T.textSoft}}>Close out your day</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:"#ffffff"}}>Sunset</div>
+            <div style={{fontSize:"0.78rem",color:"#ffffff"}}>Close out your day</div>
           </div>
-          <span style={{fontSize:"0.9rem",color:T.textFaint}}>→</span>
+          <span style={{fontSize:"0.9rem",color:"#ffffff"}}>→</span>
         </div>
 
       </div>
