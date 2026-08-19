@@ -400,19 +400,19 @@ export default function RipplesRoom(props) {
 
               {/* Title */}
               <input value={fTitle} onChange={function (e) { setFTitle(e.target.value); }} placeholder="Tradition name (e.g. Pumpkin pancakes on first snow)"
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none" }} />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none" }} />
 
               {/* Started year + when */}
               <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                 <div style={{ flex: 1, minWidth: 120 }}>
                   <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Started in</div>
                   <input value={fStarted} onChange={function (e) { setFStarted(e.target.value.replace(/[^0-9]/g, "")); }} placeholder={String(THIS_YEAR)} maxLength={4}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 120 }}>
                   <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>When (optional)</div>
                   <select value={fWhen} onChange={function (e) { setFWhen(e.target.value); }}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.border, background: "rgba(23,71,78,.9)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
+                    style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
                     <option value="">No set date</option>
                     {MONTHS.map(function (mo, mi) {
                       var mm = String(mi + 1).padStart(2, "0");
@@ -424,7 +424,7 @@ export default function RipplesRoom(props) {
 
               {/* Description */}
               <textarea value={fDesc} onChange={function (e) { setFDesc(e.target.value); }} placeholder="What happens? Why does it matter? (optional)" rows={3}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5 }} />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5 }} />
 
               {/* Buttons */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -537,12 +537,12 @@ export default function RipplesRoom(props) {
         <div style={{ background: "#1E5B63", border: "1px solid " + C.border, borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }}>
           <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12 }}>{editingRippleId ? "Edit ripple" : "Capture a ripple"}</div>
           <input value={addForm.name} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{name:e.target.value}); }); }} placeholder="What happened? (e.g. First steps!)"
-            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Category</div>
               <select value={addForm.category} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{category:e.target.value}); }); }}
-                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.border, background: "rgba(23,71,78,.9)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
+                style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
                 <option value="milestone">Milestone</option>
                 <option value="firsts">First</option>
                 <option value="school">Learning win</option>
@@ -555,11 +555,11 @@ export default function RipplesRoom(props) {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Date</div>
               <input type="date" value={addForm.date} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{date:e.target.value}); }); }}
-                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.border, background: "rgba(23,71,78,.9)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
             </div>
           </div>
           <textarea value={addForm.note} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{note:e.target.value}); }); }} placeholder="Notes (optional)" rows={2}
-            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.border, background: "rgba(183,212,207,.06)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 10, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 10, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
           <label style={{ display: "block", marginBottom: 12, cursor: "pointer" }}>
             {addForm.photo ? (
               <div style={{ position: "relative" }}>
