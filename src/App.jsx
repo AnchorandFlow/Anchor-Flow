@@ -9189,11 +9189,6 @@ Respond ONLY in valid JSON:
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
-    // swapDay is shared between This Week and Next Week (both just swap two
-    // day-of-week keys in whichever meals object is active) — clear it on
-    // tab switch so a swap started in one week can't complete against the
-    // other week's data if the user navigates away mid-swap.
-    useEffect(function(){ setSwapDay(null); },[mealSubTab]);
     const [editingThemes,setEditingThemes]=useState(false);
     // Deep-link from Celebrations > Food & Cake ("Browse all recipes" / tap a
     // recipe): AnchorVault.jsx can't reach this state via props (separate
@@ -9214,6 +9209,11 @@ Respond ONLY in valid JSON:
       return function(){ window.removeEventListener("af-open-recipes-tab", onNav); };
     },[]);
     const [mealSubTab,setMealSubTab]=useSaved("mealSubTab","week");
+    // swapDay is shared between This Week and Next Week (both just swap two
+    // day-of-week keys in whichever meals object is active) — clear it on
+    // tab switch so a swap started in one week can't complete against the
+    // other week's data if the user navigates away mid-swap.
+    useEffect(function(){ setSwapDay(null); },[mealSubTab]);
     const addIngredientToShopping = useCallback((ing)=>setShoppingItems(p=>[...p,{id:Date.now().toString(),text:ing,done:false,store:"Grocery Store",category:"grocery"}]),[]);
     const [nextWeekMeals,setNextWeekMeals]=useSaved("nextWeekMeals",{});
     const [nextWeekMealCount,setNextWeekMealCount]=useSaved("nwMealCount",1);
