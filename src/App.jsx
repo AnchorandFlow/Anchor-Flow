@@ -9171,6 +9171,21 @@ Respond ONLY in valid JSON:
   }
 
   _hfRenders.MealsTab = function MealsTab() {
+    // Undo toast — same shared component/pattern as WavesSection and Exhale
+    // (its own local state; MealsTab is a separate closure so it needs its
+    // own instance, not a shared one).
+    const [undoToast,setUndoToast]=useState(null);
+    const undoTimeoutRef=useRef(null);
+    function showUndoToast(message,undoFn){
+      if(undoTimeoutRef.current)clearTimeout(undoTimeoutRef.current);
+      setUndoToast({message:message,undoFn:undoFn});
+      undoTimeoutRef.current=setTimeout(function(){setUndoToast(null);undoTimeoutRef.current=null;},4000);
+    }
+    function handleUndoClick(){
+      if(undoTimeoutRef.current){clearTimeout(undoTimeoutRef.current);undoTimeoutRef.current=null;}
+      if(undoToast&&undoToast.undoFn)undoToast.undoFn();
+      setUndoToast(null);
+    }
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
@@ -9259,10 +9274,35 @@ Respond ONLY in valid JSON:
       if (editMeal.groceryItems && editMeal.groceryItems.length > 0) {
         setShoppingItems(p=>[...p,...editMeal.groceryItems.map(g=>({id:Date.now().toString()+Math.random(),text:g,done:false,store:"Grocery Store",category:"grocery"}))]);
       }
-      setMeals(p=>({...p,[editDay]:clean}));
+      var savedDay=editDay;
+      var prevDayMeal=meals[savedDay]||{};
+      var hadDinner=!!(prevDayMeal.dinner||"").trim();
+      var willHaveDinner=!!(clean.dinner||"").trim();
+      setMeals(p=>({...p,[savedDay]:clean}));
       setEditDay(null);
+      // Only offer undo when an existing dinner was actually cleared or
+      // changed — not when a day that had nothing planned gets a dinner for
+      // the first time (nothing there to lose).
+      if(hadDinner&&prevDayMeal.dinner!==clean.dinner){
+        showUndoToast(willHaveDinner?(savedDay+"'s dinner changed"):(savedDay+"'s dinner cleared"),function(){
+          setMeals(function(p){return {...p,[savedDay]:prevDayMeal};});
+        });
+      }
     }
     function rotateMeals(){var days=MEAL_DAYS.slice();var cur=Object.assign({},meals);var rotated={};days.forEach(function(day,i){var prev=days[(i-1+days.length)%days.length];rotated[day]=Object.assign({},cur[prev]);});setMeals(rotated);}
+    // "Make Tonight" one-tap buttons overwrite today's dinner directly, no
+    // confirmation step — offer undo when that overwrites an existing plan.
+    function makeTonight(name){
+      var prevTodayMeal=meals[TODAY_NAME]||{};
+      var hadDinner=!!(prevTodayMeal.dinner||"").trim();
+      setMeals(function(p){return {...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:name}};});
+      setMealSubTab("tonight");
+      if(hadDinner&&prevTodayMeal.dinner!==name){
+        showUndoToast("Tonight's dinner changed",function(){
+          setMeals(function(p){return {...p,[TODAY_NAME]:prevTodayMeal};});
+        });
+      }
+    }
     function applyWeekType(key){
       const preset=WEEK_TYPE_PRESETS[key];if(!preset)return;
       setWeekTypeKey(key);
@@ -9685,7 +9725,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         )}
                         {m.swap&&<div style={{background:T.bluePale,border:`1px solid ${T.blue}30`,borderRadius:"0.6rem",padding:"0.55rem 0.75rem",marginTop:"0.5rem",fontSize:"0.78rem",color:T.textDark,fontWeight:500}}>💡 <strong>Swap:</strong> {m.swap}</div>}
                         <div style={{marginTop:"0.65rem",display:"flex",gap:"0.45rem",flexWrap:"wrap"}}>
-                          <button onClick={function(e){e.stopPropagation();setMeals(function(p){return{...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:m.name}};});setMealSubTab("tonight");}} style={btnP(T.sage,{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
+                          <button onClick={function(e){e.stopPropagation();makeTonight(m.name);}} style={btnP(T.sage,{fontSize:"0.76rem",padding:"0.35rem 0.8rem"})}>🌙 Make Tonight</button>
                           <button onClick={function(e){e.stopPropagation();openEdit(TODAY_NAME);}} style={btnS({fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Add to Week</button>
                         </div>
                       </div>
@@ -9857,7 +9897,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div key={i} style={{...card({borderLeft:`4px solid ${T.rose}`,background:`linear-gradient(to right,${T.rosePale},${T.surface})`})}}>
                     <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem",marginBottom:"0.3rem"}}>{r.name}</div>
                     <div style={{color:T.textMid,fontSize:"0.8rem",lineHeight:1.5}}>{r.desc}</div>
-                    <button onClick={()=>{setMeals(p=>({...p,[TODAY_NAME]:{...(p[TODAY_NAME]||{}),dinner:r.name}}));setMealSubTab("tonight");}} style={btnP(T.rose,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",marginTop:"0.65rem"})}>🌙 Make This Tonight</button>
+                    <button onClick={()=>{makeTonight(r.name);}} style={btnP(T.rose,{fontSize:"0.74rem",padding:"0.3rem 0.75rem",marginTop:"0.65rem"})}>🌙 Make This Tonight</button>
                   </div>
                 ))}
               </div>
@@ -9938,6 +9978,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {mealsTopTab==="recipes"&&<RecipeBookTab/>}
 
+        <UndoToast toast={undoToast} onUndo={handleUndoClick} />
       </div>
     );
   }
