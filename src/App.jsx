@@ -9802,10 +9802,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <input key={m+"_"+editDay} defaultValue={editMeal[m]||""} onBlur={e=>setEditMeal(p=>({...p,[m]:e.target.value}))} placeholder={`${m[0].toUpperCase()+m.slice(1)}…`} style={{...inp({flex:1,fontSize:"18px",fontWeight:600,padding:"0.75rem 0.9rem",minHeight:"44px",boxSizing:"border-box"})}}/>
                   <MealBankDrawer mealType={m} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(meal){setEditMeal(function(p){return {...p,[m]:meal.name};});}} onAddToShopping={addIngredientToShopping}/>
                 </div>
-                {/* Fix 2: recipe picker stays below the meal name, smaller/secondary text (13px). */}
-                {recipes.length>0&&<select onChange={e=>{if(e.target.value){const r=recipes.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.name}));e.target.value=""}}} style={{...inp({width:"100%",fontSize:"13px",padding:"0.4rem 0.6rem",marginTop:"0.35rem"})}}>
+                {/* Fix 2: recipe picker stays below the meal name, smaller/secondary text (13px).
+                    Reads recipeBook (the actual "My Recipes" tab data) — was reading the
+                    unrelated `recipes` state, which nothing in the app ever writes to, so
+                    this dropdown was permanently empty regardless of what a user saved. */}
+                {recipeBook.length>0&&<select onChange={e=>{if(e.target.value){const r=recipeBook.find(x=>x.id===e.target.value);if(r)setEditMeal(p=>({...p,[m]:r.title}));e.target.value=""}}} style={{...inp({width:"100%",fontSize:"13px",padding:"0.4rem 0.6rem",marginTop:"0.35rem"})}}>
                   <option value="">From recipes…</option>
-                  {recipes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+                  {recipeBook.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}
                 </select>}
               </div>
             ))}
