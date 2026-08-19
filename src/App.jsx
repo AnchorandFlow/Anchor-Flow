@@ -9947,6 +9947,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const [importUrl,setImportUrl]=useState("");
     const [importLoading,setImportLoading]=useState(false);
     const [importError,setImportError]=useState("");
+    // Manually-created/edited recipes already auto-save on every keystroke
+    // (updateRecipe below), so there's nothing to persist here — this is a
+    // visible confirmation flash only, since imported drafts are the only
+    // recipes that otherwise show any "save" affordance at all.
+    const [savedFlash,setSavedFlash]=useState(false);
+    function flashSaved(){ setSavedFlash(true); setTimeout(function(){ setSavedFlash(false); },1800); }
     // Parsed-but-unsaved recipe from "Import from URL" — reviewed/edited in
     // the same detail view as a saved recipe (see record/isDraft below), but
     // never written to recipeBook until the user explicitly saves it.
@@ -10072,6 +10078,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               </div>
               {importError && <p style={{color:T.sandDark,fontSize:"0.76rem",marginTop:"0.5rem",marginBottom:0}}>{importError}</p>}
+            </div>
+          )}
+
+          {!isDraft && (
+            <div style={{...card({background:savedFlash?T.sagePale:T.bluePale,border:`2px solid ${savedFlash?T.sage:T.blue}50`,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"background 0.2s,border-color 0.2s"})}}>
+              <span style={{fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>{savedFlash?"✓ Saved":"Edits save automatically"}</span>
+              <button onClick={flashSaved} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>Save Recipe</button>
             </div>
           )}
 
