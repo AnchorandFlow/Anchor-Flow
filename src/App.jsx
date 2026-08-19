@@ -20,7 +20,7 @@ import CompassIcon from "./components/CompassIcon.jsx"
 import Icon from "./components/Icon.jsx"
 import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
-import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson, isLighthouseDirty } from "./sync-core.js"
+import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
@@ -651,19 +651,19 @@ function readHouseholdState() {
   SYNC_KEYS.forEach(function (k) {
     try { st[k] = JSON.parse(localStorage.getItem("af_" + k)); } catch (e) { st[k] = null; }
   });
-  // Cove "Personal" lists must stay device-local — category is otherwise just
-  // a display filter (the "Personal"/"Family"/"Home" pills in Cove's Lists
-  // tab), with nothing anywhere actually keeping personal-category lists out
-  // of the shared household blob. Strip them (and their items/sections) out
-  // of what gets pushed, the same way myPersonId/preferredName are excluded
-  // above for a different reason. See applyHouseholdKey (sync-core.js) for
-  // the matching pull-side merge that keeps local personal lists from being
-  // wiped out by a remote blob that never contained them.
+  // Cove private lists (coveListIsShared false) must stay device-local —
+  // nothing anywhere else keeps them out of the shared household blob.
+  // Strip them (and their items/sections) out of what gets pushed, the same
+  // way myPersonId/preferredName are excluded above for a different reason.
+  // See coveListIsShared/applyHouseholdKey (sync-core.js) for the single
+  // shared predicate and the matching pull-side merge that keeps local
+  // private lists from being wiped out by a remote blob that never
+  // contained them.
   try {
     var _coveLists = Array.isArray(st.cove_lists_v1) ? st.cove_lists_v1 : [];
     var _personalListIds = {};
-    _coveLists.forEach(function (l) { if (l && l.category === "personal") _personalListIds[l.id] = true; });
-    st.cove_lists_v1 = _coveLists.filter(function (l) { return !(l && l.category === "personal"); });
+    _coveLists.forEach(function (l) { if (l && !coveListIsShared(l)) _personalListIds[l.id] = true; });
+    st.cove_lists_v1 = _coveLists.filter(function (l) { return coveListIsShared(l); });
     if (st.cove_items_v1 && typeof st.cove_items_v1 === "object" && !Array.isArray(st.cove_items_v1)) {
       var _filteredItems = {};
       Object.keys(st.cove_items_v1).forEach(function (lid) { if (!_personalListIds[lid]) _filteredItems[lid] = st.cove_items_v1[lid]; });
@@ -12855,6 +12855,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var listId = uid2();
       var newList = {
         id: listId, title: tmpl.title, category: tmpl.category,
+        // isShared is the actual sync gate (see readHouseholdState/
+        // applyHouseholdKey) — category stays purely organizational.
+        // Defaults from category so a "Personal" template starts private,
+        // matching today's behavior, but the user can flip it either way.
+        isShared: tmpl.category !== "personal",
         list_type: tmpl.list_type, icon: tmpl.icon,
         color_accent: tmpl.color_accent, show_progress: tmpl.show_progress,
         render_style: tmpl.render_style || null,
@@ -12967,6 +12972,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var listId = uid2();
       var newList = {
         id: listId, title: newForm.title.trim(), category: newForm.category,
+        isShared: newForm.category !== "personal",
         list_type: "checklist", icon: "list",
         color_accent: newForm.color_accent, show_progress: true,
         template_id: null, created_at: Date.now(),
@@ -13110,6 +13116,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {totalItems > 0 ? checkedCount+" of "+totalItems+" done · tap text to edit · drag to reorder" : "Start adding below"}
               </div>
             </div>
+            <button onClick={function(){setCoveLists(function(p){return p.map(function(l){return l.id===activeList.id?Object.assign({},l,{isShared:!coveListIsShared(l)}):l;});});}}
+              title={coveListIsShared(activeList)?"Shared — syncs to your household. Tap to make private.":"Private — stays on this device. Tap to share with your household."}
+              style={{background:coveListIsShared(activeList)?T.bluePale:T.sandPale,border:"1px solid "+(coveListIsShared(activeList)?T.blue:T.sand)+"55",borderRadius:999,padding:"3px 8px",fontSize:"0.66rem",fontWeight:700,color:coveListIsShared(activeList)?T.blueDark:T.sandDark,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap",fontFamily:"inherit",marginTop:2}}>
+              {coveListIsShared(activeList)?"👥 Shared":"🔒 Private"}
+            </button>
             <button onClick={function(){ deleteList(activeList.id); }} style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:4,display:"flex",flexShrink:0,marginTop:2}}>
               <Icon name="trash" size={14} color={T.rose}/>
             </button>
@@ -13388,6 +13399,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         <div style={{fontSize:"0.88rem",fontWeight:700,color:T.textDark,lineHeight:1.3}}>{list.title}</div>
                         <div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:2}}>{total>0?done+" of "+total+" done · "+CAT_LABELS[list.category]:"Empty · "+CAT_LABELS[list.category]}</div>
                       </div>
+                      <button onClick={function(e){e.stopPropagation();setCoveLists(function(p){return p.map(function(l){return l.id===list.id?Object.assign({},l,{isShared:!coveListIsShared(l)}):l;});});}}
+                        title={coveListIsShared(list)?"Shared — syncs to your household. Tap to make private.":"Private — stays on this device. Tap to share with your household."}
+                        style={{background:coveListIsShared(list)?T.bluePale:T.sandPale,border:"1px solid "+(coveListIsShared(list)?T.blue:T.sand)+"55",borderRadius:999,padding:"2px 7px",fontSize:"0.62rem",fontWeight:700,color:coveListIsShared(list)?T.blueDark:T.sandDark,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap",fontFamily:"inherit"}}>
+                        {coveListIsShared(list)?"👥 Shared":"🔒 Private"}
+                      </button>
                       <button onClick={function(){setEditingColorFor(editingColorFor===list.id?null:list.id);}} title="Change color" style={{width:16,height:16,borderRadius:"50%",background:lAccent,border:"2px solid "+T.surface,boxShadow:"0 0 0 1px "+T.borderSoft,cursor:"pointer",padding:0,flexShrink:0}}/>
                       <button onClick={async function(){if(await afConfirm("Delete \""+list.title+"\"?", {confirmText:"Delete",danger:true})){setCoveLists(function(p){return p.filter(function(l){return l.id!==list.id;})});setCoveItemsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});setCoveSectionsMap(function(p){var n=Object.assign({},p);delete n[list.id];return n;});}}}
                         style={{background:"none",border:"none",cursor:"pointer",opacity:0.3,padding:3,display:"flex",flexShrink:0,fontSize:13,color:T.textSoft}}>&#10005;</button>

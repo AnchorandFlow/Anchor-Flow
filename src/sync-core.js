@@ -555,6 +555,21 @@ export function sanitizeHouseholdData(data) {
     return out;
   }
 
+// ── coveListIsShared ──────────────────────────────────────────────────────────
+// Single source of truth for whether a Cove list syncs to the household
+// (true) or stays device-local (false) — used by both the push-side filter
+// (readHouseholdState, App.jsx) and the pull-side merge (applyHouseholdKey,
+// below), so they can never drift apart. isShared is the real gate; category
+// (Family/Personal/Home) is otherwise just the display filter pills in
+// Cove's Lists tab. Falls back to category for lists saved before isShared
+// existed, so nothing that already synced goes private (or vice versa)
+// just because the field is missing.
+export function coveListIsShared(list) {
+  if (!list) return false;
+  if (typeof list.isShared === "boolean") return list.isShared;
+  return list.category !== "personal";
+}
+
 // ── applyHouseholdKey ─────────────────────────────────────────────────────────
 // Per-key apply handler for SYNC_KEYS apply loops. Use this everywhere instead
 // of raw localStorage.setItem("af_" + k, ...) so that safe_harbor gets a merge
@@ -563,10 +578,10 @@ export function sanitizeHouseholdData(data) {
 // For all keys other than safe_harbor/cove_lists_v1/cove_items_v1/
 // cove_sections_v1: behaves identically to the old raw setItem.
 // For safe_harbor: reads local blob, merges with remote, writes merged result.
-// For the three Cove keys: merges so that "Personal"-category lists (device-
-// local by design — see readHouseholdState's push-side filter in App.jsx)
-// survive a pull instead of just vanishing because the remote blob never
-// contained them in the first place.
+// For the three Cove keys: merges so that private lists (coveListIsShared
+// false — device-local by design, see readHouseholdState's push-side filter
+// in App.jsx) survive a pull instead of just vanishing because the remote
+// blob never contained them in the first place.
 export function applyHouseholdKey(k, remoteVal) {
   if (k === "safe_harbor") {
     var localObj = null;
@@ -578,24 +593,24 @@ export function applyHouseholdKey(k, remoteVal) {
   if (k === "cove_lists_v1") {
     var localLists = [];
     try { var rawLL = localStorage.getItem("af_cove_lists_v1"); var parsedLL = rawLL ? JSON.parse(rawLL) : []; localLists = Array.isArray(parsedLL) ? parsedLL : []; } catch(_e) {}
-    var localPersonal = localLists.filter(function (l) { return l && l.category === "personal"; });
+    var localPersonal = localLists.filter(function (l) { return !coveListIsShared(l); });
     var remoteList = Array.isArray(remoteVal) ? remoteVal : [];
-    // Defense in depth: readHouseholdState already strips personal lists
+    // Defense in depth: readHouseholdState already strips private lists
     // before push, but don't trust every other device/app version to carry
-    // the same fix — never let a personal-category list arrive from remote.
-    var remoteNonPersonal = remoteList.filter(function (l) { return !(l && l.category === "personal"); });
+    // the same fix — never let a private list arrive from remote.
+    var remoteNonPersonal = remoteList.filter(function (l) { return coveListIsShared(l); });
     try { localStorage.setItem("af_cove_lists_v1", JSON.stringify(localPersonal.concat(remoteNonPersonal))); } catch(_e) {}
     return;
   }
   if (k === "cove_items_v1" || k === "cove_sections_v1") {
     // Relies on cove_lists_v1 having already been applied earlier in the same
     // SYNC_KEYS pass (it's listed first) — af_cove_lists_v1 in storage is
-    // already the merged, personal-preserved result by the time this runs.
+    // already the merged, private-preserved result by the time this runs.
     var personalIds = {};
     try {
       var rawPL = localStorage.getItem("af_cove_lists_v1");
       var listsNow = rawPL ? JSON.parse(rawPL) : [];
-      (Array.isArray(listsNow) ? listsNow : []).forEach(function (l) { if (l && l.category === "personal") personalIds[l.id] = true; });
+      (Array.isArray(listsNow) ? listsNow : []).forEach(function (l) { if (l && !coveListIsShared(l)) personalIds[l.id] = true; });
     } catch(_e) {}
     var localMap = {};
     try { var rawLM = localStorage.getItem("af_" + k); var parsedLM = rawLM ? JSON.parse(rawLM) : {}; localMap = (parsedLM && typeof parsedLM === "object" && !Array.isArray(parsedLM)) ? parsedLM : {}; } catch(_e) {}
