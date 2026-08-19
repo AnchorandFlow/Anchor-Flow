@@ -9969,18 +9969,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           return;
         }
         var parsed = data.recipe;
+        var ingredients = Array.isArray(parsed.ingredients) ? parsed.ingredients.map(function(i){ return {id:i.id||uid(),amount:i.amount||"",unit:i.unit||"",name:i.name||""}; }) : [];
+        var steps = Array.isArray(parsed.steps) ? parsed.steps.map(function(s){ return {id:s.id||uid(),text:s.text||"",timer:s.timer||null}; }) : [];
         setImportDraft({
           id: uid(),
           title: parsed.title || "Imported recipe",
           type: parsed.type==="full" ? "full" : "simple",
           occasions: [],
           serves: parsed.serves || null,
-          ingredients: Array.isArray(parsed.ingredients) ? parsed.ingredients.map(function(i){ return {id:i.id||uid(),amount:i.amount||"",unit:i.unit||"",name:i.name||""}; }) : [],
-          steps: Array.isArray(parsed.steps) ? parsed.steps.map(function(s){ return {id:s.id||uid(),text:s.text||"",timer:s.timer||null}; }) : [],
+          ingredients: ingredients,
+          steps: steps,
           notes: parsed.notes || "",
           createdAt: new Date().toISOString(),
         });
-        setImportOpen(false); setImportUrl(""); setImportError("");
+        setImportOpen(false); setImportUrl("");
+        // sourceUsed==="guess" means no JSON-LD Recipe schema or OpenGraph tags
+        // were found — we only got a page title, not a real recipe. Not a hard
+        // error (still open the draft so the title/notes aren't lost), but the
+        // user should know they're filling in everything from scratch.
+        setImportError(parsed.sourceUsed==="guess" && ingredients.length===0 && steps.length===0
+          ? "Couldn't find a structured recipe on that page — we grabbed the title, but you'll need to add ingredients and steps yourself."
+          : "");
       } catch(e){
         setImportError("Couldn't reach that URL.");
       }
@@ -10054,12 +10063,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <button onClick={()=>{ if(isDraft) discardDraft(); else setDetailId(null); }} style={{background:"none",border:"none",cursor:"pointer",color:T.sageDark,fontSize:"0.8rem",fontFamily:"inherit",padding:"0 0 0.85rem 0",display:"flex",alignItems:"center",gap:5}}>← Recipes</button>
 
           {isDraft && (
-            <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}50`,display:"flex",justifyContent:"space-between",alignItems:"center"})}}>
-              <span style={{fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>Imported — review, then save</span>
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={discardDraft} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.7rem"})}>Discard</button>
-                <button onClick={saveDraft} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>Save recipe</button>
+            <div style={{...card({background:T.bluePale,border:`2px solid ${T.blue}50`})}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:"0.8rem",color:T.textDark,fontWeight:600}}>Imported — review, then save</span>
+                <div style={{display:"flex",gap:"0.4rem"}}>
+                  <button onClick={discardDraft} style={btnS({fontSize:"0.74rem",padding:"0.32rem 0.7rem"})}>Discard</button>
+                  <button onClick={saveDraft} style={btnP(T.sage,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>Save recipe</button>
+                </div>
               </div>
+              {importError && <p style={{color:T.sandDark,fontSize:"0.76rem",marginTop:"0.5rem",marginBottom:0}}>{importError}</p>}
             </div>
           )}
 

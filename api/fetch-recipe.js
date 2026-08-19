@@ -249,13 +249,30 @@ export default async function handler(req, res) {
     const r = await fetch(target.toString(), {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; AnchorFlowRecipeImport/1.0)" },
+      // A real browser UA + Accept/Accept-Language — the old identifying
+      // "AnchorFlowRecipeImport" UA got flatly blocked (403/429) by most
+      // recipe sites' bot protection before we ever saw the page, which
+      // surfaced to users as a generic "Couldn't load that page" for sites
+      // that work fine in a normal browser.
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
     });
     clearTimeout(timer);
-    if (!r.ok) return res.status(502).json({ error: "Couldn't load that page" });
+    if (!r.ok) {
+      const blocked = r.status === 403 || r.status === 429;
+      return res.status(502).json({
+        error: blocked
+          ? "That site blocked automatic recipe import (HTTP " + r.status + ") — try copying the recipe in manually."
+          : "Couldn't load that page (HTTP " + r.status + ")",
+      });
+    }
     html = await readBodyCapped(r);
-  } catch {
-    return res.status(502).json({ error: "Couldn't reach that URL" });
+  } catch (e) {
+    const timedOut = e && e.name === "AbortError";
+    return res.status(502).json({ error: timedOut ? "That page took too long to load — try again." : "Couldn't reach that URL" });
   }
 
   const recipeNode = extractJsonLdRecipe(html);
