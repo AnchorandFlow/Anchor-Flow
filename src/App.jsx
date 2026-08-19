@@ -651,6 +651,30 @@ function readHouseholdState() {
   SYNC_KEYS.forEach(function (k) {
     try { st[k] = JSON.parse(localStorage.getItem("af_" + k)); } catch (e) { st[k] = null; }
   });
+  // Cove "Personal" lists must stay device-local — category is otherwise just
+  // a display filter (the "Personal"/"Family"/"Home" pills in Cove's Lists
+  // tab), with nothing anywhere actually keeping personal-category lists out
+  // of the shared household blob. Strip them (and their items/sections) out
+  // of what gets pushed, the same way myPersonId/preferredName are excluded
+  // above for a different reason. See applyHouseholdKey (sync-core.js) for
+  // the matching pull-side merge that keeps local personal lists from being
+  // wiped out by a remote blob that never contained them.
+  try {
+    var _coveLists = Array.isArray(st.cove_lists_v1) ? st.cove_lists_v1 : [];
+    var _personalListIds = {};
+    _coveLists.forEach(function (l) { if (l && l.category === "personal") _personalListIds[l.id] = true; });
+    st.cove_lists_v1 = _coveLists.filter(function (l) { return !(l && l.category === "personal"); });
+    if (st.cove_items_v1 && typeof st.cove_items_v1 === "object" && !Array.isArray(st.cove_items_v1)) {
+      var _filteredItems = {};
+      Object.keys(st.cove_items_v1).forEach(function (lid) { if (!_personalListIds[lid]) _filteredItems[lid] = st.cove_items_v1[lid]; });
+      st.cove_items_v1 = _filteredItems;
+    }
+    if (st.cove_sections_v1 && typeof st.cove_sections_v1 === "object" && !Array.isArray(st.cove_sections_v1)) {
+      var _filteredSections = {};
+      Object.keys(st.cove_sections_v1).forEach(function (lid) { if (!_personalListIds[lid]) _filteredSections[lid] = st.cove_sections_v1[lid]; });
+      st.cove_sections_v1 = _filteredSections;
+    }
+  } catch (e) {}
   // preferredName is per-person now (af_preferredNames = {personId: name}),
   // resolved here for whoever this device's af_myPersonId currently is —
   // see the "Mama boss" fix comment near chooseMyPersonId in HomeFlow.
@@ -13283,14 +13307,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <button onClick={createBlank} style={{...btnP(T.blue,{fontSize:"0.7rem",padding:"3px 10px"})}}>Create</button>
               )}
             </div>
-            {newForm.title.trim()&&(
+            {newForm.title.trim()&&(<>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,paddingLeft:2}}>
+                {["family","personal","home"].map(function(cat){
+                  var sel=newForm.category===cat;
+                  return <button key={cat} onClick={function(){setNewForm(function(f){return Object.assign({},f,{category:cat});});}}
+                    style={{fontSize:"0.68rem",padding:"3px 10px",borderRadius:999,border:"1px solid "+(sel?T.blue:T.border),background:sel?T.blue:"transparent",color:sel?"#fff":T.textSoft,cursor:"pointer",fontFamily:"inherit"}}>{CAT_LABELS[cat]}</button>;
+                })}
+              </div>
+              {newForm.category==="personal"&&<div style={{fontSize:"0.68rem",color:T.textFaint,marginTop:4,paddingLeft:2,fontStyle:"italic"}}>Personal lists stay on this device — they don't sync to the rest of your household.</div>}
               <div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:8,paddingLeft:2}}>
                 {COVE_ACCENT_COLORS.map(function(c){
                   var sel=newForm.color_accent===c;
                   return <div key={c} onClick={function(){setNewForm(function(f){return Object.assign({},f,{color_accent:c});});}} title={c} style={{width:20,height:20,borderRadius:"50%",background:c,cursor:"pointer",border:sel?"2px solid "+T.textDark:"2px solid transparent",boxShadow:sel?"0 0 0 2px "+T.bgAlt:"none",flexShrink:0}}/>;
                 })}
               </div>
-            )}
+            </>)}
           </div>
 
           {filteredLists.length===0?(

@@ -560,14 +560,51 @@ export function sanitizeHouseholdData(data) {
 // of raw localStorage.setItem("af_" + k, ...) so that safe_harbor gets a merge
 // rather than wholesale replacement.
 //
-// For all keys other than safe_harbor: behaves identically to the old raw setItem.
+// For all keys other than safe_harbor/cove_lists_v1/cove_items_v1/
+// cove_sections_v1: behaves identically to the old raw setItem.
 // For safe_harbor: reads local blob, merges with remote, writes merged result.
+// For the three Cove keys: merges so that "Personal"-category lists (device-
+// local by design — see readHouseholdState's push-side filter in App.jsx)
+// survive a pull instead of just vanishing because the remote blob never
+// contained them in the first place.
 export function applyHouseholdKey(k, remoteVal) {
   if (k === "safe_harbor") {
     var localObj = null;
     try { var raw = localStorage.getItem("af_safe_harbor"); localObj = raw ? JSON.parse(raw) : null; } catch(_e) {}
     var merged = mergeSafeHarbor(localObj, remoteVal);
     try { localStorage.setItem("af_safe_harbor", JSON.stringify(merged)); } catch(_e) {}
+    return;
+  }
+  if (k === "cove_lists_v1") {
+    var localLists = [];
+    try { var rawLL = localStorage.getItem("af_cove_lists_v1"); var parsedLL = rawLL ? JSON.parse(rawLL) : []; localLists = Array.isArray(parsedLL) ? parsedLL : []; } catch(_e) {}
+    var localPersonal = localLists.filter(function (l) { return l && l.category === "personal"; });
+    var remoteList = Array.isArray(remoteVal) ? remoteVal : [];
+    // Defense in depth: readHouseholdState already strips personal lists
+    // before push, but don't trust every other device/app version to carry
+    // the same fix — never let a personal-category list arrive from remote.
+    var remoteNonPersonal = remoteList.filter(function (l) { return !(l && l.category === "personal"); });
+    try { localStorage.setItem("af_cove_lists_v1", JSON.stringify(localPersonal.concat(remoteNonPersonal))); } catch(_e) {}
+    return;
+  }
+  if (k === "cove_items_v1" || k === "cove_sections_v1") {
+    // Relies on cove_lists_v1 having already been applied earlier in the same
+    // SYNC_KEYS pass (it's listed first) — af_cove_lists_v1 in storage is
+    // already the merged, personal-preserved result by the time this runs.
+    var personalIds = {};
+    try {
+      var rawPL = localStorage.getItem("af_cove_lists_v1");
+      var listsNow = rawPL ? JSON.parse(rawPL) : [];
+      (Array.isArray(listsNow) ? listsNow : []).forEach(function (l) { if (l && l.category === "personal") personalIds[l.id] = true; });
+    } catch(_e) {}
+    var localMap = {};
+    try { var rawLM = localStorage.getItem("af_" + k); var parsedLM = rawLM ? JSON.parse(rawLM) : {}; localMap = (parsedLM && typeof parsedLM === "object" && !Array.isArray(parsedLM)) ? parsedLM : {}; } catch(_e) {}
+    var remoteMap = (remoteVal && typeof remoteVal === "object" && !Array.isArray(remoteVal)) ? remoteVal : {};
+    var mergedMap = Object.assign({}, remoteMap);
+    Object.keys(personalIds).forEach(function (lid) {
+      if (localMap[lid] !== undefined) mergedMap[lid] = localMap[lid]; else delete mergedMap[lid];
+    });
+    try { localStorage.setItem("af_" + k, JSON.stringify(mergedMap)); } catch(_e) {}
     return;
   }
   try { localStorage.setItem("af_" + k, JSON.stringify(remoteVal)); } catch(_e) {}
