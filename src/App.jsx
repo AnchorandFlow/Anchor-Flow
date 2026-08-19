@@ -5817,12 +5817,12 @@ Respond ONLY with valid JSON array, no markdown:
   }
 
   // ── Shop Item Row with Photo ────────────────────────────────────────────────
-  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave, onDragStart}) {
+  _hfRenders.ShopItemRow = function ShopItemRow({item, onToggle, onDelete, onSave, onDragStart, isDragOver}) {
     const [editing, setEditing] = useState(false);
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
     return (
-      <div data-shopid={item.id} style={{borderBottom:`1px solid ${T.borderSoft}`}}>
+      <div data-shopid={item.id} style={{borderBottom:`1px solid ${T.borderSoft}`,outline:isDragOver?"2px dashed "+T.blue:"none",outlineOffset:"-2px",background:isDragOver?T.bluePale:"transparent"}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",padding:"0.4rem 0",alignItems:"center"}}>
             <input value={editVal} onChange={e=>setEditVal(e.target.value)}
@@ -10263,9 +10263,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // (or shared) ever claims to have a photo it doesn't actually have.
     const [localPhotoPreviews,setLocalPhotoPreviews]=useState({});
     var pendingOps=useRef(new Set());
-    var shopDrag=useRef({id:null,clone:null,fromStore:null,overStore:null});
+    var shopDrag=useRef({id:null,clone:null,fromStore:null,overStore:null,overItemId:null});
     var [shopDraggingId,setShopDraggingId]=useState(null);
     var [shopDragOverStore,setShopDragOverStore]=useState(null);
+    var [shopDragOverItemId,setShopDragOverItemId]=useState(null);
     function shopUserId(){try{var _u=JSON.parse(localStorage.getItem("af_authUser")||"null");return(_u&&_u.id)?_u.id:"";}catch(e){return "";}}
 
     useEffect(function(){
@@ -10382,6 +10383,32 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         supabase.rpc("shopping_update_item",{p_id:id,p_household_id:householdId,p_text:cur.text,p_store:targetStoreLabel,p_category:"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(id+":UPDATE");});
       }
     }
+    // Reorder within (or across, if targetStoreLabel is set) a store section —
+    // splices the dragged item to sit right before whatever item it was
+    // dropped on. shoppingItems' array order IS render order (shopSort is a
+    // no-op unless A-Z is on), so this persists and syncs like any other edit
+    // to the array — no separate "position" field needed.
+    function handleReorderShoppingItem(dragId,targetId,targetStoreLabel){
+      setShoppingItems(function(p){
+        var arr=p.slice();
+        var fromIdx=arr.findIndex(function(x){return x.id===dragId;});
+        if(fromIdx===-1)return p;
+        var moved=Object.assign({},arr[fromIdx]);
+        if(targetStoreLabel)moved.category="";
+        if(targetStoreLabel)moved.store=targetStoreLabel;
+        arr.splice(fromIdx,1);
+        var toIdx=arr.findIndex(function(x){return x.id===targetId;});
+        if(toIdx===-1)arr.push(moved);else arr.splice(toIdx,0,moved);
+        return arr;
+      });
+      if(targetStoreLabel&&SHOPPING_V2&&householdId){
+        var cur=shoppingItems.find(function(x){return x.id===dragId;});
+        if(cur){
+          pendingOps.current.add(dragId+":UPDATE");
+          supabase.rpc("shopping_update_item",{p_id:dragId,p_household_id:householdId,p_text:cur.text,p_store:targetStoreLabel,p_category:"",p_photo:cur.photo||"",p_updated_by:shopUserId()}).then(function(r){if(r&&r.error)pendingOps.current.delete(dragId+":UPDATE");});
+        }
+      }
+    }
     function shopPointerDown(e,id){
       if(e.button!==undefined&&e.button!==0)return;
       e.stopPropagation();
@@ -10406,18 +10433,33 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var storeEl=el&&el.closest("[data-shopstore]");
         var overStore=storeEl?storeEl.getAttribute("data-shopstore"):null;
         if(overStore!==shopDrag.current.overStore){shopDrag.current.overStore=overStore;setShopDragOverStore(overStore);}
+        var itemEl=el&&el.closest("[data-shopid]");
+        var overItemId=itemEl?itemEl.getAttribute("data-shopid"):null;
+        if(overItemId===shopDrag.current.id)overItemId=null; // dragging over its own original row — not a real target
+        if(overItemId!==shopDrag.current.overItemId){shopDrag.current.overItemId=overItemId;setShopDragOverItemId(overItemId);}
       }
       function onUp(){
         if(shopDrag.current.clone){try{shopDrag.current.clone.remove();}catch(ex){}shopDrag.current.clone=null;}
         var overStore=shopDrag.current.overStore;
+        var overItemId=shopDrag.current.overItemId;
         var fromStore=shopDrag.current.fromStore;
         var dragId=shopDrag.current.id;
-        shopDrag.current={id:null,clone:null,fromStore:null,overStore:null};
+        shopDrag.current={id:null,clone:null,fromStore:null,overStore:null,overItemId:null};
         setShopDraggingId(null);
         setShopDragOverStore(null);
-        if(dragId&&overStore){
-          var targetSt=FIXED_STORES.find(function(s){return s.id===overStore;});
-          if(targetSt&&targetSt.label!==fromStore)handleMoveStore(dragId,targetSt.label);
+        setShopDragOverItemId(null);
+        if(!dragId)return;
+        // Dropped directly on another item — reorder to sit before it (and
+        // relabel to that item's store, if it's a different section). Takes
+        // priority over the store-level (empty-space) drop below.
+        if(overItemId){
+          var targetSt=overStore?FIXED_STORES.find(function(s){return s.id===overStore;}):null;
+          handleReorderShoppingItem(dragId,overItemId,(targetSt&&targetSt.label!==fromStore)?targetSt.label:null);
+          return;
+        }
+        if(overStore){
+          var targetSt2=FIXED_STORES.find(function(s){return s.id===overStore;});
+          if(targetSt2&&targetSt2.label!==fromStore)handleMoveStore(dragId,targetSt2.label);
         }
       }
       window.addEventListener("pointermove",onMove);
@@ -10650,6 +10692,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                                       onDelete={handleDelete}
                                       onSave={handleSave}
                                       onDragStart={shopPointerDown}
+                                      isDragOver={shopDragOverItemId===item.id}
                                     />
                                   );
                                 })}
@@ -10667,6 +10710,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                               onDelete={handleDelete}
                               onSave={handleSave}
                               onDragStart={shopPointerDown}
+                              isDragOver={shopDragOverItemId===item.id}
                             />
                           );
                         })}
