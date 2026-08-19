@@ -11123,9 +11123,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleHub(k){ setPeopleHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"people"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
-    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
-    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
-    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
+    var hubChevron = function(open){ return <span style={{color:T.textMid,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
 
     // `people` is HomeFlow's own top-level roster state (useSaved("people",...)) —
     // already live/in-sync via closure, no raw localStorage read needed here,
@@ -11193,10 +11193,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ══════════════ Overview ══════════════ */}
         <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
             {householdPeople.length>0 ? (householdPeople.length+" household member"+(householdPeople.length!==1?"s":"")) : "No household members yet"}
           </div>
-          <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>{overviewStatus}</div>
+          <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>{overviewStatus}</div>
         </div>
 
         {/* ══════════════ Health ══════════════ */}
@@ -11209,12 +11209,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {peopleHubOpen.health&&(<div style={{marginTop:"0.75rem"}}>
             {healthRows.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
             ) : healthRows.map(function(r){return(
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
                 <span style={{width:10,height:10,borderRadius:"50%",background:r.color||T.blue,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.name}</span>
-                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{r.status}</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{r.name}</span>
+                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{r.status}</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("health");}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Health →</button>
@@ -11231,12 +11231,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {peopleHubOpen.career&&(<div style={{marginTop:"0.75rem"}}>
             {careerRows.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
             ) : careerRows.map(function(r){return(
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
                 <span style={{width:10,height:10,borderRadius:"50%",background:r.color||T.lavender,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.name}</span>
-                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{r.status}</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{r.name}</span>
+                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{r.status}</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("career");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Career →</button>
@@ -11253,13 +11253,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {peopleHubOpen.pets&&(<div style={{marginTop:"0.75rem"}}>
             {petsList.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No pets yet — add your first in Pets</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No pets yet — add your first in Pets</div>
             ) : petsList.map(function(p,i){
               var nv = petNextVet(p);
               return (
                 <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-                  <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{p.name}{p.type?" · "+p.type:""}</span>
-                  <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{nv?nv.name+" in "+nv.days+"d":"Up to date"}</span>
+                  <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{p.name}{p.type?" · "+p.type:""}</span>
+                  <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{nv?nv.name+" in "+nv.days+"d":"Up to date"}</span>
                 </div>
               );
             })}
@@ -11290,9 +11290,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleHub(k){ setHorizonHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"horizon"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
-    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
-    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
-    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
+    var hubChevron = function(open){ return <span style={{color:T.textMid,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
 
     var MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     // Mirrors AnchorVault's own daysUntilDate(dateStr) — full YYYY-MM-DD
@@ -11354,10 +11354,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ══════════════ Overview ══════════════ */}
         <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
             {(nextTrip||nextCeleb) ? "Coming up." : "Nothing on the horizon yet."}
           </div>
-          {overviewLines.map(function(line,i){ return <div key={i} style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.6}}>{line}</div>; })}
+          {overviewLines.map(function(line,i){ return <div key={i} style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.6}}>{line}</div>; })}
         </div>
 
         {/* ══════════════ Travel ══════════════ */}
@@ -11370,11 +11370,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {horizonHubOpen.travel&&(<div style={{marginTop:"0.75rem"}}>
             {upcomingTrips.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No upcoming trips — add your first in Travel</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No upcoming trips — add your first in Travel</div>
             ) : upcomingTrips.slice(0,4).map(function(x){return(
               <div key={x.trip.id||x.trip.name} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{x.trip.name}</span>
-                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{x.trip.startDate} · {x.days}d</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{x.trip.name}</span>
+                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{x.trip.startDate} · {x.days}d</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("trips");}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Travel →</button>
@@ -11391,12 +11391,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {horizonHubOpen.celebrations&&(<div style={{marginTop:"0.75rem"}}>
             {celebEntries.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No celebrations yet — add your first in Celebrations</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No celebrations yet — add your first in Celebrations</div>
             ) : celebEntries.slice(0,3).map(function(c){return(
               <div key={c.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
                 <span style={{width:10,height:10,borderRadius:"50%",background:CELEB_TYPE_COLORS[c.type]||T.blue,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{c.name}</span>
-                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{c.dateLabel} · {c.diff}d</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{c.name}</span>
+                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{c.dateLabel} · {c.diff}d</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("gifts");}} style={btnP(T.rose,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Celebrations →</button>
@@ -11413,16 +11413,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {horizonHubOpen.safeharbor&&(<div style={{marginTop:"0.75rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Grab items</span>
-              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{grabItemCount}</span>
+              <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>Grab items</span>
+              <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{grabItemCount}</span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Local plans</span>
-              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{hazardCount}</span>
+              <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>Local plans</span>
+              <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{hazardCount}</span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Last reviewed</span>
-              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{lastReviewed||"Never"}</span>
+              <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>Last reviewed</span>
+              <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{lastReviewed||"Never"}</span>
             </div>
             <button onClick={function(){openVaultSection("safeharbor");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Safe Harbor →</button>
           </div>)}
