@@ -8958,7 +8958,7 @@ Respond ONLY in valid JSON:
     }
     return (
       <div style={{position:"relative"}}>
-        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?T.sagePale:"",borderColor:open?T.sage:""})}}>📋 {selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}</button>
+        <button onClick={function(){setOpen(function(p){return !p;});setSearch("");}} style={{...btnS({fontSize:"0.72rem",padding:"0.28rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem",background:open?"#b3d1ea":"#cfe3f5",borderColor:"#cfe3f5",color:"#1a3a52"})}}>{selected?selected.name.split(" ").slice(0,2).join(" ")+"…":"Meal Bank"}</button>
         {open&&(
           <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,zIndex:50,background:T.white,border:"1.5px solid "+T.border,borderRadius:"0.85rem",boxShadow:"0 4px 20px rgba(0,0,0,0.12)",width:"220px",overflow:"hidden"}}>
             <div style={{padding:"0.5rem 0.6rem",borderBottom:"1px solid "+T.borderSoft}}>
