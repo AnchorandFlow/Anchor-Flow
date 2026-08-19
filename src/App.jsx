@@ -10821,9 +10821,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // Item 4 — plain 0.5px border, no colored top-accent. Individual card
     // calls below no longer pass borderTop overrides.
     function card(x){ return Object.assign({background:T.surface,border:"1px solid rgba(26,46,61,0.1)",borderRadius:"0.5rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:"0 2px 10px rgba(0,0,0,0.25)"}, x||{}); }
-    function btnS(x){ return Object.assign({background:T.bgAlt,color:T.textMid,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600}, x||{}); }
-    function inp(x){ return Object.assign({width:"100%",background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:T.textDark,fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}, x||{}); }
-    var lbl = {display:"block",color:T.textMid,fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
+    function btnS(x){ return Object.assign({background:T.bgAlt,color:"#4a6275",border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600}, x||{}); }
+    function inp(x){ return Object.assign({width:"100%",background:T.bgAlt,border:"1.5px solid "+T.border,borderRadius:"0.7rem",padding:"0.62rem 0.82rem",color:"#1a2e3d",fontSize:"0.87rem",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}, x||{}); }
+    var lbl = {display:"block",color:"#4a6275",fontSize:"0.71rem",marginBottom:"0.35rem",textTransform:"uppercase",letterSpacing:"0.09em",fontWeight:700};
 
     // ══════════════════════════════════════════════════════════════════════
     // Home cleanup — Systems (homeSystems/af_homeSystems) removed from this
@@ -10835,11 +10835,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"home"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
-    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
-    var hubChevron = function(open){ return <span style={{color:T.textMid,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
+    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
     // Item 3 — smart collapsed previews: small muted text shown in the
     // header row, hidden once expanded (redundant with the full content).
-    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
 
     // ── Household Info — new card replacing Systems. {id,label,value,category} ──
     var [homeInfo, setHomeInfo] = useSaved("home_info", []);
@@ -11024,17 +11024,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var hasAlerts = maintenanceDueSoon.length>0 || inventoryLow.length>0;
           return (
             <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
                 {hasAlerts ? "A few things need attention." : "Everything running smoothly."}
               </div>
               <div className="af-home-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.6rem 0.9rem",minHeight:56}}>
-                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
                   🧹 {activeZone ? (activeZone.name + " · " + zoneTasksRemaining + " task" + (zoneTasksRemaining!==1?"s":"") + " left") : "No zones set up"}
                 </div>
-                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
                   🔧 {maintenanceDueSoon[0] ? (maintenanceDueSoon[0].name + " " + formatDueNaturally(maintenanceDueSoon[0].nextDue)) : "All clear"}
                 </div>
-                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
+                <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
                   📦 {inventoryLow.length>0 ? (inventoryLow.length + " item" + (inventoryLow.length!==1?"s":"") + " running low") : "All stocked"}
                 </div>
               </div>
@@ -11052,18 +11052,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.info)}
           </div>
           {homeHubOpen.info&&(<div style={{marginTop:"0.75rem"}}>
-            {homeInfo.length===0 && <div style={{fontSize:"0.8rem",color:T.textMid,fontStyle:"italic",padding:"0.2rem 0"}}>No home info saved yet — Wi-Fi password, utilities, vendor and emergency contacts.</div>}
+            {homeInfo.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No home info saved yet — Wi-Fi password, utilities, vendor and emergency contacts.</div>}
             {INFO_CATEGORIES.map(function(cat){
               var catItems = homeInfo.filter(function(i){return (i.category||"General")===cat;});
               if (catItems.length===0) return null;
               return (
                 <div key={cat} style={{marginBottom:"0.6rem"}}>
-                  <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.25rem"}}>{cat}</div>
+                  <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.25rem"}}>{cat}</div>
                   {catItems.map(function(item){return(
                     <div key={item.id} onClick={function(){openEditInfo(item);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",cursor:"pointer",borderBottom:"1px solid "+T.borderSoft}}>
-                      <span style={{fontSize:"0.82rem",color:T.textMid,minWidth:100,flexShrink:0}}>{item.label}</span>
-                      <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</span>
-                      <button onClick={function(e){e.stopPropagation();deleteInfo(item.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textMid}/></button>
+                      <span style={{fontSize:"0.82rem",color:"#4a6275",minWidth:100,flexShrink:0}}>{item.label}</span>
+                      <span style={{flex:1,fontSize:"0.84rem",color:"#1a2e3d",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</span>
+                      <button onClick={function(e){e.stopPropagation();deleteInfo(item.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
                     </div>
                   );})}
                 </div>
@@ -11106,25 +11106,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
             {cleaningZones.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,padding:"0.5rem 0",lineHeight:1.6}}>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",padding:"0.5rem 0",lineHeight:1.6}}>
                 Organize your home into cleaning zones. Today's active zone appears in Today's Home Focus.
               </div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Today's Zone</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Today's Zone</div>
               {activeZone && (function(){
                 var zTasks = activeZone.tasks || [];
                 var zDone = zTasks.filter(function(t){return t.done;}).length;
                 return (
                   <div style={{...card({background:T.sagePale,border:"1.5px solid "+T.sage+"55",marginBottom:"0.75rem"})}}>
-                    <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark,marginBottom:"0.15rem"}}>{activeZone.name}</div>
-                    <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.3rem"}}>{activeZone.rooms}</div>
-                    <div style={{fontSize:"0.72rem",color:T.textMid,fontWeight:700,marginBottom:"0.5rem"}}>{zTasks.length} task{zTasks.length!==1?"s":""} · {zDone} completed</div>
+                    <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d",marginBottom:"0.15rem"}}>{activeZone.name}</div>
+                    <div style={{fontSize:"0.78rem",color:"#4a6275",marginBottom:"0.3rem"}}>{activeZone.rooms}</div>
+                    <div style={{fontSize:"0.72rem",color:"#4a6275",fontWeight:700,marginBottom:"0.5rem"}}>{zTasks.length} task{zTasks.length!==1?"s":""} · {zDone} completed</div>
                     {zTasks.length===0
-                      ? <div style={{fontSize:"0.8rem",color:T.textMid,fontStyle:"italic"}}>No tasks in this zone yet.</div>
+                      ? <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic"}}>No tasks in this zone yet.</div>
                       : zTasks.map(function(t){return(
                           <div key={t.id} onClick={function(){toggleZoneTask(t.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0",cursor:"pointer"}}>
                             <div style={{width:16,height:16,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
-                            <span style={{fontSize:"0.83rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                            <span style={{fontSize:"0.83rem",color:"#1a2e3d",textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
                           </div>
                         );})
                     }
@@ -11142,17 +11142,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   return (
                     <div key={z.id} style={{...card({border:"1.5px solid "+(isActive?T.sage+"70":T.borderSoft),marginBottom:"0.4rem",padding:"0.65rem 0.75rem"})}}>
                       <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                        <span style={{flex:1,fontSize:"0.85rem",fontWeight:700,color:T.textDark}}>{z.name}</span>
+                        <span style={{flex:1,fontSize:"0.85rem",fontWeight:700,color:"#1a2e3d"}}>{z.name}</span>
                         {isActive
                           ? <span style={{fontSize:"0.65rem",fontWeight:800,color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"2px 8px",flexShrink:0}}>Active</span>
                           : <button onClick={function(){setActiveZone(zi);}} style={{...btnS({fontSize:"0.68rem",padding:"0.25rem 0.55rem"})}}>Set as this week</button>
                         }
                       </div>
-                      <div style={{fontSize:"0.76rem",color:T.textMid,margin:"0.2rem 0 0.45rem"}}>{z.rooms||"No rooms set"}</div>
+                      <div style={{fontSize:"0.76rem",color:"#4a6275",margin:"0.2rem 0 0.45rem"}}>{z.rooms||"No rooms set"}</div>
                       <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
-                        <span style={{fontSize:"0.7rem",color:T.textMid}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
+                        <span style={{fontSize:"0.7rem",color:"#4a6275"}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
                         <button onClick={function(){openEditZone(z);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,fontSize:"0.72rem",color:T.blue,fontWeight:700}}>Edit</button>
-                        <button onClick={function(){deleteZone(z.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",marginLeft:"auto"}}><Icon name="trash" size={12} color={T.textMid}/></button>
+                        <button onClick={function(){deleteZone(z.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",marginLeft:"auto"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
                       </div>
                     </div>
                   );
@@ -11169,11 +11169,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Rooms</label><input value={zoneForm.rooms} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{rooms:e.target.value});});}} placeholder="e.g. Master bedroom, bathrooms" style={inp()}/></div>
                 <label style={lbl}>Tasks</label>
                 <div style={{marginBottom:"0.6rem",border:"1.5px solid "+T.border,borderRadius:"0.8rem",overflow:"hidden"}}>
-                  {zoneForm.tasks.length===0 && <p style={{color:T.textMid,fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
+                  {zoneForm.tasks.length===0 && <p style={{color:"#4a6275",fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
                   {zoneForm.tasks.map(function(t,ti){return(
                     <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.65rem",borderBottom:ti<zoneForm.tasks.length-1?"1px solid "+T.borderSoft:"none"}}>
-                      <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{t.text}</span>
-                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textMid}/></button>
+                      <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{t.text}</span>
+                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
                     </div>
                   );})}
                 </div>
@@ -11203,21 +11203,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
             {maintenanceSystems.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No maintenance items — add your first in Maintenance</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No maintenance items — add your first in Maintenance</div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Next Due</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Next Due</div>
               {maintenanceDueSoon[0] ? (
                 <div style={{...card({background:T.sandPale,border:"1.5px solid "+T.sand+"55",marginBottom:"0.6rem"})}}>
-                  <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>{maintenanceDueSoon[0].name}</div>
-                  <div style={{fontSize:"0.8rem",color:T.textMid,marginTop:"0.15rem"}}>{formatDueNaturally(maintenanceDueSoon[0].nextDue)}</div>
+                  <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d"}}>{maintenanceDueSoon[0].name}</div>
+                  <div style={{fontSize:"0.8rem",color:"#4a6275",marginTop:"0.15rem"}}>{formatDueNaturally(maintenanceDueSoon[0].nextDue)}</div>
                 </div>
-              ) : <div style={{fontSize:"0.82rem",color:T.textMid,fontStyle:"italic",marginBottom:"0.6rem"}}>All clear</div>}
+              ) : <div style={{fontSize:"0.82rem",color:"#4a6275",fontStyle:"italic",marginBottom:"0.6rem"}}>All clear</div>}
               {maintenanceDueSoon.length>1&&(<>
-                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Upcoming</div>
+                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Upcoming</div>
                 {maintenanceDueSoon.slice(1).map(function(s){return(
                   <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{formatDueNaturally(s.nextDue)}</span>
+                    <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{s.name}</span>
+                    <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{formatDueNaturally(s.nextDue)}</span>
                   </div>
                 );})}
               </>)}
@@ -11235,14 +11235,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.inventory)}
           </div>
           {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
-            <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
-            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Running Low</div>
+            <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
+            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Running Low</div>
             {inventoryLow.length===0
               ? <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600,marginBottom:"0.5rem"}}>All stocked ✓</div>
               : inventoryLow.map(function(i,ii){return(
                   <div key={ii} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
                     <span style={{fontSize:"0.8rem"}}>⚠️</span>
-                    <span style={{fontSize:"0.83rem",color:T.textDark}}>{i.name}</span>
+                    <span style={{fontSize:"0.83rem",color:"#1a2e3d"}}>{i.name}</span>
                   </div>
                 );})
             }
@@ -11260,19 +11260,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.reminders&&(<div style={{marginTop:"0.75rem"}}>
             {remindersSorted.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No reminders yet — add your first in Reminders</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No reminders yet — add your first in Reminders</div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Next Due</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Next Due</div>
               <div style={{...card({background:T.sandPale,border:"1.5px solid "+T.sand+"55",marginBottom:"0.6rem"})}}>
-                <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>{remindersSorted[0].emoji||"🔁"} {remindersSorted[0].label}</div>
-                <div style={{fontSize:"0.8rem",color:T.textMid,marginTop:"0.15rem"}}>{reminderLabel(remindersSorted[0])}</div>
+                <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d"}}>{remindersSorted[0].emoji||"🔁"} {remindersSorted[0].label}</div>
+                <div style={{fontSize:"0.8rem",color:"#4a6275",marginTop:"0.15rem"}}>{reminderLabel(remindersSorted[0])}</div>
               </div>
               {remindersSorted.length>1&&(<>
-                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Upcoming</div>
+                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Upcoming</div>
                 {remindersSorted.slice(1,4).map(function(r){return(
                   <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{r.emoji||"🔁"} {r.label}</span>
-                    <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{reminderLabel(r)}</span>
+                    <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.emoji||"🔁"} {r.label}</span>
+                    <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{reminderLabel(r)}</span>
                   </div>
                 );})}
               </>)}
@@ -11291,16 +11291,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.subs&&(<div style={{marginTop:"0.75rem"}}>
             {subsList.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No subscriptions tracked yet — add your first in Subscriptions</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No subscriptions tracked yet — add your first in Subscriptions</div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Tracked</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Tracked</div>
               {subsList.slice(0,4).map(function(s){return(
                 <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                  <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
-                  <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{s.amount?("$"+s.amount+" / "+s.cycle):s.cycle}</span>
+                  <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{s.name}</span>
+                  <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{s.amount?("$"+s.amount+" / "+s.cycle):s.cycle}</span>
                 </div>
               );})}
-              {subsList.length>4&&<div style={{fontSize:"0.72rem",color:T.textMid,marginTop:"0.2rem"}}>+{subsList.length-4} more</div>}
+              {subsList.length>4&&<div style={{fontSize:"0.72rem",color:"#4a6275",marginTop:"0.2rem"}}>+{subsList.length-4} more</div>}
             </>)}
             <button onClick={function(){openVaultSection("subs");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Subscriptions →</button>
           </div>)}
@@ -11333,9 +11333,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleHub(k){ setPeopleHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"people"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
-    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
-    var hubChevron = function(open){ return <span style={{color:T.textMid,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
-    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
+    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
 
     // `people` is HomeFlow's own top-level roster state (useSaved("people",...)) —
     // already live/in-sync via closure, no raw localStorage read needed here,
@@ -11403,10 +11403,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ══════════════ Overview ══════════════ */}
         <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
             {householdPeople.length>0 ? (householdPeople.length+" household member"+(householdPeople.length!==1?"s":"")) : "No household members yet"}
           </div>
-          <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>{overviewStatus}</div>
+          <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>{overviewStatus}</div>
         </div>
 
         {/* ══════════════ Health ══════════════ */}
@@ -11419,12 +11419,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {peopleHubOpen.health&&(<div style={{marginTop:"0.75rem"}}>
             {healthRows.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
             ) : healthRows.map(function(r){return(
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
                 <span style={{width:10,height:10,borderRadius:"50%",background:r.color||T.blue,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{r.name}</span>
-                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{r.status}</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{r.status}</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("health");}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Health →</button>
@@ -11441,12 +11441,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {peopleHubOpen.career&&(<div style={{marginTop:"0.75rem"}}>
             {careerRows.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No household members yet — add people in Settings</div>
             ) : careerRows.map(function(r){return(
               <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
                 <span style={{width:10,height:10,borderRadius:"50%",background:r.color||T.lavender,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{r.name}</span>
-                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{r.status}</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{r.status}</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("career");}} style={btnP(T.lavender,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Career →</button>
@@ -11463,13 +11463,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {peopleHubOpen.pets&&(<div style={{marginTop:"0.75rem"}}>
             {petsList.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No pets yet — add your first in Pets</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No pets yet — add your first in Pets</div>
             ) : petsList.map(function(p,i){
               var nv = petNextVet(p);
               return (
                 <div key={p.id||i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-                  <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{p.name}{p.type?" · "+p.type:""}</span>
-                  <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{nv?nv.name+" in "+nv.days+"d":"Up to date"}</span>
+                  <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{p.name}{p.type?" · "+p.type:""}</span>
+                  <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{nv?nv.name+" in "+nv.days+"d":"Up to date"}</span>
                 </div>
               );
             })}
@@ -11500,9 +11500,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleHub(k){ setHorizonHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"horizon"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
-    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
-    var hubChevron = function(open){ return <span style={{color:T.textMid,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
-    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
+    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
 
     var MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     // Mirrors AnchorVault's own daysUntilDate(dateStr) — full YYYY-MM-DD
@@ -11564,10 +11564,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
         {/* ══════════════ Overview ══════════════ */}
         <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
             {(nextTrip||nextCeleb) ? "Coming up." : "Nothing on the horizon yet."}
           </div>
-          {overviewLines.map(function(line,i){ return <div key={i} style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.6}}>{line}</div>; })}
+          {overviewLines.map(function(line,i){ return <div key={i} style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.6}}>{line}</div>; })}
         </div>
 
         {/* ══════════════ Travel ══════════════ */}
@@ -11580,11 +11580,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {horizonHubOpen.travel&&(<div style={{marginTop:"0.75rem"}}>
             {upcomingTrips.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No upcoming trips — add your first in Travel</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No upcoming trips — add your first in Travel</div>
             ) : upcomingTrips.slice(0,4).map(function(x){return(
               <div key={x.trip.id||x.trip.name} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{x.trip.name}</span>
-                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{x.trip.startDate} · {x.days}d</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{x.trip.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{x.trip.startDate} · {x.days}d</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("trips");}} style={btnP(T.blue,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Travel →</button>
@@ -11601,12 +11601,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {horizonHubOpen.celebrations&&(<div style={{marginTop:"0.75rem"}}>
             {celebEntries.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No celebrations yet — add your first in Celebrations</div>
+              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No celebrations yet — add your first in Celebrations</div>
             ) : celebEntries.slice(0,3).map(function(c){return(
               <div key={c.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
                 <span style={{width:10,height:10,borderRadius:"50%",background:CELEB_TYPE_COLORS[c.type]||T.blue,flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{c.name}</span>
-                <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{c.dateLabel} · {c.diff}d</span>
+                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{c.name}</span>
+                <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{c.dateLabel} · {c.diff}d</span>
               </div>
             );})}
             <button onClick={function(){openVaultSection("gifts");}} style={btnP(T.rose,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Celebrations →</button>
@@ -11623,16 +11623,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {horizonHubOpen.safeharbor&&(<div style={{marginTop:"0.75rem"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-              <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>Grab items</span>
-              <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{grabItemCount}</span>
+              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Grab items</span>
+              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{grabItemCount}</span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-              <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>Local plans</span>
-              <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{hazardCount}</span>
+              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Local plans</span>
+              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{hazardCount}</span>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0"}}>
-              <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>Last reviewed</span>
-              <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{lastReviewed||"Never"}</span>
+              <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>Last reviewed</span>
+              <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{lastReviewed||"Never"}</span>
             </div>
             <button onClick={function(){openVaultSection("safeharbor");}} style={btnP(T.sand,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Safe Harbor →</button>
           </div>)}
