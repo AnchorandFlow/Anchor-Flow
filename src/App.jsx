@@ -11345,7 +11345,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
-          <span style={{fontSize:"1.2rem"}}>🗺</span>
+          <span style={{fontSize:"1.2rem"}}>🌄</span>
           <div>
             <h1 style={{margin:0,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:"#faf8f4"}}>Horizon</h1>
             <p style={{margin:"0.15rem 0 0",color:"#c2d4e0",fontSize:"0.79rem",fontWeight:500}}>What's ahead</p>
@@ -17734,7 +17734,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       { id: "cove", label: "Cove", emoji: "🪸" },
       { id: "home", label: "Home", emoji: "🏡" },
       { id: "people", label: "People", emoji: "👥" },
-      { id: "horizon", label: "Horizon", emoji: "🗺" },
+      { id: "horizon", label: "Horizon", emoji: "🌄" },
       // Maintenance (vault:"systems"), Inventory, Reminders (vault:"recurring"),
       // Subscriptions (vault:"subs"), Health, Career, Pets, Celebrate
       // (vault:"gifts"), Travel (vault:"trips"), and Safe Harbor nav entries
