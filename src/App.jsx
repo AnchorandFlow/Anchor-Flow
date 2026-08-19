@@ -2693,7 +2693,7 @@ const _hfComps   = {};
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab','WavesSection',
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab','HorizonTab',
-  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTab',
+  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTitleInput','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
@@ -5543,7 +5543,7 @@ Respond ONLY with valid JSON array, no markdown:
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab, WavesSection,
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab, HorizonTab,
-          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTab,
+          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTitleInput, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
 
@@ -12125,6 +12125,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   }
 
 
+  // ── CoveTitleInput — local-draft-then-commit-on-blur, same pattern ItemRow/
+  // CoveNoteDetail already use elsewhere in this file. Renaming a list or
+  // section previously called straight into setCoveLists/setCoveSectionsMap
+  // (a useSaved-backed, localStorage-writing setter) on every keystroke —
+  // this buffers the edit locally and only commits once, on blur/Enter.
+  // Give each instance key={list.id}/key={sec.id} so switching to a
+  // different list/section remounts it with a fresh draft instead of
+  // carrying over stale text.
+  _hfRenders.CoveTitleInput = function CoveTitleInput(props) {
+    var [draft, setDraft] = useState(props.value);
+    return (
+      <input
+        value={draft}
+        onChange={function(e){ setDraft(e.target.value); }}
+        onBlur={function(){ props.onCommit(draft.trim() || props.value); }}
+        onKeyDown={function(e){ if(e.key==="Enter") e.target.blur(); }}
+        placeholder={props.placeholder}
+        style={props.style}
+      />
+    );
+  }
+
   // ── ItemRow — lifted outside CoveTab to prevent React hooks error #300 ──────
   _hfRenders.ItemRow = function ItemRow(props) {
     var item = props.item;
@@ -13107,9 +13129,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 depending on the broken icon. */}
             <button onClick={function(){ setView("list"); }} style={{background:"none",border:"1px solid "+T.border,borderRadius:"2rem",cursor:"pointer",color:T.textMid,fontSize:"0.72rem",fontWeight:600,fontFamily:"inherit",padding:"0.3rem 0.75rem",display:"flex",alignItems:"center",flexShrink:0,marginTop:2}}>← Back to lists</button>
             <div style={{flex:1,minWidth:0}}>
-              <input
+              <CoveTitleInput
+                key={activeList.id}
                 value={activeList.title}
-                onChange={function(e){ renameList(activeList.id, e.target.value); }}
+                onCommit={function(v){ renameList(activeList.id, v); }}
                 style={{width:"100%",fontSize:"1.4rem",fontWeight:700,fontFamily:"'Cormorant Garamond',serif",color:T.textDark,border:"none",background:"transparent",outline:"none",padding:0,lineHeight:1.2}}
               />
               <div style={{fontSize:"0.66rem",color:T.textFaint,marginTop:2}}>
@@ -13223,9 +13246,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </button>
                     {/* Editable section title — wrapped in a colored pill for grid2col regions only */}
                     <div style={{flex:1,display:"flex",alignItems:"center",background:isGrid?itemAccent+"45":"transparent",borderRadius:999,padding:isGrid?"2px 10px":0}}>
-                      <input
+                      <CoveTitleInput
+                        key={sec.id}
                         value={sec.title}
-                        onChange={function(e){ renameSection(sec.id, e.target.value); }}
+                        onCommit={function(v){ renameSection(sec.id, v); }}
                         style={{flex:1,fontSize:"0.75rem",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:isGrid?itemAccent:T.textMid,border:"none",background:"transparent",outline:"none",fontFamily:"inherit",padding:0,cursor:"text"}}
                       />
                     </div>
