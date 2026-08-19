@@ -64,7 +64,11 @@ export const SYNC_KEYS = [
   "moments",
   "health","career","travel_profile",
   // Cove
-  "cove_lists_v1","cove_items_v1","cove_sections_v1","cove_notes_v1",
+  // cove_notes_v1 intentionally excluded — personal notes are private per-person,
+  // not shared across the household. Was removed from SYNC_KEYS to stop them
+  // syncing to other household members; still read/written locally via
+  // useSaved("cove_notes_v1", []) in App.jsx, just no longer pushed/pulled.
+  "cove_lists_v1","cove_items_v1","cove_sections_v1",
   // Other shared
   "schoolData","coveData","dietaryFilters"
 ,"compassCache","compassEnabled",

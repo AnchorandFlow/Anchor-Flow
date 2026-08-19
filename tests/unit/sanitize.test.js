@@ -77,7 +77,8 @@ const PLAUSIBLE = {
   cove_lists_v1:      [{ id:"cl1", name:"Books" }],
   cove_items_v1:      { cl1:[{ id:"ci1", text:"Dune" }] },
   cove_sections_v1:   { cl1:[{ id:"cs1", title:"Reading", sort_order:0 }] },
-  cove_notes_v1:      [{ id:"cn1", text:"A note" }],
+  // cove_notes_v1 intentionally NOT here — removed from SYNC_KEYS (privacy fix:
+  // personal notes must not sync across household members), now DEVICE_LOCAL.
   schoolData:         { grade:3, teacher:"Ms. Smith" },
   coveData:           [{ kidId:"k1", kidName:"Alice", shells:5, chores:[{id:"c1",name:"Make bed",pts:1,done:false}], treasures:[] }],
   dietaryFilters:     ["Dairy-free"],
@@ -467,6 +468,12 @@ describe("A10 — completeness lint: every useSaved key is classified", () => {
     // Device-local UI state — per-device only, never synced
     "collapsedStores",        // shopping section collapse state
     "dailySummaryScheduled",  // notification scheduling flag
+    // cove_notes_v1: Cove personal notes — privacy fix, removed from SYNC_KEYS
+    // so notes stop syncing across household members (were previously visible
+    // to every person on the household, e.g. Lindsey and Twyla seeing each
+    // other's notes). Data already written stays in localStorage; it just no
+    // longer pushes/pulls.
+    "cove_notes_v1",
     // Dynamic key prefix — actual key is `checkedPersonalAnchors_${dayName}_${userId}`.
     // The regex matches the literal prefix portion of useSaved("checkedPersonalAnchors_"+...).
     // Per-day-per-user device state, intentionally not synced.
