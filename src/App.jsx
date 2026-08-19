@@ -9953,6 +9953,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // recipes that otherwise show any "save" affordance at all.
     const [savedFlash,setSavedFlash]=useState(false);
     function flashSaved(){ setSavedFlash(true); setTimeout(function(){ setSavedFlash(false); },1800); }
+    // Which ingredient ids have been added to the shopping list this session
+    // — local UI state only (not persisted), just drives the "✓ added" flag
+    // on each ingredient row.
+    const [addedIngIds,setAddedIngIds]=useState({});
     // Parsed-but-unsaved recipe from "Import from URL" — reviewed/edited in
     // the same detail view as a saved recipe (see record/isDraft below), but
     // never written to recipeBook until the user explicitly saves it.
@@ -10058,6 +10062,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function addIngredient(){updateField({ingredients:[...(record.ingredients||[]),{id:uid(),amount:"",unit:"",name:""}]});}
     function updateIngredient(ingId,field,val){updateField({ingredients:(record.ingredients||[]).map(function(i){return i.id===ingId?Object.assign({},i,{[field]:val}):i;})});}
     function removeIngredient(ingId){updateField({ingredients:(record.ingredients||[]).filter(function(i){return i.id!==ingId;})});}
+    function ingredientText(ing){return [ing.amount,ing.unit,ing.name].filter(Boolean).join(" ").trim();}
+    function addIngredientToShoppingList(ing){
+      var text=ingredientText(ing);
+      if(!text||addedIngIds[ing.id])return;
+      setShoppingItems(function(p){return [...p,{id:uid(),text:text,store:stores[0]||"Grocery",done:false,category:""}];});
+      setAddedIngIds(function(p){return Object.assign({},p,{[ing.id]:true});});
+    }
+    function addAllIngredientsToShoppingList(){
+      (record.ingredients||[]).forEach(function(ing){ addIngredientToShoppingList(ing); });
+    }
     function addStep(){updateField({steps:[...(record.steps||[]),{id:uid(),text:"",timer:null}]});}
     function updateStep(stepId,field,val){updateField({steps:(record.steps||[]).map(function(s){return s.id===stepId?Object.assign({},s,{[field]:val}):s;})});}
     function removeStep(stepId){updateField({steps:(record.steps||[]).filter(function(s){return s.id!==stepId;})});}
@@ -10118,13 +10132,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
 
               {record.type==="full" && (<>
-                <label style={lbl}>Ingredients</label>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <label style={{...lbl,marginBottom:0}}>Ingredients</label>
+                  {(record.ingredients||[]).length>0&&<button onClick={addAllIngredientsToShoppingList} style={btnS({fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🛒 Add all to Shopping List</button>}
+                </div>
                 {(record.ingredients||[]).map(function(ing){
+                  var added=!!addedIngIds[ing.id];
                   return (
-                    <div key={ing.id} style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem"}}>
+                    <div key={ing.id} style={{display:"flex",gap:"0.4rem",marginBottom:"0.4rem",marginTop:"0.4rem"}}>
                       <input value={ing.amount} onChange={e=>updateIngredient(ing.id,"amount",e.target.value)} placeholder="Amt" style={{...inp({width:60,padding:"0.4rem 0.5rem"})}}/>
                       <input value={ing.unit} onChange={e=>updateIngredient(ing.id,"unit",e.target.value)} placeholder="Unit" style={{...inp({width:80,padding:"0.4rem 0.5rem"})}}/>
                       <input value={ing.name} onChange={e=>updateIngredient(ing.id,"name",e.target.value)} placeholder="Ingredient" style={{...inp({flex:1,padding:"0.4rem 0.5rem"})}}/>
+                      <button onClick={()=>addIngredientToShoppingList(ing)} disabled={added} title={added?"Added to shopping list":"Add to shopping list"} style={{background:"none",border:"none",cursor:added?"default":"pointer",padding:2,color:added?T.sage:T.textFaint,fontSize:"0.85rem",fontWeight:700}}>{added?"✓":"🛒"}</button>
                       <button onClick={()=>removeIngredient(ing.id)} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
                     </div>
                   )
