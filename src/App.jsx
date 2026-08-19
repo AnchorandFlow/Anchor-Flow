@@ -9117,6 +9117,11 @@ Respond ONLY in valid JSON:
     const [editDay,setEditDay]=useState(null);
     const [editMeal,setEditMeal]=useState({});
     const [swapDay,setSwapDay]=useState(null);
+    // swapDay is shared between This Week and Next Week (both just swap two
+    // day-of-week keys in whichever meals object is active) — clear it on
+    // tab switch so a swap started in one week can't complete against the
+    // other week's data if the user navigates away mid-swap.
+    useEffect(function(){ setSwapDay(null); },[mealSubTab]);
     const [editingThemes,setEditingThemes]=useState(false);
     // Deep-link from Celebrations > Food & Cake ("Browse all recipes" / tap a
     // recipe): AnchorVault.jsx can't reach this state via props (separate
@@ -9146,6 +9151,7 @@ Respond ONLY in valid JSON:
     const [selectedBankMeal,setSelectedBankMeal]=useState(null);
     const [showAddToBank,setShowAddToBank]=useState(false);
     const [newBankMeal,setNewBankMeal]=useState({name:"",tags:[],notes:""});
+    const newBankMealDupe=!!newBankMeal.name.trim()&&[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===newBankMeal.name.trim().toLowerCase();});
     const [addToBankMealName,setAddToBankMealName]=useState("");
     const [prepChecked,setPrepChecked]=useState([]);
     const [prepAiTips,setPrepAiTips]=useState(null);
@@ -9284,7 +9290,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?T.sage:T.white,color:mealCount===o.v?"#fff":T.textMid,border:`2px solid ${mealCount===o.v?T.sage:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
                 ))}
               </div>
-
+              <button onClick={function(){ if(window.confirm("Shift every day's meals forward by one day? Sunday's meals move to Monday, and so on — this replaces what's currently planned.")) rotateMeals(); }} title="Shift every day's meals forward by one" style={btnS({fontSize:"0.72rem",padding:"0.28rem 0.7rem"})}>🔄 Rotate forward</button>
             </div>
             {swapDay&&(
               <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
@@ -9350,11 +9356,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 ))}
               </div>
                 </div>
+            {swapDay&&(
+              <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
+                <span style={{fontSize:"0.85rem"}}>🔄</span>
+                <span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark,flex:1}}>Swapping <strong>{swapDay}</strong> with… tap another day</span>
+                <button onClick={()=>setSwapDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.85rem",fontWeight:700,padding:"2px 6px",fontFamily:"inherit"}}>Cancel</button>
+              </div>
+            )}
             {MEAL_DAYS.map(function(day){
               var m=nextWeekMeals[day]||{};
+              var isSwapSource=swapDay===day;
+              var isSwapTarget=swapDay&&swapDay!==day;
               return (
-                <div key={day} style={{...card({borderLeft:"4px solid "+T.blue+"50"})}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.93rem",marginBottom:"0.65rem"}}>{day}</div>
+                <div key={day} onClick={isSwapTarget?function(){setNextWeekMeals(function(p){var n=Object.assign({},p);var tmp=n[swapDay]||{};n[swapDay]=n[day]||{};n[day]=tmp;return n;});setSwapDay(null);}:undefined}
+                  style={{...card({borderLeft:"4px solid "+(isSwapSource?T.sand:T.blue)+"50",background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
+                      <span style={{fontWeight:700,color:isSwapSource?T.sandDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
+                      {isSwapSource&&<Pill label="Swapping…" color={T.sand} tiny/>}
+                      {isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px"}}>tap to swap</span>}
+                    </div>
+                    <button onClick={function(e){e.stopPropagation();setSwapDay(isSwapSource?null:day);}} title="Swap this day" style={{...btnS({padding:"0.28rem 0.55rem",display:"flex",alignItems:"center"}),background:isSwapSource?T.sand:"transparent",borderColor:isSwapSource?T.sand:T.border}}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M2 5l3-3M2 5l3 3M14 11H4M14 11l-3-3M14 11l-3 3" stroke={isSwapSource?"#fff":T.textMid} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                  </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat("+nwMealsToShow.length+",1fr)",gap:"0.45rem",marginBottom:"0.55rem"}}>
                     {nwMealsToShow.map(function(meal){return(
                       <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:"0.58rem 0.7rem",border:"1.5px solid "+T.borderSoft}}>
@@ -9620,11 +9645,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <ModalBox title="Add to Meal Bank" onClose={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:""});}}>
                     <div style={{marginBottom:"0.85rem"}}>
                       <label style={lbl}>Meal name *</label>
-                      <input defaultValue={newBankMeal.name} onBlur={function(e){setNewBankMeal(function(p){return{...p,name:e.target.value};});}} placeholder="e.g. Hamburgers" style={inp()} autoFocus/>
+                      <input value={newBankMeal.name} onChange={function(e){var v=e.target.value;setNewBankMeal(function(p){return{...p,name:v};});}} placeholder="e.g. Hamburgers" style={inp()} autoFocus/>
+                      {newBankMealDupe&&<p style={{color:T.rose,fontSize:"0.72rem",marginTop:"0.3rem"}}>Already in your meal bank.</p>}
                     </div>
                     <div style={{marginBottom:"0.85rem"}}>
                       <label style={lbl}>Notes (optional)</label>
-                      <textarea defaultValue={newBankMeal.notes} onBlur={function(e){setNewBankMeal(function(p){return{...p,notes:e.target.value};});}} placeholder="Any notes, variations, family preferences…" style={{...inp({height:65,resize:"none"})}}/>
+                      <textarea value={newBankMeal.notes} onChange={function(e){var v=e.target.value;setNewBankMeal(function(p){return{...p,notes:v};});}} placeholder="Any notes, variations, family preferences…" style={{...inp({height:65,resize:"none"})}}/>
                     </div>
                     <div style={{marginBottom:"1rem"}}>
                       <label style={lbl}>Tags</label>
@@ -9638,7 +9664,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     </div>
                     <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}>
                       <button onClick={function(){setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnS()}>Cancel</button>
-                      <button disabled={!newBankMeal.name.trim()} onClick={function(){if(!newBankMeal.name.trim())return;setMealBankCustom(function(p){return[...p,{...newBankMeal,id:"c"+Date.now(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{opacity:newBankMeal.name.trim()?1:0.5})}>Save to Bank</button>
+                      <button disabled={!newBankMeal.name.trim()||newBankMealDupe} onClick={function(){var name=newBankMeal.name.trim();if(!name||newBankMealDupe)return;setMealBankCustom(function(p){return[...p,{...newBankMeal,name:name,id:uid(),isCustom:true}];});setShowAddToBank(false);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{opacity:newBankMeal.name.trim()&&!newBankMealDupe?1:0.5})}>Save to Bank</button>
                     </div>
                   </ModalBox>
                 )}
@@ -9831,8 +9857,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <div style={{marginBottom:"0.9rem",background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.65rem 0.8rem"}}>
               <label style={{...lbl,color:T.sandDark,marginBottom:"0.4rem"}}>📋 Save a meal to Meal Bank</label>
               <div style={{display:"flex",gap:"0.4rem"}}>
-                <input defaultValue={addToBankMealName} onBlur={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:T.white})}}/>
-                <button disabled={!addToBankMealName.trim()} onClick={function(){if(!addToBankMealName.trim())return;var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===addToBankMealName.trim().toLowerCase();});if(!already){setMealBankCustom(function(p){return[...p,{id:"c"+Date.now(),name:addToBankMealName.trim(),tags:[],notes:"",isCustom:true}];});}setAddToBankMealName("");}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.7rem",opacity:addToBankMealName.trim()?1:0.5})}>Add</button>
+                <input value={addToBankMealName} onChange={function(e){setAddToBankMealName(e.target.value);}} placeholder="Meal name (e.g. Hamburgers)" style={{...inp({flex:1,fontSize:"0.82rem",background:T.white})}}/>
+                <button disabled={!addToBankMealName.trim()} onClick={function(){var name=addToBankMealName.trim();if(!name)return;var already=[...MEAL_BANK_DATA,...mealBankCustom].some(function(x){return x.name.toLowerCase()===name.toLowerCase();});if(!already){setMealBankCustom(function(p){return[...p,{id:uid(),name:name,tags:[],notes:"",isCustom:true}];});}setAddToBankMealName("");}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.7rem",opacity:addToBankMealName.trim()?1:0.5})}>Add</button>
               </div>
             </div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>setEditDay(null)} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP(T.sage)}>Save</button></div>
@@ -10149,6 +10175,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[collapsedStores,setCollapsedStores2]=useState({});
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
+    // Photo previews are session-local only, never written into shoppingItems
+    // (which is synced/broadcast to every device). URL.createObjectURL blob:
+    // URLs only resolve in the tab that created them — persisting or syncing
+    // one produced a thumbnail that broke on reload and never worked on any
+    // other household member's device. Keeping it out-of-band here means the
+    // photo still shows for the rest of this session, but nothing durable
+    // (or shared) ever claims to have a photo it doesn't actually have.
+    const [localPhotoPreviews,setLocalPhotoPreviews]=useState({});
     var pendingOps=useRef(new Set());
     var shopDrag=useRef({id:null,clone:null,fromStore:null,overStore:null});
     var [shopDraggingId,setShopDraggingId]=useState(null);
@@ -10228,6 +10262,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
     function handleDelete(id){
       setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});
+      setLocalPhotoPreviews(function(p){if(!p[id])return p;var n={...p};delete n[id];return n;});
       if(SHOPPING_V2&&householdId){
         pendingOps.current.add(id+":DELETE");
         supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":DELETE");}else{}});
@@ -10349,13 +10384,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setIsAnalyzingPhoto(true);setPhotoStatus("Analyzing photo…");
       var base64=await new Promise(function(res){var reader=new FileReader();reader.onload=function(){res(reader.result.split(",")[1]);};reader.readAsDataURL(file);});
       const photoUrl=URL.createObjectURL(file);
+      const newId=uid();
+      setLocalPhotoPreviews(p=>({...p,[newId]:photoUrl}));
       try{
         const r=await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,system:`You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ${shopCatLabels().join(", ")}. Keep name short like a grocery list item. If unclear, return {"name":"Item from photo","category":"Other"}.`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:base64}},{type:"text",text:"What grocery item is in this photo?"}]}]})});
         if(!r.ok) throw new Error("Photo analysis request failed: "+r.status);
         const d=await r.json();const txt=d.content?.find(b=>b.type==="text")?.text||'{"name":"Item from photo","category":"Other"}';
         const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());const itemName=parsed.name||"Item from photo";const itemCat=shopCatLabels().includes(parsed.category)?parsed.category:"";
-        setShoppingItems(p=>[...p,{id:uid(),text:itemName,store:newStore,done:false,photo:photoUrl,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
-      }catch{setShoppingItems(p=>[...p,{id:uid(),text:"Item from photo",store:newStore,done:false,photo:photoUrl,category:""}]);setPhotoStatus("✓ Added item with photo");}
+        setShoppingItems(p=>[...p,{id:newId,text:itemName,store:newStore,done:false,photo:null,category:itemCat}]);setPhotoStatus(`✓ Added "${itemName}" with photo`);
+      }catch{setShoppingItems(p=>[...p,{id:newId,text:"Item from photo",store:newStore,done:false,photo:null,category:""}]);setPhotoStatus("✓ Added item with photo");}
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
     }
 
@@ -10507,7 +10544,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                               <div style={{padding:"0 1rem"}}>
                                 {catItems.map(function(item){
                                   return(
-                                    <ShopItemRow key={item.id} item={item}
+                                    <ShopItemRow key={item.id} item={localPhotoPreviews[item.id]?{...item,photo:localPhotoPreviews[item.id]}:item}
                                       onToggle={handleToggle}
                                       onDelete={handleDelete}
                                       onSave={handleSave}
@@ -10524,7 +10561,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <div style={{padding:"0 1rem"}}>
                         {shopSort(storeItems).map(function(item){
                           return(
-                            <ShopItemRow key={item.id} item={item}
+                            <ShopItemRow key={item.id} item={localPhotoPreviews[item.id]?{...item,photo:localPhotoPreviews[item.id]}:item}
                               onToggle={handleToggle}
                               onDelete={handleDelete}
                               onSave={handleSave}
@@ -10588,11 +10625,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function toggleHub(k){ setHomeHubOpen(function(p){ return Object.assign({}, p, {[k]: !p[k]}); }); }
     function openVaultSection(section){ try { window.dispatchEvent(new CustomEvent("af-open-vault", {detail:{section:section, returnTo:"home"}})); } catch(e) {} }
     var hubHeaderStyle = {display:"flex",alignItems:"center",gap:"0.5rem",cursor:"pointer"};
-    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d"};
-    var hubChevron = function(open){ return <span style={{color:"#4a6275",fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
+    var hubTitleStyle = {margin:0,flex:1,fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark};
+    var hubChevron = function(open){ return <span style={{color:T.textMid,fontSize:"0.7rem",flexShrink:0,display:"inline-block",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>▾</span>; };
     // Item 3 — smart collapsed previews: small muted text shown in the
     // header row, hidden once expanded (redundant with the full content).
-    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:"#4a6275",fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
+    var hubPreview = function(text){ return <span style={{fontSize:"0.74rem",color:T.textMid,fontWeight:500,marginLeft:"0.3rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{text}</span>; };
 
     // ── Household Info — new card replacing Systems. {id,label,value,category} ──
     var [homeInfo, setHomeInfo] = useSaved("home_info", []);
@@ -10647,8 +10684,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var cleaningZones = (homeCleaning && Array.isArray(homeCleaning.zones)) ? homeCleaning.zones : [];
     var activeZoneIndex = (homeCleaning && typeof homeCleaning.activeZoneIndex==="number") ? homeCleaning.activeZoneIndex : 0;
     var activeZone = cleaningZones[activeZoneIndex] || null;
-    var cleaningSupplies = (homeCleaning && Array.isArray(homeCleaning.supplies)) ? homeCleaning.supplies : [];
-    var lowSupplies = cleaningSupplies.filter(function(s){ return s && s.low; });
     // setActiveZone is the manual "pin" path — used by both the quick zone
     // switch and the zone manager's "Set as this week" button.
     function setActiveZone(idx){ setHomeCleaning(Object.assign({}, homeCleaning, {activeZoneIndex:idx, zonePinned:true})); }
@@ -10692,11 +10727,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         return Object.assign({}, z, { tasks: (z.tasks||[]).map(function(t){ return Object.assign({},t,{done:false}); }) });
       })}));
     }
-    var [newSupplyName, setNewSupplyName] = useState("");
-    function addSupply(){ if(!newSupplyName.trim())return; setHomeCleaning(Object.assign({}, homeCleaning, {supplies:cleaningSupplies.concat([{id:uid(),name:newSupplyName.trim(),low:false}])})); setNewSupplyName(""); }
-    function toggleSupplyLow(id){ setHomeCleaning(Object.assign({}, homeCleaning, {supplies:cleaningSupplies.map(function(s){return s.id===id?Object.assign({},s,{low:!s.low}):s;})})); }
-    function deleteSupply(id){ setHomeCleaning(Object.assign({}, homeCleaning, {supplies:cleaningSupplies.filter(function(s){return s.id!==id;})})); }
-
     // ── Maintenance summary — reads af_vaultSystems directly, doesn't own it ──
     var maintenanceSystems = (function(){ try { var v=JSON.parse(localStorage.getItem("af_vaultSystems")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
     // First item is "Next Due", remaining up to 3 are "Upcoming".
@@ -10784,17 +10814,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           var hasAlerts = maintenanceDueSoon.length>0 || inventoryLow.length>0;
           return (
             <div style={{...card({background:"#ddeaf4",border:"1px solid rgba(26,46,61,0.1)"})}}>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:"#1a2e3d",marginBottom:"0.75rem"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.15rem",fontWeight:700,color:T.textDark,marginBottom:"0.75rem"}}>
                 {hasAlerts ? "A few things need attention." : "Everything running smoothly."}
               </div>
               <div className="af-home-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.6rem 0.9rem",minHeight:56}}>
-                <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
                   🧹 {activeZone ? (activeZone.name + " · " + zoneTasksRemaining + " task" + (zoneTasksRemaining!==1?"s":"") + " left") : "No zones set up"}
                 </div>
-                <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
                   🔧 {maintenanceDueSoon[0] ? (maintenanceDueSoon[0].name + " " + formatDueNaturally(maintenanceDueSoon[0].nextDue)) : "All clear"}
                 </div>
-                <div style={{fontSize:"0.8rem",color:"#4a6275",lineHeight:1.4}}>
+                <div style={{fontSize:"0.8rem",color:T.textMid,lineHeight:1.4}}>
                   📦 {inventoryLow.length>0 ? (inventoryLow.length + " item" + (inventoryLow.length!==1?"s":"") + " running low") : "All stocked"}
                 </div>
               </div>
@@ -10812,18 +10842,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.info)}
           </div>
           {homeHubOpen.info&&(<div style={{marginTop:"0.75rem"}}>
-            {homeInfo.length===0 && <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic",padding:"0.2rem 0"}}>No home info saved yet — Wi-Fi password, utilities, vendor and emergency contacts.</div>}
+            {homeInfo.length===0 && <div style={{fontSize:"0.8rem",color:T.textMid,fontStyle:"italic",padding:"0.2rem 0"}}>No home info saved yet — Wi-Fi password, utilities, vendor and emergency contacts.</div>}
             {INFO_CATEGORIES.map(function(cat){
               var catItems = homeInfo.filter(function(i){return (i.category||"General")===cat;});
               if (catItems.length===0) return null;
               return (
                 <div key={cat} style={{marginBottom:"0.6rem"}}>
-                  <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.25rem"}}>{cat}</div>
+                  <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.25rem"}}>{cat}</div>
                   {catItems.map(function(item){return(
                     <div key={item.id} onClick={function(){openEditInfo(item);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.32rem 0",cursor:"pointer",borderBottom:"1px solid "+T.borderSoft}}>
-                      <span style={{fontSize:"0.82rem",color:"#4a6275",minWidth:100,flexShrink:0}}>{item.label}</span>
-                      <span style={{flex:1,fontSize:"0.84rem",color:"#1a2e3d",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</span>
-                      <button onClick={function(e){e.stopPropagation();deleteInfo(item.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+                      <span style={{fontSize:"0.82rem",color:T.textMid,minWidth:100,flexShrink:0}}>{item.label}</span>
+                      <span style={{flex:1,fontSize:"0.84rem",color:T.textDark,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.value}</span>
+                      <button onClick={function(e){e.stopPropagation();deleteInfo(item.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textMid}/></button>
                     </div>
                   );})}
                 </div>
@@ -10866,25 +10896,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.cleaning&&(<div style={{marginTop:"0.75rem"}}>
             {cleaningZones.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",padding:"0.5rem 0",lineHeight:1.6}}>
+              <div style={{fontSize:"0.84rem",color:T.textMid,padding:"0.5rem 0",lineHeight:1.6}}>
                 Organize your home into cleaning zones. Today's active zone appears in Today's Home Focus.
               </div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Today's Zone</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Today's Zone</div>
               {activeZone && (function(){
                 var zTasks = activeZone.tasks || [];
                 var zDone = zTasks.filter(function(t){return t.done;}).length;
                 return (
                   <div style={{...card({background:T.sagePale,border:"1.5px solid "+T.sage+"55",marginBottom:"0.75rem"})}}>
-                    <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d",marginBottom:"0.15rem"}}>{activeZone.name}</div>
-                    <div style={{fontSize:"0.78rem",color:"#4a6275",marginBottom:"0.3rem"}}>{activeZone.rooms}</div>
-                    <div style={{fontSize:"0.72rem",color:"#4a6275",fontWeight:700,marginBottom:"0.5rem"}}>{zTasks.length} task{zTasks.length!==1?"s":""} · {zDone} completed</div>
+                    <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark,marginBottom:"0.15rem"}}>{activeZone.name}</div>
+                    <div style={{fontSize:"0.78rem",color:T.textMid,marginBottom:"0.3rem"}}>{activeZone.rooms}</div>
+                    <div style={{fontSize:"0.72rem",color:T.textMid,fontWeight:700,marginBottom:"0.5rem"}}>{zTasks.length} task{zTasks.length!==1?"s":""} · {zDone} completed</div>
                     {zTasks.length===0
-                      ? <div style={{fontSize:"0.8rem",color:"#4a6275",fontStyle:"italic"}}>No tasks in this zone yet.</div>
+                      ? <div style={{fontSize:"0.8rem",color:T.textMid,fontStyle:"italic"}}>No tasks in this zone yet.</div>
                       : zTasks.map(function(t){return(
                           <div key={t.id} onClick={function(){toggleZoneTask(t.id);}} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.28rem 0",cursor:"pointer"}}>
                             <div style={{width:16,height:16,borderRadius:"50%",border:"2px solid "+(t.done?T.sage:T.border),background:t.done?T.sage:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{t.done&&<Icon name="check" size={9} color="#fff"/>}</div>
-                            <span style={{fontSize:"0.83rem",color:"#1a2e3d",textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
+                            <span style={{fontSize:"0.83rem",color:T.textDark,textDecoration:t.done?"line-through":"none"}}>{t.text}</span>
                           </div>
                         );})
                     }
@@ -10902,17 +10932,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   return (
                     <div key={z.id} style={{...card({border:"1.5px solid "+(isActive?T.sage+"70":T.borderSoft),marginBottom:"0.4rem",padding:"0.65rem 0.75rem"})}}>
                       <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                        <span style={{flex:1,fontSize:"0.85rem",fontWeight:700,color:"#1a2e3d"}}>{z.name}</span>
+                        <span style={{flex:1,fontSize:"0.85rem",fontWeight:700,color:T.textDark}}>{z.name}</span>
                         {isActive
                           ? <span style={{fontSize:"0.65rem",fontWeight:800,color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"2px 8px",flexShrink:0}}>Active</span>
                           : <button onClick={function(){setActiveZone(zi);}} style={{...btnS({fontSize:"0.68rem",padding:"0.25rem 0.55rem"})}}>Set as this week</button>
                         }
                       </div>
-                      <div style={{fontSize:"0.76rem",color:"#4a6275",margin:"0.2rem 0 0.45rem"}}>{z.rooms||"No rooms set"}</div>
+                      <div style={{fontSize:"0.76rem",color:T.textMid,margin:"0.2rem 0 0.45rem"}}>{z.rooms||"No rooms set"}</div>
                       <div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}>
-                        <span style={{fontSize:"0.7rem",color:"#4a6275"}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
+                        <span style={{fontSize:"0.7rem",color:T.textMid}}>{(z.tasks||[]).length} task{(z.tasks||[]).length!==1?"s":""}</span>
                         <button onClick={function(){openEditZone(z);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,fontSize:"0.72rem",color:T.blue,fontWeight:700}}>Edit</button>
-                        <button onClick={function(){deleteZone(z.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",marginLeft:"auto"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+                        <button onClick={function(){deleteZone(z.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:0,display:"flex",marginLeft:"auto"}}><Icon name="trash" size={12} color={T.textMid}/></button>
                       </div>
                     </div>
                   );
@@ -10929,11 +10959,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Rooms</label><input value={zoneForm.rooms} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{rooms:e.target.value});});}} placeholder="e.g. Master bedroom, bathrooms" style={inp()}/></div>
                 <label style={lbl}>Tasks</label>
                 <div style={{marginBottom:"0.6rem",border:"1.5px solid "+T.border,borderRadius:"0.8rem",overflow:"hidden"}}>
-                  {zoneForm.tasks.length===0 && <p style={{color:"#4a6275",fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
+                  {zoneForm.tasks.length===0 && <p style={{color:T.textMid,fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
                   {zoneForm.tasks.map(function(t,ti){return(
                     <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.65rem",borderBottom:ti<zoneForm.tasks.length-1?"1px solid "+T.borderSoft:"none"}}>
-                      <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{t.text}</span>
-                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+                      <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{t.text}</span>
+                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={T.textMid}/></button>
                     </div>
                   );})}
                 </div>
@@ -10950,29 +10980,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               </ModalBox>
             )}
-
-            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",margin:"0.75rem 0 0.3rem"}}>Supplies</div>
-            {lowSupplies.length>0
-              ? lowSupplies.map(function(s){return(
-                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                    <span style={{fontSize:"0.8rem"}}>⚠️</span>
-                    <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{s.name}</span>
-                    <span style={{fontSize:"0.68rem",color:T.rose,fontWeight:700}}>Low</span>
-                  </div>
-                );})
-              : cleaningSupplies.length>0 && <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600}}>All stocked ✓</div>
-            }
-            {cleaningSupplies.filter(function(s){return !s.low;}).map(function(s){return(
-              <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                <div onClick={function(){toggleSupplyLow(s.id);}} style={{width:16,height:16,borderRadius:"0.3rem",border:"2px solid "+T.border,background:"transparent",cursor:"pointer",flexShrink:0}}/>
-                <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{s.name}</span>
-                <button onClick={function(){deleteSupply(s.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
-              </div>
-            );})}
-            <div style={{display:"flex",gap:"0.4rem",marginTop:"0.4rem"}}>
-              <input value={newSupplyName} onChange={function(e){setNewSupplyName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addSupply();}} placeholder="Add a supply…" style={{...inp({flex:1,fontSize:"0.82rem",padding:"0.4rem 0.6rem"})}}/>
-              <button onClick={addSupply} style={btnS({fontSize:"0.75rem",padding:"0.4rem 0.7rem"})}>+ Add</button>
-            </div>
           </div>)}
         </div>
 
@@ -10986,21 +10993,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.maintenance&&(<div style={{marginTop:"0.75rem"}}>
             {maintenanceSystems.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No maintenance items — add your first in Maintenance</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No maintenance items — add your first in Maintenance</div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Next Due</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Next Due</div>
               {maintenanceDueSoon[0] ? (
                 <div style={{...card({background:T.sandPale,border:"1.5px solid "+T.sand+"55",marginBottom:"0.6rem"})}}>
-                  <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d"}}>{maintenanceDueSoon[0].name}</div>
-                  <div style={{fontSize:"0.8rem",color:"#4a6275",marginTop:"0.15rem"}}>{formatDueNaturally(maintenanceDueSoon[0].nextDue)}</div>
+                  <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>{maintenanceDueSoon[0].name}</div>
+                  <div style={{fontSize:"0.8rem",color:T.textMid,marginTop:"0.15rem"}}>{formatDueNaturally(maintenanceDueSoon[0].nextDue)}</div>
                 </div>
-              ) : <div style={{fontSize:"0.82rem",color:"#4a6275",fontStyle:"italic",marginBottom:"0.6rem"}}>All clear</div>}
+              ) : <div style={{fontSize:"0.82rem",color:T.textMid,fontStyle:"italic",marginBottom:"0.6rem"}}>All clear</div>}
               {maintenanceDueSoon.length>1&&(<>
-                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Upcoming</div>
+                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Upcoming</div>
                 {maintenanceDueSoon.slice(1).map(function(s){return(
                   <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                    <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{s.name}</span>
-                    <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{formatDueNaturally(s.nextDue)}</span>
+                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{formatDueNaturally(s.nextDue)}</span>
                   </div>
                 );})}
               </>)}
@@ -11018,14 +11025,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {hubChevron(homeHubOpen.inventory)}
           </div>
           {homeHubOpen.inventory&&(<div style={{marginTop:"0.75rem"}}>
-            <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
-            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Running Low</div>
+            <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.6rem"}}>{inventoryItems.length} item{inventoryItems.length!==1?"s":""} tracked</div>
+            <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Running Low</div>
             {inventoryLow.length===0
               ? <div style={{fontSize:"0.82rem",color:T.sage,fontWeight:600,marginBottom:"0.5rem"}}>All stocked ✓</div>
               : inventoryLow.map(function(i,ii){return(
                   <div key={ii} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
                     <span style={{fontSize:"0.8rem"}}>⚠️</span>
-                    <span style={{fontSize:"0.83rem",color:"#1a2e3d"}}>{i.name}</span>
+                    <span style={{fontSize:"0.83rem",color:T.textDark}}>{i.name}</span>
                   </div>
                 );})
             }
@@ -11043,19 +11050,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.reminders&&(<div style={{marginTop:"0.75rem"}}>
             {remindersSorted.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No reminders yet — add your first in Reminders</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No reminders yet — add your first in Reminders</div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Next Due</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Next Due</div>
               <div style={{...card({background:T.sandPale,border:"1.5px solid "+T.sand+"55",marginBottom:"0.6rem"})}}>
-                <div style={{fontWeight:700,fontSize:"0.95rem",color:"#1a2e3d"}}>{remindersSorted[0].emoji||"🔁"} {remindersSorted[0].label}</div>
-                <div style={{fontSize:"0.8rem",color:"#4a6275",marginTop:"0.15rem"}}>{reminderLabel(remindersSorted[0])}</div>
+                <div style={{fontWeight:700,fontSize:"0.95rem",color:T.textDark}}>{remindersSorted[0].emoji||"🔁"} {remindersSorted[0].label}</div>
+                <div style={{fontSize:"0.8rem",color:T.textMid,marginTop:"0.15rem"}}>{reminderLabel(remindersSorted[0])}</div>
               </div>
               {remindersSorted.length>1&&(<>
-                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Upcoming</div>
+                <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Upcoming</div>
                 {remindersSorted.slice(1,4).map(function(r){return(
                   <div key={r.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                    <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{r.emoji||"🔁"} {r.label}</span>
-                    <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{reminderLabel(r)}</span>
+                    <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{r.emoji||"🔁"} {r.label}</span>
+                    <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{reminderLabel(r)}</span>
                   </div>
                 );})}
               </>)}
@@ -11074,16 +11081,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {homeHubOpen.subs&&(<div style={{marginTop:"0.75rem"}}>
             {subsList.length===0 ? (
-              <div style={{fontSize:"0.84rem",color:"#4a6275",marginBottom:"0.5rem"}}>No subscriptions tracked yet — add your first in Subscriptions</div>
+              <div style={{fontSize:"0.84rem",color:T.textMid,marginBottom:"0.5rem"}}>No subscriptions tracked yet — add your first in Subscriptions</div>
             ) : (<>
-              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:"#4a6275",marginBottom:"0.3rem"}}>Tracked</div>
+              <div style={{fontSize:"0.66rem",fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:T.textMid,marginBottom:"0.3rem"}}>Tracked</div>
               {subsList.slice(0,4).map(function(s){return(
                 <div key={s.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.25rem 0"}}>
-                  <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{s.name}</span>
-                  <span style={{fontSize:"0.7rem",color:"#4a6275",fontWeight:700}}>{s.amount?("$"+s.amount+" / "+s.cycle):s.cycle}</span>
+                  <span style={{flex:1,fontSize:"0.83rem",color:T.textDark}}>{s.name}</span>
+                  <span style={{fontSize:"0.7rem",color:T.textMid,fontWeight:700}}>{s.amount?("$"+s.amount+" / "+s.cycle):s.cycle}</span>
                 </div>
               );})}
-              {subsList.length>4&&<div style={{fontSize:"0.72rem",color:"#4a6275",marginTop:"0.2rem"}}>+{subsList.length-4} more</div>}
+              {subsList.length>4&&<div style={{fontSize:"0.72rem",color:T.textMid,marginTop:"0.2rem"}}>+{subsList.length-4} more</div>}
             </>)}
             <button onClick={function(){openVaultSection("subs");}} style={btnP(T.sage,{fontSize:"0.78rem",padding:"0.4rem 0.8rem",marginTop:"0.6rem"})}>Open Subscriptions →</button>
           </div>)}
