@@ -387,6 +387,10 @@ export default function ExhaleSection(props) {
   var [bucketInputTarget, setBucketInputTarget] = useState(0);
   var [bucketAddOpenFor, setBucketAddOpenFor] = useState(null);
   var [bucketAddText, setBucketAddText] = useState("");
+  // Show-more per bucket (idx -> bool) — local component state only, not
+  // persisted, so it resets to collapsed on every reload by design.
+  var [bucketShowAll, setBucketShowAll] = useState({});
+  var BUCKET_ITEM_LIMIT = 5;
   // Checkbox bulk delete — select mode is per-bucket (idx -> bool), selected
   // item ids are a single flat set (item ids are globally unique, so no
   // bucket-scoping needed there; only one bucket can be in select mode at a
@@ -1561,7 +1565,7 @@ export default function ExhaleSection(props) {
               <div style={{ fontSize: 11.5, color: txS, fontStyle: "italic", padding: "6px 0" }}>No items match this filter.</div>
             )}
 
-            {filteredItems.map(function(item) {
+            {(bucketShowAll[idx] ? filteredItems : filteredItems.slice(0, BUCKET_ITEM_LIMIT)).map(function(item) {
               var isExpanded = expandedItemId === item.id || !!staleReviewIds[item.id];
               var isBeingDragged = dragFromId === item.id;
               var isDragOverThis = dragOverId === item.id;
@@ -1694,6 +1698,12 @@ export default function ExhaleSection(props) {
                 </div>
               );
             })}
+            {!bucketShowAll[idx] && filteredItems.length > BUCKET_ITEM_LIMIT && (
+              <button onClick={(e) => { e.stopPropagation(); setBucketShowAll(function(p) { return Object.assign({}, p, { [idx]: true }); }); }}
+                style={{ width: "100%", background: "none", border: br, borderRadius: 8, padding: "6px 8px", fontSize: 11.5, color: txS, cursor: "pointer", marginTop: 2 }}>
+                Show {filteredItems.length - BUCKET_ITEM_LIMIT} more
+              </button>
+            )}
           </div>
         )}
       </div>
