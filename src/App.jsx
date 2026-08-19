@@ -11043,7 +11043,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ══════════════ 7. Reminders (existing vault section — summary + link) ══════════════ */}
         <div style={{...card()}}>
           <div onClick={function(){toggleHub("reminders");}} style={hubHeaderStyle}>
-            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🔁</span>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🔔</span>
             <h2 style={hubTitleStyle}>Reminders</h2>
             {!homeHubOpen.reminders && hubPreview(remindersSorted[0] ? (remindersSorted[0].label+" · "+reminderLabel(remindersSorted[0])) : "No reminders yet")}
             {hubChevron(homeHubOpen.reminders)}
@@ -11074,7 +11074,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* ══════════════ 8. Subscriptions (existing vault section — summary + link) ══════════════ */}
         <div style={{...card()}}>
           <div onClick={function(){toggleHub("subs");}} style={hubHeaderStyle}>
-            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>🔄</span>
+            <span style={{width:28,height:28,borderRadius:"50%",background:"#2b3d52",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>💳</span>
             <h2 style={hubTitleStyle}>Subscriptions</h2>
             {!homeHubOpen.subs && hubPreview(subsList.length>0 ? (subsList.length+" subscription"+(subsList.length!==1?"s":"")) : "No subscriptions yet")}
             {hubChevron(homeHubOpen.subs)}
