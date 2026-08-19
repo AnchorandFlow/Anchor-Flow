@@ -990,6 +990,35 @@ const TODAY_NAME = DAY_NAMES[TODAY.getDay()];
 const FORMAT_DATE = d => d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 const FORMAT_SHORT = d => d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
 const uid = () => Math.random().toString(36).slice(2,9);
+// Shopping stores — positional metadata (emoji + whether the store gets
+// subcategory support) for the "stores" SYNC_KEYS array, which is otherwise
+// just a plain array of label strings. Position-keyed (not name-keyed)
+// because "stores" has no id field — index 0 is always the Grocery slot,
+// index 1 Costco, etc., regardless of what the user has renamed them to.
+// Anything past index 3 (a 5th/6th store added in Settings) falls back to a
+// generic store emoji with no subcategories.
+// id is preserved from the original hardcoded FIXED_STORES list — other code
+// (per-store color coding, drag-drop target matching) keys off these exact
+// id strings, so a rename must only ever change label, never id.
+const STORE_META = [
+  {id:"grocery", emoji:"🛒", hasCats:true},
+  {id:"costco",  emoji:"🏪", hasCats:true},
+  {id:"target",  emoji:"🎯", hasCats:false},
+  {id:"amazon",  emoji:"📦", hasCats:false},
+];
+function storeMetaFor(i){ return STORE_META[i] || {id:"store"+i, emoji:"🏬", hasCats:false}; }
+// Renames a store by index and migrates every shoppingItems row pointing at
+// the old label so items don't get silently orphaned under a stale store
+// name. Shared by the Shopping tab's own inline rename and Settings' store
+// editor so both go through the same migration, not two copies that could
+// drift apart.
+function renameStoreLabel(stores, setStores, setShoppingItems, index, newLabel){
+  var val = (newLabel||"").trim();
+  if (!val || val === stores[index]) return;
+  var oldLabel = stores[index];
+  setStores(function(p){ var n=p.slice(); n[index]=val; return n; });
+  setShoppingItems(function(p){ return p.map(function(it){ return it.store===oldLabel ? Object.assign({},it,{store:val}) : it; }); });
+}
 // Derive current age from an ISO birthday string (YYYY-MM-DD). Returns null if missing/invalid.
 function ageFromBirthday(birthday) {
   if (!birthday) return null;
@@ -1897,7 +1926,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,sections,setSections,plusGateActive,onPlusGate}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,sections,setSections,plusGateActive,onPlusGate}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -2130,7 +2159,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
               <div key={i} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.5rem 0.7rem",borderRadius:"0.7rem",border:"1.5px solid "+T.borderSoft,background:T.surface,marginBottom:"0.4rem"}}>
                 <span style={{fontSize:"0.95rem"}}>🛒</span>
                 {editingStore===i?(
-                  <input autoFocus value={storeEditVal} onChange={function(e){setStoreEditVal(e.target.value);}} onBlur={function(){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}} onKeyDown={function(e){if(e.key==="Enter"){if(storeEditVal.trim()){setStores(function(p){var n=[...p];n[i]=storeEditVal.trim();return n;});}setEditingStore(null);}}} style={{...inp({flex:1,fontSize:"0.85rem",padding:"0.22rem 0.5rem"})}}/>
+                  <input autoFocus value={storeEditVal} onChange={function(e){setStoreEditVal(e.target.value);}} onBlur={function(){renameStoreLabel(stores,setStores,setShoppingItems,i,storeEditVal);setEditingStore(null);}} onKeyDown={function(e){if(e.key==="Enter"){renameStoreLabel(stores,setStores,setShoppingItems,i,storeEditVal);setEditingStore(null);}}} style={{...inp({flex:1,fontSize:"0.85rem",padding:"0.22rem 0.5rem"})}}/>
                 ):(
                   <span onClick={function(){setEditingStore(i);setStoreEditVal(store);}} style={{flex:1,fontSize:"0.85rem",fontWeight:600,color:T.textDark,cursor:"pointer"}}>{store}</span>
                 )}
@@ -3978,7 +4007,11 @@ function createLocalBackup() {
   const [weekTypeKey,setWeekTypeKey]           = useState(null);
   const [showWeekTypePicker,setShowWeekTypePicker] = useState(false);
   const [shoppingItems,setShoppingItems]       = useSaved("shoppingItems",[]);
-  const [stores,setStores]                     = useSaved("stores",["Grocery Store","Costco","Target","Amazon"]);
+  // Defaults MUST match the labels the Shopping tab's FIXED_STORES has always
+  // used ("Grocery", not "Grocery Store") — shoppingItems rows already carry
+  // these exact strings in their .store field, and this array now drives
+  // Shopping's real store-tab labels (previously a dead, disconnected list).
+  const [stores,setStores]                     = useSaved("stores",["Grocery","Costco","Target","Amazon"]);
   const [exhaleItems,setExhaleItems]           = useSaved("exhaleItems",[]);
   const [exhaleLabels,setExhaleLabels]         = useSaved("exhaleLabels",{});
   const [brainItems,setBrainItems]             = useSaved("brainItems",[]);
@@ -10151,13 +10184,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── SHOPPING TAB (voice + photo) ──────────────────────────────────────────
   _hfRenders.ShoppingTab = function ShoppingTab(){
-    // Fixed stores with subcategory support for Grocery and Costco
-    const FIXED_STORES = [
-      {id:"grocery", label:"Grocery", emoji:"🛒", hasCats:true},
-      {id:"costco",  label:"Costco",  emoji:"🏪", hasCats:true},
-      {id:"target",  label:"Target",  emoji:"🎯", hasCats:false},
-      {id:"amazon",  label:"Amazon",  emoji:"📦", hasCats:false},
-    ];
+    // Store tabs — derived from the shared "stores" array (Settings' Shopping
+    // section) so renaming a store there actually shows up here. Was
+    // previously a hardcoded, disconnected FIXED_STORES list; positional
+    // metadata (emoji/subcategory support) now comes from storeMetaFor,
+    // keyed by index so it survives a rename.
+    const FIXED_STORES = stores.map(function(label,i){ var m=storeMetaFor(i); return {id:m.id, label:label, emoji:m.emoji, hasCats:m.hasCats}; });
+    const [editingStoreIdx,setEditingStoreIdx]=useState(null);
+    const [storeEditVal,setStoreEditVal]=useState("");
+    function commitStoreRename(i){ renameStoreLabel(stores, setStores, setShoppingItems, i, storeEditVal); setEditingStoreIdx(null); if(newStore===stores[i] && storeEditVal.trim()) setNewStore(storeEditVal.trim()); }
     const lastStore = useSaved("lastUsedStore", "Grocery");
     const[newStore,setNewStore]=useState(lastStore[0]||"Grocery");
     const shopInputRef=useRef(null);
@@ -10241,15 +10276,24 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     },[householdId]);
 
-    // Normalize store name from old free-text to fixed store id
+    // Normalize a shoppingItems.store value to one of the current store
+    // labels. An exact match to a current label (the common case — includes
+    // every item renameStoreLabel has already migrated) short-circuits
+    // straight through unchanged. Anything else is old free-text from before
+    // stores existed as fixed tabs; the substring heuristic maps it to
+    // whatever that slot's CURRENT (possibly renamed) label is, rather than
+    // the original hardcoded "Grocery"/"Costco"/"Target"/"Amazon" strings —
+    // those would never match a renamed label and silently drop the item
+    // out of every store section.
     function normalizeStore(s){
-      if(!s) return "Grocery";
+      if(!s) return stores[0]||"Grocery";
+      if(stores.indexOf(s)!==-1) return s;
       var sl=s.toLowerCase();
-      if(sl.includes("costco")) return "Costco";
-      if(sl.includes("target")) return "Target";
-      if(sl.includes("amazon")) return "Amazon";
-      if(sl.includes("grocery")) return "Grocery";
-      return "Grocery";
+      if(sl.includes("costco")) return stores[1]||"Costco";
+      if(sl.includes("target")) return stores[2]||"Target";
+      if(sl.includes("amazon")) return stores[3]||"Amazon";
+      if(sl.includes("grocery")) return stores[0]||"Grocery";
+      return stores[0]||"Grocery";
     }
 
     function handleToggle(id,currentDone){
@@ -10414,12 +10458,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{...card({background:T.sandPale,border:"2px solid "+T.sand+"55"})}}>
           {/* Store tabs */}
           <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",flexWrap:"wrap"}}>
-            {FIXED_STORES.map(function(st){
+            {FIXED_STORES.map(function(st,i){
               var isActive=newStore===st.label;
+              if(editingStoreIdx===i){
+                return (
+                  <div key={st.id} style={{display:"flex",alignItems:"center",background:T.white,border:"2px solid "+T.sand,borderRadius:"2rem",padding:"0.1rem 0.3rem 0.1rem 0.6rem"}}>
+                    <input autoFocus value={storeEditVal} onChange={function(e){setStoreEditVal(e.target.value);}}
+                      onBlur={function(){commitStoreRename(i);}}
+                      onKeyDown={function(e){if(e.key==="Enter")commitStoreRename(i);if(e.key==="Escape"){setStoreEditVal(st.label);setEditingStoreIdx(null);}}}
+                      style={{border:"none",outline:"none",background:"transparent",fontSize:"0.74rem",fontWeight:700,color:T.textDark,width:90,fontFamily:"inherit"}}/>
+                  </div>
+                );
+              }
               return(
-                <button key={st.id} onClick={()=>{setNewStore(st.label);lastStore[1](st.label);}} style={{background:isActive?T.sand:"transparent",color:isActive?"#fff":T.textMid,border:"2px solid "+(isActive?T.sand:T.border),borderRadius:"2rem",padding:"0.28rem 0.75rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                  <span>{st.emoji}</span>{st.label}
-                </button>
+                <div key={st.id} style={{display:"flex",alignItems:"stretch"}}>
+                  <button onClick={()=>{setNewStore(st.label);lastStore[1](st.label);}} style={{background:isActive?T.sand:"transparent",color:isActive?"#fff":T.textMid,border:"2px solid "+(isActive?T.sand:T.border),borderRight:"none",borderRadius:"2rem 0 0 2rem",padding:"0.28rem 0.4rem 0.28rem 0.75rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                    <span>{st.emoji}</span>{st.label}
+                  </button>
+                  <button onClick={function(){setEditingStoreIdx(i);setStoreEditVal(st.label);}} title={"Rename "+st.label} aria-label={"Rename "+st.label} style={{background:isActive?T.sand:"transparent",color:isActive?"#fff":T.textFaint,border:"2px solid "+(isActive?T.sand:T.border),borderLeft:"none",borderRadius:"0 2rem 2rem 0",padding:"0.28rem 0.55rem 0.28rem 0.25rem",cursor:"pointer",fontSize:"0.66rem",fontFamily:"inherit"}}>✏️</button>
+                </div>
               );
             })}
           </div>
@@ -17286,6 +17343,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   flowGreetingTone={flowGreetingTone} setFlowGreetingTone={setFlowGreetingTone}
                   mealCount={mealCount} setMealCount={setMealCount}
                   stores={stores} setStores={setStores}
+                  shoppingItems={shoppingItems} setShoppingItems={setShoppingItems}
                   rhythm={rhythm} setRhythm={setRhythm}
                   brainCats={brainCats} setBrainCats={setBrainCats}
                   coveData={coveData} setCoveData={setCoveData}
