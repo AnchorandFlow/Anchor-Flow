@@ -9768,11 +9768,12 @@ function SubscriptionsSection() {
   function saveCoupons(v) { setCoupons(v); persist("af_coupons", v); afVaultChanged("coupons") }
   function savePerks(v) { setPerks(v); persist("af_perks", v); afVaultChanged("perks") }
   function openAdd(type) { setModal(type); setForm({}) }
+  function openEditSub(s) { setModal("sub"); setForm({ editId: s.id, name: s.name, cycle: s.cycle, amount: s.amount ? String(s.amount) : "", website: s.website, renewDate: s.renewDate }) }
   function closeModal() { setModal(null); setForm({}) }
-  function addSub() {
+  function saveSub() {
     if (!form.name) return
-    var item = { id: Date.now().toString(), name: form.name, cycle: form.cycle||"monthly", amount: parseFloat(form.amount)||0, website: form.website||"", renewDate: form.renewDate||"" }
-    saveSubs([...subs, item]); closeModal()
+    var item = { id: form.editId||Date.now().toString(), name: form.name, cycle: form.cycle||"monthly", amount: parseFloat(form.amount)||0, website: form.website||"", renewDate: form.renewDate||"" }
+    saveSubs(form.editId ? subs.map(function(s){ return s.id===form.editId ? item : s }) : [...subs, item]); closeModal()
   }
   function deleteSub(id) { saveSubs(subs.filter(function(s) { return s.id !== id })) }
   function addCoupon() {
@@ -9839,7 +9840,10 @@ function SubscriptionsSection() {
             ),
             React.createElement("div", { style: { textAlign: "right", flexShrink: 0, marginLeft: 12 } },
               React.createElement("div", { style: { fontSize: 16, fontWeight: 600, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" } }, "$" + (s.amount||0).toFixed(2)),
-              React.createElement("button", { onClick: function() { deleteSub(s.id) }, style: { background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "remove")
+              React.createElement("div", { style: { display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 2 } },
+                React.createElement("button", { onClick: function() { openEditSub(s) }, style: { background: "none", border: "none", color: BLUE, cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "edit"),
+                React.createElement("button", { onClick: function() { deleteSub(s.id) }, style: { background: "none", border: "none", color: "#4a6275", cursor: "pointer", fontSize: 11, fontFamily: "DM Sans,sans-serif" } }, "remove")
+              )
             )
           )
         )
@@ -9899,7 +9903,7 @@ function SubscriptionsSection() {
     modal && React.createElement("div", { style: modalBg, onClick: function(e) { if (e.target === e.currentTarget) closeModal() } },
       React.createElement("div", { style: modalBox },
         React.createElement("div", { style: { fontFamily: "Cormorant Garamond,serif", fontSize: 18, fontWeight: 700, color: WHITE, marginBottom: 16 } },
-          modal === "sub" ? "Add subscription" : modal === "coupon" ? "Add coupon / store credit" : "Add perk or discount"
+          modal === "sub" ? (form.editId ? "Edit subscription" : "Add subscription") : modal === "coupon" ? "Add coupon / store credit" : "Add perk or discount"
         ),
         modal === "sub" && React.createElement("div", null,
           React.createElement("div", { style: { marginBottom: 12 } }, React.createElement("label", { style: lbl }, "Service name"), React.createElement("input", { style: inp, placeholder: "e.g. Netflix, Spotify", value: form.name||"", onChange: function(e) { setForm(Object.assign({},form,{name:e.target.value})) } })),
@@ -9932,7 +9936,7 @@ function SubscriptionsSection() {
         ),
         React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
           React.createElement("button", { onClick: closeModal, style: { flex: 1, background: "transparent", border: "0.5px solid rgba(250,242,229,0.15)", borderRadius: 10, padding: "10px", color: "rgba(250,248,244,0.5)", fontFamily: "DM Sans,sans-serif", fontSize: 14, cursor: "pointer" } }, "Cancel"),
-          React.createElement("button", { onClick: modal==="sub" ? addSub : modal==="coupon" ? addCoupon : addPerk, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Save")
+          React.createElement("button", { onClick: modal==="sub" ? saveSub : modal==="coupon" ? addCoupon : addPerk, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Save")
         )
       )
     )
