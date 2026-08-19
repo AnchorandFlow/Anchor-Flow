@@ -8014,7 +8014,7 @@ var HF_CATS = [
   { id:"home",    label:"Home specs",       emoji:"🏠", desc:"Paint colors, flooring, fixtures, utility accounts" },
   { id:"vehicle", label:"Vehicles",         emoji:"🚗", desc:"VIN, insurance, registration, service history" },
   { id:"warranty",label:"Warranties",       emoji:"🛡️", desc:"Appliances, systems, electronics" },
-  { id:"tax",     label:"Tax file",         emoji:"📄", desc:"Annual checklists and year summaries" },
+  { id:"tax",     label:"Tax file",         emoji:"📄", desc:"Filing deadline and preparer contact info" },
   { id:"legal",   label:"Legal & financial",emoji:"⚖️", desc:"Wills, insurance policies, mortgage, emergency contacts" },
   { id:"other",   label:"Other",            emoji:"📋", desc:"Anything that doesn't fit elsewhere" },
 ]
@@ -8052,7 +8052,11 @@ var HF_FIELD_TEMPLATES = {
     {label:"Retailer",value:""},
     {label:"Support contact",value:""},
   ],
-  tax: [],
+  tax: [
+    {label:"Filing deadline / reminder",value:""},
+    {label:"Preparer name",value:""},
+    {label:"Preparer website",value:""},
+  ],
   legal: [
     {label:"Document type",value:""},
     {label:"Institution / carrier",value:""},
@@ -8065,24 +8069,6 @@ var HF_FIELD_TEMPLATES = {
     {label:"Details",value:""},
   ],
 }
-
-var TAX_CHECKLIST_DEFAULTS = [
-  "W-2 from employer(s)",
-  "1099-NEC (freelance / contract income)",
-  "1099-INT (bank interest)",
-  "1099-DIV (dividends)",
-  "1099-B (investment sales)",
-  "1099-R (retirement distributions)",
-  "SSA-1099 (Social Security)",
-  "Mortgage interest statement (1098)",
-  "Property tax statement",
-  "Charitable donation receipts",
-  "Medical expense receipts",
-  "Childcare provider EIN + amount paid",
-  "Student loan interest (1098-E)",
-  "Prior year tax return",
-  "Health insurance 1095-A / 1095-B / 1095-C",
-]
 
 function HouseFileSection() {
   var s_cards=useState(hfLoad); var cards=s_cards[0]; var setCards=s_cards[1];
@@ -8114,11 +8100,10 @@ function HouseFileSection() {
 
   function openAdd() {
     var tmpl=HF_FIELD_TEMPLATES[activeCat]||[];
-    var isChecklist=activeCat==="tax";
-    setCardType(isChecklist?"checklist":"note");
+    setCardType("note");
     setCardTitle("");
     setCardFields(tmpl.map(function(f){return Object.assign({},f);}));
-    setCardItems(isChecklist?TAX_CHECKLIST_DEFAULTS.map(function(t){return {id:huid(),text:t,done:false};}): []);
+    setCardItems([]);
     setCardNotes("");
     setEditingId(null);
     setAdding(true);
@@ -8280,8 +8265,8 @@ function HouseFileSection() {
 
     // ── Add / edit modal ──────────────────────────────────────────────────
     adding&&React.createElement(HModal,{title:(editingId?"Edit":"New")+" "+cat.label+" record",onClose:function(){setAdding(false);setEditingId(null);}},
-      // type toggle (skip for tax — always checklist)
-      activeCat!=="tax"&&React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12}},
+      // type toggle
+      React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12}},
         React.createElement("button",{onClick:function(){setCardType("note");},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="note"?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),background:cardType==="note"?"rgba(200,169,122,0.12)":"rgba(250,242,229,0.03)",color:cardType==="note"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Fields"),
         React.createElement("button",{onClick:function(){setCardType("checklist");if(cardItems.length===0)setCardItems([{id:huid(),text:"",done:false}]);},style:{flex:1,padding:"6px",fontSize:12,borderRadius:8,border:"0.5px solid "+(cardType==="checklist"?"rgba(200,169,122,0.4)":"rgba(250,242,229,0.1)"),background:cardType==="checklist"?"rgba(200,169,122,0.12)":"rgba(250,242,229,0.03)",color:cardType==="checklist"?HGOLD:"rgba(250,248,244,0.4)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}},"Checklist")
       ),
