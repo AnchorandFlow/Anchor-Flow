@@ -1681,7 +1681,7 @@ function CelebrationsSection({ calEvents, onOpenRecipe, onBrowseRecipes }) {
   const LBL = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#4a6275", fontFamily: "DM Sans,sans-serif", marginBottom: 3 }
   // The one true modal ("Edit celebration") sits on a dark surface unlike the inline
   // add-forms above, which now live on sand cards — keep its own inputs light.
-  const MODAL_INP = { background: "rgba(255,255,255,0.22)", border: "1px solid rgba(250,248,244,0.25)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#faf8f4", WebkitTextFillColor: "#faf8f4", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
+  const MODAL_INP = { background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.2)", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#1a2e3d", WebkitTextFillColor: "#1a2e3d", caretColor: "#c8a97a", fontFamily: "DM Sans,sans-serif", outline: "none", boxSizing: "border-box" }
   const VAL = { fontSize: 13, color: "#1a2e3d", fontFamily: "DM Sans,sans-serif" }
 
 
@@ -6315,7 +6315,7 @@ function CModal(props) {
         React.createElement("button",{onClick:props.onClose,style:{background:"none",border:"none",color:"rgba(250,248,244,0.4)",cursor:"pointer",fontSize:18}},"✕")),
       props.children))
 }
-var C_INP_STYLE = {width:"100%",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_MODAL_TEXT,WebkitTextFillColor:CAREER_MODAL_TEXT,caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
+var C_INP_STYLE = {width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#1a2e3d",WebkitTextFillColor:"#1a2e3d",caretColor:CAREER_GOLD,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}
 function CInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
@@ -6329,7 +6329,7 @@ function CTextarea(props) {
 function CSelect(props) {
   return React.createElement("div",{style:{marginBottom:"0.7rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",WebkitAppearance:"none",appearance:"none",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.5rem 0.7rem",color:CAREER_MODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
+    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
       props.options.map(function(o){return React.createElement("option",{key:o.value,value:o.value},o.label);})))
 }
 function CSaveBtn(props) {
@@ -6525,7 +6525,7 @@ function CJobsTab({ pid, career, setCareer }) {
                 job.date&&React.createElement("div",{style:{fontSize:11,color:"#4a6275",marginTop:2}},"Applied: "+job.date),
                 job.notes&&React.createElement("div",{style:{fontSize:12,color:"#4a6275",marginTop:3,lineHeight:1.5}}),job.url&&safeUrl(job.url)&&React.createElement("a",{href:safeUrl(job.url),target:"_blank",rel:"noreferrer",style:{fontSize:11,color:CAREER_GOLD,display:"block",marginTop:2}},"View posting →")),
               React.createElement("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}},
-                React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,WebkitAppearance:"none",appearance:"none",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
+                React.createElement("select",{value:job.status,onChange:function(e){updateStatus(job.id,e.target.value);},style:{fontSize:11,WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:6,padding:"2px 6px",color:STATUS_COLORS[job.status]||CAREER_GOLD,fontFamily:"inherit",cursor:"pointer"}},JOB_STATUSES.map(function(s){return React.createElement("option",{key:s,value:s},s)})),
                 React.createElement("button",{onClick:function(){removeJob(job.id)},style:{background:"none",border:"none",color:"#4a6275",cursor:"pointer",fontSize:13,padding:0}},"✕")))
           })))
       }),
@@ -7227,13 +7227,13 @@ function HModal(props) {
 function HInput(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.55rem 0.75rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
+    React.createElement("input",{type:props.type||"text",value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,style:{width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.55rem 0.75rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}})
   );
 }
 function HTextarea(props) {
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     props.label&&React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},props.label),
-    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.55rem 0.75rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})
+    React.createElement("textarea",{value:props.value,onChange:function(e){props.onChange(e.target.value);},placeholder:props.placeholder,rows:props.rows||4,style:{width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.55rem 0.75rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box"}})
   );
 }
 function HSelect(props) {
@@ -7242,7 +7242,7 @@ function HSelect(props) {
     // appearance:none — native <select> chrome doesn't reliably honor custom
     // background/color cross-browser, which is what made this field invisible
     // against the dark modal.
-    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",WebkitAppearance:"none",appearance:"none",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.55rem 0.75rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
+    React.createElement("select",{value:props.value,onChange:function(e){props.onChange(e.target.value);},style:{width:"100%",WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.55rem 0.75rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}},
       props.options.map(function(o){return React.createElement("option",{key:o.value,value:o.value},o.label);})    )
   );
 }
@@ -7274,7 +7274,7 @@ function HTimePicker(props) {
   }
   var p=parse(value);
 
-  var selStyle={WebkitAppearance:"none",appearance:"none",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:7,padding:"0.48rem 0.4rem",color:HMODAL_TEXT,fontSize:13,fontFamily:"inherit",outline:"none",cursor:"pointer"};
+  var selStyle={WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:7,padding:"0.48rem 0.4rem",color:"#1a2e3d",fontSize:13,fontFamily:"inherit",outline:"none",cursor:"pointer"};
 
   return React.createElement("div",{style:{marginBottom:"0.75rem"}},
     React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},label),
@@ -7541,8 +7541,8 @@ function HFamilyTab(props) {
         React.createElement("label",{style:{display:"block",fontSize:11,color:"#4a6275",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Conditions"),
         React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}},form.conditions.map(function(c,i){var p=HPILL[c.type]||HPILL.other;return React.createElement("span",{key:i,onClick:function(){removeCond(i);},style:{fontSize:11,padding:"2px 8px",borderRadius:4,cursor:"pointer",background:(c.type==="other"||!HPILL[c.type])?"rgba(250,242,229,0.1)":p.bg,color:(c.type==="other"||!HPILL[c.type])?"rgba(250,248,244,0.7)":p.color}},c.label+" ✕");})),
         React.createElement("div",{style:{display:"flex",gap:6}},
-          React.createElement("select",{value:condIn.type,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{type:e.target.value});});},style:{WebkitAppearance:"none",appearance:"none",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.4rem 0.5rem",color:HMODAL_TEXT,fontSize:12,fontFamily:"inherit",outline:"none",flexShrink:0}},H_COND_TYPES.map(function(c){return React.createElement("option",{key:c.id,value:c.id},c.label);})),
-          React.createElement("input",{value:condIn.label,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{label:e.target.value});});},placeholder:"Condition name",style:{flex:1,background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.4rem 0.6rem",color:HMODAL_TEXT,fontSize:12,fontFamily:"inherit",outline:"none"}}),
+          React.createElement("select",{value:condIn.type,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{type:e.target.value});});},style:{WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.4rem 0.5rem",color:"#1a2e3d",fontSize:12,fontFamily:"inherit",outline:"none",flexShrink:0}},H_COND_TYPES.map(function(c){return React.createElement("option",{key:c.id,value:c.id},c.label);})),
+          React.createElement("input",{value:condIn.label,onChange:function(e){setCondIn(function(c){return Object.assign({},c,{label:e.target.value});});},placeholder:"Condition name",style:{flex:1,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.4rem 0.6rem",color:"#1a2e3d",fontSize:12,fontFamily:"inherit",outline:"none"}}),
           React.createElement("button",{onClick:addCond,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.7rem",color:HGOLD,cursor:"pointer",fontSize:12}},"+ Add")
         )
       ),
@@ -8279,13 +8279,13 @@ function HouseFileSection() {
         cardFields.map(function(f,i){
           return React.createElement("div",{key:i,style:{marginBottom:8}},
             React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}},f.label),
-            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#faf8f4",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
+            React.createElement("input",{value:f.value,onChange:function(e){var v=e.target.value;setCardFields(function(prev){return prev.map(function(ff,ii){return ii===i?Object.assign({},ff,{value:v}):ff;});});},style:{width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#1a2e3d",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"}})
           );
         }),
         // add custom field
         fieldEdit!==null
           ? React.createElement("div",{style:{display:"flex",gap:6,marginTop:6}},
-              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.45rem 0.65rem",color:"#faf8f4",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+              React.createElement("input",{value:fieldEdit,onChange:function(e){setFieldEdit(e.target.value);},placeholder:"Field label",autoFocus:true,style:{flex:1,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.45rem 0.65rem",color:"#1a2e3d",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
               React.createElement("button",{onClick:function(){if(fieldEdit.trim()){setCardFields(function(prev){return prev.concat([{label:fieldEdit.trim(),value:""}]);});setFieldEdit(null);}},style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.45rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"Add"),
               React.createElement("button",{onClick:function(){setFieldEdit(null);},style:{background:"none",border:"0.5px solid rgba(250,242,229,0.1)",borderRadius:8,padding:"0.45rem 0.8rem",color:"rgba(250,248,244,0.35)",cursor:"pointer",fontSize:12}},"Cancel")
             )
@@ -8296,12 +8296,12 @@ function HouseFileSection() {
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.38)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}},"Items"),
         cardItems.map(function(item,i){
           return React.createElement("div",{key:item.id,style:{display:"flex",alignItems:"center",gap:6,marginBottom:4}},
-            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.4rem 0.65rem",color:"#faf8f4",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+            React.createElement("input",{value:item.text,onChange:function(e){var v=e.target.value;setCardItems(function(prev){return prev.map(function(it,ii){return ii===i?Object.assign({},it,{text:v}):it;});});},style:{flex:1,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.4rem 0.65rem",color:"#1a2e3d",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
             React.createElement("button",{onClick:function(){removeChecklistItem(item.id);},style:{background:"none",border:"none",color:"rgba(250,248,244,0.25)",cursor:"pointer",fontSize:14,padding:"0 2px",lineHeight:1,flexShrink:0}},"✕")
           );
         }),
         React.createElement("div",{style:{display:"flex",gap:6,marginTop:4}},
-          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.4rem 0.65rem",color:"#faf8f4",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
+          React.createElement("input",{value:newItem,onChange:function(e){setNewItem(e.target.value);},onKeyDown:function(e){if(e.key==="Enter"){addChecklistItem();}},placeholder:"Add item…",style:{flex:1,background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.4rem 0.65rem",color:"#1a2e3d",fontSize:12,fontFamily:"DM Sans,sans-serif",outline:"none"}}),
           React.createElement("button",{onClick:addChecklistItem,style:{background:"rgba(200,169,122,0.15)",border:"0.5px solid rgba(200,169,122,0.3)",borderRadius:8,padding:"0.4rem 0.8rem",color:HGOLD,cursor:"pointer",fontSize:12}},"\u002B")
         )
       ),
@@ -8360,7 +8360,7 @@ function ProductsPanel() {
   function deleteItem(catId,itemId){ save(cats.map(function(c){return c.id!==catId?c:Object.assign({},c,{items:(c.items||[]).filter(function(it){return it.id!==itemId;})});})); }
 
   var SURF="#f7f1e3";
-  var inp={width:"100%",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"9px 11px",color:"#faf8f4",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"};
+  var inp={width:"100%",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"9px 11px",color:"#1a2e3d",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none",boxSizing:"border-box"};
   var lbl={fontSize:11,color:"rgba(250,248,244,0.5)",fontFamily:"DM Sans,sans-serif",display:"block",marginBottom:4,marginTop:11};
   function up(k){ return function(e){ var v=e.target.value; setForm(function(p){var n=Object.assign({},p);n[k]=v;return n;}); }; }
 
@@ -8594,7 +8594,7 @@ function MaintenancePanel() {
       ),
       React.createElement("div",{style:{marginBottom:"0.75rem"}},
         React.createElement("label",{style:{display:"block",fontSize:11,color:"rgba(250,248,244,0.4)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}},"Frequency"),
-        React.createElement("select",{value:form.freq,onChange:function(e){setForm(function(f){return Object.assign({},f,{freq:e.target.value});});},style:{width:"100%",WebkitAppearance:"none",appearance:"none",background:"rgba(255,255,255,0.22)",border:"1px solid rgba(250,248,244,0.25)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#faf8f4",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none"}},
+        React.createElement("select",{value:form.freq,onChange:function(e){setForm(function(f){return Object.assign({},f,{freq:e.target.value});});},style:{width:"100%",WebkitAppearance:"none",appearance:"none",background:"#f7f1e3",border:"1px solid rgba(26,46,61,0.2)",borderRadius:8,padding:"0.5rem 0.7rem",color:"#1a2e3d",fontSize:13,fontFamily:"DM Sans,sans-serif",outline:"none"}},
           SYS_FREQ.map(function(f){return React.createElement("option",{key:f.id,value:f.id},f.label);})
         )
       ),
@@ -9784,7 +9784,7 @@ function SubscriptionsSection() {
     if (s.cycle==="quarterly") return acc+(s.amount||0)/3
     return acc
   }, 0)
-  var inp = { WebkitAppearance: "none", appearance: "none", background: "rgba(255,255,255,0.22)", border: "1px solid rgba(250,248,244,0.25)", borderRadius: 8, padding: "9px 12px", color: WHITE, fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
+  var inp = { WebkitAppearance: "none", appearance: "none", background: "#f7f1e3", border: "1px solid rgba(26,46,61,0.2)", borderRadius: 8, padding: "9px 12px", color: "#1a2e3d", fontFamily: "DM Sans,sans-serif", fontSize: 13, width: "100%", outline: "none" }
   var lbl = { fontSize: 11, color: "rgba(250,248,244,0.5)", marginBottom: 4, display: "block", fontFamily: "DM Sans,sans-serif" }
   var tabBtn = function(id) { return { background: tab===id ? "rgba(200,169,122,0.15)" : "transparent", border: tab===id ? "0.5px solid rgba(200,169,122,0.35)" : "0.5px solid rgba(250,242,229,0.08)", borderRadius: 20, padding: "5px 14px", color: tab===id ? GOLD : "rgba(250,248,244,0.45)", fontSize: 12, fontFamily: "DM Sans,sans-serif", cursor: "pointer" } }
   var addBtnStyle = { background: "rgba(200,169,122,0.08)", border: "0.5px dashed rgba(200,169,122,0.3)", borderRadius: 8, padding: "10px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer", width: "100%" }
