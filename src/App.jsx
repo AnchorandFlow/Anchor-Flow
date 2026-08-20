@@ -9223,6 +9223,7 @@ Respond ONLY in valid JSON:
     var nwMealsToShow = nextWeekMealCount===1?["dinner"]:nextWeekMealCount===2?["lunch","dinner"]:["breakfast","lunch","dinner"];
     const [showDietaryOptions,setShowDietaryOptions]=useState(false);
     const [bankFilters,setBankFilters]=useState([]);
+    const [bankSearch,setBankSearch]=useState("");
     const [selectedBankMeal,setSelectedBankMeal]=useState(null);
     const [showAddToBank,setShowAddToBank]=useState(false);
     const [newBankMeal,setNewBankMeal]=useState({name:"",tags:[],notes:""});
@@ -9317,7 +9318,7 @@ Respond ONLY in valid JSON:
       setShowWeekTypePicker(false);
     }
 
-    const allBankMeals=[...MEAL_BANK_DATA,...mealBankCustom.map(m=>({...m,isCustom:true}))].slice().sort(function(a,b){return a.name.localeCompare(b.name);});const filteredBank=bankFilters.length===0?allBankMeals:allBankMeals.filter(m=>bankFilters.every(f=>(m.tags||[]).includes(f)));
+    const allBankMeals=[...MEAL_BANK_DATA,...mealBankCustom.map(m=>({...m,isCustom:true}))].slice().sort(function(a,b){return a.name.localeCompare(b.name);});const tagFilteredBank=bankFilters.length===0?allBankMeals:allBankMeals.filter(m=>bankFilters.every(f=>(m.tags||[]).includes(f)));const filteredBank=bankSearch.trim()?tagFilteredBank.filter(m=>(m.name||"").toLowerCase().indexOf(bankSearch.trim().toLowerCase())!==-1):tagFilteredBank;
 
     async function findRescueMeals(){
       if(!rescueInput.trim())return;
@@ -9672,6 +9673,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <p style={{color:T.textMid,fontSize:"0.82rem",fontWeight:500,lineHeight:1.55,margin:0}}>Filter and find meals. Tap to see details.</p>
                   <button onClick={function(){setShowAddToBank(true);setNewBankMeal({name:"",tags:[],notes:"",isCustom:true});}} style={btnP(T.sage,{fontSize:"0.72rem",padding:"0.28rem 0.72rem"})}>+ Add Meal</button>
                 </div>
+                <input value={bankSearch} onChange={e=>setBankSearch(e.target.value)} placeholder="Search meals…" style={{...inp({marginBottom:"0.6rem"})}}/>
                 <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem",marginBottom:"0.85rem"}}>
                   {MEAL_TAG_FILTERS.map(function(tf){return(
                     <button key={tf.id} onClick={function(){setBankFilters(function(p){return p.includes(tf.id)?p.filter(function(x){return x!==tf.id;}):[...p,tf.id];});}} style={{background:bankFilters.includes(tf.id)?T.sage:T.white,color:bankFilters.includes(tf.id)?"#fff":T.textMid,border:`1.5px solid ${bankFilters.includes(tf.id)?T.sage:T.border}`,borderRadius:"2rem",padding:"0.26rem 0.72rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>
@@ -10011,6 +10013,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     },[]);
     const [addingType,setAddingType]=useState(false);
     const [occDraft,setOccDraft]=useState("");
+    const [recipeSearch,setRecipeSearch]=useState("");
+    const [recipeSort,setRecipeSort]=useState("recent");
     const [importOpen,setImportOpen]=useState(false);
     const [importUrl,setImportUrl]=useState("");
     const [importLoading,setImportLoading]=useState(false);
@@ -10271,25 +10275,50 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         )}
 
+        {recipeBook.length>0 && (
+          <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
+            <input value={recipeSearch} onChange={e=>setRecipeSearch(e.target.value)} placeholder="Search recipes…" style={{...inp({flex:1,minWidth:140})}}/>
+            <select value={recipeSort} onChange={e=>setRecipeSort(e.target.value)} style={{...inp({width:"auto"})}}>
+              <option value="recent">Recently added</option>
+              <option value="az">A–Z</option>
+              <option value="za">Z–A</option>
+            </select>
+          </div>
+        )}
+
         {recipeBook.length===0 && !addingType && <p style={{color:T.textFaint,fontSize:"0.85rem",fontWeight:600,textAlign:"center",padding:"1.5rem 0"}}>No recipes yet — add your first one.</p>}
 
-        {recipeBook.map(function(r){
+        {(function(){
+          var q = recipeSearch.trim().toLowerCase();
+          var filtered = q ? recipeBook.filter(function(r){ return (r.title||"").toLowerCase().indexOf(q)!==-1; }) : recipeBook.slice();
+          if (recipeSort==="az") filtered.sort(function(a,b){ return (a.title||"").localeCompare(b.title||""); });
+          else if (recipeSort==="za") filtered.sort(function(a,b){ return (b.title||"").localeCompare(a.title||""); });
+          else filtered.sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); });
+          if (recipeBook.length>0 && filtered.length===0) {
+            return <p style={{color:T.textFaint,fontSize:"0.85rem",fontWeight:600,textAlign:"center",padding:"1.5rem 0"}}>No recipes match "{recipeSearch}".</p>;
+          }
           return (
-            <div key={r.id} onClick={()=>setDetailId(r.id)} style={{...card({padding:"0.85rem 1rem",cursor:"pointer"})}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                <div>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{r.title}</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.35rem"}}>
-                    <Pill label={r.type==="full"?"Full recipe":"Simple dish"} color={r.type==="full"?T.sage:T.sand} tiny/>
-                    {(r.occasions||[]).map(function(occ){return <Pill key={occ} label={occ} color={T.blue} tiny/>})}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill, minmax(220px, 280px))",gap:"0.65rem"}}>
+              {filtered.map(function(r){
+                return (
+                  <div key={r.id} onClick={()=>setDetailId(r.id)} style={{...card({padding:"0.85rem 1rem",cursor:"pointer",maxWidth:280})}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div>
+                        <div style={{fontWeight:700,color:T.textDark,fontSize:"0.92rem"}}>{r.title}</div>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:"0.3rem",marginTop:"0.35rem"}}>
+                          <Pill label={r.type==="full"?"Full recipe":"Simple dish"} color={r.type==="full"?T.sage:T.sand} tiny/>
+                          {(r.occasions||[]).map(function(occ){return <Pill key={occ} label={occ} color={T.blue} tiny/>})}
+                        </div>
+                        {r.serves && <div style={{fontSize:"0.74rem",color:T.textSoft,marginTop:"0.3rem"}}>Serves {r.serves}</div>}
+                      </div>
+                      <button onClick={function(e){e.stopPropagation();deleteRecipe(r.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
+                    </div>
                   </div>
-                  {r.serves && <div style={{fontSize:"0.74rem",color:T.textSoft,marginTop:"0.3rem"}}>Serves {r.serves}</div>}
-                </div>
-                <button onClick={function(e){e.stopPropagation();deleteRecipe(r.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2}}><Icon name="trash" size={12} color={T.textFaint}/></button>
-              </div>
+                )
+              })}
             </div>
-          )
-        })}
+          );
+        })()}
       </div>
     )
   }
