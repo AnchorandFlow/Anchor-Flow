@@ -3148,8 +3148,11 @@ function createLocalBackup() {
     AF_DEBUG&&console.log("[AF SYNC] dirty keys at push time:", dirtyKeys);
     // ── end dirty flag check ───────────────────────────────────────────────
 
+    // Built from readHouseholdState(), not raw localStorage reads, so the
+    // Cove private-list filter actually applies to what leaves the device.
+    const _pushState = readHouseholdState();
     const payload = {};
-    SYNC_KEYS.forEach(k => { try { payload[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} });
+    SYNC_KEYS.forEach(k => { payload[k] = (_pushState[k] === undefined) ? null : _pushState[k]; });
     AF_DEBUG&&console.log("[AF SYNC] push keys", Object.keys(payload).filter(k => payload[k] !== null));
     const nonNullCount = Object.values(payload).filter(v => v !== null).length;
     if (nonNullCount < 2) {
@@ -3163,7 +3166,7 @@ function createLocalBackup() {
     // it didn't touch — two devices editing different things (meals vs chores vs
     // people) no longer clobber each other. Full whole-blob replace is gone.
     const mergePatch = {};
-    (dirtyKeys || []).forEach(k => { if (SYNC_KEYS.indexOf(k) !== -1) { try { mergePatch[k] = JSON.parse(localStorage.getItem("af_"+k)||"null"); } catch {} } });
+    (dirtyKeys || []).forEach(k => { if (SYNC_KEYS.indexOf(k) !== -1) { mergePatch[k] = (_pushState[k] === undefined) ? null : _pushState[k]; } });
     const updatedAt = new Date().toISOString();
     const authUser = (() => { try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
     const ownerId = authUser?.id || null;
