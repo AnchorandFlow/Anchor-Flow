@@ -13,7 +13,7 @@
 'use strict';
 
 // Flip to true only when billing goes live for users. Default OFF = no behavior change on merge.
-export var BILLING_V1 = false;
+export var BILLING_V1 = true;
 
 var CACHE_KEY = 'af_entitlement'; // add to DEVICE_LOCAL list; do NOT add to SYNC_KEYS
 var LAST_CHECK_KEY = 'af_entitlement_checkedAt';
