@@ -3778,6 +3778,7 @@ function createLocalBackup() {
         AF_DEBUG&&console.log("[AF SYNC] check start", householdId);
         const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
         _authFailStreak = 0; // reached here without throwing — this cycle's auth was fine
+        setHouseholdSyncReady(true); // first pull for this household completed — see its own comment
         if (!rows || !rows.length || !rows[0].data) { AF_DEBUG&&console.log("[AF SYNC] check — no rows returned"); return; }
         const row = rows[0];
         const serverTs = row.updated_at || "";
@@ -4496,6 +4497,22 @@ function createLocalBackup() {
   // tablet must resolve "me" independently per sign-in, not as one synced fact.
   const [myPersonId,setMyPersonId] = useState(function(){ try { return localStorage.getItem("af_myPersonId")||null; } catch { return null; } });
   const [showWhoAmI,setShowWhoAmI] = useState(false);
+  // Race guard: useSaved("people", [...]) falls back to a placeholder
+  // [{name:"You"},{name:"Partner"}] seed the instant this component mounts,
+  // before the real household row has been pulled from Supabase — that seed
+  // is non-empty and passes isAdultLenient, so without this guard the WhoAmI
+  // modal can show and get answered against those placeholder names on a
+  // fresh device/session, before the actual synced roster lands. True
+  // immediately when there's no household to pull (nothing to wait for) or
+  // when this device already completed a pull for it in a prior session
+  // (af_lastHHSync already recorded); set true by checkForUpdates on its
+  // first successful response otherwise. See its own comment for why.
+  const [householdSyncReady,setHouseholdSyncReady] = useState(function(){
+    try {
+      if (!householdId) return true;
+      return !!localStorage.getItem("af_lastHHSync");
+    } catch { return true; }
+  });
   React.useEffect(function(){
     // Never stack onto the welcome flow — a fresh signup gets one blocking
     // modal at a time. showWelcomeModal is a dependency here (not just an
@@ -4503,6 +4520,10 @@ function createLocalBackup() {
     // shows WhoAmI immediately after, rather than waiting for some unrelated
     // later trigger.
     if (showWelcomeModal) return;
+    // Wait for the first household sync pull (or its placeholder-free
+    // equivalent) before evaluating anything below — see householdSyncReady.
+    if (!householdSyncReady) return;
+    if (people.length === 0) return;
     if (myPersonId) {
       // Stored id no longer resolves (member removed) — ask again rather than
       // silently keeping a dangling reference. The else branch matters: people
@@ -4516,7 +4537,7 @@ function createLocalBackup() {
       return;
     }
     if (people.filter(isAdultLenient).length > 0) setShowWhoAmI(true);
-  }, [myPersonId, people, showWelcomeModal]);
+  }, [myPersonId, people, showWelcomeModal, householdSyncReady]);
   function chooseMyPersonId(id){
     try { localStorage.setItem("af_myPersonId", id); } catch {}
     try {
