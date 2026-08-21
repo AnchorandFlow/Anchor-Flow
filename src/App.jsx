@@ -4520,6 +4520,13 @@ function createLocalBackup() {
     } catch { return true; }
   });
   React.useEffect(function(){
+    // TEMP DEBUG — remove before next real deploy.
+    console.log("[WHOAMI]", {
+      householdSyncReady,
+      peopleNames: people.map(function(p){ return p.name; }),
+      lastHHSync: localStorage.getItem("af_lastHHSync"),
+      myPersonId: localStorage.getItem("af_myPersonId"),
+    });
     // Never stack onto the welcome flow — a fresh signup gets one blocking
     // modal at a time. showWelcomeModal is a dependency here (not just an
     // early-return check), so the moment it closes this effect re-runs and
