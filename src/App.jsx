@@ -2693,7 +2693,7 @@ const _hfComps   = {};
   'ShopItemRow','BrainItemRow','AIChatPanel','TodaySnapshot','OnboardingWizard',
   'DailyBriefingModal','EndOfDayReset','AnchorTab','CalendarTab','WeeklyTab','WavesSection',
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab','HorizonTab',
-  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTitleInput','CoveTab',
+  'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTitleInput','CoveAddItemInput','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
   'SetPasswordModal','WhoAmIModal',
 ].forEach(n => {
@@ -5546,7 +5546,7 @@ Respond ONLY with valid JSON array, no markdown:
           ShopItemRow, BrainItemRow, AIChatPanel, TodaySnapshot, OnboardingWizard,
           DailyBriefingModal, EndOfDayReset, AnchorTab, CalendarTab, WeeklyTab, WavesSection,
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab, HorizonTab,
-          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTitleInput, CoveTab,
+          BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTitleInput, CoveAddItemInput, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
           SetPasswordModal, WhoAmIModal } = _hfComps;
 
@@ -10349,6 +10349,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     const[shopAZ,setShopAZ]=useState(false);
     function shopSort(list){ return shopAZ?list.slice().sort(function(a,b){return (a.text||"").localeCompare(b.text||"");}):list; }
     const[collapsedStores,setCollapsedStores2]=useState({});
+    // Undo toast — same pattern as WavesSection/MealsTab (App.jsx).
+    const [undoToast,setUndoToast]=useState(null);
+    const undoTimeoutRef=useRef(null);
+    function showUndoToast(message,undoFn){
+      if(undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setUndoToast({message:message,undoFn:undoFn});
+      undoTimeoutRef.current=setTimeout(function(){setUndoToast(null);undoTimeoutRef.current=null;},4000);
+    }
+    function handleUndoClick(){
+      if(undoTimeoutRef.current){clearTimeout(undoTimeoutRef.current);undoTimeoutRef.current=null;}
+      if(undoToast&&undoToast.undoFn)undoToast.undoFn();
+      setUndoToast(null);
+    }
     const recognitionRef=useRef(null);
     const photoInputRef=useRef(null);
     // Photo previews are session-local only, never written into shoppingItems
@@ -10447,11 +10460,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
     }
     function handleDelete(id){
+      var deleted=(shoppingItems||[]).find(function(x){return x.id===id;});
       setShoppingItems(function(p){return p.filter(function(x){return x.id!==id;});});
       setLocalPhotoPreviews(function(p){if(!p[id])return p;var n={...p};delete n[id];return n;});
       if(SHOPPING_V2&&householdId){
         pendingOps.current.add(id+":DELETE");
         supabase.rpc("shopping_delete_item",{p_id:id,p_household_id:householdId,p_updated_by:shopUserId()}).then(function(r){if(r&&r.error){pendingOps.current.delete(id+":DELETE");}else{}});
+      }
+      if(deleted){
+        showUndoToast("\""+(deleted.text||"Item")+"\" removed",function(){
+          setShoppingItems(function(p){return p.some(function(x){return x.id===id;})?p:[deleted].concat(p);});
+        });
       }
     }
     function handleSave(id,val){
@@ -10824,6 +10843,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           });
         })()}
         {shoppingItems.some(function(i){return i.done;})&&<button onClick={function(){setShoppingItems(function(p){return p.filter(function(i){return !i.done;});});}} style={{...btnS({width:"100%",color:T.rose,borderColor:T.rose+"66",fontWeight:700})}}>Clear completed items</button>}
+        <UndoToast toast={undoToast} onUndo={handleUndoClick} />
       </div>
     );
   }
@@ -12179,6 +12199,43 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── CoveAddItemInput — local draft, same reasoning as CoveTitleInput above.
+  // Used to live as one shared newItemTexts map on CoveTab, so typing into ANY
+  // section's "add item" box re-rendered the entire CoveTab tree (every
+  // ItemRow, every section, on every keystroke) — the actual source of the
+  // "slow/glitchy" Cove list typing, since none of these components are
+  // memoized. Owning the draft locally means a keystroke only re-renders this
+  // one small input, not the list. key={sectionId||"top"} at the call site
+  // resets the draft when switching lists.
+  _hfRenders.CoveAddItemInput = function CoveAddItemInput(props) {
+    var [draft, setDraft] = useState("");
+    function commit() {
+      var text = draft.trim();
+      if (!text) return;
+      props.addItem(props.sectionId, text);
+      setDraft("");
+    }
+    return (
+      <>
+        <input
+          value={draft}
+          onChange={function(e){ setDraft(e.target.value); }}
+          onKeyDown={function(e){ if(e.key==="Enter") commit(); }}
+          placeholder={props.placeholder}
+          style={props.style}
+        />
+        {props.showAddButton && draft.trim() && (
+          <button
+            onClick={commit}
+            onPointerDown={function(e){ e.stopPropagation(); }}
+            style={{background:props.accent,color:"#fff",border:"none",borderRadius:6,padding:"2px 10px",fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,flexShrink:0,lineHeight:"1.6"}}>
+            +
+          </button>
+        )}
+      </>
+    );
+  }
+
   // ── ItemRow — lifted outside CoveTab to prevent React hooks error #300 ──────
   _hfRenders.ItemRow = function ItemRow(props) {
     var item = props.item;
@@ -12313,8 +12370,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var accent = props.accent;
     var T = props.T;
     var addKey = props.addKey;
-    var newItemTexts = props.newItemTexts;
-    var setNewItemTexts = props.setNewItemTexts;
     var addItem = props.addItem;
     var mid = Math.ceil(secItems.length / 2);
     var leftItems = secItems.slice(0, mid);
@@ -12333,21 +12388,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0 2px",gridColumn:"1 / -1"}}>
           <div style={{width:10+8+2,flexShrink:0}}/>
           <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
-          <input
-            value={newItemTexts[addKey]||""}
-            onChange={function(e){ setNewItemTexts(function(p){ return Object.assign({},p,{[addKey]:e.target.value}); }); }}
-            onKeyDown={function(e){ if(e.key==="Enter") addItem(sec.id); }}
+          <CoveAddItemInput
+            key={addKey}
+            sectionId={sec.id}
+            addItem={addItem}
+            accent={accent}
+            showAddButton={true}
             placeholder={"Add to "+sec.title+"…"}
             style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
           />
-          {(newItemTexts[addKey]||"").trim() && (
-            <button
-              onClick={function(){ addItem(sec.id); }}
-              onPointerDown={function(e){ e.stopPropagation(); }}
-              style={{background:accent,color:"#fff",border:"none",borderRadius:6,padding:"2px 10px",fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,flexShrink:0,lineHeight:"1.6"}}>
-              +
-            </button>
-          )}
         </div>
       </div>
     );
@@ -12693,7 +12742,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [view, setView] = useState("list");
     var [activeListId, setActiveListId] = useState(null);
     var [collapsedSections, setCollapsedSections] = useState({});
-    var [newItemTexts, setNewItemTexts] = useState({});
     var [showNewModal, setShowNewModal] = useState(false);
     var [newForm, setNewForm] = useState({title:"",category:"family",color_accent:"#3a6b8a"});
     var [editingColorFor, setEditingColorFor] = useState(null);
@@ -12850,16 +12898,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       });
     }
 
-    function addItem(sectionId) {
-      var key = sectionId || "__top__";
-      var text = (newItemTexts[key] || "").trim();
+    function addItem(sectionId, text) {
+      text = (text || "").trim();
       if (!text) return;
       var newItem = {id: uid2(), content: text, checked: false, tags: [], section_id: sectionId || null};
       setCoveItemsMap(function(prev) {
         var items = (prev[activeListId] || []).concat([newItem]);
         return Object.assign({}, prev, {[activeListId]: items});
       });
-      setNewItemTexts(function(prev) { return Object.assign({}, prev, {[key]: ""}); });
     }
 
     function renameList(listId, newTitle) {
@@ -13248,10 +13294,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   </svg>
                 </div>
                 <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
-                <input
-                  value={newItemTexts["__top__"]||""}
-                  onChange={function(e){ setNewItemTexts(function(p){ return Object.assign({},p,{__top__:e.target.value}); }); }}
-                  onKeyDown={function(e){ if(e.key==="Enter") addItem(null); }}
+                <CoveAddItemInput
+                  key={"top-"+activeListId}
+                  sectionId={null}
+                  addItem={addItem}
+                  showAddButton={false}
                   placeholder="Add item…"
                   style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
                 />
@@ -13300,7 +13347,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <CoveGridSectionBody sec={sec} secItems={secItems} accent={itemAccent} T={T}
                         dragFromId={dragFromId} dragOverId={dragOverId} itemPointerDown={itemPointerDown}
                         toggleItem={toggleItem} renameItem={renameItem} deleteItem={deleteItem}
-                        addKey={addKey} newItemTexts={newItemTexts} setNewItemTexts={setNewItemTexts} addItem={addItem}/>
+                        addKey={addKey} addItem={addItem}/>
                     ) : (
                     <div data-secid={sec.id}>
                       {secItems.map(function(item){ return <ItemRow key={item.id} item={item} dragFromId={dragFromId} dragOverId={dragOverId} accent={accent} T={T} itemPointerDown={itemPointerDown} toggleItem={toggleItem} renameItem={renameItem} deleteItem={deleteItem}/>; })}
@@ -13308,21 +13355,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0 2px"}}>
                         <div style={{width:10+8+2,flexShrink:0}}/>
                         <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px dashed "+T.border,flexShrink:0}}/>
-                        <input
-                          value={newItemTexts[addKey]||""}
-                          onChange={function(e){ setNewItemTexts(function(p){ return Object.assign({},p,{[addKey]:e.target.value}); }); }}
-                          onKeyDown={function(e){ if(e.key==="Enter") addItem(sec.id); }}
+                        <CoveAddItemInput
+                          key={addKey}
+                          sectionId={sec.id}
+                          addItem={addItem}
+                          accent={accent}
+                          showAddButton={true}
                           placeholder={"Add to "+sec.title+"…"}
                           style={{flex:1,fontSize:"0.85rem",border:"none",background:"transparent",color:T.textDark,outline:"none",fontFamily:"inherit",padding:"2px 0"}}
                         />
-                        {(newItemTexts[addKey]||"").trim() && (
-                          <button
-                            onClick={function(){ addItem(sec.id); }}
-                            onPointerDown={function(e){ e.stopPropagation(); }}
-                            style={{background:accent,color:"#fff",border:"none",borderRadius:6,padding:"2px 10px",fontSize:"0.78rem",cursor:"pointer",fontFamily:"inherit",fontWeight:700,flexShrink:0,lineHeight:"1.6"}}>
-                            +
-                          </button>
-                        )}
                       </div>
                     </div>
                     )

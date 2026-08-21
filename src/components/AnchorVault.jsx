@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import ColorPicker from "./ColorPicker.jsx"
+import UndoToast from "./UndoToast.jsx"
 import MomentsSection from "./MomentsSection"
 import DosingTracker from "./DosingTracker"
 import RipplesRoom from "../shell/RipplesRoom"
@@ -6159,7 +6160,13 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       {formTrip && (
         // Bottom-sheet modal, matching ProductsPanel/MaintenancePanel's modal
         // shape (~5581/~HModal) but with TravelProfileSection's own palette.
-        <div style={{ position:"fixed", inset:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={closeForm}>
+        // top/left/right/bottom (not inset:0) to match af-vault's own left:68 —
+        // this component is nested inside af-vault's position:fixed+zIndex:150
+        // stacking context, so inset:0 would extend the backdrop under the
+        // 68px left sidebar (zIndex:200, a sibling of af-vault, not a
+        // descendant) and the sidebar would paint on top of that overlapping
+        // strip, clipping the modal's left edge on narrow/mobile viewports.
+        <div style={{ position:"fixed", top:0, left:68, right:0, bottom:0, background:"rgba(15,26,42,0.72)", zIndex:300, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={closeForm}>
           <div onClick={function(e){ e.stopPropagation() }} style={{ background:"#1a2744", borderRadius:"18px 18px 0 0", padding:20, paddingBottom:"calc(20px + env(safe-area-inset-bottom,0px))", width:"min(480px,100%)", maxHeight:"calc(88dvh - env(safe-area-inset-top,0px))", overflowY:"auto", boxSizing:"border-box" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
               <div style={{ fontFamily:"Cormorant Garamond,serif", fontSize:19, fontWeight:700, color:warm }}>{formTrip.id ? "Edit trip" : "Add trip"}</div>
@@ -8748,6 +8755,20 @@ function RecurringRemindersSection() {
   var [showBuiltins, setShowBuiltins] = useState(false)
   var [saved, setSaved] = useState(false)
 
+  // Undo toast — same pattern as WavesSection/MealsTab (App.jsx).
+  var [undoToast, setUndoToast] = useState(null)
+  var undoTimeoutRef = useRef(null)
+  function showUndoToast(message, undoFn) {
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current)
+    setUndoToast({ message: message, undoFn: undoFn })
+    undoTimeoutRef.current = setTimeout(function() { setUndoToast(null); undoTimeoutRef.current = null }, 4000)
+  }
+  function handleUndoClick() {
+    if (undoTimeoutRef.current) { clearTimeout(undoTimeoutRef.current); undoTimeoutRef.current = null }
+    if (undoToast && undoToast.undoFn) undoToast.undoFn()
+    setUndoToast(null)
+  }
+
   function save(list) { setReminders(list); recurSave(list) }
 
   function openNew(template) {
@@ -8775,8 +8796,13 @@ function RecurringRemindersSection() {
   }
 
   function deleteDraft() {
+    var snapshot = reminders
+    var deleted = reminders.find(function(r){return r.id === editing})
     save(reminders.filter(function(r){return r.id !== editing}))
     setEditing(null); setDraft(null)
+    if (deleted) {
+      showUndoToast("\""+(deleted.label||"Reminder")+"\" deleted", function() { save(snapshot) })
+    }
   }
 
   function markDone(id) {
@@ -8986,6 +9012,7 @@ function RecurringRemindersSection() {
       })}
 
       {saved&&<div style={{marginTop:10,textAlign:"center",fontSize:12,color:"#7a9e8e",fontFamily:"DM Sans,sans-serif",fontWeight:600}}>✓ Saved</div>}
+      <UndoToast toast={undoToast} onUndo={handleUndoClick} />
     </div>
   )
 }
@@ -9757,13 +9784,33 @@ function SubscriptionsSection() {
   function savePerks(v) { setPerks(v); persist("af_perks", v); afVaultChanged("perks") }
   function openAdd(type) { setModal(type); setForm({}) }
   function openEditSub(s) { setModal("sub"); setForm({ editId: s.id, name: s.name, cycle: s.cycle, amount: s.amount ? String(s.amount) : "", website: s.website, renewDate: s.renewDate }) }
+
+  // Undo toast — same pattern as WavesSection/MealsTab (App.jsx).
+  var [undoToast, setUndoToast] = React.useState(null)
+  var undoTimeoutRef = useRef(null)
+  function showUndoToast(message, undoFn) {
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current)
+    setUndoToast({ message: message, undoFn: undoFn })
+    undoTimeoutRef.current = setTimeout(function() { setUndoToast(null); undoTimeoutRef.current = null }, 4000)
+  }
+  function handleUndoClick() {
+    if (undoTimeoutRef.current) { clearTimeout(undoTimeoutRef.current); undoTimeoutRef.current = null }
+    if (undoToast && undoToast.undoFn) undoToast.undoFn()
+    setUndoToast(null)
+  }
   function closeModal() { setModal(null); setForm({}) }
   function saveSub() {
     if (!form.name) return
     var item = { id: form.editId||Date.now().toString(), name: form.name, cycle: form.cycle||"monthly", amount: parseFloat(form.amount)||0, website: form.website||"", renewDate: form.renewDate||"" }
     saveSubs(form.editId ? subs.map(function(s){ return s.id===form.editId ? item : s }) : [...subs, item]); closeModal()
   }
-  function deleteSub(id) { saveSubs(subs.filter(function(s) { return s.id !== id })) }
+  function deleteSub(id) {
+    var deleted = subs.find(function(s) { return s.id === id })
+    saveSubs(subs.filter(function(s) { return s.id !== id }))
+    if (deleted) {
+      showUndoToast("\""+(deleted.name||"Subscription")+"\" removed", function() { saveSubs(subs) })
+    }
+  }
   function addCoupon() {
     if (!form.name) return
     var item = { id: Date.now().toString(), name: form.name, amount: form.amount||"", expires: form.expires||"", notes: form.notes||"", used: false }
@@ -9927,7 +9974,8 @@ function SubscriptionsSection() {
           React.createElement("button", { onClick: modal==="sub" ? saveSub : modal==="coupon" ? addCoupon : addPerk, style: { flex: 1, background: GOLD, border: "none", borderRadius: 10, padding: "10px", color: NAVY, fontFamily: "DM Sans,sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" } }, "Save")
         )
       )
-    )
+    ),
+    React.createElement(UndoToast, { toast: undoToast, onUndo: handleUndoClick })
   )
 }
 

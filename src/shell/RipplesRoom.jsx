@@ -5,7 +5,8 @@
 // Categories map to the app's real RIPPLE_CATS (not the mockup's fictional tags).
 // Traditions tab uses its own af_traditions localStorage key (bypasses household
 // sync to avoid the reload loop, same pattern as Exhale).
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import UndoToast from "../components/UndoToast.jsx";
 
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
@@ -151,6 +152,20 @@ export default function RipplesRoom(props) {
   var [addForm, setAddForm] = useState({ name: "", who: "", category: "milestone", date: "", note: "", photo: null });
   var [editingRippleId, setEditingRippleId] = useState(null); // ripple id being edited, or null when adding new
 
+  // Undo toast — same pattern as WavesSection/MealsTab (App.jsx).
+  var [undoToast, setUndoToast] = useState(null);
+  var undoTimeoutRef = useRef(null);
+  function showUndoToast(message, undoFn) {
+    if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    setUndoToast({ message: message, undoFn: undoFn });
+    undoTimeoutRef.current = setTimeout(function () { setUndoToast(null); undoTimeoutRef.current = null; }, 4000);
+  }
+  function handleUndoClick() {
+    if (undoTimeoutRef.current) { clearTimeout(undoTimeoutRef.current); undoTimeoutRef.current = null; }
+    if (undoToast && undoToast.undoFn) undoToast.undoFn();
+    setUndoToast(null);
+  }
+
   function quickAdd(category) {
     var today = new Date().toISOString().slice(0, 10);
     setEditingRippleId(null);
@@ -180,6 +195,20 @@ export default function RipplesRoom(props) {
     try { localStorage.setItem("af_ripples", JSON.stringify(next)); } catch(e) {}
     window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "ripples" } }));
     closeAddModal();
+  }
+  function persistRipples(next) {
+    setRipples(next);
+    try { localStorage.setItem("af_ripples", JSON.stringify(next)); } catch(e) {}
+    window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "ripples" } }));
+  }
+  function deleteRipple(id) {
+    var snapshot = ripples;
+    var deleted = ripples.find(function (r) { return r.id === id; });
+    persistRipples(ripples.filter(function (r) { return r.id !== id; }));
+    closeAddModal();
+    if (deleted) {
+      showUndoToast("\"" + (deleted.name || "Ripple") + "\" deleted", function () { persistRipples(snapshot); });
+    }
   }
 
   // ── tradition helpers ──
@@ -294,7 +323,7 @@ export default function RipplesRoom(props) {
               ) : sorted.slice(0, 30).map(function (r) {
                 var cs = catStyle(r.category);
                 return (
-                  <div key={r.id} style={{ display: "flex", gap: 11, marginBottom: 14 }}>
+                  <div key={r.id} onClick={function () { openRippleEdit(r); }} style={{ display: "flex", gap: 11, marginBottom: 14, cursor: "pointer" }}>
                     <div style={{ fontFamily: SERIF, fontStyle: "italic", color: C.sandT3, fontSize: ".76rem", width: 46, flexShrink: 0, paddingTop: 1 }}>{fmtDate(r.date)}</div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
                       <div style={{ width: 9, height: 9, borderRadius: "50%", background: cs.color, boxShadow: "0 0 6px " + cs.color + "88" }} />
@@ -400,19 +429,19 @@ export default function RipplesRoom(props) {
 
               {/* Title */}
               <input value={fTitle} onChange={function (e) { setFTitle(e.target.value); }} placeholder="Tradition name (e.g. Pumpkin pancakes on first snow)"
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none" }} />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none" }} />
 
               {/* Started year + when */}
               <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                 <div style={{ flex: 1, minWidth: 120 }}>
                   <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Started in</div>
                   <input value={fStarted} onChange={function (e) { setFStarted(e.target.value.replace(/[^0-9]/g, "")); }} placeholder={String(THIS_YEAR)} maxLength={4}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 120 }}>
                   <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>When (optional)</div>
                   <select value={fWhen} onChange={function (e) { setFWhen(e.target.value); }}
-                    style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
+                    style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
                     <option value="">No set date</option>
                     {MONTHS.map(function (mo, mi) {
                       var mm = String(mi + 1).padStart(2, "0");
@@ -424,7 +453,7 @@ export default function RipplesRoom(props) {
 
               {/* Description */}
               <textarea value={fDesc} onChange={function (e) { setFDesc(e.target.value); }} placeholder="What happens? Why does it matter? (optional)" rows={3}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5 }} />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5 }} />
 
               {/* Buttons */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -537,12 +566,12 @@ export default function RipplesRoom(props) {
         <div style={{ background: "#1E5B63", border: "1px solid " + C.border, borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }}>
           <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12 }}>{editingRippleId ? "Edit ripple" : "Capture a ripple"}</div>
           <input value={addForm.name} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{name:e.target.value}); }); }} placeholder="What happened? (e.g. First steps!)"
-            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Category</div>
               <select value={addForm.category} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{category:e.target.value}); }); }}
-                style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
+                style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
                 <option value="milestone">Milestone</option>
                 <option value="firsts">First</option>
                 <option value="school">Learning win</option>
@@ -555,11 +584,11 @@ export default function RipplesRoom(props) {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Date</div>
               <input type="date" value={addForm.date} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{date:e.target.value}); }); }}
-                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
             </div>
           </div>
           <textarea value={addForm.note} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{note:e.target.value}); }); }} placeholder="Notes (optional)" rows={2}
-            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid rgba(245,240,232,0.3)", background: "rgba(255,255,255,0.22)", color: C.t1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 10, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
+            style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 10, outline: "none", lineHeight: 1.5, boxSizing: "border-box" }} />
           <label style={{ display: "block", marginBottom: 12, cursor: "pointer" }}>
             {addForm.photo ? (
               <div style={{ position: "relative" }}>
@@ -583,10 +612,12 @@ export default function RipplesRoom(props) {
           <div style={{ display: "flex", gap: 8 }}>
             <div onClick={function(){ if(addForm.name.trim()) saveRipple(addForm); }} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{editingRippleId ? "Save changes" : "Save ripple"}</div>
             <div onClick={closeAddModal} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
+            {editingRippleId && <div onClick={function () { deleteRipple(editingRippleId); }} style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid rgba(232,160,176,.3)", color: "#e8a0b0", fontSize: ".78rem", cursor: "pointer" }}>Delete</div>}
           </div>
         </div>
       </div>
     )}
+    <UndoToast toast={undoToast} onUndo={handleUndoClick} />
     </div>
   );
 }
