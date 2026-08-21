@@ -2961,6 +2961,7 @@ function createLocalBackup() {
         const token = data.access_token;
         const userObj = { id: data.user?.id || "unknown", email, displayName: displayName || email.split("@")[0] };
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
+        try { clearMyPersonIdIfDifferentUser(userObj.id); } catch {}
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
         try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
         // Auto-create a household right away — see provisionHousehold's own comment
@@ -3027,6 +3028,7 @@ function createLocalBackup() {
       const displayName = data.user?.user_metadata?.full_name || data.user?.user_metadata?.name || data.user?.user_metadata?.displayName || email.split("@")[0];
 
       try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
+      try { clearMyPersonIdIfDifferentUser(data.user.id); } catch {}
       try { localStorage.setItem("af_authUser", JSON.stringify({ id: data.user.id, email: data.user.email, displayName })); } catch {}
       try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
       try { localStorage.removeItem("af_householdId"); } catch {} // clear stale ID before lookup
@@ -3134,6 +3136,8 @@ function createLocalBackup() {
     try { localStorage.removeItem("af_authUser"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
+    try { localStorage.removeItem("af_myPersonId"); } catch {}
+    try { localStorage.removeItem("af_myPersonId_authUserId"); } catch {}
     window.location.reload();
   }
 
@@ -4515,6 +4519,10 @@ function createLocalBackup() {
   }, [myPersonId, people, showWelcomeModal]);
   function chooseMyPersonId(id){
     try { localStorage.setItem("af_myPersonId", id); } catch {}
+    try {
+      var _au = JSON.parse(localStorage.getItem("af_authUser") || "null");
+      if (_au && _au.id) localStorage.setItem("af_myPersonId_authUserId", _au.id);
+    } catch {}
     setMyPersonId(id);
     setShowWhoAmI(false);
     try { window.dispatchEvent(new CustomEvent("af-myPersonId-changed")); } catch {}
@@ -18318,6 +18326,21 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   )
 }
 
+// af_myPersonId is per-device/session identity, never synced (see its
+// declaration in HomeFlow). If a different auth user signs in on this device
+// than whoever last chose af_myPersonId, the stale id must not silently
+// carry over — clear both it and the tracking key so the WhoAmI prompt
+// re-shows for the new user.
+function clearMyPersonIdIfDifferentUser(userId) {
+  try {
+    var lastUserId = localStorage.getItem("af_myPersonId_authUserId");
+    if (lastUserId && userId && lastUserId !== userId) {
+      localStorage.removeItem("af_myPersonId");
+      localStorage.removeItem("af_myPersonId_authUserId");
+    }
+  } catch {}
+}
+
 export default function App() {
   const [session, setSession] = React.useState(undefined)
   const [mode, setMode] = React.useState(null)
@@ -18366,6 +18389,9 @@ export default function App() {
       if (session?.access_token) {
         try { localStorage.setItem("af_authToken", JSON.stringify(session.access_token)); } catch {}
       }
+      if (event === "SIGNED_IN" && session?.user?.id) {
+        clearMyPersonIdIfDifferentUser(session.user.id);
+      }
       if (event === "SIGNED_OUT" || !session) {
         try { localStorage.removeItem("af_authToken"); } catch {}
         try { localStorage.removeItem("af_authUser"); } catch {}
@@ -18374,6 +18400,8 @@ export default function App() {
         // data so unpushed edits can push once the session is restored after re-login.
         if (_afUserInitiatedSignOut) {
           try { localStorage.removeItem("af_householdId"); } catch {}
+          try { localStorage.removeItem("af_myPersonId"); } catch {}
+          try { localStorage.removeItem("af_myPersonId_authUserId"); } catch {}
           SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
         }
         _afUserInitiatedSignOut = false;
@@ -18394,6 +18422,7 @@ export default function App() {
     if (s?.user) {
       const displayName = s.user.user_metadata?.full_name || s.user.email.split("@")[0]
       try {
+        clearMyPersonIdIfDifferentUser(s.user.id)
         localStorage.setItem("af_authUser", JSON.stringify({ id: s.user.id, email: s.user.email, displayName }))
         if (s.access_token) {
           localStorage.setItem("af_token", s.access_token)

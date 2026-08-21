@@ -212,11 +212,26 @@ var HAZARD_CONTENT = {
 
 function uid() { return Math.random().toString(36).slice(2) + Date.now().toString(36) }
 
+// One-time absorption of the legacy device-local af_sh_remind key into the
+// synced af_safe_harbor blob's top-level remindDismissedAt field. Removes
+// the raw key once read so this only ever runs once per device.
+function absorbLegacyRemind() {
+  try {
+    var raw = localStorage.getItem("af_sh_remind")
+    if (raw === null) return null
+    localStorage.removeItem("af_sh_remind")
+    var n = parseInt(raw) || null
+    return n
+  } catch(_e) { return null }
+}
+
 function loadData() {
   try {
     var saved = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
     if (!saved || typeof saved !== "object") {
       var fresh = Object.assign({}, DEFAULT_DATA, { grabItems: DEFAULT_GRAB_ITEMS.map(function(i) { return Object.assign({},i) }) })
+      var absorbed = absorbLegacyRemind()
+      if (absorbed !== null) fresh.remindDismissedAt = absorbed
       if (SAFE_HARBOR_V2) fresh = migrateToV2(fresh)
       return fresh
     }
@@ -231,6 +246,11 @@ function loadData() {
     if (!Array.isArray(saved.members)) saved.members = []
     if (!Array.isArray(saved.hazards)) saved.hazards  = []
     if (!Array.isArray(saved.removedDefaultIds)) saved.removedDefaultIds = []
+    // Absorb the legacy raw key (if present) into the synced field, same as the fresh-data path.
+    if (typeof saved.remindDismissedAt !== "number") {
+      var absorbedExisting = absorbLegacyRemind()
+      if (absorbedExisting !== null) saved.remindDismissedAt = absorbedExisting
+    }
     // V2: one-time migration when flag is on and blob is pre-V2.
     // migrateToV2 absorbs af_sh_remind into review.remindDismissedAt and adds new top-level fields.
     if (SAFE_HARBOR_V2 && (!saved.version || saved.version < 2)) {
@@ -286,18 +306,10 @@ export default function SafeHarbor() {
   var [addName,    setAddName]    = useState("")
   var [addLoc,     setAddLoc]     = useState("")
   var [dismissedAt,setDismissedAt]= useState(function() {
-    // V2: remindDismissedAt lives in the blob (absorbed from af_sh_remind by migrateToV2).
-    // loadData() runs first and saves the migrated blob, so the blob is current by now.
-    if (SAFE_HARBOR_V2) {
-      try {
-        var v2blob = JSON.parse(localStorage.getItem("af_safe_harbor") || "null")
-        if (v2blob && v2blob.review && typeof v2blob.review.remindDismissedAt === "number") {
-          return v2blob.review.remindDismissedAt
-        }
-      } catch(_e) {}
-      return 0
-    }
-    try { return parseInt(localStorage.getItem("af_sh_remind") || "0") || 0 } catch(e) { return 0 }
+    // remindDismissedAt is now a synced top-level field on the blob (data, from
+    // loadData() above, is already current — loadData absorbs the legacy
+    // af_sh_remind key into it on first read).
+    return (data && typeof data.remindDismissedAt === "number") ? data.remindDismissedAt : 0
   })
   var [pendingUndo,setPendingUndo]= useState({})     // { itemId: { item, timeoutId } }
 
@@ -326,16 +338,15 @@ export default function SafeHarbor() {
 
   function markReviewed() {
     var today = new Date().toISOString().slice(0,10)
+    // remindDismissedAt is a synced top-level field (mergeSafeHarbor uses
+    // later-wins, same as lastReviewed) so "Remind me later" persists across
+    // devices/sessions. V2 also keeps its own nested review.remindDismissedAt
+    // for that (inactive-by-default) migration path's backward compat.
+    var changes = { lastReviewed: today, remindDismissedAt: nowMs }
     if (SAFE_HARBOR_V2) {
-      // V2: write lastReviewed (V1 compat) + review.lastReviewedAt + review.remindDismissedAt.
-      // af_sh_remind is no longer used — remindDismissedAt lives in the blob.
-      update({
-        lastReviewed: today,
-        review: Object.assign({}, data.review || {}, { lastReviewedAt: today, remindDismissedAt: nowMs }),
-      })
-    } else {
-      update({ lastReviewed: today })
+      changes.review = Object.assign({}, data.review || {}, { lastReviewedAt: today, remindDismissedAt: nowMs })
     }
+    update(changes)
     setDismissedAt(nowMs)
     if (contactsRef.current) {
       setTimeout(function() { contactsRef.current.scrollIntoView({ behavior:"smooth", block:"start" }) }, 120)
@@ -344,12 +355,11 @@ export default function SafeHarbor() {
 
   function dismissNudge() {
     setDismissedAt(nowMs)
+    var changes = { remindDismissedAt: nowMs }
     if (SAFE_HARBOR_V2) {
-      // V2: persist dismiss timestamp in the blob instead of a separate key.
-      update({ review: Object.assign({}, data.review || {}, { remindDismissedAt: nowMs }) })
-    } else {
-      try { localStorage.setItem("af_sh_remind", String(nowMs)) } catch(e) {}
+      changes.review = Object.assign({}, data.review || {}, { remindDismissedAt: nowMs })
     }
+    update(changes)
   }
 
   // ── Contacts ──────────────────────────────────────────────────────────────

@@ -106,10 +106,16 @@ export function migrateToV2(saved) {
     review: {
       lastReviewedAt:    existingReview.lastReviewedAt    || null,
       cadence:           existingReview.cadence           || "yearly",
-      // Prefer existing V2 value if blob was already partly migrated; fall back to absorbed.
+      // Prefer existing V2 value if blob was already partly migrated; else fall
+      // back to the top-level remindDismissedAt (loadData's own V1-path
+      // absorption of af_sh_remind may have already run and removed the raw
+      // key before this function ever saw it — that value lives here now);
+      // else fall back to absorbing af_sh_remind directly, same as always.
       remindDismissedAt: existingReview.remindDismissedAt !== undefined
         ? existingReview.remindDismissedAt
-        : absorbedRemindAt,
+        : (saved.remindDismissedAt !== undefined && saved.remindDismissedAt !== null
+            ? saved.remindDismissedAt
+            : absorbedRemindAt),
     },
   })
 }
@@ -131,6 +137,9 @@ export function migrateToV2(saved) {
 //   review.remindDismissedAt — later epoch-ms wins (null < any number)
 //   review.cadence — remote-wins
 //   lastReviewed — later ISO string wins (V1 compat field)
+//   remindDismissedAt — later epoch-ms wins (null < any number); top-level,
+//     synced replacement for the old device-local af_sh_remind key — active
+//     on both V1 and V2, unlike review.remindDismissedAt which is V2-only
 //   sixPs, familyPlan — remote-wins (future structured fields)
 //
 // Deletion of custom items does NOT propagate in v1 (union only). Documented.
@@ -154,7 +163,7 @@ function normalizeForMerge(blob) {
   // Returns a V2-compatible object suitable for merging. No localStorage side effects.
   if (!blob || typeof blob !== "object" || Array.isArray(blob)) {
     return {
-      version: 1, lastReviewed: null,
+      version: 1, lastReviewed: null, remindDismissedAt: null,
       contacts: { meetNearby:"", meetAway:"", evacuatePrimary:"", evacuateBackup:"", outOfStateContact:"" },
       members: [], grabItems: [], hazards: [], reviewDue: false, removedDefaultIds: [],
       sixPs: null, familyPlan: null,
@@ -164,6 +173,15 @@ function normalizeForMerge(blob) {
   var rev = (blob.review && typeof blob.review === "object") ? blob.review : {};
   return Object.assign({
     version: blob.version || 1, lastReviewed: blob.lastReviewed || null, reviewDue: blob.reviewDue || false,
+    // Top-level, synced field for the Compass nudge's "Remind me later" snooze —
+    // same pattern as lastReviewed. Was previously the raw, device-local
+    // af_sh_remind localStorage key (never synced, see mergeSafeHarbor's own
+    // comment below), so dismissing on one device never carried over to
+    // another, or to a fresh session after localStorage was cleared. Distinct
+    // from the V2-only nested review.remindDismissedAt below, which stays as
+    // its own separate field for backward compat with that (inactive-by-
+    // default) migration path.
+    remindDismissedAt: blob.remindDismissedAt !== undefined ? blob.remindDismissedAt : null,
     sixPs: blob.sixPs !== undefined ? blob.sixPs : null,
     familyPlan: blob.familyPlan !== undefined ? blob.familyPlan : null,
     contacts: (blob.contacts && typeof blob.contacts === "object") ? blob.contacts : {},
@@ -242,6 +260,7 @@ export function mergeSafeHarbor(local, remote) {
   return {
     version: 2,
     lastReviewed: laterIso(L.lastReviewed, R.lastReviewed),
+    remindDismissedAt: laterMs(L.remindDismissedAt, R.remindDismissedAt),
     contacts: mergedContacts,
     members: Object.values(memberMap),
     grabItems: Object.values(itemMap),
