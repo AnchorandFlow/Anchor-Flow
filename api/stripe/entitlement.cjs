@@ -1,4 +1,11 @@
-// api/stripe/entitlement.js
+// api/stripe/entitlement.cjs
+// .cjs (not .js): package.json has "type":"module", and unlike the other api/stripe/*
+// files this one was being loaded through a path where Node enforced strict ESM parsing,
+// so a bare require() threw "ReferenceError: require is not defined in ES module scope".
+// .cjs forces CommonJS regardless of the package.json type field. Vercel's routing strips
+// the extension the same way for .js/.cjs/.mjs, so the route stays /api/stripe/entitlement
+// — no client-side change needed (see src/billing/entitlement.js's fetch call).
+//
 // Auth-gated. Returns the SERVER-DERIVED entitlement for the caller's household.
 // The client calls this on load and for the "Restore / recheck subscription" button.
 // This is the authority; the client's cached af_entitlement is only a UX hint.
