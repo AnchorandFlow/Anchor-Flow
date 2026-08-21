@@ -18,13 +18,15 @@ function admin() {
 }
 
 async function resolveHouseholdId(db, userId) {
-  const { data: owned } = await db.from('households').select('id').eq('owner_id', userId).limit(1);
+  const { data: owned, error: ownedErr } = await db.from('households').select('id').eq('owner_id', userId).limit(1);
+  if (ownedErr) throw new Error('households lookup failed: ' + ownedErr.message);
   if (owned && owned.length) return owned[0].id;
-  const { data: mem } = await db
+  const { data: mem, error: memErr } = await db
     .from('household_members')
     .select('household_id')
     .eq('user_id', userId)
     .limit(1);
+  if (memErr) throw new Error('household_members lookup failed: ' + memErr.message);
   if (mem && mem.length) return mem[0].household_id;
   return null;
 }
@@ -42,12 +44,19 @@ module.exports = async function handler(req, res) {
     const householdId = await resolveHouseholdId(db, userData.user.id);
     if (!householdId) return res.status(200).json({ entitled: false, plan: null, reason: 'no household' });
 
-    const { data: rows } = await db
+    const { data: rows, error: subsErr } = await db
       .from('subscriptions')
       .select('status, plan, current_period_end, cancel_at_period_end')
       .eq('household_id', householdId)
       .order('updated_at', { ascending: false })
       .limit(1);
+    if (subsErr) {
+      // Distinct from "no subscription row" — this is a query FAILURE (bad
+      // column type, RLS denial, transient DB error), previously discarded
+      // silently and indistinguishable from a genuinely unsubscribed household.
+      console.error('[stripe:entitlement] subscriptions query error:', subsErr);
+      return res.status(500).json({ error: 'could not resolve entitlement', detail: subsErr.message });
+    }
     const row = rows && rows.length ? rows[0] : null;
 
     return res.status(200).json({
