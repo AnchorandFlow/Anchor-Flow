@@ -73,7 +73,9 @@ export function subscriptionToRow(subscription) {
     status: subscription.status,
     plan: planFromPriceId(priceId), // 'monthly' | 'annual' | null
     current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-    cancel_at_period_end: !!subscription.cancel_at_period_end,
+    // cancel_at_period_end intentionally omitted — see entitlement.js's matching comment.
+    // The column doesn't exist in production yet, so including it here made every
+    // webhook upsert fail (checkout completions, renewals, cancellations, all of it).
     updated_at: new Date().toISOString(),
   };
 }

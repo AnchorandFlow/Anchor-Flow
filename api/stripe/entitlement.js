@@ -52,7 +52,10 @@ export default async function handler(req, res) {
 
     const { data: rows, error: subsErr } = await db
       .from('subscriptions')
-      .select('status, plan, current_period_end, cancel_at_period_end')
+      // cancel_at_period_end intentionally omitted — sql/2026-07_billing.sql's ALTER TABLE
+      // for that column is gated behind explicit approval and was never actually run against
+      // production, so the column doesn't exist there yet. Selecting it 500'd every request.
+      .select('status, plan, current_period_end')
       .eq('household_id', householdId)
       .order('updated_at', { ascending: false })
       .limit(1);
@@ -70,7 +73,6 @@ export default async function handler(req, res) {
       plan: row ? row.plan : null,
       status: row ? row.status : null,
       current_period_end: row ? row.current_period_end : null,
-      cancel_at_period_end: row ? !!row.cancel_at_period_end : false,
     });
   } catch (err) {
     console.error('[stripe:entitlement] error:', err);

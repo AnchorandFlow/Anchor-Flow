@@ -1,4 +1,4 @@
-const CACHE_VERSION = "anchor-flow-v20260821-025341-67fd9b2";
+const CACHE_VERSION = "anchor-flow-v20260821-030034-bd3e8d7";
 const STATIC_CACHE = CACHE_VERSION;
 
 // On install: do NOT skip waiting immediately.

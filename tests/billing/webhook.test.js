@@ -109,8 +109,11 @@ describe('subscriptionToRow (item-level period end)', () => {
       stripe_subscription_id: 'sub_123',
       status: 'active',
       plan: 'annual',
-      cancel_at_period_end: false,
     });
+    // cancel_at_period_end is intentionally NOT written — the column doesn't exist in
+    // production (sql/2026-07_billing.sql's ALTER TABLE for it was gated and never run
+    // there), so including it made every webhook upsert fail outright.
+    expect(row).not.toHaveProperty('cancel_at_period_end');
     expect(row.current_period_end).toBe('2026-08-01T00:00:00.000Z');
   });
 
