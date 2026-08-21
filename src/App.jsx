@@ -4509,7 +4509,13 @@ function createLocalBackup() {
   // first successful response otherwise. See its own comment for why.
   const [householdSyncReady,setHouseholdSyncReady] = useState(function(){
     try {
-      if (!householdId) return true;
+      // Keyed off authToken, not householdId: householdId itself is often
+      // still unknown at this point on a fresh device (its discovery is an
+      // async lookup — see the "Startup: correct household ID" effect below),
+      // so gating on it being falsy opened this gate immediately in exactly
+      // the race window it's meant to close. authToken being present is
+      // sufficient to know a real pull is coming.
+      if (!authToken) return true;
       return !!localStorage.getItem("af_lastHHSync");
     } catch { return true; }
   });
@@ -4538,6 +4544,27 @@ function createLocalBackup() {
     }
     if (people.filter(isAdultLenient).length > 0) setShowWhoAmI(true);
   }, [myPersonId, people, showWelcomeModal, householdSyncReady]);
+  // OB-0 race fix: isExistingHousehold() (module load, App.jsx ~line 450) can
+  // only see localStorage as it exists before any network pull — on a fresh
+  // device for an already-existing household, that's empty, so it wrongly
+  // concludes "not existing" and af_onboardingState never gets seeded as
+  // complete, which re-launches the First Voyage wizard. Once
+  // householdSyncReady flips true, real synced data (people/tasks/etc.) is
+  // now local — re-run isExistingHousehold() with that real data and stamp
+  // onboardingState complete so the wizard doesn't re-show on this device
+  // again. No-op for a genuinely new household (isExistingHousehold stays
+  // false, showFirstVoyage still fires as intended).
+  React.useEffect(function(){
+    if (!householdSyncReady) return;
+    if (onboardingState && onboardingState.complete) return;
+    try {
+      if (isExistingHousehold()) {
+        setOnboardingState(function(prev){
+          return Object.assign({}, prev, { complete: true, completedAt: (prev && prev.completedAt) || "" });
+        });
+      }
+    } catch {}
+  }, [householdSyncReady]);
   function chooseMyPersonId(id){
     try { localStorage.setItem("af_myPersonId", id); } catch {}
     try {
@@ -18423,7 +18450,12 @@ export default function App() {
           try { localStorage.removeItem("af_householdId"); } catch {}
           try { localStorage.removeItem("af_myPersonId"); } catch {}
           try { localStorage.removeItem("af_myPersonId_authUserId"); } catch {}
-          SYNC_KEYS.forEach(k => { try { localStorage.removeItem("af_" + k); } catch {} });
+          // onboardingState deliberately excluded: it must persist across
+          // sign-out/sign-in on the same device — wiping it re-triggers the
+          // isExistingHousehold() fresh-device race (see householdSyncReady's
+          // re-evaluation effect above) and re-launches the First Voyage
+          // wizard for a household that was already onboarded.
+          SYNC_KEYS.forEach(k => { if (k === "onboardingState") return; try { localStorage.removeItem("af_" + k); } catch {} });
         }
         _afUserInitiatedSignOut = false;
       }
