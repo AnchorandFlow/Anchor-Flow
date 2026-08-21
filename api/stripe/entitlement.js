@@ -18,15 +18,13 @@ import { createClient } from '@supabase/supabase-js';
 import { isEntitled } from './_shared.js';
 
 function admin() {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
 async function resolveHouseholdId(db, userId) {
   const { data: owned, error: ownedErr } = await db.from('households').select('id').eq('owner_id', userId).limit(1);
-  // TEMP DIAGNOSTIC — remove once the mismatch is found.
-  console.log('[TEMP DIAG] households query for userId=' + userId + ':', JSON.stringify({ owned, ownedErr }));
   if (ownedErr) throw new Error('households lookup failed: ' + ownedErr.message);
   if (owned && owned.length) return owned[0].id;
   const { data: mem, error: memErr } = await db
@@ -34,8 +32,6 @@ async function resolveHouseholdId(db, userId) {
     .select('household_id')
     .eq('user_id', userId)
     .limit(1);
-  // TEMP DIAGNOSTIC — remove once the mismatch is found.
-  console.log('[TEMP DIAG] household_members query for userId=' + userId + ':', JSON.stringify({ mem, memErr }));
   if (memErr) throw new Error('household_members lookup failed: ' + memErr.message);
   if (mem && mem.length) return mem[0].household_id;
   return null;
@@ -51,12 +47,7 @@ export default async function handler(req, res) {
     const { data: userData, error: userErr } = await db.auth.getUser(token);
     if (userErr || !userData || !userData.user) return res.status(401).json({ error: 'invalid session' });
 
-    // TEMP DIAGNOSTIC — remove once the mismatch is found.
-    console.log('[TEMP DIAG] userData.user.id=' + userData.user.id + ' user_metadata=' + JSON.stringify(userData.user.user_metadata || {}) + ' app_metadata=' + JSON.stringify(userData.user.app_metadata || {}));
-
     const householdId = await resolveHouseholdId(db, userData.user.id);
-    // TEMP DIAGNOSTIC — remove once the mismatch is found.
-    console.log('[TEMP DIAG] resolveHouseholdId returned:', JSON.stringify(householdId));
     if (!householdId) return res.status(200).json({ entitled: false, plan: null, reason: 'no household' });
 
     const { data: rows, error: subsErr } = await db
@@ -85,9 +76,6 @@ export default async function handler(req, res) {
     console.error('[stripe:entitlement] error:', err);
     // Fail CLOSED for entitlement decisions on the server side; the client keeps its last
     // known-good cache for UX but should not be granted new access on an error.
-    // TEMP DIAGNOSTIC — `detail` added to the response so the actual thrown message is
-    // visible from curl directly, without needing the Vercel log dashboard. Remove once
-    // the mismatch is found (matches the pattern already used for subsErr above).
-    return res.status(500).json({ error: 'could not resolve entitlement', detail: err && err.message });
+    return res.status(500).json({ error: 'could not resolve entitlement' });
   }
 };

@@ -10,7 +10,10 @@
 //
 // Required env (Vercel, production scope): STRIPE_SECRET_KEY (sk_live_... live mode),
 //   STRIPE_WEBHOOK_SECRET (whsec_... from the live endpoint registered in the Stripe dashboard),
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (server-only, never VITE_).
+//   SUPABASE_URL, SUPABASE_SERVICE_KEY (server-only, never VITE_). Note the deployed Vercel env
+//   var is named SUPABASE_SERVICE_KEY, not the more conventional SUPABASE_SERVICE_ROLE_KEY —
+//   this drifted from the code for a while and silently broke every api/stripe/* function's
+//   admin() client (createClient threw "supabaseKey is required.") until caught 2026-08-21.
 
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
@@ -20,7 +23,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-
 
 // Service-role client: bypasses RLS. NEVER expose this key to the browser.
 function admin() {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
