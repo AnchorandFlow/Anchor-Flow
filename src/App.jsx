@@ -2980,9 +2980,15 @@ function createLocalBackup() {
                 "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
                 "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
                 "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
+              // F-16 guard (same as _applyHouseholdKeysDetectChange): don't let this
+              // restore clobber a key that's locally dirty (edited but not yet pushed) —
+              // this loop used to have no such check, which silently destroyed unpushed
+              // edits (e.g. Exhale) any time signIn() ran while something was mid-edit.
+              const _dirtyAtSignIn1 = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
               SYNC_KEYS.forEach(k => {
                 if (clean[k] !== undefined) {
                   if (_AK1.includes(k) && !Array.isArray(clean[k])) return;
+                  if (_dirtyAtSignIn1.indexOf(k) !== -1) return;
                   applyHouseholdKey(k, clean[k]);
                 }
               });
@@ -3009,9 +3015,12 @@ function createLocalBackup() {
                     "birthdays","favMeals","mealBankCustom","recipes","stores","shopCategories","brainCats",
                     "homeSystems","dietaryFilters","recurring","celebrations","gifts","inventory","pets",
                     "houseFile","cove_lists_v1","cove_sections_v1","cove_notes_v1","connectedCals","people"];
+                  // F-16 guard — see matching comment on the owner-case loop above.
+                  const _dirtyAtSignIn2 = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
                   SYNC_KEYS.forEach(k => {
                     if (clean[k] !== undefined) {
                       if (_AK2.includes(k) && !Array.isArray(clean[k])) return;
+                      if (_dirtyAtSignIn2.indexOf(k) !== -1) return;
                       applyHouseholdKey(k, clean[k]);
                     }
                   });
@@ -3381,8 +3390,11 @@ function createLocalBackup() {
       const sourceRow = freshRows && freshRows.length > 0 ? freshRows[0] : null;
       if (sourceRow && sourceRow.data) {
         const clean2 = sanitizeHouseholdData(sourceRow.data);
+        // F-16 guard — see matching comment on signIn()'s restore loops.
+        const _dirtyAtJoin = (() => { try { return JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]"); } catch { return []; } })();
         SYNC_KEYS.forEach(k => {
           if (clean2[k] !== undefined) {
+            if (_dirtyAtJoin.indexOf(k) !== -1) return;
             applyHouseholdKey(k, clean2[k]);
           }
         });
