@@ -2495,6 +2495,15 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
 // refresh token (single-use), so _refreshInFlight prevents concurrent callers from
 // racing and double-consuming it.
 var _refreshInFlight = null;
+// Consecutive household-poll auth failures (checkForUpdates in HomeFlow). A poll
+// cycle that hits 401, refreshes, and gets a token back is NOT proof the underlying
+// problem is fixed — the fresh token can still fail the exact same way next cycle
+// (e.g. a session that refreshes cleanly but is genuinely no longer valid server-side
+// for this resource), which previously meant the "give up, force sign-out" path only
+// ever fired on a definitive refreshAuthToken() null, and a false-success loop could
+// repeat forever. Module-level (not React state) for the same reason as
+// _refreshInFlight above — this is auth-recovery bookkeeping, not render state.
+var _authFailStreak = 0;
 async function refreshAuthToken() {
   if (_refreshInFlight) return _refreshInFlight;
   const p = (async function() {
@@ -3130,12 +3139,17 @@ function createLocalBackup() {
 
  function isAuthExpiredError(err) {
     // Status-based check first — sbFetch attaches the real HTTP status to
-    // every error it throws (see sbFetch's !r.ok branch). 403 is included
-    // alongside 401: observed live on /auth/v1/user in the same failure
-    // cascade as a 401 on /rest/v1/households, both meaning "this token is
-    // no longer good." Falls back to the string match for errors thrown
-    // elsewhere that don't carry .status (e.g. non-sbFetch call sites).
-    if (err && (err.status === 401 || err.status === 403)) return true;
+    // every error it throws (see sbFetch's !r.ok branch). Only 401 means the
+    // token itself is bad. 403 is deliberately excluded — it means RLS/
+    // permissions rejected the request (the token is fine, the caller just
+    // isn't allowed this row/action), and calling refreshAuthToken() for a
+    // 403 can never fix it: the SDK happily returns a fresh, valid token,
+    // the poll's "give up" path never triggers, and the same 403 repeats
+    // every cycle forever. See the household-poll auth-failure-streak
+    // comment (checkForUpdates) for how this was actually discovered.
+    // Falls back to the string match for errors thrown elsewhere that don't
+    // carry .status (e.g. non-sbFetch call sites).
+    if (err && err.status === 401) return true;
     const msg = String(err?.message || err || "").toLowerCase();
     return msg.includes("jwt expired") ||
            msg.includes("401") ||
@@ -3759,6 +3773,7 @@ function createLocalBackup() {
       try {
         AF_DEBUG&&console.log("[AF SYNC] check start", householdId);
         const rows = await sbFetch(`/rest/v1/households?id=eq.${householdId}&select=*`, { _token: authToken });
+        _authFailStreak = 0; // reached here without throwing — this cycle's auth was fine
         if (!rows || !rows.length || !rows[0].data) { AF_DEBUG&&console.log("[AF SYNC] check — no rows returned"); return; }
         const row = rows[0];
         const serverTs = row.updated_at || "";
@@ -3832,11 +3847,28 @@ function createLocalBackup() {
           setLastSyncTime(new Date().toLocaleTimeString());
         }
       } catch(e) {
+        if (e && e.status === 403) {
+          // RLS/permissions, not a token problem — refreshing would just get a
+          // fresh, valid token that hits the exact same 403 next cycle. Log and
+          // leave it alone; don't touch the failure streak (that's reserved for
+          // actual 401 auth failures).
+          console.warn("[AF SYNC] poll got 403 (RLS/permissions, not a token issue) — skipping refresh", e.message);
+          return;
+        }
         if (isAuthExpiredError(e)) {
           console.warn("[AF SYNC] poll auth expired — attempting token refresh");
           const newToken = await refreshAuthToken();
-          if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-poll"); return; }
-          console.warn("[AF SYNC] poll auth expired — refresh failed, zombie session detected");
+          _authFailStreak++;
+          // A returned token is not proof the underlying problem is fixed — it can
+          // fail the exact same way next cycle (see _authFailStreak's own comment).
+          // Give up once we've seen 3 consecutive failures regardless of whether
+          // THIS refresh nominally succeeded, not only on a definitive null.
+          if (newToken && _authFailStreak < 3) {
+            setAuthToken(newToken);
+            AF_DEBUG&&console.log("[AF AUTH] refreshed mid-poll (fail streak "+_authFailStreak+")");
+            return;
+          }
+          console.warn("[AF SYNC] poll auth expired — giving up after "+_authFailStreak+" consecutive failure(s)"+(newToken ? " (streak threshold)" : " (refresh itself failed)")+" — zombie session detected");
           setSyncStatus("error");
           setAuthToken(null);
           setAuthUser(null);
@@ -3845,6 +3877,7 @@ function createLocalBackup() {
           showInAppBanner("Session expired — please sign in again.", "error");
           clearInterval(interval);
           clearTimeout(initial);
+          _authFailStreak = 0;
           return;
         }
       }
