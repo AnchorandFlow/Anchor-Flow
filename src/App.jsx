@@ -2856,6 +2856,60 @@ function createLocalBackup() {
 
   // sanitizeHouseholdData imported from ./sync-core.js
 
+  // ── Auto-provision a household on first sign-in/sign-up ─────────────────────
+  // Previously nothing created a household automatically at all — not signup,
+  // not the onboarding wizard (it only ever edits local profile/preference
+  // data), not sign-in. The only path that created one was handleSync's
+  // manual "Generate"/"Sync" button in Settings → Household, which a new user
+  // has no reason to ever visit. pushHouseholdData() can't be reused directly
+  // here — its own "refuse empty cloud push" safety guard (nonNullCount < 2,
+  // ~line 3167) silently no-ops for a fresh account with no local data yet, so
+  // the row would never actually get created. This does the same INSERT +
+  // owner-membership-row shape pushHouseholdData's own insert branch uses
+  // (~line 3221), unconditionally, since provisioning an empty household is
+  // exactly what's wanted here — there's nothing to lose by not gating it.
+  async function provisionHousehold(token, userId) {
+    var hid = "hh_" + uid();
+    var updatedAt = new Date().toISOString();
+    try {
+      await sbFetch("/rest/v1/households", {
+        method: "POST",
+        _token: token,
+        headers: { "Prefer": "return=minimal" },
+        body: JSON.stringify({ id: hid, owner_id: userId, data: {}, updated_at: updatedAt })
+      });
+    } catch (e) {
+      console.warn("[AF] provisionHousehold: insert failed", e.message);
+      return null;
+    }
+    // Owner membership row — best-effort, matches pushHouseholdData's own insert
+    // branch ("new accounts are self-sufficient under RLS").
+    try {
+      await sbFetch("/rest/v1/household_members", {
+        method: "POST",
+        _token: token,
+        headers: { "Prefer": "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify({ household_id: hid, user_id: userId, role: "owner" })
+      });
+    } catch (e) { console.warn("[AF] provisionHousehold: membership row failed", e.message); }
+    // Best-effort user_metadata stamp — same non-blocking-fallback pattern already
+    // used by joinHousehold's own metadata write below. households.owner_id stays
+    // the actual source of truth (resolveHouseholdId in api/stripe/*.js and every
+    // other lookup in this file reads that, never user_metadata) — this is just a
+    // convenience signal, not load-bearing, so a failure here doesn't return null.
+    try {
+      await fetch(SUPABASE_URL + "/auth/v1/user", {
+        method: "PUT",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ data: { household_id: hid } })
+      });
+    } catch (e) { console.warn("[AF] provisionHousehold: metadata stamp failed", e.message); }
+    try { localStorage.setItem("af_householdId", JSON.stringify(hid)); } catch {}
+    try { localStorage.setItem("af_householdOwnerId", JSON.stringify(userId)); } catch {}
+    try { localStorage.setItem("af_lastHHSync", updatedAt); } catch {}
+    return hid;
+  }
+
   // ── Household sync functions ─────────────────────────────────────────────────
   async function signUp(email, password, displayName) {
     try {
@@ -2900,7 +2954,13 @@ function createLocalBackup() {
         try { localStorage.setItem("af_authToken", JSON.stringify(token)); } catch {}
         try { localStorage.setItem("af_authUser", JSON.stringify(userObj)); } catch {}
         try { localStorage.removeItem("af_lastHHSync"); } catch {} // force fresh pull on next load
-        // Don't auto-create household on signup — user will join or create via UI
+        // Auto-create a household right away — see provisionHousehold's own comment
+        // for why this used to be entirely manual. Best-effort: a failure here isn't
+        // fatal (handleSync's manual "Generate" button in Settings remains as a
+        // fallback), so don't block signup on it.
+        if (userObj.id && userObj.id !== "unknown") {
+          try { await provisionHousehold(token, userObj.id); } catch (e) { console.warn("[AF] signup provisionHousehold failed", e.message); }
+        }
         setSyncStatus("synced");
         window.location.reload();
         return { ok: true };
@@ -3028,6 +3088,13 @@ function createLocalBackup() {
                   AF_DEBUG&&console.log("[AF] Restored joined household on sign-in:", joinedHhId);
                 }
               }
+            } else if (userId && userId !== "unknown") {
+              // Genuinely new: not an owner, not a member of anything either.
+              // Previously this fell all the way through with no household ID at
+              // all — the wizard doesn't create one, only handleSync's manual
+              // Settings button did. See provisionHousehold's own comment.
+              try { await provisionHousehold(token, userId); AF_DEBUG&&console.log("[AF] Provisioned new household on sign-in"); }
+              catch (e) { console.warn("[AF] signIn provisionHousehold failed", e.message); }
             }
           } catch(e) { console.warn("[AF] Member household lookup failed:", e.message); }
         }
@@ -3629,7 +3696,13 @@ function createLocalBackup() {
                       localStorage.setItem("af_householdId", JSON.stringify(memberRows[0].household_id));
                       window.location.reload();
                     } else {
-                      AF_DEBUG&&console.log("[AF] No household found for user:", userId);
+                      // Genuinely new: not an owner, not a member, and the previously-stored
+                      // household id (if any) didn't resolve either. This is the path every
+                      // real signup/signin goes through (AuthScreen.jsx uses the Supabase SDK
+                      // directly, not HomeFlow's own signUp/signIn) — see provisionHousehold's
+                      // own comment for the full history of why this used to never happen.
+                      AF_DEBUG&&console.log("[AF] No household found for user:", userId, "— provisioning one");
+                      provisionHousehold(authToken, userId).then(function(hid){ if (hid) window.location.reload(); });
                     }
                   }).catch(() => {});
                 }
@@ -3655,7 +3728,10 @@ function createLocalBackup() {
                 localStorage.setItem("af_householdId", JSON.stringify(memberRows[0].household_id));
                 window.location.reload();
               } else {
-                AF_DEBUG&&console.log("[AF] No household found for user:", userId);
+                // Genuinely new: no household stored, not an owner, not a member. See
+                // matching comment above and provisionHousehold's own comment.
+                AF_DEBUG&&console.log("[AF] No household found for user:", userId, "— provisioning one");
+                provisionHousehold(authToken, userId).then(function(hid){ if (hid) window.location.reload(); });
               }
             });
           }
