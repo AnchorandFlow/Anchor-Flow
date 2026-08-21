@@ -3,8 +3,8 @@
 // update card, cancel, or switch monthly/annual. Cancellation/plan-change state comes back
 // to us via customer.subscription.updated / .deleted webhooks — we never trust the redirect.
 
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-28' });
 
@@ -26,7 +26,7 @@ async function resolveHouseholdId(db, userId) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');

@@ -12,9 +12,9 @@
 //   STRIPE_WEBHOOK_SECRET (whsec_... from the live endpoint registered in the Stripe dashboard),
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (server-only, never VITE_).
 
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
-const { subscriptionToRow } = require('./_shared.js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+import { subscriptionToRow } from './_shared.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-28' });
 
@@ -26,7 +26,7 @@ function admin() {
 }
 
 // Disable Vercel's body parser: signature verification needs the raw bytes.
-module.exports.config = { api: { bodyParser: false } };
+export const config = { api: { bodyParser: false } };
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -94,7 +94,7 @@ async function handleEvent(db, event) {
   }
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');

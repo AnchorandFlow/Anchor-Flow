@@ -1,10 +1,9 @@
-// api/stripe/entitlement.cjs
-// .cjs (not .js): package.json has "type":"module", and unlike the other api/stripe/*
-// files this one was being loaded through a path where Node enforced strict ESM parsing,
-// so a bare require() threw "ReferenceError: require is not defined in ES module scope".
-// .cjs forces CommonJS regardless of the package.json type field. Vercel's routing strips
-// the extension the same way for .js/.cjs/.mjs, so the route stays /api/stripe/entitlement
-// — no client-side change needed (see src/billing/entitlement.js's fetch call).
+// api/stripe/entitlement.js
+// ESM (import/export), not CommonJS — package.json has "type":"module", so a bare require()
+// here threw "ReferenceError: require is not defined in ES module scope" in production.
+// (A .cjs rename was tried first; Vercel's router didn't resolve it, so the whole
+// api/stripe/ directory is genuine ESM instead — see webhook.js, create-checkout-session.js,
+// create-portal-session.js, _shared.js, all converted alongside this file.)
 //
 // Auth-gated. Returns the SERVER-DERIVED entitlement for the caller's household.
 // The client calls this on load and for the "Restore / recheck subscription" button.
@@ -15,8 +14,8 @@
 // reconcile against Stripe if the row looks stale, and so the entitlement RULE lives in
 // exactly one place (_shared.isEntitled) rather than being re-implemented client-side.
 
-const { createClient } = require('@supabase/supabase-js');
-const { isEntitled, subscriptionToRow } = require('./_shared.js');
+import { createClient } from '@supabase/supabase-js';
+import { isEntitled } from './_shared.js';
 
 function admin() {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -38,7 +37,7 @@ async function resolveHouseholdId(db, userId) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   try {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;

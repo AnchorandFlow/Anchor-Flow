@@ -6,9 +6,9 @@
 // Verify against repo: how api/anthropic.js authenticates the caller. This uses the Supabase
 // access token from the Authorization header + a service-role client to read membership.
 
-const Stripe = require('stripe');
-const { createClient } = require('@supabase/supabase-js');
-const { priceIdFromPlan } = require('./_shared.js');
+import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
+import { priceIdFromPlan } from './_shared.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-28' });
 
@@ -40,7 +40,7 @@ async function resolveHouseholdId(db, userId) {
   return null;
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');

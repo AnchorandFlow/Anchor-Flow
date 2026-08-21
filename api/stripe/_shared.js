@@ -4,24 +4,22 @@
 // Runtime: Node (Vercel serverless). Modern JS is fine here — this is NOT bundled to the
 // ES2019/Safari-13 client target.
 
-'use strict';
-
 // ---- Config surface (all IDs come from env or the known product IDs) --------------------
 // Price IDs from backlog §7. Verify against the Stripe SANDBOX before shipping.
-const PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY || 'price_1TkGSxEUKkaRdCdIpI0A3To0';
-const PRICE_ANNUAL  = process.env.STRIPE_PRICE_ANNUAL  || 'price_1TkGTrEUKkaRdCdIRjq3Ts75';
+export const PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY || 'price_1TkGSxEUKkaRdCdIpI0A3To0';
+export const PRICE_ANNUAL  = process.env.STRIPE_PRICE_ANNUAL  || 'price_1TkGTrEUKkaRdCdIRjq3Ts75';
 
 // Statuses that grant household access. "past_due" intentionally still grants access during
 // the grace window; "unpaid"/"canceled"/"incomplete_expired" do not.
-const ENTITLED_STATUSES = new Set(['active', 'trialing', 'past_due']);
+export const ENTITLED_STATUSES = new Set(['active', 'trialing', 'past_due']);
 
-function planFromPriceId(priceId) {
+export function planFromPriceId(priceId) {
   if (priceId === PRICE_MONTHLY) return 'monthly';
   if (priceId === PRICE_ANNUAL) return 'annual';
   return null;
 }
 
-function priceIdFromPlan(plan) {
+export function priceIdFromPlan(plan) {
   if (plan === 'monthly') return PRICE_MONTHLY;
   if (plan === 'annual') return PRICE_ANNUAL;
   return null;
@@ -30,7 +28,7 @@ function priceIdFromPlan(plan) {
 // Read the current period end in a version-proof way.
 // API >= 2025-03-31 moved current_period_end onto the subscription ITEM.
 // We prefer the item value and fall back to the (legacy) subscription-level field.
-function periodEndSeconds(subscription) {
+export function periodEndSeconds(subscription) {
   const items = subscription && subscription.items && subscription.items.data;
   if (Array.isArray(items) && items.length > 0) {
     let maxEnd = 0;
@@ -47,7 +45,7 @@ function periodEndSeconds(subscription) {
   return null;
 }
 
-function firstPriceId(subscription) {
+export function firstPriceId(subscription) {
   const items = subscription && subscription.items && subscription.items.data;
   if (Array.isArray(items) && items.length > 0) {
     const p = items[0].price;
@@ -60,7 +58,7 @@ function firstPriceId(subscription) {
 // Map a Stripe Subscription object -> the row we upsert into public.subscriptions.
 // householdId/userId come from subscription.metadata (set at checkout) so the webhook
 // never has to guess who this belongs to.
-function subscriptionToRow(subscription) {
+export function subscriptionToRow(subscription) {
   const md = subscription.metadata || {};
   const priceId = firstPriceId(subscription);
   const periodEnd = periodEndSeconds(subscription);
@@ -82,7 +80,7 @@ function subscriptionToRow(subscription) {
 
 // SERVER-DERIVED entitlement. This is the single source of truth for "does this household
 // have Plus". The client may CACHE the answer but must never compute or be trusted for it.
-function isEntitled(row, nowMs) {
+export function isEntitled(row, nowMs) {
   if (!row) return false;
   if (!ENTITLED_STATUSES.has(row.status)) return false;
   // Grace: if we have a period end, require it to be in the future (with a small skew).
@@ -96,15 +94,3 @@ function isEntitled(row, nowMs) {
   // No period end recorded yet (e.g. just created) but status is entitled → allow.
   return true;
 }
-
-module.exports = {
-  PRICE_MONTHLY,
-  PRICE_ANNUAL,
-  ENTITLED_STATUSES,
-  planFromPriceId,
-  priceIdFromPlan,
-  periodEndSeconds,
-  firstPriceId,
-  subscriptionToRow,
-  isEntitled,
-};
