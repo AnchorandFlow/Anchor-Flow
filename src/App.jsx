@@ -4807,6 +4807,14 @@ function createLocalBackup() {
   function handleOnboardingSkip() {
     // Marks complete only — never re-ambush after a skip.
     setOnboardingState({complete:true, completedAt:new Date().toISOString(), version:1});
+    // Push immediately rather than waiting for the next debounced sync cycle —
+    // useSaved's setter above already dirty-marks it, but if a pull from
+    // another device lands before the next scheduled push, a stale remote
+    // onboardingState could otherwise be applied against a server row that
+    // never received this skip. Fire-and-forget: pushHouseholdData no-ops
+    // safely if there's no token/household yet (e.g. a brand-new device that
+    // hasn't created one), and navigation shouldn't wait on the network.
+    pushHouseholdData(authToken, householdId).catch(function(){});
     goTab("anchor");
   }
 

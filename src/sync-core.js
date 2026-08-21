@@ -622,6 +622,23 @@ export function applyHouseholdKey(k, remoteVal) {
     try { localStorage.setItem("af_" + k, JSON.stringify(mergedMap)); } catch(_e) {}
     return;
   }
+  if (k === "onboardingState") {
+    var localOB = null;
+    try { var rawOB = localStorage.getItem("af_onboardingState"); localOB = rawOB ? JSON.parse(rawOB) : null; } catch(_e) {}
+    var remoteOB = (remoteVal && typeof remoteVal === "object" && !Array.isArray(remoteVal)) ? remoteVal : null;
+    var localComplete = !!(localOB && localOB.complete === true);
+    var remoteComplete = !!(remoteOB && remoteOB.complete === true);
+    // Monotonic merge: once EITHER side has completed (or skipped) onboarding,
+    // the result stays complete. A pull must never re-trigger the wizard for a
+    // household that already finished it on some device — the most common way
+    // this happened was a device whose completion write raced a pull carrying
+    // an older, still-incomplete remote value and got silently clobbered.
+    if (localComplete && !remoteComplete) {
+      return; // local is ahead of remote — keep local as-is, don't downgrade
+    }
+    try { localStorage.setItem("af_onboardingState", JSON.stringify(remoteOB || {complete:false, completedAt:"", version:1})); } catch(_e) {}
+    return;
+  }
   try { localStorage.setItem("af_" + k, JSON.stringify(remoteVal)); } catch(_e) {}
 }
 
