@@ -1,13 +1,14 @@
-const CACHE_VERSION = "anchor-flow-v20260822-031528-da9d25c";
+const CACHE_VERSION = "anchor-flow-v20260822-031833-15dbc2c";
 const STATIC_CACHE = CACHE_VERSION;
 
-// On install: do NOT skip waiting immediately.
-// The page detects the waiting worker and shows an update banner.
-// When the user clicks "Refresh Now", the page posts {type:"SKIP_WAITING"}
-// and the SW calls skipWaiting() then, giving clients.claim() below a chance
-// to take over all tabs before the page reloads.
+// On install: activate immediately rather than waiting for the user to
+// click the update banner. Users were getting stuck running stale bundles
+// indefinitely (no auto-adoption path existed), which caused real bugs to
+// look unfixed after a deploy — the page still has code from before the
+// fix. clients.claim() in the activate handler below takes over all open
+// tabs right after; App.jsx's controllerchange listener then reloads them.
 self.addEventListener("install", function(event) {
-  // Intentionally no skipWaiting() — app controls adoption timing.
+  self.skipWaiting();
 });
 
 // Page sends SKIP_WAITING when the user taps "Refresh Now" in the update banner.
