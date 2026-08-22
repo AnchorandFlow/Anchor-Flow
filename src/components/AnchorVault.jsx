@@ -4474,23 +4474,38 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
   // data-pack-section-idx (the section's position in packingSections()) for
   // which section is the current drop target.
   function packItemPointerDown(e, secId, item) {
-    packDragItem.current.from = item.id
-    packDragItem.current.fromSecId = secId
-    packDragItem.current.toSecId = secId
-    packDragItem.current.toItemId = null
-    setPackDragFromId(item.id)
-    setPackDragOverSecId(secId)
-
+    // Drag now initiates from anywhere on the row (not just a handle dot), so
+    // a plain tap (e.g. the checkbox toggle) must not be misread as "dropped
+    // in place" and pushed to the end of the section. Gate the actual drag
+    // machinery (clone, preventDefault, reorder-on-release) behind a small
+    // movement threshold — below it, this is just a click.
+    if (e.button !== undefined && e.button !== 0) return
     var rowEl = e.currentTarget.closest("[data-pack-item-id]") || e.currentTarget
-    var clone = rowEl.cloneNode(true)
-    clone.setAttribute("data-pack-drag-clone", "1")
-    clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.9;z-index:9999;width:"+rowEl.offsetWidth+"px;background:#fde5dc;border:1.5px solid rgba(160,122,181,0.5);border-radius:8px;padding:5px 10px;box-shadow:0 4px 18px rgba(0,0,0,0.18);"
-    clone.style.left = (e.clientX - 20) + "px"
-    clone.style.top  = (e.clientY - 16) + "px"
-    document.body.appendChild(clone)
-    packDragItem.current.clone = clone
+    var startX = e.clientX, startY = e.clientY
+    var dragStarted = false, clone = null
 
+    function beginDrag(ev) {
+      dragStarted = true
+      packDragItem.current.from = item.id
+      packDragItem.current.fromSecId = secId
+      packDragItem.current.toSecId = secId
+      packDragItem.current.toItemId = null
+      setPackDragFromId(item.id)
+      setPackDragOverSecId(secId)
+
+      clone = rowEl.cloneNode(true)
+      clone.setAttribute("data-pack-drag-clone", "1")
+      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.9;z-index:9999;width:"+rowEl.offsetWidth+"px;background:#fde5dc;border:1.5px solid rgba(160,122,181,0.5);border-radius:8px;padding:5px 10px;box-shadow:0 4px 18px rgba(0,0,0,0.18);"
+      clone.style.left = (ev.clientX - 20) + "px"
+      clone.style.top  = (ev.clientY - 16) + "px"
+      document.body.appendChild(clone)
+      packDragItem.current.clone = clone
+    }
     function onMove(ev) {
+      if (!dragStarted) {
+        if (Math.abs(ev.clientX - startX) < 6 && Math.abs(ev.clientY - startY) < 6) return
+        beginDrag(ev)
+      }
       clone.style.left = (ev.clientX - 20) + "px"
       clone.style.top  = (ev.clientY - 16) + "px"
       clone.style.display = "none"
@@ -4519,6 +4534,7 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
       setPackDragFromId(null); setPackDragOverSecId(null)
     }
     function onUp() {
+      if (!dragStarted) { cleanup(); return } // plain tap — let the checkbox/normal click handle it
       var fromId = packDragItem.current.from
       var fromSecId = packDragItem.current.fromSecId
       var toSecId = packDragItem.current.toSecId
@@ -4546,7 +4562,6 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
     window.addEventListener("pointermove", onMove, { passive:true })
     window.addEventListener("pointerup", onUp, { once:true })
     window.addEventListener("pointercancel", cleanup, { once:true })
-    e.preventDefault()
   }
   // Pointer-based drag to reorder whole packing sections — same clone/ghost +
   // elementFromPoint approach as packItemPointerDown one level up, hit-testing
@@ -5326,8 +5341,9 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                                   {sec.items.map(function(item){
                                     var isDragging = packDragFromId === item.id
                                     return (
-                                      <div key={item.id} data-pack-item-id={item.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.08)", opacity:isDragging?0.35:1, background:isDragging?"rgba(160,122,181,0.08)":"transparent" }}>
-                                        <span onPointerDown={function(e){ packItemPointerDown(e, sec.id, item) }} style={{ cursor:"grab", color:"#8a5c48", fontSize:13, flexShrink:0, padding:"4px 4px", margin:"-4px 0 -4px -4px", touchAction:"none" }}>⠿</span>
+                                      <div key={item.id} data-pack-item-id={item.id}
+                                        onPointerDown={function(e){ packItemPointerDown(e, sec.id, item) }}
+                                        style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0", borderBottom:"1px solid rgba(26,46,61,0.08)", opacity:isDragging?0.35:1, background:isDragging?"rgba(160,122,181,0.08)":"transparent", touchAction:"none", cursor:"grab" }}>
                                         <div onClick={function(){ togglePackingItem(sec.id, item.id) }} style={{ width:16, height:16, borderRadius:4, border:"1.5px solid "+(item.done?"#a07ab5":"rgba(26,46,61,0.25)"), background:item.done?"#a07ab5":"transparent", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:"pointer" }}>
                                           {item.done ? <span style={{color:"#fff",fontSize:10}}>✓</span> : null}
                                         </div>

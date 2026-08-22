@@ -376,7 +376,12 @@ export default function ExhaleSection(props) {
     if (b && typeof b === "object" && Array.isArray(b.bucketNames) && Array.isArray(b.items)) return b;
     return defaultBuckets();
   });
-  var [openBuckets, setOpenBuckets] = useState({ 0: true, 1: true, 2: false, 3: false, 4: false });
+  // All buckets default open so each card shows its items inline (sliced to
+  // BUCKET_ITEM_LIMIT with a "Show N more" expand, below) rather than just a
+  // header until tapped — previously only buckets 0/1 ("Exhaled"/"Today")
+  // started open, so "Tomorrow"/"This Weekend"/"Someday" showed no items at
+  // all on load.
+  var [openBuckets, setOpenBuckets] = useState({ 0: true, 1: true, 2: true, 3: true, 4: true });
   var [expandedItemId, setExpandedItemId] = useState(null);
   // Direct bucket routing (Fix 4) — which item's "Move to..." menu is open,
   // one at a time. Replaced the old forward-only "→ {nextName}" chip, which
@@ -749,22 +754,37 @@ export default function ExhaleSection(props) {
   // onto a specific item) and data-bucketidx (drop onto a bucket's header/
   // body with no specific item target — appended to the end of that bucket).
   function bucketItemPointerDown(e, item) {
-    bucketDragItem.current.from = item.id;
-    bucketDragItem.current.fromBucket = item.bucketIndex;
-    bucketDragItem.current.toBucket = item.bucketIndex;
-    bucketDragItem.current.toIdx = null;
-    setDragFromId(item.id);
-
+    // Drag now initiates from anywhere on the row (not just a handle dot), so
+    // a plain tap-to-expand must not be misread as "dropped in place" and
+    // pushed to the end of the bucket. Gate the actual drag machinery (clone,
+    // preventDefault, reorder-on-release) behind a small movement threshold —
+    // below it, this is just a click and the row's own onClick handles it.
+    if (e.button !== undefined && e.button !== 0) return;
     var rowEl = e.currentTarget.closest("[data-bucketitemid]") || e.currentTarget;
-    var clone = rowEl.cloneNode(true);
-    clone.setAttribute("data-bucket-drag-clone", "1");
-    clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:" + rowEl.offsetWidth + "px;background:" + bgP + ";border:1.5px solid " + (item.color || "#888") + ";border-radius:8px;padding:8px 10px;box-shadow:0 4px 18px rgba(0,0,0,0.15);transition:none;";
-    clone.style.left = (e.clientX - 20) + "px";
-    clone.style.top  = (e.clientY - 16) + "px";
-    document.body.appendChild(clone);
-    bucketDragItem.current.clone = clone;
+    var startX = e.clientX, startY = e.clientY;
+    var dragStarted = false, clone = null;
 
+    function beginDrag(ev) {
+      dragStarted = true;
+      bucketDragItem.current.from = item.id;
+      bucketDragItem.current.fromBucket = item.bucketIndex;
+      bucketDragItem.current.toBucket = item.bucketIndex;
+      bucketDragItem.current.toIdx = null;
+      setDragFromId(item.id);
+
+      clone = rowEl.cloneNode(true);
+      clone.setAttribute("data-bucket-drag-clone", "1");
+      clone.style.cssText = "position:fixed;pointer-events:none;opacity:0.85;z-index:9999;width:" + rowEl.offsetWidth + "px;background:" + bgP + ";border:1.5px solid " + (item.color || "#888") + ";border-radius:8px;padding:8px 10px;box-shadow:0 4px 18px rgba(0,0,0,0.15);transition:none;";
+      clone.style.left = (ev.clientX - 20) + "px";
+      clone.style.top  = (ev.clientY - 16) + "px";
+      document.body.appendChild(clone);
+      bucketDragItem.current.clone = clone;
+    }
     function onMove(ev) {
+      if (!dragStarted) {
+        if (Math.abs(ev.clientX - startX) < 6 && Math.abs(ev.clientY - startY) < 6) return;
+        beginDrag(ev);
+      }
       clone.style.left = (ev.clientX - 20) + "px";
       clone.style.top  = (ev.clientY - 16) + "px";
       clone.style.display = "none";
@@ -787,6 +807,7 @@ export default function ExhaleSection(props) {
       setDragFromId(null); setDragOverId(null);
     }
     function onUp() {
+      if (!dragStarted) { cleanup(); return; } // plain tap — let the row's own onClick handle it
       var fromId = bucketDragItem.current.from;
       var toBucket = bucketDragItem.current.toBucket;
       var toId = bucketDragItem.current.toIdx;
@@ -809,7 +830,6 @@ export default function ExhaleSection(props) {
     window.addEventListener("pointermove", onMove, { passive: true });
     window.addEventListener("pointerup", onUp, { once: true });
     window.addEventListener("pointercancel", cleanup, { once: true });
-    e.preventDefault();
   }
 
   // V2 first-run migration: contribute this device's local cards to exhale_cards.
@@ -1577,19 +1597,17 @@ export default function ExhaleSection(props) {
               return (
                 <div key={item.id} data-bucketitemid={item.id} className="af-exhale-row"
                   onClick={() => toggleItemExpanded(item.id)}
-                  style={{ borderRadius: 8, border: br, padding: "5px 8px", marginBottom: 4, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2, cursor: "pointer" }}>
+                  onPointerDown={selectMode ? undefined : (e) => bucketItemPointerDown(e, item)}
+                  style={{ borderRadius: 8, border: br, padding: "5px 8px", marginBottom: 4, background: bgS, opacity: isBeingDragged ? 0.3 : 1, outline: isDragOverThis ? "2px dashed " + accent : "none", outlineOffset: 2, cursor: "pointer", touchAction: selectMode ? "auto" : "none" }}>
                   {/* Condensed-rows fix: this padding/margin/gap only affects the
                       collapsed row shell — everything inside {isExpanded && (...)}
                       below (textarea, Assign to/Category rows, action chips) is
                       untouched, matching "do not change expanded item view sizing". */}
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                    {selectMode ? (
+                    {selectMode && (
                       <input type="checkbox" checked={isSelected} onChange={() => toggleItemSelected(item.id)}
                         onClick={(e) => e.stopPropagation()}
                         style={{ flexShrink: 0, marginTop: 2, cursor: "pointer" }} />
-                    ) : (
-                      <span onPointerDown={(e) => bucketItemPointerDown(e, item)}
-                        style={{ cursor: "grab", color: txS, fontSize: 13, flexShrink: 0, padding: "6px 8px", margin: "-6px -8px -6px -2px", touchAction: "none" }}>⠿</span>
                     )}
                     {dotColor && <div style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, marginTop: 5, flexShrink: 0 }} />}
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => toggleItemExpanded(item.id)}>

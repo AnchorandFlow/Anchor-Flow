@@ -6253,7 +6253,9 @@ Respond ONLY with valid JSON array, no markdown:
     const [editVal, setEditVal] = useState(item.text);
     const [showPhoto, setShowPhoto] = useState(false);
     return (
-      <div data-shopid={item.id} style={{borderBottom:`1px solid ${T.borderSoft}`,outline:isDragOver?"2px dashed "+T.blue:"none",outlineOffset:"-2px",background:isDragOver?T.bluePale:"transparent"}}>
+      <div data-shopid={item.id}
+        onPointerDown={(onDragStart&&!editing)?function(e){onDragStart(e,item.id);}:undefined}
+        style={{borderBottom:`1px solid ${T.borderSoft}`,outline:isDragOver?"2px dashed "+T.blue:"none",outlineOffset:"-2px",background:isDragOver?T.bluePale:"transparent",touchAction:editing?"auto":"none"}}>
         {editing ? (
           <div style={{display:"flex",gap:"0.5rem",padding:"0.4rem 0",alignItems:"center"}}>
             <input value={editVal} onChange={e=>setEditVal(e.target.value)}
@@ -6265,7 +6267,6 @@ Respond ONLY with valid JSON array, no markdown:
         ) : (
           <div>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.44rem 0"}}>
-              {onDragStart&&<span onPointerDown={function(e){onDragStart(e,item.id);}} style={{cursor:"grab",color:T.textFaint,fontSize:"0.9rem",userSelect:"none",touchAction:"none",padding:"0 2px",flexShrink:0,lineHeight:1}}>⠿</span>}
               <button onClick={()=>onToggle(item.id,item.done)} aria-label={item.done?"Mark item not done":"Mark item done"} style={{width:18,height:18,borderRadius:"0.3rem",border:`2px solid ${item.done?T.sage:T.border}`,background:item.done?T.sage:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
                 {item.done&&<Icon name="check" size={10} color="#fff"/>}
               </button>
@@ -8085,7 +8086,7 @@ Respond ONLY in valid JSON:
                     {(calMarkers[localDateStr(thisDate)]&&calMarkers[localDateStr(thisDate)].length>0||workDays[localDateStr(thisDate)])&&(
                       <div style={{display:"flex",gap:"2px",flexWrap:"wrap",marginTop:"auto",lineHeight:1,alignItems:"center"}}>
                         {(calMarkers[localDateStr(thisDate)]||[]).map(function(em,mi){
-                          return <span key={mi} style={{fontSize:"0.62rem"}}>{em}</span>;
+                          return <span key={mi} style={{fontSize:"0.9rem"}}>{em}</span>;
                         })}
                         {workDays[localDateStr(thisDate)]&&(function(){
                           var _wde=workDays[localDateStr(thisDate)];
@@ -9832,7 +9833,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {MEALS_TO_SHOW.map(meal=>(
                       <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:MEALS_TO_SHOW.length===3?"0.4rem 0.45rem":"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
                         <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.55rem":"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800,marginBottom:"0.15rem"}}>{meal}</div>
-                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.75rem":"0.82rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.85rem":"0.9rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
                         <MealBankDrawer mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
                       </div>
                     ))}
@@ -10929,9 +10930,29 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         }
       }
     }
+    // Drag now initiates from anywhere on the row (not just a handle dot).
+    // shopPointerDown itself only "arms" — the actual clone/drag-state setup
+    // (startShopDrag) is gated behind a small movement threshold so an
+    // ordinary tap (e.g. the done-toggle button) never gets treated as a
+    // drag. Below the threshold this is a no-op and the row's normal click
+    // handling proceeds untouched.
     function shopPointerDown(e,id){
       if(e.button!==undefined&&e.button!==0)return;
-      e.stopPropagation();
+      var startX=e.clientX, startY=e.clientY;
+      function onArmMove(ev){
+        if(Math.abs(ev.clientX-startX)<6 && Math.abs(ev.clientY-startY)<6)return;
+        cleanupArm();
+        startShopDrag(id, ev);
+      }
+      function onArmUp(){ cleanupArm(); }
+      function cleanupArm(){
+        window.removeEventListener("pointermove",onArmMove);
+        window.removeEventListener("pointerup",onArmUp);
+      }
+      window.addEventListener("pointermove",onArmMove);
+      window.addEventListener("pointerup",onArmUp,{once:true});
+    }
+    function startShopDrag(id,e){
       var cur=shoppingItems.find(function(x){return x.id===id;});
       shopDrag.current.id=id;
       shopDrag.current.fromStore=cur?normalizeStore(cur.store):null;
