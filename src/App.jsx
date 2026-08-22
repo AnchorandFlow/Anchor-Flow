@@ -3465,9 +3465,14 @@ function createLocalBackup() {
         try {
           var beforeParsed = before === null ? null : JSON.parse(before);
           var afterParsed = after === null ? null : JSON.parse(after);
-          if (!_afValuesEqual(beforeParsed, afterParsed)) changed = true;
+          if (!_afValuesEqual(beforeParsed, afterParsed)) {
+            changed = true;
+            // TEMP DEBUG — remove before next real deploy.
+            console.log("[RELOAD]", "key that changed:", k, "before:", before, "after:", JSON.stringify(afterParsed).slice(0, 100));
+          }
         } catch (_e) {
           changed = true; // unparseable on either side — safest to treat as a real change
+          console.log("[RELOAD]", "key unparseable, treated as changed:", k, "before:", before, "after:", after);
         }
       }
     });
@@ -3577,6 +3582,7 @@ function createLocalBackup() {
       }
       setSyncStatus("synced");
       setLastSyncTime(new Date().toLocaleTimeString());
+      console.log("[RELOAD]", "site: joinHousehold"); // TEMP DEBUG — remove before next real deploy.
       window.location.reload();
       return { ok: true };
     } catch(e) { setSyncStatus("error"); return { ok:false, error: e.message }; }
@@ -3626,6 +3632,7 @@ function createLocalBackup() {
       // Only reload if the pull actually changed local data — otherwise a bumped
       // updated_at with identical data would reflicker the screen for nothing.
       if (_changed) {
+        console.log("[RELOAD]", "site: pullLatestHouseholdData"); // TEMP DEBUG — remove before next real deploy.
         // F-17: don't reload out from under an in-progress edit. Reload once the
         // user stops typing / closes their draft (bounded — see afReloadWhenIdle).
         if (afUserIsEditing()) { AF_DEBUG && console.warn("[AF PULL] change applied but user is editing — deferring reload (F-17)"); afReloadWhenIdle(); }
@@ -3667,7 +3674,7 @@ function createLocalBackup() {
           // Only reload if the pull actually changed local data. Kills the constant
           // reload loop where each device's push bumped updated_at but the returned
           // blob was identical to what this device already had.
-          if (_changed) { window.location.reload(); return; }
+          if (_changed) { console.log("[RELOAD]", "site: syncNow", "opId:", opId); window.location.reload(); return; } // TEMP DEBUG — remove before next real deploy.
           setSyncStatus("synced");
           return;
         }
@@ -3789,6 +3796,7 @@ function createLocalBackup() {
               .then(owned => {
                 if (owned && owned.length > 0) {
                   AF_DEBUG&&console.log("[AF] Correcting to owned household:", owned[0].id);
+                  console.log("[RELOAD]", "site: startup-correct-householdId (currentId invalid, owned)"); // TEMP DEBUG — remove before next real deploy.
                   localStorage.setItem("af_householdId", JSON.stringify(owned[0].id));
                   window.location.reload();
                 } else {
@@ -3799,6 +3807,7 @@ function createLocalBackup() {
                   ).then(memberRows => {
                     if (memberRows && memberRows.length > 0) {
                       AF_DEBUG&&console.log("[AF] Correcting to member household:", memberRows[0].household_id);
+                      console.log("[RELOAD]", "site: startup-correct-householdId (currentId invalid, member)"); // TEMP DEBUG — remove before next real deploy.
                       localStorage.setItem("af_householdId", JSON.stringify(memberRows[0].household_id));
                       window.location.reload();
                     } else {
@@ -3808,7 +3817,7 @@ function createLocalBackup() {
                       // directly, not HomeFlow's own signUp/signIn) — see provisionHousehold's
                       // own comment for the full history of why this used to never happen.
                       AF_DEBUG&&console.log("[AF] No household found for user:", userId, "— provisioning one");
-                      provisionHousehold(authToken, userId).then(function(hid){ if (hid) window.location.reload(); });
+                      provisionHousehold(authToken, userId).then(function(hid){ if (hid) { console.log("[RELOAD]", "site: startup-correct-householdId (currentId invalid, provisioned)"); window.location.reload(); } }); // TEMP DEBUG — remove before next real deploy.
                     }
                   }).catch(() => {});
                 }
@@ -3821,6 +3830,7 @@ function createLocalBackup() {
         .then(rows => {
           if (rows && rows.length > 0) {
             AF_DEBUG&&console.log("[AF] Setting owned household:", rows[0].id);
+            console.log("[RELOAD]", "site: startup-correct-householdId (no currentId, owned)"); // TEMP DEBUG — remove before next real deploy.
             localStorage.setItem("af_householdId", JSON.stringify(rows[0].id));
             window.location.reload();
           } else {
@@ -3831,13 +3841,14 @@ function createLocalBackup() {
             ).then(memberRows => {
               if (memberRows && memberRows.length > 0) {
                 AF_DEBUG&&console.log("[AF] Setting member household:", memberRows[0].household_id);
+                console.log("[RELOAD]", "site: startup-correct-householdId (no currentId, member)"); // TEMP DEBUG — remove before next real deploy.
                 localStorage.setItem("af_householdId", JSON.stringify(memberRows[0].household_id));
                 window.location.reload();
               } else {
                 // Genuinely new: no household stored, not an owner, not a member. See
                 // matching comment above and provisionHousehold's own comment.
                 AF_DEBUG&&console.log("[AF] No household found for user:", userId, "— provisioning one");
-                provisionHousehold(authToken, userId).then(function(hid){ if (hid) window.location.reload(); });
+                provisionHousehold(authToken, userId).then(function(hid){ if (hid) { console.log("[RELOAD]", "site: startup-correct-householdId (no currentId, provisioned)"); window.location.reload(); } }); // TEMP DEBUG — remove before next real deploy.
               }
             });
           }
@@ -3932,6 +3943,7 @@ function createLocalBackup() {
           AF_DEBUG&&console.log("[AF SYNC] localStorage updated tasks", localStorage.getItem("af_tasks"));
           if (_changedBg) {
             AF_DEBUG&&console.log("[AF SYNC] reloading now (remote change applied)");
+            console.log("[RELOAD]", "site: checkForUpdates (poll)"); // TEMP DEBUG — remove before next real deploy.
             window.location.reload();
           } else {
             AF_DEBUG && console.warn("[AF POLL] no non-dirty change to apply — skipping reload");
