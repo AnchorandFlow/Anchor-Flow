@@ -477,39 +477,46 @@ try {
   }
 } catch {}
 
-// ── Startup self-heal: stale af_lastHHSync with missing/placeholder people ──
+// ── Startup self-heal: stale sync-tracking keys with missing/placeholder
+// people ──────────────────────────────────────────────────────────────────
 // Runs once, before React mounts — this must happen before
 // householdSyncReady's own useState initializer or the background poll
-// (checkForUpdates) ever read af_lastHHSync, so it can't live in a React
-// effect (those run too late, after first render). Some devices carry
-// af_lastHHSync set from before sign-out was fixed to clear it alongside the
-// rest of SYNC_KEYS (people included) — leaving a stale "already synced"
-// flag paired with either no af_people at all, or the raw useSaved(...)
-// placeholder seed ([{name:"You"},{name:"Partner"}]). Every downstream check
-// (this gate, the poll, pushHouseholdData's stale-push guard) keys off
-// af_lastHHSync's mere presence to decide whether a pull is needed, so a
-// stale flag with no real data behind it means the device silently never
-// re-pulls, indefinitely. Clear it here so the very first poll always
-// treats this device as unsynced and forces a real pull.
+// (checkForUpdates) ever read these keys, so it can't live in a React effect
+// (those run too late, after first render). Some devices carry af_lastHHSync
+// set from before sign-out was fixed to clear it alongside the rest of
+// SYNC_KEYS (people included) — leaving a stale "already synced" flag paired
+// with either no af_people at all, or the raw useSaved(...) placeholder seed
+// ([{name:"You"},{name:"Partner"}]).
+//
+// Clearing af_lastHHSync alone isn't sufficient: checkForUpdates' poll has a
+// SEPARATE "own write echo" shortcut (`serverTs === af_lastPushedAt`) that
+// skips the entire apply step — no data written, no reload — whenever the
+// server's current updated_at happens to equal whatever this device last
+// pushed, no matter how long ago. af_lastPushedAt/af_lastPushAt are neither
+// SYNC_KEYS members nor cleared by sign-out, so a device that pushed once
+// and then had its data wiped can poll forever, keep matching its own long-
+// stale push echo, and never actually re-pull — the poll "runs" and updates
+// af_lastHHSync (looking active), but af_people is never written. Clear all
+// three together so the next poll can't take that shortcut and is forced
+// through the real apply path.
 try {
-  var _staleLastSync = localStorage.getItem("af_lastHHSync");
-  if (_staleLastSync) {
-    var _staleReason = null;
-    var _peopleRaw = localStorage.getItem("af_people");
-    if (_peopleRaw === null) {
-      _staleReason = "missing";
-    } else {
-      try {
-        var _peopleParsed = JSON.parse(_peopleRaw);
-        if (Array.isArray(_peopleParsed) && _peopleParsed.length > 0 &&
-            _peopleParsed.every(function(p){ return p && (p.name === "You" || p.name === "Partner"); })) {
-          _staleReason = "placeholder";
-        }
-      } catch (_e) { /* unparseable — leave alone, not this migration's concern */ }
-    }
-    if (_staleReason) {
-      localStorage.removeItem("af_lastHHSync");
-    }
+  var _staleReason = null;
+  var _peopleRaw = localStorage.getItem("af_people");
+  if (_peopleRaw === null) {
+    _staleReason = "missing";
+  } else {
+    try {
+      var _peopleParsed = JSON.parse(_peopleRaw);
+      if (Array.isArray(_peopleParsed) && _peopleParsed.length > 0 &&
+          _peopleParsed.every(function(p){ return p && (p.name === "You" || p.name === "Partner"); })) {
+        _staleReason = "placeholder";
+      }
+    } catch (_e) { /* unparseable — leave alone, not this migration's concern */ }
+  }
+  if (_staleReason) {
+    localStorage.removeItem("af_lastHHSync");
+    localStorage.removeItem("af_lastPushedAt");
+    localStorage.removeItem("af_lastPushAt");
   }
 } catch {}
 
@@ -3172,6 +3179,13 @@ function createLocalBackup() {
     try { localStorage.removeItem("af_authUser"); } catch {}
     try { localStorage.removeItem("af_householdId"); } catch {}
     try { localStorage.removeItem("af_lastHHSync"); } catch {}
+    // af_lastPushedAt/af_lastPushAt gate checkForUpdates' "own write echo"
+    // shortcut (serverTs === af_lastPushedAt skips applying pulled data
+    // entirely) — leftover here would silently block the next real pull on
+    // whatever account signs in next on this device, same failure class as
+    // af_lastHHSync above.
+    try { localStorage.removeItem("af_lastPushedAt"); } catch {}
+    try { localStorage.removeItem("af_lastPushAt"); } catch {}
     try { localStorage.removeItem("af_myPersonId"); } catch {}
     try { localStorage.removeItem("af_myPersonId_authUserId"); } catch {}
     window.location.reload();
@@ -3409,6 +3423,8 @@ function createLocalBackup() {
     }
     var changed = false;
     SYNC_KEYS.forEach(function(k) {
+      // TEMP DEBUG — remove before next real deploy.
+      console.log("[PULL DEBUG]", k, "dirty?", dirtyKeys.includes(k), "hasCleanValue?", clean[k] !== undefined);
       if (clean[k] === undefined) return;
       if (skip && skip(k)) return;
       if (dirtyKeys.indexOf(k) !== -1) return; // local un-pushed edit wins until it syncs
@@ -3833,6 +3849,8 @@ function createLocalBackup() {
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
           var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
+          // TEMP DEBUG — remove before next real deploy.
+          console.log("[PULL DEBUG] own-write-echo check", { serverTs, lastPushedAt, willSkipApply: serverTs === lastPushedAt, af_people_before: localStorage.getItem("af_people") });
           if (serverTs === lastPushedAt) {  // pushedRecentlyPoll removed: recent own-push must not cause us to ignore the OTHER device's remote change
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
@@ -18567,6 +18585,10 @@ export default function App() {
           // same as HomeFlow's own signOut() already does (its own comment:
           // "force fresh pull on next load").
           try { localStorage.removeItem("af_lastHHSync"); } catch {}
+          // Same reasoning applies to af_lastPushedAt/af_lastPushAt — see
+          // HomeFlow's own signOut() comment above.
+          try { localStorage.removeItem("af_lastPushedAt"); } catch {}
+          try { localStorage.removeItem("af_lastPushAt"); } catch {}
           // onboardingState deliberately excluded: it must persist across
           // sign-out/sign-in on the same device — wiping it re-triggers the
           // isExistingHousehold() fresh-device race (see householdSyncReady's
