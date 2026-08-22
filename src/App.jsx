@@ -4530,6 +4530,15 @@ function createLocalBackup() {
     // equivalent) before evaluating anything below — see householdSyncReady.
     if (!householdSyncReady) return;
     if (people.length === 0) return;
+    // Extra safety net, independent of householdSyncReady: check the actual
+    // content of people[] rather than trusting a flag. useSaved("people",
+    // [...]) falls back to a placeholder [{name:"You"},{name:"Partner"}]
+    // seed the instant this component mounts, before any pull has landed —
+    // if every person on the roster is still exactly that seed, real data
+    // hasn't arrived yet regardless of what householdSyncReady says, so wait
+    // rather than show or auto-match against fake names.
+    var looksLikePlaceholder = people.every(function(p){ return p.name === "You" || p.name === "Partner"; });
+    if (looksLikePlaceholder) return;
     if (myPersonId) {
       // Stored id no longer resolves (member removed) — ask again rather than
       // silently keeping a dangling reference. The else branch matters: people
