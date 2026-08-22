@@ -19,7 +19,10 @@ import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { subscriptionToRow } from './_shared.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-01-28' });
+// No apiVersion pinned — see create-checkout-session.js's matching comment:
+// '2026-01-28' was not a real Stripe API version. Omitted so the installed
+// stripe SDK (package.json: ^22.4.0) uses its own built-in default.
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Service-role client: bypasses RLS. NEVER expose this key to the browser.
 function admin() {

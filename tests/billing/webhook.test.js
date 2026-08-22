@@ -16,7 +16,11 @@ import {
   PRICE_ANNUAL,
 } from '../../api/stripe/_shared.js';
 
-const stripe = new Stripe('sk_test_dummy', { apiVersion: '2026-01-28' });
+// No apiVersion pinned — see api/stripe/create-checkout-session.js's matching
+// comment: '2026-01-28' was not a real Stripe API version. Harmless here
+// (this instance only does local signature gen/verification, never a real
+// API call), but removed for consistency with the production fix.
+const stripe = new Stripe('sk_test_dummy');
 const WH_SECRET = 'whsec_test_secret_123';
 
 function signed(payloadObj, secret = WH_SECRET) {
