@@ -4604,6 +4604,16 @@ function createLocalBackup() {
             return next;
           });
         });
+        // Push immediately rather than waiting for the next debounced (3s)
+        // sync cycle — useSaved's setter above already dirty-marks and writes
+        // localStorage synchronously (readHouseholdState/pushHouseholdData
+        // read from localStorage, not React state, so this sees the fresh
+        // stamp), but if sign-out happens before the debounce fires, the
+        // stamp is wiped locally (people is a normal SYNC_KEYS member) before
+        // ever reaching the server — the next sign-in then falls through to
+        // the modal again. Fire-and-forget, same pattern as
+        // handleOnboardingSkip's immediate push.
+        pushHouseholdData(authToken, householdId).catch(function(){});
       }
     } catch {}
     setMyPersonId(id);
