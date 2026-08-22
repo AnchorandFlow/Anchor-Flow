@@ -2618,6 +2618,21 @@ var _DIRTY_EXCLUDE = ["authToken","authUser","refreshToken","householdId","house
   "insights","insightsBuilt","dismissedInsights","lastHHSync","lastPushedAt",
   "deviceId","dirtyKeys","theme","activeTab"];
 
+// Keys pushed to Supabase almost immediately (~500ms debounce, see the
+// "af-immediate-sync" listener in HomeFlow) instead of waiting for the
+// normal ~3s debouncedSync cycle, which itself only fires when one of a
+// specific ~22-key watch list changes (App.jsx, "Sync household data when
+// key state changes" effect) or AnchorVault dispatches af-data-changed.
+// lighthouse was found to be in NEITHER trigger path at all — edits could
+// sit local-only indefinitely with no push ever scheduled, which is the
+// likely root cause of this session's Lighthouse data-loss incident. The
+// other keys here were part of the same incident or are similarly
+// high-value, low-frequency-edit content worth protecting the same way.
+// tidepoolChildren is not a real key — TidePool's per-child chores/
+// treasures are actually stored under coveData (see TidePoolTab, ~line
+// 12114) — substituted here since that's the real backing key.
+var CRITICAL_IMMEDIATE_KEYS = ["lighthouse", "coveData", "people", "exhale_buckets", "exhale_waves", "onboardingState"];
+
 // Shared dirty-marker for bespoke writers that bypass useSaved (e.g. saveWorkDays,
 // saveCalMarkers). Respects the hydration guard and the exclude list exactly the
 // way setSaved does, so all dirty-marking logic lives in one place.
@@ -2726,6 +2741,11 @@ function useSaved(key, fallback) {
             AF_DEBUG&&console.log("[AF DIRTY] marked dirty:", key);
           }
         } catch {}
+        // See CRITICAL_IMMEDIATE_KEYS' own comment — these keys skip the
+        // normal ~3s debouncedSync wait entirely.
+        if (CRITICAL_IMMEDIATE_KEYS.indexOf(key) !== -1) {
+          try { window.dispatchEvent(new CustomEvent("af-immediate-sync", { detail: { key: key } })); } catch {}
+        }
       }
       return resolved;
     });
@@ -4518,6 +4538,30 @@ function createLocalBackup() {
     window.addEventListener("af-data-changed", onVaultChanged);
     return () => window.removeEventListener("af-data-changed", onVaultChanged);
   }, []); // eslint-disable-line
+
+  // ── Immediate push for critical content keys ─────────────────────────────
+  // useSaved dispatches "af-immediate-sync" for CRITICAL_IMMEDIATE_KEYS edits
+  // (lighthouse, coveData, people, exhale_buckets, exhale_waves,
+  // onboardingState — see that list's own comment). These push straight to
+  // Supabase on a short 500ms debounce instead of waiting on the normal ~3s
+  // debouncedSync cycle (or, for lighthouse specifically, instead of never
+  // syncing at all — it wasn't wired into any existing trigger). 500ms so a
+  // burst of rapid edits (e.g. several quick Lighthouse saves in a row)
+  // coalesces into one push rather than one push per edit.
+  const immediateSyncTimeoutRef = useRef(null);
+  React.useEffect(() => {
+    function onImmediateSync() {
+      clearTimeout(immediateSyncTimeoutRef.current);
+      immediateSyncTimeoutRef.current = setTimeout(function() {
+        pushHouseholdData(authToken, householdId).catch(function(){});
+      }, 500);
+    }
+    window.addEventListener("af-immediate-sync", onImmediateSync);
+    return () => {
+      window.removeEventListener("af-immediate-sync", onImmediateSync);
+      clearTimeout(immediateSyncTimeoutRef.current);
+    };
+  }, [authToken, householdId]);
   const [moreDrawerOpen,setMoreDrawerOpen] = useState(false);
   const [newPersonName,setNewPersonName]   = useState("");
   const [syncing,setSyncing]           = useState(false);
