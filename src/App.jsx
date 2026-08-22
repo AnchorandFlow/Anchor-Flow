@@ -4516,7 +4516,22 @@ function createLocalBackup() {
       // the race window it's meant to close. authToken being present is
       // sufficient to know a real pull is coming.
       if (!authToken) return true;
-      return !!localStorage.getItem("af_lastHHSync");
+      if (!localStorage.getItem("af_lastHHSync")) return false;
+      // Self-heal: some devices carry af_lastHHSync set from before sign-out
+      // was fixed to clear it alongside the rest of SYNC_KEYS (people
+      // included) — that combination (meta-flag says "already synced", but
+      // af_people itself is null) makes every downstream check (this gate,
+      // checkForUpdates' poll, pushHouseholdData's stale-push guard) wrongly
+      // trust the stale flag and never re-pull, leaving real data missing
+      // indefinitely. If af_people is null despite af_lastHHSync being set,
+      // don't trust it — clear it so the normal pull machinery (which all
+      // keys off af_lastHHSync's presence) treats this as a fresh device and
+      // forces a real pull, same as it would for a genuinely new device.
+      if (localStorage.getItem("af_people") === null) {
+        try { localStorage.removeItem("af_lastHHSync"); } catch {}
+        return false;
+      }
+      return true;
     } catch { return true; }
   });
   React.useEffect(function(){
