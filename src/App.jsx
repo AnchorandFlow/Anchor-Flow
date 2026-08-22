@@ -477,6 +477,42 @@ try {
   }
 } catch {}
 
+// ── Startup self-heal: stale af_lastHHSync with missing/placeholder people ──
+// Runs once, before React mounts — this must happen before
+// householdSyncReady's own useState initializer or the background poll
+// (checkForUpdates) ever read af_lastHHSync, so it can't live in a React
+// effect (those run too late, after first render). Some devices carry
+// af_lastHHSync set from before sign-out was fixed to clear it alongside the
+// rest of SYNC_KEYS (people included) — leaving a stale "already synced"
+// flag paired with either no af_people at all, or the raw useSaved(...)
+// placeholder seed ([{name:"You"},{name:"Partner"}]). Every downstream check
+// (this gate, the poll, pushHouseholdData's stale-push guard) keys off
+// af_lastHHSync's mere presence to decide whether a pull is needed, so a
+// stale flag with no real data behind it means the device silently never
+// re-pulls, indefinitely. Clear it here so the very first poll always
+// treats this device as unsynced and forces a real pull.
+try {
+  var _staleLastSync = localStorage.getItem("af_lastHHSync");
+  if (_staleLastSync) {
+    var _staleReason = null;
+    var _peopleRaw = localStorage.getItem("af_people");
+    if (_peopleRaw === null) {
+      _staleReason = "missing";
+    } else {
+      try {
+        var _peopleParsed = JSON.parse(_peopleRaw);
+        if (Array.isArray(_peopleParsed) && _peopleParsed.length > 0 &&
+            _peopleParsed.every(function(p){ return p && (p.name === "You" || p.name === "Partner"); })) {
+          _staleReason = "placeholder";
+        }
+      } catch (_e) { /* unparseable — leave alone, not this migration's concern */ }
+    }
+    if (_staleReason) {
+      localStorage.removeItem("af_lastHHSync");
+    }
+  }
+} catch {}
+
 // Batch B — minimal-mode defaults for genuinely new users. Reads
 // af_onboardingState directly (not the onboardingState React state declared
 // later in HomeFlow, and not isExistingHousehold() again) — by the time this
