@@ -3405,6 +3405,28 @@ function createLocalBackup() {
   // own-push echoes, and the cause of the constant reflicker/jumping when two
   // devices are active. Genuine remote changes still flip `changed` → caller reloads.
   // Interim mitigation until pulls can update React state in place without reload.
+  // Order-independent (for objects), recursive value equality — used instead
+  // of comparing two JSON strings directly, since key order in a JS object
+  // literal isn't preserved by a JSONB round-trip through Supabase.
+  function _afValuesEqual(a, b) {
+    if (a === b) return true;
+    if (a === null || b === null) return false;
+    if (typeof a !== "object" || typeof b !== "object") return false;
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    if (Array.isArray(a)) {
+      if (a.length !== b.length) return false;
+      for (var i = 0; i < a.length; i++) { if (!_afValuesEqual(a[i], b[i])) return false; }
+      return true;
+    }
+    var aKeys = Object.keys(a), bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    for (var j = 0; j < aKeys.length; j++) {
+      var kk = aKeys[j];
+      if (!Object.prototype.hasOwnProperty.call(b, kk)) return false;
+      if (!_afValuesEqual(a[kk], b[kk])) return false;
+    }
+    return true;
+  }
   function _applyHouseholdKeysDetectChange(clean, opts) {
     opts = opts || {};
     var arrayKeys = opts.arrayKeys || null;
@@ -3423,8 +3445,6 @@ function createLocalBackup() {
     }
     var changed = false;
     SYNC_KEYS.forEach(function(k) {
-      // TEMP DEBUG — remove before next real deploy.
-      console.log("[PULL DEBUG]", k, "dirty?", dirtyKeys.includes(k), "hasCleanValue?", clean[k] !== undefined);
       if (clean[k] === undefined) return;
       if (skip && skip(k)) return;
       if (dirtyKeys.indexOf(k) !== -1) return; // local un-pushed edit wins until it syncs
@@ -3433,7 +3453,23 @@ function createLocalBackup() {
       try { before = localStorage.getItem("af_" + k); } catch (_e) {}
       applyHouseholdKey(k, clean[k]);
       try { after = localStorage.getItem("af_" + k); } catch (_e) {}
-      if (before !== after) changed = true;
+      if (before !== after) {
+        // Raw string inequality doesn't mean the DATA actually changed — Supabase's
+        // JSONB column doesn't preserve JS object key insertion order the way
+        // JSON.stringify does locally, so pulling back semantically identical data
+        // can still produce a different string on every single poll. A naive
+        // string comparison here flagged that as a real change every ~15s poll
+        // cycle, forcing an unnecessary window.location.reload() each time —
+        // visible to the user as constant flicker even when nothing had actually
+        // changed. Parse both sides and compare values, not serialized text.
+        try {
+          var beforeParsed = before === null ? null : JSON.parse(before);
+          var afterParsed = after === null ? null : JSON.parse(after);
+          if (!_afValuesEqual(beforeParsed, afterParsed)) changed = true;
+        } catch (_e) {
+          changed = true; // unparseable on either side — safest to treat as a real change
+        }
+      }
     });
     return changed;
   }
@@ -3849,8 +3885,6 @@ function createLocalBackup() {
           // value never matches; stamp lastHHSync to our own server time so the poll stops re-firing.
           var lastPushAtPoll = Number(localStorage.getItem("af_lastPushAt") || 0);
           var pushedRecentlyPoll = lastPushAtPoll && (Date.now() - lastPushAtPoll) < 30000;
-          // TEMP DEBUG — remove before next real deploy.
-          console.log("[PULL DEBUG] own-write-echo check", { serverTs, lastPushedAt, willSkipApply: serverTs === lastPushedAt, af_people_before: localStorage.getItem("af_people") });
           if (serverTs === lastPushedAt) {  // pushedRecentlyPoll removed: recent own-push must not cause us to ignore the OTHER device's remote change
             try { localStorage.setItem("af_lastHHSync", serverTs); } catch (ePoll) {}
             AF_DEBUG && console.warn("[AF POLL RETURN] own write (match or recent) - reconciled lastHHSync, no reload");
