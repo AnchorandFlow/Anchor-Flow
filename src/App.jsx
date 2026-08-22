@@ -18641,12 +18641,19 @@ export default function App() {
           // HomeFlow's own signOut() comment above.
           try { localStorage.removeItem("af_lastPushedAt"); } catch {}
           try { localStorage.removeItem("af_lastPushAt"); } catch {}
-          // onboardingState deliberately excluded: it must persist across
-          // sign-out/sign-in on the same device — wiping it re-triggers the
-          // isExistingHousehold() fresh-device race (see householdSyncReady's
-          // re-evaluation effect above) and re-launches the First Voyage
-          // wizard for a household that was already onboarded.
-          SYNC_KEYS.forEach(k => { if (k === "onboardingState") return; try { localStorage.removeItem("af_" + k); } catch {} });
+          // SYNC_KEYS content is deliberately NEVER wiped here, matching
+          // clearZombieAuthKeys()'s existing precedent (sync-core.js — "SYNC_KEYS
+          // household data is intentionally NOT cleared"). This used to wipe
+          // every SYNC_KEYS entry (people, lighthouse, coveData, safe_harbor,
+          // trips, etc.) on every explicit sign-out — real user content, not
+          // session state. Losing af_people locally forced a re-pull before the
+          // real roster landed; if a user re-entered people manually in that
+          // window, setPeople assigns brand-new uid()s, silently orphaning
+          // anything that referenced the old person IDs (Lighthouse per-child
+          // records, coveData's kidId, work_schedules' person-keyed map) —
+          // confirmed real data loss, not a theoretical risk. Sign-out only
+          // clears auth/session/pull-tracking keys now, same scope as
+          // HomeFlow's own signOut() above and clearZombieAuthKeys().
         }
         _afUserInitiatedSignOut = false;
       }
