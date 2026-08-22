@@ -8063,7 +8063,7 @@ Respond ONLY in valid JSON:
                     {/* Date number + marker button */}
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                       <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
-                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"0.6rem",color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.6}} title="Add marker">•</button>
+                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"1rem",lineHeight:1,color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.85}} title="Add marker">•</button>
                     </div>
                     {/* Events — show up to 2, then +N more */}
                     {dayEvts.slice(0,2).map(function(e){
@@ -8086,7 +8086,7 @@ Respond ONLY in valid JSON:
                     {(calMarkers[localDateStr(thisDate)]&&calMarkers[localDateStr(thisDate)].length>0||workDays[localDateStr(thisDate)])&&(
                       <div style={{display:"flex",gap:"2px",flexWrap:"wrap",marginTop:"auto",lineHeight:1,alignItems:"center"}}>
                         {(calMarkers[localDateStr(thisDate)]||[]).map(function(em,mi){
-                          return <span key={mi} style={{fontSize:"0.9rem"}}>{em}</span>;
+                          return <span key={mi} style={{fontSize:"1.2rem",lineHeight:1}}>{em}</span>;
                         })}
                         {workDays[localDateStr(thisDate)]&&(function(){
                           var _wde=workDays[localDateStr(thisDate)];
