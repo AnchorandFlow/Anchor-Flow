@@ -4520,6 +4520,8 @@ function createLocalBackup() {
     } catch { return true; }
   });
   React.useEffect(function(){
+    // TEMP DEBUG — remove before next real deploy.
+    console.log("[WHOAMI GATE]", { householdSyncReady, authToken: !!authToken });
     // Never stack onto the welcome flow — a fresh signup gets one blocking
     // modal at a time. showWelcomeModal is a dependency here (not just an
     // early-return check), so the moment it closes this effect re-runs and
@@ -18495,6 +18497,18 @@ export default function App() {
           try { localStorage.removeItem("af_householdId"); } catch {}
           try { localStorage.removeItem("af_myPersonId"); } catch {}
           try { localStorage.removeItem("af_myPersonId_authUserId"); } catch {}
+          // af_lastHHSync is NOT a SYNC_KEYS member (it's the pull-tracking
+          // meta key, not household data), so the forEach below never touched
+          // it — meaning it survived this sign-out from a previous session
+          // while af_people (a real SYNC_KEYS member) got wiped to the
+          // placeholder default. On the next sign-in, householdSyncReady's
+          // initializer sees that stale-but-present af_lastHHSync and opens
+          // the WhoAmI gate immediately, before the real people[] pull that
+          // sign-out just made necessary has happened — showing the modal
+          // with placeholder You/Partner names. Must be cleared here too,
+          // same as HomeFlow's own signOut() already does (its own comment:
+          // "force fresh pull on next load").
+          try { localStorage.removeItem("af_lastHHSync"); } catch {}
           // onboardingState deliberately excluded: it must persist across
           // sign-out/sign-in on the same device — wiping it re-triggers the
           // isExistingHousehold() fresh-device race (see householdSyncReady's
