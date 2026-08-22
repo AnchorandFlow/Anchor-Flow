@@ -4520,13 +4520,6 @@ function createLocalBackup() {
     } catch { return true; }
   });
   React.useEffect(function(){
-    // TEMP DEBUG — remove before next real deploy.
-    console.log("[WHOAMI]", {
-      householdSyncReady,
-      peopleNames: people.map(function(p){ return p.name; }),
-      lastHHSync: localStorage.getItem("af_lastHHSync"),
-      myPersonId: localStorage.getItem("af_myPersonId"),
-    });
     // Never stack onto the welcome flow — a fresh signup gets one blocking
     // modal at a time. showWelcomeModal is a dependency here (not just an
     // early-return check), so the moment it closes this effect re-runs and
@@ -4549,7 +4542,26 @@ function createLocalBackup() {
       else setShowWhoAmI(false);
       return;
     }
-    if (people.filter(isAdultLenient).length > 0) setShowWhoAmI(true);
+    // Each household member signs in with their own account — the
+    // authenticated session's identity should resolve "who am I" directly in
+    // the common case, so the modal is a last resort for real ambiguity, not
+    // the default. Prefer authUserId (stable, device-agnostic, stamped by
+    // chooseMyPersonId below) over email (also stamped there) since it can't
+    // go stale if someone changes their email later.
+    var _au = (function(){ try { return JSON.parse(localStorage.getItem("af_authUser")||"null"); } catch { return null; } })();
+    var _authEmail = (_au && _au.email) ? String(_au.email).toLowerCase() : null;
+    var _authUserId = (_au && _au.id) || null;
+    var matched = people.find(function(p){
+      if (_authUserId && p.authUserId && p.authUserId === _authUserId) return true;
+      if (_authEmail && p.email && String(p.email).toLowerCase() === _authEmail) return true;
+      return false;
+    });
+    if (matched) { chooseMyPersonId(matched.id); return; }
+    var adults = people.filter(isAdultLenient);
+    // Exactly one adult on the roster is unambiguous even without an email
+    // match (e.g. a solo/single-parent household) — no need to ask.
+    if (adults.length === 1) { chooseMyPersonId(adults[0].id); return; }
+    if (adults.length >= 2) setShowWhoAmI(true);
   }, [myPersonId, people, showWelcomeModal, householdSyncReady]);
   // OB-0 race fix: isExistingHousehold() (module load, App.jsx ~line 450) can
   // only see localStorage as it exists before any network pull — on a fresh
@@ -4577,6 +4589,22 @@ function createLocalBackup() {
     try {
       var _au = JSON.parse(localStorage.getItem("af_authUser") || "null");
       if (_au && _au.id) localStorage.setItem("af_myPersonId_authUserId", _au.id);
+      // Stamp the auth identity onto the chosen person record itself (synced,
+      // unlike the device-local key above) so future logins on ANY device can
+      // auto-identify by authUserId/email and skip the WhoAmI modal entirely
+      // — see the trigger effect above. Covers both a manual pick in the
+      // modal and an automatic email/authUserId match (both call this fn).
+      if (_au && (_au.id || _au.email)) {
+        setPeople(function(prev){
+          return prev.map(function(p){
+            if (p.id !== id) return p;
+            var next = p;
+            if (_au.id && p.authUserId !== _au.id) next = Object.assign({}, next, { authUserId: _au.id });
+            if (_au.email && (!p.email || String(p.email).toLowerCase() !== String(_au.email).toLowerCase())) next = Object.assign({}, next, { email: _au.email });
+            return next;
+          });
+        });
+      }
     } catch {}
     setMyPersonId(id);
     setShowWhoAmI(false);
