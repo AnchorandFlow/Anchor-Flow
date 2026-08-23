@@ -91,6 +91,7 @@ const PLAUSIBLE = {
   mealsEnabled:        true,
   careerEnabled:       true,
   safeHarborEnabled:   true,
+  ripplesEnabled:      true,
   exhale_groups:      { g1:[{ id:"eg1", title:"Work" }] },
   exhale_color_labels:{ g1:"#ff0000" },
   exhale_people:      [{ id:"ep1", name:"Alice" }],
@@ -174,7 +175,7 @@ describe("A2 — keys handled only by pass-through survive", () => {
   const PASS_THROUGH_KEYS = ["workDays","traditions","cal_markers","cal_marker_types",
     "compassEnabled","exhale_groups","exhale_color_labels","exhale_people",
     "monthMeals","nwMealCount",
-    "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled"];
+    "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","ripplesEnabled"];
 
   PASS_THROUGH_KEYS.forEach(key => {
     it(`pass-through key "${key}" survives`, () => {

@@ -1993,7 +1993,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,sections,setSections,plusGateActive,onPlusGate}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,sections,setSections,plusGateActive,onPlusGate}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -2146,6 +2146,9 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
           </Row>
           <Row label="Safe Harbor" sub="Emergency plans and vital info, ready when you need them">
             <Toggle on={safeHarborEnabled!==false} onToggle={function(){setSafeHarborEnabled(safeHarborEnabled===false?true:false);}} color={T.sage}/>
+          </Row>
+          <Row label="Ripples" sub="Traditions and rhythms worth repeating">
+            <Toggle on={ripplesEnabled!==false} onToggle={function(){setRipplesEnabled(ripplesEnabled===false?true:false);}} color={T.sage}/>
           </Row>
           {/* Batch B — sidebar sections, not FEATURE_FLAG_KEYS. New users start
               with these off (minimal mode); this is how they turn them back on. */}
@@ -2658,14 +2661,16 @@ function markKeyDirty(key) {
 // setters (below, in HomeFlow) dispatch "af-features-changed" after every
 // write; FlowWrapper listens for it (and the native storage event, for
 // cross-tab) and re-reads via this same helper.
-var FEATURE_FLAG_KEYS = ["tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","compassEnabled"];
+var FEATURE_FLAG_KEYS = ["tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","compassEnabled","ripplesEnabled"];
 function readFeatureFlags() {
   var out = {};
   // Batch B — Tide Pool/Lighthouse default OFF for genuinely new users
   // (minimal-mode first run). Every other flag keeps the pre-existing
   // default-on behavior — none of them gate any nav visibility today (see
   // isNewUserForDefaults() for why "new" is safe to compute here).
-  var newUserOffKeys = { tidePoolEnabled: true, lighthouseEnabled: true };
+  // ripplesEnabled added to the same minimal-mode default-off set — same
+  // "extra, not core-first-run" reasoning as Tide Pool/Lighthouse.
+  var newUserOffKeys = { tidePoolEnabled: true, lighthouseEnabled: true, ripplesEnabled: true };
   var isNew = isNewUserForDefaults();
   FEATURE_FLAG_KEYS.forEach(function(k) {
     try {
@@ -4361,6 +4366,7 @@ function createLocalBackup() {
   const [careerEnabled,_setCareerEnabled]             = useSaved("careerEnabled",true);
   const [safeHarborEnabled,_setSafeHarborEnabled]     = useSaved("safeHarborEnabled",true);
   const [compassEnabled,_setCompassEnabled]           = useSaved("compassEnabled",true);
+  const [ripplesEnabled,_setRipplesEnabled]           = useSaved("ripplesEnabled",true);
   // Writes localStorage directly and synchronously BEFORE dispatching —
   // same ordering as the working chooseMyPersonId/af-myPersonId-changed
   // precedent (~3934-3937). useSaved's own setter (_setX below) also writes
@@ -4379,6 +4385,7 @@ function createLocalBackup() {
   function setCareerEnabled(v){ try{ localStorage.setItem("af_careerEnabled", JSON.stringify(v)); }catch(e){} _setCareerEnabled(v); dispatchFeaturesChanged(); }
   function setSafeHarborEnabled(v){ try{ localStorage.setItem("af_safeHarborEnabled", JSON.stringify(v)); }catch(e){} _setSafeHarborEnabled(v); dispatchFeaturesChanged(); }
   function setCompassEnabled(v){ try{ localStorage.setItem("af_compassEnabled", JSON.stringify(v)); }catch(e){} _setCompassEnabled(v); dispatchFeaturesChanged(); }
+  function setRipplesEnabled(v){ try{ localStorage.setItem("af_ripplesEnabled", JSON.stringify(v)); }catch(e){} _setRipplesEnabled(v); dispatchFeaturesChanged(); }
   // Batch B — sections gets the exact same direct-write-then-dispatch
   // treatment as the feature flags above, for the same reason: FlowWrapper's
   // "af-sections-changed" listener (already wired, previously unused —
@@ -5156,11 +5163,17 @@ function createLocalBackup() {
         // this device — myDisplayName() prioritizes people[myPersonId].name
         // over preferredName (F-97, the "Mama boss" fix), so without this the
         // Today header showed no name at all until the separate WhoAmI modal
-        // was completed (or forever, if skipped/dismissed). Default to person
-        // 0 — whoever filled out onboarding, the common case — so the header
-        // has a name immediately; "This is me" in Settings still corrects it.
-        if (!myPersonId && shapedPeople.length > 0 && shapedPeople[0].name) {
-          chooseMyPersonId(shapedPeople[0].id);
+        // was completed (or forever, if skipped/dismissed). Prefer the
+        // wizard's explicit isMe flag (CrewRow's "Me?"/"✓ Me" pill,
+        // Onboarding.jsx) over position 0 — position 0 used to be the only
+        // signal, silently wrong whenever the account owner wasn't the first
+        // person listed (e.g. kids entered first), which left WhoAmI showing
+        // even after the user had just typed their own name in. Still falls
+        // back to position 0 if nobody was explicitly marked.
+        var meIdx = payload.people.findIndex(function(p){ return p.isMe; });
+        var myShapedPerson = meIdx !== -1 ? shapedPeople[meIdx] : shapedPeople[0];
+        if (!myPersonId && myShapedPerson && myShapedPerson.name) {
+          chooseMyPersonId(myShapedPerson.id);
         }
       }
     }
@@ -12278,9 +12291,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var ch = kid.chores.find(function(c){ return c.id===choreId; });
       if(!ch) return;
       var newShells = ch.done ? Math.max(0, kid.shells - ch.pts) : kid.shells + ch.pts;
+      // shellLog: per-shell earn attribution for the shell-grid hover tooltip
+      // (separate from bonusHistory, which only ever covered manual Bonus
+      // Tide grants and feeds its own "Bonus history" list — mixing routine
+      // chore completions into that would change what that list shows).
+      // Checking a chore appends a {reason: chore name, pts, choreId} entry;
+      // unchecking removes THAT chore's own most recent entry (found by
+      // choreId, not just popping the newest overall — a different chore may
+      // have been checked afterward).
+      var log;
+      if (ch.done) {
+        log = (kid.shellLog||[]).slice();
+        var rmIdx = log.findIndex(function(e){ return e.choreId===choreId; });
+        if (rmIdx !== -1) log.splice(rmIdx, 1);
+      } else {
+        var newEntry = {id:uid(), reason:ch.name, pts:ch.pts, date:new Date().toISOString(), choreId:choreId};
+        log = [newEntry].concat((kid.shellLog||[])).slice(0,200);
+      }
       updateKid({
         shells: newShells,
-        chores: kid.chores.map(function(c){ return c.id===choreId?Object.assign({},c,{done:!c.done}):c; })
+        chores: kid.chores.map(function(c){ return c.id===choreId?Object.assign({},c,{done:!c.done}):c; }),
+        shellLog: log
       });
     }
 
@@ -12291,8 +12322,26 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       // history, parallel to rewardHistory (which only ever logged spending).
       var entry = {id:uid(), reason:flyName.trim(), pts:flyPts, date:new Date().toISOString()};
       var hist = [entry].concat((kid.bonusHistory||[])).slice(0,50);
-      updateKid({shells: kid.shells + flyPts, bonusHistory: hist});
+      var log = [entry].concat((kid.shellLog||[])).slice(0,200);
+      updateKid({shells: kid.shells + flyPts, bonusHistory: hist, shellLog: log});
       setFlyName("");
+    }
+
+    // Attributes shell index i (0-based, oldest-earned = 0) to whichever
+    // shellLog entry's cumulative point range covers it — shellLog is
+    // stored newest-first (same convention as bonusHistory/rewardHistory),
+    // so walk it oldest-first to build the cumulative sum. Shells earned
+    // before shellLog existed (or spent/unchecked in a way that doesn't
+    // cleanly map) have no matching entry — callers fall back to a generic
+    // label in that case, not a blank tooltip.
+    function shellSourceForIndex(idx) {
+      var chronological = (kid.shellLog||[]).slice().reverse();
+      var cum = 0;
+      for (var i = 0; i < chronological.length; i++) {
+        cum += chronological[i].pts || 1;
+        if (idx < cum) return chronological[i];
+      }
+      return null;
     }
 
     function openChest() {
@@ -12395,9 +12444,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         {/* Shell beach */}
         <div style={{display:"flex",justifyContent:"center",flexWrap:"wrap",gap:"5px",maxWidth:460,margin:"0 auto 0.5rem"}}>
           {Array.from({length:shellSlots}).map(function(_,i){
+            var earned = i<shellCount;
+            var src = earned ? shellSourceForIndex(i) : null;
+            var tip = earned ? (src ? src.reason + (src.date ? " — "+new Date(src.date).toLocaleDateString() : "") : "Earned") : "";
             return (
-              <div key={i} style={{width:32,height:32,borderRadius:"50%",border:"1.5px "+(i<shellCount?"solid":"dashed")+" "+sandHex,background:i<shellCount?"#fdf5e8":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"16px",transition:"all 0.2s"}}>
-                {i<shellCount?"🐚":""}
+              <div key={i} title={tip} style={{width:32,height:32,borderRadius:"50%",border:"1.5px "+(earned?"solid":"dashed")+" "+sandHex,background:earned?"#fdf5e8":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"16px",transition:"all 0.2s",cursor:earned?"default":undefined}}>
+                {earned?"🐚":""}
               </div>
             );
           })}
@@ -18072,6 +18124,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   careerEnabled={careerEnabled} setCareerEnabled={setCareerEnabled}
                   safeHarborEnabled={safeHarborEnabled} setSafeHarborEnabled={setSafeHarborEnabled}
                   compassEnabled={compassEnabled} setCompassEnabled={setCompassEnabled}
+                  ripplesEnabled={ripplesEnabled} setRipplesEnabled={setRipplesEnabled}
                   sections={sections} setSections={setSections}
                   plusGateActive={BILLING_V1 && !sub.isPremium}
                   onPlusGate={function(featureName){ setPlusModalFeature(featureName); }}
@@ -18499,7 +18552,12 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
       // card → "Open →" now. Components and their underlying data are
       // untouched, just no standalone sidebar entry.
     ]},
-    { vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" },
+    // ripples is a top-level vaulttab, not a grouped items[] entry, so it
+    // never passes through the render-time sections[it.id]===false check
+    // (App.jsx pill.items.map loop) — the build-time featureFlags filter
+    // (same pattern as tidepool/lighthouse/meals above) is the only place
+    // that can gate it.
+    ...(featureFlags.ripplesEnabled ? [{ vault: "ripples", label: "Ripples", emoji: "🌀", kind: "vaulttab" }] : []),
   ]
   const VAULT_NAV = [
     { id: "recurring", label: "Reminders", emoji: "🔁" },

@@ -253,15 +253,30 @@ function CrewRow(props) {
   function handleName(e) { props.onChange(person.id, 'name', e.target.value); }
   function handleBirthday(e) { props.onChange(person.id, 'birthday', e.target.value); }
   function handleRemove() { props.onRemove(person.id); }
+  function handleMe() { props.onSetMe(person.id); }
   var rowStyle = { display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' };
   var nameStyle = Object.assign({}, S.input, { flex: 1.2 });
   var dateStyle = Object.assign({}, S.input, { flex: 1, color: person.birthday ? NAVY : MUTED });
+  // "This is me" \u2014 explicit, not positional. Previously handleOnboardingComplete
+  // just assumed person[0] was the account owner and called chooseMyPersonId on
+  // them; if whoever filled out onboarding didn't list themselves first (e.g.
+  // kids first), that guess was silently wrong and the WhoAmI modal kept
+  // showing since nothing else ever corrected it. One person is marked isMe at
+  // a time \u2014 clicking a different row's pill moves it (radio-button behavior).
+  var meStyle = {
+    flexShrink: 0, padding: '0.4rem 0.55rem', borderRadius: 8, fontSize: 11, fontWeight: 700,
+    border: '1.5px solid ' + (person.isMe ? '#c8a97a' : 'rgba(26,39,68,0.15)'),
+    background: person.isMe ? 'rgba(200,169,122,0.15)' : 'transparent',
+    color: person.isMe ? '#8a6a3a' : MUTED, cursor: 'pointer', whiteSpace: 'nowrap'
+  };
   return (
     <div style={rowStyle}>
       <input style={nameStyle} placeholder="Name" value={person.name}
         onChange={handleName} />
       <input style={dateStyle} type="date" value={person.birthday}
         onChange={handleBirthday} aria-label="Birthday" />
+      <button type="button" style={meStyle} onClick={handleMe}
+        aria-pressed={!!person.isMe} aria-label="This is me">{person.isMe ? '\u2713 Me' : 'Me?'}</button>
       <button type="button" style={S_arrowBtn} onClick={handleRemove}
         aria-label="Remove">{'\u00D7'}</button>
     </div>
@@ -290,6 +305,11 @@ function StepBasics(props) {
   function handleAddPerson() {
     props.set('people', d.people.concat([{ id: uid(), name: '', birthday: '' }]));
   }
+  function handleSetMe(id) {
+    props.set('people', d.people.map(function (p) {
+      return Object.assign({}, p, { isMe: p.id === id });
+    }));
+  }
   var zipStyle = Object.assign({}, S.input, { width: 120 });
   return (
     <StepShell index={props.index} total={props.total}
@@ -304,7 +324,7 @@ function StepBasics(props) {
       <label style={S.label}>Your crew</label>
       {d.people.map(function (p) {
         return <CrewRow key={p.id} person={p}
-          onChange={handlePersonChange} onRemove={handlePersonRemove} />;
+          onChange={handlePersonChange} onRemove={handlePersonRemove} onSetMe={handleSetMe} />;
       })}
       <button type="button" style={S.addLink} onClick={handleAddPerson}>
         + Add another
@@ -526,7 +546,20 @@ function BirthdayPromptRow(props) {
 
 function StepBirthdays(props) {
   var d = props.data;
-  var missing = d.people.filter(function (p) { return p.name.trim() !== '' && !p.birthday; });
+  // Snapshot WHICH people need a birthday prompt once, on mount — not
+  // recomputed from live d.people every render. Recomputing it live meant
+  // the moment a date was picked, that person's birthday became truthy,
+  // they dropped out of the (name-not-blank && no-birthday) filter, and
+  // their whole row — name label included, it's only shown here — unmounted
+  // immediately. Looked like "the picker disappears and takes the name with
+  // it," even though d.people itself was never actually losing the name.
+  var missingIdsState = useState(function () {
+    return d.people.filter(function (p) { return p.name.trim() !== '' && !p.birthday; }).map(function (p) { return p.id; });
+  });
+  var missingIds = missingIdsState[0];
+  var missing = missingIds.map(function (id) {
+    return d.people.find(function (p) { return p.id === id; });
+  }).filter(Boolean);
   function handleChange(id, value) {
     var next = d.people.map(function (p) {
       return p.id === id ? Object.assign({}, p, { birthday: value }) : p;
@@ -727,6 +760,12 @@ export function buildInitialData(props) {
   } else {
     people = [{ id: uid(), name: '', birthday: '' }];
   }
+  // Default the first row to "this is me" — matches the host's existing
+  // position-0 fallback (App.jsx handleOnboardingComplete) so nothing
+  // changes for the common case, but now it's an explicit, visible,
+  // user-correctable flag (the "Me?"/"✓ Me" pill on CrewRow) instead of a
+  // silent positional guess.
+  if (people.length > 0) { people[0] = Object.assign({}, people[0], { isMe: true }); }
   return {
     householdName: props.initialHouseholdName || '',
     zip: '',
@@ -750,6 +789,7 @@ export function buildPayload(d) {
       .map(function (p) {
         var person = { name: p.name.trim(), birthday: p.birthday, schoolType: p.schoolType || 'none' };
         if (p.tidePoolEnabled === true || p.tidePoolEnabled === false) { person.tidePoolEnabled = p.tidePoolEnabled; }
+        if (p.isMe) { person.isMe = true; }
         return person;
       }),
     features: Object.assign({}, d.features),
