@@ -118,39 +118,21 @@ export default async function handler(req, res) {
 
   const db = admin();
 
-  // Idempotency: record-before-process. Insert the event id. On a duplicate we must
-  // distinguish an already-COMPLETED event (safe to skip) from a prior FAILED/PROCESSING
-  // attempt (a Stripe retry we SHOULD reprocess). Skipping a failed event would strand it.
-  const { error: insErr } = await db
-    .from('stripe_events')
-    .insert({ id: event.id, type: event.type, status: 'processing' });
-  if (insErr) {
-    if (insErr.code !== '23505') {
-      console.error('[stripe:webhook] events insert error:', insErr);
-      return res.status(500).json({ error: 'events insert failed' });
-    }
-    const { data: prior } = await db
-      .from('stripe_events')
-      .select('status')
-      .eq('id', event.id)
-      .single();
-    if (prior && prior.status === 'completed') {
-      return res.status(200).json({ received: true, duplicate: true });
-    }
-    // Prior attempt failed or is stuck 'processing' → fall through and reprocess.
-  }
-
+  // No stripe_events idempotency table (sql/2026-07_billing.sql that would create it
+  // was never applied to production — confirmed missing, causing every webhook
+  // delivery to 500 on the insert). Every current handleEvent() write is already
+  // idempotent on its own: upsertFromSubscription upserts onConflict
+  // 'stripe_subscription_id', and the subscription-deleted handler just sets
+  // status: 'canceled' — re-running either on a Stripe retry is harmless. Safe to
+  // run without a separate event-id dedup table for now. If a future event type
+  // needs a non-idempotent side effect (e.g. sending an email), re-add real
+  // event-id tracking before relying on this path for it.
   try {
     await handleEvent(db, event);
-    await db.from('stripe_events').update({ status: 'completed' }).eq('id', event.id);
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('[stripe:webhook] handler error:', err);
-    await db
-      .from('stripe_events')
-      .update({ status: 'failed', error: String(err && err.message ? err.message : err) })
-      .eq('id', event.id);
-    // 500 → Stripe retries with backoff (up to ~3 days). The event row lets a retry re-run.
+    // 500 → Stripe retries with backoff (up to ~3 days).
     return res.status(500).json({ error: 'handler failed' });
   }
 };
