@@ -1131,31 +1131,32 @@ function seedBirthdayCelebrations(peopleList) {
     window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "celebrations" } }));
   } catch (e) {}
 }
-// Onboarding Fix 2: wires the wizard's "Empty your head" step payload (real,
-// user-edited starter items — the wizard tells the user "these cards are
-// real") into the actual Exhale bucket store. Only acts if Exhale is
-// currently empty (never overwrites/duplicates onto existing items — matters
-// for the Settings "re-run" merge-mode path). Does NOT own the
-// af_exhale_starter_seeded flag — ExhaleSection.jsx's own first-mount check
-// is the single source of truth for "has the first-use decision been made,"
-// and will see these real items already present and skip its own tutorial-
-// card fallback, exactly like it would for any other pre-existing data.
-function seedExhaleStarterCards(exhaleCards) {
-  if (!exhaleCards || exhaleCards.length === 0) return;
+// First Voyage rewrite (2026-08) — wires Screen 2's pets answer into the
+// actual pets store. pets data lives entirely in AnchorVault.jsx's
+// PetsSection (its own useState reading/writing af_pets directly, not
+// threaded through HomeFlow's central state), so this writes localStorage
+// directly and dispatches the same "af-data-changed" event PetsSection
+// already listens for — same pattern as seedBirthdayCelebrations above.
+// Shape matches PetsSection's own addPet() exactly (id/name/type/breed/
+// color/dob/photo/vaccines/medications/tags/notes) so a seeded pet is
+// indistinguishable from one added by hand afterward. Only adds — never
+// overwrites/duplicates onto existing pets, same non-destructive rule as
+// the old seedExhaleStarterCards it replaces.
+function seedPets(pets) {
+  if (!pets || pets.length === 0) return;
   try {
-    var existing = JSON.parse(localStorage.getItem("af_exhale_buckets") || "null");
-    var hasItems = existing && Array.isArray(existing.items) && existing.items.length > 0;
-    if (hasItems) return;
-    var bucketNames = (existing && Array.isArray(existing.bucketNames) && existing.bucketNames.length > 0) ? existing.bucketNames : ["Exhaled", "Today", "Tomorrow", "This Weekend", "Someday"];
-    var newItems = exhaleCards.map(function(c) {
-      return { id: uid(), text: c.title, notes: "", bucketIndex: 0, createdAt: Date.now() };
+    var existing = JSON.parse(localStorage.getItem("af_pets") || "[]");
+    if (!Array.isArray(existing)) existing = [];
+    var additions = pets.map(function(p) {
+      return { id: uid(), name: p.name, type: p.kind || "Dog", breed: "", color: "", dob: "", photo: null, vaccines: [], medications: [], tags: { rabies: "", chip: "", registration: "" }, notes: "" };
     });
-    var next = { bucketNames: bucketNames, items: newItems };
-    localStorage.setItem("af_exhale_buckets", JSON.stringify(next));
+    var next = existing.concat(additions);
+    localStorage.setItem("af_pets", JSON.stringify(next));
     try {
       var dirty = JSON.parse(localStorage.getItem("af_dirtyKeys") || "[]");
-      if (!dirty.includes("exhale_buckets")) { dirty.push("exhale_buckets"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
+      if (!dirty.includes("pets")) { dirty.push("pets"); localStorage.setItem("af_dirtyKeys", JSON.stringify(dirty)); }
     } catch (e2) {}
+    window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "pets" } }));
   } catch (e) {}
 }
 // Effective age for a person: birthday-derived if available, else legacy numeric age.
@@ -5177,39 +5178,39 @@ function createLocalBackup() {
         }
       }
     }
-    if (payload.zip) {
-      setFamilyProfile(function(prev) {
-        return Object.assign({}, prev || {}, {zipcode: payload.zip});
+    // First Voyage rewrite (2026-08): zip/mealsPerDay/trashDay/exhaleCards/
+    // mode are no longer collected — those screens were removed (unfamiliar
+    // jargon, no context for why any of it mattered — see the wizard's own
+    // header comment). Nothing else sets them either, so they just keep
+    // whatever default they already had; the user can set them later in
+    // Settings same as everything else this rewrite moved out of onboarding.
+    if (payload.groceryStore) {
+      setStores([payload.groceryStore]);
+    }
+    if (payload.favMeals && payload.favMeals.length > 0) {
+      payload.favMeals.forEach(function(name) {
+        setFavMeals(function(prev) { return prev.concat([{id:uid(), name:name, time:"20", tags:""}]); });
       });
     }
-    if (payload.features) {
-      setTidePoolEnabled(!!payload.features.tidePool);
-      setLighthouseEnabled(!!payload.features.lighthouse);
-      setCelebrationsEnabled(!!payload.features.celebrations);
-      setMealsEnabled(!!payload.features.meals);
-      setCareerEnabled(!!payload.features.career);
-      setSafeHarborEnabled(!!payload.features.safeHarbor);
+    if (payload.treasureChestEnabled) {
+      // The per-child tidePoolEnabled flags are already on each shaped
+      // person (set above via shapeOnboardingPerson); this is the separate
+      // household-level nav flag that controls whether the Tide Pool tab
+      // shows at all. It defaults OFF for new households (minimal mode —
+      // see readFeatureFlags' newUserOffKeys), so without this, a household
+      // that just explicitly opted in here would set up kids for a feature
+      // they then couldn't find in the nav.
+      setTidePoolEnabled(true);
     }
-    if (payload.areaSettings) {
-      if (payload.areaSettings.mealsPerDay) setMealCount(payload.areaSettings.mealsPerDay);
-      if (payload.areaSettings.stores && payload.areaSettings.stores.length > 0) {
-        setStores(payload.areaSettings.stores);
-      }
-      if (payload.areaSettings.trashDay) {
-        setFamilyProfile(function(prev) {
-          return Object.assign({}, prev || {}, {trashDay: payload.areaSettings.trashDay});
-        });
-      }
-    }
-    if (payload.exhaleCards) {
-      seedExhaleStarterCards(payload.exhaleCards);
-    }
-    if (payload.mode) {
-      var MODE_MAP = {calm:"Smooth", busy:"Busy", survival:"Survival"};
-      var mappedMode = MODE_MAP[payload.mode];
-      if (mappedMode) setFlowMode(mappedMode);
+    if (payload.pets && payload.pets.length > 0) {
+      seedPets(payload.pets);
     }
     setOnboardingState({complete:true, completedAt:new Date().toISOString(), version:1});
+    // Safe Harbor used to be its own full onboarding screen (a toggle card
+    // in the old "choose your rooms" step); the rewrite drops it to a
+    // gentle post-onboarding nudge instead, same banner mechanism used
+    // everywhere else in the app for a non-blocking heads-up.
+    showInAppBanner("⚓ One more thing", "Safe Harbor keeps emergency plans and vital info ready when you need them — set it up anytime from Settings.");
     goTab("anchor");
   }
 
@@ -18239,9 +18240,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {showSetPassword&&resetToken&&<SetPasswordModal/>
       }
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
-      {showFirstVoyage&&<FirstVoyageWizard onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
+      {showFirstVoyage&&<FirstVoyageWizard householdId={householdId} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
       {showFirstVoyageRerun&&<FirstVoyageWizard
         initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", schoolType:p.schoolType||"", tidePoolEnabled:p.tidePoolEnabled}; })}
+        householdId={householdId}
         onComplete={handleFirstVoyageRerunComplete}
         onSkip={handleFirstVoyageRerunSkip}
       />}

@@ -2,13 +2,24 @@
 // Anchor & Flow — Onboarding Wizard ("First Voyage")
 // ============================================================================
 // Self-contained module. Owns NO persistence: builds a payload and hands it
-// to the host via props.onComplete(payload). See docs/OB-0-onboarding-plan.md
-// for the payload contract and sync-key mapping.
+// to the host via props.onComplete(payload).
+//
+// Rewritten 2026-08 in response to new-user feedback: the old wizard used
+// unfamiliar app-internal jargon ("rooms") and asked for things (multi-store
+// chip lists, trash day, Exhale card renaming, a Calm/Busy/Survival pick)
+// with no context for why any of it mattered. Now a fixed 5-screen flow —
+// no more dynamically-inserted conditional steps whose count/order shifted
+// under the user — each screen explains itself in plain language before
+// asking for anything.
 //
 // HOST CONTRACT:
 //   <OnboardingWizard
 //     initialPeople={[{ name, birthday }]}     // optional, for re-run prefill
 //     initialHouseholdName={string}            // optional
+//     householdId={string}                     // optional — shown on the
+//                                               // last screen with a copy
+//                                               // button; omitted gracefully
+//                                               // if not yet known
 //     onComplete={function (payload) {}}       // required
 //     onSkip={function () {}}                  // required — dismiss entirely
 //   />
@@ -86,77 +97,39 @@ var S_pill = { border: '1px solid ' + INPUT_BORDER, borderRadius: 18,
   cursor: 'pointer', fontFamily: SANS };
 var S_pillOn = Object.assign({}, S_pill, { border: '1px solid ' + SEAGLASS,
   background: SEAGLASS, color: '#fff' });
-var S_chip = Object.assign({}, S_pill, { padding: '6px 13px', fontSize: 12 });
-var S_chipOn = Object.assign({}, S_chip, { border: '1px solid ' + SEAGLASS,
-  background: SEAGLASS_TINT, color: SEAGLASS_DARK });
-var S_day = { width: 36, height: 36, borderRadius: '50%',
-  border: '1px solid ' + INPUT_BORDER, background: '#fff', color: NAVY,
-  fontSize: 12, cursor: 'pointer', fontFamily: SANS, padding: 0 };
-var S_dayOn = Object.assign({}, S_day, { border: '1px solid ' + GOLD,
-  background: GOLD, color: '#fff' });
-var S_modeCard = Object.assign({}, S.card, { cursor: 'pointer',
-  padding: '13px 15px' });
-var S_modeCardOn = Object.assign({}, S_modeCard,
-  { border: '2px solid ' + SEAGLASS, padding: '12px 14px' });
-var S_modeTitleOn = Object.assign({}, S.cardTitle, { color: SEAGLASS_DARK });
-var S_toggleRow = Object.assign({}, S.card,
-  { display: 'flex', gap: 12, alignItems: 'flex-start' });
-var S_exCard = Object.assign({}, S.card,
-  { display: 'flex', gap: 8, alignItems: 'center' });
-var S_exInput = Object.assign({}, S.input, { flex: 1, border: '1px solid transparent',
-  background: 'transparent', padding: '6px 8px' });
 var S_arrowBtn = { background: 'transparent', border: '1px solid ' + INPUT_BORDER,
   borderRadius: 8, width: 30, height: 30, cursor: 'pointer', color: SUBTLE,
   fontSize: 13, fontFamily: SANS, padding: 0 };
+var S_iconRow = { display: 'flex', gap: 12, alignItems: 'flex-start',
+  background: '#fff', border: '1px solid ' + SAND_BORDER, borderRadius: 12,
+  padding: '13px 15px', marginBottom: 10 };
+var S_checkboxRow = { display: 'flex', alignItems: 'center', gap: 8,
+  padding: '7px 0', fontSize: 13, color: NAVY };
 
 // ---------------------------------------------------------------------------
 // Static config
 // ---------------------------------------------------------------------------
 
-var FEATURE_DEFS = [
-  { key: 'tidePool', emoji: '\uD83D\uDC1A', name: 'Tide Pool', on: true,
-    body: 'Chores and treasures for your kids \u2014 they collect shells to open their treasure box. Set your own, too.' },
-  { key: 'lighthouse', emoji: '\uD83D\uDCD6', name: 'Lighthouse', on: true,
-    body: 'One place for family learning \u2014 school activities, homeschool plans, reading challenges, and more.' },
-  { key: 'celebrations', emoji: '\uD83C\uDF89', name: 'Celebrations', on: false,
-    body: 'Birthdays and countdowns, remembered for you.' },
-  { key: 'meals', emoji: '\uD83C\uDF7D\uFE0F', name: 'Meals', on: true,
-    body: 'Plan dinners (and more) without the 5 PM scramble.' },
-  { key: 'career', emoji: '\uD83D\uDCBC', name: 'Career', on: false,
-    body: 'Work schedules, certifications, and renewals.' },
-  { key: 'safeHarbor', emoji: '\u2693', name: 'Safe Harbor', on: false,
-    body: 'Emergency plans and vital info, ready when you need them.' }
+var STORE_OPTIONS = ['Target', 'Costco', "Sam's Club", 'Walmart', 'Other'];
+
+var SCHOOL_TYPE_OPTIONS = [
+  { value: 'homeschool', label: 'Homeschool',     emoji: '🏠' },
+  { value: 'public',     label: 'Public School',  emoji: '🏫' },
+  { value: 'private',    label: 'Private School', emoji: '🎓' },
+  { value: 'preschool',  label: 'Preschool',      emoji: '🧸' }
 ];
 
-var DAYS = [
-  { key: 'sun', label: 'S' }, { key: 'mon', label: 'M' },
-  { key: 'tue', label: 'T' }, { key: 'wed', label: 'W' },
-  { key: 'thu', label: 'T' }, { key: 'fri', label: 'F' },
-  { key: 'sat', label: 'S' }
+var PET_KIND_OPTIONS = [
+  { value: 'Dog',   label: 'Dog',   emoji: '🐕' },
+  { value: 'Cat',   label: 'Cat',   emoji: '🐈' },
+  { value: 'Other', label: 'Other', emoji: '🐾' }
 ];
 
-var MODES = [
-  { key: 'calm', name: 'Calm',
-    body: 'Full sails. Everything on deck \u2014 plans, chores, learning.' },
-  { key: 'busy', name: 'Busy',
-    body: "Just the essentials. Top priorities and today's must-dos." },
-  { key: 'survival', name: 'Survival',
-    body: "Bare minimum, zero guilt. We'll hold the rest for later." }
+var MORE_FEATURES = [
+  { emoji: '💼', title: 'Track health & careers', body: 'The People hub — appointments, certifications, renewals, one place per person.' },
+  { emoji: '🎉', title: 'Celebrations & travel plans', body: 'The Horizon hub — birthdays, countdowns, trips, all the things ahead.' },
+  { emoji: '🌊', title: 'Family memories', body: 'Ripples — traditions and rhythms worth repeating, kept somewhere you’ll actually see them again.' }
 ];
-
-var DEFAULT_EXHALE = [
-  { title: 'Groceries' },
-  { title: 'Call the dentist' },
-  { title: 'That thing I keep forgetting' }
-];
-
-function defaultFeatures() {
-  var out = {};
-  for (var i = 0; i < FEATURE_DEFS.length; i++) {
-    out[FEATURE_DEFS[i].key] = FEATURE_DEFS[i].on;
-  }
-  return out;
-}
 
 var uidCounter = 0;
 function uid() {
@@ -166,8 +139,8 @@ function uid() {
 
 // Local, self-contained mirror of App.jsx's ageFromBirthday/personIsMinor —
 // this module owns no persistence and imports nothing from the host app (see
-// header), so "who's a child" for StepInSchool is computed independently
-// rather than threaded in as a prop.
+// header), so "who's a child" is computed independently rather than threaded
+// in as a prop.
 function ageFromBirthdayLocal(birthday) {
   if (!birthday) { return null; }
   var parts = String(birthday).split('-');
@@ -191,26 +164,6 @@ function isMinorLocal(birthday) {
 // Small shared components (module scope — focus-loss rule)
 // ---------------------------------------------------------------------------
 
-function Toggle(props) {
-  var on = props.on;
-  var trackStyle = {
-    width: 40, height: 23, borderRadius: 12, flexShrink: 0, cursor: 'pointer',
-    background: on ? SEAGLASS : '#c9c3b5', position: 'relative',
-    border: 'none', padding: 0, transition: 'background 0.15s'
-  };
-  var knobStyle = {
-    position: 'absolute', top: 2.5, width: 18, height: 18, borderRadius: '50%',
-    background: '#fff', left: on ? 19 : 2.5, transition: 'left 0.15s'
-  };
-  function handleClick() { props.onChange(!on); }
-  return (
-    <button type="button" style={trackStyle} onClick={handleClick}
-      aria-pressed={on} aria-label={props.label}>
-      <span style={knobStyle} />
-    </button>
-  );
-}
-
 function Dots(props) {
   var items = [];
   for (var i = 0; i < props.total; i++) {
@@ -219,10 +172,11 @@ function Dots(props) {
   return <div style={S.dots}>{items}</div>;
 }
 
+// Full shell — screens 1 & 2. Continue (+ Back where applicable).
 function StepShell(props) {
   return (
     <div style={S.frame}>
-      <p style={S.stepLabel}>{'Step ' + (props.index + 1) + ' of ' + props.total}</p>
+      <p style={S.stepLabel}>{'Screen ' + (props.index + 1) + ' of ' + props.total}</p>
       <h1 style={S.title}>{props.title}</h1>
       <p style={S.subtitle}>{props.subtitle}</p>
       <div style={{ flex: 1 }}>{props.children}</div>
@@ -234,9 +188,30 @@ function StepShell(props) {
           {props.nextLabel || 'Continue'}
         </button>
       </div>
-      <div style={{ textAlign: 'center', marginTop: 6 }}>
-        <button type="button" style={S.ghostBtn} onClick={props.onSkip}>
-          {props.skipLabel || 'Skip for now \u2014 you can change this anytime in Settings'}
+      {props.onSkipAll ? (
+        <div style={{ textAlign: 'center', marginTop: 6 }}>
+          <button type="button" style={S.ghostBtn} onClick={props.onSkipAll}>
+            {'Skip setup entirely — start with a blank harbor'}
+          </button>
+        </div>
+      ) : null}
+      <Dots index={props.index} total={props.total} />
+    </div>
+  );
+}
+
+// Single-button shell — screens 3, 4 & 5. No back, no separate skip: the one
+// button IS "move on," whether that means "later," "got it," or "let's go."
+function InfoShell(props) {
+  return (
+    <div style={S.frame}>
+      <p style={S.stepLabel}>{'Screen ' + (props.index + 1) + ' of ' + props.total}</p>
+      <h1 style={S.title}>{props.title}</h1>
+      <p style={S.subtitle}>{props.subtitle}</p>
+      <div style={{ flex: 1 }}>{props.children}</div>
+      <div style={S.footer}>
+        <button type="button" style={S.primaryBtn} onClick={props.onNext}>
+          {props.nextLabel}
         </button>
       </div>
       <Dots index={props.index} total={props.total} />
@@ -245,7 +220,7 @@ function StepShell(props) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — Harbor basics
+// Screen 1 — Basics
 // ---------------------------------------------------------------------------
 
 function CrewRow(props) {
@@ -257,12 +232,9 @@ function CrewRow(props) {
   var rowStyle = { display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' };
   var nameStyle = Object.assign({}, S.input, { flex: 1.2 });
   var dateStyle = Object.assign({}, S.input, { flex: 1, color: person.birthday ? NAVY : MUTED });
-  // "This is me" \u2014 explicit, not positional. Previously handleOnboardingComplete
-  // just assumed person[0] was the account owner and called chooseMyPersonId on
-  // them; if whoever filled out onboarding didn't list themselves first (e.g.
-  // kids first), that guess was silently wrong and the WhoAmI modal kept
-  // showing since nothing else ever corrected it. One person is marked isMe at
-  // a time \u2014 clicking a different row's pill moves it (radio-button behavior).
+  // "This is me" — explicit, not positional. The host defaults to whoever is
+  // marked isMe (falling back to the first person if nobody is) when it
+  // resolves "who am I" on this device — see App.jsx handleOnboardingComplete.
   var meStyle = {
     flexShrink: 0, padding: '0.4rem 0.55rem', borderRadius: 8, fontSize: 11, fontWeight: 700,
     border: '1.5px solid ' + (person.isMe ? '#c8a97a' : 'rgba(26,39,68,0.15)'),
@@ -276,20 +248,55 @@ function CrewRow(props) {
       <input style={dateStyle} type="date" value={person.birthday}
         onChange={handleBirthday} aria-label="Birthday" />
       <button type="button" style={meStyle} onClick={handleMe}
-        aria-pressed={!!person.isMe} aria-label="This is me">{person.isMe ? '\u2713 Me' : 'Me?'}</button>
+        aria-pressed={!!person.isMe} aria-label="This is me">{person.isMe ? '✓ Me' : 'Me?'}</button>
       <button type="button" style={S_arrowBtn} onClick={handleRemove}
-        aria-label="Remove">{'\u00D7'}</button>
+        aria-label="Remove">{'×'}</button>
     </div>
+  );
+}
+
+function StorePicker(props) {
+  var d = props.data;
+  function pickFactory(name) {
+    return function () {
+      props.set('groceryStore', name);
+      if (name !== 'Other') { props.set('groceryStoreOther', ''); }
+    };
+  }
+  function handleOther(e) { props.set('groceryStoreOther', e.target.value); }
+  var rowStyle = { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 };
+  return (
+    <div>
+      <div style={rowStyle}>
+        {STORE_OPTIONS.map(function (name) {
+          return (
+            <button key={name} type="button"
+              style={d.groceryStore === name ? S_pillOn : S_pill}
+              onClick={pickFactory(name)}>{name}</button>
+          );
+        })}
+      </div>
+      {d.groceryStore === 'Other' ? (
+        <input style={S.input} placeholder="Where do you shop?"
+          value={d.groceryStoreOther} onChange={handleOther} />
+      ) : null}
+      <p style={S.hint}>We'll use this for your shopping list.</p>
+    </div>
+  );
+}
+
+function FavMealRow(props) {
+  function handleChange(e) { props.onChange(props.idx, e.target.value); }
+  return (
+    <input style={Object.assign({}, S.input, { marginBottom: 6 })}
+      placeholder={'Favorite meal ' + (props.idx + 1) + ' (optional)'}
+      value={props.value} onChange={handleChange} />
   );
 }
 
 function StepBasics(props) {
   var d = props.data;
   function handleHousehold(e) { props.set('householdName', e.target.value); }
-  function handleZip(e) {
-    var v = e.target.value.replace(/[^0-9]/g, '').slice(0, 5);
-    props.set('zip', v);
-  }
   function handlePersonChange(id, field, value) {
     var next = d.people.map(function (p) {
       if (p.id !== id) { return p; }
@@ -310,14 +317,17 @@ function StepBasics(props) {
       return Object.assign({}, p, { isMe: p.id === id });
     }));
   }
-  var zipStyle = Object.assign({}, S.input, { width: 120 });
+  function handleFavMeal(idx, value) {
+    var next = d.favMeals.slice();
+    next[idx] = value;
+    props.set('favMeals', next);
+  }
   return (
     <StepShell index={props.index} total={props.total}
-      title="Let's build your harbor"
-      subtitle="A few basics so the app feels like yours from day one."
-      onNext={props.onNext} onBack={null} onSkip={props.onSkipAll}
-      skipLabel={'Skip setup entirely \u2014 start with a blank harbor'}>
-      <label style={S.label}>Household name</label>
+      title="Let's get you set up"
+      subtitle="To help personalize your experience, we need a few things."
+      onNext={props.onNext} onBack={null} onSkipAll={props.onSkipAll}>
+      <label style={S.label}>What do you call your family?</label>
       <input style={S.input} placeholder="The Harper Crew"
         value={d.householdName} onChange={handleHousehold} />
       <div style={{ height: 16 }} />
@@ -329,425 +339,304 @@ function StepBasics(props) {
       <button type="button" style={S.addLink} onClick={handleAddPerson}>
         + Add another
       </button>
-      <div style={{ height: 14 }} />
-      <label style={S.label}>Zip code</label>
-      <input style={zipStyle} inputMode="numeric" placeholder="84044"
-        value={d.zip} onChange={handleZip} />
-      <p style={S.hint}>{'For weather and local rhythms \u2014 never shared.'}</p>
-    </StepShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 2 — Choose your rooms
-// ---------------------------------------------------------------------------
-
-function FeatureCard(props) {
-  var def = props.def;
-  var on = props.on;
-  var style = on ? S_toggleRow : Object.assign({}, S_toggleRow, { opacity: 0.65 });
-  function handleChange(next) { props.onChange(def.key, next); }
-  return (
-    <div style={style}>
-      <div style={{ fontSize: 20, lineHeight: '24px' }}>{def.emoji}</div>
-      <div style={{ flex: 1 }}>
-        <p style={S.cardTitle}>{def.name}</p>
-        <p style={S.cardBody}>{def.body}</p>
-      </div>
-      <Toggle on={on} onChange={handleChange} label={def.name} />
-    </div>
-  );
-}
-
-function StepRooms(props) {
-  var d = props.data;
-  function handleFeature(key, value) {
-    var next = Object.assign({}, d.features);
-    next[key] = value;
-    props.set('features', next);
-  }
-  return (
-    <StepShell index={props.index} total={props.total}
-      title="Choose your rooms"
-      subtitle="Turn on what fits your family. Change anytime in Settings."
-      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
-      {FEATURE_DEFS.map(function (def) {
-        return <FeatureCard key={def.key} def={def}
-          on={d.features[def.key]} onChange={handleFeature} />;
+      <div style={{ height: 18 }} />
+      <label style={S.label}>Where do you usually grocery shop?</label>
+      <StorePicker data={d} set={props.set} />
+      <div style={{ height: 18 }} />
+      <label style={S.label}>A couple of favorite meals?</label>
+      <p style={S.hint}>{'We’ll add these to your meal bank to make planning easier.'}</p>
+      <div style={{ height: 6 }} />
+      {[0, 1, 2].map(function (idx) {
+        return <FavMealRow key={idx} idx={idx} value={d.favMeals[idx]} onChange={handleFavMeal} />;
       })}
     </StepShell>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — Tune the details (conditional on step 2)
+// Screen 2 — Your Harbor
 // ---------------------------------------------------------------------------
 
-function StoreChips(props) {
-  var stores = props.stores;
-  var draft = props.draft;
-  function handleDraft(e) { props.setDraft(e.target.value); }
-  function commit() {
-    var v = draft.trim();
-    if (!v) { return; }
-    if (stores.indexOf(v) === -1) { props.setStores(stores.concat([v])); }
-    props.setDraft('');
-  }
-  function handleKey(e) {
-    if (e.key === 'Enter') { e.preventDefault(); commit(); }
-  }
-  function handleRemoveFactory(name) {
-    return function () {
-      props.setStores(stores.filter(function (s) { return s !== name; }));
-    };
-  }
-  var rowStyle = { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' };
-  var addInputStyle = Object.assign({}, S.input, { width: 130, padding: '6px 10px', fontSize: 12 });
+function YesNoRow(props) {
+  function handleYes() { props.onChange(true); }
+  function handleNo() { props.onChange(false); }
   return (
-    <div style={rowStyle}>
-      {stores.map(function (name) {
-        return (
-          <button key={name} type="button" style={S_chipOn}
-            onClick={handleRemoveFactory(name)}
-            aria-label={'Remove ' + name}>{name + ' \u00D7'}</button>
-        );
-      })}
-      <input style={addInputStyle} placeholder="+ Add a store" value={draft}
-        onChange={handleDraft} onKeyDown={handleKey} onBlur={commit} />
+    <div style={{ display: 'flex', gap: 8, marginBottom: props.value !== null ? 10 : 4 }}>
+      <button type="button" style={props.value === true ? S_pillOn : S_pill} onClick={handleYes}>Yes</button>
+      <button type="button" style={props.value === false ? S_pillOn : S_pill} onClick={handleNo}>No</button>
     </div>
-  );
-}
-
-function StepDetails(props) {
-  var d = props.data;
-  var mealsOn = d.features.meals;
-  function mealsFactory(n) {
-    return function () { props.set('mealsPerDay', n); };
-  }
-  function dayFactory(key) {
-    return function () { props.set('trashDay', d.trashDay === key ? '' : key); };
-  }
-  function setStores(next) { props.set('stores', next); }
-  function setDraft(next) { props.set('storeDraft', next); }
-  var pillRow = { display: 'flex', gap: 8, marginBottom: 20 };
-  var dayRow = { display: 'flex', gap: 6, marginBottom: 6 };
-  return (
-    <StepShell index={props.index} total={props.total}
-      title="Tune the details"
-      subtitle="Just for the rooms you turned on."
-      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
-      {mealsOn ? (
-        <div>
-          <label style={S.label}>Meals to plan each day</label>
-          <div style={pillRow}>
-            {[1, 2, 3].map(function (n) {
-              return (
-                <button key={n} type="button"
-                  style={d.mealsPerDay === n ? S_pillOn : S_pill}
-                  onClick={mealsFactory(n)}>{n}</button>
-              );
-            })}
-          </div>
-          <label style={S.label}>Stores you shop most</label>
-          <StoreChips stores={d.stores} draft={d.storeDraft}
-            setStores={setStores} setDraft={setDraft} />
-          <div style={{ height: 20 }} />
-        </div>
-      ) : null}
-      <label style={S.label}>Trash day</label>
-      <div style={dayRow}>
-        {DAYS.map(function (day) {
-          return (
-            <button key={day.key} type="button"
-              style={d.trashDay === day.key ? S_dayOn : S_day}
-              onClick={dayFactory(day.key)}
-              aria-label={day.key}>{day.label}</button>
-          );
-        })}
-      </div>
-      <p style={S.hint}>We'll nudge you the night before in Sunset.</p>
-    </StepShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 4 — Meet Exhale (interactive mini-tutorial)
-// ---------------------------------------------------------------------------
-
-function ExhaleCardRow(props) {
-  var card = props.card;
-  function handleTitle(e) { props.onRename(props.idx, e.target.value); }
-  function handleUp() { props.onMove(props.idx, -1); }
-  function handleDown() { props.onMove(props.idx, 1); }
-  return (
-    <div style={S_exCard}>
-      <input style={S_exInput} value={card.title} onChange={handleTitle}
-        aria-label="Card title" />
-      <button type="button" style={S_arrowBtn} onClick={handleUp}
-        disabled={props.idx === 0} aria-label="Move up">{'\u2191'}</button>
-      <button type="button" style={S_arrowBtn} onClick={handleDown}
-        disabled={props.idx === props.count - 1} aria-label="Move down">{'\u2193'}</button>
-    </div>
-  );
-}
-
-function StepExhale(props) {
-  var d = props.data;
-  function handleRename(idx, value) {
-    var next = d.exhaleCards.map(function (c, i) {
-      if (i !== idx) { return c; }
-      return Object.assign({}, c, { title: value });
-    });
-    props.set('exhaleCards', next);
-  }
-  function handleMove(idx, dir) {
-    var to = idx + dir;
-    if (to < 0 || to >= d.exhaleCards.length) { return; }
-    var next = d.exhaleCards.slice();
-    var tmp = next[idx];
-    next[idx] = next[to];
-    next[to] = tmp;
-    props.set('exhaleCards', next);
-  }
-  return (
-    <StepShell index={props.index} total={props.total}
-      title="Empty your head"
-      subtitle={'Exhale is your brain-dump. Tap a title to rename it, use the arrows to reorder. These cards are real \u2014 they\u2019ll be waiting in Exhale.'}
-      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
-      {d.exhaleCards.map(function (card, idx) {
-        return <ExhaleCardRow key={idx} card={card} idx={idx}
-          count={d.exhaleCards.length} onRename={handleRename} onMove={handleMove} />;
-      })}
-    </StepShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step (conditional) — Set birthdays. Only shown for anyone who left the
-// birthday field blank back in StepBasics (it's optional there) — this is a
-// follow-up nudge, not the first place birthdays are asked. Feeds Fix 1's
-// birthday-celebration auto-seeding on the host side.
-// ---------------------------------------------------------------------------
-
-function BirthdayPromptRow(props) {
-  var person = props.person;
-  function handleChange(e) { props.onChange(person.id, e.target.value); }
-  var dateStyle = Object.assign({}, S.input, { flex: 1 });
-  var nameStyle = { flex: 1.2, fontSize: 13, fontWeight: 500, color: NAVY };
-  var rowStyle = { display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' };
-  return (
-    <div style={rowStyle}>
-      <div style={nameStyle}>{person.name}</div>
-      <input style={dateStyle} type="date" value={person.birthday}
-        onChange={handleChange} aria-label={person.name + ' birthday'} />
-    </div>
-  );
-}
-
-function StepBirthdays(props) {
-  var d = props.data;
-  // Snapshot WHICH people need a birthday prompt once, on mount — not
-  // recomputed from live d.people every render. Recomputing it live meant
-  // the moment a date was picked, that person's birthday became truthy,
-  // they dropped out of the (name-not-blank && no-birthday) filter, and
-  // their whole row — name label included, it's only shown here — unmounted
-  // immediately. Looked like "the picker disappears and takes the name with
-  // it," even though d.people itself was never actually losing the name.
-  var missingIdsState = useState(function () {
-    return d.people.filter(function (p) { return p.name.trim() !== '' && !p.birthday; }).map(function (p) { return p.id; });
-  });
-  var missingIds = missingIdsState[0];
-  var missing = missingIds.map(function (id) {
-    return d.people.find(function (p) { return p.id === id; });
-  }).filter(Boolean);
-  function handleChange(id, value) {
-    var next = d.people.map(function (p) {
-      return p.id === id ? Object.assign({}, p, { birthday: value }) : p;
-    });
-    props.set('people', next);
-  }
-  return (
-    <StepShell index={props.index} total={props.total}
-      title="Set birthdays"
-      subtitle={'We’ll remember these for you — birthday celebrations show up automatically once they’re in.'}
-      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
-      {missing.map(function (p) {
-        return <BirthdayPromptRow key={p.id} person={p} onChange={handleChange} />;
-      })}
-    </StepShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step (conditional) — How does each child learn right now? Same 5-option
-// schoolType used by Settings' School section (App.jsx) — "homeschool" |
-// "public" | "private" | "preschool" | "none" — replacing the old binary
-// "in school" toggle. Only offered for people the birthday already marks as a
-// minor — someone who skipped StepBirthdays entirely won't show up here
-// (nothing to detect them by), which is why StepBirthdays runs first.
-// ---------------------------------------------------------------------------
-
-var SCHOOL_TYPE_OPTIONS = [
-  { value: 'homeschool', label: 'Homeschool',      emoji: '\uD83C\uDFE0' },
-  { value: 'public',     label: 'Public School',   emoji: '\uD83C\uDFEB' },
-  { value: 'private',    label: 'Private School',  emoji: '\uD83C\uDF93' },
-  { value: 'preschool',  label: 'Preschool',       emoji: '\uD83E\uDDF8' },
-  { value: 'none',       label: 'Not school-age',  emoji: '\uD83D\uDC76' }
-];
-
-function SchoolTypePill(props) {
-  function handleClick() { props.onSelect(props.option.value); }
-  return (
-    <button type="button" onClick={handleClick} style={props.selected ? S_pillOn : S_pill}>
-      {props.option.emoji + ' ' + props.option.label}
-    </button>
   );
 }
 
 function SchoolTypeRow(props) {
   var person = props.person;
-  function handleSelect(value) { props.onChange(person.id, value); }
+  function selectFactory(value) {
+    return function () { props.onChange(person.id, value); };
+  }
   return (
     <div style={S.card}>
-      <p style={S.cardTitle}>{'How does ' + person.name + ' learn right now?'}</p>
+      <p style={S.cardTitle}>{person.name}</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
         {SCHOOL_TYPE_OPTIONS.map(function (opt) {
-          return <SchoolTypePill key={opt.value} option={opt}
-            selected={person.schoolType === opt.value} onSelect={handleSelect} />;
+          return (
+            <button key={opt.value} type="button" onClick={selectFactory(opt.value)}
+              style={person.schoolType === opt.value ? S_pillOn : S_pill}>
+              {opt.emoji + ' ' + opt.label}
+            </button>
+          );
         })}
       </div>
     </div>
   );
 }
 
-function StepSchoolType(props) {
+function TreasureChestRow(props) {
+  var person = props.person;
+  function handleToggle() { props.onChange(person.id, !(person.tidePoolEnabled !== false)); }
+  var on = person.tidePoolEnabled !== false;
+  return (
+    <label style={S_checkboxRow}>
+      <input type="checkbox" checked={on} onChange={handleToggle} />
+      {person.name}
+    </label>
+  );
+}
+
+function PetRow(props) {
+  var pet = props.pet;
+  function kindFactory(value) { return function () { props.onChange(pet.id, 'kind', value); }; }
+  function handleName(e) { props.onChange(pet.id, 'name', e.target.value); }
+  function handleRemove() { props.onRemove(pet.id); }
+  return (
+    <div style={Object.assign({}, S.card, { marginBottom: 10 })}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        {PET_KIND_OPTIONS.map(function (opt) {
+          return (
+            <button key={opt.value} type="button" onClick={kindFactory(opt.value)}
+              style={pet.kind === opt.value ? S_pillOn : S_pill}>
+              {opt.emoji + ' ' + opt.label}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input style={Object.assign({}, S.input, { flex: 1 })} placeholder="Name"
+          value={pet.name} onChange={handleName} />
+        <button type="button" style={S_arrowBtn} onClick={handleRemove}
+          aria-label="Remove pet">{'×'}</button>
+      </div>
+    </div>
+  );
+}
+
+function StepHarbor(props) {
   var d = props.data;
   var children = d.people.filter(function (p) {
     return p.name.trim() !== '' && isMinorLocal(p.birthday);
   });
-  function handleChange(id, value) {
-    var next = d.people.map(function (p) {
+  function handleGoesToSchool(value) {
+    props.set('goesToSchool', value);
+    if (value === false) {
+      // "No" answers the question for every kid — none of them need a
+      // per-child type pick. Explicit true/false forced here (not falling
+      // through to undefined) so a later "Yes" → "No" change cleanly resets
+      // any type already picked, rather than leaving a stale one behind.
+      props.set('people', d.people.map(function (p) {
+        return isMinorLocal(p.birthday) ? Object.assign({}, p, { schoolType: 'none' }) : p;
+      }));
+    }
+  }
+  function handleSchoolTypeChange(id, value) {
+    props.set('people', d.people.map(function (p) {
       return p.id === id ? Object.assign({}, p, { schoolType: value }) : p;
-    });
-    props.set('people', next);
+    }));
+  }
+  function handleTreasureChest(value) {
+    props.set('wantsTreasureChest', value);
+  }
+  function handleTreasureChild(id, enabled) {
+    props.set('people', d.people.map(function (p) {
+      return p.id === id ? Object.assign({}, p, { tidePoolEnabled: enabled }) : p;
+    }));
+  }
+  function handleHasPets(value) {
+    props.set('hasPets', value);
+    if (value === true && d.pets.length === 0) {
+      props.set('pets', [{ id: uid(), kind: 'Dog', name: '' }]);
+    }
+  }
+  function handlePetChange(id, field, value) {
+    props.set('pets', d.pets.map(function (p) {
+      return p.id === id ? Object.assign({}, p, { [field]: value }) : p;
+    }));
+  }
+  function handlePetRemove(id) {
+    props.set('pets', d.pets.filter(function (p) { return p.id !== id; }));
+  }
+  function handleAddPet() {
+    props.set('pets', d.pets.concat([{ id: uid(), kind: 'Dog', name: '' }]));
   }
   return (
     <StepShell index={props.index} total={props.total}
-      title="How do your kids learn?"
-      subtitle="This shapes what Lighthouse shows for each child. Change anytime in Settings."
-      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
-      {children.map(function (p) {
-        return <SchoolTypeRow key={p.id} person={p} onChange={handleChange} />;
-      })}
+      title="Enhance your Harbor"
+      subtitle="A few more things help us set up the right tools for your family."
+      onNext={props.onNext} onBack={props.onBack}>
+      {children.length > 0 ? (
+        <div>
+          <label style={S.label}>Do your kids go to school?</label>
+          <YesNoRow value={d.goesToSchool} onChange={handleGoesToSchool} />
+          {d.goesToSchool === true ? children.map(function (p) {
+            return <SchoolTypeRow key={p.id} person={p} onChange={handleSchoolTypeChange} />;
+          }) : null}
+          <div style={{ height: 18 }} />
+          <label style={S.label}>{'Treasure Chest — a reward system for kids'}</label>
+          <p style={S.hint}>{'Kids collect shells for chores and cash them in for treasures. Want to set this up?'}</p>
+          <div style={{ height: 4 }} />
+          <YesNoRow value={d.wantsTreasureChest} onChange={handleTreasureChest} />
+          {d.wantsTreasureChest === true ? children.map(function (p) {
+            return <TreasureChestRow key={p.id} person={p} onChange={handleTreasureChild} />;
+          }) : null}
+          <div style={{ height: 18 }} />
+        </div>
+      ) : null}
+      <label style={S.label}>Any pets?</label>
+      <YesNoRow value={d.hasPets} onChange={handleHasPets} />
+      {d.hasPets === true ? (
+        <div>
+          {d.pets.map(function (p) {
+            return <PetRow key={p.id} pet={p} onChange={handlePetChange} onRemove={handlePetRemove} />;
+          })}
+          <button type="button" style={S.addLink} onClick={handleAddPet}>
+            + Add another pet
+          </button>
+        </div>
+      ) : null}
     </StepShell>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Step (conditional) — Per-child Tide Pool opt-in. Same gating as
-// StepSchoolType (children only, skipped entirely if there are none), and
-// always runs right after it. "Maybe later" deliberately clears the field
-// rather than writing a value — that's the existing default (every kid gets
-// Tide Pool) so picking it can't regress anyone relative to skipping this
-// step entirely.
+// Screen 3 — There's more (purely informational, no data collected)
 // ---------------------------------------------------------------------------
 
-var TIDE_POOL_OPTIONS = [
-  { value: true,  label: 'Yes, set it up' },
-  { value: null,  label: 'Maybe later' },
-  { value: false, label: 'No, hide it' }
+function StepMore(props) {
+  return (
+    <InfoShell index={props.index} total={props.total}
+      title="Anchor & Flow can do even more"
+      subtitle="These features are available whenever you're ready."
+      onNext={props.onNext} nextLabel={'I’ll explore later'}>
+      {MORE_FEATURES.map(function (f, i) {
+        return (
+          <div key={i} style={S_iconRow}>
+            <div style={{ fontSize: 22, lineHeight: '26px' }}>{f.emoji}</div>
+            <div style={{ flex: 1 }}>
+              <p style={S.cardTitle}>{f.title}</p>
+              <p style={S.cardBody}>{f.body}</p>
+            </div>
+          </div>
+        );
+      })}
+      <p style={S.hint}>You can turn these on anytime in Settings.</p>
+    </InfoShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 4 — Your Today (purely informational, no data collected)
+// ---------------------------------------------------------------------------
+
+var TODAY_POINTS = [
+  { emoji: '🧭', body: 'The Today icon shows your daily summary — what’s on, what’s due, what’s for dinner.' },
+  { emoji: '⚡', body: 'Having a busy day? Tap "Busy" to simplify — just the essentials.' },
+  { emoji: '🪟', body: 'Really struggling? Tap "Survival" — meals, tasks, and Compass (your AI guide) will adjust to help.' }
 ];
 
-function TidePoolPill(props) {
-  function handleClick() { props.onSelect(props.option.value); }
+function StepToday(props) {
   return (
-    <button type="button" onClick={handleClick} style={props.selected ? S_pillOn : S_pill}>
-      {props.option.label}
-    </button>
+    <InfoShell index={props.index} total={props.total}
+      title="Meet your Today view"
+      subtitle="Today summarizes your day and shows what matters most."
+      onNext={props.onNext} nextLabel="Got it">
+      {TODAY_POINTS.map(function (pt, i) {
+        return (
+          <div key={i} style={S_iconRow}>
+            <div style={{ fontSize: 20, lineHeight: '24px' }}>{pt.emoji}</div>
+            <p style={Object.assign({}, S.cardBody, { fontSize: 13, margin: 0 })}>{pt.body}</p>
+          </div>
+        );
+      })}
+    </InfoShell>
   );
 }
 
-function TidePoolRow(props) {
-  var person = props.person;
-  function handleSelect(value) { props.onChange(person.id, value); }
-  var current = person.tidePoolEnabled === true ? true
-    : (person.tidePoolEnabled === false ? false : null);
-  return (
-    <div style={S.card}>
-      <p style={S.cardTitle}>{'Would you like to use Tide Pool with ' + person.name + '?'}</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        {TIDE_POOL_OPTIONS.map(function (opt) {
-          return <TidePoolPill key={String(opt.value)} option={opt}
-            selected={current === opt.value} onSelect={handleSelect} />;
-        })}
-      </div>
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
+// Screen 5 — Family & save
+// ---------------------------------------------------------------------------
 
-function StepTidePool(props) {
-  var d = props.data;
-  var children = d.people.filter(function (p) {
-    return p.name.trim() !== '' && isMinorLocal(p.birthday);
-  });
-  function handleChange(id, value) {
-    var next = d.people.map(function (p) {
-      if (p.id !== id) { return p; }
-      var copy = Object.assign({}, p);
-      if (value === null) { delete copy.tidePoolEnabled; } else { copy.tidePoolEnabled = value; }
-      return copy;
-    });
-    props.set('people', next);
+function HouseholdCodeCard(props) {
+  var codeState = useState(false);
+  var copied = codeState[0];
+  var setCopied = codeState[1];
+  function handleCopy() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(props.householdId || '');
+      }
+    } catch (e) { /* clipboard API unavailable — copy silently no-ops */ }
+    setCopied(true);
+    setTimeout(function () { setCopied(false); }, 2000);
   }
   return (
-    <StepShell index={props.index} total={props.total}
-      title="Tide Pool for your kids"
-      subtitle="Chores and treasures, kid by kid. Change anytime in Settings."
-      onNext={props.onNext} onBack={props.onBack} onSkip={props.onNext}>
-      {children.map(function (p) {
-        return <TidePoolRow key={p.id} person={p} onChange={handleChange} />;
-      })}
-    </StepShell>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 5 — Pick your mode
-// ---------------------------------------------------------------------------
-
-function ModeCard(props) {
-  var selected = props.selected;
-  function handleClick() { props.onSelect(props.mode.key); }
-  return (
-    <div style={selected ? S_modeCardOn : S_modeCard} onClick={handleClick}
-      role="button" tabIndex={0} aria-pressed={selected}>
-      <p style={selected ? S_modeTitleOn : S.cardTitle}>{props.mode.name}</p>
-      <p style={S.cardBody}>{props.mode.body}</p>
+    <div style={Object.assign({}, S.card, { background: SEAGLASS_TINT, border: '1px solid ' + SEAGLASS })}>
+      <p style={S.cardTitle}>Household code</p>
+      {props.householdId ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+          <div style={{ flex: 1, fontFamily: SERIF, fontSize: 16, fontWeight: 700, color: NAVY, wordBreak: 'break-all' }}>
+            {props.householdId}
+          </div>
+          <button type="button" onClick={handleCopy}
+            style={Object.assign({}, S_pill, copied ? { border: '1px solid ' + SEAGLASS, background: SEAGLASS, color: '#fff' } : {})}>
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+        </div>
+      ) : (
+        <p style={S.cardBody}>{'Your code will appear here once your harbor finishes setting up — find it anytime in Settings.'}</p>
+      )}
+      <p style={S.cardBody}>{'Other family members can join by going to Settings → Join Household and pasting this code.'}</p>
     </div>
   );
 }
 
-function StepMode(props) {
-  var d = props.data;
-  function handleSelect(key) { props.set('mode', key); }
+function SaveToPhoneCard() {
   return (
-    <StepShell index={props.index} total={props.total}
-      title="How's today feeling?"
-      subtitle="Your mode shapes what the app asks of you. Change it any morning."
-      onNext={props.onFinish} onBack={props.onBack} onSkip={props.onFinish}
-      nextLabel="Step into your harbor"
-      skipLabel="Decide later">
-      {MODES.map(function (mode) {
-        return <ModeCard key={mode.key} mode={mode}
-          selected={d.mode === mode.key} onSelect={handleSelect} />;
-      })}
-    </StepShell>
+    <div style={S.card}>
+      <p style={S.cardTitle}>Save to your phone</p>
+      <p style={Object.assign({}, S.cardBody, { marginTop: 8, fontWeight: 600 })}>iPhone</p>
+      <p style={S.cardBody}>{'Tap the Share icon in Safari → "Add to Home Screen"'}</p>
+      <p style={Object.assign({}, S.cardBody, { marginTop: 8, fontWeight: 600 })}>Android</p>
+      <p style={S.cardBody}>{'Tap the menu (⋮) → "Add to Home Screen"'}</p>
+    </div>
+  );
+}
+
+function StepFamily(props) {
+  return (
+    <InfoShell index={props.index} total={props.total}
+      title="This is a family app"
+      subtitle=""
+      onNext={props.onFinish} nextLabel={'Let’s go!'}>
+      <HouseholdCodeCard householdId={props.householdId} />
+      <div style={{ height: 12 }} />
+      <SaveToPhoneCard />
+    </InfoShell>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Wizard root
 // ---------------------------------------------------------------------------
+
+var STEPS = [StepBasics, StepHarbor, StepMore, StepToday, StepFamily];
 
 export function buildInitialData(props) {
   var people;
@@ -768,22 +657,21 @@ export function buildInitialData(props) {
   if (people.length > 0) { people[0] = Object.assign({}, people[0], { isMe: true }); }
   return {
     householdName: props.initialHouseholdName || '',
-    zip: '',
     people: people,
-    features: defaultFeatures(),
-    mealsPerDay: 2,
-    stores: [],
-    storeDraft: '',
-    trashDay: '',
-    exhaleCards: DEFAULT_EXHALE.map(function (c) { return Object.assign({}, c); }),
-    mode: 'calm'
+    groceryStore: '',
+    groceryStoreOther: '',
+    favMeals: ['', '', ''],
+    goesToSchool: null,
+    wantsTreasureChest: null,
+    hasPets: null,
+    pets: []
   };
 }
 
 export function buildPayload(d) {
+  var groceryStore = d.groceryStore === 'Other' ? d.groceryStoreOther.trim() : d.groceryStore;
   return {
     householdName: d.householdName.trim(),
-    zip: d.zip,
     people: d.people
       .filter(function (p) { return p.name.trim() !== ''; })
       .map(function (p) {
@@ -792,37 +680,13 @@ export function buildPayload(d) {
         if (p.isMe) { person.isMe = true; }
         return person;
       }),
-    features: Object.assign({}, d.features),
-    areaSettings: {
-      mealsPerDay: d.mealsPerDay,
-      stores: d.stores.slice(),
-      trashDay: d.trashDay
-    },
-    exhaleCards: d.exhaleCards
-      .filter(function (c) { return c.title.trim() !== ''; })
-      .map(function (c) { return { title: c.title.trim() }; }),
-    mode: d.mode
+    groceryStore: groceryStore || '',
+    favMeals: d.favMeals.filter(function (m) { return m.trim() !== ''; }).map(function (m) { return m.trim(); }),
+    treasureChestEnabled: d.wantsTreasureChest === true,
+    pets: d.pets
+      .filter(function (p) { return p.name.trim() !== ''; })
+      .map(function (p) { return { kind: p.kind, name: p.name.trim() }; })
   };
-}
-
-// Dynamic step list — StepBirthdays/StepInSchool only included when relevant
-// (someone missing a birthday / a detected child, respectively). Recomputed
-// only at navigation time (goNext/goBack), never on every render, so a step
-// already on screen can't have its content swapped out from under the user
-// mid-edit just because they filled in the last blank birthday it was
-// showing — see the comments on those two step components for why order matters.
-function computeSteps(data) {
-  var steps = [StepBasics, StepRooms, StepDetails, StepExhale];
-  var hasMissingBirthday = data.people.some(function (p) {
-    return p.name.trim() !== '' && !p.birthday;
-  });
-  if (hasMissingBirthday) { steps.push(StepBirthdays); }
-  var hasChild = data.people.some(function (p) {
-    return p.name.trim() !== '' && isMinorLocal(p.birthday);
-  });
-  if (hasChild) { steps.push(StepSchoolType); steps.push(StepTidePool); }
-  steps.push(StepMode);
-  return steps;
 }
 
 export default function OnboardingWizard(props) {
@@ -832,9 +696,6 @@ export default function OnboardingWizard(props) {
   var stepArr = useState(0);
   var step = stepArr[0];
   var setStep = stepArr[1];
-  var stepsArr = useState(function () { return computeSteps(data); });
-  var steps = stepsArr[0];
-  var setSteps = stepsArr[1];
 
   function set(field, value) {
     setData(function (prev) {
@@ -844,15 +705,12 @@ export default function OnboardingWizard(props) {
     });
   }
   function goNext() {
-    var nextSteps = computeSteps(data);
-    setSteps(nextSteps);
-    setStep(function (s) { return Math.min(s + 1, nextSteps.length - 1); });
+    setStep(function (s) { return Math.min(s + 1, STEPS.length - 1); });
     if (typeof window !== 'undefined') { window.scrollTo(0, 0); }
   }
   function goBack() {
-    var prevSteps = computeSteps(data);
-    setSteps(prevSteps);
     setStep(function (s) { return Math.max(s - 1, 0); });
+    if (typeof window !== 'undefined') { window.scrollTo(0, 0); }
   }
   function finish() {
     props.onComplete(buildPayload(data));
@@ -861,13 +719,14 @@ export default function OnboardingWizard(props) {
     props.onSkip();
   }
 
-  var Step = steps[step];
+  var Step = STEPS[step];
   return (
     <div style={S.overlay}>
       <Step data={data} set={set}
-        index={step} total={steps.length}
+        index={step} total={STEPS.length}
         onNext={goNext} onBack={step > 0 ? goBack : null}
-        onFinish={finish} onSkipAll={skipAll} />
+        onFinish={finish} onSkipAll={step === 0 ? skipAll : null}
+        householdId={props.householdId} />
     </div>
   );
 }
