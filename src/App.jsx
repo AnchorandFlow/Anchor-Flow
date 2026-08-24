@@ -1212,13 +1212,63 @@ function myDisplayName(people, myPersonId, preferredName, authUser) {
 // matching this week's Sunday once (triggering one normal rollover check) is
 // an accepted, low-stakes tradeoff rather than something worth a transition
 // scheme for.
-// Returns the ISO date string (YYYY-MM-DD) of the Sunday starting the current week
+// Returns the LOCAL date string (YYYY-MM-DD) of the Sunday starting the
+// current week. Bug fix: previously built this via d.toISOString().slice(0,10)
+// — toISOString() always converts through UTC, so for any negative UTC
+// offset (all of the US) it silently returns the WRONG day once local time
+// is late enough that adding the offset crosses into the next UTC calendar
+// day (e.g. ~5pm MDT, ~8pm EDT). That made af_mealsWeekOf get stamped with
+// tomorrow's date on any evening visit, which could trigger the week
+// rollover a day early or mask a genuine one — the exact instability
+// reported as "meals not clearing at week end" / "next week not rolling
+// over". Built from local Y/M/D components directly instead, matching the
+// existing localDateStr() helper used elsewhere for the same reason.
 const getThisSunday = () => {
   const d = new Date();
   const day = d.getDay(); // 0=Sun, 1=Mon...
   d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 };
+// Shared week-rollover check — reads af_mealsWeekOf/af_nextWeekMeals fresh
+// from localStorage (not from React state, since another device's sync pull
+// can change them without this device's meals state knowing) and, if the
+// calendar week has changed, promotes next week's plan into this week and
+// clears next week. Returns the new safe meals object if a rollover
+// happened, or null if we're still in the same week. Pulled out into its
+// own function so it can run from both the one-time mount initializer AND
+// a live visibilitychange re-check (see the useEffect near setMeals) —
+// previously this only ever ran once, at mount, so a tab left open across
+// the actual week boundary (very plausible for a PWA someone keeps open for
+// days) never rolled over until the next full reload.
+function computeMealsRollover(thisSunday) {
+  try {
+    const storedWeekOf = (() => {
+      try {
+        const raw = localStorage.getItem("af_mealsWeekOf");
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return typeof parsed === "string" ? parsed : null;
+      } catch { return null; }
+    })();
+    if (!storedWeekOf || storedWeekOf === thisSunday) return null;
+    const nextRaw = (() => { try { return JSON.parse(localStorage.getItem("af_nextWeekMeals")||"null"); } catch { return null; } })();
+    const promoted = (nextRaw && typeof nextRaw === "object") ? nextRaw : {};
+    const safe = {};
+    MEAL_DAYS.forEach(day => {
+      const m = promoted[day];
+      if (!m || typeof m !== "object") { safe[day] = {}; }
+      else {
+        const clean = {};
+        Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
+        safe[day] = clean;
+      }
+    });
+    localStorage.setItem("af_meals", JSON.stringify(safe));
+    localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday));
+    localStorage.setItem("af_nextWeekMeals", JSON.stringify({}));
+    return safe;
+  } catch { return null; }
+}
 // MEAL_DAYS imported from ./sync-core.js
 const TREASURE_ICONS = ["🎁","📱","🍕","🎬","🌙","🎡","🏖️","🍦","🎮","🎨","📚","🎵","🧁","🎠","🌮"];
 // COUNTDOWN-1: shared config for the reusable countdowns feature.
@@ -4203,42 +4253,15 @@ function createLocalBackup() {
   const [meals, setMealsRaw] = useState(() => {
     try {
       const thisSunday = getThisSunday();
-      // Safely read mealsWeekOf — may be plain string or JSON-stringified string
-      const storedWeekOf = (() => {
-        try {
-          const raw = localStorage.getItem("af_mealsWeekOf");
-          if (!raw) return null;
-          // Handle both plain "2026-04-14" and JSON-quoted '"2026-04-14"'
-          const parsed = JSON.parse(raw);
-          return typeof parsed === "string" ? parsed : null;
-        } catch { return null; }
-      })();
-
-      // If we're in a new week, promote nextWeekMeals → current and clear the old plan
-      if (storedWeekOf && storedWeekOf !== thisSunday) {
-        const nextRaw = (() => { try { return JSON.parse(localStorage.getItem("af_nextWeekMeals")||"null"); } catch { return null; } })();
-        const promoted = (nextRaw && typeof nextRaw === "object") ? nextRaw : {};
-        const safe = {};
-        MEAL_DAYS.forEach(day => {
-          const m = promoted[day];
-          if (!m || typeof m !== "object") { safe[day] = {}; }
-          else {
-            const clean = {};
-            Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
-            safe[day] = clean;
-          }
-        });
-        // Persist the promoted plan as this week and clear next week
-        try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
-        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday)); } catch {}
-        try { localStorage.setItem("af_nextWeekMeals", JSON.stringify({})); } catch {}
-        return safe;
-      }
+      const rolled = computeMealsRollover(thisSunday);
+      if (rolled) return rolled;
 
       // Same week — stamp mealsWeekOf if missing so future rollover works
-      if (!storedWeekOf) {
-        try { localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday)); } catch {}
-      }
+      try {
+        if (!localStorage.getItem("af_mealsWeekOf")) {
+          localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday));
+        }
+      } catch {}
 
       const raw = localStorage.getItem("af_meals");
       const parsed = raw ? JSON.parse(raw) : {};
@@ -4281,6 +4304,26 @@ function createLocalBackup() {
       }
     } catch {}
   }
+  // The week-rollover check above only ran once, at mount — a tab left open
+  // across the actual Sunday boundary (very plausible for a PWA someone
+  // keeps open for days, e.g. "Add to Home Screen") never rolled over until
+  // the next full reload. Re-check on visibilitychange (same trigger the SW
+  // update check already uses elsewhere) so returning to an already-open tab
+  // after the week changed catches it too, not just a fresh page load.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      const rolled = computeMealsRollover(getThisSunday());
+      // setMeals(rolled) is called with a plain object, not an updater
+      // function, so it never reads the meals closed over here — safe to
+      // register this listener once rather than re-subscribing on every
+      // meals edit.
+      if (rolled) setMeals(rolled);
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [mealCount,setMealCount]               = useSaved("mealCount",3);
   const [mealThemeEnabled,setMealThemeEnabled] = useSaved("mealThemeEnabled",false);
   const [mealThemes,setMealThemes]             = useSaved("mealThemes",DEFAULT_MEAL_THEMES);
