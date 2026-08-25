@@ -12211,8 +12211,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   const COVE_MIN_OPEN  = 10;
 
   function getDefaultTidePoolData() {
+    // Used to fall back to a synthetic {id:"k1",name:"Child 1"} when the
+    // household had no real kids yet — that placeholder then got persisted
+    // into coveData (the daily chore-reset effect calls setCoveData
+    // unconditionally) and stuck around forever as a phantom child even
+    // after a real kid was added, since the merge logic below deliberately
+    // never drops saved records. Returning an empty list here instead means
+    // no kids yet -> no default data to seed; TidePoolTab renders an
+    // explicit "add a child" empty state (see rosterEmpty below) rather than
+    // faking one.
     var kids = people.filter(function(p){ return p.role==="Kid"||p.role==="Teen"||personIsMinor(p); });
-    if(kids.length===0) kids = [{id:"k1",name:"Child 1"}];
     return kids.map(function(k){
       return {
         kidId: k.id,
@@ -12240,9 +12248,6 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // pre-Batch-C default both mean "enabled but not configured", same as always.
     var realKids = people.filter(function(p){ return (p.role==="Kid"||p.role==="Teen"||personIsMinor(p)) && p.tidePoolEnabled!==false; });
     var rosterEmpty = realKids.length===0;
-    // Display-only fallback so the tab renders when the roster hasn't loaded.
-    // NEVER used to rebuild/prune saved coveData — see initializer below.
-    var rawKids = rosterEmpty ? [{id:"k1",name:"Child 1",color:"#c8a97a"}] : realKids;
 
     // Merge persisted coveData with current people list.
     // Invariant: NEVER drop a saved kid record. Previously this rebuilt the list
@@ -12321,6 +12326,30 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         window.removeEventListener("focus", checkReset);
       };
     }, []);
+
+    // No kids in the household yet (and getDefaultTidePoolData no longer
+    // fakes one — see its own comment) — show an explicit empty state
+    // instead of dereferencing an undefined `kid` below.
+    if (kids.length === 0) {
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
+            <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
+              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
+            </button>
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
+              <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+            </div>
+          </div>
+          <div style={{...card({background:"transparent",border:"1.5px dashed "+T.borderSoft,textAlign:"center",padding:"2rem 1rem"})}}>
+            <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🏝️</div>
+            <p style={{fontWeight:600,fontSize:"0.9rem",color:T.textMid,margin:"0 0 0.35rem"}}>No kids added yet</p>
+            <p style={{color:T.textFaint,fontSize:"0.8rem",margin:0}}>Add a child in Settings → Family to start using Tide Pool.</p>
+          </div>
+        </div>
+      );
+    }
 
     var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
 
@@ -12491,7 +12520,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           {Array.from({length:shellSlots}).map(function(_,i){
             var earned = i<shellCount;
             var src = earned ? shellSourceForIndex(i) : null;
-            var tip = earned ? (src ? src.reason + (src.date ? " — "+new Date(src.date).toLocaleDateString() : "") : "Earned") : "";
+            var tip = earned ? (src ? src.reason + (src.date ? " — "+new Date(src.date).toLocaleDateString() : "") : "Earned before history tracking") : "";
             return (
               <div key={i} title={tip} style={{width:32,height:32,borderRadius:"50%",border:"1.5px "+(earned?"solid":"dashed")+" "+sandHex,background:earned?"#fdf5e8":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"16px",transition:"all 0.2s",cursor:earned?"default":undefined}}>
                 {earned?"🐚":""}
