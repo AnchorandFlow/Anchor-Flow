@@ -5305,6 +5305,9 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
                 return (
                   <div>
                     <div style={{ fontSize:13, color:muted, fontFamily:"DM Sans,sans-serif", marginBottom:10 }}>{allItems.filter(function(i){return i.done}).length} of {allItems.length} packed</div>
+                    {allItems.length > 0 && allItems.every(function(i){return i.done}) && (
+                      <div style={{ background:"rgba(160,122,181,0.15)", border:"1px solid rgba(160,122,181,0.35)", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#a07ab5", fontFamily:"DM Sans,sans-serif", fontWeight:600, marginBottom:12, textAlign:"center" }}>🧳 You're all packed! Have a great trip!</div>
+                    )}
                     <button onClick={function(){ setImportOpen(true) }} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"5px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📥 Import list</button>
                     <button onClick={openMasterTemplateLoad} style={{ background:"rgba(200,169,122,0.1)", border:"1px solid rgba(200,169,122,0.25)", borderRadius:7, padding:"5px 12px", fontSize:11, color:sand, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>📋 Load master template</button>
                     <button onClick={function(){ setMasterEditOpen(true) }} style={{ background:"none", border:"1px solid rgba(250,248,244,0.15)", borderRadius:7, padding:"5px 12px", fontSize:11, color:muted, fontFamily:"DM Sans,sans-serif", cursor:"pointer", fontWeight:600, marginBottom:12, display:"block" }}>✏️ Edit master template</button>
