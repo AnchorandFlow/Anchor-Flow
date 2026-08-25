@@ -242,7 +242,13 @@ export default function SunsetClose(props) {
 
   if (anchored) {
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 200, background: PAGE_GRADIENT, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "1rem" }}>
+      // zIndex 2000, not 200 — 200 collided with the persistent sidebar's own
+      // zIndex:200 (App.jsx's Flow-tab trigger lives in that layer), which let
+      // clicks land on the sidebar's "Flow" button through this overlay under
+      // certain stacking-context conditions and made the app appear to bounce
+      // to the Flow tab mid-close-out. Matches the rest of the app's modals
+      // (1000-10001 range), well clear of persistent chrome.
+      <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: PAGE_GRADIENT, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "1rem" }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 500, color: TEXT_PRIMARY, fontFamily: SERIF, marginBottom: 10 }}>Your day is anchored.</div>
           <div style={{ fontSize: 18, color: TEXT_PRIMARY, opacity: 0.85, fontFamily: SERIF, marginBottom: 10 }}>Good night, {firstName}.</div>
@@ -253,10 +259,11 @@ export default function SunsetClose(props) {
   }
 
   return (
-    <div onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: PAGE_GRADIENT, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto" }}>
+    // Same zIndex:200→2000 fix as the anchored screen above — see that comment.
+    <div onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: PAGE_GRADIENT, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto" }}>
       {/* Fixed to the viewport (not the scrolling content below) so it stays reachable
           on mobile no matter how far the accordion content scrolls. */}
-      <button onClick={props.onClose} aria-label="Close" style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))", zIndex: 201, background: "rgba(15,10,30,0.55)", border: CARD_BORDER, width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}><CloseGlyph /></button>
+      <button onClick={props.onClose} aria-label="Close" style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))", zIndex: 2001, background: "rgba(15,10,30,0.55)", border: CARD_BORDER, width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}><CloseGlyph /></button>
 
       <div onClick={function (e) { e.stopPropagation(); }} style={{ maxWidth: 460, width: "92%", margin: "20px auto 40px", position: "relative" }}>
         <div style={{ marginBottom: 16, paddingRight: 40 }}>
@@ -306,9 +313,12 @@ export default function SunsetClose(props) {
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {DECISIONS.map(function (d) {
                         var on = chosen === d.id;
-                        var isTomorrow = d.id === "tomorrow";
-                        var borderColor = isTomorrow ? ACCENT : "rgba(212,168,130,0.28)";
-                        var textColor = isTomorrow ? LABEL_COLOR_SOLID : "rgba(242,234,216,0.6)";
+                        // Was keyed off isTomorrow (d.id==="tomorrow") instead of the
+                        // selection state `on` — Tomorrow always looked accent-colored
+                        // whether or not it was picked, and Later/Remove never showed
+                        // as selected, so clicking any decision appeared to do nothing.
+                        var borderColor = on ? ACCENT : "rgba(212,168,130,0.28)";
+                        var textColor = on ? LABEL_COLOR_SOLID : "rgba(242,234,216,0.6)";
                         return (
                           <button key={d.id} type="button" onClick={function () { decide(t.id, d.id); }} style={{ border: "1px solid " + borderColor, background: "transparent", color: textColor, borderRadius: 16, padding: "5px 12px", fontSize: ".72rem", fontWeight: on ? 700 : 500, cursor: "pointer", fontFamily: SANS }}>{d.label}</button>
                         );

@@ -1,5 +1,37 @@
 #!/bin/bash
 set -e
+
+# ── Double-run guard ──────────────────────────────────────────────────────────
+# Read through this script top to bottom: git commit is called exactly once,
+# inside one `if`, no loop, no recursion — nothing INSIDE deploy.sh causes a
+# single invocation to commit twice. Checked for external causes too: no git
+# hooks (.git/hooks/ has only the *.sample files Git ships by default), no
+# package.json/vercel.json build step that calls this script, no shell alias
+# referencing it. So the reported "runs twice, duplicate commits with wrong
+# messages" is coming from the SCRIPT BEING INVOKED TWICE in quick succession
+# (a double-paste, a flaky terminal/SSH session double-sending input, or two
+# calls issued back-to-back before the first finished) — not from a bug in
+# the script's own control flow. This lock can't fix an unknown external
+# trigger, but it makes the actual symptom (two overlapping/near-simultaneous
+# runs) impossible: the second invocation refuses to proceed instead of
+# silently committing a second, differently-worded message on top of the
+# first. Auto-expires after 5 minutes in case a previous run crashed/was
+# killed without reaching the `trap`-based cleanup below.
+LOCK_FILE=".git/af-deploy.lock"
+if [ -f "$LOCK_FILE" ]; then
+  LOCK_MTIME=$(stat -f %m "$LOCK_FILE" 2>/dev/null || stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)
+  LOCK_AGE=$(( $(date +%s) - LOCK_MTIME ))
+  if [ "$LOCK_AGE" -lt 300 ]; then
+    echo "❌ Another deploy started ${LOCK_AGE}s ago (lock: $LOCK_FILE) — refusing to run again."
+    echo "   If no other deploy is actually still running, remove the lock and retry:"
+    echo "   rm $LOCK_FILE"
+    exit 1
+  fi
+  echo "⚠️  Stale lock file (${LOCK_AGE}s old, previous run likely crashed) — continuing."
+fi
+trap 'rm -f "$LOCK_FILE"' EXIT
+touch "$LOCK_FILE"
+
 MSG=${1:-"update"}
 
 echo "🔍 Building from src/App.jsx directly"

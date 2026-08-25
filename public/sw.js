@@ -1,4 +1,4 @@
-const CACHE_VERSION = "anchor-flow-v20260824-034501-eb10954";
+const CACHE_VERSION = "anchor-flow-v20260825-033300-36dd4e9";
 const STATIC_CACHE = CACHE_VERSION;
 
 // On install: activate immediately rather than waiting for the user to
@@ -22,7 +22,13 @@ self.addEventListener("message", function(event) {
       icon: event.data.icon || "/icon.png",
       badge: "/icon.png",
       tag: "af-local",
-      data: { url: event.data.url || "/" }
+      data: { url: event.data.url || "/" },
+      // Without this, Android auto-dismisses the notification within a few
+      // seconds and renders it collapsed by default — the body text was
+      // never actually truncated in the payload, but the OS never gave the
+      // user time/reason to expand it before it vanished. requireInteraction
+      // keeps it visible (and expandable) until the user dismisses it.
+      requireInteraction: true
     });
   }
 });
@@ -128,6 +134,14 @@ self.addEventListener("push", function(event) {
       vibrate: [100, 50, 100],
       tag: (data.data && data.data.type) || "ripple",
       renotify: true,
+      // Without this, Android auto-dismisses the notification within a few
+      // seconds and renders it collapsed by default — the body text sent
+      // from api/send-notifications.js was never actually truncated (it's
+      // intentionally short, ~120-180 chars, per the AI prompt's own char
+      // cap), but the OS never gave the user time/reason to expand it
+      // before it vanished. requireInteraction keeps it visible (and
+      // expandable) until the user dismisses it.
+      requireInteraction: true,
       actions: [
         { action: "open", title: "Open app" },
         { action: "dismiss", title: "Dismiss" }
