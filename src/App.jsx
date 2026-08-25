@@ -393,13 +393,7 @@ function RippleNotificationBanner() {
           const safeMeals = {};
           MEAL_DAYS_S.forEach(day => {
             const m = parsed[day];
-            if (!m || typeof m !== "object") {
-              safeMeals[day] = {};
-            } else {
-              const clean = {};
-              Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
-              safeMeals[day] = clean;
-            }
+            safeMeals[day] = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
           });
           localStorage.setItem("af_meals", JSON.stringify(safeMeals));
         }
@@ -1229,6 +1223,28 @@ const getThisSunday = () => {
   d.setDate(d.getDate() - day);
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 };
+// Sanitizes a single meals[day] object. Every field is coerced to a plain
+// string EXCEPT groceryItems, which the Edit-meal modal (saveEdit, and its
+// render at the groceryItems list/map below) stores and reads as a real
+// array — String(["eggs","milk"]) silently turns it into "eggs,milk" (JS's
+// default Array->String join), and the next time that day loads into the
+// edit modal, (editMeal.groceryItems||[]).map(...) throws "map is not a
+// function" because groceryItems is now a string, not an array. This one
+// helper is shared by every place that sanitizes a meal day (the pre-mount
+// localStorage sanitizer, the rollover promotion, the initial meals read,
+// and setMeals itself) so groceryItems can never regress back to a string
+// through any of those paths.
+function sanitizeMealDayFields(m) {
+  const clean = {};
+  Object.entries(m).forEach(([k, v]) => {
+    if (k === "groceryItems") {
+      clean[k] = Array.isArray(v) ? v.filter(g => typeof g === "string" && g.length > 0) : [];
+      return;
+    }
+    clean[k] = (v == null) ? "" : String(v);
+  });
+  return clean;
+}
 // Shared week-rollover check — reads af_mealsWeekOf/af_nextWeekMeals fresh
 // from localStorage (not from React state, since another device's sync pull
 // can change them without this device's meals state knowing) and, if the
@@ -1256,12 +1272,7 @@ function computeMealsRollover(thisSunday) {
     const safe = {};
     MEAL_DAYS.forEach(day => {
       const m = promoted[day];
-      if (!m || typeof m !== "object") { safe[day] = {}; }
-      else {
-        const clean = {};
-        Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
-        safe[day] = clean;
-      }
+      safe[day] = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
     });
     localStorage.setItem("af_meals", JSON.stringify(safe));
     localStorage.setItem("af_mealsWeekOf", JSON.stringify(thisSunday));
@@ -4269,12 +4280,7 @@ function createLocalBackup() {
       const safe = {};
       MEAL_DAYS.forEach(day => {
         const m = parsed[day];
-        if (!m || typeof m !== "object") { safe[day] = {}; }
-        else {
-          const clean = {};
-          Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
-          safe[day] = clean;
-        }
+        safe[day] = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
       });
       return safe;
     } catch { return {}; }
@@ -4285,12 +4291,7 @@ function createLocalBackup() {
     const safe = {};
     MEAL_DAYS.forEach(day => {
       const m = resolved[day];
-      if (!m || typeof m !== "object") { safe[day] = {}; }
-      else {
-        const clean = {};
-        Object.entries(m).forEach(([k,v]) => { clean[k] = (v == null) ? "" : String(v); });
-        safe[day] = clean;
-      }
+      safe[day] = (!m || typeof m !== "object") ? {} : sanitizeMealDayFields(m);
     });
     setMealsRaw(safe);
     try { localStorage.setItem("af_meals", JSON.stringify(safe)); } catch {}
