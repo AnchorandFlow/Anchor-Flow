@@ -4364,6 +4364,32 @@ function createLocalBackup() {
     ? {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:false,brain:true,tidepool:true,cove:false,school:true,people:false,horizon:false}
     : {anchor:true,calendar:true,weekly:true,meals:true,shop:true,home:true,brain:true,tidepool:true,cove:true,school:true});
   const [coveData,setCoveData]                 = useSaved("coveData",null);
+  // One-time migration: getDefaultTidePoolData() used to seed a synthetic
+  // {id:"k1",name:"Child 1"} kid record whenever a household had no real
+  // kids yet (fixed in b11fda3 — see that function's own comment). That
+  // placeholder had already been persisted into coveData for anyone who hit
+  // the empty-roster path before the fix, and the merge logic's own "never
+  // drop a saved kid record" invariant (protecting against a real past
+  // data-wipe bug) means it never cleans itself up — it just keeps showing
+  // up as a phantom 3rd child forever. Deferred 2s (past the ~1.5s
+  // hydration guard, _afHydrating — same pattern as the Cove
+  // sections-repair migration below) so setCoveData's automatic dirty-
+  // marking actually fires and the cleanup gets pushed to Supabase;
+  // running inside the hydration window would silently skip dirty-marking,
+  // leaving the fix local-only and vulnerable to being re-wiped by a
+  // subsequent pull of the still-phantom remote value.
+  useEffect(function(){
+    var isPhantom = function(k){ return k && k.kidId==="k1" && (k.kidName==="Child" || k.kidName==="Child 1"); };
+    var t = setTimeout(function(){
+      setCoveData(function(prev){
+        if (!Array.isArray(prev) || !prev.some(isPhantom)) return prev;
+        console.warn("[AF TIDEPOOL] removing phantom placeholder kid (k1) from coveData");
+        return prev.filter(function(k){ return !isPhantom(k); });
+      });
+    }, 2000);
+    return function(){ clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [dietaryFilters,setDietaryFilters]     = useSaved("dietaryFilters",["Dairy-free"]);
   const [calEvents,setCalEvents]               = useSaved("calEvents",[]);
   // Reload calEvents when AnchorVault writes to localStorage (immunizations, appointments, career goals)
@@ -12257,7 +12283,18 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // then persisted by the daily-reset/edit setCoveData calls. That was the
     // chores/treasures-erasing bug.
     var [kids, setKids] = useState(function(){
-      var saved = coveData;
+      // Filter out the phantom {kidId:"k1",kidName:"Child"/"Child 1"}
+      // placeholder getDefaultTidePoolData() used to seed (fixed in b11fda3)
+      // right here, at the source, rather than waiting on the outer
+      // HomeFlow-level migration effect (2s deferred, so setCoveData's
+      // dirty-marking fires and the cleanup reaches Supabase — see its own
+      // comment) to update the OUTER coveData state: this component's own
+      // `kids` state is a separate useState that only reads `coveData` once,
+      // at mount, so without this the phantom would keep rendering in an
+      // already-open Tide Pool tab until the whole component remounted.
+      var saved = Array.isArray(coveData) ? coveData.filter(function(k){
+        return !(k && k.kidId==="k1" && (k.kidName==="Child" || k.kidName==="Child 1"));
+      }) : coveData;
       if(!saved||!saved.length) return getDefaultTidePoolData();
       // Roster hasn't loaded (using synthetic fallback): do NOT reconcile against a
       // fake list. Return saved as-is so nothing is dropped.
@@ -12293,6 +12330,13 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var [claimed, setClaimed] = useState(null);
     var [flyName, setFlyName] = useState("");
     var [flyPts, setFlyPts] = useState(1);
+    // The shell-grid tooltip used only the native `title` attribute, which
+    // has no touch equivalent — nothing shows it on a phone, and this app is
+    // primarily used as a mobile PWA. Tap-to-show state so tapping an earned
+    // shell displays the same "why" text as a small banner instead of
+    // relying on hover. `title` is left in place too — harmless, and still
+    // works for anyone on desktop with a mouse.
+    var [tappedShellIdx, setTappedShellIdx] = useState(null);
 
     // ── Daily chore reset ──
     React.useEffect(function(){
@@ -12469,7 +12513,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div style={{display:"flex",justifyContent:"center",gap:"0.5rem",marginBottom:"1.25rem",flexWrap:"wrap"}}>
             {kids.map(function(k,i){
               return (
-                <button key={k.kidId} onClick={function(){setSelIdx(i);setChestOpen(false);setSelectedTreasure(null);setClaimed(null);}}
+                <button key={k.kidId} onClick={function(){setSelIdx(i);setChestOpen(false);setSelectedTreasure(null);setClaimed(null);setTappedShellIdx(null);}}
                   style={{padding:"0.35rem 1.1rem",borderRadius:"99px",border:"1.5px solid "+(i===selIdx?navyHex:T.border),background:i===selIdx?navyHex:"transparent",color:i===selIdx?"#faf8f4":T.textMid,fontSize:"0.82rem",cursor:"pointer",fontFamily:"inherit",fontWeight:i===selIdx?700:500,transition:"all 0.15s"}}>
                   {k.kidName}
                 </button>
@@ -12522,12 +12566,28 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             var src = earned ? shellSourceForIndex(i) : null;
             var tip = earned ? (src ? src.reason + (src.date ? " — "+new Date(src.date).toLocaleDateString() : "") : "Earned before history tracking") : "";
             return (
-              <div key={i} title={tip} style={{width:32,height:32,borderRadius:"50%",border:"1.5px "+(earned?"solid":"dashed")+" "+sandHex,background:earned?"#fdf5e8":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"16px",transition:"all 0.2s",cursor:earned?"default":undefined}}>
+              <div key={i} title={tip}
+                onClick={earned?function(){ setTappedShellIdx(function(prev){ return prev===i?null:i; }); }:undefined}
+                style={{width:32,height:32,borderRadius:"50%",border:"1.5px "+(earned?"solid":"dashed")+" "+sandHex,background:(earned&&tappedShellIdx===i)?"#f5e2c0":earned?"#fdf5e8":"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"16px",transition:"all 0.2s",cursor:earned?"pointer":undefined}}>
                 {earned?"🐚":""}
               </div>
             );
           })}
         </div>
+        {/* Tap-to-show shell tooltip — title alone (hover-only) never shows on
+            a touchscreen, and this is a mobile-first PWA. Tapping an earned
+            shell above shows the same text here; tapping it again (or a
+            different shell) toggles/switches it. */}
+        {tappedShellIdx!==null && (function(){
+          var tappedSrc = shellSourceForIndex(tappedShellIdx);
+          var tappedTip = tappedSrc ? tappedSrc.reason + (tappedSrc.date ? " — "+new Date(tappedSrc.date).toLocaleDateString() : "") : "Earned before history tracking";
+          return (
+            <div onClick={function(){ setTappedShellIdx(null); }} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,textAlign:"center",fontSize:"0.78rem",fontWeight:600,color:"#5a4222",background:"#fdf5e8",border:"1.5px solid "+sandHex,borderRadius:10,padding:"7px 12px",margin:"0 auto 0.6rem",maxWidth:300,cursor:"pointer"}}>
+              <span>🐚 {tappedTip}</span>
+              <span style={{color:T.textFaint,fontWeight:400,fontSize:"0.7rem"}}>✕</span>
+            </div>
+          );
+        })()}
         <div style={{textAlign:"center",fontSize:"0.72rem",color:T.textFaint,marginBottom:"1.25rem"}}>
           {ready&&!chestOpen
             ? <span style={{color:tealHex,fontWeight:600}}>🎉 Ready to open!</span>
