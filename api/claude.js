@@ -16,6 +16,12 @@
 //      found yet (e.g. mid-onboarding, before a household exists) so the
 //      limiter never silently no-ops instead of degrading to per-user.
 //   6. Body is rebuilt from allowed fields only — never forwarded verbatim
+//   7. System prompt whitelist — the client's system prompt is forwarded
+//      unchanged only if it matches one of the app's own known feature
+//      prompts (SYSTEM_PROMPT_WHITELIST below); anything else falls back to
+//      FIXED_SYSTEM_PROMPT and is logged as rejected. This is what lets
+//      Compass, meal generation, and the daily notifications keep their own
+//      tuned prompts without this endpoint accepting truly arbitrary ones.
 //
 // Env vars required (Vercel → Project Settings → Environment Variables):
 //   ANTHROPIC_API_KEY     (already set)
@@ -30,14 +36,111 @@
 // where accessToken is the user's Supabase session token (the same one
 // you already attach to Supabase REST calls). See askClaude() helper note.
 
-// Fixed server-side system prompt. Any system prompt the client sends is
-// ignored (and logged) so this endpoint can't be turned into an
-// unconstrained proxy for the Anthropic key by supplying an arbitrary
-// system prompt from the browser.
+// Fixed server-side system prompt — the fallback used whenever the client's
+// system prompt isn't recognized (see SYSTEM_PROMPT_WHITELIST below).
 const FIXED_SYSTEM_PROMPT =
   "You are a helpful household assistant for Anchor & Flow. Help families " +
   "with planning, organization, and home management. Do not discuss " +
   "unrelated topics.";
+
+// ── System prompt whitelist ──────────────────────────────────────────────
+// Every real system prompt src/App.jsx, src/components/ExhaleSection.jsx,
+// and src/compass/compassEngine.js (via src/compass/compassPrompts.js) send
+// to this endpoint, extracted directly from those files (not from memory) —
+// see the per-entry comments for the exact call site. A client-sent system
+// prompt is forwarded to Anthropic UNCHANGED only if it matches one of
+// these; anything else — including no match at all — falls back to
+// FIXED_SYSTEM_PROMPT and is logged as rejected. This still can't be turned
+// into a fully unconstrained proxy (every entry pins the prompt to a known
+// app feature), while letting each feature's real, tuned prompt through.
+//
+// Two match kinds:
+//   "exact"  — the whole system string must equal `value` verbatim. Used
+//              wherever the real prompt has no runtime interpolation.
+//   "prefix" — the system string must start with `value`. Used wherever the
+//              real prompt is built by concatenating dynamic content (day
+//              names, diet info, category lists, etc.) after a fixed
+//              opening — `value` is that fixed opening.
+// `stripDate: true` means: first strip a leading `Today is <Weekday>,
+// <Month> <D>, <Year>. ` prefix IF it matches DATE_PREFIX_RE (a tight
+// regex — only letters/digits/the fixed punctuation, so nothing else can be
+// smuggled into that slot) before applying the prefix check. Two real
+// prompts (App.jsx's proactive-insights and Compass-chat) build their
+// system string as `` `Today is ${new Date().toLocaleDateString(...)}. You
+// are Compass...` `` — a plain `startsWith` can never match those since the
+// date changes every day, so the date portion is validated by regex first
+// instead of being accepted as arbitrary prefix content.
+const DATE_PREFIX_RE = /^Today is [A-Za-z]+, [A-Za-z]+ \d{1,2}, \d{4}\. /;
+
+// Shared opening every compassPrompts.js prompt except "briefing" is built
+// from (`VOICE + "\n\nTASK: ..."` — see src/compass/compassPrompts.js). One
+// prefix entry below covers all five of those modes (forecast, weeklyReview,
+// prep, nudge, ask) rather than five near-duplicate entries.
+const COMPASS_VOICE_PREFIX = `You are Compass, the family operating assistant inside Anchor & Flow,
+a household management app. Your job is to pay attention, lighten the mental load,
+and help the family feel steady — never to add work or guilt.
+
+RULES:
+- Answer ONLY from the FAMILY CONTEXT provided. Never invent events, tasks, meals,
+  or people. If something isn't in the context, say you don't see it.
+- Use first names from the context naturally.
+- Warm and specific. No corporate tone. Never say "reminder", "task list", or "as an AI".
+- Keep everything brief — a busy parent reads this in 20 seconds.
+- Return ONLY valid JSON matching the schema. No markdown, no backticks, no preamble.`;
+
+const SYSTEM_PROMPT_WHITELIST = [
+  // ── Compass v1 engine (src/compass/compassPrompts.js via compassEngine.js) ──
+  { label: "compass-voice-modes", match: "prefix", value: COMPASS_VOICE_PREFIX },
+  { label: "compass-briefing", match: "prefix", value: "You are Compass for Anchor & Flow. Your job is to NOTICE\nconnections in this family's data — not generate tasks." },
+
+  // ── Compass AI categorization/suggestions (ExhaleSection.jsx requestCompassSuggestion) ──
+  { label: "compass-task-categorize", match: "exact", value: "You are a household task assistant. Given a short task description, suggest the best matching category and person from the provided lists, ONLY if one clearly applies. Respond ONLY with JSON: {\"categoryId\":null,\"personId\":null}. Use ONLY the exact ids provided, or null." },
+
+  // ── Compass ad-hoc prompts (App.jsx) — daily anchor / proactive insights / chat / today-suggestions ──
+  { label: "compass-daily-anchor", match: "prefix", value: "You are Compass, the Anchor & Flow AI. Build a smart family daily anchor." },
+  { label: "compass-proactive-insights", match: "prefix", stripDate: true, value: "You are Compass, Anchor & Flow's proactive insight engine — warm, practical, and specific like a brilliant family manager friend. Scan the family's real data and surface 3-5 things they might be missing or that deserve attention NOW." },
+  { label: "compass-chat", match: "prefix", stripDate: true, value: "You are Compass, Anchor & Flow's warm home assistant. Be concise and encouraging. Use what you know about this family to personalise responses." },
+  { label: "compass-today-suggestions", match: "prefix", stripDate: true, value: "You are Compass, the Anchor & Flow AI — a warm family home assistant. Suggest what to do today based on the family's real data." },
+  // Dead code (App.jsx's EndOfDayReset, replaced by SunsetClose — no live
+  // JSX renders it) but kept here so it isn't a silent regression if it's
+  // ever revived.
+  { label: "compass-eod-closing-line", match: "exact", value: "You are Compass. Write ONE warm closing sentence under 20 words. Be specific. Make them feel seen." },
+
+  // ── Morning/evening notification text (App.jsx generateAIMessage call sites) ──
+  { label: "notif-morning-greeting", match: "exact", value: `You are Compass, the Anchor & Flow AI. Write a warm good morning greeting — max 50 chars, no punctuation at end. Start with "Good morning" and optionally one warm word. Examples: "Good morning, lovely day ahead", "Good morning — let's do this".` },
+  { label: "notif-dinner-reminder", match: "exact", value: "You are Compass, the Anchor & Flow AI. Write a friendly 3pm meal prep reminder (max 120 chars). Mention the specific dinner and suggest one thing to do now (defrost, start slow cooker, etc). Warm tone." },
+  { label: "notif-evening-recap", match: "exact", value: "You are Compass, the Anchor & Flow AI — warm and real. Write an evening recap (max 160 chars). Acknowledge what they did, mention tomorrow briefly. Caring tone, not corporate." },
+  { label: "notif-event-nudge", match: "exact", value: "You are Compass, the Anchor & Flow AI. Write a friendly heads-up notification for an upcoming appointment in 2 hours (max 120 chars). Be warm and helpful — suggest one thing to do to prepare." },
+
+  // ── Meal name/suggestion generation (App.jsx) ──
+  { label: "meal-weektype-suggest", match: "prefix", value: "You are a practical family meal planner. Suggest 7 dinners (one per day Sun–Sat) for a " },
+  { label: "meal-rescue-suggest", match: "exact", value: `You are a helpful family meal assistant. Given ingredients on hand, suggest 3 simple family-friendly dinners.
+Respond ONLY with a valid JSON array, no markdown, no explanation, nothing else.
+Format: [{"name":"Meal Name","desc":"1-2 sentence description of how to make it"}]
+Always return exactly 3 meals. Use only the ingredients provided plus assumed pantry staples (oil, salt, pepper, water).` },
+  { label: "meal-prep-tips", match: "exact", value: "You are a practical family meal prep assistant. Given a week of meals and their ingredients, generate smart prep tips. Focus on: shared ingredients that can be prepped once (e.g. chop all onions Sunday), leftover opportunities (e.g. swap meals to use leftovers), batch cooking ideas, and time-saving shortcuts. Also suggest if swapping 2 meals would create a leftover chain. Respond ONLY as JSON: {\"shared\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"swaps\":[{\"tip\":\"string\",\"emoji\":\"string\"}],\"batch\":[{\"tip\":\"string\",\"emoji\":\"string\"}]}. Max 3 items per category. Keep tips under 80 chars." },
+
+  // ── Shopping/grocery assistant (App.jsx) — not in the original feature
+  // list this whitelist was requested for, but a real, currently-used
+  // feature that would otherwise silently break the same way. ──
+  { label: "grocery-categorize", match: "exact", value: "You are a grocery assistant. Given a list of shopping items and a list of categories, assign each item to the best category. Respond ONLY with a JSON array: [{\"id\":\"\",\"category\":\"\"}]. Use ONLY the exact category names provided. If unsure, use Other." },
+  { label: "grocery-photo-recognize", match: "prefix", value: `You are a grocery list assistant. Given an image, identify the grocery item and return ONLY JSON: {"name":"","category":""}. Category must be one of: ` },
+];
+
+// Validates and (if matched) strips a leading dynamic date prefix, then
+// checks the remainder against the whitelist. Returns true iff `system`
+// should be forwarded to Anthropic unchanged.
+function isWhitelistedSystemPrompt(system) {
+  if (typeof system !== "string" || system.length === 0) return false;
+  const dateMatch = DATE_PREFIX_RE.exec(system);
+  const withoutDate = dateMatch ? system.slice(dateMatch[0].length) : system;
+  for (const entry of SYSTEM_PROMPT_WHITELIST) {
+    const candidate = entry.stripDate ? withoutDate : system;
+    if (entry.match === "exact" && candidate === entry.value) return true;
+    if (entry.match === "prefix" && candidate.startsWith(entry.value)) return true;
+  }
+  return false;
+}
 
 const MODEL_MAP = {
   // client-requested model -> actual model we run
@@ -158,15 +261,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "messages required" });
   }
 
+  // A whitelisted system prompt (one of the app's own known feature
+  // prompts — see SYSTEM_PROMPT_WHITELIST) passes through unchanged.
+  // Anything else — unrecognized text, or none at all — falls back to the
+  // fixed generic prompt and is logged as rejected, same as before.
+  let systemPrompt = FIXED_SYSTEM_PROMPT;
   if (typeof body.system === "string" && body.system.length > 0) {
-    console.warn("Claude proxy: ignoring client-supplied system prompt for user", user.id);
+    if (isWhitelistedSystemPrompt(body.system)) {
+      systemPrompt = body.system;
+    } else {
+      console.warn("Claude proxy: ignoring client-supplied system prompt for user", user.id);
+    }
   }
 
   const safeBody = {
     model: MODEL_MAP[body.model] || DEFAULT_MODEL,
     max_tokens: Math.min(Number(body.max_tokens) || 1000, MAX_TOKENS_CAP),
     messages: body.messages,
-    system: FIXED_SYSTEM_PROMPT,
+    system: systemPrompt,
   };
 
   // ── 4. Forward ────────────────────────────────────────────────────────
