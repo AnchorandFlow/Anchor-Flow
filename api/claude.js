@@ -6,13 +6,24 @@
 //   2. Server-side model whitelist — client's model string is mapped, never trusted
 //   3. max_tokens capped server-side
 //   4. Request body size capped (blocks giant base64 abuse beyond grocery photos)
-//   5. Best-effort per-user rate limit (in-memory; resets on cold start)
+//   5. Best-effort per-HOUSEHOLD rate limit (in-memory; resets on cold start).
+//      Keyed by householdId rather than the Supabase user id so multiple
+//      people in the same household share one cap instead of each getting
+//      their own — resolved via the same households/household_members
+//      lookup api/stripe/entitlement.js uses (owner_id first, then
+//      household_members), since the JWT itself only carries the user id,
+//      not household_id. Falls back to the user id if no household row is
+//      found yet (e.g. mid-onboarding, before a household exists) so the
+//      limiter never silently no-ops instead of degrading to per-user.
 //   6. Body is rebuilt from allowed fields only — never forwarded verbatim
 //
 // Env vars required (Vercel → Project Settings → Environment Variables):
-//   ANTHROPIC_API_KEY   (already set)
-//   SUPABASE_URL        e.g. https://sbgbyptkunvyxjfpzght.supabase.co
-//   SUPABASE_ANON_KEY   the same anon key the client uses
+//   ANTHROPIC_API_KEY     (already set)
+//   SUPABASE_URL          e.g. https://sbgbyptkunvyxjfpzght.supabase.co
+//   SUPABASE_ANON_KEY     the same anon key the client uses
+//   SUPABASE_SERVICE_KEY  server-only service-role key (same var name the
+//                         api/stripe/*.js endpoints already use) — needed to
+//                         read households/household_members regardless of RLS
 //
 // CLIENT CHANGE REQUIRED: every fetch("/api/claude") must now send
 //   headers: { "Content-Type": "application/json", "Authorization": "Bearer " + accessToken }
@@ -37,21 +48,23 @@ const MODEL_MAP = {
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS_CAP = 1500;
 const MAX_BODY_BYTES = 6 * 1024 * 1024; // allows one grocery photo (base64), blocks bulk abuse
-const RATE_LIMIT = 60;                  // requests per user
-const RATE_WINDOW_MS = 10 * 60 * 1000;  // per 10 minutes
+const RATE_LIMIT = 20;                  // requests per household
+const RATE_WINDOW_MS = 60 * 60 * 1000;  // per hour
 
 // In-memory rate limiter. Per-instance only (serverless), so it's
-// best-effort — but it stops casual abuse and runaway client loops.
+// best-effort — but it stops casual abuse and runaway client loops. Keyed by
+// householdId (see resolveHouseholdId below), falling back to the Supabase
+// user id when no household has been resolved yet.
 const hits = new Map();
-function rateLimited(userId) {
+function rateLimited(key) {
   const now = Date.now();
-  const entry = hits.get(userId) || { count: 0, start: now };
+  const entry = hits.get(key) || { count: 0, start: now };
   if (now - entry.start > RATE_WINDOW_MS) {
     entry.count = 0;
     entry.start = now;
   }
   entry.count++;
-  hits.set(userId, entry);
+  hits.set(key, entry);
   if (hits.size > 5000) hits.clear(); // memory guard
   return entry.count > RATE_LIMIT;
 }
@@ -67,6 +80,41 @@ async function verifySupabaseToken(token) {
     if (!r.ok) return null;
     const user = await r.json();
     return user && user.id ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+// Resolves a Supabase user id to their household id, same lookup order as
+// api/stripe/entitlement.js's resolveHouseholdId: owned household first
+// (households.owner_id), then membership (household_members.user_id). Uses
+// the service-role key via plain REST calls (not the @supabase/supabase-js
+// client the stripe endpoints use) to keep this file dependency-free, same
+// as its existing verifySupabaseToken. Returns null on any misconfig,
+// lookup failure, or "no household yet" — callers fall back to the user id.
+async function resolveHouseholdId(userId) {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !serviceKey) return null;
+  const headers = { apikey: serviceKey, Authorization: "Bearer " + serviceKey };
+  try {
+    const ownedR = await fetch(
+      url + "/rest/v1/households?owner_id=eq." + encodeURIComponent(userId) + "&select=id&limit=1",
+      { headers }
+    );
+    if (ownedR.ok) {
+      const owned = await ownedR.json();
+      if (Array.isArray(owned) && owned.length) return owned[0].id;
+    }
+    const memR = await fetch(
+      url + "/rest/v1/household_members?user_id=eq." + encodeURIComponent(userId) + "&select=household_id&limit=1",
+      { headers }
+    );
+    if (memR.ok) {
+      const mem = await memR.json();
+      if (Array.isArray(mem) && mem.length) return mem[0].household_id;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -93,9 +141,11 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Invalid or expired session" });
   }
 
-  // ── 2. Rate limit ─────────────────────────────────────────────────────
-  if (rateLimited(user.id)) {
-    return res.status(429).json({ error: "Too many requests — try again in a few minutes" });
+  // ── 2. Rate limit — per household, not per user ────────────────────────
+  const householdId = await resolveHouseholdId(user.id);
+  const rateLimitKey = householdId || user.id;
+  if (rateLimited(rateLimitKey)) {
+    return res.status(429).json({ error: "This household has reached its AI request limit for the hour — try again a little later." });
   }
 
   // ── 3. Validate + rebuild body (never forward verbatim) ───────────────
