@@ -1505,17 +1505,23 @@ export default function ExhaleSection(props) {
             <input autoFocus defaultValue={bucketName} onClick={(e) => e.stopPropagation()}
               onBlur={(e) => renameBucket(idx, e.target.value.trim() || bucketName)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") e.target.blur(); }}
-              style={{ flex: 1, fontSize: 18, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
+              style={{ flex: 1, minWidth: 0, fontSize: 18, fontWeight: 700, border: "none", background: "transparent", color: txP, outline: "none", borderBottom: "1.5px solid " + accent, fontFamily: "inherit" }} />
           ) : (
+            // minWidth:0 + ellipsis: without it, a flex item with flex:1
+            // still refuses to shrink below its text's natural width (the
+            // flexbox min-width:auto default), so a long bucket name pushed
+            // the Select/+Add buttons and chevron past the card's right edge
+            // — clipped by the card's own overflow:hidden instead of
+            // wrapping or truncating.
             <span onClick={(e) => { e.stopPropagation(); setEditingBucketIdx(idx); }} title="Tap to rename"
-              style={{ flex: 1, fontSize: 18, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
+              style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 18, fontWeight: 700, color: txP, cursor: "text" }}>{bucketName}</span>
           )}
-          <span style={{ fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
+          <span style={{ flexShrink: 0, fontSize: 11, color: txS, background: bgS, borderRadius: 20, padding: "1px 8px" }}>{bItems.length}</span>
           <button onClick={(e) => { e.stopPropagation(); toggleSelectMode(idx); }}
-            style={{ background: selectMode ? accent : "transparent", color: selectMode ? "white" : txS, border: selectMode ? "none" : br, borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>{selectMode ? "Done" : "Select"}</button>
+            style={{ flexShrink: 0, background: selectMode ? accent : "transparent", color: selectMode ? "white" : txS, border: selectMode ? "none" : br, borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>{selectMode ? "Done" : "Select"}</button>
           <button onClick={(e) => { e.stopPropagation(); setBucketAddOpenFor(bucketAddOpenFor === idx ? null : idx); setOpenBuckets(function(p) { return Object.assign({}, p, { [idx]: true }); }); }}
-            style={{ background: accent, color: "white", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>+ Add</button>
-          <span style={{ fontSize: 11, color: txS, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
+            style={{ flexShrink: 0, background: accent, color: "white", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>+ Add</button>
+          <span style={{ flexShrink: 0, fontSize: 11, color: txS, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-block" }}>▾</span>
         </div>
 
         {isOpen && (

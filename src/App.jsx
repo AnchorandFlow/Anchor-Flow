@@ -1068,6 +1068,11 @@ const STORE_META = [
   {id:"amazon",  emoji:"📦", hasCats:false},
 ];
 function storeMetaFor(i){ return STORE_META[i] || {id:"store"+i, emoji:"🏬", hasCats:false}; }
+// Common non-grocery stores — quick-add options in Settings' Shopping
+// section (same list FirstVoyageWizard's non-grocery store question offers
+// during onboarding), so adding one of these doesn't require typing
+// "New Store" and renaming it by hand.
+var COMMON_NONGROCERY_STORES = ["Target","Amazon","Walmart","Costco","Sam's Club","TJ Maxx"];
 // Renames a store by index and migrates every shoppingItems row pointing at
 // the old label so items don't get silently orphaned under a stale store
 // name. Shared by the Shopping tab's own inline rename and Settings' store
@@ -2014,15 +2019,12 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
             <button onClick={addMember} style={btnP(T.sage,{padding:"0.38rem 0.9rem",fontSize:"0.82rem"})}>Add</button>
           </div>
         </div>
-        {/* Household name + ZIP code + home vibe + trash day */}
+        {/* Household name + ZIP code + trash day */}
         <FRow label="Household name" sub="What Compass calls your family">
           <input defaultValue={(familyProfile&&familyProfile.householdName)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{householdName:e.target.value});});}} placeholder="e.g. The Harper Crew" style={{...inp({width:160,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
         </FRow>
         <FRow label="ZIP code" sub="For local weather and notification timing">
           <input defaultValue={(familyProfile&&familyProfile.zipcode)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{zipcode:e.target.value});});}} placeholder="e.g. 80903" style={{...inp({width:90,fontSize:"0.8rem",padding:"0.28rem 0.55rem",textAlign:"center"})}}/>
-        </FRow>
-        <FRow label="Home vibe" sub="Guides Compass's tone — calm, adventurous, faith-led…">
-          <input defaultValue={(familyProfile&&familyProfile.homeVibe)||""} onBlur={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{homeVibe:e.target.value});});}} placeholder="e.g. calm & faith-led" style={{...inp({width:140,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}/>
         </FRow>
         <FRow label="Trash day" sub="Which day trash/recycling goes out">
           <select value={(familyProfile&&familyProfile.trashDay)||""} onChange={function(e){setFamilyProfile(function(p){return Object.assign({},p||{},{trashDay:e.target.value});});}} style={{...inp({width:130,fontSize:"0.8rem",padding:"0.28rem 0.55rem"})}}>
@@ -2283,7 +2285,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
       {/* ════════════════════════════════════
           5. SHOPPING
       ════════════════════════════════════ */}
-      <Sec id="shopping" emoji="🛒" title="Shopping" sub="Your 4 default stores">
+      <Sec id="shopping" emoji="🛒" title="Shopping" sub={"Your "+stores.length+" default store"+(stores.length!==1?"s":"")}>
         <div style={{paddingTop:"0.75rem"}}>
           <div style={{fontSize:"0.78rem",color:T.textSoft,lineHeight:1.55,marginBottom:"0.75rem"}}>These show as tabs on your shopping list. Tap to rename any store.</div>
           {stores.map(function(store,i){
@@ -2300,10 +2302,22 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
               </div>
             );
           })}
-          {stores.length<6&&(
+          {stores.length<10&&(
             <button onClick={function(){setStores(function(p){return [...p,"New Store"];});setEditingStore(stores.length);setStoreEditVal("New Store");}} style={{...btnS({fontSize:"0.8rem",padding:"0.38rem 0.85rem",display:"flex",alignItems:"center",gap:"0.35rem",marginTop:"0.2rem"})}}>
-              <Icon name="plus" size={13} color={T.textMid}/> Add store
+              <Icon name="plus" size={13} color={T.textMid}/> Add custom store
             </button>
+          )}
+          {stores.length<10 && COMMON_NONGROCERY_STORES.filter(function(name){return stores.indexOf(name)===-1;}).length>0 && (
+            <div style={{marginTop:"0.6rem"}}>
+              <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.35rem"}}>Or add a common store:</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:"0.4rem"}}>
+                {COMMON_NONGROCERY_STORES.filter(function(name){return stores.indexOf(name)===-1;}).map(function(name){
+                  return (
+                    <button key={name} onClick={function(){setStores(function(p){return p.length<10?[...p,name]:p;});}} style={{...btnS({fontSize:"0.78rem",padding:"0.3rem 0.7rem"})}}>+ {name}</button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </Sec>
@@ -2834,7 +2848,7 @@ const _hfComps   = {};
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab','HorizonTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTitleInput','CoveAddItemInput','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
-  'SetPasswordModal','WhoAmIModal',
+  'SetPasswordModal','WhoAmIModal','Countdowns',
 ].forEach(n => {
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
   Object.defineProperty(_hfComps[n], 'name', { value: n });
@@ -5254,8 +5268,20 @@ function createLocalBackup() {
     // header comment). Nothing else sets them either, so they just keep
     // whatever default they already had; the user can set them later in
     // Settings same as everything else this rewrite moved out of onboarding.
-    if (payload.groceryStore) {
-      setStores([payload.groceryStore]);
+    if (payload.groceryStore || (payload.nonGroceryStores && payload.nonGroceryStores.length > 0)) {
+      // Was setStores([payload.groceryStore]) — replaced the whole list with
+      // just the one grocery pick, silently dropping the sensible defaults
+      // (Costco/Target/Amazon) for anyone who didn't separately pick those.
+      // Now combines the grocery pick with whatever non-grocery stores were
+      // selected on the same screen, deduped, grocery first. Capped at 10 —
+      // STORE_META only has real emoji/subcategory metadata for the first 4
+      // slots, but every slot beyond that already falls back gracefully to a
+      // generic store icon (storeMetaFor), same as a store manually added in
+      // Settings past that point always has.
+      var pickedStores = [];
+      if (payload.groceryStore) pickedStores.push(payload.groceryStore);
+      (payload.nonGroceryStores || []).forEach(function(s){ if (pickedStores.indexOf(s) === -1) pickedStores.push(s); });
+      setStores(pickedStores.slice(0, 10));
     }
     if (payload.favMeals && payload.favMeals.length > 0) {
       payload.favMeals.forEach(function(name) {
@@ -5271,6 +5297,16 @@ function createLocalBackup() {
       // that just explicitly opted in here would set up kids for a feature
       // they then couldn't find in the nav.
       setTidePoolEnabled(true);
+    }
+    if (payload.moreFeaturesEnabled) {
+      // "Turn these on now" on the wizard's "can do even more" screen
+      // (People/Horizon/Ripples). People and Horizon are sidebar sections
+      // (default off for new users — isNewUserForDefaults' minimal-mode
+      // fallback), Ripples is a separate feature flag (readFeatureFlags'
+      // newUserOffKeys) — same two-mechanism split "wantsTreasureChest"
+      // above deals with for Tide Pool, just two knobs instead of one.
+      setSections(function(prev){ return Object.assign({}, prev, {people:true, horizon:true}); });
+      setRipplesEnabled(true);
     }
     if (payload.pets && payload.pets.length > 0) {
       seedPets(payload.pets);
@@ -6036,7 +6072,7 @@ Respond ONLY with valid JSON array, no markdown:
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab, HorizonTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTitleInput, CoveAddItemInput, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
-          SetPasswordModal, WhoAmIModal } = _hfComps;
+          SetPasswordModal, WhoAmIModal, Countdowns } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
     useEffect(() => {
@@ -6134,7 +6170,7 @@ Respond ONLY with valid JSON array, no markdown:
       var d = new Date(e.date + "T00:00:00");
       if(isNaN(d.getTime()) || d < today) return;
       var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: "🎂", label: (e.title||"").replace("🎂 ","").replace(/\s*\(turns[^)]*\)\s*$/,""), color:null });
+      items.push({ days: days, id: "bday_"+e.date, icon: "🎂", label: (e.title||"").replace("🎂 ","").replace(/\s*\(turns[^)]*\)\s*$/,""), color:null });
     });
     var moments = [];
     try { var s = localStorage.getItem("af_moments"); moments = s ? JSON.parse(s) : []; } catch(_e) {}
@@ -6143,7 +6179,7 @@ Respond ONLY with valid JSON array, no markdown:
       var d = new Date(m.date + "T00:00:00");
       if(isNaN(d.getTime()) || d < today) return;
       var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: "✈️", label: m.name || "Trip", color:null });
+      items.push({ days: days, id: "trip_"+(m.id||m.date+"_"+(m.name||"")), icon: "✈️", label: m.name || "Trip", color:null });
     });
     // COUNTDOWN-1: user-created reusable countdowns, tagged to show here.
     (countdowns||[]).forEach(function(c){
@@ -6151,10 +6187,51 @@ Respond ONLY with valid JSON array, no markdown:
       var d = new Date(c.targetDate + "T00:00:00");
       if(isNaN(d.getTime()) || d < today) return;
       var days = Math.round((d - today) / 86400000);
-      items.push({ days: days, icon: c.emoji||"⭐", label: c.title||"Countdown", color: c.color||null });
+      items.push({ days: days, id: "cd_"+c.id, icon: c.emoji||"⭐", label: c.title||"Countdown", color: c.color||null });
     });
     items.sort(function(a,b){ return a.days - b.days; });
     var top = items.slice(0, 4);
+    // Countdown celebration: fire the app-wide confetti overlay (the same
+    // "af-celebrate" event Tide Pool's treasure-claim uses) once per
+    // countdown the first day it hits zero. De-duped via a small localStorage
+    // map keyed by each item's id + today's date, since this effect runs
+    // every render while Countdowns stays mounted (typically the whole time
+    // the user's on Today) and would otherwise refire on every re-render.
+    // Local date, not UTC (toISOString) — same fix as TidePoolTab's daily
+    // reset and getThisSunday() elsewhere: a UTC-based key rolls over at a
+    // different moment than the local "today" this effect actually reasons
+    // about (it.days is computed against local midnight), which could
+    // misalign the dedup key near a UTC-midnight boundary.
+    var todayLocalStr = localDateStr(today);
+    React.useEffect(function(){
+      var zeroItems = items.filter(function(it){ return it.days === 0; });
+      if (zeroItems.length === 0) return;
+      // Deferred a tick: React fires a child's mount effect before its
+      // parent's (HomeFlow registers the "af-celebrate" listener in its own
+      // useEffect), so dispatching synchronously here on first mount could
+      // fire before that listener even exists yet, silently dropping the
+      // celebration on the exact case that matters most — a fresh page
+      // load the morning a countdown hits zero.
+      var t = setTimeout(function(){
+        var seen;
+        try { seen = JSON.parse(localStorage.getItem("af_countdownCelebrated") || "{}"); } catch(e) { seen = {}; }
+        var changed = false;
+        zeroItems.forEach(function(it){
+          var key = it.id + "_" + todayLocalStr;
+          if (seen[key]) return;
+          seen[key] = true;
+          changed = true;
+          window.dispatchEvent(new CustomEvent("af-celebrate", { detail: {
+            heading: "🎉 Today's the day!",
+            title: it.label,
+            message: (it.label || "Your countdown") + " is here!"
+          }}));
+        });
+        if (changed) { try { localStorage.setItem("af_countdownCelebrated", JSON.stringify(seen)); } catch(e) {} }
+      }, 0);
+      return function(){ clearTimeout(t); };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [todayLocalStr, items.map(function(it){return it.id+":"+it.days;}).join(",")]);
     function submitCountdown(){
       if(!form.title.trim()||!form.targetDate) return;
       setCountdowns(function(p){return [...p,{id:uid(),title:form.title.trim(),targetDate:form.targetDate,emoji:form.emoji,color:form.color,showOn:form.showOn}];});
@@ -7509,6 +7586,13 @@ Respond ONLY in valid JSON:
           <RippleNotificationBanner />
         </div>
         <CompassFab gated={BILLING_V1 && !sub.isPremium} onGated={function(){ setPlusModalFeature("Ask Compass"); }}/>
+
+        {/* Countdowns — fully built (birthdays/trips/user-created, COUNTDOWN-1)
+            but never actually mounted anywhere; found while wiring up the
+            "countdown reaches zero" celebration, since a celebration for a
+            card nobody can see is pointless. Placed here, not in Survival
+            mode's reduced view, matching the Schedule card just below. */}
+        {flowMode!=="Survival"&&<Countdowns/>}
 
         {/* ── Schedule / Dinner / Tasks / Compass Suggests — mode-adaptive ── */}
         <div style={{display:"flex",flexDirection:"column",gap:flowMode==="Busy"?"0.5rem":"0.75rem"}}>
@@ -12351,13 +12435,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         var lastReset;
         try { lastReset = localStorage.getItem(resetKey); } catch { lastReset = null; }
         if(lastReset !== todayStr) {
+          // Same underlying issue as updateKid() above (nesting setCoveData
+          // inside the setKids updater risks "Cannot update a component
+          // while rendering a different component") — but this effect only
+          // runs its setup once ([] deps) and checkReset is re-invoked much
+          // later via the focus/visibilitychange listeners below, so closing
+          // over the `kids` variable directly would use a stale, mount-time
+          // snapshot instead of whatever kids actually is by the time a
+          // reset fires. Keep the functional setKids form to always operate
+          // on the latest kids, but capture its result in a plain variable
+          // and call setCoveData with that afterward, as its own statement,
+          // instead of from inside the updater.
+          var resetNext;
           setKids(function(prev){
-            var next = prev.map(function(k){
+            resetNext = prev.map(function(k){
               return Object.assign({},k,{chores:k.chores.map(function(c){return Object.assign({},c,{done:false});})});
             });
-            setCoveData(next);
-            return next;
+            return resetNext;
           });
+          setCoveData(resetNext);
           try { localStorage.setItem(resetKey, todayStr); } catch {}
         }
       }
@@ -12398,11 +12494,15 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
 
     function updateKid(patch) {
-      setKids(function(prev){
-        var next = prev.map(function(k,i){ return i===selIdx?Object.assign({},k,patch):k; });
-        setCoveData(next);
-        return next;
-      });
+      // Was calling setCoveData inside the setKids updater function — React
+      // warns "Cannot update a component while rendering a different
+      // component" because that updater can run during TidePoolTab's own
+      // render pass, and setCoveData updates a DIFFERENT component
+      // (HomeFlow) from in there. Two separate, sequential state updates
+      // instead — both still fire every time, just not nested.
+      var next = kids.map(function(k,i){ return i===selIdx?Object.assign({},k,patch):k; });
+      setKids(next);
+      setCoveData(next);
     }
 
     function toggleChore(choreId) {

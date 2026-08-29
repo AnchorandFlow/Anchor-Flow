@@ -51,24 +51,36 @@ export default function CompassFab(props) {
     if (!q || busy) return;
     setInput("");
     setBusy(true);
-    // Phase 3 Item 4 — last 6 Q&A pairs as multi-turn history, so follow-ups
-    // like "What about Saturday?" resolve against the prior exchange. Only
-    // successful past turns count (an error turn has no real assistant
-    // reply to replay back as history).
-    var history = [];
-    thread.filter(function (t) { return !t.error; }).slice(-6).forEach(function (t) {
-      history.push({ role: "user", content: t.q });
-      history.push({ role: "assistant", content: JSON.stringify({ answer: t.a, details: t.details || [], not_found: false }) });
-    });
-    askFamily(readHouseholdState(), q, history)
-      .then(function (r) {
-        setThread(function (p) { return p.concat([{ q: q, a: r.answer, details: r.details || [] }]); });
-        setBusy(false);
-      })
-      .catch(function (e) {
-        setThread(function (p) { return p.concat([{ q: q, error: e.message || "Compass couldn't think just now." }]); });
-        setBusy(false);
+    function fail(e) {
+      setThread(function (p) { return p.concat([{ q: q, error: (e && e.message) || "Compass couldn't think just now." }]); });
+      setBusy(false);
+    }
+    // Wrapped in try/catch, not just the promise's .catch() below: anything
+    // that throws SYNCHRONOUSLY here (readHouseholdState() reading
+    // localStorage has been seen to throw on some mobile Safari storage
+    // configurations) happens before the promise chain even starts, so it
+    // would otherwise skip .catch() entirely and leave busy stuck true
+    // forever with no visible error — this is what "Compass errors on
+    // phone" looked like from the outside.
+    try {
+      // Phase 3 Item 4 — last 6 Q&A pairs as multi-turn history, so follow-ups
+      // like "What about Saturday?" resolve against the prior exchange. Only
+      // successful past turns count (an error turn has no real assistant
+      // reply to replay back as history).
+      var history = [];
+      thread.filter(function (t) { return !t.error; }).slice(-6).forEach(function (t) {
+        history.push({ role: "user", content: t.q });
+        history.push({ role: "assistant", content: JSON.stringify({ answer: t.a, details: t.details || [], not_found: false }) });
       });
+      askFamily(readHouseholdState(), q, history)
+        .then(function (r) {
+          setThread(function (p) { return p.concat([{ q: q, a: r.answer, details: r.details || [] }]); });
+          setBusy(false);
+        })
+        .catch(fail);
+    } catch (e) {
+      fail(e);
+    }
   }
 
   function onKey(e) { if (e.key === "Enter") send(); }

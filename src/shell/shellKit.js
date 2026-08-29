@@ -25,11 +25,20 @@ export const TK = {
 // survives the migration without coupling.
 export function readHouseholdState() {
   var s = {};
-  for (var i = 0; i < localStorage.length; i++) {
-    var key = localStorage.key(i);
-    if (key && key.indexOf("af_") === 0) {
-      try { s[key.slice(3)] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+  // Some mobile Safari configurations (Private Browsing, restricted storage
+  // under certain tracking-prevention states) throw a SecurityError on
+  // localStorage access itself, not just on a specific key — the per-key
+  // try/catch below only ever covered JSON.parse. An uncaught throw here
+  // happens synchronously inside CompassFab's send(), before its own
+  // promise .catch() is ever reached, leaving busy stuck true forever with
+  // no visible error. Wrap the whole loop so callers always get {} instead.
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.indexOf("af_") === 0) {
+        try { s[key.slice(3)] = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+      }
     }
-  }
+  } catch (e) {}
   return s;
 }

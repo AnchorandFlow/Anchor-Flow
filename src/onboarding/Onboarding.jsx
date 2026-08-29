@@ -111,6 +111,11 @@ var S_checkboxRow = { display: 'flex', alignItems: 'center', gap: 8,
 // ---------------------------------------------------------------------------
 
 var STORE_OPTIONS = ['Target', 'Costco', "Sam's Club", 'Walmart', 'Other'];
+// Common non-grocery stores — separate multi-select from the single-pick
+// grocery StorePicker above. Not "Other" here: a free-text non-grocery store
+// is a much rarer need than for groceries, and Settings' "Add store" already
+// covers it after onboarding.
+var NON_GROCERY_STORE_OPTIONS = ['Target', 'Amazon', 'Walmart', 'Costco', "Sam's Club", 'TJ Maxx'];
 
 var SCHOOL_TYPE_OPTIONS = [
   { value: 'homeschool', label: 'Homeschool',     emoji: '🏠' },
@@ -200,8 +205,11 @@ function StepShell(props) {
   );
 }
 
-// Single-button shell — screens 3, 4 & 5. No back, no separate skip: the one
-// button IS "move on," whether that means "later," "got it," or "let's go."
+// Mostly single-button shell — screens 3, 4 & 5. No back, no separate skip:
+// the primary button IS "move on," whether that means "later," "got it," or
+// "let's go." Screen 3 (StepMore) is the one exception with a real choice
+// to offer, via the optional onSecondary/secondaryLabel props below —
+// screens 4 & 5 don't pass them, so they render exactly as before.
 function InfoShell(props) {
   return (
     <div style={S.frame}>
@@ -210,6 +218,11 @@ function InfoShell(props) {
       <p style={S.subtitle}>{props.subtitle}</p>
       <div style={{ flex: 1 }}>{props.children}</div>
       <div style={S.footer}>
+        {props.onSecondary ? (
+          <button type="button" style={S.backBtn} onClick={props.onSecondary}>
+            {props.secondaryLabel}
+          </button>
+        ) : null}
         <button type="button" style={S.primaryBtn} onClick={props.onNext}>
           {props.nextLabel}
         </button>
@@ -285,6 +298,34 @@ function StorePicker(props) {
   );
 }
 
+function NonGroceryStorePicker(props) {
+  var d = props.data;
+  var selected = d.nonGroceryStores || [];
+  function toggleFactory(name) {
+    return function () {
+      var isOn = selected.indexOf(name) !== -1;
+      var next = isOn ? selected.filter(function (s) { return s !== name; }) : selected.concat([name]);
+      props.set('nonGroceryStores', next);
+    };
+  }
+  var rowStyle = { display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 6 };
+  return (
+    <div>
+      <div style={rowStyle}>
+        {NON_GROCERY_STORE_OPTIONS.map(function (name) {
+          var isOn = selected.indexOf(name) !== -1;
+          return (
+            <button key={name} type="button"
+              style={isOn ? S_pillOn : S_pill}
+              onClick={toggleFactory(name)}>{name}</button>
+          );
+        })}
+      </div>
+      <p style={S.hint}>Tap all that apply — these show up as tabs on your shopping list too.</p>
+    </div>
+  );
+}
+
 function FavMealRow(props) {
   function handleChange(e) { props.onChange(props.idx, e.target.value); }
   return (
@@ -342,6 +383,9 @@ function StepBasics(props) {
       <div style={{ height: 18 }} />
       <label style={S.label}>Where do you usually grocery shop?</label>
       <StorePicker data={d} set={props.set} />
+      <div style={{ height: 18 }} />
+      <label style={S.label}>Where else do you often shop?</label>
+      <NonGroceryStorePicker data={d} set={props.set} />
       <div style={{ height: 18 }} />
       <label style={S.label}>A couple of favorite meals?</label>
       <p style={S.hint}>{'We’ll add these to your meal bank to make planning easier.'}</p>
@@ -520,11 +564,20 @@ function StepHarbor(props) {
 // ---------------------------------------------------------------------------
 
 function StepMore(props) {
+  function handleTurnOnNow() {
+    props.set('wantsMoreFeatures', true);
+    props.onNext();
+  }
+  function handleExploreLater() {
+    props.set('wantsMoreFeatures', false);
+    props.onNext();
+  }
   return (
     <InfoShell index={props.index} total={props.total}
       title="Anchor & Flow can do even more"
       subtitle="These features are available whenever you're ready."
-      onNext={props.onNext} nextLabel={'I’ll explore later'}>
+      onNext={handleTurnOnNow} nextLabel={'Turn these on now'}
+      onSecondary={handleExploreLater} secondaryLabel={'I’ll explore later'}>
       {MORE_FEATURES.map(function (f, i) {
         return (
           <div key={i} style={S_iconRow}>
@@ -660,8 +713,10 @@ export function buildInitialData(props) {
     people: people,
     groceryStore: '',
     groceryStoreOther: '',
+    nonGroceryStores: [],
     favMeals: ['', '', ''],
     goesToSchool: null,
+    wantsMoreFeatures: null,
     wantsTreasureChest: null,
     hasPets: null,
     pets: []
@@ -681,7 +736,9 @@ export function buildPayload(d) {
         return person;
       }),
     groceryStore: groceryStore || '',
+    nonGroceryStores: d.nonGroceryStores || [],
     favMeals: d.favMeals.filter(function (m) { return m.trim() !== ''; }).map(function (m) { return m.trim(); }),
+    moreFeaturesEnabled: d.wantsMoreFeatures === true,
     treasureChestEnabled: d.wantsTreasureChest === true,
     pets: d.pets
       .filter(function (p) { return p.name.trim() !== ''; })

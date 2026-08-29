@@ -118,20 +118,53 @@ export default async function handler(req, res) {
 
   const db = admin();
 
-  // No stripe_events idempotency table (sql/2026-07_billing.sql that would create it
-  // was never applied to production — confirmed missing, causing every webhook
-  // delivery to 500 on the insert). Every current handleEvent() write is already
-  // idempotent on its own: upsertFromSubscription upserts onConflict
-  // 'stripe_subscription_id', and the subscription-deleted handler just sets
-  // status: 'canceled' — re-running either on a Stripe retry is harmless. Safe to
-  // run without a separate event-id dedup table for now. If a future event type
-  // needs a non-idempotent side effect (e.g. sending an email), re-add real
-  // event-id tracking before relying on this path for it.
+  // stripe_events idempotency guard — restored, but defensively: the table
+  // (sql/2026-07_billing.sql) was never actually applied to production the
+  // first time this existed, and an unguarded insert into a table that
+  // doesn't exist yet is exactly what caused every webhook delivery to 500
+  // before (confirmed missing — see git history). So: any DB error other
+  // than a real 23505 duplicate (missing table, RLS misconfig, transient
+  // failure, etc.) is logged and swallowed, falling through to process the
+  // event anyway rather than hard-failing the whole webhook on
+  // infrastructure that may not exist yet. Once the table is actually
+  // created (see sql/2026-07_billing.sql), this starts providing real
+  // idempotency with no code change needed.
+  let idempotencyRowInserted = false;
+  try {
+    const { error } = await db.from('stripe_events').insert({ id: event.id, type: event.type, status: 'processing' });
+    if (error) {
+      if (error.code === '23505') {
+        // Already seen this event.id — a genuine Stripe retry. Skip
+        // reprocessing entirely rather than relying on handleEvent's own
+        // per-write idempotency (belt and suspenders once the table exists).
+        console.log('[stripe:webhook] duplicate event, skipping:', event.id);
+        return res.status(200).json({ received: true, duplicate: true });
+      }
+      console.error('[stripe:webhook] stripe_events insert failed (continuing without idempotency guard):', error.message);
+    } else {
+      idempotencyRowInserted = true;
+    }
+  } catch (err) {
+    console.error('[stripe:webhook] stripe_events insert threw (continuing without idempotency guard):', err.message);
+  }
+
   try {
     await handleEvent(db, event);
+    if (idempotencyRowInserted) {
+      // Awaited, not fire-and-forget: a Vercel serverless function can be
+      // frozen/torn down the instant the response is sent, so an
+      // un-awaited update here would race the function's own teardown and
+      // might never actually run.
+      const { error } = await db.from('stripe_events').update({ status: 'completed' }).eq('id', event.id);
+      if (error) console.error('[stripe:webhook] stripe_events status update (completed) failed:', error.message);
+    }
     return res.status(200).json({ received: true });
   } catch (err) {
     console.error('[stripe:webhook] handler error:', err);
+    if (idempotencyRowInserted) {
+      const { error } = await db.from('stripe_events').update({ status: 'failed', error: String(err.message || err) }).eq('id', event.id);
+      if (error) console.error('[stripe:webhook] stripe_events status update (failed) failed:', error.message);
+    }
     // 500 → Stripe retries with backoff (up to ~3 days).
     return res.status(500).json({ error: 'handler failed' });
   }
