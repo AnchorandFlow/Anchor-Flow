@@ -21,6 +21,7 @@ import Icon from "./components/Icon.jsx"
 import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
+import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
@@ -2057,7 +2058,7 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,sections,setSections,plusGateActive,onPlusGate}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,syncStatus,authToken,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,sections,setSections,plusGateActive,onPlusGate}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
@@ -2554,7 +2555,28 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
               }} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.blue})}>Import Backup</button>
               <button onClick={signOut} style={btnS({fontSize:"0.73rem",padding:"0.28rem 0.65rem",color:T.rose})}>Sign out</button>
             </div>
-            {lastSyncTime&&<p style={{fontSize:"0.74rem",color:T.sage,fontWeight:700,marginBottom:"0.65rem"}}>Last synced: {lastSyncTime}</p>}
+            {/* Read-only sync-status indicator — derives entirely from existing
+                sync timestamps (af_lastHHSync) and the live authToken/syncStatus
+                state already threaded through this tab; no new data keys. */}
+            {(function(){
+              var _lastHHSyncRaw = (function(){ try { return localStorage.getItem("af_lastHHSync")||""; } catch(_e){ return ""; } })();
+              var _displaySync = lastSyncTime || (function(){
+                try { return _lastHHSyncRaw ? new Date(_lastHHSyncRaw).toLocaleString() : ""; } catch(_e){ return ""; }
+              })();
+              var _needsReauth = !authToken || syncStatus === "error";
+              return (
+                <div style={{display:"flex",alignItems:"flex-start",gap:"0.55rem",padding:"0.55rem 0.75rem",borderRadius:"0.7rem",background:_needsReauth?T.rosePale:T.sagePale,border:"1px solid "+(_needsReauth?T.rose:T.sage)+"40",marginBottom:"0.65rem"}}>
+                  <span style={{fontSize:"0.9rem",lineHeight:1}}>{_needsReauth?"⚠️":"✓"}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:"0.78rem",fontWeight:700,color:_needsReauth?T.rose:T.sage}}>{_needsReauth?"Needs sign-in":"Sync healthy"}</div>
+                    {_needsReauth
+                      ? <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:"0.1rem"}}>Sign in again to resume syncing — your data is safe on this device.</div>
+                      : _displaySync&&<div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:"0.1rem"}}>Last synced: {_displaySync}</div>
+                    }
+                  </div>
+                </div>
+              );
+            })()}
             <div style={{display:"flex",gap:"0.4rem"}}>
               <button onClick={()=>setShowHouseholdModal(true)} style={btnP(T.blue,{flex:1,fontSize:"0.8rem",padding:"0.55rem",display:"flex",alignItems:"center",justifyContent:"center",gap:"0.3rem"})}>
                 👥 Manage household
@@ -2569,21 +2591,31 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
       </Sec>
 
       {/* AI memory */}
-      {Object.keys(aiMemory).length>0&&(
-        <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
-          <div style={{paddingTop:"0.75rem"}}>
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
-              <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
-            </div>
-            {Object.entries(aiMemory).map(function(entry,i){return(
-              <div key={i} style={{padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft}}>
-                <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{entry[0]}</div>
-                <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{entry[1]}</div>
+      {/* Only string-valued entries are ever user-facing "learned facts" — af_aiMemory
+          also carries internal bookkeeping (signals: array of behavioral-signal
+          objects; recentSuggestions: array of {title,ts} objects, see recordSignal/
+          recordSuggestions above) that must never reach this renderer directly:
+          React throws "Objects are not valid as a React child" (minified error #31)
+          the moment one of those arrays-of-objects lands in a JSX child. */}
+      {(function(){
+        var _aiMemoryFacts = Object.entries(aiMemory).filter(function(entry){ return typeof entry[1] === "string"; });
+        if (_aiMemoryFacts.length === 0) return null;
+        return (
+          <Sec id="aimemory" emoji="🧠" title="What Compass Knows" sub="Learned from your conversations">
+            <div style={{paddingTop:"0.75rem"}}>
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"0.55rem"}}>
+                <button onClick={()=>setAiMemory({})} style={btnS({fontSize:"0.72rem",padding:"0.24rem 0.6rem",color:T.rose})}>Clear all</button>
               </div>
-            );})}
-          </div>
-        </Sec>
-      )}
+              {_aiMemoryFacts.map(function(entry,i){return(
+                <div key={i} style={{padding:"0.5rem 0",borderBottom:"1px solid "+T.borderSoft}}>
+                  <div style={{fontSize:"0.72rem",color:T.textSoft,fontWeight:600,marginBottom:"0.15rem"}}>{entry[0]}</div>
+                  <div style={{fontSize:"0.84rem",color:T.textDark,fontWeight:500}}>{entry[1]}</div>
+                </div>
+              );})}
+            </div>
+          </Sec>
+        );
+      })()}
 
       <Sec id="feedback" emoji="💬" title="Feedback" sub="Tell us what's working — or what isn't">
         <div style={{paddingTop:"0.75rem"}}>
@@ -2626,6 +2658,12 @@ var _refreshInFlight = null;
 // repeat forever. Module-level (not React state) for the same reason as
 // _refreshInFlight above — this is auth-recovery bookkeeping, not render state.
 var _authFailStreak = 0;
+// Set by refreshAuthToken on every failure so callers can tell a transient
+// (offline/network) failure apart from a definitive "refresh token is dead"
+// failure, via classifyRefreshError, without refreshAuthToken itself needing
+// to change shape (still just returns a token string or null). Module-level
+// for the same reason as _refreshInFlight above — "retry" | "reauth" | null.
+var _lastRefreshFailureKind = null;
 async function refreshAuthToken() {
   if (_refreshInFlight) return _refreshInFlight;
   const p = (async function() {
@@ -2648,13 +2686,24 @@ async function refreshAuthToken() {
         AF_DEBUG && console.log("[AF AUTH] token from SDK refreshSession()");
         return rd.session.access_token;
       }
-      // refreshSession() failed — hard auth failure, force re-login
+      // refreshSession() resolved without a session — classify before deciding
+      // whether this is a dead refresh token (force re-login) or a transient
+      // failure that happened to resolve here instead of throwing into the
+      // catch block below (depends on auth-js internals, varies by failure).
+      _lastRefreshFailureKind = classifyRefreshError(re);
+      if (_lastRefreshFailureKind === "retry") {
+        AF_DEBUG && console.warn("[AF AUTH] refresh failed transiently — leaving session alone for retry", re && re.message);
+        try { localStorage.removeItem("af_authToken"); } catch {}
+        return null;
+      }
+      // Definitive auth failure — hard auth failure, force re-login
       AF_DEBUG && console.warn("[AF AUTH] hard auth failure — signing out to force re-login", re && re.message);
       try { localStorage.removeItem("af_authToken"); } catch {}
       try { localStorage.removeItem("af_authUser"); } catch {}
       supabase.auth.signOut().catch(() => {}); // fires SIGNED_OUT → Fix 3 clears the rest
       return null;
     } catch(e) {
+      _lastRefreshFailureKind = classifyRefreshError(e);
       AF_DEBUG && console.warn("[AF AUTH] token refresh error (network/unexpected)"); // message omitted: may contain auth details
       // Unexpected error (e.g. network failure). Clear manual token copy so callers
       // don't retry with a stale value, but don't force signOut — SDK session may
@@ -2848,7 +2897,7 @@ const _hfComps   = {};
   'MealBankDrawer','WeekTypePicker','MealsTab','RecipeBookTab','ShoppingTab','HomeTab','PeopleTab','HorizonTab',
   'BurnoutTab','TidePoolTab','SettingSection','CareerTab','ItemRow','CoveGridSectionBody','CoveNoteDetail','CoveTitleInput','CoveAddItemInput','CoveTab',
   'LearningTab','GoogleCalendarModal','AuthModal','HouseholdModal','CalEventFormModal',
-  'SetPasswordModal','WhoAmIModal','Countdowns',
+  'SetPasswordModal','WhoAmIModal','Countdowns','ZombieLockoutScreen',
 ].forEach(n => {
   _hfComps[n] = function(p){ return _hfRenders[n](p); };
   Object.defineProperty(_hfComps[n], 'name', { value: n });
@@ -2919,6 +2968,27 @@ function HomeFlow({ recoveryToken }) {
   const [syncStatus, setSyncStatus] = useState("idle"); // idle | syncing | synced | error
   const [lastSyncTime,setLastSyncTime] = useState(null);
   const [showAuthModal,setShowAuthModal] = useState(false);
+  // Zombie-session reauth lockout. Deliberately separate from showAuthModal:
+  // AuthModal is a dismissable modal (close button), which is exactly how the
+  // zombie-session bug let a user dismiss the sign-in prompt and keep
+  // browsing stale cached data while believing they were still synced. This
+  // flag instead renders a non-dismissable full-screen state — see
+  // triggerZombieLockout and ZombieLockoutScreen below.
+  const [zombieLockout, setZombieLockout] = useState(false);
+  // Single place every refreshAuthToken() call site (boot validation,
+  // stale-check, push, poll) lands once a refresh definitively fails
+  // (classifyRefreshError → "reauth", not a transient "retry"). Clears local
+  // auth/session state and raises the full-screen lockout so the user can't
+  // keep browsing a session that will never sync again. Never touches
+  // household data — see recoverFromAuthFailure.
+  function triggerZombieLockout(bannerMsg) {
+    setSyncStatus("error");
+    setAuthToken(null);
+    setAuthUser(null);
+    recoverFromAuthFailure();
+    setZombieLockout(true);
+    showInAppBanner(bannerMsg || "Session expired — please sign in again.", "error");
+  }
   const [showHouseholdModal,setShowHouseholdModal] = useState(false);
   const [anchorDayOpen,setAnchorDayOpen] = useState(false);
   const [googleCalToken,setGoogleCalToken]     = useSaved("googleCalToken", null);
@@ -2954,13 +3024,11 @@ function HomeFlow({ recoveryToken }) {
         if (newToken) {
           AF_DEBUG&&console.log("[AF AUTH] boot refresh succeeded — updating state");
           setAuthToken(newToken);
+        } else if (_lastRefreshFailureKind === "retry") {
+          console.warn("[AF AUTH] boot refresh hit a transient error — leaving auth state alone");
         } else {
           console.warn("[AF AUTH] boot refresh failed — zombie session detected");
-          recoverFromAuthFailure();
-          setAuthToken(null);
-          setAuthUser(null);
-          setShowAuthModal(true);
-          showInAppBanner("Session expired — please sign in again.", "error");
+          triggerZombieLockout();
         }
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3367,13 +3435,13 @@ function createLocalBackup() {
         console.warn("[AF SYNC] stale-check auth expired — attempting token refresh");
         const newToken = await refreshAuthToken();
         if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-sync"); return; }
-        console.warn("[AF SYNC] stale-check auth expired — refresh failed, zombie session detected");
-        setSyncStatus("error");
-        setAuthToken(null);
-        setAuthUser(null);
-        setShowAuthModal(true);
-        recoverFromAuthFailure();
-        showInAppBanner("Session expired — please sign in again.", "error");
+        if (_lastRefreshFailureKind === "retry") {
+          console.warn("[AF SYNC] stale-check token refresh hit a transient error — will retry next cycle");
+          setSyncStatus("error");
+        } else {
+          console.warn("[AF SYNC] stale-check auth expired — refresh failed, zombie session detected");
+          triggerZombieLockout();
+        }
       } else if (e?.message?.toLowerCase().includes("failed to fetch") || e?.message?.toLowerCase().includes("networkerror") || e?.message?.toLowerCase().includes("network request failed")) {
         console.warn("[AF SYNC] stale-check network error — push paused", e.message);
         setSyncStatus("error");
@@ -3486,13 +3554,13 @@ function createLocalBackup() {
         console.warn("[AF SYNC] push auth expired — attempting token refresh");
         const newToken = await refreshAuthToken();
         if (newToken) { setAuthToken(newToken); AF_DEBUG&&console.log("[AF AUTH] refreshed mid-push"); return; }
+        if (_lastRefreshFailureKind === "retry") {
+          console.warn("[AF SYNC] push token refresh hit a transient error — will retry next cycle");
+          setSyncStatus("error");
+          return;
+        }
         console.warn("[AF SYNC] push auth expired — refresh failed, zombie session detected");
-        setSyncStatus("error");
-        setAuthToken(null);
-        setAuthUser(null);
-        setShowAuthModal(true);
-        recoverFromAuthFailure();
-        showInAppBanner("Session expired — please sign in again.", "error");
+        triggerZombieLockout();
         return;
       }
       if (window.AF_TRACE && opId) console.log("[AF_TRACE "+opId+"] PUSH_SKIPPED: exception "+e.message);
@@ -4070,6 +4138,13 @@ function createLocalBackup() {
         if (isAuthExpiredError(e)) {
           console.warn("[AF SYNC] poll auth expired — attempting token refresh");
           const newToken = await refreshAuthToken();
+          if (!newToken && _lastRefreshFailureKind === "retry") {
+            // Transient (offline/network) — not proof the refresh token itself is
+            // bad, so don't count it toward the hard-failure streak below; just
+            // leave auth state alone and let the next poll cycle try again.
+            console.warn("[AF SYNC] poll token refresh hit a transient error — will retry next cycle");
+            return;
+          }
           _authFailStreak++;
           // A returned token is not proof the underlying problem is fixed — it can
           // fail the exact same way next cycle (see _authFailStreak's own comment).
@@ -4081,12 +4156,7 @@ function createLocalBackup() {
             return;
           }
           console.warn("[AF SYNC] poll auth expired — giving up after "+_authFailStreak+" consecutive failure(s)"+(newToken ? " (streak threshold)" : " (refresh itself failed)")+" — zombie session detected");
-          setSyncStatus("error");
-          setAuthToken(null);
-          setAuthUser(null);
-          setShowAuthModal(true);
-          recoverFromAuthFailure();
-          showInAppBanner("Session expired — please sign in again.", "error");
+          triggerZombieLockout();
           clearInterval(interval);
           clearTimeout(initial);
           _authFailStreak = 0;
@@ -6072,7 +6142,7 @@ Respond ONLY with valid JSON array, no markdown:
           MealBankDrawer, WeekTypePicker, MealsTab, RecipeBookTab, ShoppingTab, HomeTab, PeopleTab, HorizonTab,
           BurnoutTab, TidePoolTab, SettingSection, CareerTab, ItemRow, CoveGridSectionBody, CoveNoteDetail, CoveTitleInput, CoveAddItemInput, CoveTab,
           LearningTab, GoogleCalendarModal, AuthModal, HouseholdModal, CalEventFormModal,
-          SetPasswordModal, WhoAmIModal, Countdowns } = _hfComps;
+          SetPasswordModal, WhoAmIModal, Countdowns, ZombieLockoutScreen } = _hfComps;
 
   _hfRenders.ModalBox = function ModalBox({title,onClose,children,wide}){
     useEffect(() => {
@@ -17709,6 +17779,87 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     );
   }
 
+  // ── Zombie-session lockout screen ───────────────────────────────────────────
+  // Rendered via zombieLockout state (not showAuthModal) once a refresh
+  // definitively fails — see triggerZombieLockout. Deliberately not a modal:
+  // AuthModal above has a close button, which is exactly how the zombie-
+  // session bug let a user dismiss the sign-in prompt and keep browsing
+  // stale cached data while believing they were still synced. This screen
+  // has no close affordance — signing in is the only way out, and the
+  // existing signIn() flow already resumes normal sync once it succeeds.
+  _hfRenders.ZombieLockoutScreen = function ZombieLockoutScreen({onSignedIn}) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [resetSent, setResetSent] = useState(false);
+
+    async function handleSubmit() {
+      const trimEmail = email.trim();
+      if (!trimEmail || !password) { setError("Email and password are required."); return; }
+      setLoading(true); setError("");
+      const result = await signIn(trimEmail, password);
+      setLoading(false);
+      if (result && result.ok) { onSignedIn(); return; }
+      setError((result && result.error) || "Something went wrong. Please try again.");
+    }
+
+    async function handleReset() {
+      const trimEmail = email.trim();
+      if (!trimEmail) { setError("Enter your email above first."); return; }
+      setLoading(true); setError("");
+      try {
+        await sbFetch("/auth/v1/recover", {
+          method: "POST",
+          body: JSON.stringify({
+            email: trimEmail,
+            redirect_to: (typeof window !== "undefined" && window.location && window.location.origin) ? window.location.origin : "https://www.anchorandflowapp.com"
+          })
+        });
+        setResetSent(true);
+      } catch(e) { setError("Couldn't send reset email. Please try again."); }
+      setLoading(false);
+    }
+
+    return (
+      <div style={{position:"fixed",inset:0,background:T.bg||T.surface,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,1.5rem) 1.5rem env(safe-area-inset-bottom,1.5rem)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+        <div style={{width:"100%",maxWidth:420}}>
+          <div style={{textAlign:"center",marginBottom:"1.4rem"}}>
+            <div style={{fontSize:"2.2rem",marginBottom:"0.4rem"}}>⚓️</div>
+            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",fontWeight:700,color:T.textDark,marginBottom:"0.3rem"}}>Please sign in again</h2>
+            <p style={{color:T.textSoft,fontSize:"0.84rem",lineHeight:1.6,margin:0}}>Your data is safe — it's still here on this device. Signing in resumes syncing right where you left off.</p>
+          </div>
+          <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.2rem",padding:"1.6rem",boxShadow:"0 24px 80px "+T.cardShadow}}>
+            {resetSent ? (
+              <div style={{textAlign:"center"}}>
+                <p style={{color:T.textDark,fontSize:"0.88rem",lineHeight:1.6,marginBottom:"1rem"}}>We sent a password reset link to <strong>{email.trim()}</strong>. Check your inbox, then come back and sign in.</p>
+                <button onClick={()=>setResetSent(false)} style={btnS({width:"100%"})}>Back</button>
+              </div>
+            ) : (
+              <form onSubmit={e=>{e.preventDefault();handleSubmit();}}>
+                <div style={{marginBottom:"0.75rem"}}>
+                  <label style={lbl}>Email address</label>
+                  <input type="text" inputMode="email" value={email} onChange={e=>{setEmail(e.target.value);setError("");}} placeholder="your@email.com" autoComplete="username" autoCorrect="off" autoCapitalize="off" spellCheck="false" style={inp()}/>
+                </div>
+                <div style={{marginBottom:"1rem"}}>
+                  <label style={lbl}>Password</label>
+                  <input type="password" value={password} onChange={e=>{setPassword(e.target.value);setError("");}} placeholder="••••••••" autoComplete="current-password" style={inp()}/>
+                </div>
+                {error&&(
+                  <div style={{background:T.rosePale,border:"1.5px solid "+T.rose+"50",borderRadius:"0.65rem",padding:"0.65rem 0.8rem",marginBottom:"0.85rem",fontSize:"0.82rem",color:T.rose,fontWeight:600,lineHeight:1.5}}>{error}</div>
+                )}
+                <button type="submit" disabled={loading} style={btnP("linear-gradient(135deg,"+T.blue+","+T.blueDark+")",{width:"100%",padding:"0.8rem",fontSize:"0.92rem",marginBottom:"0.65rem",opacity:loading?0.7:1,cursor:loading?"wait":"pointer"})}>
+                  {loading ? "Signing in…" : "Sign In"}
+                </button>
+                <button type="button" onClick={handleReset} style={{background:"none",border:"none",color:T.textSoft,cursor:"pointer",fontSize:"0.78rem",fontFamily:"inherit",display:"block",margin:"0 auto"}}>Forgot password?</button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Household Modal ─────────────────────────────────────────────────────────
   _hfRenders.HouseholdModal = function HouseholdModal({onClose}) {
     const [joinCode, setJoinCode] = useState("");
@@ -18348,7 +18499,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   notifications={notifications} setNotifications={setNotifications}
                   aiMemory={aiMemory} setAiMemory={setAiMemory}
                   setShowAuthModal={setShowAuthModal}
-                  syncNow={syncNow} lastSyncTime={lastSyncTime}
+                  syncNow={syncNow} lastSyncTime={lastSyncTime} syncStatus={syncStatus} authToken={authToken}
                   card={card}
                   onOpenFirstVoyageRerun={function(){ setShowFirstVoyageRerun(true); }}
                   tidePoolEnabled={tidePoolEnabled} setTidePoolEnabled={setTidePoolEnabled}
@@ -18481,6 +18632,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         onSkip={handleFirstVoyageRerunSkip}
       />}
       {showAuthModal&&<AuthModal onClose={()=>setShowAuthModal(false)}/>}
+      {zombieLockout&&<ZombieLockoutScreen onSignedIn={()=>setZombieLockout(false)}/>}
       {showWelcomeModal&&session&&(
         <div style={{position:"fixed",inset:0,background:"rgba(26,39,68,0.72)",backdropFilter:"blur(14px)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
           <div style={{background:T.surface,border:"1.5px solid "+T.border,borderRadius:"1.6rem",padding:"2rem 1.8rem",width:"100%",maxWidth:400,textAlign:"center",boxShadow:"0 40px 120px "+T.cardShadow}}>

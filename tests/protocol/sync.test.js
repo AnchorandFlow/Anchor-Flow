@@ -426,6 +426,19 @@ describe("B10 — zombie-session: clearZombieAuthKeys clears auth but preserves 
     expect(localStorage.getItem("af_authUser")).toBeNull();
   });
 
+  // af_supabase_session is the Supabase SDK's own storageKey (src/lib/supabase.js)
+  // — distinct from af_authToken/af_authUser above. Left behind, the SDK's
+  // autoRefreshToken timer keeps retrying the same dead refresh token on its
+  // own schedule regardless of anything the app does, which is the actual
+  // mechanism behind the poll "keeps retrying" zombie-session report.
+  it("also clears the Supabase SDK's own persisted session (af_supabase_session)", () => {
+    localStorage.setItem("af_supabase_session", JSON.stringify({ refresh_token: "stale-rt" }));
+
+    clearZombieAuthKeys();
+
+    expect(localStorage.getItem("af_supabase_session")).toBeNull();
+  });
+
   it("household data keys are never cleared by zombie-session handling", () => {
     // Populate every SYNC_KEY with a sentinel value
     SYNC_KEYS.forEach(function(k) {

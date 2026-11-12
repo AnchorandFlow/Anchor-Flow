@@ -206,6 +206,14 @@ export function errorCode(message) {
 export function clearZombieAuthKeys() {
   try { localStorage.removeItem("af_authToken"); } catch (_) {}
   try { localStorage.removeItem("af_authUser"); } catch (_) {}
+  // af_supabase_session is the Supabase SDK's own persisted session (see
+  // storageKey in src/lib/supabase.js) — separate from the app's own
+  // af_authToken/af_authUser mirror above. Left behind, the SDK's
+  // autoRefreshToken timer keeps retrying the same dead refresh token in
+  // the background on its own schedule, independent of anything the app
+  // stops — this is the actual mechanism behind the poll "zombie session"
+  // continuing to retry after a hard auth failure.
+  try { localStorage.removeItem("af_supabase_session"); } catch (_) {}
 }
 
 // ── sanitizeHouseholdData ──────────────────────────────────────────────────────
