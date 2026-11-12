@@ -648,3 +648,42 @@ describe("B13 — boot-path zombie: clearZombieAuthKeys + modal invariants", () 
     expect(localStorage.getItem("af_householdId")).not.toBeNull();
   });
 });
+
+// ── B14: Tide Pool / Travel / Celebrations audit — writes mark dirty AND
+// survive sanitizeHouseholdData ──────────────────────────────────────────────
+// Regression guard for the af_moments/workDays/cal_markers/traditions bug
+// class (a SYNC_KEYS member written without ever marking the household
+// dirty). Audit (2026-11) found coveData/trips/travel_profile/celebrations
+// already correctly wired — every real writer goes through either the
+// useSaved setter (coveData) or afVaultChanged (trips, travel_profile,
+// celebrations), both of which are the same shared mechanism
+// simulateMarkDirty reproduces here. These tests lock that in.
+describe("B14 — Tide Pool/Travel/Celebrations: write marks dirty + survives sanitize", () => {
+  it("coveData (Tide Pool shells/chores/treasures): write marks dirty and sanitize preserves it", () => {
+    expect(simulateMarkDirty("coveData", false)).toBe(true);
+    expect(lsGet("af_dirtyKeys")).toContain("coveData");
+    const payload = [{ kidId: "k1", kidName: "Alice", shells: 5, chores: [{ id: "c1", name: "Make bed", pts: 1, done: false }], treasures: [] }];
+    expect(sanitizeHouseholdData({ coveData: payload }).coveData).toEqual(payload);
+  });
+
+  it("trips (Travel): write marks dirty and sanitize preserves it", () => {
+    expect(simulateMarkDirty("trips", false)).toBe(true);
+    expect(lsGet("af_dirtyKeys")).toContain("trips");
+    const payload = [{ id: "trip1", name: "Cancún Family Trip", destination: "Cancún, Mexico", startDate: "2026-08-10", endDate: "2026-08-17" }];
+    expect(sanitizeHouseholdData({ trips: payload }).trips).toEqual(payload);
+  });
+
+  it("travel_profile (Travel): write marks dirty and sanitize preserves it", () => {
+    expect(simulateMarkDirty("travel_profile", false)).toBe(true);
+    expect(lsGet("af_dirtyKeys")).toContain("travel_profile");
+    const payload = { passportExpiry: "2030-01" };
+    expect(sanitizeHouseholdData({ travel_profile: payload }).travel_profile).toEqual(payload);
+  });
+
+  it("celebrations: write marks dirty and sanitize preserves it", () => {
+    expect(simulateMarkDirty("celebrations", false)).toBe(true);
+    expect(lsGet("af_dirtyKeys")).toContain("celebrations");
+    const payload = [{ id: "cel1", type: "birthday", name: "Mom", month: 6, day: 12, year: null, notes: "" }];
+    expect(sanitizeHouseholdData({ celebrations: payload }).celebrations).toEqual(payload);
+  });
+});
