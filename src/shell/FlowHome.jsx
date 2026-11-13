@@ -1,6 +1,8 @@
 // src/shell/FlowHome.jsx — Flow pillar dashboard. Balanced two-column grid.
 import { useState, useEffect } from "react";
 import { isPersonMinor } from "../compass/compassEngine";
+import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planQuickShell } from "../tidepool/ledger.js";
+import { useTidePoolBalances, recordTidePoolEvent } from "../tidepool/useTidePool.js";
 
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
@@ -117,6 +119,9 @@ function Card(props) {
 }
 
 export default function FlowHome(props) {
+  // af_tidepool_v2: shell counts from the ledger (inert when the flag is off).
+  var tpHid = TIDEPOOL_V2 ? getStoredHouseholdId() : null;
+  var tpLedger = useTidePoolBalances(tpHid);
   var [tasks, setTasks] = useState(function () { return rd("tasks", []); });
   var [exhaleBuckets, setExhaleBuckets] = useState(function () { return rd("exhale_buckets", { bucketNames: ["Exhaled","Today","Tomorrow","This Weekend","Someday"], items: [] }); });
   var [recurring, setRecurring] = useState(function () { return rd("recurring", []); });
@@ -217,7 +222,10 @@ export default function FlowHome(props) {
   // af_coveData (0 if that kid has no record yet).
   var tidePoolKids = flowPeople.filter(function (p) { return isPersonMinor(p); }).map(function (p) {
     var rec = (Array.isArray(coveData) ? coveData : []).find(function (k) { return k.kidId === p.id; });
-    return { id: p.id, name: p.name, shells: rec ? (rec.shells || 0) : 0 };
+    var cove = rec ? (rec.shells || 0) : 0;
+    // v2: ledger balance once loaded; frozen coveData count until then.
+    var shells = (TIDEPOOL_V2 && tpLedger.loaded) ? (tpLedger.balances[p.id] || 0) : cove;
+    return { id: p.id, name: p.name, shells: shells };
   });
 
   var upNext = todayTasks.filter(function (t) { return !t.done; })[0];
@@ -251,27 +259,14 @@ export default function FlowHome(props) {
   // gives the same starter chores/treasures whether it's tapped here or
   // seeded by opening the real Tide Pool tab first.
   function addShell(kidId, kidName) {
+    // Logic in src/tidepool/ledger.js (planQuickShell). Flag off: identical
+    // coveData write as before. Flag on: coveData is only written to create a
+    // brand-new kid record (shells:0); the +1 goes to the ledger.
     var list = Array.isArray(coveData) ? coveData : [];
-    var existing = list.find(function (k) { return k.kidId === kidId; });
-    var next;
-    if (existing) {
-      next = list.map(function (k) { return k.kidId === kidId ? Object.assign({}, k, { shells: (k.shells || 0) + 1 }) : k; });
-    } else {
-      next = list.concat([{
-        kidId: kidId, kidName: kidName, shells: 1,
-        chores: [
-          { id: uid(), name: "Make bed", pts: 1, done: false },
-          { id: uid(), name: "Clear dishes", pts: 1, done: false },
-        ],
-        treasures: [
-          { id: uid(), name: "Extra screen time", icon: "📱", cost: 10 },
-          { id: uid(), name: "Pick dinner", icon: "🍕", cost: 15 },
-          { id: uid(), name: "Movie night pick", icon: "🎬", cost: 20 },
-          { id: uid(), name: "Stay up late", icon: "🌙", cost: 25 },
-          { id: uid(), name: "Special outing", icon: "🎡", cost: 35 },
-        ],
-      }]);
-    }
+    var plan = planQuickShell(list, kidId, kidName, { v2: TIDEPOOL_V2, balance: null, makeId: uid, makeEventId: newEventId, now: function () { return new Date().toISOString(); } });
+    recordTidePoolEvent(tpHid, plan.event);
+    if (plan.next === list) return;
+    var next = plan.next;
     wr("coveData", next);
     setCoveData(next);
   }

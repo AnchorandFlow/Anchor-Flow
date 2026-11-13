@@ -23,6 +23,8 @@ import Section from "./components/Section.jsx"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
 import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
+import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
+import { useTidePoolBalances, recordTidePoolEvent } from "./tidepool/useTidePool.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -1771,6 +1773,9 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
   }
   var rawKids=people.filter(function(p){return p.role==="Kid"||p.role==="Teen"||personIsMinor(p);});
   var saved=coveData||[];
+  // af_tidepool_v2: ledger balance (only needed to clamp chore un-checks at 0).
+  var tpSecHid = TIDEPOOL_V2 ? getStoredHouseholdId() : null;
+  var tpSecLedger = useTidePoolBalances(tpSecHid);
   var sKidIdx=Math.min(tpKidIdx,Math.max(rawKids.length-1,0));
   var sKid=rawKids[sKidIdx];
   var sKidData=sKid?(saved.find(function(d){return d.kidId===sKid.id;})||{kidId:sKid.id,kidName:sKid.name,shells:0,chores:[],treasures:[]}):null;
@@ -1810,12 +1815,13 @@ function TidePoolSection({people,coveData,setCoveData,T,inp,btnP,btnS}){
     }
   },[sKid&&sKid.id, todayStr]);
   function toggleChore(chId){
-    var ch = (sKidData.chores||[]).find(function(c){return c.id===chId;});
-    if(!ch) return;
-    var wasChecked = !!ch.done;
-    var newChores = (sKidData.chores||[]).map(function(c){ return c.id===chId ? Object.assign({},c,{done:!wasChecked}) : c; });
-    var shellDelta = wasChecked ? -(ch.pts||1) : (ch.pts||1);
-    updateSaved({chores:newChores, shells:Math.max(0,(sKidData.shells||0)+shellDelta)});
+    // Logic in src/tidepool/ledger.js (planSectionChoreToggle). Flag off: same
+    // coveData shells write as before. Flag on: chores only + ledger event.
+    var bal = (TIDEPOOL_V2 && tpSecLedger.loaded) ? (tpSecLedger.balances[sKidData.kidId] || 0) : null;
+    var plan = planSectionChoreToggle(sKidData, chId, { v2: TIDEPOOL_V2, balance: bal, makeId: uid, makeEventId: newEventId, now: function(){ return new Date().toISOString(); } });
+    if(!plan) return;
+    updateSaved(plan.patch);
+    recordTidePoolEvent(tpSecHid, plan.event);
   }
   return(
     <Section id="tidepool" emoji="🏝️" title="Tide Pool" sub="Chores and treasures for each child" defaultOpen={false} settingsOpen={settingsOpen} toggleSetting={toggleSetting} T={T}>
@@ -12491,6 +12497,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // relying on hover. `title` is left in place too — harmless, and still
     // works for anyone on desktop with a mouse.
     var [tappedShellIdx, setTappedShellIdx] = useState(null);
+    // af_tidepool_v2: ledger balances (inert constant when the flag is off).
+    var tpLedger = useTidePoolBalances(TIDEPOOL_V2 ? householdId : null);
 
     // ── Daily chore reset ──
     React.useEffect(function(){
@@ -12562,6 +12570,17 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     var kid = kids[Math.min(selIdx, kids.length-1)] || kids[0];
+    // v2: displayed shells come from the ledger (tide_pool_balances snapshot +
+    // unconfirmed local events). Until the first snapshot lands, show the
+    // frozen coveData count as a placeholder; ledgerBal stays null so claims
+    // are blocked until the real balance is known. `kid` here is a display
+    // copy — updateKid() patches the stored records, and v2 patches never
+    // include `shells`, so coveData[].shells is left untouched.
+    var ledgerBal = (TIDEPOOL_V2 && tpLedger.loaded) ? (tpLedger.balances[kid.kidId] || 0) : null;
+    if (TIDEPOOL_V2) kid = Object.assign({}, kid, { shells: ledgerBal == null ? (kid.shells || 0) : ledgerBal });
+    function tpPlanOpts() {
+      return { v2: TIDEPOOL_V2, balance: ledgerBal, makeId: uid, makeEventId: newEventId, now: function(){ return new Date().toISOString(); } };
+    }
 
     function updateKid(patch) {
       // Was calling setCoveData inside the setKids updater function — React
@@ -12575,32 +12594,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setCoveData(next);
     }
 
+    // shellLog: per-shell earn attribution for the shell-grid hover tooltip
+    // (separate from bonusHistory, which only ever covered manual Bonus
+    // Tide grants and feeds its own "Bonus history" list — mixing routine
+    // chore completions into that would change what that list shows).
+    // Checking a chore appends a {reason: chore name, pts, choreId} entry;
+    // unchecking removes THAT chore's own most recent entry (found by
+    // choreId, not just popping the newest overall — a different chore may
+    // have been checked afterward). Logic lives in src/tidepool/ledger.js
+    // (planTabChoreToggle) so both flag states are unit-tested.
     function toggleChore(choreId) {
-      var ch = kid.chores.find(function(c){ return c.id===choreId; });
-      if(!ch) return;
-      var newShells = ch.done ? Math.max(0, kid.shells - ch.pts) : kid.shells + ch.pts;
-      // shellLog: per-shell earn attribution for the shell-grid hover tooltip
-      // (separate from bonusHistory, which only ever covered manual Bonus
-      // Tide grants and feeds its own "Bonus history" list — mixing routine
-      // chore completions into that would change what that list shows).
-      // Checking a chore appends a {reason: chore name, pts, choreId} entry;
-      // unchecking removes THAT chore's own most recent entry (found by
-      // choreId, not just popping the newest overall — a different chore may
-      // have been checked afterward).
-      var log;
-      if (ch.done) {
-        log = (kid.shellLog||[]).slice();
-        var rmIdx = log.findIndex(function(e){ return e.choreId===choreId; });
-        if (rmIdx !== -1) log.splice(rmIdx, 1);
-      } else {
-        var newEntry = {id:uid(), reason:ch.name, pts:ch.pts, date:new Date().toISOString(), choreId:choreId};
-        log = [newEntry].concat((kid.shellLog||[])).slice(0,200);
-      }
-      updateKid({
-        shells: newShells,
-        chores: kid.chores.map(function(c){ return c.id===choreId?Object.assign({},c,{done:!c.done}):c; }),
-        shellLog: log
-      });
+      var plan = planTabChoreToggle(kid, choreId, tpPlanOpts());
+      if(!plan) return;
+      updateKid(plan.patch);
+      recordTidePoolEvent(householdId, plan.event);
     }
 
     function giveShell() {
@@ -12608,10 +12615,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       // Fix 1: the reason was previously required (gated the whole function) but
       // then discarded — never persisted anywhere. Now saved as its own earn-side
       // history, parallel to rewardHistory (which only ever logged spending).
-      var entry = {id:uid(), reason:flyName.trim(), pts:flyPts, date:new Date().toISOString()};
-      var hist = [entry].concat((kid.bonusHistory||[])).slice(0,50);
-      var log = [entry].concat((kid.shellLog||[])).slice(0,200);
-      updateKid({shells: kid.shells + flyPts, bonusHistory: hist, shellLog: log});
+      var plan = planBonus(kid, flyName.trim(), flyPts, tpPlanOpts());
+      updateKid(plan.patch);
+      recordTidePoolEvent(householdId, plan.event);
       setFlyName("");
     }
 
@@ -12640,11 +12646,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     }
 
     function claimTreasure() {
-      if(!selectedTreasure || kid.shells < selectedTreasure.cost) return;
       var t = selectedTreasure;
-      var entry = {id:uid(), name:t.name, icon:t.icon||"🎁", cost:t.cost, date:new Date().toISOString()};
-      var hist = [entry].concat((kid.rewardHistory||[])).slice(0,50);
-      updateKid({shells: kid.shells - t.cost, rewardHistory: hist});
+      var plan = planClaim(kid, t, tpPlanOpts());
+      if(!plan) return;
+      updateKid(plan.patch);
+      recordTidePoolEvent(householdId, plan.event);
       setClaimed(t);
       setSelectedTreasure(null);
       window.dispatchEvent(new CustomEvent("af-celebrate", { detail: { heading: "Prize claimed!", title: t.name, message: ((kid && kid.kidName) ? kid.kidName + ", enjoy your reward! " : "Enjoy your reward! ") + "You earned it." } }));

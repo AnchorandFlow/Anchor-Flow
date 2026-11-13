@@ -167,3 +167,53 @@ rendered from the old `useSaved` state value.
 2. Remove the `useSaved("exhaleLabels", ...)` call and the `[exhaleLabels, setExhaleLabels]` destructure
 3. On boot, migrate: if `af_exhaleLabels` exists and `af_exhale_labels` is empty, copy value
 4. Test: label renders correctly on both fresh device and migrated device
+
+---
+
+## af_tidepool_v2
+
+| Property | Value |
+|----------|-------|
+| **Storage** | Device-local (localStorage) |
+| **Default** | OFF (`localStorage.getItem("af_tidepool_v2") === "true"`) |
+| **How to flip** | `localStorage.setItem("af_tidepool_v2", "true")` + reload |
+| **How to disable** | `localStorage.removeItem("af_tidepool_v2")` + reload |
+| **Reload required** | Yes — read at module load in `src/tidepool/ledger.js` |
+| **Scope** | Per-device |
+| **Defined in** | `src/tidepool/ledger.js` (`TIDEPOOL_V2`) |
+| **Requires** | `tide_pool_migration.sql` run in Supabase first (table, RLS, `tide_pool_add_event` RPC, `tide_pool_balances` view, realtime, backfill) |
+
+### What V2 enables
+
+- Only the **shell count** moves. Chores, treasures, kid names and history arrays
+  (`shellLog`, `bonusHistory`, `rewardHistory`) stay in `coveData`.
+- Every shell change becomes a `tide_pool_events` row via the `tide_pool_add_event` RPC,
+  with a fresh `tpe_<uuid>` id per action:
+  - TidePoolTab `toggleChore` → `chore` (+pts) / `chore_undo` (−pts, clamped at 0)
+  - TidePoolTab `giveShell` → `bonus`
+  - TidePoolTab `claimTreasure` → `redeem` (−cost; blocked until the ledger balance has loaded)
+  - Settings › Tide Pool chore toggle → `chore` / `chore_undo`
+  - FlowHome "Today's Tide Pool" +1 → `bonus`
+- Displayed shells = latest `tide_pool_balances` snapshot + this device's not-yet-confirmed events.
+  Realtime channel `"tidepool-<householdId>"` on `tide_pool_events` triggers a re-fetch on any change.
+- Until the first snapshot loads, the frozen `coveData[].shells` value is shown as a placeholder.
+- `coveData[].shells` is **never written** while V2 is on.
+- Unconfirmed events persist in `af_tidepool_pending` (device-local, not synced) and are retried on
+  load, on `online`, and when the app regains focus. The RPC is idempotent on id, so retries can't
+  double-count.
+
+### Mixed-mode risk
+
+Same as shopping v2: a V1 device keeps writing `coveData.shells`; a V2 device writes the ledger.
+They diverge immediately. Flip all household devices together.
+
+### Rollback
+
+Remove the flag. V1 resumes from `coveData.shells`, which still holds the pre-V2 value, so any
+shells earned or spent while V2 was on are not reflected in V1.
+
+### Backfill
+
+The SQL backfill writes one `backfill:<hid>:<kidId>` opening-balance row per kid from
+`coveData[].shells`. Run it immediately before flipping the flag; it skips kids that already have
+a backfill row.
