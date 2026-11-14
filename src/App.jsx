@@ -25,6 +25,7 @@ import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
 import { useTidePoolBalances, recordTidePoolEvent } from "./tidepool/useTidePool.js"
+import { readRedesignFlag, writeRedesignFlag } from "./design/redesignFlag.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -2064,11 +2065,14 @@ function FamilySection({people,setPeople,familyProfile,setFamilyProfile,workSche
 // only when something is actually needed.
 var SAFE_LOCAL_PREFS = [];
 
-function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,syncStatus,authToken,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,sections,setSections,plusGateActive,onPlusGate}){
+function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedules,setWorkSchedules,flowMode,setFlowMode,flowGreetingTone,setFlowGreetingTone,mealCount,setMealCount,stores,setStores,shoppingItems,setShoppingItems,rhythm,setRhythm,brainCats,setBrainCats,coveData,setCoveData,authUser,setAuthUser,preferredName,setPreferredName,notifSettings,setNotifSettings,setDailySummaryScheduled,tasks,meals,calEvents,goTab,notifPermission,requestNotifPermission,scheduleAllDailyNotifications,signOut,showInAppBanner,T,inp,lbl,btnP,btnS,PC,card,SecHead,ModalBox,themeName,setThemeNameRaw,setShowHouseholdModal,notifications,setNotifications,aiMemory,setAiMemory,setShowAuthModal,syncNow,lastSyncTime,syncStatus,authToken,onOpenFirstVoyageRerun,tidePoolEnabled,setTidePoolEnabled,lighthouseEnabled,setLighthouseEnabled,celebrationsEnabled,setCelebrationsEnabled,mealsEnabled,setMealsEnabled,careerEnabled,setCareerEnabled,safeHarborEnabled,setSafeHarborEnabled,compassEnabled,setCompassEnabled,ripplesEnabled,setRipplesEnabled,showEmojis,setShowEmojis,sections,setSections,plusGateActive,onPlusGate}){
   // F-97 §3 — local display copy of af_myPersonId. Session-local by design
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
   const [myPersonIdLocal,setMyPersonIdLocal] = useState(function(){ try { return localStorage.getItem("af_myPersonId")||null; } catch { return null; } });
+  // af_redesign — per-device switch (device-local, never synced). Local state
+  // so the Toggle reflects the click immediately; see src/design/redesignFlag.js.
+  const [redesignOn,setRedesignOn] = useState(function(){ return readRedesignFlag(); });
   React.useEffect(function(){
     var h = function(){ try { setMyPersonIdLocal(localStorage.getItem("af_myPersonId")||null); } catch {} };
     window.addEventListener("af-myPersonId-changed", h);
@@ -2622,6 +2626,19 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
           </Sec>
         );
       })()}
+
+      <Sec id="designpreview" emoji="🧪" title="Design preview" sub="Try the new look on this device">
+        <div style={{paddingTop:"0.75rem"}}>
+          <Row label="New look (preview)" sub="This device only. Work in progress — nothing changes yet.">
+            <Toggle on={redesignOn} onToggle={function(){ var next=!redesignOn; writeRedesignFlag(next); setRedesignOn(next); }} color={T.sage}/>
+          </Row>
+          {redesignOn&&(
+            <Row label="Show emojis" sub="For everyone in your household. Section and lock icons always show.">
+              <Toggle on={showEmojis===true} onToggle={function(){ setShowEmojis(showEmojis===true?false:true); }} color={T.sage}/>
+            </Row>
+          )}
+        </div>
+      </Sec>
 
       <Sec id="feedback" emoji="💬" title="Feedback" sub="Tell us what's working — or what isn't">
         <div style={{paddingTop:"0.75rem"}}>
@@ -4547,6 +4564,21 @@ function createLocalBackup() {
   function setSafeHarborEnabled(v){ try{ localStorage.setItem("af_safeHarborEnabled", JSON.stringify(v)); }catch(e){} _setSafeHarborEnabled(v); dispatchFeaturesChanged(); }
   function setCompassEnabled(v){ try{ localStorage.setItem("af_compassEnabled", JSON.stringify(v)); }catch(e){} _setCompassEnabled(v); dispatchFeaturesChanged(); }
   function setRipplesEnabled(v){ try{ localStorage.setItem("af_ripplesEnabled", JSON.stringify(v)); }catch(e){} _setRipplesEnabled(v); dispatchFeaturesChanged(); }
+  // showEmojis — household setting for the af_redesign look (default OFF;
+  // pillar + lock icons always show regardless, see src/design/tokens.js).
+  // 3-place pattern: SYNC_KEYS (sync-core.js) + this useSaved/setter +
+  // the Settings <Toggle> via SettingsTab props. Writes + dirty-marks
+  // synchronously BEFORE dispatching af-data-changed, because that listener
+  // reads af_dirtyKeys immediately (useSaved's own dirty-mark runs inside a
+  // setState updater, which may land too late). Nothing renders from it yet.
+  const [showEmojis,_setShowEmojis] = useSaved("showEmojis",false);
+  function setShowEmojis(v){
+    var next = v===true;
+    try{ localStorage.setItem("af_showEmojis", JSON.stringify(next)); }catch(e){}
+    markKeyDirty("showEmojis");
+    _setShowEmojis(next);
+    try{ window.dispatchEvent(new CustomEvent("af-data-changed", { detail: { key: "showEmojis" } })); }catch(e){}
+  }
   // Batch B — sections gets the exact same direct-write-then-dispatch
   // treatment as the feature flags above, for the same reason: FlowWrapper's
   // "af-sections-changed" listener (already wired, previously unused —
@@ -18516,6 +18548,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   safeHarborEnabled={safeHarborEnabled} setSafeHarborEnabled={setSafeHarborEnabled}
                   compassEnabled={compassEnabled} setCompassEnabled={setCompassEnabled}
                   ripplesEnabled={ripplesEnabled} setRipplesEnabled={setRipplesEnabled}
+                  showEmojis={showEmojis} setShowEmojis={setShowEmojis}
                   sections={sections} setSections={setSections}
                   plusGateActive={BILLING_V1 && !sub.isPremium}
                   onPlusGate={function(featureName){ setPlusModalFeature(featureName); }}

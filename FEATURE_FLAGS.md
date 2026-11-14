@@ -217,3 +217,29 @@ shells earned or spent while V2 was on are not reflected in V1.
 The SQL backfill writes one `backfill:<hid>:<kidId>` opening-balance row per kid from
 `coveData[].shells`. Run it immediately before flipping the flag; it skips kids that already have
 a backfill row.
+
+---
+
+## af_redesign
+
+| Property | Value |
+|----------|-------|
+| **Storage** | Device-local (localStorage) — not in SYNC_KEYS, never synced |
+| **Default** | OFF (`localStorage.getItem("af_redesign") === "true"`; switching off removes the key) |
+| **How to flip** | Settings › Design preview › "New look (preview)", or `localStorage.setItem("af_redesign","true")` |
+| **Reload required** | `REDESIGN` constant is read at module load; Settings reads it live for its own toggle |
+| **Scope** | Per-device |
+| **Defined in** | `src/design/redesignFlag.js`; tokens in `src/design/tokens.js` |
+
+### What it enables (so far)
+
+Nothing visual yet. It's the gate for the redesign. Turning it on only reveals the
+household **Show emojis** toggle in the same Settings section.
+
+### Related household setting: `showEmojis`
+
+- Synced household key, boolean, default `false`. Wired the same way as the other household toggles:
+  `SYNC_KEYS` (`src/sync-core.js`) → `useSaved("showEmojis", false)` + `setShowEmojis` in
+  HomeFlow → Settings `<Toggle>` via `SettingsTab` props.
+- Policy lives in `tokens.emoji` / `shouldShowEmoji(kind, showEmojis)`: pillar and lock icons are
+  always shown. Nothing reads it for rendering yet, so current emojis are unaffected.

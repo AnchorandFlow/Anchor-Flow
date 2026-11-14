@@ -76,6 +76,10 @@ export const SYNC_KEYS = [
   // (household-level preferences that should follow the household across
   // devices, not device-local).
   "tidePoolEnabled","lighthouseEnabled","celebrationsEnabled","mealsEnabled","careerEnabled","safeHarborEnabled","ripplesEnabled",
+  // showEmojis: household-level display preference for the af_redesign look
+  // (src/design/tokens.js emoji policy). Boolean, default false, synced so every
+  // device in the household agrees. Not consumed by any render path yet.
+  "showEmojis",
   // Exhale standalone keys (ExhaleSection.jsx uses af_exhale_* keys)
   "exhale_groups","exhale_color_labels","exhale_people","exhale_labels",
   // exhale_columns: user-managed column config [{id,label,color,emoji}],
