@@ -25,7 +25,9 @@ import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
 import { useTidePoolBalances, recordTidePoolEvent } from "./tidepool/useTidePool.js"
-import { getRedesignState, writeRedesignFlag } from "./design/redesignFlag.js"
+import { getRedesignState, writeRedesignFlag, REDESIGN } from "./design/redesignFlag.js"
+import HomeSwitch from "./redesign/HomeSwitch.jsx"
+import RedesignHome from "./redesign/RedesignHome.jsx"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -18487,7 +18489,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             if(!visitedTabs.current.has(t)) return null;
             return (
               <div key={t} onClick={e=>e.stopPropagation()} className={tab===t && !seenTabs.current.has(t)?"fu":""} style={{display:tab===t?"block":"none"}}>
-                {t==="anchor"   && <SectionErrorBoundary label="Anchor"><AnchorTab/></SectionErrorBoundary>}
+                {/* af_redesign: HomeSwitch renders <AnchorTab/> untouched when the flag
+                    is off; RedesignHome is only constructed when it's on. */}
+                {t==="anchor"   && <SectionErrorBoundary label="Anchor"><HomeSwitch redesignOn={REDESIGN}
+                  renderLegacy={function(){ return <AnchorTab/>; }}
+                  renderRedesign={function(){ return <RedesignHome
+                    displayName={myDisplayName(people,myPersonId,preferredName,authUser)}
+                    flowMode={flowMode} calEvents={calEvents} meals={meals} shoppingItems={shoppingItems}
+                    showEmojis={showEmojis} mealsEnabled={mealsEnabled} compassEnabled={compassEnabled}
+                    /* Same cached call the current Home makes (AnchorTab briefing strip):
+                       one Compass request per day per mode, shared cache. */
+                    loadCompassLine={function(){ var st=readHouseholdState(); st.flowMode=flowMode; st.myPersonId=myPersonId; st.compassCache=compassCache; return getDailyBriefing(st, setCompassCache).then(function(d){ return d && d.notice ? d.notice : null; }); }}
+                    vaultGated={BILLING_V1 && !sub.isPremium} onVaultGated={function(){ setPlusModalFeature("Home"); }}
+                  />; }}
+                /></SectionErrorBoundary>}
                 {t==="flowhome" && <SectionErrorBoundary label="Flow"><FlowHome/></SectionErrorBoundary>}
                 {t==="calendar" && <SectionErrorBoundary label="Calendar"><CalendarTab/></SectionErrorBoundary>}
                 {t==="waves"    && <SectionErrorBoundary label="Waves"><WavesSection/></SectionErrorBoundary>}
