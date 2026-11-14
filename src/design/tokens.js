@@ -1,6 +1,6 @@
 // src/design/tokens.js — design tokens for the Anchor & Flow redesign
 // (gated by af_redesign, see ./redesignFlag.js). Single source of truth for
-// the new look. Nothing imports these for rendering yet.
+// the new look.
 //
 // Rule: no purple or pink anywhere EXCEPT the Sunset gradient. Enforced by
 // tests/unit/design-tokens.test.js (hue check on every non-Sunset color).
@@ -79,6 +79,14 @@ export var person = {
   defaultAdult: "#4A7FA8",
 };
 
+// Checkable items (Flow full views): 22px sage circle. Done = filled sage
+// with a white tick, and the item's text crossed out at 45% opacity.
+export var check = {
+  size: 22,
+  color: "#7A9E8E", // sage
+  doneTextOpacity: 0.45,
+};
+
 // Work days are NOT color-coded by person: a neutral striped tag carrying
 // the person's initials.
 export var workDayTag = {
@@ -110,5 +118,5 @@ export function initialsFor(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-var tokens = { color: color, gradient: gradient, radius: radius, shadow: shadow, font: font, person: person, workDayTag: workDayTag, emoji: emoji };
+var tokens = { color: color, gradient: gradient, radius: radius, shadow: shadow, font: font, person: person, check: check, workDayTag: workDayTag, emoji: emoji };
 export default tokens;

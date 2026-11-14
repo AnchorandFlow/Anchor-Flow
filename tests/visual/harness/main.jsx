@@ -7,7 +7,7 @@
 // URL params: tab=<HomeFlow tab id>  hh=beta|other  steps=<json [[label, clickText|null], ...]>
 //             emojis=1 (household showEmojis on)  shot=1 (no capture, for screenshots)
 /* eslint-disable react-refresh/only-export-components -- harness entry, not a component module */
-import { FIXED_NOW, BETA_HH, OTHER_HH, householdData } from "../fixtures.js";
+import { FIXED_NOW, BETA_HH, OTHER_HH, MY_PERSON_ID, AUTH_USER_ID, householdData } from "../fixtures.js";
 
 var params = new URLSearchParams(location.search);
 
@@ -45,7 +45,10 @@ Object.keys(data).forEach(function (k) {
   if (data[k] === null) return;
   localStorage.setItem("af_" + k, JSON.stringify(data[k]));
 });
-localStorage.setItem("af_choreResetDate", "2026-11-13"); // raw string, as TidePoolTab stores it
+// Raw (non-JSON) strings, the way the app itself stores these.
+localStorage.setItem("af_choreResetDate", "2026-11-13");
+localStorage.setItem("af_myPersonId", MY_PERSON_ID);
+localStorage.setItem("af_myPersonId_authUserId", AUTH_USER_ID);
 localStorage.setItem("af_supabase_session", JSON.stringify({ access_token: "harness-token" }));
 sessionStorage.setItem("af_activeTab", params.get("tab") || "anchor");
 
@@ -80,6 +83,32 @@ function findClickable(label) {
   return (btn[0] || list[list.length - 1]) || null;
 }
 
+// measure=1: layout check for the redesigned screens. Reports anything that
+// sticks out sideways: elements past the full-view page's content box (or,
+// for fixed overlays, past the viewport), containers that scroll sideways,
+// and document-level horizontal overflow.
+function measure() {
+  var p = panel();
+  var page = p.querySelector('[data-redesign="full-view"]') || p;
+  var box = page.getBoundingClientRect();
+  var vw = document.documentElement.clientWidth;
+  var out = [];
+  function inFixed(el) { for (var e = el; e && e !== page; e = e.parentElement) { if (getComputedStyle(e).position === "fixed") return true; } return false; }
+  function hidden(el) { for (var e = el; e && e !== page; e = e.parentElement) { var cs = getComputedStyle(e); if (cs.display === "none" || cs.visibility === "hidden") return true; } return false; }
+  function describe(el, why) { var r = el.getBoundingClientRect(); return { why: why, tag: el.tagName.toLowerCase(), text: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50), left: Math.round(r.left), right: Math.round(r.right), limit: Math.round(box.right) }; }
+  Array.from(page.querySelectorAll("*")).forEach(function (el) {
+    var r = el.getBoundingClientRect();
+    if (!r.width || !r.height || hidden(el)) return;
+    var cs = getComputedStyle(el);
+    if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && el.scrollWidth > el.clientWidth + 1) out.push(describe(el, "scrolls sideways"));
+    if (inFixed(el)) { if (r.right > vw + 1 || r.left < -1) out.push(describe(el, "past viewport")); return; }
+    if (r.right > box.right + 1 || r.left < box.left - 1) out.push(describe(el, "past page edge"));
+  });
+  var doc = document.documentElement;
+  if (doc.scrollWidth > doc.clientWidth + 1) out.push({ why: "document scrolls sideways", scrollWidth: doc.scrollWidth, clientWidth: doc.clientWidth });
+  return { width: vw, pageWidth: Math.round(box.width), offenders: out.slice(0, 20), count: out.length };
+}
+
 async function run() {
   var { default: App } = await import("../../../src/App.jsx");
   var { StrictMode } = await import("react");
@@ -97,9 +126,12 @@ async function run() {
       el.click();
       await wait(500);
     }
-    out[label] = panel().innerHTML;
+    out[label] = params.get("measure") === "1" ? measure() : panel().innerHTML;
   }
   if (params.get("shot") === "1") { document.title = "READY"; return; }
+  if (params.get("measure") === "1" && window.parent !== window) {
+    window.parent.postMessage({ harnessCapture: encodeURIComponent(JSON.stringify({ snapshots: out, errors: errors })) }, "*");
+  }
   var s = document.createElement("script");
   s.type = "application/json";
   s.id = "__capture";

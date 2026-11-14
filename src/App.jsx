@@ -31,6 +31,13 @@ import RedesignHome from "./redesign/RedesignHome.jsx"
 import RedesignFlow from "./redesign/RedesignFlow.jsx"
 import RedesignExhale from "./redesign/RedesignExhale.jsx"
 import RedesignAnchor from "./redesign/RedesignAnchor.jsx"
+import ShoppingFull from "./redesign/ShoppingFull.jsx"
+import TidePoolFull from "./redesign/TidePoolFull.jsx"
+import WavesFull from "./redesign/WavesFull.jsx"
+import CalendarFull from "./redesign/CalendarFull.jsx"
+import MealsFull, { PrepTask } from "./redesign/MealsFull.jsx"
+import LighthouseFull from "./redesign/LighthouseFull.jsx"
+import { rdLegacyKit, RD_YEAR_CAT_COLORS, RD_T, RD_LH_CARD } from "./redesign/fullViewKit.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -2952,6 +2959,9 @@ function HomeFlow({ recoveryToken }) {
   const btnP = (bg,x={}) => ({background:bg||T.blue,color:"#fff",border:"none",borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontWeight:700,fontSize:"0.84rem",fontFamily:"inherit",letterSpacing:"0.01em",...x});
   const btnS = (x={}) => ({background:T.white,color:T.textMid,border:`1.5px solid ${T.border}`,borderRadius:"0.7rem",padding:"0.56rem 1.1rem",cursor:"pointer",fontSize:"0.84rem",fontFamily:"inherit",fontWeight:600,...x});
   const card = (x={}) => ({background:T.surface,border:`1px solid ${T.borderSoft}`,borderRadius:"1.1rem",padding:"1.25rem",marginBottom:"0.85rem",boxShadow:`0 2px 10px ${T.cardShadow}`,...x});
+  // The style helpers above as one object, for legacy bodies that af_redesign
+  // re-renders with its own helpers (see src/redesign/fullViewKit.js).
+  const HF_KIT = {T:T,inp:inp,lbl:lbl,btnP:btnP,btnS:btnS,card:card};
 
   const FM = FLOW_MODES_FN(T);
   const DM = DIETARY_META_FN(T);
@@ -8271,122 +8281,10 @@ Respond ONLY in valid JSON:
       });
     }
 
-    return (
-      <div>
-        <SecHead emoji="📆" title="Calendar" sub="All your events in one place" onBack={function(){goTab("anchor");}}/>
-        {/* Google Calendar connect banner */}
-        <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.5rem"}}>
-          <button onClick={()=>openAddEvent("")} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.4rem",flex:1,justifyContent:"center",padding:"0.72rem",fontSize:"0.88rem",borderRadius:"0.9rem"})}}>
-            <Icon name="plus" size={15} color="#fff"/> Add Event
-          </button>
-          <button onClick={()=>setModal("calSync")} style={{...btnS({display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.72rem 0.9rem",fontSize:"0.82rem",borderRadius:"0.9rem",background:connectedCals.includes("google")?T.sagePale:T.bgAlt,borderColor:connectedCals.includes("google")?T.sage+"60":T.border,color:connectedCals.includes("google")?T.sageDark:T.textMid})}}>
-            <Icon name="google" size={14}/>
-            {connectedCals.includes("google")?"Synced":"Connect Google"}
-          </button>
-        </div>
-        <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.75rem",textAlign:"center",fontStyle:"italic"}}>
-          More calendar sources syncing soon — Apple, Outlook & more.
-        </div>
-        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
-          {["month","week","day","year"].map(v=>(
-            <button key={v} onClick={()=>{
-              setCalView(v);
-              if(v==="week"&&selectedDay) setCalViewDate(new Date(selectedDay));
-              else if(v==="day") setCalViewDate(selectedDay?new Date(selectedDay):new Date(TODAY));
-            }} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
-          ))}
-        </div>
-        {calView!=="year"&&(
-        <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",justifyContent:"center"}}>
-          {[["all","All"],["mine","Mine"],["partner","Partner’s"]].map(function(item){
-            var _fv=item[0],_fl=item[1];
-            return (
-              <button key={_fv} onClick={function(){setCalFilter(_fv);}} style={{padding:"0.22rem 0.8rem",borderRadius:"50px",border:"1.5px solid "+(calFilter===_fv?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calFilter===_fv?"rgba(30,58,95,0.08)":"transparent",color:calFilter===_fv?"#1e3a5f":"#7a8a9a",fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}}>
-                {_fl}
-              </button>
-            );
-          })}
-        </div>
-        )}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
-          <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.25rem"}}>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
-            {calView==="month"&&(
-              <div style={{display:"flex",gap:"0.3rem"}}>
-                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
-                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
-              </div>
-            )}
-          </div>
-          <button onClick={navNext} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={T.textMid}/></button>
-        </div>
-        {calView==="month"&&(
-          <div style={{...card({padding:"0",overflow:"hidden",borderRadius:"1.1rem"})}}>
-            {/* Day headers */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`}}>
-              {WEEKDAYS_SUN.map(d=>(
-                <div key={d} style={{textAlign:"center",padding:"0.45rem 0",fontSize:"0.65rem",fontWeight:800,color:T.textSoft,letterSpacing:"0.05em"}}>{d}</div>
-              ))}
-            </div>
-            {/* Calendar grid — fixed row heights */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
-              {Array.from({length:firstDay}).map((_,i)=>(
-                <div key={`e${i}`} style={{height:88,borderRight:`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:T.bgAlt+"80"}}/>
-              ))}
-              {Array.from({length:daysInMonth}).map((_,i)=>{
-                const day=i+1;
-                const todayFlag=day===TODAY.getDate()&&month===TODAY.getMonth()&&year===TODAY.getFullYear();
-                const dayEvts=eventsForDay(day);
-                const thisDate=new Date(year,month,day);
-                const isSelected=selectedDay&&selectedDay.getDate()===day&&selectedDay.getMonth()===month&&selectedDay.getFullYear()===year;
-                const isLastCol=(firstDay+i)%7===6;
-                return (
-                  <div key={day} onClick={function(){var d=isSelected?null:thisDate;setSelectedDay(d);if(d)setCalViewDate(new Date(d));}}
-                    style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
-                    {/* Date number + marker button */}
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
-                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"1rem",lineHeight:1,color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.85}} title="Add marker">•</button>
-                    </div>
-                    {/* Events — show up to 2, then +N more */}
-                    {dayEvts.slice(0,2).map(function(e){
-                      var _pc=getPersonColor(e.forPerson, people);
-                      var _rp=resolveResponsibleParent(e.responsibleParent);
-                      var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
-                      var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
-                      var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
-                      return (
-                        <div key={e.id} style={{background:_sch?(_sch.color+"28"):(e.forPerson?_pc.bg:(e.color+"28")),borderLeft:"2.5px solid "+(_sch?_sch.color:(e.forPerson?_pc.border:e.color)),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:_sch?_sch.color:(e.forPerson?_pc.text:e.color),whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
-                          <span style={{overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{_sch?_sch.label+": ":""}{e.title}</span>
-                          {_rpPerson&&<span style={{marginLeft:2,fontSize:"6px",fontWeight:800,flexShrink:0,opacity:0.85}}>{personMarker(_rpPerson)}</span>}
-                        </div>
-                      );
-                    })}
-                    {dayEvts.length>2&&(
-                      <div style={{fontSize:"0.56rem",color:T.textSoft,fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
-                    )}
-                    {/* Emoji markers + work-type icon */}
-                    {(calMarkers[localDateStr(thisDate)]&&calMarkers[localDateStr(thisDate)].length>0||workDays[localDateStr(thisDate)])&&(
-                      <div style={{display:"flex",gap:"2px",flexWrap:"wrap",marginTop:"auto",lineHeight:1,alignItems:"center"}}>
-                        {(calMarkers[localDateStr(thisDate)]||[]).map(function(em,mi){
-                          return <span key={mi} style={{fontSize:"1.2rem",lineHeight:1}}>{em}</span>;
-                        })}
-                        {workDays[localDateStr(thisDate)]&&(function(){
-                          var _wde=workDays[localDateStr(thisDate)];
-                          var _wdIcons={wfh:"🏠",office:"🏢",travel:"✈️",off:"☀️"};
-                          var _wdBg={wfh:"#e0f5f1",office:"#e3eef7",travel:"#fdf3dc",off:"#faeae3"};
-                          var _wdCol={wfh:"#1a6657",office:"#1c4a6e",travel:"#7a5a10",off:"#8a3820"};
-                          return (<span key="wdi" style={{fontSize:"0.6rem",background:_wdBg[_wde.type]||"#f0ede8",color:_wdCol[_wde.type]||"#4a3e36",borderRadius:"2px",padding:"0 1px",lineHeight:"14px",display:"inline-flex",alignItems:"center"}}>{_wdIcons[_wde.type]||"💼"}</span>);
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {/* Marker picker popover */}
-            {markerPickerDate&&(
+    // Legacy bodies also shown by the af_redesign view. K = style helpers:
+    // HomeFlow's own (HFK) when the flag is off, so that output is unchanged.
+    var HFK={T:T,card:card,btnP:btnP,btnS:btnS,inp:inp,lbl:lbl,yearCats:CAL_YEAR_CATEGORIES,yearCatColor:calYearCatColor};
+    function calMarkerPicker(K){ var T=K.T; return (markerPickerDate&&(
               <div onClick={function(){setMarkerPickerDate(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
                 <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1rem",padding:"1.1rem 1.2rem",maxWidth:340,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.18)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
@@ -8408,45 +8306,8 @@ Respond ONLY in valid JSON:
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-        {calView==="week"&&(
-          <div style={{...card({padding:"0",overflow:"hidden"})}}>
-            {WEEKDAYS_SUN.map((dn,i)=>{
-              const d=weekDates[i],todayFlag=isToday(d),dayEvts=eventsForDay(d.getDate(),d.getMonth(),d.getFullYear());
-              return (
-                <div key={dn} onClick={()=>{setCalViewDate(d);setCalView("day");}} style={{display:"flex",alignItems:"flex-start",borderBottom:i<6?`1px solid ${T.borderSoft}`:"none",cursor:"pointer",background:todayFlag?T.bluePale:"transparent",padding:"0.55rem 0.85rem",gap:"0.85rem"}}>
-                  <div style={{width:44,flexShrink:0,textAlign:"center"}}>
-                    <div style={{fontSize:"0.62rem",fontWeight:800,color:todayFlag?T.blueDark:T.textSoft,letterSpacing:"0.08em",textTransform:"uppercase"}}>{dn}</div>
-                    <div style={{width:28,height:28,borderRadius:"50%",background:todayFlag?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0.2rem auto 0",fontSize:"0.88rem",fontWeight:700,color:todayFlag?"#fff":T.textDark}}>{d.getDate()}</div>
-                  </div>
-                  <div style={{flex:1,minWidth:0,paddingTop:"0.2rem"}}>
-                    {dayEvts.length===0
-                      ?<div style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
-                      :dayEvts.map(function(e){
-                          var _pc=getPersonColor(e.forPerson, people);
-                          var _rp=resolveResponsibleParent(e.responsibleParent);
-                          var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
-                          var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
-                          var _bg=_sch?_sch.color:(e.forPerson?_pc.bg:(e.color||T.blue));
-                          var _col=_sch?"#fff":(e.forPerson?_pc.text:"#fff");
-                          return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson&&!_sch?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{_sch?"🏫 "+_sch.label+": ":""}{e.title}</div>);
-                        })
-                    }
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {calView==="day"&&(
-          <div style={{...card()}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
-              <button onClick={()=>openAddEvent(localDateStr(calViewDate))} style={{...btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.75rem",display:"flex",alignItems:"center",gap:"0.35rem"})}}><Icon name="plus" size={13} color="#fff"/> Add</button>
-            </div>
-            {(function(){
+            )); }
+    function calWorkDayStrip(K){ var T=K.T, btnP=K.btnP, btnS=K.btnS, inp=K.inp; return ((function(){
               var _isoDate=localDateStr(calViewDate);
               var _wde=workDays[_isoDate];
               var _WD_ICONS={wfh:"🏠",office:"🏢",travel:"✈️",off:"☀️"};
@@ -8536,37 +8397,8 @@ Respond ONLY in valid JSON:
                   )}
                 </div>
               );
-            })()}
-            {(function(){
-              var _wsIso=localDateStr(calViewDate);
-              var _wsDayName=DAY_NAMES[calViewDate.getDay()];
-              var _wsActive=people.map(function(p){
-                var sched=wsNormalizeSchedule(workSchedules[p.id]);
-                var active=wsActiveForDate(sched,_wsIso,_wsDayName);
-                return active?{person:p,active:active}:null;
-              }).filter(Boolean);
-              return (
-                <div style={{marginBottom:"0.75rem"}}>
-                  <button onClick={wsOpenNew} style={{background:"rgba(30,58,95,0.06)",border:"1px solid rgba(30,58,95,0.14)",borderRadius:"0.5rem",padding:"0.32rem 0.7rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,color:"#1e3a5f",fontFamily:"inherit"}}>💼 Work schedule</button>
-                  {_wsActive.length>0&&(
-                    <div style={{marginTop:"0.4rem",display:"flex",flexDirection:"column",gap:"0.2rem"}}>
-                      {_wsActive.map(function(row){
-                        var p=row.person,a=row.active;
-                        var label=a.kind==="on-call"?"On-call":((a.shifts||[]).filter(function(s){return s.start&&s.end;}).map(function(s){return wsFmtTime(s.start)+"–"+wsFmtTime(s.end);}).join(", ")||"Working (no hours set)");
-                        return (
-                          <div key={p.id} onClick={function(){wsOpenEdit(p.id);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.72rem",color:T.textMid,cursor:"pointer"}}>
-                            <span style={{width:8,height:8,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
-                            <span style={{fontWeight:700}}>{p.name}</span>
-                            <span>{label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            {wsModalOpen&&wsForm&&(
+            })()); }
+    function calWorkScheduleModal(K){ var T=K.T, btnP=K.btnP, btnS=K.btnS, inp=K.inp; return (wsModalOpen&&wsForm&&(
               <div onClick={function(){setWsModalOpen(false);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:9000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
                 <div onClick={function(e){e.stopPropagation();}} style={{background:T.surface,borderRadius:"1.1rem 1.1rem 0 0",padding:"1.1rem 1.2rem 1.4rem",maxWidth:480,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -8px 32px rgba(0,0,0,0.2)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
@@ -8692,41 +8524,8 @@ Respond ONLY in valid JSON:
                   </div>
                 </div>
               </div>
-            )}
-            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
-            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
-              var _pc=getPersonColor(e.forPerson, people);
-              var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
-              var _dotColor=_sch?_sch.color:(e.forPerson?_pc.border:e.color);
-              var _rp=resolveResponsibleParent(e.responsibleParent);
-              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
-              var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
-              return (
-              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:44}}>
-                  <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
-                  {e.time?<span style={{fontSize:"0.74rem",fontWeight:800,color:_dotColor}}>{e.time}</span>:<span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:600}}>all day</span>}
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
-                    <span>{e.title}</span>
-                    {_rpPerson&&<div style={{width:16,height:16,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"9px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
-                  </div>
-                  {e.forPerson&&<div style={{fontSize:"0.66rem",color:_pc.text,fontWeight:700,marginTop:"0.1rem"}}>for {getPersonDisplayName(e.forPerson,people)}</div>}
-                  {_sch&&<div style={{fontSize:"0.66rem",color:_sch.color,fontWeight:700,marginTop:"0.1rem"}}>🏫 {_sch.label}</div>}
-                  {!_sch&&e.colorLabel&&!e.forPerson&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel}</div>}
-                  {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
-                  {notifications.some(function(n){return n.entityId===e.id;})&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
-                </div>
-                <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
-                  <button onClick={()=>setShowCalNotif(showCalNotif===e.id?null:e.id)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="bell" size={13} color={T.sand}/></button>
-                  <button onClick={()=>openEditEvent(e)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={T.textMid}/></button>
-                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
-                </div>
-              </div>
-              );
-            })}
-            {showCalNotif&&(
+            )); }
+    function calReminderForm(K){ var T=K.T, btnP=K.btnP, inp=K.inp; return (showCalNotif&&(
               <div style={{background:T.bgAlt,border:`1px solid ${T.sand}50`,borderRadius:"0.8rem",padding:"0.85rem",marginTop:"0.5rem"}}>
                 <p style={{fontSize:"0.75rem",fontWeight:700,color:T.sandDark,marginBottom:"0.6rem"}}>🔔 Set reminder</p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.45rem",marginBottom:"0.45rem"}}>
@@ -8736,50 +8535,8 @@ Respond ONLY in valid JSON:
                 <input value={cnn} onChange={e=>setCnn(e.target.value)} placeholder="Note…" style={{...inp({marginBottom:"0.5rem",padding:"0.35rem 0.5rem",fontSize:"0.79rem"})}}/>
                 <button onClick={function(){var ev=calEvents.find(function(e){return e.id===showCalNotif;});if(ev)addNotification(ev.id,ev.title,cnd,cnt,cnn,"calendar");setShowCalNotif(null);}} style={btnP(T.sand,{fontSize:"0.76rem",padding:"0.35rem 0.75rem"})}>Set Reminder</button>
               </div>
-            )}
-          </div>
-        )}
-        {calView==="month"&&selectedDay&&!calFormMode&&(
-          <div style={{...card({border:`2px solid ${T.sand}60`,background:`linear-gradient(to right,${T.sandPale},${T.surface})`})}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
-              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{FORMAT_SHORT(selectedDay)}</span>
-              <div style={{display:"flex",gap:"0.4rem"}}>
-                <button onClick={()=>openAddEvent(localDateStr(selectedDay))} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.38rem 0.8rem",fontSize:"0.78rem",borderRadius:"0.65rem"})}}><Icon name="plus" size={13} color="#fff"/> Add Event</button>
-                <button onClick={()=>setSelectedDay(null)} style={{...btnS({padding:"0.38rem 0.6rem",borderRadius:"0.65rem"})}}>✕</button>
-              </div>
-            </div>
-            {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
-            :eventsForDay(selectedDay.getDate()).map(function(e){
-              var _pc=getPersonColor(e.forPerson, people);
-              var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
-              var _dotColor=_sch?_sch.color:(e.forPerson?_pc.border:e.color);
-              var _rp=resolveResponsibleParent(e.responsibleParent);
-              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
-              var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
-              return (
-              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
-                  <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
-                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{_sch?_sch.label:(e.forPerson?getPersonDisplayName(e.forPerson,people):(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||""))}</span>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
-                    <span>{e.title}</span>
-                    {_rpPerson&&<div style={{width:14,height:14,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"8px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
-                  </div>
-                  {e.time&&<div style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginTop:"0.1rem"}}>⏰ {e.time}</div>}
-                  {e.note&&<div style={{color:T.textMid,fontSize:"0.79rem",marginTop:"0.35rem",lineHeight:1.5,fontStyle:"italic"}}>📝 {e.note}</div>}
-                </div>
-                <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
-                  <button onClick={()=>openEditEvent(e)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={T.textMid}/></button>
-                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        )}
-        {calView==="year"&&(function(){
+            )); }
+    function calYearView(K){ var T=K.T, CAL_YEAR_CATEGORIES=K.yearCats, calYearCatColor=K.yearCatColor; return (calView==="year"&&(function(){
           var yr=calViewDate.getFullYear();
           var allItems=buildYearItems(yr);
           var filteredItems=filterYearItems(allItems);
@@ -8883,7 +8640,315 @@ Respond ONLY in valid JSON:
               )}
             </div>
           );
-        })()}
+        })()); }
+
+    // af_redesign: the redesigned full view. Same state and write paths as
+    // below; the editors only reached from here are the legacy bodies above,
+    // rendered with the new-look helpers. Flag off never reaches this.
+    if (REDESIGN) {
+      var RDK = rdLegacyKit();
+      // Year categories without purple/pink (those hues are Sunset-only).
+      RDK.yearCats = CAL_YEAR_CATEGORIES.map(function(c){ return RD_YEAR_CAT_COLORS[c.id] ? Object.assign({}, c, { color: RD_YEAR_CAT_COLORS[c.id] }) : c; });
+      RDK.yearCatColor = function(catId){ var c=RDK.yearCats.find(function(x){return x.id===catId;}); return c?c.color:"#5A5A5A"; };
+      return (
+        <CalendarFull
+          view={calView} viewDate={calViewDate} today={new Date()} selectedDay={selectedDay} weekDates={weekDates}
+          navTitle={navTitle()} onPrev={navPrev} onNext={navNext}
+          onView={function(v){
+            setCalView(v);
+            if(v==="week"&&selectedDay) setCalViewDate(new Date(selectedDay));
+            else if(v==="day") setCalViewDate(selectedDay?new Date(selectedDay):new Date(TODAY));
+          }}
+          onSelectDay={function(dd){ setSelectedDay(dd); if(dd) setCalViewDate(new Date(dd)); }}
+          onOpenDay={function(dd){ setCalViewDate(dd); setCalView("day"); }}
+          filter={calFilter} onFilter={setCalFilter}
+          isDimmed={function(e){ var _rp=resolveResponsibleParent(e.responsibleParent); return (calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId); }}
+          data={{ calEvents:calEvents, workSchedules:workSchedules, people:people, myPersonId:myPersonId, workDays:workDays, calMarkers:calMarkers, isPersonMinor:personIsMinor }}
+          onAddEvent={openAddEvent} onEditEvent={openEditEvent}
+          onDeleteEvent={function(id){ setCalEvents(function(p){ return p.filter(function(x){ return x.id!==id; }); }); }}
+          hasReminder={function(id){ return notifications.some(function(n){ return n.entityId===id; }); }}
+          onRemind={function(id){ setShowCalNotif(showCalNotif===id?null:id); }}
+          workLabel={function(pid, dd){
+            var a=wsActiveForDate(wsNormalizeSchedule(workSchedules[pid]), localDateStr(dd), DAY_NAMES[dd.getDay()]);
+            if(!a) return "Working";
+            if(a.kind==="on-call") return "On call";
+            var t=(a.shifts||[]).filter(function(x){ return x.start&&x.end; }).map(function(x){ return wsFmtTime(x.start)+"–"+wsFmtTime(x.end); }).join(", ");
+            return t||"Working";
+          }}
+          workDayTypeLabel={function(t){ return CAL_YEAR_WORKDAY_LABELS[t]||"Working"; }}
+          personName={function(pid){ var p=people.find(function(x){ return x.id===pid; }); return p?p.name:"Someone"; }}
+          markerLabel={calMarkerLabelForEmoji} onMarker={setMarkerPickerDate}
+          onOpenWorkSchedules={wsOpenNew} onEditWorkSchedule={wsOpenEdit}
+          markerPicker={calMarkerPicker(RDK)} workDayStrip={calWorkDayStrip(RDK)}
+          workScheduleModal={calWorkScheduleModal(RDK)} reminderForm={calReminderForm(RDK)}
+          yearView={calYearView(RDK)}
+          googleConnected={connectedCals.includes("google")} onCalSync={function(){ setModal("calSync"); }}
+          showEmojis={showEmojis}
+        />
+      );
+    }
+
+    return (
+      <div>
+        <SecHead emoji="📆" title="Calendar" sub="All your events in one place" onBack={function(){goTab("anchor");}}/>
+        {/* Google Calendar connect banner */}
+        <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.5rem"}}>
+          <button onClick={()=>openAddEvent("")} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.4rem",flex:1,justifyContent:"center",padding:"0.72rem",fontSize:"0.88rem",borderRadius:"0.9rem"})}}>
+            <Icon name="plus" size={15} color="#fff"/> Add Event
+          </button>
+          <button onClick={()=>setModal("calSync")} style={{...btnS({display:"flex",alignItems:"center",gap:"0.4rem",padding:"0.72rem 0.9rem",fontSize:"0.82rem",borderRadius:"0.9rem",background:connectedCals.includes("google")?T.sagePale:T.bgAlt,borderColor:connectedCals.includes("google")?T.sage+"60":T.border,color:connectedCals.includes("google")?T.sageDark:T.textMid})}}>
+            <Icon name="google" size={14}/>
+            {connectedCals.includes("google")?"Synced":"Connect Google"}
+          </button>
+        </div>
+        <div style={{fontSize:"0.72rem",color:T.textFaint,marginBottom:"0.75rem",textAlign:"center",fontStyle:"italic"}}>
+          More calendar sources syncing soon — Apple, Outlook & more.
+        </div>
+        <div style={{display:"flex",gap:"0.4rem",marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.3rem",border:`1px solid ${T.border}`}}>
+          {["month","week","day","year"].map(v=>(
+            <button key={v} onClick={()=>{
+              setCalView(v);
+              if(v==="week"&&selectedDay) setCalViewDate(new Date(selectedDay));
+              else if(v==="day") setCalViewDate(selectedDay?new Date(selectedDay):new Date(TODAY));
+            }} style={{flex:1,background:calView===v?T.blue:"transparent",color:calView===v?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.42rem 0.5rem",cursor:"pointer",fontSize:"0.78rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",textTransform:"capitalize"}}>{v}</button>
+          ))}
+        </div>
+        {calView!=="year"&&(
+        <div style={{display:"flex",gap:"0.3rem",marginBottom:"0.65rem",justifyContent:"center"}}>
+          {[["all","All"],["mine","Mine"],["partner","Partner’s"]].map(function(item){
+            var _fv=item[0],_fl=item[1];
+            return (
+              <button key={_fv} onClick={function(){setCalFilter(_fv);}} style={{padding:"0.22rem 0.8rem",borderRadius:"50px",border:"1.5px solid "+(calFilter===_fv?"rgba(30,58,95,0.4)":"rgba(30,58,95,0.12)"),background:calFilter===_fv?"rgba(30,58,95,0.08)":"transparent",color:calFilter===_fv?"#1e3a5f":"#7a8a9a",fontSize:"0.7rem",fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.12s"}}>
+                {_fl}
+              </button>
+            );
+          })}
+        </div>
+        )}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",padding:"0 0.15rem"}}>
+          <button onClick={navPrev} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevL" size={18} color={T.textMid}/></button>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.25rem"}}>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark,textAlign:"center"}}>{navTitle()}</span>
+            {calView==="month"&&(
+              <div style={{display:"flex",gap:"0.3rem"}}>
+                <button onClick={()=>setCalViewDate(new Date(year-1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>‹ {year-1}</button>
+                <button onClick={()=>setCalViewDate(new Date(year+1,month,1))} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:"0.4rem",cursor:"pointer",padding:"1px 8px",fontSize:"0.68rem",color:T.textFaint,fontFamily:"inherit",fontWeight:700}}>{year+1} ›</button>
+              </div>
+            )}
+          </div>
+          <button onClick={navNext} style={{background:T.bgAlt,border:`1px solid ${T.border}`,cursor:"pointer",padding:7,display:"flex",borderRadius:"50%"}}><Icon name="chevR" size={18} color={T.textMid}/></button>
+        </div>
+        {calView==="month"&&(
+          <div style={{...card({padding:"0",overflow:"hidden",borderRadius:"1.1rem"})}}>
+            {/* Day headers */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",background:T.bgAlt,borderBottom:`1px solid ${T.borderSoft}`}}>
+              {WEEKDAYS_SUN.map(d=>(
+                <div key={d} style={{textAlign:"center",padding:"0.45rem 0",fontSize:"0.65rem",fontWeight:800,color:T.textSoft,letterSpacing:"0.05em"}}>{d}</div>
+              ))}
+            </div>
+            {/* Calendar grid — fixed row heights */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+              {Array.from({length:firstDay}).map((_,i)=>(
+                <div key={`e${i}`} style={{height:88,borderRight:`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:T.bgAlt+"80"}}/>
+              ))}
+              {Array.from({length:daysInMonth}).map((_,i)=>{
+                const day=i+1;
+                const todayFlag=day===TODAY.getDate()&&month===TODAY.getMonth()&&year===TODAY.getFullYear();
+                const dayEvts=eventsForDay(day);
+                const thisDate=new Date(year,month,day);
+                const isSelected=selectedDay&&selectedDay.getDate()===day&&selectedDay.getMonth()===month&&selectedDay.getFullYear()===year;
+                const isLastCol=(firstDay+i)%7===6;
+                return (
+                  <div key={day} onClick={function(){var d=isSelected?null:thisDate;setSelectedDay(d);if(d)setCalViewDate(new Date(d));}}
+                    style={{height:88,padding:"0.22rem 0.2rem",borderRight:isLastCol?"none":`1px solid ${T.borderSoft}`,borderBottom:`1px solid ${T.borderSoft}`,background:isSelected?T.sandPale:todayFlag?T.bluePale:T.surface,cursor:"pointer",transition:"background 0.1s",overflow:"hidden",display:"flex",flexDirection:"column",gap:"1px"}}>
+                    {/* Date number + marker button */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div style={{width:22,height:22,borderRadius:"50%",background:todayFlag?T.blue:"transparent",color:todayFlag?"#fff":T.textDark,fontSize:"0.75rem",fontWeight:todayFlag?800:600,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:"1px"}}>{day}</div>
+                      <button onClick={function(ev){ev.stopPropagation();setMarkerPickerDate(localDateStr(thisDate));}} style={{background:"none",border:"none",fontSize:"1rem",lineHeight:1,color:T.textFaint,cursor:"pointer",padding:"0 2px",opacity:0.85}} title="Add marker">•</button>
+                    </div>
+                    {/* Events — show up to 2, then +N more */}
+                    {dayEvts.slice(0,2).map(function(e){
+                      var _pc=getPersonColor(e.forPerson, people);
+                      var _rp=resolveResponsibleParent(e.responsibleParent);
+                      var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
+                      var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
+                      var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+                      return (
+                        <div key={e.id} style={{background:_sch?(_sch.color+"28"):(e.forPerson?_pc.bg:(e.color+"28")),borderLeft:"2.5px solid "+(_sch?_sch.color:(e.forPerson?_pc.border:e.color)),borderRadius:"0 3px 3px 0",padding:"1px 3px",fontSize:"0.58rem",fontWeight:700,color:_sch?_sch.color:(e.forPerson?_pc.text:e.color),whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.4,opacity:_dimmed?0.25:1,display:"flex",alignItems:"center"}}>
+                          <span style={{overflow:"hidden",textOverflow:"ellipsis",minWidth:0}}>{e.time&&<span style={{opacity:0.8,marginRight:2}}>{e.time}</span>}{_sch?_sch.label+": ":""}{e.title}</span>
+                          {_rpPerson&&<span style={{marginLeft:2,fontSize:"6px",fontWeight:800,flexShrink:0,opacity:0.85}}>{personMarker(_rpPerson)}</span>}
+                        </div>
+                      );
+                    })}
+                    {dayEvts.length>2&&(
+                      <div style={{fontSize:"0.56rem",color:T.textSoft,fontWeight:700,paddingLeft:"0.2rem"}}>+{dayEvts.length-2} more</div>
+                    )}
+                    {/* Emoji markers + work-type icon */}
+                    {(calMarkers[localDateStr(thisDate)]&&calMarkers[localDateStr(thisDate)].length>0||workDays[localDateStr(thisDate)])&&(
+                      <div style={{display:"flex",gap:"2px",flexWrap:"wrap",marginTop:"auto",lineHeight:1,alignItems:"center"}}>
+                        {(calMarkers[localDateStr(thisDate)]||[]).map(function(em,mi){
+                          return <span key={mi} style={{fontSize:"1.2rem",lineHeight:1}}>{em}</span>;
+                        })}
+                        {workDays[localDateStr(thisDate)]&&(function(){
+                          var _wde=workDays[localDateStr(thisDate)];
+                          var _wdIcons={wfh:"🏠",office:"🏢",travel:"✈️",off:"☀️"};
+                          var _wdBg={wfh:"#e0f5f1",office:"#e3eef7",travel:"#fdf3dc",off:"#faeae3"};
+                          var _wdCol={wfh:"#1a6657",office:"#1c4a6e",travel:"#7a5a10",off:"#8a3820"};
+                          return (<span key="wdi" style={{fontSize:"0.6rem",background:_wdBg[_wde.type]||"#f0ede8",color:_wdCol[_wde.type]||"#4a3e36",borderRadius:"2px",padding:"0 1px",lineHeight:"14px",display:"inline-flex",alignItems:"center"}}>{_wdIcons[_wde.type]||"💼"}</span>);
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Marker picker popover */}
+            {calMarkerPicker(HFK)}
+          </div>
+        )}
+        {calView==="week"&&(
+          <div style={{...card({padding:"0",overflow:"hidden"})}}>
+            {WEEKDAYS_SUN.map((dn,i)=>{
+              const d=weekDates[i],todayFlag=isToday(d),dayEvts=eventsForDay(d.getDate(),d.getMonth(),d.getFullYear());
+              return (
+                <div key={dn} onClick={()=>{setCalViewDate(d);setCalView("day");}} style={{display:"flex",alignItems:"flex-start",borderBottom:i<6?`1px solid ${T.borderSoft}`:"none",cursor:"pointer",background:todayFlag?T.bluePale:"transparent",padding:"0.55rem 0.85rem",gap:"0.85rem"}}>
+                  <div style={{width:44,flexShrink:0,textAlign:"center"}}>
+                    <div style={{fontSize:"0.62rem",fontWeight:800,color:todayFlag?T.blueDark:T.textSoft,letterSpacing:"0.08em",textTransform:"uppercase"}}>{dn}</div>
+                    <div style={{width:28,height:28,borderRadius:"50%",background:todayFlag?T.blue:"transparent",display:"flex",alignItems:"center",justifyContent:"center",margin:"0.2rem auto 0",fontSize:"0.88rem",fontWeight:700,color:todayFlag?"#fff":T.textDark}}>{d.getDate()}</div>
+                  </div>
+                  <div style={{flex:1,minWidth:0,paddingTop:"0.2rem"}}>
+                    {dayEvts.length===0
+                      ?<div style={{fontSize:"0.75rem",color:T.textFaint,fontStyle:"italic",padding:"0.4rem 0"}}>No events</div>
+                      :dayEvts.map(function(e){
+                          var _pc=getPersonColor(e.forPerson, people);
+                          var _rp=resolveResponsibleParent(e.responsibleParent);
+                          var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
+                          var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+                          var _bg=_sch?_sch.color:(e.forPerson?_pc.bg:(e.color||T.blue));
+                          var _col=_sch?"#fff":(e.forPerson?_pc.text:"#fff");
+                          return (<div key={e.id} style={{background:_bg,borderLeft:e.forPerson&&!_sch?("2.5px solid "+_pc.border):undefined,borderRadius:"0.4rem",padding:"0.22rem 0.55rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:_col,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",opacity:_dimmed?0.25:1}}>{e.time?e.time+" ":""}{_sch?"🏫 "+_sch.label+": ":""}{e.title}</div>);
+                        })
+                    }
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {calView==="day"&&(
+          <div style={{...card()}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.85rem"}}>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1.05rem",color:T.textDark}}>{calViewDate.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</span>
+              <button onClick={()=>openAddEvent(localDateStr(calViewDate))} style={{...btnP(T.blue,{fontSize:"0.76rem",padding:"0.32rem 0.75rem",display:"flex",alignItems:"center",gap:"0.35rem"})}}><Icon name="plus" size={13} color="#fff"/> Add</button>
+            </div>
+            {calWorkDayStrip(HFK)}
+            {(function(){
+              var _wsIso=localDateStr(calViewDate);
+              var _wsDayName=DAY_NAMES[calViewDate.getDay()];
+              var _wsActive=people.map(function(p){
+                var sched=wsNormalizeSchedule(workSchedules[p.id]);
+                var active=wsActiveForDate(sched,_wsIso,_wsDayName);
+                return active?{person:p,active:active}:null;
+              }).filter(Boolean);
+              return (
+                <div style={{marginBottom:"0.75rem"}}>
+                  <button onClick={wsOpenNew} style={{background:"rgba(30,58,95,0.06)",border:"1px solid rgba(30,58,95,0.14)",borderRadius:"0.5rem",padding:"0.32rem 0.7rem",cursor:"pointer",fontSize:"0.72rem",fontWeight:700,color:"#1e3a5f",fontFamily:"inherit"}}>💼 Work schedule</button>
+                  {_wsActive.length>0&&(
+                    <div style={{marginTop:"0.4rem",display:"flex",flexDirection:"column",gap:"0.2rem"}}>
+                      {_wsActive.map(function(row){
+                        var p=row.person,a=row.active;
+                        var label=a.kind==="on-call"?"On-call":((a.shifts||[]).filter(function(s){return s.start&&s.end;}).map(function(s){return wsFmtTime(s.start)+"–"+wsFmtTime(s.end);}).join(", ")||"Working (no hours set)");
+                        return (
+                          <div key={p.id} onClick={function(){wsOpenEdit(p.id);}} style={{display:"flex",alignItems:"center",gap:"0.4rem",fontSize:"0.72rem",color:T.textMid,cursor:"pointer"}}>
+                            <span style={{width:8,height:8,borderRadius:"50%",background:p.color||T.blue,flexShrink:0}}/>
+                            <span style={{fontWeight:700}}>{p.name}</span>
+                            <span>{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {calWorkScheduleModal(HFK)}
+            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).length===0&&<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"1rem 0"}}>No events — enjoy the open space 🌿</p>}
+            {eventsForDay(calViewDate.getDate(),calViewDate.getMonth(),calViewDate.getFullYear()).map(function(e){
+              var _pc=getPersonColor(e.forPerson, people);
+              var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+              var _dotColor=_sch?_sch.color:(e.forPerson?_pc.border:e.color);
+              var _rp=resolveResponsibleParent(e.responsibleParent);
+              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
+              var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
+              return (
+              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.7rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:44}}>
+                  <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
+                  {e.time?<span style={{fontSize:"0.74rem",fontWeight:800,color:_dotColor}}>{e.time}</span>:<span style={{fontSize:"0.68rem",color:T.textFaint,fontWeight:600}}>all day</span>}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.9rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
+                    <span>{e.title}</span>
+                    {_rpPerson&&<div style={{width:16,height:16,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"9px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
+                  </div>
+                  {e.forPerson&&<div style={{fontSize:"0.66rem",color:_pc.text,fontWeight:700,marginTop:"0.1rem"}}>for {getPersonDisplayName(e.forPerson,people)}</div>}
+                  {_sch&&<div style={{fontSize:"0.66rem",color:_sch.color,fontWeight:700,marginTop:"0.1rem"}}>🏫 {_sch.label}</div>}
+                  {!_sch&&e.colorLabel&&!e.forPerson&&<div style={{fontSize:"0.66rem",color:e.color,fontWeight:700,marginTop:"0.1rem"}}>{calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel}</div>}
+                  {e.note&&<div style={{color:T.textMid,fontSize:"0.78rem",marginTop:"0.28rem",fontStyle:"italic"}}>📝 {e.note}</div>}
+                  {notifications.some(function(n){return n.entityId===e.id;})&&<div style={{color:T.sand,fontSize:"0.72rem",fontWeight:600,marginTop:"0.2rem"}}>🔔 Reminder set</div>}
+                </div>
+                <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
+                  <button onClick={()=>setShowCalNotif(showCalNotif===e.id?null:e.id)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="bell" size={13} color={T.sand}/></button>
+                  <button onClick={()=>openEditEvent(e)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={T.textMid}/></button>
+                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
+                </div>
+              </div>
+              );
+            })}
+            {calReminderForm(HFK)}
+          </div>
+        )}
+        {calView==="month"&&selectedDay&&!calFormMode&&(
+          <div style={{...card({border:`2px solid ${T.sand}60`,background:`linear-gradient(to right,${T.sandPale},${T.surface})`})}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem"}}>
+              <span style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:700,fontSize:"1rem",color:T.textDark}}>{FORMAT_SHORT(selectedDay)}</span>
+              <div style={{display:"flex",gap:"0.4rem"}}>
+                <button onClick={()=>openAddEvent(localDateStr(selectedDay))} style={{...btnP(T.blue,{display:"flex",alignItems:"center",gap:"0.35rem",padding:"0.38rem 0.8rem",fontSize:"0.78rem",borderRadius:"0.65rem"})}}><Icon name="plus" size={13} color="#fff"/> Add Event</button>
+                <button onClick={()=>setSelectedDay(null)} style={{...btnS({padding:"0.38rem 0.6rem",borderRadius:"0.65rem"})}}>✕</button>
+              </div>
+            </div>
+            {eventsForDay(selectedDay.getDate()).length===0?<p style={{color:T.textFaint,fontSize:"0.83rem",fontWeight:600,textAlign:"center",padding:"0.5rem 0"}}>No events this day.</p>
+            :eventsForDay(selectedDay.getDate()).map(function(e){
+              var _pc=getPersonColor(e.forPerson, people);
+              var _sch=e.schoolType?schoolTypeInfo(e.schoolType):null;
+              var _dotColor=_sch?_sch.color:(e.forPerson?_pc.border:e.color);
+              var _rp=resolveResponsibleParent(e.responsibleParent);
+              var _dimmed=(calFilter==="mine"&&myPersonId&&_rp!==myPersonId)||(calFilter==="mine"&&!myPersonId)||(calFilter==="partner"&&_rp===myPersonId);
+              var _rpPerson=_rp?people.find(function(p){return p.id===_rp;}):null;
+              return (
+              <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:"0.65rem",padding:"0.65rem 0",borderBottom:`1px solid ${T.borderSoft}`,opacity:_dimmed?0.25:1}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.18rem",flexShrink:0,minWidth:38}}>
+                  <div style={{width:11,height:11,borderRadius:"50%",background:_dotColor,marginTop:3}}/>
+                  <span style={{fontSize:"0.54rem",fontWeight:700,color:_dotColor,whiteSpace:"nowrap",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",minWidth:0,maxWidth:"2.6rem"}}>{_sch?_sch.label:(e.forPerson?getPersonDisplayName(e.forPerson,people):(calColorLabels[e.color]||(e.colorCustom||"").trim()||e.colorLabel||""))}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,color:T.textDark,fontSize:"0.88rem",display:"flex",alignItems:"center",gap:"0.4rem",flexWrap:"wrap"}}>
+                    <span>{e.title}</span>
+                    {_rpPerson&&<div style={{width:14,height:14,borderRadius:"50%",background:"rgba(255,255,255,0.85)",fontSize:"8px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(0,0,0,0.1)",color:"#1e3a5f",flexShrink:0}}>{personMarker(_rpPerson)}</div>}
+                  </div>
+                  {e.time&&<div style={{color:T.textSoft,fontSize:"0.75rem",fontWeight:500,marginTop:"0.1rem"}}>⏰ {e.time}</div>}
+                  {e.note&&<div style={{color:T.textMid,fontSize:"0.79rem",marginTop:"0.35rem",lineHeight:1.5,fontStyle:"italic"}}>📝 {e.note}</div>}
+                </div>
+                <div style={{display:"flex",gap:"0.25rem",flexShrink:0}}>
+                  <button onClick={()=>openEditEvent(e)} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="edit" size={13} color={T.textMid}/></button>
+                  <button onClick={()=>setCalEvents(p=>p.filter(x=>x.id!==e.id))} style={{background:T.bgAlt,border:`1px solid ${T.border}`,borderRadius:"0.45rem",cursor:"pointer",padding:"4px 7px",display:"flex"}}><Icon name="trash" size={13} color={T.rose}/></button>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        )}
+        {calYearView(HFK)}
         {connectedCals.length===0&&(
           <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}50`,textAlign:"center",padding:"1.5rem"})}}>
             <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>📆</div>
@@ -9523,6 +9588,21 @@ Respond ONLY in valid JSON:
     }
     var br = "0.5px solid "+T.borderSoft;
 
+    // af_redesign: the redesigned full view. Same state and write paths
+    // (persistWaves via the helpers above); only the markup differs. Flag off
+    // never reaches this.
+    if (REDESIGN) return (
+      <WavesFull waves={wavesList()} showEmojis={showEmojis}
+        api={{
+          add: addWave, rename: renameWave, schedule: updateWaveSchedule, remove: deleteWave,
+          addTask: addWaveTask, updateTask: updateWaveTask, deleteTask: deleteWaveTask, reset: resetWave,
+          scheduleLabel: waveScheduleLabel, daysAgo: waveDaysAgoLabel, toDays: waveIntervalToDays,
+          dayLabels: WAVE_DAY_LABELS, monthLabels: WAVE_MONTH_LABELS,
+        }}
+        footer={<UndoToast toast={undoToast} onUndo={handleUndoClick} />}
+      />
+    );
+
     return (
       <div>
         <SecHead emoji="〰️" title="Waves" sub="Routines that repeat — daily, weekly, seasonal" onBack={function(){goTab("anchor");}}/>
@@ -10044,98 +10124,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setRescueLoading(false);
     }
 
-    const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"},{id:"bank",label:"Meal Bank",emoji:"📋"}];
-
-    return (
-      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
-        <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks" color="#faf8f4"
-          onBack={function(){goTab("anchor");}}
-          action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
-            {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
-          </button>}/>
-
-        <div style={{display:"flex",gap:4,borderBottom:"1px solid #c8a96e",marginBottom:"0.85rem"}}>
-          {[{id:"meals",label:"Meals"},{id:"recipes",label:"Recipes"}].map(tt=>(
-            <button key={tt.id} onClick={()=>setMealsTopTab(tt.id)} style={{background:"none",border:"none",borderBottom:mealsTopTab===tt.id?"2px solid #c8a96e":"2px solid transparent",padding:"0.5rem 1rem",fontSize:"0.85rem",color:mealsTopTab===tt.id?"#f7f1e3":"#a8c4d4",fontFamily:"inherit",cursor:"pointer",fontWeight:mealsTopTab===tt.id?700:500}}>{tt.label}</button>
-          ))}
-        </div>
-
-        {mealsTopTab==="meals"&&(<>
-
-        {showWeekTypePicker&&<WeekTypePicker weekTypeKey={weekTypeKey} applyWeekType={applyWeekType} setShowWeekTypePicker={setShowWeekTypePicker} flowMode={flowMode} dietaryFilters={dietaryFilters} setNextWeekMeals={setNextWeekMeals} setMeals={setMeals} setMealSubTab={setMealSubTab} mealBankCustom={mealBankCustom} targetWeek={mealSubTab==="week"?"this":"next"} wtAiMeals={wtAiMeals} setWtAiMeals={setWtAiMeals} wtSelected={wtSelected} setWtSelected={setWtSelected}/>}
-
-        <ScrollTabs style={{marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${T.border}`}}>
-          {subTabs.map(st=>(
-            <button key={st.id} onClick={()=>setMealSubTab(st.id)} style={{flexShrink:0,background:mealSubTab===st.id?T.sage:"transparent",color:mealSubTab===st.id?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.4rem 0.55rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem",justifyContent:"center"}}>
-              {st.emoji} {st.label}
-            </button>
-          ))}
-        </ScrollTabs>
-
-        {mealSubTab==="week"&&(
-          <div>
-            <div style={{...card({padding:"0.85rem 1rem",background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.85rem"})}}>
-              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
-                {[{v:1,label:"Dinner Only"},{v:2,label:"Lunch + Dinner"},{v:3,label:"All 3 Meals"}].map(o=>(
-                  <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?T.sage:T.white,color:mealCount===o.v?"#fff":T.textMid,border:`2px solid ${mealCount===o.v?T.sage:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
-                ))}
-              </div>
-              <button onClick={function(){ if(window.confirm("Shift every day's meals forward by one day? Sunday's meals move to Monday, and so on — this replaces what's currently planned.")) rotateMeals(); }} title="Shift every day's meals forward by one" style={btnS({fontSize:"0.72rem",padding:"0.28rem 0.7rem"})}>🔄 Rotate forward</button>
-            </div>
-            {swapDay&&(
-              <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
-                <span style={{fontSize:"0.85rem"}}>🔄</span>
-                <span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark,flex:1}}>Swapping <strong>{swapDay}</strong> with… tap another day</span>
-                <button onClick={()=>setSwapDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.85rem",fontWeight:700,padding:"2px 6px",fontFamily:"inherit"}}>Cancel</button>
-              </div>
-            )}
-            {MEAL_DAYS.map(day=>{
-              const m=meals[day]||{};const isToday=day===TODAY_NAME;const themeDay=mealThemes[day];
-              const bankMatch=MEAL_BANK_DATA.find(b=>b.name.toLowerCase()===(m.dinner||"").toLowerCase());
-              const isSwapSource=swapDay===day;
-              const isSwapTarget=swapDay&&swapDay!==day;
-              return (
-                <div key={day} onClick={isSwapTarget?function(){setMeals(function(p){var n=Object.assign({},p);var tmp=n[swapDay]||{};n[swapDay]=n[day]||{};n[day]=tmp;return n;});setSwapDay(null);}:undefined}
-                  style={{...card({borderLeft:`4px solid ${isSwapSource?T.sand:isToday?T.sage:T.borderSoft}`,background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":isToday?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
-                      <span style={{fontWeight:700,color:isSwapSource?T.sandDark:isToday?T.sageDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
-                      {isToday&&!isSwapSource&&<Pill label="Today" color={T.sage} tiny/>}
-                      {isSwapSource&&<Pill label="Swapping…" color={T.sand} tiny/>}
-                      {isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px"}}>tap to swap</span>}
-                      {mealThemeEnabled&&themeDay&&!isSwapSource&&!isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px",border:`1px solid ${T.sand}35`}}>{themeDay.emoji} {themeDay.theme}</span>}
-                    </div>
-                    <div style={{display:"flex",gap:"0.35rem"}}>
-                      {!swapDay&&isToday&&m.dinner&&<button onClick={()=>setMealSubTab("tonight")} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🌙 Tonight</button>}
-                      {!swapDay&&<button onClick={function(e){e.stopPropagation();openEdit(day);}} style={btnS({padding:"0.28rem 0.7rem",fontSize:"0.74rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="edit" size={11} color={T.textMid}/> Edit</button>}
-                      <button onClick={function(e){e.stopPropagation();setSwapDay(isSwapSource?null:day);}} title="Swap this day" style={{...btnS({padding:"0.28rem 0.55rem",display:"flex",alignItems:"center"}),background:isSwapSource?T.sand:"transparent",borderColor:isSwapSource?T.sand:T.border}}>
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M2 5l3-3M2 5l3 3M14 11H4M14 11l-3-3M14 11l-3 3" stroke={isSwapSource?"#fff":T.textMid} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:`repeat(${MEALS_TO_SHOW.length},1fr)`,gap:"0.45rem"}}>
-                    {MEALS_TO_SHOW.map(meal=>(
-                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:MEALS_TO_SHOW.length===3?"0.4rem 0.45rem":"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
-                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.55rem":"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800,marginBottom:"0.15rem"}}>{meal}</div>
-                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.85rem":"0.9rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
-                        <MealBankDrawer mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
-                      </div>
-                    ))}
-                  </div>
-                  {bankMatch&&(
-                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginTop:"0.55rem",alignItems:"center"}}>
-                      <span style={{fontSize:"0.65rem",color:T.textSoft,fontWeight:600}}>⏱ {bankMatch.time} min · 🧹 {bankMatch.cleanup}</span>
-                      {(bankMatch.tags||[]).slice(0,3).map(function(tag){var tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?React.createElement("span",{key:tag,style:{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:"1px solid "+T.sage+"30"}},tf.emoji+" "+tf.label):null;})}
-                    </div>
-                  )}
-                  {m.notes&&<div style={{marginTop:"0.5rem",fontSize:"0.77rem",color:T.textMid,fontStyle:"italic"}}>📝 {m.notes}</div>}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {mealSubTab==="nextweek"&&(
+    // Legacy bodies also shown by the af_redesign view. K = style helpers:
+    // HomeFlow's own (HFK) when the flag is off, so that output is unchanged.
+    var HFK=HF_KIT;
+    function mealsWeekTypePicker(){ return (showWeekTypePicker&&<WeekTypePicker weekTypeKey={weekTypeKey} applyWeekType={applyWeekType} setShowWeekTypePicker={setShowWeekTypePicker} flowMode={flowMode} dietaryFilters={dietaryFilters} setNextWeekMeals={setNextWeekMeals} setMeals={setMeals} setMealSubTab={setMealSubTab} mealBankCustom={mealBankCustom} targetWeek={mealSubTab==="week"?"this":"next"} wtAiMeals={wtAiMeals} setWtAiMeals={setWtAiMeals} wtSelected={wtSelected} setWtSelected={setWtSelected}/>); }
+    function mealsNextWeek(K){ var T=K.T, card=K.card, btnP=K.btnP, btnS=K.btnS, inp=K.inp; return (mealSubTab==="nextweek"&&(
           <div>
             <div style={{...card({background:`linear-gradient(135deg,${T.bluePale},${T.lavPale})`,border:`2px solid ${T.blue}55`,padding:"1rem 1.1rem",marginBottom:"0.85rem"})}}>
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.2rem",fontWeight:700,color:T.textDark,marginBottom:"0.35rem"}}>🗓️ Plan Next Week</div>
@@ -10196,8 +10189,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               ✓ Apply as This Week's Meals
             </button>
           </div>
-        )}
-        {mealSubTab==="month"&&(function(){
+        )); }
+    function mealsMonth(K){ var T=K.T, card=K.card, btnP=K.btnP, inp=K.inp; return (mealSubTab==="month"&&(function(){
           var BMONTHS2=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
           var WEEK_LABELS=["Week 1","Week 2","Week 3","Week 4"];
           var monthKey="af_monthMeals";
@@ -10244,9 +10237,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               })}
             </div>
           );
-        })()}
-
-        {mealSubTab==="grocery"&&(function(){
+        })()); }
+    function mealsGrocery(K){ var T=K.T, card=K.card, btnP=K.btnP; return (mealSubTab==="grocery"&&(function(){
           var weekMeals=MEAL_DAYS.map(function(day){
             var mealObj=meals[day]||{};
             var dinnerName=mealObj.dinner||"";
@@ -10294,9 +10286,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               })}
             </div>
           );
-        })()}
-
-        {mealSubTab==="tonight"&&(
+        })()); }
+    function mealsTonight(K){ var T=K.T, card=K.card, btnP=K.btnP; return (mealSubTab==="tonight"&&(
           <div>
             {tonightMealData?(
               <div>
@@ -10353,9 +10344,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             )}
           </div>
-        )}
-
-        {mealSubTab==="bank"&&(
+        )); }
+    function mealsBank(K){ var T=K.T, card=K.card, btnP=K.btnP, btnS=K.btnS, inp=K.inp, lbl=K.lbl; return (mealSubTab==="bank"&&(
           <div>
             <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.55rem"}}>
@@ -10461,9 +10451,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 )}
             </div>
           </div>
-        )}
-
-        {mealSubTab==="prep"&&(function(){
+        )); }
+    function mealsPrep(K){ var T=K.T, card=K.card, btnP=K.btnP; return (mealSubTab==="prep"&&(function(){
           var weekMealSummary=MEAL_DAYS.map(function(day){
             var m=meals[day]||{};
             var names=[m.breakfast,m.lunch,m.dinner].filter(Boolean);
@@ -10543,6 +10532,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
               {activePrepTasks.map(function(t){
                 var done=prepChecked.includes(t.id);
+                if(K.prepTask) return K.prepTask(t, done, function(){ setPrepChecked(function(p){ return p.includes(t.id)?p.filter(function(x){return x!==t.id;}):p.concat([t.id]); }); });
                 return (
                   <button key={t.id} onClick={()=>setPrepChecked(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])} style={{...card({cursor:"pointer",display:"flex",alignItems:"center",gap:"0.9rem",padding:"1rem 1.1rem",background:done?`linear-gradient(135deg,${T.sagePale},${T.sage}15)`:T.surface,border:`2px solid ${done?T.sage:T.borderSoft}`,width:"100%",textAlign:"left",transition:"all 0.18s"})}}>
                     <span style={{fontSize:"1.4rem"}}>{t.emoji}</span>
@@ -10562,8 +10552,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             </div>
           );
-        })()}
-        {mealSubTab==="rescue"&&(
+        })()); }
+    function mealsRescue(K){ var T=K.T, card=K.card, btnP=K.btnP, btnS=K.btnS, inp=K.inp, lbl=K.lbl; return (mealSubTab==="rescue"&&(
           <div>
             <div style={{...card({background:`linear-gradient(135deg,${T.rosePale},${T.sandPale})`,border:`2px solid ${T.rose}50`,padding:"1.2rem",textAlign:"center"})}}>
               <div style={{fontSize:"2rem",marginBottom:"0.4rem"}}>🆘</div>
@@ -10603,9 +10593,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               <button onClick={()=>{setRescueResults(null);}} style={btnS({fontSize:"0.78rem",padding:"0.35rem 0.85rem"})}>Edit my ingredients</button>
             </div>}
           </div>
-        )}
-
-        {editDay&&(
+        )); }
+    function mealsEditModal(K){ var T=K.T, btnP=K.btnP, btnS=K.btnS, inp=K.inp, lbl=K.lbl; return (editDay&&(
           <ModalBox title={`Meals for ${editDay}`} onClose={()=>setEditDay(null)}>
             {mealThemeEnabled&&mealThemes[editDay]&&<div style={{background:T.sandPale,border:`1px solid ${T.sand}40`,borderRadius:"0.65rem",padding:"0.5rem 0.8rem",marginBottom:"0.85rem",display:"flex",alignItems:"center",gap:"0.5rem"}}><span style={{fontSize:"1.1rem"}}>{mealThemes[editDay].emoji}</span><span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark}}>{mealThemes[editDay].theme}</span></div>}
             {MEALS_TO_SHOW.map(m=>(
@@ -10654,8 +10643,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             </div>
             <div style={{display:"flex",gap:"0.5rem",justifyContent:"flex-end"}}><button onClick={()=>setEditDay(null)} style={btnS()}>Cancel</button><button onClick={saveEdit} style={btnP(T.sage)}>Save</button></div>
           </ModalBox>
-        )}
-        {editingThemes&&(
+        )); }
+    function mealsThemesModal(K){ var T=K.T, btnP=K.btnP, inp=K.inp; return (editingThemes&&(
           <ModalBox title="Themed Days" onClose={()=>setEditingThemes(false)} wide>
             {MEAL_DAYS.map(day=>(
               <div key={day} style={{display:"flex",gap:"0.5rem",alignItems:"center",marginBottom:"0.55rem"}}>
@@ -10666,7 +10655,151 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             ))}
             <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}><button onClick={()=>setEditingThemes(false)} style={btnP(T.sage)}>Done</button></div>
           </ModalBox>
+        )); }
+
+    const subTabs=[{id:"week",label:"This Week",emoji:"📆"},{id:"nextweek",label:"Next Week",emoji:"🗓️"},{id:"month",label:"Month",emoji:"📅"},{id:"prep",label:"Prep",emoji:"🫙"},{id:"rescue",label:"SOS",emoji:"🆘"},{id:"bank",label:"Meal Bank",emoji:"📋"}];
+
+    // af_redesign: the redesigned full view. Same state and write paths as
+    // below; This Week is rebuilt, the other sections are the legacy bodies
+    // above rendered with the new-look helpers. Flag off never reaches this.
+    if (REDESIGN) {
+      var RDK = rdLegacyKit();
+      RDK.prepTask = function(t, done, toggle){ return <PrepTask key={t.id} task={t} done={done} onToggle={toggle} showEmojis={showEmojis}/>; };
+      var rdTab = mealsTopTab==="recipes" ? "recipes" : mealSubTab;
+      var rdBody = rdTab==="recipes" ? <RecipeBookTab kit={RDK}/>
+        : rdTab==="nextweek" ? mealsNextWeek(RDK) : rdTab==="month" ? mealsMonth(RDK) : rdTab==="grocery" ? mealsGrocery(RDK)
+        : rdTab==="tonight" ? mealsTonight(RDK) : rdTab==="bank" ? mealsBank(RDK) : rdTab==="prep" ? mealsPrep(RDK)
+        : rdTab==="rescue" ? mealsRescue(RDK) : null;
+      var rdBank=[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);});
+      return (
+        <MealsFull
+          tab={rdTab}
+          onTab={function(id){ if(id==="recipes"){ setMealsTopTab("recipes"); } else { setMealsTopTab("meals"); setMealSubTab(id); } }}
+          weekTypeLabel={weekTypeKey ? ((showEmojis?WEEK_TYPE_PRESETS[weekTypeKey].emoji+" ":"")+WEEK_TYPE_PRESETS[weekTypeKey].label) : "Week type"}
+          onWeekType={function(){ setMealsTopTab("meals"); setShowWeekTypePicker(function(v){ return !v; }); }}
+          weekTypePicker={mealsTopTab==="meals" ? mealsWeekTypePicker() : null}
+          week={{
+            days: MEAL_DAYS, mealsToShow: MEALS_TO_SHOW, meals: meals, todayName: TODAY_NAME,
+            mealCount: mealCount, setMealCount: setMealCount,
+            onRotate: function(){ if(window.confirm("Shift every day's meals forward by one day? Sunday's meals move to Monday, and so on — this replaces what's currently planned.")) rotateMeals(); },
+            swapDay: swapDay, setSwapDay: setSwapDay,
+            onSwapWith: function(day){ setMeals(function(p){ var n=Object.assign({},p); var tmp=n[swapDay]||{}; n[swapDay]=n[day]||{}; n[day]=tmp; return n; }); setSwapDay(null); },
+            onEdit: openEdit, onTonight: function(){ setMealSubTab("tonight"); },
+            themeFor: function(day){ return mealThemeEnabled&&mealThemes[day]&&mealThemes[day].theme ? mealThemes[day] : null; },
+            bankInfo: function(day){ var m=meals[day]||{}; var b=MEAL_BANK_DATA.find(function(x){ return x.name.toLowerCase()===(m.dinner||"").toLowerCase(); }); return b ? b.time+" min · "+b.cleanup+" cleanup" : null; },
+            renderBankPicker: function(day, meal){ return <MealBankDrawer mealType={meal} allBank={rdBank} onApply={function(mb){ setMeals(function(p){ var nd={...p}; nd[day]={...(p[day]||{})}; nd[day][meal]=mb.name; return nd; }); }} onAddToShopping={addIngredientToShopping}/>; },
+          }}
+          body={rdBody}
+          modals={<>{mealsEditModal(RDK)}{mealsThemesModal(RDK)}</>}
+          footer={<UndoToast toast={undoToast} onUndo={handleUndoClick} />}
+          showEmojis={showEmojis}
+        />
+      );
+    }
+
+    return (
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
+        <SecHead emoji="🍽️" title="Meal Rhythm" sub="Simple meals for full weeks" color="#faf8f4"
+          onBack={function(){goTab("anchor");}}
+          action={<button onClick={()=>setShowWeekTypePicker(v=>!v)} style={btnP(weekTypeKey?T.sage:T.blue,{fontSize:"0.74rem",padding:"0.32rem 0.75rem"})}>
+            {weekTypeKey?`${WEEK_TYPE_PRESETS[weekTypeKey].emoji} ${WEEK_TYPE_PRESETS[weekTypeKey].label}`:"✨ Week Type"}
+          </button>}/>
+
+        <div style={{display:"flex",gap:4,borderBottom:"1px solid #c8a96e",marginBottom:"0.85rem"}}>
+          {[{id:"meals",label:"Meals"},{id:"recipes",label:"Recipes"}].map(tt=>(
+            <button key={tt.id} onClick={()=>setMealsTopTab(tt.id)} style={{background:"none",border:"none",borderBottom:mealsTopTab===tt.id?"2px solid #c8a96e":"2px solid transparent",padding:"0.5rem 1rem",fontSize:"0.85rem",color:mealsTopTab===tt.id?"#f7f1e3":"#a8c4d4",fontFamily:"inherit",cursor:"pointer",fontWeight:mealsTopTab===tt.id?700:500}}>{tt.label}</button>
+          ))}
+        </div>
+
+        {mealsTopTab==="meals"&&(<>
+
+        {mealsWeekTypePicker()}
+
+        <ScrollTabs style={{marginBottom:"0.85rem",background:T.bgAlt,borderRadius:"0.8rem",padding:"0.28rem",border:`1px solid ${T.border}`}}>
+          {subTabs.map(st=>(
+            <button key={st.id} onClick={()=>setMealSubTab(st.id)} style={{flexShrink:0,background:mealSubTab===st.id?T.sage:"transparent",color:mealSubTab===st.id?"#fff":T.textMid,border:"none",borderRadius:"0.55rem",padding:"0.4rem 0.55rem",cursor:"pointer",fontSize:"0.73rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:"0.3rem",justifyContent:"center"}}>
+              {st.emoji} {st.label}
+            </button>
+          ))}
+        </ScrollTabs>
+
+        {mealSubTab==="week"&&(
+          <div>
+            <div style={{...card({padding:"0.85rem 1rem",background:T.sagePale,border:`2px solid ${T.sage}50`,marginBottom:"0.85rem"})}}>
+              <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.6rem"}}>
+                {[{v:1,label:"Dinner Only"},{v:2,label:"Lunch + Dinner"},{v:3,label:"All 3 Meals"}].map(o=>(
+                  <button key={o.v} onClick={()=>setMealCount(o.v)} style={{background:mealCount===o.v?T.sage:T.white,color:mealCount===o.v?"#fff":T.textMid,border:`2px solid ${mealCount===o.v?T.sage:T.border}`,borderRadius:"2rem",padding:"0.28rem 0.82rem",cursor:"pointer",fontSize:"0.74rem",fontWeight:700,fontFamily:"inherit",transition:"all 0.15s"}}>{o.label}</button>
+                ))}
+              </div>
+              <button onClick={function(){ if(window.confirm("Shift every day's meals forward by one day? Sunday's meals move to Monday, and so on — this replaces what's currently planned.")) rotateMeals(); }} title="Shift every day's meals forward by one" style={btnS({fontSize:"0.72rem",padding:"0.28rem 0.7rem"})}>🔄 Rotate forward</button>
+            </div>
+            {swapDay&&(
+              <div style={{background:T.sand+"22",border:"2px dashed "+T.sand,borderRadius:"0.9rem",padding:"0.65rem 1rem",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"0.6rem",flexWrap:"wrap"}}>
+                <span style={{fontSize:"0.85rem"}}>🔄</span>
+                <span style={{fontSize:"0.82rem",fontWeight:700,color:T.sandDark,flex:1}}>Swapping <strong>{swapDay}</strong> with… tap another day</span>
+                <button onClick={()=>setSwapDay(null)} style={{background:"none",border:"none",cursor:"pointer",color:T.textFaint,fontSize:"0.85rem",fontWeight:700,padding:"2px 6px",fontFamily:"inherit"}}>Cancel</button>
+              </div>
+            )}
+            {MEAL_DAYS.map(day=>{
+              const m=meals[day]||{};const isToday=day===TODAY_NAME;const themeDay=mealThemes[day];
+              const bankMatch=MEAL_BANK_DATA.find(b=>b.name.toLowerCase()===(m.dinner||"").toLowerCase());
+              const isSwapSource=swapDay===day;
+              const isSwapTarget=swapDay&&swapDay!==day;
+              return (
+                <div key={day} onClick={isSwapTarget?function(){setMeals(function(p){var n=Object.assign({},p);var tmp=n[swapDay]||{};n[swapDay]=n[day]||{};n[day]=tmp;return n;});setSwapDay(null);}:undefined}
+                  style={{...card({borderLeft:`4px solid ${isSwapSource?T.sand:isToday?T.sage:T.borderSoft}`,background:isSwapSource?`linear-gradient(to right,${T.sandPale},${T.surface})`:isSwapTarget?"linear-gradient(to right,"+T.sand+"18,"+T.surface+")":isToday?`linear-gradient(to right,${T.sagePale},${T.surface})`:T.surface,cursor:isSwapTarget?"pointer":"default",outline:isSwapTarget?"2px dashed "+T.sand+"80":"none",outlineOffset:"-2px"})}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.65rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flexWrap:"wrap"}}>
+                      <span style={{fontWeight:700,color:isSwapSource?T.sandDark:isToday?T.sageDark:T.textDark,fontSize:"0.93rem"}}>{day}</span>
+                      {isToday&&!isSwapSource&&<Pill label="Today" color={T.sage} tiny/>}
+                      {isSwapSource&&<Pill label="Swapping…" color={T.sand} tiny/>}
+                      {isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px"}}>tap to swap</span>}
+                      {mealThemeEnabled&&themeDay&&!isSwapSource&&!isSwapTarget&&<span style={{fontSize:"0.66rem",fontWeight:700,color:T.sand,background:T.sandPale,borderRadius:"2rem",padding:"2px 8px",border:`1px solid ${T.sand}35`}}>{themeDay.emoji} {themeDay.theme}</span>}
+                    </div>
+                    <div style={{display:"flex",gap:"0.35rem"}}>
+                      {!swapDay&&isToday&&m.dinner&&<button onClick={()=>setMealSubTab("tonight")} style={btnP(T.sage,{fontSize:"0.7rem",padding:"0.26rem 0.6rem"})}>🌙 Tonight</button>}
+                      {!swapDay&&<button onClick={function(e){e.stopPropagation();openEdit(day);}} style={btnS({padding:"0.28rem 0.7rem",fontSize:"0.74rem",display:"flex",alignItems:"center",gap:"0.25rem"})}><Icon name="edit" size={11} color={T.textMid}/> Edit</button>}
+                      <button onClick={function(e){e.stopPropagation();setSwapDay(isSwapSource?null:day);}} title="Swap this day" style={{...btnS({padding:"0.28rem 0.55rem",display:"flex",alignItems:"center"}),background:isSwapSource?T.sand:"transparent",borderColor:isSwapSource?T.sand:T.border}}>
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5h10M2 5l3-3M2 5l3 3M14 11H4M14 11l-3-3M14 11l-3 3" stroke={isSwapSource?"#fff":T.textMid} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:`repeat(${MEALS_TO_SHOW.length},1fr)`,gap:"0.45rem"}}>
+                    {MEALS_TO_SHOW.map(meal=>(
+                      <div key={meal} style={{background:T.white,borderRadius:"0.65rem",padding:MEALS_TO_SHOW.length===3?"0.4rem 0.45rem":"0.58rem 0.7rem",border:`1.5px solid ${T.borderSoft}`}}>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.55rem":"0.6rem",color:T.textMid,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800,marginBottom:"0.15rem"}}>{meal}</div>
+                        <div style={{fontSize:MEALS_TO_SHOW.length===3?"0.85rem":"0.9rem",color:m[meal]?T.textDark:T.textFaint,fontWeight:m[meal]?700:400,marginBottom:"0.25rem",lineHeight:1.3}}>{m[meal]||"—"}</div>
+                        <MealBankDrawer mealType={meal} allBank={[...MEAL_BANK_DATA,...mealBankCustom].slice().sort(function(a,b){return a.name.localeCompare(b.name);})} onApply={function(mb){setMeals(function(p){var nd={...p};nd[day]={...(p[day]||{})};nd[day][meal]=mb.name;return nd;});}} onAddToShopping={addIngredientToShopping}/>
+                      </div>
+                    ))}
+                  </div>
+                  {bankMatch&&(
+                    <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginTop:"0.55rem",alignItems:"center"}}>
+                      <span style={{fontSize:"0.65rem",color:T.textSoft,fontWeight:600}}>⏱ {bankMatch.time} min · 🧹 {bankMatch.cleanup}</span>
+                      {(bankMatch.tags||[]).slice(0,3).map(function(tag){var tf=MEAL_TAG_FILTERS.find(function(t){return t.id===tag;});return tf?React.createElement("span",{key:tag,style:{fontSize:"0.62rem",color:T.sage,background:T.sagePale,borderRadius:"2rem",padding:"1px 7px",fontWeight:600,border:"1px solid "+T.sage+"30"}},tf.emoji+" "+tf.label):null;})}
+                    </div>
+                  )}
+                  {m.notes&&<div style={{marginTop:"0.5rem",fontSize:"0.77rem",color:T.textMid,fontStyle:"italic"}}>📝 {m.notes}</div>}
+                </div>
+              );
+            })}
+          </div>
         )}
+
+        {mealsNextWeek(HFK)}
+        {mealsMonth(HFK)}
+
+        {mealsGrocery(HFK)}
+
+        {mealsTonight(HFK)}
+
+        {mealsBank(HFK)}
+
+        {mealsPrep(HFK)}
+        {mealsRescue(HFK)}
+
+        {mealsEditModal(HFK)}
+        {mealsThemesModal(HFK)}
 
         </>)}
 
@@ -10681,7 +10814,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
   // Distinct from the "recipes" URL-import feature (state var `recipes`,
   // localStorage af_recipes) — this uses `recipeBook` / af_recipeBook.
   var RECIPE_OCCASIONS = ["Thanksgiving","Christmas","Easter","Birthday","General"];
-  _hfRenders.RecipeBookTab = function RecipeBookTab(){
+  _hfRenders.RecipeBookTab = function RecipeBookTab(props){
+    // Style helpers: HomeFlow's own unless af_redesign passes its kit.
+    var _K=(props&&props.kit)||HF_KIT, T=_K.T, inp=_K.inp, lbl=_K.lbl, btnP=_K.btnP, btnS=_K.btnS, card=_K.card;
     // See mealsTopTab above — same deep-link mechanism, one level deeper
     // (opens a specific recipe's detail view, not just the Recipes tab).
     const [detailId,setDetailId]=useState(function(){
@@ -11351,6 +11486,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       setIsAnalyzingPhoto(false);setTimeout(()=>setPhotoStatus(""),3000);e.target.value="";
     }
 
+
+    // af_redesign: the redesigned full view. Same state and handlers as below;
+    // only the markup differs. Flag off never reaches this.
+    if(REDESIGN) return (
+      <ShoppingFull
+        items={shoppingItems.map(function(i){return localPhotoPreviews[i.id]?{...i,photo:localPhotoPreviews[i.id]}:i;})}
+        stores={FIXED_STORES} activeStore={newStore} normalizeStore={normalizeStore}
+        onSelectStore={function(label){setNewStore(label);lastStore[1](label);}}
+        categories={shopCategories} setCategories={setShopCategories} catLabel={catLabel} catEmoji={catEmoji} catId={catId}
+        sort={shopSort} az={shopAZ} toggleAZ={function(){setShopAZ(function(v){return !v;});}}
+        onAdd={addItem} onToggle={handleToggle} onDelete={handleDelete} onSave={handleSave} onMove={handleMoveStore}
+        onClearCompleted={clearCompleted} onClearAll={clearAll}
+        voice={{listening:isListening,start:startListening,stop:stopListening}}
+        photo={{busy:isAnalyzingPhoto,pick:function(){photoInputRef.current&&photoInputRef.current.click();}}}
+        autoSort={{busy:isAutoCategorizing,run:autoCategorize}}
+        status={autoCatStatus||voiceStatus||photoStatus}
+        photoInput={<input ref={photoInputRef} type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} style={{display:"none"}}/>}
+        showEmojis={showEmojis}
+        footer={<UndoToast toast={undoToast} onUndo={handleUndoClick} />}
+      />
+    );
 
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
@@ -12585,6 +12741,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       };
     }, []);
 
+    // af_redesign: redesigned empty state (flag off never reaches this).
+    if (REDESIGN && kids.length === 0) return <TidePoolFull kids={[]} showEmojis={showEmojis}/>;
     // No kids in the household yet (and getDefaultTidePoolData no longer
     // fakes one — see its own comment) — show an explicit empty state
     // instead of dereferencing an undefined `kid` below.
@@ -12711,6 +12869,37 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var navyHex = "#1a2744";
     var sandHex = "#c8a97a";
     var tealHex = "#1d9e75";
+
+    // af_redesign: the redesigned full view. Same state and the same write
+    // paths (toggleChore / planBonus / claimTreasure) as below; only the
+    // markup differs. Flag off never reaches this.
+    if (REDESIGN) {
+      var rdSel = Math.min(selIdx, kids.length-1);
+      var rdKids = kids.map(function(k){
+        if(!TIDEPOOL_V2) return k;
+        var b = tpLedger.loaded ? (tpLedger.balances[k.kidId]||0) : null;
+        return Object.assign({}, k, { shells: b==null ? (k.shells||0) : b });
+      });
+      return (
+        <TidePoolFull
+          kids={rdKids} kid={kid} selIdx={rdSel} goal={COVE_MIN_OPEN}
+          onSelectKid={function(i){ setSelIdx(i); setChestOpen(false); setSelectedTreasure(null); setClaimed(null); setTappedShellIdx(null); }}
+          onToggleChore={toggleChore}
+          bonusReason={flyName} setBonusReason={setFlyName}
+          onBonus={function(pts){
+            if(!flyName.trim()) return;
+            var plan = planBonus(kid, flyName.trim(), pts, tpPlanOpts());
+            updateKid(plan.patch);
+            recordTidePoolEvent(householdId, plan.event);
+            setFlyName("");
+          }}
+          treasures={sortedTreasures}
+          selectedTreasure={selectedTreasure} onSelectTreasure={function(t){ setClaimed(null); setSelectedTreasure(t); }}
+          onClaim={claimTreasure} claimed={claimed} onDismissClaim={function(){ setClaimed(null); }}
+          showEmojis={showEmojis}
+        />
+      );
+    }
 
     return (
       <div>
@@ -14444,6 +14633,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // Learning's own fixed palette (Phase 2) — deliberately independent of the
     // household's chosen T theme, same precedent as RootErrorBoundary's fixed navy.
     var LC = { cream:"#F7F3EC", seaglass:"#6ABAAA", navy:"#243A5A" };
+    // af_redesign: the same roles in the new palette (no pink/purple outside
+    // Sunset; seaglass darkened for text contrast on white). Flag off keeps
+    // the values above.
+    if (REDESIGN) LC = { cream:RD_T.bg, seaglass:"#4D7A6A", navy:RD_T.textDark };
+    var LH_ROSE = REDESIGN ? "#8F4F44" : "#C4849A";
+    var LH_VIOLET = REDESIGN ? "#5E8FA0" : "#8878b8";
     var todayIso = (function(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })();
 
     // Collapsible-section state, shared by every card/section across all 5 tabs.
@@ -14475,7 +14670,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var pair = useSectionOpen(opts.tabName, opts.sectionName, opts.defaultOpen);
       var open = pair[0], toggle = pair[1];
       return (
-        <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", marginBottom:"0.85rem", overflow:"hidden" }}>
+        <div style={REDESIGN ? RD_LH_CARD : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", marginBottom:"0.85rem", overflow:"hidden" }}>
           <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"1rem", cursor:"pointer" }}>
             <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
             <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, flex:1 }}>{opts.title}</span>
@@ -14491,7 +14686,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var pair = useSectionOpen("overview", opts.sectionKey, opts.defaultOpen);
       var open = pair[0], toggle = pair[1];
       return (
-        <div style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }}>
+        <div style={REDESIGN ? Object.assign({}, RD_LH_CARD, { padding:"1rem", marginBottom:0, display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }) : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }}>
           <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.4rem", cursor:"pointer" }}>
             <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
             <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.85rem", flex:1 }}>{opts.title}</span>
@@ -14883,8 +15078,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var DAY_TYPES = [
       { id:"full",     label:"Full day",   color:"#6ABAAA" },
       { id:"half",     label:"Half day",   color:"#C9A45B" },
-      { id:"holiday",  label:"Holiday",    color:"#C4849A" },
-      { id:"break",    label:"Break",      color:"#8878b8" },
+      { id:"holiday",  label:"Holiday",    color:LH_ROSE },
+      { id:"break",    label:"Break",      color:LH_VIOLET },
       { id:"field",    label:"Field trip", color:"#7A95B8" },
       { id:"flexible", label:"Flexible",   color:"#7a9e8e" },
       { id:"none",     label:"No school",  color:"#B8B0A0" },
@@ -15141,7 +15336,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                         </div>
                         {e.notes && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{e.notes}</div>}
                       </div>
-                      <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                      <button type="button" onClick={function(){ saveEntriesFor(todayIso, entries.filter(function(x){ return x.id!==e.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
                     </div>
                   </div>
                 );
@@ -15222,7 +15417,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <span style={{ fontSize:"0.68rem", fontWeight:800, color:LC.seaglass, flexShrink:0 }}>{s.name}</span>
                     <input defaultValue={s.title||""} onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{title:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }} placeholder="Lesson title" style={{ flex:1, minWidth:0, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none", border:"none", background:"transparent", outline:"none", fontFamily:"inherit" }}/>
                     <button type="button" onClick={function(){ addSubjectToCalendar(s); }} title="Add to Calendar" style={{ background:"none", border:"none", cursor:"pointer", color: addedSubjIds[s.id] ? LC.seaglass : "#8a8578", fontSize:"0.74rem", flexShrink:0 }}>{addedSubjIds[s.id] ? "✓" : "📅"}</button>
-                    <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem", flexShrink:0 }}>✕</button>
+                    <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem", flexShrink:0 }}>✕</button>
                   </div>
                   {/* Fix 1: per-subject notes — replaces the old day-level dayNotes
                       textarea that used to float below all subjects. */}
@@ -15314,7 +15509,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div key={ev.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.5rem 0.8rem", marginBottom:"0.4rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
                     <div style={{ flex:1, fontSize:"0.85rem", color:"#3a3a34" }}>{ev.title}</div>
                     {ev.date && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(ev.date)}</span>}
-                    <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
+                    <button type="button" onClick={function(){ weekMutate({ events: events.filter(function(e){ return e.id!==ev.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.73rem" }}>✕</button>
                   </div>
                 ); })}
               </SectionShell>
@@ -15333,7 +15528,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <input type="checkbox" checked={!!fm.done} onChange={function(){ weekMutate({ forms: forms.map(function(f){ return f.id===fm.id ? Object.assign({},f,{done:!f.done}) : f; }) }); }} style={{ cursor:"pointer" }}/>
                     <div style={{ flex:1, fontSize:"0.85rem", color:fm.done?"#9a9488":"#3a3a34", textDecoration:fm.done?"line-through":"none" }}>{fm.title}</div>
                     {fm.due && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{fmtMonthDay(fm.due)}</span>}
-                    <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.73rem" }}>✕</button>
+                    <button type="button" onClick={function(){ weekMutate({ forms: forms.filter(function(f){ return f.id!==fm.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.73rem" }}>✕</button>
                   </div>
                 ); })}
               </SectionShell>
@@ -15361,7 +15556,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           <div>
             <div style={{ display:"flex", gap:"0.5rem", marginBottom:"0.85rem" }}>
               <button type="button" onClick={function(){ setShowCopyPicker(true); }} style={btnS({ fontSize:"0.79rem" })}>📋 Copy Day</button>
-              <button type="button" onClick={clearWeek} style={btnS({ fontSize:"0.79rem", color:"#C4849A" })}>🗑 Clear Week</button>
+              <button type="button" onClick={clearWeek} style={btnS({ fontSize:"0.79rem", color:LH_ROSE })}>🗑 Clear Week</button>
             </div>
             {PLAN_SCHOOL_DAYS.map(function(day) { return <WeekDayCard key={day} day={day}/>; })}
             {showCopyPicker && (
@@ -15447,7 +15642,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       <div style={{ fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" }}>{entry.subject}</div>
                       {entry.material && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.15rem" }}>{entry.material}</div>}
                     </div>
-                    <button type="button" onClick={function(){ saveCurriculumWeek(curWeek, weekEntries.filter(function(x){ return x.id!==entry.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                    <button type="button" onClick={function(){ saveCurriculumWeek(curWeek, weekEntries.filter(function(x){ return x.id!==entry.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
                   </div>
                 );
               })}
@@ -15531,7 +15726,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   <div key={g.id} style={{ display:"flex", alignItems:"center", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" }}>
                     <input type="checkbox" checked={!!g.done} onChange={function(){ applyHs({ monthlyGoals: monthlyGoals.map(function(x){ return x.id===g.id ? Object.assign({},x,{done:!x.done}) : x; }) }); }} style={{ cursor:"pointer", flexShrink:0 }}/>
                     <span style={{ flex:1, fontSize:"0.85rem", color:g.done?"#9a9488":"#3a3a34", textDecoration:g.done?"line-through":"none" }}>{g.text}</span>
-                    <button type="button" onClick={function(){ applyHs({ monthlyGoals: monthlyGoals.filter(function(x){ return x.id!==g.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                    <button type="button" onClick={function(){ applyHs({ monthlyGoals: monthlyGoals.filter(function(x){ return x.id!==g.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
                   </div>
                 );
               })}
@@ -15597,7 +15792,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     background: dt ? dt.color+"22" : "#fff", color: dt ? LC.navy : "#7a7568", position:"relative"
                   }}>
                     {new Date(dateIso+"T12:00:00").getDate()}
-                    {logged && <span style={{ position:"absolute", bottom:2, right:3, width:4, height:4, borderRadius:"50%", background: logged==="present"?LC.seaglass:"#C4849A" }}/>}
+                    {logged && <span style={{ position:"absolute", bottom:2, right:3, width:4, height:4, borderRadius:"50%", background: logged==="present"?LC.seaglass:LH_ROSE }}/>}
                   </button>
                 );
               })}
@@ -15671,7 +15866,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       }
       function lhSetStatusLocal(current, target) { return current===target ? "todo" : target; }
       function PlanLoops() {
-        var loopTints = [LC.seaglass, "#7A95B8", "#C9A45B", "#C4849A", "#8878b8"];
+        var loopTints = [LC.seaglass, "#7A95B8", "#C9A45B", LH_ROSE, LH_VIOLET];
         function AddLoopForm() {
           var nameTrim=(fv("name","")).trim(); var selIcon=fv("icon",LOOP_ICONS[0]); var selTint=fv("tint",loopTints[0]);
           return formCard(
@@ -15718,7 +15913,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             ) : (
               <div style={{ display:"flex", justifyContent:"flex-end", gap:"0.5rem", marginBottom:"0.5rem" }}>
                 <button type="button" onClick={function(){ openEdit(loop.id,{ name:loop.name, icon:loop.icon, tint:loop.tint }); setLhAddMode("edit-loop"); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
-                <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                <button type="button" onClick={function(){ if(window.confirm("Remove loop "+loop.name+"?")) applyHs({ loops: lhLoops.filter(function(l){ return l.id!==loop.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
               </div>
             )}
             {!isEditing && items.map(function(item) {
@@ -15738,7 +15933,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       })}
                     </div>
                   </div>
-                  <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.72rem" }}>✕</button>
+                  <button type="button" onClick={function(){ applyHsLoopUpdate(loop.id,{ items: items.filter(function(it){ return it.id!==item.id; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem" }}>✕</button>
                 </div>
               );
             })}
@@ -15805,7 +16000,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     {r.website && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{r.website}</div>}
                   </div>
                   <button type="button" onClick={function(){ openEdit(r.id, r); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem" }}>Edit</button>
-                  <button type="button" onClick={function(){ saveSubjectRecords(subjectRecords.filter(function(x){ return x.id!==r.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem" }}>✕</button>
+                  <button type="button" onClick={function(){ saveSubjectRecords(subjectRecords.filter(function(x){ return x.id!==r.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
                 </div>
               );
             })}
@@ -15884,7 +16079,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
       var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
       var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
-      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem", flexShrink:0 };
+      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 };
       var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
 
       var childSchool = schoolData[activeChild] || {};
@@ -16267,7 +16462,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     <div onClick={function(){ commsMutate({ log: commsLog.map(function(x){ return x.id===entry.id ? Object.assign({},x,{actionDone:!x.actionDone}) : x; }) }); }} style={{ display:"flex", alignItems:"center", gap:"0.4rem", borderTop:"1px solid #F0EBDF", paddingTop:"0.4rem", marginTop:"0.4rem", cursor:"pointer" }}>
                       <span style={{ color:entry.actionDone?LC.seaglass:"#9a9488" }}>{entry.actionDone?"●":"○"}</span>
                       <span style={{ fontSize:"0.78rem", color:entry.actionDone?"#9a9488":"#3a3a34", textDecoration:entry.actionDone?"line-through":"none" }}>{entry.action}</span>
-                      {!entry.actionDone && <span style={{ fontSize:"0.62rem", fontWeight:700, color:"#C4849A", background:"#C4849A22", padding:"1px 6px", borderRadius:"99px", marginLeft:"auto" }}>Follow up</span>}
+                      {!entry.actionDone && <span style={{ fontSize:"0.62rem", fontWeight:700, color:LH_ROSE, background:LH_ROSE+"22", padding:"1px 6px", borderRadius:"99px", marginLeft:"auto" }}>Follow up</span>}
                     </div>
                   )}
                 </div>
@@ -16376,7 +16571,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       if (m==="Exceeding") return "#6ABAAA";
       if (m==="Meeting") return "#7A95B8";
       if (m==="Approaching") return "#C9A45B";
-      if (m==="Strength") return "#C4849A";
+      if (m==="Strength") return LH_ROSE;
       return "#8a8578";
     }
 
@@ -16410,7 +16605,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
       var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
       var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
-      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem", flexShrink:0 };
+      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 };
       var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
       var adjBtnSt = { background:"none", border:"1.5px solid #D8D2C4", borderRadius:"50%", width:"24px", height:"24px", cursor:"pointer", fontSize:"0.9rem", color:"#7a7568", padding:0, lineHeight:1, fontFamily:"inherit" };
 
@@ -16494,14 +16689,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           });
           return { present:present, half:half, absent:absent, total:present+half+absent };
         })();
-        var STATUS_COLOR = { present:LC.seaglass, half:"#C9A45B", absent:"#C4849A" };
+        var STATUS_COLOR = { present:LC.seaglass, half:"#C9A45B", absent:LH_ROSE };
         var STATUS_LABEL = { present:"P", half:"H", absent:"A" };
         return (
           <SectionShell tabName="growth" sectionName="attendance" emoji="📋" title="Attendance Record" defaultOpen={false}>
             <div style={{ display:"flex", gap:"1.15rem", marginBottom:"0.85rem", flexWrap:"wrap" }}>
               <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.seaglass }}>{ytd.present}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Present</div></div>
               <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:"#C9A45B" }}>{ytd.half}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Half days</div></div>
-              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:"#C4849A" }}>{ytd.absent}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Absent</div></div>
+              <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LH_ROSE }}>{ytd.absent}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Absent</div></div>
               <div><span style={{ fontSize:"1.3rem", fontWeight:800, color:LC.navy }}>{ytd.total}</span><div style={{ fontSize:"0.64rem", color:"#8a8578" }}>Total logged</div></div>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:"0.5rem", marginBottom:"0.6rem" }}>
@@ -16920,7 +17115,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var itemRowStyle = { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" };
       var emptyTextStyle = { color:"#9a9488", fontSize:"0.82rem", padding:"0.4rem 0" };
       var editBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#9a9488", fontSize:"0.75rem", flexShrink:0 };
-      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:"#C4849A", fontSize:"0.75rem", flexShrink:0 };
+      var delBtnStyle = { background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem", flexShrink:0 };
       var subheadStyle = { fontSize:"0.72rem", fontWeight:700, color:"#7a7568", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:"0.4rem" };
 
       var sharedAll = lhGet(lighthouse, "shared", {});
@@ -17351,6 +17546,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       );
     }
 
+    // af_redesign: redesigned empty states (flag off never reaches these).
+    if (REDESIGN && allMinors.length === 0) return <LighthouseFull empty="Add children to your People list in Settings to track school info." onSettings={function(){ goTab("settings"); }} showEmojis={showEmojis}/>;
+    if (REDESIGN && learningKids.length === 0) return <LighthouseFull empty="No children have a school type set yet. Update in Settings." onSettings={function(){ goTab("settings"); }} showEmojis={showEmojis}/>;
+
     if (allMinors.length === 0) {
       return (
         <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
@@ -17372,6 +17571,22 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
         </div>
       );
     }
+
+    // af_redesign: new header and pill tabs around the same five areas (same
+    // state, same writes). Flag off never reaches this.
+    if (REDESIGN) return (
+      <LighthouseFull
+        children_={learningKids.map(function(p){ return { id:p.id, name:p.name, mode:modes[p.id]||null }; })}
+        activeChild={activeChild} onChild={setActiveChild}
+        sections={LEARNING_TABS} section={learningSubTab} onSection={setLearningSubTab}
+        showEmojis={showEmojis}>
+        {learningSubTab === "overview" && <OverviewArea key={activeChild} />}
+        {learningSubTab === "plan" && <PlanArea key={activeChild} />}
+        {learningSubTab === "records" && <RecordsArea key={activeChild} />}
+        {learningSubTab === "growth" && <GrowthArea key={activeChild} />}
+        {learningSubTab === "library" && <LibraryArea key={activeChild} />}
+      </LighthouseFull>
+    );
 
     return (
       <div style={{ paddingBottom: "4rem" }}>

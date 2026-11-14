@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><title>frame</title>
+<style>html,body{margin:0;background:#888}iframe{border:0;display:block;background:#fff}</style></head>
+<body><iframe id="f"></iframe>
+<script>
+// 390px phone frame (headless Chrome won't size its window below ~500px).
+var q = new URLSearchParams(location.search);
+var f = document.getElementById("f");
+f.style.width = (q.get("w") || 390) + "px";
+f.style.height = (q.get("h") || 1600) + "px";
+f.src = q.get("src");
+// measure mode: the framed page posts its results; store them where
+// --dump-dom (top document only) can read them.
+window.addEventListener("message", function (e) {
+  if (!e.data || !e.data.harnessCapture) return;
+  var s = document.createElement("script");
+  s.type = "application/json"; s.id = "__capture";
+  s.textContent = e.data.harnessCapture;
+  document.body.appendChild(s);
+});
+</script></body></html>

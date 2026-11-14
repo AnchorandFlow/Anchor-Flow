@@ -3,7 +3,7 @@
 // the harness and returns each screen's DOM after each step.
 //
 //   node tests/visual/capture.mjs --write   regenerate the flag-off golden
-//   node tests/visual/capture.mjs --shots   390px screenshots, flag on (scratch dir)
+//   node tests/visual/capture.mjs --measure  flag on: sideways-overflow check at 390px
 //
 // The golden (tests/ui/__golden__/flow-screens-legacy.json) is the flag-off
 // output recorded BEFORE the redesign touched these screens; the flag-off
@@ -29,11 +29,11 @@ export var CHROME = [
 // Legacy (flag-off) walk: [snapshot label, text of the control to click first]
 export var LEGACY_STEPS = {
   shop: [["initial", null]],
-  meals: [["This Week", null], ["Next Week", "Next Week"], ["Month", "Month"], ["Prep", "Prep"], ["SOS", "SOS"], ["Meal Bank", "Meal Bank"], ["Recipes", "Recipes"]],
+  meals: [["This Week", null], ["Edit modal", "Edit"], ["Edit closed", "Cancel"], ["Tonight", "Tonight"], ["Next Week", "Next Week"], ["Month", "Month"], ["Prep", "Prep"], ["SOS", "SOS"], ["Meal Bank", "Meal Bank"], ["Recipes", "Recipes"]],
   calendar: [["month", null], ["week", "week"], ["day", "day"], ["year", "year"]],
   waves: [["initial", null]],
   tidepool: [["initial", null], ["Ollie", "Ollie"]],
-  lighthouse: [["Overview", null], ["Plan", "Plan"], ["Records", "Records"], ["Growth", "Growth"], ["Library", "Library"]],
+  lighthouse: [["Overview", null], ["Plan", "Plan"], ["Plan Month", "Month"], ["Records", "Records"], ["Growth", "Growth"], ["Library", "Library"]],
 };
 
 function run(file, args, timeout) {
@@ -94,10 +94,51 @@ export async function screenshot(baseUrl, tab, file, opts) {
   await run(CHROME, chromeArgs(["--window-size=" + ((o.width || 390) + 40) + "," + (o.height || 1600), "--virtual-time-budget=30000", "--screenshot=" + file, wrapper]), 120000);
 }
 
+// Redesign (flag on) walk: every pill / sub-section of each screen.
+export var REDESIGN_STEPS = {
+  shop: [["Grocery", null], ["Edit aisles", "Edit aisles"], ["Costco", "Costco"], ["In-store", "In-store mode"]],
+  meals: [["This Week", null], ["Edit modal", "Edit"], ["Edit closed", "Cancel"], ["Next Week", "Next Week"], ["Month", "Month"], ["Prep", "Prep"], ["SOS", "SOS"], ["Meal Bank", "Meal Bank"], ["Recipes", "Recipes"]],
+  calendar: [["Month", null], ["Selected day", "13"], ["Week", "Week"], ["Day", "Day"], ["Work schedules", "Work schedules"], ["Year", "Year"]],
+  waves: [["Daily", null], ["Edit wave", "Edit"], ["Weekly", "Weekly"], ["Seasonal", "Seasonal"], ["Custom", "Custom"], ["New wave", "New custom wave"]],
+  tidepool: [["Earn", null], ["Treasures", "Treasures"], ["History", "History"], ["Ollie", "Ollie"]],
+  lighthouse: [["Overview", null], ["Plan", "Plan"], ["Plan Month", "Month"], ["Records", "Records"], ["Growth", "Growth"], ["Library", "Library"], ["Ollie", "Ollie"]],
+};
+
+// Layout check at phone width (default 390px) for one screen, flag on.
+export async function measureScreen(baseUrl, tab, steps, opts) {
+  var o = opts || {};
+  var w = o.width || 390;
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign === false ? "other" : "beta") + (o.emojis ? "&emojis=1" : "") + "&measure=1&steps=" + encodeURIComponent(JSON.stringify(steps));
+  var wrapper = baseUrl.replace(/\/$/, "") + "/frame.html?src=" + encodeURIComponent(baseUrl + "?" + q) + "&w=" + w + "&h=900";
+  var html = await run(CHROME, chromeArgs(["--window-size=" + (w + 40) + ",900", "--virtual-time-budget=30000", "--dump-dom", wrapper]), 120000);
+  var m = html.match(/<script type="application\/json" id="__capture">([^<]*)<\/script>/);
+  if (!m) throw new Error("no measurement for " + tab);
+  var res = JSON.parse(decodeURIComponent(m[1]));
+  if (res.errors && res.errors.length) throw new Error(tab + ": " + res.errors.join("; "));
+  return res.snapshots;
+}
+
+export async function measureAll(opts) {
+  var srv = await startServer();
+  try {
+    var out = {};
+    for (var tab of Object.keys(REDESIGN_STEPS)) {
+      var r = await measureScreen(srv.url, tab, REDESIGN_STEPS[tab], opts);
+      Object.keys(r).forEach(function (k) { out[tab + ":" + k] = r[k]; });
+    }
+    return out;
+  } finally {
+    await srv.server.close();
+  }
+}
+
 var isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   if (!CHROME) { console.error("Chrome not found (set CHROME_PATH)"); process.exit(1); }
-  if (process.argv.includes("--write")) {
+  if (process.argv.includes("--measure")) {
+    var mm = await measureAll({ emojis: process.argv.includes("--emojis") });
+    Object.keys(mm).forEach(function (k) { console.log(k.padEnd(28), "page " + mm[k].pageWidth + "px", mm[k].count ? "OVERFLOW " + JSON.stringify(mm[k].offenders.slice(0, 4)) : "ok"); });
+  } else if (process.argv.includes("--write")) {
     var all = await captureAll();
     fs.mkdirSync(path.dirname(GOLDEN), { recursive: true });
     fs.writeFileSync(GOLDEN, JSON.stringify(all, null, 1) + "\n");

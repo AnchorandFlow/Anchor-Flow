@@ -61,12 +61,15 @@ var coveData = [
   },
 ];
 
+export var MY_PERSON_ID = "p_lin";
+export var AUTH_USER_ID = "u_harness";
+
 export function householdData(householdId) {
   return {
     householdId: householdId,
     householdOwnerId: "u_harness",
-    myPersonId: "p_lin",
-    myPersonId_authUserId: "u_harness",
+    myPersonId: null, // stored raw by main.jsx (not JSON)
+    myPersonId_authUserId: null,
     authUser: { id: "u_harness", email: "harness@example.invalid", displayName: "Lindsey" },
     authToken: "harness-token",
     lastHHSync: FIXED_NOW - 60000,
@@ -105,19 +108,21 @@ export function householdData(householdId) {
     mealBankCustom: [],
     recipeBook: [{ id: "rb1", name: "Grandma's chili", ingredients: "beans\ntomatoes", steps: "Simmer", tags: [] }],
     calEvents: [
-      { id: "e1", date: "2026-11-13", time: "15:30", title: "Soccer practice", color: "#4A7FA8", who: "p_jun" },
-      { id: "e2", date: "2026-11-14", time: "10:00", title: "Farmers market", color: "#3AAA91" },
-      { id: "e3", date: "2026-11-11", time: "", title: "Library day", color: "#7A9E8E", repeat: "weekly" },
+      { id: "e1", date: "2026-11-13", time: "15:30", title: "Soccer practice", color: "#4A7FA8", forPerson: "p_jun" },
+      { id: "e2", date: "2026-11-14", time: "10:00", title: "Farmers market", color: "#3AAA91", forPerson: "p_twy" },
+      { id: "e3", date: "2026-11-11", time: "", title: "Library day", color: "#7A9E8E", repeat: "weekly", forPerson: "p_oll" },
       { id: "e4", date: "2026-11-20", time: "18:00", title: "Pumpkin pancakes", color: "#C4A882" },
     ],
     work_schedules: {
       p_lin: { scheduleType: "set", days: { Monday: [{ start: "09:00", end: "17:00" }], Wednesday: [{ start: "09:00", end: "17:00" }], Friday: [{ start: "09:00", end: "13:00" }] }, notes: "" },
       p_twy: { scheduleType: "on-call", onCallDays: ["Tuesday", "Thursday"], notes: "" },
     },
+    workDays: { "2026-11-17": { type: "office", startHour: 9, endHour: 17, location: "", note: "" } },
+    cal_markers: { "2026-11-26": ["🦃"] },
     exhale_waves: waves,
     coveData: coveData,
     choreResetDate: null, // set raw below (not JSON) — see seed()
     schoolData: {},
-    lighthouse: { version: 2, modes: { p_jun: "homeschool", p_oll: "school" }, shared: {}, homeschool: {}, school: {}, household: { readAlouds: [], calendar: [], settings: {} } },
+    lighthouse: { version: 2, modes: { p_jun: "homeschool", p_oll: "school" }, shared: {}, homeschool: { p_jun: { monthlyGoals: [{ id: "g1", text: "Finish the multiplication unit", done: true }, { id: "g2", text: "Read three chapter books", done: false }] } }, school: {}, household: { readAlouds: [], calendar: [], settings: {} } },
   };
 }
