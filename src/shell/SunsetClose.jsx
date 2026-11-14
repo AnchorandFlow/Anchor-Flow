@@ -17,6 +17,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getDailyBriefing } from "../compass/compassEngine";
 import { SYNC_KEYS } from "../sync-core";
+import { gradient, font, radius, shadow } from "../design/tokens.js";
 
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
@@ -32,6 +33,41 @@ var CARD_BG = "rgba(15,10,30,0.32)";
 var CARD_BORDER = "0.5px solid rgba(212,168,130,0.18)";
 var ROW_ACCENT = "rgba(196,135,106,0.5)"; // #C4876A @ 50% — win/dinner row border
 var PAGE_GRADIENT = "linear-gradient(175deg, #1E2A45 0%, #C4876A 14%, #A8695F 26%, #8C4F5A 40%, #6B3A52 55%, #4A2545 70%, #2D1F42 85%, #1E1535 100%)";
+
+// Theme: `legacy` is the look above, value for value (af_redesign off —
+// guarded by the golden-markup test). `redesign` (af_redesign on) is the
+// realistic sunset from tokens: plum text on the bright top, ivory lower,
+// frosted glass cards, apricot selected chips, ivory "Anchor the day" pill.
+// Neither theme uses emoji; the chevron and close icon are CSS shapes.
+var SUN = gradient.sunset;
+var THEMES = {
+  legacy: {
+    serif: SERIF, sans: SANS, accent: ACCENT, text: TEXT_PRIMARY, text2: TEXT_SECONDARY,
+    label: LABEL_COLOR, labelSolid: LABEL_COLOR_SOLID, cardBg: CARD_BG, cardBorder: CARD_BORDER, cardRadius: 14,
+    rowAccent: ROW_ACCENT, page: PAGE_GRADIENT, divider: "1px solid rgba(212,168,130,0.12)",
+    headLabel: LABEL_COLOR, headText: TEXT_PRIMARY, headSub: TEXT_SECONDARY,
+    closeBg: "rgba(15,10,30,0.55)", closeBorder: CARD_BORDER, closeGlyph: TEXT_PRIMARY,
+    chipOnBorder: "1px solid " + ACCENT, chipOffBorder: "1px solid rgba(212,168,130,0.28)", chipOnBg: "rgba(196,135,106,0.35)",
+    chipOnText: TEXT_PRIMARY, chipOffText: "rgba(242,234,216,0.6)",
+    decOnBorder: ACCENT, decOffBorder: "rgba(212,168,130,0.28)", decOnBg: "transparent", decOnText: LABEL_COLOR_SOLID, decOffText: "rgba(242,234,216,0.6)",
+    inputBg: "rgba(0,0,0,0.2)", inputBorder: "0.5px solid rgba(212,168,130,0.15)", saved: ACCENT,
+    pillBg: TEXT_PRIMARY, pillText: "#2D1F42", doneSub: "rgba(242,234,216,0.45)",
+  },
+  redesign: {
+    serif: font.heading, sans: font.body, accent: SUN.apricot, text: SUN.text, text2: "rgba(242,234,216,0.82)",
+    label: "rgba(242,234,216,0.72)", labelSolid: SUN.text, cardBg: SUN.glass, cardBorder: "1px solid " + SUN.glassBorder, cardRadius: radius.md,
+    blur: "blur(14px) saturate(120%)", cardShadow: "0 4px 18px rgba(38,38,63,0.18)",
+    rowAccent: "rgba(248,201,160,0.6)", page: SUN.css, divider: "1px solid rgba(242,234,216,0.14)",
+    headLabel: "rgba(58,31,53,0.72)", headText: SUN.plum, headSub: "rgba(58,31,53,0.82)",
+    closeBg: "rgba(253,250,245,0.38)", closeBorder: "1px solid rgba(58,31,53,0.18)", closeGlyph: SUN.plum,
+    chipOnBorder: "1px solid " + SUN.apricot, chipOffBorder: "1px solid rgba(242,234,216,0.38)", chipOnBg: SUN.apricot,
+    chipOnText: SUN.plum, chipOffText: SUN.text,
+    decOnBorder: SUN.apricot, decOffBorder: "rgba(242,234,216,0.38)", decOnBg: SUN.apricot, decOnText: SUN.plum, decOffText: SUN.text,
+    inputBg: "rgba(253,250,245,0.12)", inputBorder: "1px solid " + SUN.glassBorder, saved: SUN.apricot,
+    pillBg: SUN.text, pillText: SUN.plum, pillShadow: shadow.raised, doneSub: "rgba(242,234,216,0.72)",
+    doneCard: true,
+  },
+};
 
 function read(key, fallback) {
   try { var v = JSON.parse(localStorage.getItem("af_" + key) || "null"); return v === null ? fallback : v; } catch (e) { return fallback; }
@@ -62,38 +98,42 @@ function weatherCondition(code) {
   return "";
 }
 
-function sectionLabel(text, extra) {
-  return <div style={Object.assign({ fontSize: "10px", letterSpacing: "0.13em", textTransform: "uppercase", color: LABEL_COLOR, fontWeight: 600, marginBottom: 6, fontFamily: SANS }, extra || {})}>{text}</div>;
+function sectionLabel(th, text, extra) {
+  return <div style={Object.assign({ fontSize: "10px", letterSpacing: "0.13em", textTransform: "uppercase", color: th.label, fontWeight: 600, marginBottom: 6, fontFamily: th.sans }, extra || {})}>{text}</div>;
 }
-function cardStyle(extra) {
-  return Object.assign({ background: CARD_BG, border: CARD_BORDER, borderRadius: 14, padding: "13px 15px" }, extra || {});
+function cardStyle(th, extra) {
+  return Object.assign({ background: th.cardBg, border: th.cardBorder, borderRadius: th.cardRadius, padding: "13px 15px", backdropFilter: th.blur, WebkitBackdropFilter: th.blur, boxShadow: th.cardShadow }, extra || {});
 }
-function emptyState(text) {
-  return <div style={{ fontSize: ".82rem", color: TEXT_SECONDARY, fontStyle: "italic", fontFamily: SERIF }}>{text}</div>;
+function emptyState(th, text) {
+  return <div style={{ fontSize: ".82rem", color: th.text2, fontStyle: "italic", fontFamily: th.serif }}>{text}</div>;
 }
 
 // Pure-CSS chevron (rotated border corner) — no unicode glyph, so it can
 // never read as an emoji regardless of platform font.
 function Chevron(props) {
-  return <span style={{ display: "inline-block", width: 7, height: 7, borderRight: "1.5px solid " + LABEL_COLOR_SOLID, borderBottom: "1.5px solid " + LABEL_COLOR_SOLID, transform: (props.open ? "rotate(225deg)" : "rotate(45deg)"), transition: "transform .2s", flexShrink: 0, marginTop: props.open ? 2 : -2 }} />;
+  var c = props.th.labelSolid;
+  return <span style={{ display: "inline-block", width: 7, height: 7, borderRight: "1.5px solid " + c, borderBottom: "1.5px solid " + c, transform: (props.open ? "rotate(225deg)" : "rotate(45deg)"), transition: "transform .2s", flexShrink: 0, marginTop: props.open ? 2 : -2 }} />;
 }
 // Same trick for the dismiss control, so it isn't a "✕" character either.
-function CloseGlyph() {
+function CloseGlyph(props) {
+  var c = props.th.closeGlyph;
   return <span style={{ position: "relative", width: 12, height: 12, display: "inline-block" }}>
-    <span style={{ position: "absolute", top: 5, left: 0, width: 12, height: 1.5, background: TEXT_PRIMARY, transform: "rotate(45deg)" }} />
-    <span style={{ position: "absolute", top: 5, left: 0, width: 12, height: 1.5, background: TEXT_PRIMARY, transform: "rotate(-45deg)" }} />
+    <span style={{ position: "absolute", top: 5, left: 0, width: 12, height: 1.5, background: c, transform: "rotate(45deg)" }} />
+    <span style={{ position: "absolute", top: 5, left: 0, width: 12, height: 1.5, background: c, transform: "rotate(-45deg)" }} />
   </span>;
 }
 
 function AccordionCard(props) {
+  var th = props.th;
+  var rd = th === THEMES.redesign;
   return (
-    <div style={cardStyle({ marginBottom: 10, padding: 0, overflow: "hidden" })}>
-      <button type="button" onClick={props.onToggle} style={{ width: "100%", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, background: "none", border: "none", cursor: "pointer", padding: "14px 15px", textAlign: "left", fontFamily: SANS }}>
+    <div data-sunset-section={rd ? props.label : undefined} style={cardStyle(th, { marginBottom: 10, padding: 0, overflow: "hidden" })}>
+      <button type="button" aria-expanded={rd ? props.open : undefined} onClick={props.onToggle} style={{ width: "100%", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, background: "none", border: "none", cursor: "pointer", padding: "14px 15px", textAlign: "left", fontFamily: th.sans }}>
         <div>
-          {sectionLabel(props.label, { marginBottom: 4 })}
-          <div style={{ fontFamily: SERIF, fontSize: "1.05rem", fontWeight: 600, color: TEXT_PRIMARY }}>{props.title}</div>
+          {sectionLabel(th, props.label, { marginBottom: 4 })}
+          <div style={{ fontFamily: th.serif, fontSize: "1.05rem", fontWeight: 600, color: th.text }}>{props.title}</div>
         </div>
-        <span style={{ marginTop: 8 }}><Chevron open={props.open} /></span>
+        <span style={{ marginTop: 8 }}><Chevron th={th} open={props.open} /></span>
       </button>
       {props.open && <div style={{ padding: "0 15px 16px" }}>{props.children}</div>}
     </div>
@@ -125,6 +165,8 @@ var DECISIONS = [
 ];
 
 export default function SunsetClose(props) {
+  var rd = props.redesign === true;
+  var th = rd ? THEMES.redesign : THEMES.legacy;
   var [mood, setMood] = useState(null);
   var [openSections, setOpenSections] = useState({ reflect: false, celebrate: false, release: false, prepare: false, exhale: false });
   function toggleSection(key) { setOpenSections(function (p) { return Object.assign({}, p, { [key]: !p[key] }); }); }
@@ -248,11 +290,11 @@ export default function SunsetClose(props) {
       // certain stacking-context conditions and made the app appear to bounce
       // to the Flow tab mid-close-out. Matches the rest of the app's modals
       // (1000-10001 range), well clear of persistent chrome.
-      <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: PAGE_GRADIENT, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "1rem" }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 500, color: TEXT_PRIMARY, fontFamily: SERIF, marginBottom: 10 }}>Your day is anchored.</div>
-          <div style={{ fontSize: 18, color: TEXT_PRIMARY, opacity: 0.85, fontFamily: SERIF, marginBottom: 10 }}>Good night, {firstName}.</div>
-          <div style={{ fontSize: 13, color: "rgba(242,234,216,0.45)", fontFamily: SANS }}>Tomorrow can wait until tomorrow.</div>
+      <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: th.page, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "1rem" }}>
+        <div data-testid={rd ? "sunset-done" : undefined} style={th.doneCard ? cardStyle(th, { padding: "26px 28px", maxWidth: 360, width: "100%", boxSizing: "border-box" }) : undefined}>
+          <div style={{ fontSize: 20, fontWeight: 500, color: th.text, fontFamily: th.serif, marginBottom: 10 }}>Your day is anchored.</div>
+          <div style={{ fontSize: 18, color: th.text, opacity: 0.85, fontFamily: th.serif, marginBottom: 10 }}>Good night, {firstName}.</div>
+          <div style={{ fontSize: 13, color: th.doneSub, fontFamily: th.sans }}>Tomorrow can wait until tomorrow.</div>
         </div>
       </div>
     );
@@ -260,30 +302,30 @@ export default function SunsetClose(props) {
 
   return (
     // Same zIndex:200→2000 fix as the anchored screen above — see that comment.
-    <div onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: PAGE_GRADIENT, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto" }}>
+    <div data-testid={rd ? "sunset-page" : undefined} onClick={props.onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: th.page, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto" }}>
       {/* Fixed to the viewport (not the scrolling content below) so it stays reachable
           on mobile no matter how far the accordion content scrolls. */}
-      <button onClick={props.onClose} aria-label="Close" style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))", zIndex: 2001, background: "rgba(15,10,30,0.55)", border: CARD_BORDER, width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}><CloseGlyph /></button>
+      <button onClick={props.onClose} aria-label="Close" style={{ position: "fixed", top: "max(14px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))", zIndex: 2001, background: th.closeBg, border: th.closeBorder, width: 32, height: 32, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, backdropFilter: th.blur, WebkitBackdropFilter: th.blur }}><CloseGlyph th={th} /></button>
 
-      <div onClick={function (e) { e.stopPropagation(); }} style={{ maxWidth: 460, width: "92%", margin: "20px auto 40px", position: "relative" }}>
-        <div style={{ marginBottom: 16, paddingRight: 40 }}>
-          {sectionLabel("Sunset")}
-          <div style={{ fontFamily: SERIF, fontSize: "1.5rem", fontWeight: 600, color: TEXT_PRIMARY }}>Good evening, {firstName}.</div>
-          <div style={{ fontSize: ".82rem", color: TEXT_SECONDARY, fontFamily: SANS, marginTop: 4 }}>Let's close today with intention.</div>
+      <div onClick={function (e) { e.stopPropagation(); }} style={rd ? { maxWidth: 460, width: "100%", paddingTop: "max(20px, env(safe-area-inset-top))", paddingLeft: 16, paddingRight: 16, boxSizing: "border-box", margin: "0 auto", position: "relative", minHeight: "100%", display: "flex", flexDirection: "column" } : { maxWidth: 460, width: "92%", margin: "20px auto 40px", position: "relative" }}>
+        <div data-testid={rd ? "sunset-head" : undefined} style={{ marginBottom: 16, paddingRight: 40 }}>
+          {sectionLabel(th, "Sunset", rd ? { color: th.headLabel } : undefined)}
+          <div style={{ fontFamily: th.serif, fontSize: "1.5rem", fontWeight: 600, color: th.headText }}>Good evening, {firstName}.</div>
+          <div style={{ fontSize: ".82rem", color: th.headSub, fontFamily: th.sans, marginTop: 4 }}>Let's close today with intention.</div>
         </div>
 
-        <AccordionCard label="Reflect" title="How did today feel?" open={openSections.reflect} onToggle={function () { toggleSection("reflect"); }}>
+        <AccordionCard th={th} label="Reflect" title="How did today feel?" open={openSections.reflect} onToggle={function () { toggleSection("reflect"); }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {MOODS.map(function (m) {
               var on = mood === m.id;
               return (
-                <button key={m.id} type="button" onClick={function () { setMood(m.id); }} style={{ padding: "9px 14px", borderRadius: 20, border: on ? "1px solid " + ACCENT : "1px solid rgba(212,168,130,0.28)", background: on ? "rgba(196,135,106,0.35)" : "transparent", color: on ? TEXT_PRIMARY : "rgba(242,234,216,0.6)", fontWeight: on ? 700 : 500, fontSize: ".82rem", fontFamily: SANS, cursor: "pointer" }}>{m.label}</button>
+                <button key={m.id} type="button" onClick={function () { setMood(m.id); }} style={{ padding: "9px 14px", borderRadius: 20, border: on ? th.chipOnBorder : th.chipOffBorder, background: on ? th.chipOnBg : "transparent", color: on ? th.chipOnText : th.chipOffText, fontWeight: on ? 700 : 500, fontSize: ".82rem", fontFamily: th.sans, cursor: "pointer" }}>{m.label}</button>
               );
             })}
           </div>
         </AccordionCard>
 
-        <AccordionCard label="Celebrate" title="What went well?" open={openSections.celebrate} onToggle={function () { toggleSection("celebrate"); }}>
+        <AccordionCard th={th} label="Celebrate" title="What went well?" open={openSections.celebrate} onToggle={function () { toggleSection("celebrate"); }}>
           {(function () {
             var rows = [
               { label: winsCount + " task" + (winsCount !== 1 ? "s" : "") + " completed" },
@@ -293,23 +335,23 @@ export default function SunsetClose(props) {
             ];
             return rows.map(function (r, i) {
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", padding: "10px 0 10px 12px", borderLeft: "3px solid " + ROW_ACCENT, borderBottom: i < rows.length - 1 ? "1px solid rgba(212,168,130,0.12)" : "none" }}>
-                  <span style={{ fontSize: ".84rem", color: TEXT_PRIMARY, fontFamily: SANS }}>{r.label}</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", padding: "10px 0 10px 12px", borderLeft: "3px solid " + th.rowAccent, borderBottom: i < rows.length - 1 ? th.divider : "none" }}>
+                  <span style={{ fontSize: ".84rem", color: th.text, fontFamily: th.sans }}>{r.label}</span>
                 </div>
               );
             });
           })()}
         </AccordionCard>
 
-        <AccordionCard label="Release" title="What can wait?" open={openSections.release} onToggle={function () { toggleSection("release"); }}>
-          {unfinishedTasks.length === 0 ? emptyState("All clear — nothing left behind.") : (
+        <AccordionCard th={th} label="Release" title="What can wait?" open={openSections.release} onToggle={function () { toggleSection("release"); }}>
+          {unfinishedTasks.length === 0 ? emptyState(th, "All clear — nothing left behind.") : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {unfinishedTasks.map(function (t) {
                 var text = t.text || t.title || t.name || "";
                 var chosen = decisions[t.id];
                 return (
-                  <div key={t.id} style={cardStyle()}>
-                    <div style={{ fontSize: ".84rem", color: TEXT_PRIMARY, fontFamily: SANS, marginBottom: 8 }}>{text}</div>
+                  <div key={t.id} style={cardStyle(th, rd ? { background: "rgba(253,250,245,0.08)", backdropFilter: undefined, WebkitBackdropFilter: undefined, boxShadow: undefined } : undefined)}>
+                    <div style={{ fontSize: ".84rem", color: th.text, fontFamily: th.sans, marginBottom: 8 }}>{text}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {DECISIONS.map(function (d) {
                         var on = chosen === d.id;
@@ -317,10 +359,10 @@ export default function SunsetClose(props) {
                         // selection state `on` — Tomorrow always looked accent-colored
                         // whether or not it was picked, and Later/Remove never showed
                         // as selected, so clicking any decision appeared to do nothing.
-                        var borderColor = on ? ACCENT : "rgba(212,168,130,0.28)";
-                        var textColor = on ? LABEL_COLOR_SOLID : "rgba(242,234,216,0.6)";
+                        var borderColor = on ? th.decOnBorder : th.decOffBorder;
+                        var textColor = on ? th.decOnText : th.decOffText;
                         return (
-                          <button key={d.id} type="button" onClick={function () { decide(t.id, d.id); }} style={{ border: "1px solid " + borderColor, background: "transparent", color: textColor, borderRadius: 16, padding: "5px 12px", fontSize: ".72rem", fontWeight: on ? 700 : 500, cursor: "pointer", fontFamily: SANS }}>{d.label}</button>
+                          <button key={d.id} type="button" aria-pressed={rd ? on : undefined} onClick={function () { decide(t.id, d.id); }} style={{ border: "1px solid " + borderColor, background: on ? th.decOnBg : "transparent", color: textColor, borderRadius: 16, padding: "5px 12px", fontSize: ".72rem", fontWeight: on ? 700 : 500, cursor: "pointer", fontFamily: th.sans }}>{d.label}</button>
                         );
                       })}
                     </div>
@@ -331,47 +373,49 @@ export default function SunsetClose(props) {
           )}
         </AccordionCard>
 
-        <AccordionCard label="Prepare" title="What's ahead?" open={openSections.prepare} onToggle={function () { toggleSection("prepare"); }}>
+        <AccordionCard th={th} label="Prepare" title="What's ahead?" open={openSections.prepare} onToggle={function () { toggleSection("prepare"); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              {sectionLabel("Weather")}
+              {sectionLabel(th, "Weather")}
               {tomorrowWeather ? (
                 <div>
-                  <div style={{ fontFamily: SERIF, fontSize: "1.4rem", fontWeight: 600, color: TEXT_PRIMARY }}>{tomorrowWeather.high}°</div>
-                  <div style={{ fontSize: ".8rem", color: TEXT_SECONDARY, fontFamily: SANS, marginTop: 2 }}>{weatherCondition(tomorrowWeather.code)} · H:{tomorrowWeather.high}° L:{tomorrowWeather.low}° · {tomorrowName}</div>
+                  <div style={{ fontFamily: th.serif, fontSize: "1.4rem", fontWeight: 600, color: th.text }}>{tomorrowWeather.high}°</div>
+                  <div style={{ fontSize: ".8rem", color: th.text2, fontFamily: th.sans, marginTop: 2 }}>{weatherCondition(tomorrowWeather.code)} · H:{tomorrowWeather.high}° L:{tomorrowWeather.low}° · {tomorrowName}</div>
                 </div>
-              ) : emptyState("No forecast yet.")}
+              ) : emptyState(th, "No forecast yet.")}
             </div>
             <div>
-              {sectionLabel("Schedule")}
+              {sectionLabel(th, "Schedule")}
               {tomorrowEvents.length > 0 ? tomorrowEvents.map(function (e, i) {
-                return <div key={i} style={{ fontSize: ".82rem", color: TEXT_PRIMARY, fontFamily: SANS, padding: "3px 0" }}>{e.time ? e.time + " · " : ""}{e.title}</div>;
-              }) : emptyState("Nothing on the calendar yet.")}
+                return <div key={i} style={{ fontSize: ".82rem", color: th.text, fontFamily: th.sans, padding: "3px 0" }}>{e.time ? e.time + " · " : ""}{e.title}</div>;
+              }) : emptyState(th, "Nothing on the calendar yet.")}
             </div>
             <div>
-              {sectionLabel("Dinner")}
+              {sectionLabel(th, "Dinner")}
               {tomorrowDinner ? (
-                <div style={{ borderLeft: "3px solid " + ROW_ACCENT, padding: "4px 0 4px 12px", fontSize: ".82rem", color: TEXT_PRIMARY, fontFamily: SANS }}>{tomorrowDinner}</div>
-              ) : emptyState("Nothing planned yet.")}
+                <div style={{ borderLeft: "3px solid " + th.rowAccent, padding: "4px 0 4px 12px", fontSize: ".82rem", color: th.text, fontFamily: th.sans }}>{tomorrowDinner}</div>
+              ) : emptyState(th, "Nothing planned yet.")}
             </div>
           </div>
         </AccordionCard>
 
-        <AccordionCard label="Exhale" title="Anything still lingering?" open={openSections.exhale} onToggle={function () { toggleSection("exhale"); }}>
+        <AccordionCard th={th} label="Exhale" title="Anything still lingering?" open={openSections.exhale} onToggle={function () { toggleSection("exhale"); }}>
           {savedClearMind ? (
-            <div style={{ fontSize: ".82rem", color: ACCENT, fontStyle: "italic", fontFamily: SERIF }}>Saved to Exhale.</div>
+            <div style={{ fontSize: ".82rem", color: th.saved, fontStyle: "italic", fontFamily: th.serif }}>Saved to Exhale.</div>
           ) : (
             <div>
-              <div style={{ padding: "10px 12px", background: "rgba(0,0,0,0.2)", border: "0.5px solid rgba(212,168,130,0.15)", borderRadius: 10, marginBottom: 8 }}>
-                <input value={clearMindText} onChange={function (e) { setClearMindText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") saveClearMind(); }} placeholder="Write it here to let it go…" style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontSize: ".82rem", color: TEXT_PRIMARY, fontStyle: "italic", fontFamily: SERIF, boxSizing: "border-box" }} />
+              <div style={{ padding: "10px 12px", background: th.inputBg, border: th.inputBorder, borderRadius: 10, marginBottom: 8 }}>
+                <input value={clearMindText} onChange={function (e) { setClearMindText(e.target.value); }} onKeyDown={function (e) { if (e.key === "Enter") saveClearMind(); }} placeholder="Write it here to let it go…" style={{ width: "100%", background: "transparent", border: "none", outline: "none", fontSize: rd ? 16 : ".82rem", color: th.text, fontStyle: "italic", fontFamily: th.serif, boxSizing: "border-box" }} />
               </div>
-              {clearMindText.trim() && <span onClick={saveClearMind} style={{ fontSize: ".68rem", color: ACCENT, cursor: "pointer", fontFamily: SANS }}>Save</span>}
+              {clearMindText.trim() && <span onClick={saveClearMind} style={{ fontSize: rd ? ".78rem" : ".68rem", color: th.saved, cursor: "pointer", fontFamily: th.sans, fontWeight: rd ? 600 : undefined }}>Save</span>}
             </div>
           )}
         </AccordionCard>
 
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 18 }}>
-          <button type="button" onClick={handleAnchor} style={{ background: TEXT_PRIMARY, color: "#2D1F42", border: "none", borderRadius: 24, padding: "10px 40px", fontSize: 14, fontWeight: 500, fontFamily: SANS, cursor: "pointer" }}>Anchor the day</button>
+        {/* Redesign: the ivory pill sits near the bottom, over dusk indigo —
+            sticky so it stays in reach while sections are open. */}
+        <div data-testid={rd ? "sunset-anchor-bar" : undefined} style={rd ? { display: "flex", justifyContent: "center", marginTop: "auto", paddingTop: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))", position: "sticky", bottom: 0 } : { display: "flex", justifyContent: "center", marginTop: 18 }}>
+          <button type="button" onClick={handleAnchor} style={{ background: th.pillBg, color: th.pillText, border: "none", borderRadius: rd ? 999 : 24, padding: rd ? "13px 44px" : "10px 40px", fontSize: rd ? 15 : 14, fontWeight: rd ? 600 : 500, fontFamily: th.sans, cursor: "pointer", boxShadow: th.pillShadow }}>Anchor the day</button>
         </div>
       </div>
     </div>

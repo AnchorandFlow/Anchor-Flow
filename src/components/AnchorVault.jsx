@@ -5,6 +5,8 @@ import MomentsSection from "./MomentsSection"
 import DosingTracker from "./DosingTracker"
 import RipplesRoom from "../shell/RipplesRoom"
 import SafeHarbor from "../shell/SafeHarbor"
+import { REDESIGN } from "../design/redesignFlag.js"
+import { gradient } from "../design/tokens.js"
 // CareerSection is defined inline below
 
 // ── Safe URL helper — prevents invalid URLs from crashing the PWA ─────────────
@@ -10188,7 +10190,7 @@ function afVaultChanged(key) {
 // "anchor" is only ever passed by the redesigned Anchor screen (af_redesign).
 var RETURN_TO_LABELS = { home: "Home", people: "People", horizon: "Horizon", anchor: "Anchor" };
 
-export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo }) {
+export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo, onBackHome }) {
   // Recipes tab lives in HomeFlow/MealsTab (App.jsx), a sibling component
   // FlowWrapper renders separately from AnchorVault — there's no prop path
   // from here to there. Navigate the same way AnchorVault already talks to
@@ -10261,13 +10263,15 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
-      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)" : "#f2ead8"), transition: "background 0.3s", overflowY: "auto" }}>
+      <div ref={vaultScrollRef} style={{ flex: 1, background: (activeSection === "ripples" ? (REDESIGN ? gradient.ripples.css : "linear-gradient(165deg,#3E8B91 0%,#2B7378 55%,#1E5B63 100%)") : "#f2ead8"), transition: "background 0.3s", overflowY: "auto" }}>
         {/* Matches Flow's page container exactly (App.jsx's maxWidth:1100 branch) —
             maxWidth only caps width, so this has no effect below 1100px and mobile
             layout is unchanged; only desktop gets the wider column. */}
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "1.1rem 0.9rem 0.5rem" }}>
           {activeSection === "ripples" ? (
-            <RipplesRoom />
+            /* af_redesign: restyled Ripples with a back button to Home.
+               Off: redesign is false and RipplesRoom renders as before. */
+            <RipplesRoom redesign={REDESIGN} onBack={onBackHome} />
           ) : (
             /* Navy card container — every non-ripples section renders inside this
                one wrapper (rather than each section owning its own), so every

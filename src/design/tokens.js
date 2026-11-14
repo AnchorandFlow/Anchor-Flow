@@ -30,16 +30,23 @@ export var gradient = {
     css: "linear-gradient(135deg, #2F7E76 0%, #1D5751 100%)",
   },
   // Sunset — the ONLY place purple/pink hues are allowed. Top to bottom:
-  // warm orange glow -> coral -> mauve -> dusk indigo.
+  // warm orange glow -> coral -> dusty rose -> mauve -> dusk indigo.
+  // Text: dark plum on the bright top, ivory lower down. Selected chips use
+  // a soft apricot. The page is glass cards over this gradient.
   sunset: {
     stops: [
       { name: "glow", hex: "#F4A259", at: 0 },
-      { name: "coral", hex: "#E2725B", at: 32 },
-      { name: "mauve", hex: "#9C6B8A", at: 64 },
+      { name: "coral", hex: "#E2725B", at: 24 },
+      { name: "dustyRose", hex: "#C17C83", at: 44 },
+      { name: "mauve", hex: "#8A6283", at: 64 },
       { name: "duskIndigo", hex: "#26263F", at: 100 },
     ],
-    css: "linear-gradient(180deg, #F4A259 0%, #E2725B 32%, #9C6B8A 64%, #26263F 100%)",
+    css: "linear-gradient(180deg, #F4A259 0%, #E2725B 24%, #C17C83 44%, #8A6283 64%, #26263F 100%)",
     text: "#F2EAD8", // ivory
+    plum: "#3A1F35", // dark plum, for text on the bright top area
+    apricot: "#F8C9A0", // selected chips
+    glass: "rgba(38, 38, 63, 0.28)", // frosted card fill (dusk-indigo tint)
+    glassBorder: "rgba(242, 234, 216, 0.22)",
   },
 };
 

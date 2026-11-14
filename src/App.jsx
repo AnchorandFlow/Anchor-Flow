@@ -18675,7 +18675,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {/* AI accessible from header button */}
       {chatOpen&&<AIChatPanel onClose={()=>setChatOpen(false)} pendingMessage={pendingChatMessage} onConsumePending={()=>setPendingChatMessage(null)}/>}
       {plusModalFeature&&<PlusModal featureName={plusModalFeature} getToken={_afReadToken} onClose={function(){ setPlusModalFeature(null); }}/>}
-      {showEndOfDay&&<SunsetClose weatherData={weatherData} onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
+      {showEndOfDay&&<SunsetClose redesign={REDESIGN} weatherData={weatherData} onClose={function(){ setShowEndOfDay(false); }} onCloseDay={function(){ setShowEndOfDay(false); var closerName = myDisplayName(people,myPersonId,preferredName,authUser); setDayClosed(closerName || true); }}/>}
       {showWhoAmI&&<WhoAmIModal/>}
       {showFeedback&&(
         <ModalBox title="Send feedback" onClose={function(){setShowFeedback(false);}}>
@@ -19135,7 +19135,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           }
         `}</style>
         {showAnchor && <SectionErrorBoundary label="Anchor Vault"><HomeSwitch redesignOn={REDESIGN && vaultSection === "home" && !anchorFullVault}
-          renderLegacy={function(){ return <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} returnTo={vaultReturnTo} onReturnTo={function(tabId){ if (REDESIGN && tabId === "anchor") { setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); return; } setShowAnchor(false); _setActiveTab(tabId); }} />; }}
+          renderLegacy={function(){ return <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} onBackHome={REDESIGN ? function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); } : undefined} returnTo={vaultReturnTo} onReturnTo={function(tabId){ if (REDESIGN && tabId === "anchor") { setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); return; } setShowAnchor(false); _setActiveTab(tabId); }} />; }}
           renderRedesign={function(){ return <RedesignAnchor sections={sections} featureFlags={featureFlags}
             onBack={function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); }}
             onSettings={function(){ setShowAnchor(false); _setActiveTab("settings"); }}

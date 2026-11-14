@@ -155,7 +155,8 @@ describe("design tokens", function () {
     expect(hexToHsl(stops[0].hex).h).toBeGreaterThanOrEqual(20);
     expect(hexToHsl(stops[0].hex).h).toBeLessThanOrEqual(45); // orange
     expect(stops[stops.length - 1]).toMatchObject({ hex: "#26263F", at: 100 });
-    expect(stops.map(function (s) { return s.name; })).toEqual(["glow", "coral", "mauve", "duskIndigo"]);
+    expect(stops.map(function (s) { return s.name; })).toEqual(["glow", "coral", "dustyRose", "mauve", "duskIndigo"]);
+    expect(gradient.sunset.css).toBe("linear-gradient(180deg, " + stops.map(function (s) { return s.hex + " " + s.at + "%"; }).join(", ") + ")");
     expect(gradient.sunset.text).toBe("#F2EAD8");
     expect(gradient.sunset.css.indexOf("180deg")).toBeGreaterThan(-1);
   });

@@ -7,6 +7,7 @@
 // sync to avoid the reload loop, same pattern as Exhale).
 import { useState, useEffect, useRef } from "react";
 import UndoToast from "../components/UndoToast.jsx";
+import { color as TK, gradient, radius, shadow, font, shouldShowEmoji } from "../design/tokens.js";
 
 var SERIF = "'Cormorant Garamond', serif";
 var SANS = "'DM Sans', sans-serif";
@@ -43,6 +44,31 @@ var CAT_STYLE = {
   other:     { color: "#b7d4cf", label: "Memory" },
 };
 function catStyle(id) { return CAT_STYLE[id] || CAT_STYLE.other; }
+
+// ── af_redesign look (props.redesign === true) ─────────────────────────────
+// Teal gradient page (set by AnchorVault), ivory text, pill tabs, and every
+// entry as a soft light rounded card. Category dots drop the legacy pink and
+// purple (tokens rule: those hues are Sunset-only). Decorative emoji follow
+// the household showEmojis setting.
+var IVORY = gradient.sunset.text;
+var RD = {
+  ivory: IVORY, ivory2: "rgba(242,234,216,0.78)", ivory3: "rgba(242,234,216,0.6)",
+  glass: "rgba(253,250,245,0.12)", glassBorder: "rgba(242,234,216,0.2)",
+  card: TK.surface, ink: TK.anchorNavy, ink2: "#4A5B70", teal: gradient.ripples.to, chip: TK.tint.sage,
+  modal: gradient.ripples.to, danger: "#F2B8A2",
+};
+var RD_CAT = {
+  milestone: "#2F7E76", firsts: "#3AAA91", school: "#4A7FA8", sports: "#7A9E8E",
+  funny: "#C4A882", faith: TK.gold, other: "#7A9E8E",
+};
+function rdCardStyle(extra) {
+  return Object.assign({ background: RD.card, borderRadius: radius.md, boxShadow: shadow.card, padding: "14px 16px", color: RD.ink }, extra || {});
+}
+function readShowEmojis() {
+  try { return JSON.parse(localStorage.getItem("af_showEmojis") || "false") === true; } catch { return false; }
+}
+// Strip a leading emoji + space from a label ("📷 Photo memory" -> "Photo memory").
+function stripEmoji(label) { return String(label).replace(/^[^A-Za-z0-9"']+\s*/, ""); }
 
 // Emoji palette for traditions
 var TRAD_EMOJIS = ["🎃","🎄","🦃","🥳","🇺🇸","🎂","🌸","☃️","🏖️","🍂","🎆","🕯️","🍪","🎁","⛄","🌟","🎒","🎓","📚"];
@@ -106,6 +132,8 @@ var TABS = [
 var THIS_YEAR = new Date().getFullYear();
 
 export default function RipplesRoom(props) {
+  var rd = props.redesign === true;
+  var se = rd ? shouldShowEmoji("decor", readShowEmojis()) : true;
   var [tab, setTab] = useState("timeline");
   var [ripples, setRipples] = useState(loadRipples);
   var [traditions, setTraditions] = useState(loadTraditions);
@@ -279,20 +307,122 @@ export default function RipplesRoom(props) {
     );
   }
 
+  // Tradition editor form — shared by both looks (only the radius and the
+  // Delete color differ under af_redesign; legacy markup is unchanged).
+  function traditionEditor() {
+    return (
+            <div style={{ background: C.cardSolid, border: "1px solid " + C.border, borderRadius: rd ? radius.md : 14, padding: "16px 18px" }}>
+              <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12, opacity: .8 }}>{editing === "new" ? "New tradition" : "Edit tradition"}</div>
+
+              {/* Emoji picker */}
+              <div style={{ fontSize: ".66rem", color: C.t2, marginBottom: 6 }}>Choose an emoji</div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 14 }}>
+                {TRAD_EMOJIS.map(function (em) {
+                  var on = fEmoji === em;
+                  return <div key={em} onClick={function () { setFEmoji(em); }} style={{ fontSize: "1.1rem", padding: "5px 7px", borderRadius: 8, cursor: "pointer", background: on ? C.sea : "rgba(183,212,207,.07)", border: "1px solid " + (on ? C.sea : C.border) }}>{em}</div>;
+                })}
+              </div>
+
+              {/* Title */}
+              <input value={fTitle} onChange={function (e) { setFTitle(e.target.value); }} placeholder="Tradition name (e.g. Pumpkin pancakes on first snow)"
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none" }} />
+
+              {/* Started year + when */}
+              <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Started in</div>
+                  <input value={fStarted} onChange={function (e) { setFStarted(e.target.value.replace(/[^0-9]/g, "")); }} placeholder={String(THIS_YEAR)} maxLength={4}
+                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>When (optional)</div>
+                  <select value={fWhen} onChange={function (e) { setFWhen(e.target.value); }}
+                    style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
+                    <option value="">No set date</option>
+                    {MONTHS.map(function (mo, mi) {
+                      var mm = String(mi + 1).padStart(2, "0");
+                      return <option key={mo} value={mm + "-01"}>{mo}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <textarea value={fDesc} onChange={function (e) { setFDesc(e.target.value); }} placeholder="What happens? Why does it matter? (optional)" rows={3}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5 }} />
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div onClick={saveForm} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Save tradition</div>
+                <div onClick={closeForm} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
+                {editing !== "new" && <div onClick={function () { deleteTradition(editing); }} style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid " + (rd ? "rgba(242,184,162,.4)" : "rgba(232,160,176,.3)"), color: rd ? RD.danger : "#e8a0b0", fontSize: ".78rem", cursor: "pointer" }}>Delete</div>}
+              </div>
+            </div>
+    );
+  }
+
+  function rdHeader() {
+    var addLabel = tab === "traditions" ? "+ Add tradition" : "+ Add ripple";
+    return (
+      <div style={{ marginBottom: 16 }}>
+        {props.onBack && (
+          <button type="button" data-testid="ripples-back" onClick={props.onBack} style={{ background: "none", border: "none", color: RD.ivory2, cursor: "pointer", fontSize: 14, fontFamily: font.body, padding: "4px 0", marginBottom: 10, minHeight: 36 }}>{"\u2190"} Home</button>
+        )}
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontFamily: font.heading, fontSize: 30, fontWeight: 600, color: RD.ivory, lineHeight: 1.1 }}>Ripples</div>
+            <div style={{ fontSize: 13, color: RD.ivory2, marginTop: 2 }}>The story of your family</div>
+          </div>
+          <button type="button" data-testid="ripples-add" onClick={function () { tab === "traditions" ? openNew() : quickAdd(tab === "quotes" ? "funny" : null); }} style={{ padding: "8px 16px", background: RD.ivory, border: "none", borderRadius: 999, color: RD.teal, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font.body }}>{addLabel}</button>
+        </div>
+      </div>
+    );
+  }
+  function rdTabs() {
+    return (
+      <div role="tablist" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+        {TABS.map(function (t) {
+          var on = tab === t.id;
+          return <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"ripples-tab-" + t.id} onClick={function () { setTab(t.id); }} style={{ padding: "8px 16px", borderRadius: 999, fontSize: 13, cursor: "pointer", fontFamily: font.body, border: "1px solid " + (on ? RD.ivory : RD.glassBorder), color: on ? RD.teal : RD.ivory, background: on ? RD.ivory : RD.glass, fontWeight: on ? 700 : 500 }}>{t.label}</button>;
+        })}
+      </div>
+    );
+  }
+  function rdSectionHead(title, sub) {
+    return (
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ fontFamily: font.heading, fontSize: 22, color: RD.ivory }}>{title}</div>
+        <div style={{ fontSize: 13, color: RD.ivory2 }}>{sub}</div>
+      </div>
+    );
+  }
+  function rdEmpty(emojiChar, title, body, action) {
+    return (
+      <div style={rdCardStyle({ textAlign: "center", padding: "28px 20px" })}>
+        {se && emojiChar && <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>{emojiChar}</div>}
+        <div style={{ fontFamily: font.heading, fontSize: 19, color: RD.ink, marginBottom: 6 }}>{title}</div>
+        <div style={{ fontSize: 13, color: RD.ink2, lineHeight: 1.6 }}>{body}</div>
+        {action}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ paddingBottom: "2rem", fontFamily: SANS }}>
-      {ph("Ripples", "The story of your family")}
+    <div data-testid={rd ? "ripples-redesign" : undefined} style={rd ? { paddingBottom: "2rem", fontFamily: font.body, color: RD.ivory } : { paddingBottom: "2rem", fontFamily: SANS }}>
+      {rd ? rdHeader() : ph("Ripples", "The story of your family")}
+
+      {rd && rdTabs()}
 
       {/* Inner tab bar */}
-      <div style={{ display: "flex", gap: 3, background: "rgba(29,58,62,.5)", border: "1px solid " + C.border, borderRadius: 10, padding: 3, width: "fit-content", marginBottom: 16, flexWrap: "wrap" }}>
+      {!rd && <div style={{ display: "flex", gap: 3, background: "rgba(29,58,62,.5)", border: "1px solid " + C.border, borderRadius: 10, padding: 3, width: "fit-content", marginBottom: 16, flexWrap: "wrap" }}>
         {TABS.map(function (t) {
           var on = tab === t.id;
           return <div key={t.id} onClick={function () { setTab(t.id); }} style={{ padding: "6px 14px", borderRadius: 8, fontSize: ".74rem", cursor: "pointer", color: on ? C.bg3 : C.t2, background: on ? C.sea : "transparent", fontWeight: on ? 700 : 400, transition: "all .15s" }}>{t.label}</div>;
         })}
-      </div>
+      </div>}
 
       {/* ── TIMELINE ── */}
-      {tab === "timeline" && (
+      {!rd && tab === "timeline" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
           {onThisDay && (
             <div style={{ display: "flex", gap: 11, alignItems: "flex-start", padding: "13px 15px", background: C.teal2, border: "1px solid " + C.teal2Border, borderRadius: 12 }}>
@@ -384,7 +514,7 @@ export default function RipplesRoom(props) {
       )}
 
       {/* ── KID QUOTES ── */}
-      {tab === "quotes" && (
+      {!rd && tab === "quotes" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
           <div style={{ marginBottom: 4 }}>
             <div style={{ fontFamily: SERIF, fontSize: "1.2rem", color: C.t1 }}>Kid Quotes</div>
@@ -406,7 +536,7 @@ export default function RipplesRoom(props) {
       )}
 
       {/* ── TRADITIONS ── */}
-      {tab === "traditions" && (
+      {!rd && tab === "traditions" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
           <div style={{ marginBottom: 2 }}>
             <div style={{ fontFamily: SERIF, fontSize: "1.2rem", color: C.t1 }}>Traditions</div>
@@ -414,55 +544,7 @@ export default function RipplesRoom(props) {
           </div>
 
           {/* Editor form */}
-          {editing && (
-            <div style={{ background: C.cardSolid, border: "1px solid " + C.border, borderRadius: 14, padding: "16px 18px" }}>
-              <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12, opacity: .8 }}>{editing === "new" ? "New tradition" : "Edit tradition"}</div>
-
-              {/* Emoji picker */}
-              <div style={{ fontSize: ".66rem", color: C.t2, marginBottom: 6 }}>Choose an emoji</div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 14 }}>
-                {TRAD_EMOJIS.map(function (em) {
-                  var on = fEmoji === em;
-                  return <div key={em} onClick={function () { setFEmoji(em); }} style={{ fontSize: "1.1rem", padding: "5px 7px", borderRadius: 8, cursor: "pointer", background: on ? C.sea : "rgba(183,212,207,.07)", border: "1px solid " + (on ? C.sea : C.border) }}>{em}</div>;
-                })}
-              </div>
-
-              {/* Title */}
-              <input value={fTitle} onChange={function (e) { setFTitle(e.target.value); }} placeholder="Tradition name (e.g. Pumpkin pancakes on first snow)"
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none" }} />
-
-              {/* Started year + when */}
-              <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>Started in</div>
-                  <input value={fStarted} onChange={function (e) { setFStarted(e.target.value.replace(/[^0-9]/g, "")); }} placeholder={String(THIS_YEAR)} maxLength={4}
-                    style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }} />
-                </div>
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <div style={{ fontSize: ".62rem", color: C.t3, marginBottom: 4 }}>When (optional)</div>
-                  <select value={fWhen} onChange={function (e) { setFWhen(e.target.value); }}
-                    style={{ width: "100%", WebkitAppearance: "none", appearance: "none", padding: "7px 10px", borderRadius: 8, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, outline: "none" }}>
-                    <option value="">No set date</option>
-                    {MONTHS.map(function (mo, mi) {
-                      var mm = String(mi + 1).padStart(2, "0");
-                      return <option key={mo} value={mm + "-01"}>{mo}</option>;
-                    })}
-                  </select>
-                </div>
-              </div>
-
-              {/* Description */}
-              <textarea value={fDesc} onChange={function (e) { setFDesc(e.target.value); }} placeholder="What happens? Why does it matter? (optional)" rows={3}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".78rem", fontFamily: SANS, resize: "none", marginBottom: 12, outline: "none", lineHeight: 1.5 }} />
-
-              {/* Buttons */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <div onClick={saveForm} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>Save tradition</div>
-                <div onClick={closeForm} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
-                {editing !== "new" && <div onClick={function () { deleteTradition(editing); }} style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid rgba(232,160,176,.3)", color: "#e8a0b0", fontSize: ".78rem", cursor: "pointer" }}>Delete</div>}
-              </div>
-            </div>
-          )}
+          {editing && traditionEditor()}
 
           {/* Tradition cards */}
           {!editing && sortedTrad.length === 0 && (
@@ -535,7 +617,7 @@ export default function RipplesRoom(props) {
       )}
 
       {/* ── RECAPS (Pass 2 wires generation here) ── */}
-      {tab === "recaps" && (
+      {!rd && tab === "recaps" && (
         <div>
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontFamily: SERIF, fontSize: "1.2rem", color: C.t1 }}>Monthly Recaps</div>
@@ -552,7 +634,7 @@ export default function RipplesRoom(props) {
       )}
 
       {/* ── YEARBOOK (V3, deferred) ── */}
-      {tab === "yearbook" && (
+      {!rd && tab === "yearbook" && (
         <div style={{ padding: "28px 20px", background: C.card, border: "1px solid " + C.border, borderRadius: 12, textAlign: "center" }}>
           <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>📖</div>
           <div style={{ fontFamily: SERIF, fontSize: "1.1rem", color: C.t1, marginBottom: 8 }}>Family Yearbook</div>
@@ -560,10 +642,162 @@ export default function RipplesRoom(props) {
         </div>
       )}
 
+
+      {/* ── REDESIGN: TIMELINE ── */}
+      {rd && tab === "timeline" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {onThisDay && (
+            <div data-testid="ripples-onthisday" style={rdCardStyle({ display: "flex", gap: 11, alignItems: "flex-start" })}>
+              {se && <span style={{ fontSize: "1.3rem" }}>✨</span>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: RD.teal, marginBottom: 3 }}>On This Day · {fmtDate(onThisDay.date, { month: "long", day: "numeric", year: "numeric" })}</div>
+                <div style={{ fontSize: 17, color: RD.ink, fontFamily: font.heading, fontStyle: "italic", lineHeight: 1.4 }}>{onThisDay.name}</div>
+                {onThisDay.who && <div style={{ fontSize: 12, color: RD.ink2, marginTop: 3 }}>{onThisDay.who}</div>}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 16, alignItems: "start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {rdSectionHead("Memories & Milestones", "Newest first")}
+              {sorted.length === 0 ? rdEmpty("🌊", "The story starts here", "Capture first words, lost teeth, goals scored — anything worth remembering.") : sorted.slice(0, 30).map(function (r) {
+                var cs = catStyle(r.category);
+                var dot = RD_CAT[r.category] || RD_CAT.other;
+                return (
+                  <div key={r.id} data-testid="ripple-card" onClick={function () { openRippleEdit(r); }} style={rdCardStyle({ cursor: "pointer" })}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                      <div style={{ fontSize: 15, color: RD.ink, lineHeight: 1.4, fontWeight: 500, minWidth: 0, overflowWrap: "anywhere" }}>{r.name}</div>
+                      <div style={{ fontFamily: font.heading, fontStyle: "italic", color: RD.ink2, fontSize: 14, flexShrink: 0 }}>{fmtDate(r.date)}</div>
+                    </div>
+                    {r.note && <div style={{ fontSize: 13, color: RD.ink2, marginTop: 4, lineHeight: 1.45 }}>{r.note}</div>}
+                    {r.photo && <img src={r.photo} alt="" style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block", borderRadius: radius.sm, marginTop: 8 }} />}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, padding: "2px 10px", borderRadius: 999, background: RD.chip, color: RD.ink }}>
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: dot }} />{cs.label}
+                      </span>
+                      {r.who && <span style={{ fontSize: 12, color: RD.ink2 }}>{r.who}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[{ n: thisMonth.length, l: "This month" }, { n: milestoneCount, l: "Milestones" }, { n: quoteRipples.length, l: "Quotes" }].map(function (st, i) {
+                  return (
+                    <div key={i} style={{ background: RD.glass, border: "1px solid " + RD.glassBorder, borderRadius: radius.sm, padding: "12px 6px", textAlign: "center" }}>
+                      <div style={{ fontFamily: font.heading, fontSize: 26, color: RD.ivory, lineHeight: 1, fontVariantNumeric: "lining-nums" }}>{st.n}</div>
+                      <div style={{ fontSize: 11, color: RD.ivory2, marginTop: 4 }}>{st.l}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={rdCardStyle({ padding: 16 })}>
+                <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: RD.teal, marginBottom: 8 }}>Today's Ripple Prompt</div>
+                <div style={{ fontFamily: font.heading, fontSize: 19, color: RD.ink, fontStyle: "italic", lineHeight: 1.5, marginBottom: 12 }}>"What's one moment from today worth holding onto?"</div>
+                <button type="button" onClick={function () { quickAdd(null); }} style={{ width: "100%", textAlign: "left", padding: "10px 12px", background: TK.background, border: "1px solid rgba(27,43,68,0.1)", borderRadius: radius.sm, cursor: "pointer", fontSize: 14, color: RD.ink2, fontStyle: "italic", fontFamily: font.heading }}>Just a sentence or two is enough.</button>
+                <div style={{ fontSize: 11, color: RD.ink2, marginTop: 8, textAlign: "right" }}>from Compass{se ? " 🧭" : ""}</div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: RD.ivory3 }}>Quick add</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[{ l: "📷 Photo memory", c: "other" }, { l: "💬 Kid quote", c: "funny" }, { l: "⭐ Milestone", c: "milestone" }, { l: "🏆 First", c: "firsts" }].map(function (q) {
+                    return <button key={q.l} type="button" onClick={function () { quickAdd(q.c); }} style={{ padding: "7px 14px", background: RD.glass, border: "1px solid " + RD.glassBorder, borderRadius: 999, fontSize: 13, color: RD.ivory, cursor: "pointer", fontFamily: font.body }}>{se ? q.l : stripEmoji(q.l)}</button>;
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── REDESIGN: KID QUOTES ── */}
+      {rd && tab === "quotes" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {rdSectionHead("Kid Quotes", "Things they said")}
+          {quoteRipples.length === 0 ? rdEmpty(null, "No quotes yet", "Tag a ripple \"Funny\" or wrap it in quotes to see it here.") : quoteRipples.map(function (r) {
+            return (
+              <div key={r.id} data-testid="kid-quote-card" onClick={function () { openRippleEdit(r); }} style={rdCardStyle({ cursor: "pointer", padding: "16px 18px" })}>
+                <div data-testid="kid-quote-text" style={{ fontFamily: font.heading, fontSize: 21, fontStyle: "italic", color: RD.ink, lineHeight: 1.35, overflowWrap: "anywhere" }}>{r.name}</div>
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 1 }}>
+                  {r.who && <span data-testid="kid-quote-who" style={{ fontSize: 13, fontWeight: 600, color: RD.ink }}>{r.who}</span>}
+                  {r.date && <span data-testid="kid-quote-date" style={{ fontSize: 12, color: RD.ink2 }}>{fmtDate(r.date, { month: "long", day: "numeric", year: "numeric" })}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── REDESIGN: TRADITIONS ── */}
+      {rd && tab === "traditions" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {rdSectionHead("Traditions", "The things that make your family yours")}
+          {editing && traditionEditor()}
+          {!editing && sortedTrad.length === 0 && rdEmpty("🎃", "Your family's living traditions", "Pumpkin pancakes on the first snow. The Christmas Eve lights drive. The birthday breakfast plate. Capture the rituals that make you, you.",
+            <button type="button" onClick={openNew} style={{ marginTop: 14, padding: "9px 18px", borderRadius: 999, background: RD.teal, color: RD.ivory, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font.body }}>+ Add your first tradition</button>)}
+          {!editing && sortedTrad.map(function (t) {
+            var days = daysUntil(t.when);
+            var years = t.years || [];
+            return (
+              <div key={t.id} data-testid="tradition-card" onClick={function () { openEdit(t); }} style={rdCardStyle({ cursor: "pointer", padding: "16px 18px" })}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {se && t.emoji && <div style={{ fontSize: "1.7rem", flexShrink: 0, lineHeight: 1 }}>{t.emoji}</div>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: font.heading, fontSize: 21, color: RD.ink, lineHeight: 1.25 }}>{t.title}</div>
+                    <div style={{ fontSize: 12, color: RD.ink2, marginTop: 3 }}>
+                      {t.when ? fmtMonthDay(t.when) + " · " : ""}Started {t.startedYear} · {years.length} year{years.length === 1 ? "" : "s"} running
+                    </div>
+                    {t.description && <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: RD.ink2, marginTop: 8, lineHeight: 1.45 }}>"{t.description}"</div>}
+                    {years.length > 0 && (
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 10 }}>
+                        {years.map(function (y) { return <span key={y} style={{ fontSize: 11, padding: "2px 9px", borderRadius: 999, background: RD.chip, color: RD.teal }}>{y}</span>; })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+                      {days !== null && <span style={{ fontSize: 12, color: RD.teal, fontWeight: 600 }}>{days === 0 ? (se ? "🎉 Today!" : "Today!") : days === 1 ? "Tomorrow" : days + " days away"}</span>}
+                      {years.indexOf(THIS_YEAR) === -1 && (
+                        <button type="button" onClick={function (e) { e.stopPropagation(); markCelebrated(t.id); }} style={{ fontSize: 12, padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(27,43,68,0.15)", background: "transparent", color: RD.teal, cursor: "pointer", fontFamily: font.body }}>Celebrated this year</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {!editing && sortedTrad.length > 0 && (function () {
+            var soonest = sortedTrad.find(function (t) { var d = daysUntil(t.when); return d !== null && d <= 14; });
+            if (!soonest) return null;
+            var d = daysUntil(soonest.when);
+            return (
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "13px 15px", background: RD.glass, border: "1px solid " + RD.glassBorder, borderRadius: radius.md }}>
+                {se && <span style={{ fontSize: "1.1rem" }}>🧭</span>}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: RD.ivory3, marginBottom: 3 }}>From Compass</div>
+                  <div style={{ fontSize: 14, color: RD.ivory, lineHeight: 1.45 }}>{soonest.title} is {d === 0 ? "today" : d === 1 ? "tomorrow" : "just " + d + " days away"}. Want to plan this year's?</div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── REDESIGN: RECAPS / YEARBOOK ── */}
+      {rd && tab === "recaps" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {rdSectionHead("Monthly Recaps", "Your family's story, month by month")}
+          {props.recapSlot || rdEmpty("🧭", "Month recaps are coming soon", "Compass will gather each month's memories, milestones, and trips into a warm recap you can keep.")}
+        </div>
+      )}
+      {rd && tab === "yearbook" && rdEmpty("📖", "Family Yearbook", "One day soon, Compass will weave a year of ripples into a keepsake book — photos, milestones, and quotes together.")}
+
     {/* ── Add-ripple modal ── */}
     {addOpen && (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}>
-        <div style={{ background: "#1E5B63", border: "1px solid " + C.border, borderRadius: 16, padding: "20px", width: "100%", maxWidth: 380 }}>
+        <div style={{ background: rd ? RD.modal : "#1E5B63", border: "1px solid " + C.border, borderRadius: rd ? radius.lg : 16, padding: "20px", width: "100%", maxWidth: 380, boxSizing: rd ? "border-box" : undefined }}>
           <div style={{ fontSize: ".56rem", letterSpacing: ".16em", textTransform: "uppercase", color: C.sea, marginBottom: 12 }}>{editingRippleId ? "Edit ripple" : "Capture a ripple"}</div>
           <input value={addForm.name} onChange={function(e){ setAddForm(function(p){ return Object.assign({},p,{name:e.target.value}); }); }} placeholder="What happened? (e.g. First steps!)"
             style={{ width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid " + C.sandBorder, background: C.sandBg, color: C.sandT1, fontSize: ".82rem", fontFamily: SANS, marginBottom: 10, outline: "none", boxSizing: "border-box" }} autoFocus />
@@ -612,7 +846,7 @@ export default function RipplesRoom(props) {
           <div style={{ display: "flex", gap: 8 }}>
             <div onClick={function(){ if(addForm.name.trim()) saveRipple(addForm); }} style={{ flex: 1, padding: "9px 16px", borderRadius: 9, background: C.sea, color: C.bg3, fontSize: ".78rem", fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{editingRippleId ? "Save changes" : "Save ripple"}</div>
             <div onClick={closeAddModal} style={{ padding: "9px 16px", borderRadius: 9, border: "1px solid " + C.border, color: C.t2, fontSize: ".78rem", cursor: "pointer" }}>Cancel</div>
-            {editingRippleId && <div onClick={function () { deleteRipple(editingRippleId); }} style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid rgba(232,160,176,.3)", color: "#e8a0b0", fontSize: ".78rem", cursor: "pointer" }}>Delete</div>}
+            {editingRippleId && <div onClick={function () { deleteRipple(editingRippleId); }} style={{ padding: "9px 14px", borderRadius: 9, border: "1px solid " + (rd ? "rgba(242,184,162,.4)" : "rgba(232,160,176,.3)"), color: rd ? RD.danger : "#e8a0b0", fontSize: ".78rem", cursor: "pointer" }}>Delete</div>}
           </div>
         </div>
       </div>
