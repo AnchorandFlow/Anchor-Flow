@@ -28,6 +28,8 @@ import { useTidePoolBalances, recordTidePoolEvent } from "./tidepool/useTidePool
 import { getRedesignState, writeRedesignFlag, REDESIGN } from "./design/redesignFlag.js"
 import HomeSwitch from "./redesign/HomeSwitch.jsx"
 import RedesignHome from "./redesign/RedesignHome.jsx"
+import RedesignFlow from "./redesign/RedesignFlow.jsx"
+import RedesignExhale from "./redesign/RedesignExhale.jsx"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -18503,7 +18505,27 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     vaultGated={BILLING_V1 && !sub.isPremium} onVaultGated={function(){ setPlusModalFeature("Home"); }}
                   />; }}
                 /></SectionErrorBoundary>}
-                {t==="flowhome" && <SectionErrorBoundary label="Flow"><FlowHome/></SectionErrorBoundary>}
+                {t==="flowhome" && <SectionErrorBoundary label="Flow"><HomeSwitch redesignOn={REDESIGN}
+                  renderLegacy={function(){ return <FlowHome/>; }}
+                  renderRedesign={function(){ return <RedesignFlow
+                    householdId={householdId} myPersonId={myPersonId} people={people}
+                    calEvents={calEvents} workSchedules={workSchedules} meals={meals}
+                    shoppingItems={shoppingItems} shopCategories={shopCategories}
+                    coveData={coveData} schoolData={schoolData} showEmojis={showEmojis}
+                    tidePoolOn={tidePoolEnabled!==false}
+                    enabled={{ mealsEnabled:mealsEnabled, tidePoolEnabled:tidePoolEnabled, lighthouseEnabled:lighthouseEnabled }}
+                    /* In-store check-off: same writes as ShoppingTab.handleToggle
+                       (blob + shopping_toggle_item RPC when af_shopping_v2 is on). */
+                    onToggleShoppingItem={function(id, currentDone){
+                      var newDone=!currentDone;
+                      setShoppingItems(function(p){ return p.map(function(x){ return x.id===id?Object.assign({},x,{done:newDone}):x; }); });
+                      if(SHOPPING_V2&&householdId){
+                        var _uid=""; try{ var _u=JSON.parse(localStorage.getItem("af_authUser")||"null"); _uid=(_u&&_u.id)?_u.id:""; }catch(e){}
+                        supabase.rpc("shopping_toggle_item",{p_id:id,p_household_id:householdId,p_done:newDone,p_updated_by:_uid}).then(function(r){ if(r&&r.error) console.warn("[AF] shopping_toggle_item failed:",r.error.message); });
+                      }
+                    }}
+                  />; }}
+                /></SectionErrorBoundary>}
                 {t==="calendar" && <SectionErrorBoundary label="Calendar"><CalendarTab/></SectionErrorBoundary>}
                 {t==="waves"    && <SectionErrorBoundary label="Waves"><WavesSection/></SectionErrorBoundary>}
                 {t==="meals"    && <SectionErrorBoundary label="Meals"><MealsTab/></SectionErrorBoundary>}
@@ -18513,7 +18535,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 {t==="home"     && <SectionErrorBoundary label="Home"><HomeTab/></SectionErrorBoundary>}
                 {t==="people"   && <SectionErrorBoundary label="People"><PeopleTab/></SectionErrorBoundary>}
                 {t==="horizon"  && <SectionErrorBoundary label="Horizon"><HorizonTab/></SectionErrorBoundary>}
-                {t==="brain"    && <SectionErrorBoundary label="Exhale"><ExhaleSection
+                {t==="brain"    && <SectionErrorBoundary label="Exhale"><HomeSwitch redesignOn={REDESIGN}
+                renderRedesign={function(){ return <RedesignExhale myPersonId={myPersonId}/>; }}
+                renderLegacy={function(){ return <ExhaleSection
                 initialItems={exhaleItems.length > 0 ? exhaleItems : brainItems}
                 initialLabels={exhaleLabels}
                 householdId={householdId}
@@ -18524,7 +18548,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   setExhaleItems(items);
                   setExhaleLabels(labels);
                 }}
-              /></SectionErrorBoundary>}
+              />; }}/></SectionErrorBoundary>}
                 {t==="lighthouse" && <SectionErrorBoundary label="Lighthouse"><LearningTab/></SectionErrorBoundary>}
                 {t==="career"   && <SectionErrorBoundary label="Career"><CareerTab/></SectionErrorBoundary>}
                 {t==="settings" && <SectionErrorBoundary label="Settings"><SettingsTab

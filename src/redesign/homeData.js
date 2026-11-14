@@ -8,6 +8,7 @@
 //   kid quote             — RipplesRoom quoteRipples (category funny or "quoted")
 //   next tradition        — RipplesRoom daysUntil("MM-DD")
 import { MEAL_DAYS } from "../sync-core.js";
+import { eventsOn } from "./flowData.js";
 
 export var EXHALED_BUCKET = 0;
 export var TODAY_BUCKET = 1;
@@ -48,14 +49,13 @@ export function mealsPlannedThisWeek(meals) {
 
 export function exhaleItems(buckets, index) {
   var items = buckets && Array.isArray(buckets.items) ? buckets.items : [];
-  return items.filter(function (it) { return it && !it.archived && it.bucketIndex === index; });
+  // done = completed (same field the Exhale and Today screens write).
+  return items.filter(function (it) { return it && !it.archived && !it.done && it.bucketIndex === index; });
 }
 
+// Repeat-aware (weekly/biweekly/monthly/yearly/dates), same rules as the Calendar.
 export function todayEvents(calEvents, now) {
-  var today = localDateStr(now);
-  return arr(calEvents)
-    .filter(function (e) { return e && e.date === today; })
-    .sort(function (a, b) { return String(a.time || "").localeCompare(String(b.time || "")); });
+  return eventsOn(calEvents, now);
 }
 
 // Shopping: open (not done) items. "Who added" only when an item actually
