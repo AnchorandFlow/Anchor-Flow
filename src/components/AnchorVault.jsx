@@ -10185,7 +10185,8 @@ function afVaultChanged(key) {
 // returnTo value — the vault's back link shows "← <label>" and leaves the
 // vault entirely (via onReturnTo) instead of the plain in-vault
 // "← Anchor Home" (which stays inside the vault, activeSection="home").
-var RETURN_TO_LABELS = { home: "Home", people: "People", horizon: "Horizon" };
+// "anchor" is only ever passed by the redesigned Anchor screen (af_redesign).
+var RETURN_TO_LABELS = { home: "Home", people: "People", horizon: "Horizon", anchor: "Anchor" };
 
 export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo }) {
   // Recipes tab lives in HomeFlow/MealsTab (App.jsx), a sibling component

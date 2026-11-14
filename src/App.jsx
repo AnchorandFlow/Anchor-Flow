@@ -30,6 +30,7 @@ import HomeSwitch from "./redesign/HomeSwitch.jsx"
 import RedesignHome from "./redesign/RedesignHome.jsx"
 import RedesignFlow from "./redesign/RedesignFlow.jsx"
 import RedesignExhale from "./redesign/RedesignExhale.jsx"
+import RedesignAnchor from "./redesign/RedesignAnchor.jsx"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -18980,6 +18981,12 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   // vault is opened directly from the sidebar itself, so it can't leak a
   // stale "← People"/"← Home" into an unrelated vault visit.
   const [vaultReturnTo, setVaultReturnTo] = React.useState(null);
+  // af_redesign only: the new Anchor screen replaces the vault dashboard
+  // ("home" section). Its Vault "Open full view" sets this to show the
+  // existing dashboard instead; cleared whenever the overlay closes. Never
+  // set while REDESIGN is off, so the legacy path is untouched.
+  const [anchorFullVault, setAnchorFullVault] = React.useState(false);
+  React.useEffect(function() { if (!showAnchor) setAnchorFullVault(false); }, [showAnchor]);
   React.useEffect(function() {
     function h(e) {
       var d = (e && e.detail) || {};
@@ -19085,7 +19092,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             if (pill.kind === "tab") { var a = !showAnchor && navSel === "today-pillar"; return rowBtn(pill, a, function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab(pill.id); }, pillColor("Today"), false); }
             if (pill.kind === "vaulttab") { var av = showAnchor && vaultSection === pill.vault && navSel === "v-"+pill.vault; return rowBtn(pill, av, function(){ setNavSel("v-"+pill.vault); setShowAnchor(true); setVaultSection(pill.vault); setVaultReturnTo(null); }, pillColor("Ripples"), navDim); }
             var isOpen = openGroup === pill.label;
-            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ if (BILLING_V1 && !sub.isPremium) { setPlusModalFeature("Home"); return; } setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
+            var _isFlowPillar = pill.label === "Flow"; var _navExempt = _isFlowPillar || pill.label === "Anchor"; var _headerDim = navDim && !_navExempt; var header = (<button key={"h-"+pill.label} onClick={function(){ setOpenGroup(pill.label); if(_isFlowPillar){ setNavSel("flowhome"); setShowAnchor(false); _setActiveTab("flowhome"); } else if(pill.label==="Anchor"){ if (BILLING_V1 && !sub.isPremium) { setPlusModalFeature("Home"); return; } setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); if (REDESIGN) setAnchorFullVault(false); } }} title={pill.label} aria-label={pill.label+" section"} style={{ background: "none", border: "none", borderLeft: "3px solid "+((pill.label==="Flow" && !showAnchor && navSel==="flowhome") ? pillColor("Flow").accent : "transparent"), cursor: "pointer", padding: "8px 0 3px", width: "56px", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flexShrink: 0, opacity: _headerDim?0.4:1, transition: "opacity .15s" }}><span style={{ fontSize: "18px" }}>{pill.emoji}</span>{!_headerDim && <span style={{ fontSize: "6.5px", color: pillColor(pill.label).accent, fontWeight: 700, fontFamily: "DM Sans, sans-serif", letterSpacing: "0.05em", textTransform: "uppercase" }}>{pill.label} {isOpen?"▾":"▸"}</span>}</button>);
             if (!isOpen) return header;
             var _kidsDim = navDim && !_navExempt;
             var kids = pill.items.map(function(it){
@@ -19127,7 +19134,20 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
             display: none !important;
           }
         `}</style>
-        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} returnTo={vaultReturnTo} onReturnTo={function(tabId){ setShowAnchor(false); _setActiveTab(tabId); }} /></SectionErrorBoundary>}
+        {showAnchor && <SectionErrorBoundary label="Anchor Vault"><HomeSwitch redesignOn={REDESIGN && vaultSection === "home" && !anchorFullVault}
+          renderLegacy={function(){ return <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} returnTo={vaultReturnTo} onReturnTo={function(tabId){ if (REDESIGN && tabId === "anchor") { setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); return; } setShowAnchor(false); _setActiveTab(tabId); }} />; }}
+          renderRedesign={function(){ return <RedesignAnchor sections={sections} featureFlags={featureFlags}
+            onBack={function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); }}
+            onSettings={function(){ setShowAnchor(false); _setActiveTab("settings"); }}
+            onOpenVaultDashboard={function(){ setAnchorFullVault(true); }}
+            onOpenVault={function(section){ setVaultSection(section); setVaultReturnTo("anchor"); }}
+            /* Same Plus gate as the sidebar rows (PLUS_GATED_NAV_IDS). */
+            onOpenTab={function(tabId, label){
+              if (PLUS_GATED_NAV_IDS[tabId] && BILLING_V1 && !sub.isPremium) { setPlusModalFeature(label); return; }
+              setNavSel("c-Anchor-"+tabId); setShowAnchor(false); _setActiveTab(tabId);
+            }}
+          />; }}
+        /></SectionErrorBoundary>}
 
         <div style={{ pointerEvents: showAnchor ? "none" : "auto" }}>
           <ErrorBoundary>
