@@ -224,17 +224,19 @@ a backfill row.
 
 | Property | Value |
 |----------|-------|
-| **Storage** | Device-local (localStorage) — not in SYNC_KEYS, never synced |
-| **Default** | OFF (`localStorage.getItem("af_redesign") === "true"`; switching off removes the key) |
-| **How to flip** | Settings › Design preview › "New look (preview)", or `localStorage.setItem("af_redesign","true")` |
-| **Reload required** | `REDESIGN` constant is read at module load; Settings reads it live for its own toggle |
-| **Scope** | Per-device |
+| **Gating** | Household-level beta. Eligible if `REDESIGN_PUBLIC === true` OR `af_householdId` is in `BETA_HOUSEHOLDS` |
+| **Beta list** | `BETA_HOUSEHOLDS = ["hh_o7yzu28"]` |
+| **Public switch** | `REDESIGN_PUBLIC = false`. Set to `true` to turn it on for every household |
+| **Default** | Eligible household: ON on every device. Everyone else: always OFF |
+| **Per-device opt-out** | Settings › Design preview (shown only to eligible households). Stores `af_redesign = "false"`, device-local, never synced |
+| **Non-eligible** | Settings section hidden; any stored `af_redesign` value is ignored |
+| **Reload required** | `REDESIGN` constant is read at module load; Settings computes it live via `getRedesignState()` |
 | **Defined in** | `src/design/redesignFlag.js`; tokens in `src/design/tokens.js` |
 
 ### What it enables (so far)
 
-Nothing visual yet. It's the gate for the redesign. Turning it on only reveals the
-household **Show emojis** toggle in the same Settings section.
+Nothing visual yet. It's the gate for the redesign. When it's on, Settings also shows the
+household **Show emojis** toggle.
 
 ### Related household setting: `showEmojis`
 

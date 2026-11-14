@@ -2,7 +2,7 @@
 // af_redesign flag (default OFF, device-local), showEmojis household setting
 // (synced, default OFF), and the design-token rules in src/design/tokens.js.
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readRedesignFlag, writeRedesignFlag, REDESIGN_FLAG_KEY } from "../../src/design/redesignFlag.js";
+import { readRedesignFlag, writeRedesignFlag, getRedesignState, isRedesignEligible, REDESIGN_FLAG_KEY, REDESIGN_PUBLIC, BETA_HOUSEHOLDS } from "../../src/design/redesignFlag.js";
 import tokens, { color, gradient, radius, font, person, workDayTag, shouldShowEmoji, initialsFor } from "../../src/design/tokens.js";
 import { SYNC_KEYS, sanitizeHouseholdData } from "../../src/sync-core.js";
 
@@ -11,44 +11,93 @@ function memStorage(init) {
   return { getItem: function (k) { return k in m ? m[k] : null; }, setItem: function (k, v) { m[k] = String(v); }, removeItem: function (k) { delete m[k]; }, _m: m };
 }
 
-describe("af_redesign flag", function () {
-  beforeEach(function () { localStorage.clear(); vi.resetModules(); });
+var BETA = "hh_o7yzu28";
+function hh(id, extra) { return memStorage(Object.assign({ af_householdId: JSON.stringify(id) }, extra || {})); }
 
-  it("defaults to OFF on a fresh device", async function () {
-    expect(readRedesignFlag(memStorage())).toBe(false);
+describe("af_redesign gating config", function () {
+  it("ships with REDESIGN_PUBLIC false and hh_o7yzu28 as the only beta household", function () {
+    expect(REDESIGN_PUBLIC).toBe(false);
+    expect(BETA_HOUSEHOLDS).toEqual([BETA]);
+  });
+});
+
+describe("af_redesign — no household / fresh device", function () {
+  beforeEach(function () { localStorage.clear(); vi.resetModules(); });
+  it("defaults to OFF and is not eligible", async function () {
+    expect(getRedesignState(memStorage())).toEqual({ eligible: false, on: false, householdId: null });
     expect(readRedesignFlag()).toBe(false);
     var mod = await import("../../src/design/redesignFlag.js");
     expect(mod.REDESIGN).toBe(false);
   });
-
-  it("is ON only for the exact string \"true\"", function () {
-    expect(readRedesignFlag(memStorage({ af_redesign: "true" }))).toBe(true);
-    expect(readRedesignFlag(memStorage({ af_redesign: "1" }))).toBe(false);
-    expect(readRedesignFlag(memStorage({ af_redesign: "false" }))).toBe(false);
-  });
-
   it("is OFF when storage is missing or throws", function () {
     expect(readRedesignFlag(null)).toBe(false);
     expect(readRedesignFlag({ getItem: function () { throw new Error("blocked"); } })).toBe(false);
   });
+});
 
-  it("write on/off round-trips; off removes the key", function () {
-    var s = memStorage();
-    writeRedesignFlag(true, s);
-    expect(s._m[REDESIGN_FLAG_KEY]).toBe("true");
-    expect(readRedesignFlag(s)).toBe(true);
-    writeRedesignFlag(false, s);
-    expect(REDESIGN_FLAG_KEY in s._m).toBe(false);
-    expect(readRedesignFlag(s)).toBe(false);
+describe("af_redesign — beta household", function () {
+  beforeEach(function () { localStorage.clear(); vi.resetModules(); });
+  it("is ON by default with no per-device value, switch visible (eligible)", function () {
+    expect(getRedesignState(hh(BETA))).toEqual({ eligible: true, on: true, householdId: BETA });
   });
-
-  it("module constant picks up a pre-set flag on load", async function () {
-    localStorage.setItem("af_redesign", "true");
+  it("per-device switch turns it off and back on, without affecting eligibility", function () {
+    var s = hh(BETA);
+    writeRedesignFlag(false, s);
+    expect(s._m[REDESIGN_FLAG_KEY]).toBe("false");
+    expect(getRedesignState(s)).toMatchObject({ eligible: true, on: false });
+    writeRedesignFlag(true, s);
+    expect(getRedesignState(s)).toMatchObject({ eligible: true, on: true });
+  });
+  it("module constant is ON at load for a beta-household device", async function () {
+    localStorage.setItem("af_householdId", JSON.stringify(BETA));
     var mod = await import("../../src/design/redesignFlag.js");
     expect(mod.REDESIGN).toBe(true);
   });
+  it("module constant respects a device opt-out at load", async function () {
+    localStorage.setItem("af_householdId", JSON.stringify(BETA));
+    localStorage.setItem("af_redesign", "false");
+    var mod = await import("../../src/design/redesignFlag.js");
+    expect(mod.REDESIGN).toBe(false);
+  });
+});
 
-  it("is device-local: not a synced household key", function () {
+describe("af_redesign — non-beta household", function () {
+  beforeEach(function () { localStorage.clear(); vi.resetModules(); });
+  it("is always OFF and the switch is hidden (not eligible)", function () {
+    expect(getRedesignState(hh("hh_someone"))).toEqual({ eligible: false, on: false, householdId: "hh_someone" });
+  });
+  it("ignores a stored \"true\" (e.g. left over from the opt-in version)", async function () {
+    expect(readRedesignFlag(hh("hh_someone", { af_redesign: "true" }))).toBe(false);
+    localStorage.setItem("af_householdId", JSON.stringify("hh_someone"));
+    localStorage.setItem("af_redesign", "true");
+    var mod = await import("../../src/design/redesignFlag.js");
+    expect(mod.REDESIGN).toBe(false);
+  });
+  it("near-miss ids don't match", function () {
+    ["HH_O7YZU28", "hh_o7yzu2", "hh_o7yzu28 ", ""].forEach(function (id) {
+      expect(isRedesignEligible(id)).toBe(false);
+    });
+  });
+});
+
+describe("af_redesign — REDESIGN_PUBLIC true", function () {
+  var PUB = { isPublic: true };
+  it("turns it on for every household, including non-beta and no household", function () {
+    expect(getRedesignState(hh("hh_someone"), PUB)).toEqual({ eligible: true, on: true, householdId: "hh_someone" });
+    expect(getRedesignState(hh(BETA), PUB)).toMatchObject({ eligible: true, on: true });
+    expect(getRedesignState(memStorage(), PUB)).toMatchObject({ eligible: true, on: true });
+  });
+  it("a device can still opt out to compare", function () {
+    expect(readRedesignFlag(hh("hh_someone", { af_redesign: "false" }), PUB)).toBe(false);
+  });
+  it("public=false with an explicit beta list behaves like the shipped config", function () {
+    expect(isRedesignEligible("hh_x", { isPublic: false, beta: ["hh_x"] })).toBe(true);
+    expect(isRedesignEligible("hh_y", { isPublic: false, beta: ["hh_x"] })).toBe(false);
+  });
+});
+
+describe("af_redesign is device-local", function () {
+  it("is not a synced household key", function () {
     expect(SYNC_KEYS).not.toContain("redesign");
     expect(SYNC_KEYS).not.toContain("af_redesign");
   });

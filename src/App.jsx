@@ -25,7 +25,7 @@ import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
 import { TIDEPOOL_V2, newEventId, getStoredHouseholdId, planTabChoreToggle, planSectionChoreToggle, planBonus, planClaim } from "./tidepool/ledger.js"
 import { useTidePoolBalances, recordTidePoolEvent } from "./tidepool/useTidePool.js"
-import { readRedesignFlag, writeRedesignFlag } from "./design/redesignFlag.js"
+import { getRedesignState, writeRedesignFlag } from "./design/redesignFlag.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -2070,9 +2070,12 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
   // (not useSaved/SYNC_KEYS), so it's read directly and kept in sync via the
   // same custom-event pattern as af_sections/af-sections-changed elsewhere.
   const [myPersonIdLocal,setMyPersonIdLocal] = useState(function(){ try { return localStorage.getItem("af_myPersonId")||null; } catch { return null; } });
-  // af_redesign — per-device switch (device-local, never synced). Local state
-  // so the Toggle reflects the click immediately; see src/design/redesignFlag.js.
-  const [redesignOn,setRedesignOn] = useState(function(){ return readRedesignFlag(); });
+  // af_redesign — beta-household gated (src/design/redesignFlag.js). Recomputed
+  // every render from af_householdId so it follows a household change; the
+  // bump state just re-renders after the per-device switch writes.
+  const [,bumpRedesign] = useState(0);
+  var redesignState = getRedesignState();
+  var redesignOn = redesignState.on;
   React.useEffect(function(){
     var h = function(){ try { setMyPersonIdLocal(localStorage.getItem("af_myPersonId")||null); } catch {} };
     window.addEventListener("af-myPersonId-changed", h);
@@ -2627,10 +2630,10 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
         );
       })()}
 
-      <Sec id="designpreview" emoji="🧪" title="Design preview" sub="Try the new look on this device">
+      {redesignState.eligible&&<Sec id="designpreview" emoji="🧪" title="Design preview" sub="Your household is testing the new look">
         <div style={{paddingTop:"0.75rem"}}>
-          <Row label="New look (preview)" sub="This device only. Work in progress — nothing changes yet.">
-            <Toggle on={redesignOn} onToggle={function(){ var next=!redesignOn; writeRedesignFlag(next); setRedesignOn(next); }} color={T.sage}/>
+          <Row label="New look (preview)" sub="On by default for your household. Turn off on this device to compare.">
+            <Toggle on={redesignOn} onToggle={function(){ writeRedesignFlag(!redesignOn); bumpRedesign(function(n){return n+1;}); }} color={T.sage}/>
           </Row>
           {redesignOn&&(
             <Row label="Show emojis" sub="For everyone in your household. Section and lock icons always show.">
@@ -2638,7 +2641,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
             </Row>
           )}
         </div>
-      </Sec>
+      </Sec>}
 
       <Sec id="feedback" emoji="💬" title="Feedback" sub="Tell us what's working — or what isn't">
         <div style={{paddingTop:"0.75rem"}}>
