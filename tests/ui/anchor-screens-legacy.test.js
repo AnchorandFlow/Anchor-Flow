@@ -14,11 +14,16 @@ import { describe, it, expect, beforeAll } from "vitest";
 import fs from "node:fs";
 import { captureAll, CHROME, ANCHOR_GOLDEN, ANCHOR_LEGACY_STEPS } from "../visual/capture.mjs";
 
-var golden = JSON.parse(fs.readFileSync(ANCHOR_GOLDEN, "utf8"));
+// The Settings footer shows the build stamp, which deploy.sh rewrites on
+// every deploy (src/buildStamp.js). It is not part of the look, so both sides
+// compare with the stamp blanked.
+function unstamp(html) { return String(html).replace(/Build: [0-9A-Za-z-]+/g, "Build: <stamp>"); }
+function unstampAll(o) { var out = {}; Object.keys(o).forEach(function (k) { out[k] = unstamp(o[k]); }); return out; }
+var golden = unstampAll(JSON.parse(fs.readFileSync(ANCHOR_GOLDEN, "utf8")));
 var live = null;
 
 describe.skipIf(!CHROME)("Anchor full views — af_redesign off is unchanged", function () {
-  beforeAll(async function () { live = await captureAll({ redesign: false, anchor: true, steps: ANCHOR_LEGACY_STEPS }); }, 600000);
+  beforeAll(async function () { live = unstampAll(await captureAll({ redesign: false, anchor: true, steps: ANCHOR_LEGACY_STEPS })); }, 600000);
 
   it("captures every screen and sub-section in the golden", function () {
     var expected = [];

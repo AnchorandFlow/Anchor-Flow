@@ -18,7 +18,7 @@ import WavesFull from "../../src/redesign/WavesFull.jsx";
 import CalendarFull from "../../src/redesign/CalendarFull.jsx";
 import MealsFull, { PrepTask } from "../../src/redesign/MealsFull.jsx";
 import LighthouseFull from "../../src/redesign/LighthouseFull.jsx";
-import { check, color, person, workDayTag } from "../../src/design/tokens.js";
+import { check, color, person, workDayTag, toneFor } from "../../src/design/tokens.js";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 var h = React.createElement;
@@ -234,18 +234,45 @@ function tpProps(over) {
 }
 
 describe("Tide Pool", function () {
-  it("each kid's shells big, with a progress bar to the chest goal", async function () {
+  it("opens straight on the shells: count, chest drawing, shell grid, then the progress bar", async function () {
     await render(h(TidePoolFull, tpProps()));
-    var june = q('[data-testid="tp-kid-k1"]'), ollie = q('[data-testid="tp-kid-k2"]');
+    expect(q('[role="tablist"][aria-label="Tide Pool sections"]')).toBeNull(); // no Earn/Treasures/History step
+    var june = q('[data-testid="tp-kid-k1"]');
     expect(june.querySelector('[data-testid="tp-shells"]').textContent).toBe("7");
     expect(parseInt(june.querySelector('[data-testid="tp-shells"]').style.fontSize, 10)).toBeGreaterThanOrEqual(44);
-    var bar = june.querySelector('[role="progressbar"]');
+    expect(june.querySelector('[data-testid="tp-chest"] svg')).toBeTruthy();
+    var slots = Array.from(june.querySelectorAll('[data-testid="tp-slot"]'));
+    expect(slots.length).toBe(12); // 7 earned + 5 ahead (the original rule)
+    expect(slots.filter(function (x) { return x.getAttribute("data-earned") === "true"; }).length).toBe(7);
+    var grid = june.querySelector('[data-testid="tp-shell-grid"]'), bar = june.querySelector('[role="progressbar"]');
+    expect(grid.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // bar under the shells
     expect(bar.getAttribute("aria-valuenow")).toBe("7");
     expect(bar.getAttribute("aria-valuemax")).toBe("10");
     expect(bar.firstChild.style.width).toBe("70%");
     expect(june.textContent).toContain("3 more to open the chest");
+    expect(q('[data-testid="tp-kidpill-k2"]').textContent).toContain("Ollie");
+    var kids = tpKids();
+    await render(h(TidePoolFull, tpProps({ kid: kids[1], selIdx: 1 })));
+    var ollie = q('[data-testid="tp-kid-k2"]');
     expect(ollie.querySelector('[role="progressbar"]').firstChild.style.width).toBe("100%");
     expect(ollie.textContent).toContain("Chest ready to open");
+  });
+
+  it("tap an earned shell to see where it came from; tap the ready chest to open it", async function () {
+    var kids = tpKids();
+    var p = tpProps({ kid: kids[1], selIdx: 1, onTapShell: vi.fn(), onOpenChest: vi.fn(), shellSource: function () { return { reason: "Fed the cat" }; } });
+    await render(h(TidePoolFull, p));
+    await click(q('[data-testid="tp-slot"]'));
+    expect(p.onTapShell).toHaveBeenCalledWith(0);
+    await render(h(TidePoolFull, Object.assign({}, p, { tappedShellIdx: 0 })));
+    expect(q('[data-testid="tp-shell-source"]').textContent).toContain("Fed the cat");
+    await click(q('[data-testid="tp-chest"]'));
+    expect(p.onOpenChest).toHaveBeenCalled();
+    // not ready: the chest does nothing
+    var p2 = tpProps({ onOpenChest: vi.fn() });
+    await render(h(TidePoolFull, p2));
+    await click(q('[data-testid="tp-chest"]'));
+    expect(p2.onOpenChest).not.toHaveBeenCalled();
   });
 
   it("earn: chores use the sage check; bonus buttons +1/+2/+3 need a reason", async function () {
@@ -265,13 +292,16 @@ describe("Tide Pool", function () {
     var kids = tpKids();
     var p = tpProps({ kid: kids[1], selIdx: 1 });
     await render(h(TidePoolFull, p));
-    await click(q('[data-testid="tp-tab-treasures"]'));
+    expect(q('[data-testid="tp-treasure-t1"]')).toBeNull(); // chest closed
+    await render(h(TidePoolFull, Object.assign({}, p, { chestOpen: true })));
     var t1 = q('[data-testid="tp-treasure-t1"]'), t2 = q('[data-testid="tp-treasure-t2"]');
     expect(t1.textContent).toContain("Extra screen time");
     expect(t2.textContent).toContain("23 more");
-    expect(byText("button", "Choose")).toBeTruthy();
-    await click(byText("button", "Choose"));
+    expect(t2.disabled).toBe(true);
+    expect(byText("button", "Claim treasure").disabled).toBe(true); // nothing chosen yet
+    await click(t1);
     expect(p.onSelectTreasure).toHaveBeenCalledWith(p.treasures[0]);
+    p = Object.assign({}, p, { chestOpen: true });
     await render(h(TidePoolFull, Object.assign({}, p, { selectedTreasure: p.treasures[0] })));
     await click(q('[data-testid="tp-claim"]'));
     expect(p.onClaim).toHaveBeenCalled();
@@ -447,7 +477,7 @@ describe("redesign palette", function () {
     var bad = hexes.filter(function (x) { var c = hsl(x); return c.s > 0.12 && c.h >= 260 && c.h <= 345; });
     expect(bad).toEqual([]);
     expect(RD_T.bg).toBe(color.flowBackground);
-    expect(RD_LH_CARD.background).toBe("#FFFFFF");
+    expect(RD_LH_CARD.background).toBe(toneFor("lighthouse").tint); // Lighthouse section tint
     var k = rdLegacyKit();
     expect(k.card().background).toBe("#FFFFFF");
     expect(k.card().borderRadius).toBeGreaterThanOrEqual(14);

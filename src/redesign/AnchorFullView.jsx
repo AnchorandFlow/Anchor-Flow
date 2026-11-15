@@ -16,7 +16,8 @@
 // inside [data-anchor-body]: their inline Cormorant / DM Sans text is set in
 // Playfair Display / Lato by the scoped rules in ANCHOR_CSS, and they are
 // wrapped in EmojiScope (FullView.jsx) so showEmojis is respected.
-import { radius, shadow } from "../design/tokens.js";
+import { createContext, useContext } from "react";
+import { radius, shadow, toneFor, fullBleed } from "../design/tokens.js";
 import { IVORY, wrapText, isAlwaysShownGlyph, emo } from "./fullViewKit.js";
 import { NAVY, CARD, INK, INK_SOFT, IVORY_SOFT, IVORY_LINE, CARD_LINE, HEAD, BODY, ROW, ANCHOR_CSS } from "./anchorKit.js";
 
@@ -28,28 +29,40 @@ function glyphFor(showEmojis, g) {
   return isAlwaysShownGlyph(g) ? g : emo(showEmojis, g);
 }
 
+// The section's tone (tokens.sectionTone): AnchorCard reads it. The legacy
+// bodies' own light cards pick it up through --anchor-tint (ANCHOR_CSS).
+var ToneContext = createContext(toneFor("vault"));
+
+// section: vault | safeharbor | home | people | cove | horizon | settings
 export function AnchorPage(props) {
+  var tn = toneFor(props.section);
   var inner = (
-    <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+    <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
       {props.children}
     </div>
   );
-  var base = { background: NAVY, color: IVORY, fontFamily: BODY, fontSize: ROW, boxSizing: "border-box", overflowX: "hidden" };
+  var base = { background: NAVY, color: IVORY, fontFamily: BODY, fontSize: ROW, boxSizing: "border-box", overflowX: "hidden", "--anchor-tint": tn.tint };
   if (props.overlay) {
     return (
-      <div className="af-vault" ref={props.scrollRef} data-testid={props.testId} data-redesign="full-view" data-anchor-room="true"
-        style={Object.assign(base, { position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, overflowY: "auto" })}>
-        <style>{ANCHOR_CSS}</style>
-        <div style={{ padding: "calc(16px + env(safe-area-inset-top, 0px)) 16px calc(32px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", minWidth: 0 }}>{inner}</div>
-      </div>
+      <ToneContext.Provider value={tn}>
+        <div className="af-vault" ref={props.scrollRef} data-testid={props.testId} data-redesign="full-view" data-anchor-room="true" data-section={props.section}
+          style={Object.assign(base, { position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, overflowY: "auto" })}>
+          <style>{ANCHOR_CSS}</style>
+          <div style={{ padding: "calc(12px + env(safe-area-inset-top, 0px)) 14px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", minWidth: 0 }}>{inner}</div>
+        </div>
+      </ToneContext.Provider>
     );
   }
+  // In HomeFlow's content column: navy edge to edge and all the way down on
+  // wide screens (fullBleed), content centered at maxWidth 680.
   return (
-    <div data-testid={props.testId} data-redesign="full-view" data-anchor-room="true"
-      style={Object.assign(base, { margin: "-1.1rem -0.9rem -0.5rem", padding: "16px 16px calc(32px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh" })}>
-      <style>{ANCHOR_CSS}</style>
-      {inner}
-    </div>
+    <ToneContext.Provider value={tn}>
+      <div data-testid={props.testId} data-redesign="full-view" data-anchor-room="true" data-section={props.section}
+        style={Object.assign(base, { margin: "-1.1rem -0.9rem -0.5rem", padding: "12px 14px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh" }, fullBleed(NAVY))}>
+        <style>{ANCHOR_CSS}</style>
+        {inner}
+      </div>
+    </ToneContext.Provider>
   );
 }
 
@@ -107,9 +120,10 @@ export function AnchorPills(props) {
 }
 
 export function AnchorCard(props) {
+  var tn = useContext(ToneContext);
   return (
     <section data-testid={props.testId} data-anchor-card="true"
-      style={Object.assign({ background: CARD, color: INK, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "16px 18px", minWidth: 0, boxSizing: "border-box", fontFamily: BODY, fontSize: ROW }, props.style || {})}>
+      style={Object.assign({ background: tn.tint, color: INK, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "12px 14px", minWidth: 0, boxSizing: "border-box", fontFamily: BODY, fontSize: ROW }, props.style || {})}>
       {(props.title || props.right) && (
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
           {props.title && <h2 style={Object.assign({ margin: 0, fontFamily: HEAD, fontSize: 20, fontWeight: 700, color: INK }, wrapText)}>{props.title}</h2>}
@@ -189,7 +203,7 @@ export function ACheck(props) {
 // content (e.g. Cove's category filters).
 export function AnchorScreen(props) {
   return (
-    <AnchorPage testId={props.testId} overlay={props.overlay} scrollRef={props.scrollRef}>
+    <AnchorPage testId={props.testId} section={props.section} overlay={props.overlay} scrollRef={props.scrollRef}>
       <AnchorHeader title={props.title} subtitle={props.subtitle} emoji={props.emoji} showEmojis={props.showEmojis} onBack={props.onBack} action={props.action} />
       {props.tabs && props.tabs.length > 0 && (
         <AnchorPills tabs={props.tabs} value={props.value} onChange={props.onChange} showEmojis={props.showEmojis} label={props.title + " sections"} testIdPrefix={props.testIdPrefix} />

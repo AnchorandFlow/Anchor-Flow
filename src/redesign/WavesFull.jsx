@@ -145,7 +145,7 @@ export default function WavesFull(props) {
   var tabs = TYPES.map(function (t) { return { id: t.id, label: t.label, count: (waves[t.id] || []).length || null }; });
   var x = props.api;
   return (
-    <FullViewPage testId="redesign-waves">
+    <FullViewPage section="waves" testId="redesign-waves">
       <FullViewHeader title="Waves" emoji="〰️" showEmojis={se} subtitle="Routines that reset on their own" />
       <PillTabs label="Wave types" tabs={tabs} value={type} onChange={setType} testIdPrefix="waves-tab-" showEmojis={se} />
       {!list.length && <Card><Empty>{"No " + TYPES.filter(function (t) { return t.id === type; })[0].noun + "s yet."}</Empty></Card>}

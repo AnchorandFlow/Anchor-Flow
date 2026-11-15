@@ -17,6 +17,7 @@
 //     Plus household gets the Anchor screen
 // Skipped when no Chrome binary is found (set CHROME_PATH).
 import { describe, it, expect, beforeAll } from "vitest";
+import { toneFor } from "../../src/design/tokens.js";
 import { measureAll, captureAll, CHROME, ANCHOR_REDESIGN_STEPS } from "../visual/capture.mjs";
 
 var FIRST = {};
@@ -69,9 +70,10 @@ describe.skipIf(!CHROME)("Anchor full views — af_redesign on, 390px phone", fu
     });
   });
 
-  it("content sits in light rounded cards; rows are 15px Lato", function () {
-    ["vault:home", "home", "people", "cove", "horizon", "settings"].forEach(function (tab) {
-      expect(first(plain, tab)).toMatch(/data-anchor-card="true" style="background: rgb\(253, 250, 245\);[^"]*border-radius: 20px/);
+  it("content sits in rounded cards in the section's tint; rows are 15px Lato", function () {
+    function rgb(hex) { var n = parseInt(hex.slice(1), 16); return "rgb\\(" + (n >> 16 & 255) + ", " + (n >> 8 & 255) + ", " + (n & 255) + "\\)"; }
+    [["vault:home", "vault"], ["home", "home"], ["people", "people"], ["cove", "cove"], ["horizon", "horizon"], ["settings", "settings"]].forEach(function (x) {
+      expect(first(plain, x[0])).toMatch(new RegExp('data-anchor-card="true" style="background: ' + rgb(toneFor(x[1]).tint) + ';[^"]*border-radius: 20px'));
     });
     expect(first(plain, "home")).toMatch(/data-testid="row-text" style="font-family: Lato[^"]*font-size: 15px/);
     // Reused legacy bodies (vault sections, Safe Harbor) are retyped and rounded by the scoped room CSS.

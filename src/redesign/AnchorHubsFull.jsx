@@ -159,7 +159,7 @@ export function HomeFull(props) {
   }
 
   return (
-    <AnchorScreen testId="home-full" title="Home" emoji="🏡" subtitle="Your household operations center" showEmojis={se} onBack={goAnchor}
+    <AnchorScreen section="home" testId="home-full" title="Home" emoji="🏡" subtitle="Your household operations center" showEmojis={se} onBack={goAnchor}
       tabs={HOME_TABS} value={tab} onChange={setTab}>
       {body()}
       {p.infoModal || null}
@@ -214,7 +214,7 @@ export function PeopleFull(props) {
   }
 
   return (
-    <AnchorScreen testId="people-full" title="People" emoji="👥" subtitle={subtitle} showEmojis={se} onBack={goAnchor}
+    <AnchorScreen section="people" testId="people-full" title="People" emoji="👥" subtitle={subtitle} showEmojis={se} onBack={goAnchor}
       tabs={PEOPLE_TABS} value={tab} onChange={setTab}>
       {body()}
     </AnchorScreen>
@@ -267,7 +267,7 @@ export function HorizonFull(props) {
   }
 
   return (
-    <AnchorScreen testId="horizon-full" title="Horizon" emoji="🌄" subtitle="What's ahead" showEmojis={se} onBack={goAnchor}
+    <AnchorScreen section="horizon" testId="horizon-full" title="Horizon" emoji="🌄" subtitle="What's ahead" showEmojis={se} onBack={goAnchor}
       tabs={HORIZON_TABS} value={tab} onChange={setTab}>
       {body()}
     </AnchorScreen>

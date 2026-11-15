@@ -23,6 +23,41 @@ export var color = {
   },
 };
 
+// Section tones: every Flow and Anchor section has one. `tint` fills its
+// cards and unselected tab, `full` is the selected tab (white text on it
+// passes AA), `ink` is text in that hue on the tint. No purple or pink.
+export var tone = {
+  sage: { tint: "#D5E8E0", full: "#4D7A6A", ink: "#2F5446" },
+  sand: { tint: "#EFE1C9", full: "#8C6D45", ink: "#5E4526" },
+  blue: { tint: "#D3E6EE", full: "#3A6A90", ink: "#24496A" },
+  teal: { tint: "#CFE6E2", full: "#2F7E76", ink: "#1D5751" },
+  mist: { tint: "#DCE4EE", full: "#5B7690", ink: "#364C62" },
+  navy: { tint: "#D9DFEA", full: "#1B2B44", ink: "#1B2B44" },
+};
+
+// Section -> tone. Flow sections, then Anchor sections.
+export var sectionTone = {
+  exhale: "sage", shopping: "teal", meals: "sand", calendar: "blue", waves: "mist", tidepool: "sand", lighthouse: "navy",
+  vault: "navy", safeharbor: "teal", home: "sand", people: "sage", cove: "blue", horizon: "mist", settings: "mist",
+};
+
+export function toneFor(section) { return tone[sectionTone[section]] || tone.mist; }
+
+// Page grounds. Flow is sea glass (the original Flow room tint, lightened);
+// Anchor stays navy.
+export var page = {
+  flow: "#E6EFEF",
+};
+
+// Paint an element's background edge to edge across the content area (and
+// down past it) on wide screens, without making the page wider: a spread
+// shadow in the same color. Shadows are not scrollable overflow, so nothing
+// scrolls sideways; the fixed sidebar and sticky bars paint above it. (No
+// clip-path: that would also clip the fixed modals these pages open.)
+export function fullBleed(bg) {
+  return { boxShadow: "0 0 0 100vmax " + bg };
+}
+
 export var gradient = {
   ripples: {
     from: "#2F7E76",
@@ -125,5 +160,5 @@ export function initialsFor(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-var tokens = { color: color, gradient: gradient, radius: radius, shadow: shadow, font: font, person: person, check: check, workDayTag: workDayTag, emoji: emoji };
+var tokens = { color: color, tone: tone, page: page, gradient: gradient, radius: radius, shadow: shadow, font: font, person: person, check: check, workDayTag: workDayTag, emoji: emoji };
 export default tokens;

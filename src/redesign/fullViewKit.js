@@ -4,7 +4,7 @@
 //   inputStyle       text input in the new look (16px so iOS doesn't zoom)
 //   rdLegacyKit      T/card/btnP/btnS/inp/lbl in the new look, for the few
 //                    legacy sub-section bodies reused as-is in the new screens
-import { color, gradient, radius, shadow, font, check, shouldShowEmoji } from "../design/tokens.js";
+import { color, gradient, radius, shadow, font, check, shouldShowEmoji, toneFor } from "../design/tokens.js";
 
 export var NAVY = color.anchorNavy;
 export var MUTED = "#5B6472";
@@ -45,8 +45,9 @@ export var RD_T = {
   inputBg: "#FFFFFF", cardShadow: "rgba(27,43,68,0.06)", modalOverlay: "rgba(27,43,68,0.45)",
 };
 
-// Lighthouse section/dashboard card shell under the redesign: white rounded card.
-export var RD_LH_CARD = { background: "#FFFFFF", border: "none", borderRadius: radius.lg, boxShadow: shadow.card, marginBottom: "0.85rem", overflow: "hidden" };
+// Lighthouse section/dashboard card shell under the redesign: rounded card in
+// the Lighthouse tone.
+export var RD_LH_CARD = { background: toneFor("lighthouse").tint, border: "none", borderRadius: radius.lg, boxShadow: shadow.card, marginBottom: "0.6rem", overflow: "hidden" };
 
 // Calendar year-view categories whose legacy colors are purple/pink
 // (Celebrations #A99AC4, Holidays #C4849A) get these under the redesign.

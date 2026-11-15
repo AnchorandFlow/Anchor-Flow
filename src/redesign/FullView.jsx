@@ -12,18 +12,26 @@
 //   rdLegacyKit     T/card/btnP/btnS/inp/lbl in the new look, for the few
 //                   legacy sub-section bodies that are reused as-is inside
 //                   the new screens
-import { useRef, useLayoutEffect } from "react";
-import { color, radius, shadow, font, check } from "../design/tokens.js";
+import { useRef, useLayoutEffect, createContext, useContext } from "react";
+import { radius, shadow, font, check, page, toneFor, fullBleed } from "../design/tokens.js";
 import { NAVY, MUTED, SAGE, IVORY, HAIRLINE, wrapText, goTab, emo, stripDecorativeEmoji } from "./fullViewKit.js";
 
+// The section's tone (tokens.tone via sectionTone): cards and pills read it.
+var ToneContext = createContext(toneFor("exhale"));
+function useTone() { return useContext(ToneContext); }
+
+// section: exhale | shopping | meals | calendar | waves | tidepool | lighthouse
 export function FullViewPage(props) {
+  var t = toneFor(props.section);
   return (
-    <div data-testid={props.testId} data-redesign="full-view"
-      style={{ background: color.flowBackground, margin: "-1.1rem -0.9rem -0.5rem", padding: "16px 16px calc(32px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, fontSize: font.checklistItem.size, color: NAVY, overflowX: "hidden" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-        {props.children}
+    <ToneContext.Provider value={t}>
+      <div data-testid={props.testId} data-redesign="full-view" data-section={props.section}
+        style={Object.assign({ background: page.flow, margin: "-1.1rem -0.9rem -0.5rem", padding: "12px 14px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, fontSize: font.checklistItem.size, color: NAVY, overflowX: "hidden" }, fullBleed(page.flow))}>
+        <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+          {props.children}
+        </div>
       </div>
-    </div>
+    </ToneContext.Provider>
   );
 }
 
@@ -59,6 +67,7 @@ export function FullViewHeader(props) {
 
 // tabs: [{ id, label, emoji?, count? }]
 export function PillTabs(props) {
+  var tn = useTone();
   return (
     <div role="tablist" aria-label={props.label} style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
       {props.tabs.map(function (t) {
@@ -67,7 +76,7 @@ export function PillTabs(props) {
         return (
           <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={(props.testIdPrefix || "pill-") + t.id}
             onClick={function () { props.onChange(t.id); }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", padding: "8px 15px", borderRadius: 999, border: "1px solid " + (on ? NAVY : HAIRLINE), background: on ? NAVY : "#FFFFFF", color: on ? IVORY : NAVY, boxShadow: on ? "none" : shadow.card, fontFamily: font.body, fontSize: 13, fontWeight: on ? 700 : 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", padding: "8px 15px", borderRadius: 999, border: "1px solid " + (on ? tn.full : "transparent"), background: on ? tn.full : tn.tint, color: on ? "#FFFFFF" : tn.ink, boxShadow: on ? "none" : shadow.card, fontFamily: font.body, fontSize: 13, fontWeight: on ? 700 : 600, cursor: "pointer", whiteSpace: "nowrap" }}>
             {glyph && <span aria-hidden="true">{glyph}</span>}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t.label}</span>
             {t.count != null && <span style={{ fontSize: 11.5, fontWeight: 700, opacity: on ? 0.85 : 0.6 }}>{t.count}</span>}
@@ -79,10 +88,11 @@ export function PillTabs(props) {
 }
 
 export function Card(props) {
+  var tn = useTone();
   return (
-    <section data-testid={props.testId} style={Object.assign({ background: "#FFFFFF", borderRadius: radius.lg, boxShadow: shadow.card, padding: "16px 18px", minWidth: 0, boxSizing: "border-box" }, props.style || {})}>
+    <section data-testid={props.testId} data-tone-card="true" style={Object.assign({ background: tn.tint, borderRadius: radius.lg, boxShadow: shadow.card, padding: "12px 14px", minWidth: 0, boxSizing: "border-box" }, props.style || {})}>
       {(props.title || props.right) && (
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
           {props.title && <h2 style={Object.assign({ margin: 0, fontFamily: font.heading, fontSize: 21, fontWeight: 700, color: NAVY }, wrapText)}>{props.title}</h2>}
           {props.right || null}
         </div>
@@ -123,7 +133,7 @@ export function CheckRow(props) {
   var checkable = typeof props.onToggle === "function";
   return (
     <div data-testid={props.testId} data-done={checkable ? (done ? "true" : "false") : undefined}
-      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: props.first ? "none" : "1px solid " + HAIRLINE, minWidth: 0 }}>
+      style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderTop: props.first ? "none" : "1px solid " + HAIRLINE, minWidth: 0 }}>
       {checkable && <CheckCircle done={done} onToggle={props.onToggle} label={typeof props.text === "string" ? props.text : null} />}
       <div onClick={props.onTextClick || (checkable ? props.onToggle : undefined)} style={{ flex: 1, minWidth: 0, cursor: (props.onTextClick || checkable) ? "pointer" : "default" }}>
         <div data-testid="row-text" style={Object.assign({ fontFamily: font.checklistItem.family, fontSize: font.checklistItem.size, lineHeight: 1.4, color: NAVY, opacity: done ? check.doneTextOpacity : 1, textDecoration: done ? "line-through" : "none" }, wrapText)}>{props.text}</div>
@@ -151,7 +161,7 @@ export function ProgressBar(props) {
   var pct = Math.max(0, Math.min(100, Math.round((props.value / max) * 100)));
   return (
     <div role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(props.value, max)} aria-label={props.label}
-      style={{ height: props.height || 10, borderRadius: 999, background: color.tint.sage, overflow: "hidden" }}>
+      style={{ height: props.height || 10, borderRadius: 999, background: "rgba(255,255,255,0.75)", boxShadow: "inset 0 0 0 1px rgba(27,43,68,0.08)", overflow: "hidden" }}>
       <div style={{ width: pct + "%", height: "100%", borderRadius: 999, background: props.color || SAGE, transition: "width .3s" }} />
     </div>
   );

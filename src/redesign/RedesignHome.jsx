@@ -7,7 +7,7 @@
 // to the existing exhale_buckets key exactly like FlowHome's quick-add.
 import { useState, useEffect } from "react";
 import AnchorLogo from "../components/AnchorLogo.jsx";
-import { color, gradient, radius, shadow, font, shouldShowEmoji } from "../design/tokens.js";
+import { color, gradient, radius, shadow, font, shouldShowEmoji, tone, fullBleed } from "../design/tokens.js";
 import { buildHomeModel, daysLabel, EXHALED_BUCKET } from "./homeData.js";
 
 var IVORY = gradient.sunset.text;
@@ -54,7 +54,7 @@ function writeKey(key, val) {
 
 var THEMES = {
   today:   { bg: color.tint.sand, text: NAVY, sub: MUTED, border: "rgba(200,162,83,0.28)" },
-  flow:    { bg: color.flowBackground, text: NAVY, sub: MUTED, border: "rgba(27,43,68,0.08)" },
+  flow:    { bg: "#D6E7E8", text: NAVY, sub: MUTED, border: "rgba(94,143,160,0.30)" }, // Flow sea glass
   anchor:  { bg: NAVY, text: IVORY, sub: "rgba(242,234,216,0.72)", border: "transparent" },
   ripples: { bg: gradient.ripples.css, text: IVORY, sub: "rgba(242,234,216,0.78)", border: "transparent" },
 };
@@ -169,8 +169,8 @@ export default function RedesignHome(props) {
   var todayCount = t.events.length + t.exhale.length + (t.dinner ? 1 : 0);
 
   return (
-    <div data-testid="redesign-home" style={{ background: color.background, margin: "-1.1rem -0.9rem -0.5rem", padding: "20px 16px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, color: NAVY, overflowX: "hidden" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
+    <div data-testid="redesign-home" style={Object.assign({ background: color.background, margin: "-1.1rem -0.9rem -0.5rem", padding: "16px 14px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, color: NAVY, overflowX: "hidden" }, fullBleed(color.background))}>
+      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
 
         {/* Header */}
         <header style={{ display: "flex", alignItems: "center", gap: 12, padding: "4px 2px 6px" }}>
@@ -182,18 +182,6 @@ export default function RedesignHome(props) {
             <div style={{ fontSize: 13, color: MUTED, marginTop: 3 }}>{m.dateLabel + " · " + m.mode}</div>
           </div>
         </header>
-
-        {/* Sunset — after 5 PM local */}
-        {m.showSunset && (
-          <div data-testid="sunset-card" style={{ background: gradient.sunset.css, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "20px 18px", color: IVORY, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={Object.assign({ flex: "1 1 180px" }, wrapText)}>
-              <div style={{ fontFamily: font.heading, fontSize: 22, fontWeight: 700 }}>Sunset</div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>Close the day gently.</div>
-            </div>
-            <button type="button" onClick={function () { try { window.dispatchEvent(new CustomEvent("af-open-sunset")); } catch { /* no window */ } }}
-              style={{ background: IVORY, color: "#26263F", border: "none", borderRadius: 999, padding: "10px 22px", fontFamily: font.body, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Begin</button>
-          </div>
-        )}
 
         {/* Today */}
         <Pillar id="today" label="Today" icon={PILLARS[0].icon} open={openId === "today"} onToggle={function () { toggle("today"); }}
@@ -248,8 +236,20 @@ export default function RedesignHome(props) {
             meta={r.tradition ? daysLabel(r.tradition.days) : null} />
         </Pillar>
 
+        {/* Sunset — after 5 PM local, at the bottom just above the Exhale quick-add */}
+        {m.showSunset && (
+          <div data-testid="sunset-card" style={{ background: gradient.sunset.css, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "20px 18px", color: IVORY, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={Object.assign({ flex: "1 1 180px" }, wrapText)}>
+              <div style={{ fontFamily: font.heading, fontSize: 22, fontWeight: 700 }}>Sunset</div>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 2 }}>Close the day gently.</div>
+            </div>
+            <button type="button" onClick={function () { try { window.dispatchEvent(new CustomEvent("af-open-sunset")); } catch { /* no window */ } }}
+              style={{ background: IVORY, color: "#26263F", border: "none", borderRadius: 999, padding: "10px 22px", fontFamily: font.body, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Begin</button>
+          </div>
+        )}
+
         {/* Exhale quick-add → Exhaled bucket */}
-        <form onSubmit={addExhale} style={{ display: "flex", gap: 8, background: color.surface, borderRadius: radius.lg, boxShadow: shadow.card, padding: 8, marginTop: 4 }}>
+        <form onSubmit={addExhale} style={{ display: "flex", gap: 8, background: tone.sage.tint, borderRadius: radius.lg, boxShadow: shadow.card, padding: 8 }}>
           <input value={draft} onChange={function (e) { setDraft(e.target.value); }} aria-label="Exhale a thought"
             placeholder={justAdded ? "Exhaled. Let it go." : "Exhale a thought…"}
             style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontFamily: font.body, fontSize: 16, color: NAVY, padding: "8px 10px", outline: "none" }} />

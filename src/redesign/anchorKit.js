@@ -25,8 +25,8 @@ export var ANCHOR_CSS =
   "[data-anchor-body] img,[data-anchor-body] video,[data-anchor-body] table{max-width:100%}" +
   "[data-anchor-body]{min-width:0;overflow-wrap:anywhere}" +
   // Vault sections and Safe Harbor draw their own light cards (#F7F1E3);
-  // round them to match the Anchor cards.
-  "[data-anchor-body] [style*='background: rgb(247, 241, 227)']{border-radius:" + radius.md + "px !important}" +
+  // round them and give them the section's tint, to match the Anchor cards.
+  "[data-anchor-body] [style*='background: rgb(247, 241, 227)']{border-radius:" + radius.md + "px !important;background:var(--anchor-tint, rgb(247, 241, 227)) !important}" +
   // No sideways scrolling: tab strips that scroll sideways in the legacy
   // bodies (Inventory categories, Health people, Career tabs) wrap instead.
   "[data-anchor-body] [style*='display: flex'][style*='overflow-x: auto']{flex-wrap:wrap !important;overflow-x:visible !important}";

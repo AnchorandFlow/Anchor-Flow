@@ -213,13 +213,16 @@ describe("RedesignHome screen", function () {
     expect(text()).toContain("🏊");
   });
 
-  it("Sunset card only after 5 PM, and Begin opens the existing Sunset flow", async function () {
+  it("Sunset card only after 5 PM, at the bottom above the Exhale quick-add; Begin opens the existing Sunset flow", async function () {
     await render(h(RedesignHome, base()));
     expect(q('[data-testid="sunset-card"]')).toBe(null);
     await render(h(RedesignHome, base({ now: at(2026, 11, 13, 18) })));
     var card = q('[data-testid="sunset-card"]');
     expect(card).not.toBe(null);
-    expect(card.compareDocumentPosition(q('[data-testid="pillar-today"]')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // At the bottom: after every pillar, directly above the Exhale quick-add.
+    expect(card.compareDocumentPosition(q('[data-testid="pillar-ripples"]')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(card.nextElementSibling.tagName).toBe("FORM");
+    expect(card.nextElementSibling.querySelector('input[aria-label="Exhale a thought"]')).toBeTruthy();
     var heard = vi.fn();
     window.addEventListener("af-open-sunset", heard);
     await click(card.querySelector("button"));

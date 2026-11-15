@@ -3,7 +3,7 @@
 // (synced, default OFF), and the design-token rules in src/design/tokens.js.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readRedesignFlag, writeRedesignFlag, getRedesignState, isRedesignEligible, REDESIGN_FLAG_KEY, REDESIGN_PUBLIC, BETA_HOUSEHOLDS } from "../../src/design/redesignFlag.js";
-import tokens, { color, gradient, radius, font, person, workDayTag, shouldShowEmoji, initialsFor } from "../../src/design/tokens.js";
+import tokens, { color, gradient, radius, font, person, workDayTag, shouldShowEmoji, initialsFor, tone, sectionTone, toneFor, fullBleed } from "../../src/design/tokens.js";
 import { SYNC_KEYS, sanitizeHouseholdData } from "../../src/sync-core.js";
 
 function memStorage(init) {
@@ -169,6 +169,23 @@ describe("design tokens", function () {
       return x.s > 0.12 && x.h >= 260 && x.h <= 345; // violet/purple/magenta/pink
     });
     expect(offenders).toEqual([]);
+  });
+
+  it("section tones: sage, sand, blue, teal, mist, navy; every Flow and Anchor section has one", function () {
+    expect(Object.keys(tone).sort()).toEqual(["blue", "mist", "navy", "sage", "sand", "teal"]);
+    ["exhale", "shopping", "meals", "calendar", "waves", "tidepool", "lighthouse", "vault", "safeharbor", "home", "people", "cove", "horizon"].forEach(function (id) {
+      expect(tone[sectionTone[id]]).toBeTruthy();
+      expect(toneFor(id)).toBe(tone[sectionTone[id]]);
+    });
+    function lum(hex) {
+      var c = [1, 3, 5].map(function (i) { var v = parseInt(hex.slice(i, i + 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    }
+    Object.keys(tone).forEach(function (k) {
+      expect((1.05) / (lum(tone[k].full) + 0.05)).toBeGreaterThanOrEqual(4.5); // white text on the selected tab
+      expect((lum(tone[k].tint) + 0.05) / (lum(tone[k].ink) + 0.05)).toBeGreaterThanOrEqual(4.5); // ink on the tint
+    });
+    expect(fullBleed("#1B2B44").boxShadow).toBe("0 0 0 100vmax #1B2B44");
   });
 
   it("card radius 14–20px; fonts; checklist items 14px DM Sans", function () {

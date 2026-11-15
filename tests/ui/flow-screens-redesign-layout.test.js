@@ -5,11 +5,12 @@
 //   - every pill / sub-section of Shopping, Meals, Calendar, Waves, Tide Pool
 //     and Lighthouse has nothing sticking out sideways and nothing scrolling
 //     sideways (see measure() in tests/visual/harness/main.jsx)
-//   - each screen is the redesigned full view (FAF8F3 page, "← Flow")
+//   - each screen is the redesigned full view (sea-glass page, tinted cards, "← Flow")
 //   - showEmojis off hides decorative emoji; on shows them
 // Skipped when no Chrome binary is found (set CHROME_PATH).
 import { describe, it, expect, beforeAll } from "vitest";
 import { measureAll, captureAll, CHROME, REDESIGN_STEPS } from "../visual/capture.mjs";
+import { toneFor } from "../../src/design/tokens.js";
 
 var FIRST = {};
 Object.keys(REDESIGN_STEPS).forEach(function (tab) { FIRST[tab] = [REDESIGN_STEPS[tab][0]]; });
@@ -37,7 +38,10 @@ describe.skipIf(!CHROME)("Flow full views — af_redesign on, 390px phone", func
     it(tab + " renders the redesigned full view with ← Flow and a subtitle", function () {
       var html = plain[tab + ":" + FIRST[tab][0][0]];
       expect(html).toContain('data-redesign="full-view"');
-      expect(html).toContain("background: rgb(250, 248, 243)"); // #FAF8F3
+      expect(html).toContain("background: rgb(230, 239, 239)"); // page.flow #E6EFEF (Flow sea glass)
+      var sec = { shop: "shopping" }[tab] || tab;
+      var n = parseInt(toneFor(sec).tint.slice(1), 16);
+      expect(html).toContain("background: rgb(" + (n >> 16 & 255) + ", " + (n >> 8 & 255) + ", " + (n & 255) + ")"); // section cards in the section's tint
       expect(html).toMatch(/data-testid="fullview-back"[^>]*>.*?←.*?Flow<\/button>/);
       expect(html).toContain('data-testid="fullview-subtitle"');
       expect(html).toContain('role="tablist"');
@@ -46,10 +50,10 @@ describe.skipIf(!CHROME)("Flow full views — af_redesign on, 390px phone", func
   });
 
   it("showEmojis: header and pill emoji only when the household setting is on", function () {
-    expect(plain["tidepool:Earn"]).not.toContain("🏝️");
-    expect(plain["tidepool:Earn"]).not.toContain("🐚");
-    expect(emoji["tidepool:Earn"]).toContain("🏝️");
-    expect(emoji["tidepool:Earn"]).toContain("🐚");
+    expect(plain["tidepool:Shells"]).not.toContain("🏝️");
+    expect(plain["tidepool:Shells"]).not.toContain("🐚");
+    expect(emoji["tidepool:Shells"]).toContain("🏝️");
+    expect(emoji["tidepool:Shells"]).toContain("🐚");
     expect(plain["shop:Grocery"]).not.toContain("🛒");
     expect(emoji["shop:Grocery"]).toContain("🛒");
   });

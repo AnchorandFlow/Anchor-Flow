@@ -8,12 +8,15 @@
 // All writes go through exhaleModel.commit (existing af_exhale_buckets key,
 // existing fields, same sync path as the current Exhale screen).
 import { useState, useEffect, useRef } from "react";
-import { color, gradient, radius, shadow, font } from "../design/tokens.js";
+import { color, gradient, radius, shadow, font, tone, page, fullBleed } from "../design/tokens.js";
 import { readBuckets, commit, bucketItems, openCount, bucketName, toggleDone, setDone, moveTo, editText, addItem, BUCKET_COLORS, EXHALED, TODAY, TOMORROW, SWIPE_PX } from "./exhaleModel.js";
 
 var NAVY = color.anchorNavy;
 var MUTED = "#5B6472";
 var IVORY = gradient.sunset.text;
+// Bucket accents for display. The stored item colors (BUCKET_COLORS) are left
+// alone; only Someday's purple accent is swapped for mist here.
+var ACCENTS = BUCKET_COLORS.slice(0, 4).concat([tone.mist.full]);
 
 function uuid() {
   try { if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
@@ -88,7 +91,7 @@ function ItemRow(props) {
             if (i === it.bucketIndex) return null;
             return (
               <button key={i} type="button" data-testid={"chip-" + i} onClick={function () { props.onMove(it.id, i); }}
-                style={{ background: "#FFFFFF", border: "1.5px solid " + BUCKET_COLORS[i], color: NAVY, borderRadius: 999, padding: "5px 12px", fontFamily: font.body, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{n}</button>
+                style={{ background: "#FFFFFF", border: "1.5px solid " + ACCENTS[i], color: NAVY, borderRadius: 999, padding: "5px 12px", fontFamily: font.body, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{n}</button>
             );
           })}
         </div>
@@ -130,8 +133,8 @@ export default function RedesignExhale(props) {
   var names = [0, 1, 2, 3, 4].map(function (i) { return bucketName(b, i); });
 
   return (
-    <div data-testid="redesign-exhale" style={{ background: color.flowBackground, margin: "-1.1rem -0.9rem -0.5rem", padding: "16px 16px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, color: NAVY, overflowX: "hidden" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
+    <div data-testid="redesign-exhale" style={Object.assign({ background: page.flow, margin: "-1.1rem -0.9rem -0.5rem", padding: "12px 14px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, color: NAVY, overflowX: "hidden" }, fullBleed(page.flow))}>
+      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button type="button" onClick={function () { goTab("flowhome"); }} aria-label="Back to Flow"
             style={{ background: "#FFFFFF", border: "none", borderRadius: 999, boxShadow: shadow.card, padding: "7px 14px 7px 12px", fontFamily: font.body, fontSize: 13, fontWeight: 600, color: NAVY, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
@@ -153,15 +156,15 @@ export default function RedesignExhale(props) {
           var items = bucketItems(b, idx, me);
           var count = openCount(b, idx, me);
           return (
-            <section key={idx} data-testid={"bucket-" + idx} style={{ background: color.surface, borderRadius: radius.lg, boxShadow: shadow.card, borderTop: "3px solid " + BUCKET_COLORS[idx], overflow: "hidden" }}>
+            <section key={idx} data-testid={"bucket-" + idx} style={{ background: tone.sage.tint, borderRadius: radius.lg, boxShadow: shadow.card, borderTop: "4px solid " + ACCENTS[idx], overflow: "hidden" }}>
               <button type="button" aria-expanded={open} onClick={function () { setMoveFor(null); setOpenIdx(open ? null : idx); }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", boxSizing: "border-box", background: "transparent", border: "none", padding: "14px 16px", cursor: "pointer", textAlign: "left", color: NAVY }}>
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", boxSizing: "border-box", background: "transparent", border: "none", padding: "11px 14px", cursor: "pointer", textAlign: "left", color: NAVY }}>
                 <span style={{ flex: 1, minWidth: 0, fontFamily: font.heading, fontSize: 21, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names[idx]}</span>
-                <span data-testid="open-count" style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: count ? NAVY : MUTED, background: count ? color.tint.sand : "transparent", borderRadius: 999, padding: "2px 9px" }}>{count}</span>
+                <span data-testid="open-count" style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: count ? NAVY : MUTED, background: count ? "#FFFFFF" : "transparent", borderRadius: 999, padding: "2px 9px" }}>{count}</span>
                 <span aria-hidden="true" style={{ width: 8, height: 8, borderRight: "2px solid " + MUTED, borderBottom: "2px solid " + MUTED, transform: open ? "rotate(225deg)" : "rotate(45deg)", transition: "transform .2s", flexShrink: 0, marginTop: open ? 4 : -4 }} />
               </button>
               {open && (
-                <div style={{ padding: "0 12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ padding: "0 10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
                   {items.length === 0 && (
                     <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: MUTED, padding: "2px 4px" }}>
                       {idx === EXHALED ? "Nothing here yet. Exhale a thought above." : "Clear. Nothing waiting in " + names[idx] + "."}

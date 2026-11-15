@@ -11,6 +11,7 @@ import HomeSwitch from "../../src/redesign/HomeSwitch.jsx";
 import RedesignExhale from "../../src/redesign/RedesignExhale.jsx";
 import RedesignFlow from "../../src/redesign/RedesignFlow.jsx";
 import { getRedesignState } from "../../src/design/redesignFlag.js";
+import { tone } from "../../src/design/tokens.js";
 import * as M from "../../src/redesign/exhaleModel.js";
 import { weekDates, eventsOn, workersOn, shoppingByAisle, mealsStrip, personColor, visibleFlowTabs } from "../../src/redesign/flowData.js";
 
@@ -35,6 +36,8 @@ async function typeInto(input, value) {
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
+async function submit(form) { await act(async function () { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); }); }
+function hexRgb(hex) { var n = parseInt(hex.slice(1), 16); return "rgb(" + (n >> 16 & 255) + ", " + (n >> 8 & 255) + ", " + (n & 255) + ")"; }
 async function key(el, k) { await act(async function () { el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })); }); }
 async function blur(el) { if (!el) return; await act(async function () { el.blur(); el.dispatchEvent(new FocusEvent("focusout", { bubbles: true })); }); }
 async function swipe(rowEl, dx, dy) {
@@ -303,9 +306,11 @@ describe("RedesignFlow screen", function () {
   async function pick(id) { await click(q('[data-testid="flowtab-' + id + '"]')); }
   function summary() { return q('[data-testid="flow-summary"]').textContent; }
 
-  it("very light background, back to Home, 4-per-row tabs", async function () {
+  it("sea-glass background edge to edge, back to Home, 4-per-row tabs", async function () {
     await render(h(RedesignFlow, base()));
-    expect(q('[data-testid="redesign-flow"]').style.background).toMatch(/250, 248, 243|#FAF8F3/i);
+    var pg = q('[data-testid="redesign-flow"]');
+    expect(pg.style.background).toMatch(/230, 239, 239|#E6EFEF/i);
+    expect(pg.style.boxShadow).toMatch(/100vmax/); // fullBleed: fills wide screens
     var tabs = [];
     window.addEventListener("af-set-tab", function on(e) { tabs.push(e.detail); window.removeEventListener("af-set-tab", on); });
     await click(q('button[aria-label="Back to Home"]'));
@@ -386,11 +391,53 @@ describe("RedesignFlow screen", function () {
     expect(summary()).not.toContain("Monday only");
   });
 
-  it("Tide Pool: each kid's shells (kids opted out are hidden)", async function () {
+  it("Tide Pool: its tab opens the Tide Pool screen directly (no summary step)", async function () {
     await render(h(RedesignFlow, base({ coveData: [{ kidId: "k1", shells: 12 }] })));
+    var went = [];
+    function on(e) { went.push(e.detail); }
+    window.addEventListener("af-set-tab", on);
     await pick("tidepool");
-    expect(summary()).toContain("Ava12 shells");
-    expect(summary()).not.toContain("Ben");
+    window.removeEventListener("af-set-tab", on);
+    expect(went).toEqual(["tidepool"]);
+    expect(q('[data-testid="flowtab-exhale"]').getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("each tab has its own tone: tinted, selected in its full color; summary takes the tint", async function () {
+    await render(h(RedesignFlow, base()));
+    var bgs = tabIds().map(function (id) { return q('[data-testid="flowtab-' + id + '"]').style.background; });
+    expect(bgs[0]).toBe(hexRgb(tone.sage.full)); // Exhale, selected
+    expect(bgs[1]).toBe(hexRgb(tone.teal.tint)); // Shopping
+    expect(bgs[3]).toBe(hexRgb(tone.blue.tint)); // Calendar
+    expect(bgs[4]).toBe(hexRgb(tone.mist.tint)); // Waves
+    expect(bgs[6]).toBe(hexRgb(tone.navy.tint)); // Lighthouse
+    expect(q('[data-testid="flow-summary"]').style.background).toBe(hexRgb(tone.sage.tint));
+    await pick("calendar");
+    expect(q('[data-testid="flowtab-calendar"]').style.background).toBe(hexRgb(tone.blue.full));
+    expect(q('[data-testid="flowtab-exhale"]').style.background).toBe(hexRgb(tone.sage.tint));
+    expect(q('[data-testid="flow-summary"]').style.background).toBe(hexRgb(tone.blue.tint));
+  });
+
+  it("Exhale quick-add writes to the Exhaled bucket without leaving Flow", async function () {
+    localStorage.removeItem("af_exhale_buckets");
+    await render(h(RedesignFlow, base()));
+    var input = q('[data-testid="flow-quickadd-exhale"] input');
+    await typeInto(input, "Call the dentist");
+    await submit(q('[data-testid="flow-quickadd-exhale"]'));
+    var stored = JSON.parse(localStorage.getItem("af_exhale_buckets"));
+    expect(stored.items.map(function (i) { return [i.text, i.bucketIndex]; })).toEqual([["Call the dentist", 0]]);
+    expect(summary()).toContain("1 open");
+    expect(input.value).toBe("");
+  });
+
+  it("Shopping quick-add hands the text to onAddShoppingItem", async function () {
+    var onAdd = vi.fn();
+    await render(h(RedesignFlow, base({ onAddShoppingItem: onAdd, shopStore: "Costco" })));
+    await pick("shopping");
+    var input = q('[data-testid="flow-quickadd-shopping"] input');
+    expect(input.placeholder).toBe("Add to Costco…");
+    await typeInto(input, "Paper towels");
+    await submit(q('[data-testid="flow-quickadd-shopping"]'));
+    expect(onAdd).toHaveBeenCalledWith("Paper towels");
   });
 
   it("Lighthouse: today's lessons", async function () {
@@ -401,7 +448,7 @@ describe("RedesignFlow screen", function () {
 
   it("calm empty states for every section", async function () {
     await render(h(RedesignFlow, base()));
-    var expected = { exhale: "Nothing on your mind", shopping: "The list is empty.", meals: "No dinners planned yet", calendar: "A wide-open week.", waves: "No routines for today.", tidepool: "Ava0 shells", lighthouse: "No lessons planned for today." };
+    var expected = { exhale: "Nothing on your mind", shopping: "The list is empty.", meals: "No dinners planned yet", calendar: "A wide-open week.", waves: "No routines for today.", lighthouse: "No lessons planned for today." };
     for (var id in expected) { await pick(id); expect(summary()).toContain(expected[id]); }
   });
 });

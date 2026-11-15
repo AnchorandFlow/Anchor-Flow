@@ -9,7 +9,7 @@
 // from localStorage and re-read on af-data-changed / storage /
 // af-anchor-hidden-changed.
 import { useState, useEffect } from "react";
-import { color, gradient, radius, font, shouldShowEmoji } from "../design/tokens.js";
+import { color, gradient, radius, shadow, font, shouldShowEmoji, toneFor } from "../design/tokens.js";
 import { isPersonMinor } from "../compass/compassEngine";
 import { visibleAnchorTabs, vaultSections, sensitiveRecords, safeHarborModel, todayZone, nextMaintenance, peopleCards, coveSummary, horizonEvents } from "./anchorData.js";
 import { daysLabel } from "./homeData.js";
@@ -17,44 +17,46 @@ import { readAnchorStores } from "./anchorStores.js";
 
 var NAVY = color.anchorNavy;
 var IVORY = gradient.sunset.text;
-var SOFT = "rgba(242,234,216,0.68)";
-var LINE = "rgba(242,234,216,0.12)";
-var PANEL = "rgba(242,234,216,0.06)";
 var GOLD = color.gold;
+// On the tinted summary card (light): navy ink.
+var INK = NAVY;
+var INK_SOFT = "#4A5568";
+var CLINE = "rgba(27,43,68,0.10)";
+var CPANEL = "rgba(255,255,255,0.65)";
 var wrap = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
 
 function Empty(props) {
-  return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: SOFT, lineHeight: 1.45 }}>{props.children}</div>;
+  return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: INK_SOFT, lineHeight: 1.45 }}>{props.children}</div>;
 }
 function Label(props) {
-  return <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: SOFT, fontWeight: 700, margin: props.first ? "0 0 6px" : "16px 0 6px" }}>{props.children}</div>;
+  return <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: INK_SOFT, fontWeight: 700, margin: props.first ? "0 0 6px" : "16px 0 6px" }}>{props.children}</div>;
 }
 function Row(props) {
   var inner = (
     <>
       {props.icon && <span aria-hidden="true" style={{ fontSize: 15, flexShrink: 0 }}>{props.icon}</span>}
       <span style={Object.assign({ flex: 1, display: "flex", flexDirection: "column", gap: 2 }, wrap)}>
-        <span style={{ fontSize: font.checklistItem.size, color: IVORY, lineHeight: 1.35 }}>{props.label}</span>
-        {props.sub && <span style={{ fontSize: 12, color: SOFT, lineHeight: 1.4 }}>{props.sub}</span>}
+        <span style={{ fontSize: font.checklistItem.size, color: INK, lineHeight: 1.35 }}>{props.label}</span>
+        {props.sub && <span style={{ fontSize: 12, color: INK_SOFT, lineHeight: 1.4 }}>{props.sub}</span>}
       </span>
-      {props.value != null && <span style={{ fontSize: 13, color: SOFT, flexShrink: 0, whiteSpace: "nowrap" }}>{props.value}</span>}
+      {props.value != null && <span style={{ fontSize: 13, color: INK_SOFT, flexShrink: 0, whiteSpace: "nowrap" }}>{props.value}</span>}
     </>
   );
-  var style = { display: "flex", alignItems: "center", gap: 10, width: "100%", boxSizing: "border-box", padding: "9px 0", borderTop: props.first ? "none" : "1px solid " + LINE, background: "none", borderLeft: "none", borderRight: "none", borderBottom: "none", textAlign: "left", fontFamily: font.body, color: IVORY };
+  var style = { display: "flex", alignItems: "center", gap: 10, width: "100%", boxSizing: "border-box", padding: "9px 0", borderTop: props.first ? "none" : "1px solid " + CLINE, background: "none", borderLeft: "none", borderRight: "none", borderBottom: "none", textAlign: "left", fontFamily: font.body, color: INK };
   if (props.onClick) return <button type="button" data-testid={props.testId} onClick={props.onClick} style={Object.assign(style, { cursor: "pointer" })}>{inner}</button>;
   return <div data-testid={props.testId} style={style}>{inner}</div>;
 }
 function Bar(props) {
   return (
     <div role="progressbar" aria-valuenow={props.pct} aria-valuemin={0} aria-valuemax={100} aria-label={props.label}
-      style={{ height: 6, borderRadius: 999, background: LINE, overflow: "hidden" }}>
+      style={{ height: 6, borderRadius: 999, background: CLINE, overflow: "hidden" }}>
       <div style={{ width: Math.max(0, Math.min(100, props.pct)) + "%", height: "100%", background: GOLD, borderRadius: 999 }} />
     </div>
   );
 }
 function Check(props) {
   return (
-    <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, boxSizing: "border-box", border: "2px solid " + (props.on ? GOLD : "rgba(242,234,216,0.35)"), background: props.on ? GOLD : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+    <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, boxSizing: "border-box", border: "2px solid " + (props.on ? GOLD : "rgba(27,43,68,0.3)"), background: props.on ? GOLD : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
       {props.on && <span style={{ width: 4, height: 8, borderRight: "2px solid " + NAVY, borderBottom: "2px solid " + NAVY, transform: "rotate(45deg)", marginTop: -2 }} />}
     </span>
   );
@@ -90,6 +92,7 @@ export default function RedesignAnchor(props) {
 
   if (sel && !tabs.some(function (t) { return t.id === sel; })) sel = tabs.length ? tabs[0].id : null;
   var current = tabs.filter(function (t) { return t.id === sel; })[0] || null;
+  var tn = toneFor(current ? current.id : "vault");
   var se = s.showEmojis === true;
   var now = props.now ? props.now() : new Date();
   function icon(e) { return shouldShowEmoji("item", se) ? e : null; }
@@ -138,8 +141,8 @@ export default function RedesignAnchor(props) {
       return (
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span data-testid="sh-readiness" style={{ fontFamily: font.heading, fontSize: 40, fontWeight: 700, color: IVORY, lineHeight: 1 }}>{(sh.readiness || 0) + "%"}</span>
-            <span style={{ fontSize: 13, color: SOFT }}>ready to leave in 10 minutes</span>
+            <span data-testid="sh-readiness" style={{ fontFamily: font.heading, fontSize: 40, fontWeight: 700, color: INK, lineHeight: 1 }}>{(sh.readiness || 0) + "%"}</span>
+            <span style={{ fontSize: 13, color: INK_SOFT }}>ready to leave in 10 minutes</span>
           </div>
 
           <Label>Grab and go</Label>
@@ -148,7 +151,7 @@ export default function RedesignAnchor(props) {
               <div key={t.minutes} data-testid={"sh-tier-" + t.minutes} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, marginBottom: 5 }}>
                   <span style={wrap}>{t.minutes + " min · " + t.label}</span>
-                  <span style={{ color: SOFT, whiteSpace: "nowrap" }}>{t.done + " of " + t.total}</span>
+                  <span style={{ color: INK_SOFT, whiteSpace: "nowrap" }}>{t.done + " of " + t.total}</span>
                 </div>
                 <Bar pct={t.pct} label={t.minutes + " minute grab-and-go"} />
               </div>
@@ -161,7 +164,7 @@ export default function RedesignAnchor(props) {
               return (
                 <div key={p.id} data-testid={"sixp-" + p.id} data-complete={p.complete ? "true" : "false"} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <Check on={p.complete} />
-                  <span style={Object.assign({ fontSize: 13, color: IVORY, lineHeight: 1.3 }, wrap)}>{p.label}</span>
+                  <span style={Object.assign({ fontSize: 13, color: INK, lineHeight: 1.3 }, wrap)}>{p.label}</span>
                 </div>
               );
             })}
@@ -202,15 +205,15 @@ export default function RedesignAnchor(props) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
           {cards.map(function (c) {
             return (
-              <div key={c.id} data-testid={"person-" + c.id} style={{ minWidth: 0, background: PANEL, border: "1px solid " + LINE, borderRadius: radius.sm, padding: "12px 12px" }}>
+              <div key={c.id} data-testid={"person-" + c.id} style={{ minWidth: 0, background: CPANEL, border: "1px solid " + CLINE, borderRadius: radius.sm, padding: "12px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {c.kind === "pet"
                     ? (icon("🐾") ? <span aria-hidden="true" style={{ fontSize: 14 }}>🐾</span> : <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 3, background: GOLD, flexShrink: 0 }} />)
                     : <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: c.color || GOLD, flexShrink: 0 }} />}
-                  <span style={Object.assign({ fontFamily: font.heading, fontSize: 18, fontWeight: 700, color: IVORY, lineHeight: 1.15 }, wrap)}>{c.name}</span>
+                  <span style={Object.assign({ fontFamily: font.heading, fontSize: 18, fontWeight: 700, color: INK, lineHeight: 1.15 }, wrap)}>{c.name}</span>
                 </div>
-                <div style={{ fontSize: 12, color: SOFT, marginTop: 4 }}>{c.role}</div>
-                <div style={Object.assign({ fontSize: 12.5, color: IVORY, marginTop: 6, lineHeight: 1.35 }, wrap)}>{c.status}</div>
+                <div style={{ fontSize: 12, color: INK_SOFT, marginTop: 4 }}>{c.role}</div>
+                <div style={Object.assign({ fontSize: 12.5, color: INK, marginTop: 6, lineHeight: 1.35 }, wrap)}>{c.status}</div>
               </div>
             );
           })}
@@ -231,7 +234,7 @@ export default function RedesignAnchor(props) {
               <div key={l.id} data-testid={"cove-list-" + l.id} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: font.checklistItem.size, marginBottom: 5 }}>
                   <span style={wrap}>{l.title}</span>
-                  <span style={{ color: SOFT, fontSize: 13, whiteSpace: "nowrap" }}>{l.total ? l.done + " of " + l.total : "empty"}</span>
+                  <span style={{ color: INK_SOFT, fontSize: 13, whiteSpace: "nowrap" }}>{l.total ? l.done + " of " + l.total : "empty"}</span>
                 </div>
                 <Bar pct={l.pct} label={l.title + " progress"} />
               </div>
@@ -261,12 +264,12 @@ export default function RedesignAnchor(props) {
   return (
     <div data-testid="redesign-anchor"
       style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, overflowY: "auto", overflowX: "hidden", background: NAVY, color: IVORY, fontFamily: font.body }}>
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "calc(16px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "calc(16px + env(safe-area-inset-top, 0px)) 16px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button type="button" onClick={props.onBack} aria-label="Back to Home" style={Object.assign({}, pillBtn, { padding: "7px 14px 7px 12px", fontSize: 13, fontWeight: 600, gap: 6 })}>
             <span aria-hidden="true" style={{ width: 7, height: 7, borderLeft: "2px solid " + IVORY, borderBottom: "2px solid " + IVORY, transform: "rotate(45deg)", display: "inline-block" }} />Home
           </button>
-          <h1 style={{ margin: 0, flex: 1, minWidth: 0, fontFamily: font.heading, fontSize: 28, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 style={{ margin: 0, flex: 1, minWidth: 0, fontFamily: font.heading, fontSize: 28, fontWeight: 700, color: IVORY, display: "flex", alignItems: "center", gap: 8 }}>
             <span aria-hidden="true" style={{ fontSize: 22 }}>🏠</span>Anchor
           </h1>
           <button type="button" onClick={props.onSettings} aria-label="Settings" data-testid="anchor-settings" style={Object.assign({}, pillBtn, { width: 38, height: 38, padding: 0 })}><Gear /></button>
@@ -276,23 +279,26 @@ export default function RedesignAnchor(props) {
           <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
             {tabs.map(function (t) {
               var on = t.id === sel;
+              var tt = toneFor(t.id);
+              // Selected: the tab's full color, ringed in ivory so the navy
+              // (Vault) tab still reads on the navy page.
               return (
-                <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"anchortab-" + t.id}
+                <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"anchortab-" + t.id} data-tone={t.id}
                   onClick={function () { setSel(t.id); }}
-                  style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 58, padding: "8px 4px", borderRadius: radius.sm, border: "1px solid " + (on ? IVORY : LINE), background: on ? IVORY : PANEL, color: on ? NAVY : IVORY, cursor: "pointer", fontFamily: font.body }}>
+                  style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 54, padding: "8px 4px", borderRadius: radius.sm, border: "2px solid " + (on ? IVORY : "transparent"), background: on ? tt.full : tt.tint, color: on ? "#FFFFFF" : tt.ink, boxShadow: on ? shadow.raised : "none", cursor: "pointer", fontFamily: font.body }}>
                   {icon(t.icon) && <span aria-hidden="true" style={{ fontSize: 17 }}>{t.icon}</span>}
-                  <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.2, textAlign: "center", overflowWrap: "anywhere" }}>{t.label}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: on ? 700 : 600, lineHeight: 1.2, textAlign: "center", overflowWrap: "anywhere" }}>{t.label}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        <section data-testid="anchor-summary" style={{ background: PANEL, border: "1px solid " + LINE, borderRadius: radius.lg, padding: "16px 18px" }}>
+        <section data-testid="anchor-summary" style={{ background: tn.tint, color: INK, borderRadius: radius.lg, boxShadow: shadow.raised, padding: "12px 14px" }}>
           {current && (
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-              <h2 style={{ margin: 0, fontFamily: font.heading, fontSize: 22, fontWeight: 700 }}>{current.label}</h2>
-              <button type="button" data-testid="open-full" onClick={openFull} style={{ background: "none", border: "none", padding: 0, color: GOLD, fontFamily: font.body, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Open full view</button>
+              <h2 style={{ margin: 0, fontFamily: font.heading, fontSize: 22, fontWeight: 700, color: tn.ink }}>{current.label}</h2>
+              <button type="button" data-testid="open-full" onClick={openFull} style={{ background: "none", border: "none", padding: 0, color: tn.ink, textDecoration: "underline", textUnderlineOffset: 3, fontFamily: font.body, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Open full view</button>
             </div>
           )}
           {body()}

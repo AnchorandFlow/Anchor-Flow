@@ -29,7 +29,7 @@ export default function LighthouseFull(props) {
   var se = props.showEmojis === true;
   if (props.empty) {
     return (
-      <FullViewPage testId="redesign-lighthouse">
+      <FullViewPage section="lighthouse" testId="redesign-lighthouse">
         <FullViewHeader title="Lighthouse" emoji="📚" showEmojis={se} subtitle="School and learning, child by child" />
         <Card>
           <Empty>{props.empty}</Empty>
@@ -42,7 +42,7 @@ export default function LighthouseFull(props) {
     return { id: p.id, label: p.name, emoji: p.mode === "homeschool" ? "🏡" : p.mode === "school" ? "🏫" : null };
   });
   return (
-    <FullViewPage testId="redesign-lighthouse">
+    <FullViewPage section="lighthouse" testId="redesign-lighthouse">
       <style>{CSS}</style>
       <FullViewHeader title="Lighthouse" emoji="📚" showEmojis={se} subtitle="School and learning, child by child" />
       {childTabs.length > 1 && <PillTabs label="Children" tabs={childTabs} value={props.activeChild} onChange={props.onChild} testIdPrefix="lh-child-" showEmojis={se} />}

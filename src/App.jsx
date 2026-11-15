@@ -2698,7 +2698,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
     </>
   );
   if (REDESIGN) return (
-    <AnchorScreen testId="settings-full" title="Settings" emoji="⚙️" subtitle="Set it up once — Compass learns from everything here" showEmojis={showEmojis}
+    <AnchorScreen section="settings" testId="settings-full" title="Settings" emoji="⚙️" subtitle="Set it up once — Compass learns from everything here" showEmojis={showEmojis}
       onBack={goAnchor} tabs={_rdStTabs} value={_rdStActive} onChange={setRdStPill} testIdPrefix="settings-pill-">
       <AnchorCard testId={"settings-"+_rdStActive}>
         <AnchorBody><EmojiScope showEmojis={showEmojis}>
@@ -12981,6 +12981,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           treasures={sortedTreasures}
           selectedTreasure={selectedTreasure} onSelectTreasure={function(t){ setClaimed(null); setSelectedTreasure(t); }}
           onClaim={claimTreasure} claimed={claimed} onDismissClaim={function(){ setClaimed(null); }}
+          chestOpen={chestOpen} onOpenChest={openChest} onCloseChest={closeChest}
+          tappedShellIdx={tappedShellIdx} onTapShell={function(i){ setTappedShellIdx(function(prev){ return prev===i?null:i; }); }}
+          shellSource={shellSourceForIndex}
           showEmojis={showEmojis}
         />
       );
@@ -13514,7 +13517,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     function coveRd(pill, content, opts) {
       var o = opts || {};
       return (
-        <AnchorScreen testId="cove-full" title="Cove" emoji="🪸" subtitle="Your lists, notes, ideas, and keeps." showEmojis={showEmojis}
+        <AnchorScreen section="cove" testId="cove-full" title="Cove" emoji="🪸" subtitle="Your lists, notes, ideas, and keeps." showEmojis={showEmojis}
           onBack={goAnchor} action={o.action} above={o.above}
           tabs={[{id:"lists",label:"Lists",emoji:"📋"},{id:"notes",label:"Notes",emoji:"📝",count:coveNotes.length>0?coveNotes.length:null}]}
           value={pill} onChange={function(id){ setCoveTab(id); setActiveNoteId(null); setView("list"); }}>
@@ -18858,6 +18861,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                     coveData={coveData} schoolData={schoolData} showEmojis={showEmojis}
                     tidePoolOn={tidePoolEnabled!==false}
                     enabled={{ mealsEnabled:mealsEnabled, tidePoolEnabled:tidePoolEnabled, lighthouseEnabled:lighthouseEnabled }}
+                    /* Quick-add: same write as ShoppingTab.addItem, into the store
+                       the Shopping screen last used (af_lastUsedStore). */
+                    shopStore={(function(){ try{ return JSON.parse(localStorage.getItem("af_lastUsedStore")||"null")||"Grocery"; }catch{ return "Grocery"; } })()}
+                    onAddShoppingItem={function(text){
+                      var t=String(text||"").trim(); if(!t) return;
+                      var s="Grocery"; try{ s=JSON.parse(localStorage.getItem("af_lastUsedStore")||"null")||"Grocery"; }catch{ /* storage blocked */ }
+                      var _id=uid();
+                      setShoppingItems(function(p){ return p.concat([{id:_id,text:t,store:s,done:false,photo:null,category:""}]); });
+                      if(SHOPPING_V2&&householdId){
+                        var _uid=""; try{ var _u=JSON.parse(localStorage.getItem("af_authUser")||"null"); _uid=(_u&&_u.id)?_u.id:""; }catch{ /* storage blocked */ }
+                        supabase.rpc("shopping_add_item",{p_id:_id,p_household_id:householdId,p_text:t,p_store:s,p_category:"",p_photo:"",p_created_by:_uid}).then(function(r){ if(r&&r.error) console.warn("[AF] shopping_add_item failed:",r.error.message); });
+                      }
+                    }}
                     /* In-store check-off: same writes as ShoppingTab.handleToggle
                        (blob + shopping_toggle_item RPC when af_shopping_v2 is on). */
                     onToggleShoppingItem={function(id, currentDone){

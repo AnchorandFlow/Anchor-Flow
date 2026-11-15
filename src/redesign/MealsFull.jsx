@@ -4,7 +4,8 @@
 // SOS, Meal Bank, Recipes — plus Tonight / Grocery while open) are pill tabs.
 // This Week is built here; the other sections are the legacy bodies rendered
 // with the new-look style helpers and passed in as `body`.
-import { font, shadow, radius } from "../design/tokens.js";
+import { font, shadow, radius, toneFor } from "../design/tokens.js";
+var TONE = toneFor("meals");
 import { FullViewPage, FullViewHeader, PillTabs, Card, CheckRow, PillButton, EmojiScope } from "./FullView.jsx";
 import { emo, emoPrefix, NAVY, MUTED, HAIRLINE, SAGE_TEXT, wrapText } from "./fullViewKit.js";
 
@@ -48,12 +49,12 @@ function Week(props) {
         var isTarget = !!w.swapDay && !isSource;
         return (
           <section key={day} data-testid={"meals-day-" + day} onClick={isTarget ? function () { w.onSwapWith(day); } : undefined}
-            style={{ background: "#FFFFFF", borderRadius: radius.lg, boxShadow: shadow.card, padding: "14px 16px", cursor: isTarget ? "pointer" : "default", outline: isSource ? "2px solid #C4A882" : isTarget ? "1.5px dashed #C4A882" : "none", minWidth: 0 }}>
+            style={{ background: TONE.tint, borderRadius: radius.lg, boxShadow: shadow.card, padding: "12px 14px", cursor: isTarget ? "pointer" : "default", outline: isSource ? "2px solid #C4A882" : isTarget ? "1.5px dashed #C4A882" : "none", minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
                 <h2 style={{ margin: 0, fontFamily: font.heading, fontSize: 21, fontWeight: 700, color: NAVY }}>{day}</h2>
                 {isToday && <span style={{ fontSize: 11.5, fontWeight: 700, color: SAGE_TEXT, background: "#DEEEE8", borderRadius: 999, padding: "2px 9px" }}>Today</span>}
-                {theme && <span style={{ fontSize: 11.5, fontWeight: 600, color: MUTED, background: "#F0E4D0", borderRadius: 999, padding: "2px 9px" }}>{emoPrefix(se, theme.emoji) + theme.theme}</span>}
+                {theme && <span style={{ fontSize: 11.5, fontWeight: 600, color: TONE.ink, background: "rgba(255,255,255,0.7)", borderRadius: 999, padding: "2px 9px" }}>{emoPrefix(se, theme.emoji) + theme.theme}</span>}
               </div>
               {!w.swapDay && (
                 <div style={{ display: "flex", gap: 2 }} onClick={function (e) { e.stopPropagation(); }}>
@@ -88,7 +89,7 @@ function Week(props) {
 export function PrepTask(props) {
   var g = emo(props.showEmojis, props.task.emoji);
   return (
-    <div style={{ background: "#FFFFFF", borderRadius: radius.md, boxShadow: shadow.card, padding: "2px 16px", marginBottom: 8 }}>
+    <div style={{ background: TONE.tint, borderRadius: radius.md, boxShadow: shadow.card, padding: "2px 14px", marginBottom: 8 }}>
       <CheckRow first done={props.done} text={(g ? g + " " : "") + props.task.text} onToggle={props.onToggle} testId={"prep-" + props.task.id} />
     </div>
   );
@@ -99,7 +100,7 @@ export default function MealsFull(props) {
   var tabs = MEALS_PILLS.slice();
   if (EXTRA[props.tab]) tabs.splice(1, 0, EXTRA[props.tab]);
   return (
-    <FullViewPage testId="redesign-meals">
+    <FullViewPage section="meals" testId="redesign-meals">
       <FullViewHeader title="Meals" emoji="🍽️" showEmojis={se} subtitle="Simple meals for full weeks"
         action={<PillButton small variant="secondary" testId="meals-weektype" onClick={props.onWeekType}>{props.weekTypeLabel}</PillButton>} />
       <PillTabs label="Meal sections" tabs={tabs} value={props.tab} onChange={props.onTab} testIdPrefix="meals-tab-" showEmojis={se} />

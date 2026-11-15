@@ -56,7 +56,7 @@ export default function VaultFull(props) {
   var section = props.activeSection || "home";
 
   if (section === "safeharbor") {
-    return <AnchorPage overlay testId="safeharbor-full" scrollRef={props.scrollRef}>{props.body}</AnchorPage>;
+    return <AnchorPage overlay section="safeharbor" testId="safeharbor-full" scrollRef={props.scrollRef}>{props.body}</AnchorPage>;
   }
 
   var pills = vaultPills(s, s.anchorHidden, props.featureFlags, recurringCount);
@@ -91,7 +91,7 @@ export default function VaultFull(props) {
   }
 
   return (
-    <AnchorScreen overlay testId="vault-full" title="Vault" emoji="🗝️" subtitle="Records for your home and family, kept in one place" showEmojis={se}
+    <AnchorScreen overlay section="vault" testId="vault-full" title="Vault" emoji="🗝️" subtitle="Records for your home and family, kept in one place" showEmojis={se}
       onBack={props.onBack} tabs={pills} value={pillValue} onChange={props.onSection} testIdPrefix="vault-pill-" scrollRef={props.scrollRef}>
       {section === "home" ? overview() : (
         <AnchorBody><EmojiScope showEmojis={se}>{props.body}</EmojiScope></AnchorBody>

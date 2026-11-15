@@ -176,7 +176,7 @@ export default function ShoppingFull(props) {
   }
 
   return (
-    <FullViewPage testId="redesign-shopping">
+    <FullViewPage section="shopping" testId="redesign-shopping">
       <FullViewHeader title="Shopping" emoji="🛒" showEmojis={se} subtitle={subtitle}
         action={items.length > 0 ? (
           inStore

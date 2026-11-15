@@ -1,15 +1,21 @@
 // src/redesign/RedesignFlow.jsx — the new Flow screen (af_redesign only).
 // A 4-per-row tab grid of the Flow sections that are turned on; the selected
 // tab shows one summary card built from that section's real data, with an
-// "Open full view" link to its existing screen. Read-only, except in-store
-// mode, which checks items off through the same path as the Shopping tab
-// (onToggleShoppingItem from HomeFlow).
+// "Open full view" link to its existing screen. Each tab has its own tone
+// (tokens.sectionTone): tinted when unselected, full color when selected, and
+// the summary card takes the selected tab's tint. Tide Pool has no summary:
+// its tab opens the Tide Pool screen (the shells) directly.
+// Writes: Exhale and Shopping each have a quick-add bar (Exhale appends to the
+// Exhaled bucket through exhaleModel.commit, the same path as the Exhale
+// screen; Shopping goes through onAddShoppingItem from HomeFlow, the same
+// write as the Shopping screen's add), and in-store mode checks items off
+// through onToggleShoppingItem.
 import { useState, useEffect } from "react";
-import { color, gradient, radius, shadow, font, workDayTag, shouldShowEmoji } from "../design/tokens.js";
+import { color, gradient, radius, shadow, font, workDayTag, shouldShowEmoji, toneFor, page, fullBleed } from "../design/tokens.js";
 import { useTidePoolBalances } from "../tidepool/useTidePool.js";
 import { TIDEPOOL_V2 } from "../tidepool/ledger.js";
 import { isPersonMinor } from "../compass/compassEngine";
-import { readBuckets } from "./exhaleModel.js";
+import { readBuckets, commit, addItem, EXHALED } from "./exhaleModel.js";
 import { calendarWeek, exhaleCounts, shoppingByAisle, mealsStrip, wavesToday, tidePoolKids, lessonsToday, visibleFlowTabs } from "./flowData.js";
 
 var NAVY = color.anchorNavy;
@@ -19,6 +25,38 @@ var IVORY = gradient.sunset.text;
 function rd(key, fb) { try { var v = JSON.parse(localStorage.getItem("af_" + key) || "null"); return v === null ? fb : v; } catch { return fb; } }
 function goTab(tab) { try { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: tab })); } catch { /* no window */ } }
 var wrap = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
+function uuid() {
+  try { if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
+  return "x-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+// Tabs that open their full screen instead of showing a summary.
+var DIRECT = { tidepool: true };
+
+// One-line add bar inside a summary card. onAdd(text) does the write.
+function QuickAdd(props) {
+  var [draft, setDraft] = useState("");
+  var [flash, setFlash] = useState(false);
+  var tn = props.tone;
+  function submit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    var t = draft.trim();
+    if (!t) return;
+    props.onAdd(t);
+    setDraft("");
+    setFlash(true);
+    setTimeout(function () { setFlash(false); }, 1800);
+  }
+  var on = !!draft.trim();
+  return (
+    <form data-testid={props.testId} onSubmit={submit} style={{ display: "flex", gap: 6, background: "#FFFFFF", borderRadius: radius.sm, boxShadow: shadow.card, padding: 5, marginBottom: 8 }}>
+      <input value={draft} onChange={function (e) { setDraft(e.target.value); }} aria-label={props.label}
+        placeholder={flash ? props.doneText : props.placeholder}
+        style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontFamily: font.body, fontSize: 16, color: NAVY, padding: "6px 8px", outline: "none" }} />
+      <button type="submit" disabled={!on}
+        style={{ flexShrink: 0, background: on ? tn.full : "rgba(27,43,68,0.18)", color: "#FFFFFF", border: "none", borderRadius: 10, padding: "0 14px", fontFamily: font.body, fontWeight: 700, fontSize: 13.5, cursor: on ? "pointer" : "default" }}>Add</button>
+    </form>
+  );
+}
 
 function Empty(props) {
   return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: MUTED, lineHeight: 1.45 }}>{props.children}</div>;
@@ -54,7 +92,9 @@ export default function RedesignFlow(props) {
   }, []);
 
   if (sel && !tabs.some(function (t) { return t.id === sel; })) sel = tabs.length ? tabs[0].id : null;
+  if (sel && DIRECT[sel]) sel = tabs.length ? tabs[0].id : null;
   var current = tabs.filter(function (t) { return t.id === sel; })[0] || null;
+  var tn = toneFor(current ? current.id : "exhale");
   var se = props.showEmojis === true;
   var now = props.now ? props.now() : new Date();
 
@@ -65,6 +105,8 @@ export default function RedesignFlow(props) {
       var total = counts.reduce(function (s, c) { return s + c.open; }, 0);
       return (
         <div>
+          <QuickAdd testId="flow-quickadd-exhale" tone={tn} label="Exhale a thought" placeholder="Exhale a thought…" doneText="Exhaled. Let it go."
+            onAdd={function (t) { setBuckets(commit(function (cur) { return addItem(cur, t, EXHALED, uuid, Date.now); })); }} />
           {counts.map(function (c, i) { return <Row key={c.index} first={i === 0} label={c.name} value={c.open ? c.open + " open" : "clear"} />; })}
           {!total && <div style={{ marginTop: 8 }}><Empty>Nothing on your mind right now. Lovely.</Empty></div>}
         </div>
@@ -72,7 +114,10 @@ export default function RedesignFlow(props) {
     }
     if (current.id === "shopping") {
       var sh = shoppingByAisle(props.shoppingItems, props.shopCategories);
-      if (!sh.total) return <Empty>The list is empty. Nothing to pick up.</Empty>;
+      var shopAdd = props.onAddShoppingItem && !inStore
+        ? <QuickAdd testId="flow-quickadd-shopping" tone={tn} label="Add to the shopping list" placeholder={"Add to " + (props.shopStore || "the list") + "…"} doneText="Added." onAdd={props.onAddShoppingItem} />
+        : null;
+      if (!sh.total) return <div>{shopAdd}<Empty>The list is empty. Nothing to pick up.</Empty></div>;
       if (inStore) {
         return (
           <div data-testid="in-store">
@@ -98,6 +143,7 @@ export default function RedesignFlow(props) {
       }
       return (
         <div>
+          {shopAdd}
           {sh.aisles.map(function (a, i) { return <Row key={a.name} first={i === 0} label={a.name} value={a.items.length + " left"} />; })}
           <button type="button" onClick={function () { setInStore(true); }} style={{ marginTop: 10, background: NAVY, color: IVORY, border: "none", borderRadius: 999, padding: "9px 18px", fontFamily: font.body, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>In-store mode</button>
         </div>
@@ -180,8 +226,8 @@ export default function RedesignFlow(props) {
   }
 
   return (
-    <div data-testid="redesign-flow" style={{ background: color.flowBackground, margin: "-1.1rem -0.9rem -0.5rem", padding: "16px 16px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, color: NAVY, overflowX: "hidden" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 }}>
+    <div data-testid="redesign-flow" style={Object.assign({ background: page.flow, margin: "-1.1rem -0.9rem -0.5rem", padding: "12px 14px calc(28px + env(safe-area-inset-bottom, 0px))", minHeight: "100dvh", boxSizing: "border-box", fontFamily: font.body, color: NAVY, overflowX: "hidden" }, fullBleed(page.flow))}>
+      <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button type="button" onClick={function () { goTab("anchor"); }} aria-label="Back to Home"
             style={{ background: "#FFFFFF", border: "none", borderRadius: 999, boxShadow: shadow.card, padding: "7px 14px 7px 12px", fontFamily: font.body, fontSize: 13, fontWeight: 600, color: NAVY, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
@@ -196,23 +242,24 @@ export default function RedesignFlow(props) {
           <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
             {tabs.map(function (t) {
               var on = t.id === sel;
+              var tt = toneFor(t.id);
               return (
-                <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"flowtab-" + t.id}
-                  onClick={function () { setSel(t.id); setInStore(false); }}
-                  style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 58, padding: "8px 4px", borderRadius: radius.sm, border: on ? "none" : "1px solid rgba(27,43,68,0.08)", background: on ? NAVY : "#FFFFFF", color: on ? IVORY : NAVY, boxShadow: on ? shadow.raised : shadow.card, cursor: "pointer", fontFamily: font.body }}>
+                <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"flowtab-" + t.id} data-tone={t.id}
+                  onClick={function () { if (DIRECT[t.id]) { goTab(t.tab); return; } setSel(t.id); setInStore(false); }}
+                  style={{ minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minHeight: 54, padding: "8px 4px", borderRadius: radius.sm, border: "none", background: on ? tt.full : tt.tint, color: on ? "#FFFFFF" : tt.ink, boxShadow: on ? shadow.raised : shadow.card, cursor: "pointer", fontFamily: font.body }}>
                   {shouldShowEmoji("item", se) && <span aria-hidden="true" style={{ fontSize: 17 }}>{t.icon}</span>}
-                  <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, textAlign: "center", overflowWrap: "anywhere" }}>{t.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: on ? 700 : 600, lineHeight: 1.2, textAlign: "center", overflowWrap: "anywhere" }}>{t.label}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        <section data-testid="flow-summary" style={{ background: color.surface, borderRadius: radius.lg, boxShadow: shadow.card, padding: "16px 18px" }}>
+        <section data-testid="flow-summary" style={{ background: tn.tint, borderRadius: radius.lg, boxShadow: shadow.card, padding: "12px 14px" }}>
           {current && (
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-              <h2 style={{ margin: 0, fontFamily: font.heading, fontSize: 22, fontWeight: 700 }}>{current.label}</h2>
-              <button type="button" onClick={function () { goTab(current.tab); }} style={{ background: "none", border: "none", padding: 0, color: gradient.ripples.from, fontFamily: font.body, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Open full view</button>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+              <h2 style={{ margin: 0, fontFamily: font.heading, fontSize: 22, fontWeight: 700, color: tn.ink }}>{current.label}</h2>
+              <button type="button" onClick={function () { goTab(current.tab); }} style={{ background: "none", border: "none", padding: 0, color: tn.ink, textDecoration: "underline", textUnderlineOffset: 3, fontFamily: font.body, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Open full view</button>
             </div>
           )}
           {body()}

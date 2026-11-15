@@ -201,7 +201,7 @@ export default function CalendarFull(props) {
   );
 
   return (
-    <FullViewPage testId="redesign-calendar">
+    <FullViewPage section="calendar" testId="redesign-calendar">
       <FullViewHeader title="Calendar" emoji="📆" showEmojis={se} subtitle="All your events in one place"
         action={<PillButton testId="cal-add" onClick={function () { props.onAddEvent(""); }}>Add event</PillButton>} />
       <PillTabs label="Calendar views" tabs={VIEWS} value={view} onChange={props.onView} testIdPrefix="cal-view-" showEmojis={se} />
