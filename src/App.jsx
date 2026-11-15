@@ -5474,6 +5474,11 @@ function createLocalBackup() {
     if (payload.pets && payload.pets.length > 0) {
       seedPets(payload.pets);
     }
+    // af_redesign Look choice (Minimal/Playful). Only the redesigned wizard
+    // sends this key, so flag-off runs never touch showEmojis.
+    if (payload.showEmojis === true || payload.showEmojis === false) {
+      setShowEmojis(payload.showEmojis);
+    }
     setOnboardingState({complete:true, completedAt:new Date().toISOString(), version:1});
     // Safe Harbor used to be its own full onboarding screen (a toggle card
     // in the old "choose your rooms" step); the rewrite drops it to a
@@ -5481,6 +5486,16 @@ function createLocalBackup() {
     // everywhere else in the app for a non-blocking heads-up.
     showInAppBanner("⚓ One more thing", "Safe Harbor keeps emergency plans and vital info ready when you need them — set it up anytime from Settings.");
     goTab("anchor");
+  }
+
+  // af_redesign welcome → "Use an invite code": step the wizard aside and open
+  // the existing Join a household modal. Joining pulls the household (already
+  // onboarded), which ends the wizard; closing the modal without joining
+  // brings the wizard back. Nothing is written here.
+  const [fvJoining,setFvJoining] = useState(false);
+  function handleFirstVoyageJoinCode() {
+    setFvJoining(true);
+    setShowHouseholdModal(true);
   }
 
   function handleOnboardingSkip() {
@@ -19065,8 +19080,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       {showSetPassword&&resetToken&&<SetPasswordModal/>
       }
       {shouldShowOnboarding&&<OnboardingWizard onComplete={()=>{setShowOnboardingWizard(false);buildDailyBriefing();}}/>}
-      {showFirstVoyage&&<FirstVoyageWizard householdId={householdId} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}/>}
+      {showFirstVoyage&&!fvJoining&&<FirstVoyageWizard householdId={householdId} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip}
+        redesign={REDESIGN} welcome={REDESIGN} onJoinCode={handleFirstVoyageJoinCode} initialShowEmojis={showEmojis}/>}
       {showFirstVoyageRerun&&<FirstVoyageWizard
+        redesign={REDESIGN} initialShowEmojis={showEmojis}
         initialPeople={people.map(function(p){ return {name:p.name, birthday:p.birthday||"", schoolType:p.schoolType||"", tidePoolEnabled:p.tidePoolEnabled}; })}
         householdId={householdId}
         onComplete={handleFirstVoyageRerunComplete}
@@ -19093,7 +19110,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
       )}
-      {showHouseholdModal&&<HouseholdModal onClose={()=>setShowHouseholdModal(false)}/>}
+      {showHouseholdModal&&<HouseholdModal onClose={()=>{setShowHouseholdModal(false);setFvJoining(false);}}/>}
       <CalEventFormModal/>
 
       {modal==="flowPicker"&&(
