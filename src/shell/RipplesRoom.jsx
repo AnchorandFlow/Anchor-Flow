@@ -51,6 +51,8 @@ function catStyle(id) { return CAT_STYLE[id] || CAT_STYLE.other; }
 // purple (tokens rule: those hues are Sunset-only). Decorative emoji follow
 // the household showEmojis setting.
 var IVORY = gradient.sunset.text;
+// Tab labels that differ under af_redesign (ids unchanged; legacy keeps TABS labels).
+var RD_TAB_LABELS = { timeline: "Moments" };
 var RD = {
   ivory: IVORY, ivory2: "rgba(242,234,216,0.78)", ivory3: "rgba(242,234,216,0.6)",
   glass: "rgba(253,250,245,0.12)", glassBorder: "rgba(242,234,216,0.2)",
@@ -383,7 +385,7 @@ export default function RipplesRoom(props) {
       <div role="tablist" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
         {TABS.map(function (t) {
           var on = tab === t.id;
-          return <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"ripples-tab-" + t.id} onClick={function () { setTab(t.id); }} style={{ padding: "8px 16px", borderRadius: 999, fontSize: 13, cursor: "pointer", fontFamily: font.body, border: "1px solid " + (on ? RD.ivory : RD.glassBorder), color: on ? RD.teal : RD.ivory, background: on ? RD.ivory : RD.glass, fontWeight: on ? 700 : 500 }}>{t.label}</button>;
+          return <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={"ripples-tab-" + t.id} onClick={function () { setTab(t.id); }} style={{ padding: "8px 16px", borderRadius: 999, fontSize: 13, cursor: "pointer", fontFamily: font.body, border: "1px solid " + (on ? RD.ivory : RD.glassBorder), color: on ? RD.teal : RD.ivory, background: on ? RD.ivory : RD.glass, fontWeight: on ? 700 : 500 }}>{RD_TAB_LABELS[t.id] || t.label}</button>;
         })}
       </div>
     );

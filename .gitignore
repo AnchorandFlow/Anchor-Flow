@@ -29,3 +29,6 @@ SYNC_RELOAD_INVENTORY.md
 SYNC_APPLY_DESIGN.md
 UPDATE-TESTING.md
 .env
+
+# Landing page is its own separate repo — never commit it here
+/anchor and flow- landing/

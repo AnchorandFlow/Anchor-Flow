@@ -82,7 +82,8 @@ describe("Ripples — af_redesign on", function () {
     expect(back).toHaveBeenCalledTimes(1);
     expect(q('[data-testid="ripples-back"]').textContent).toMatch(/Home/);
     var tabs = qa('[role="tab"]');
-    expect(tabs.map(function (t) { return t.textContent; })).toEqual(["Timeline", "Kid Quotes", "Traditions", "Recaps", "Yearbook"]);
+    expect(tabs.map(function (t) { return t.textContent; })).toEqual(["Moments", "Kid Quotes", "Traditions", "Recaps", "Yearbook"]);
+    expect(tabs[0].getAttribute("data-testid")).toBe("ripples-tab-timeline"); // id unchanged
     tabs.forEach(function (t) { expect(t.style.borderRadius).toBe("999px"); });
     expect(tabs[0].getAttribute("aria-selected")).toBe("true");
   });
