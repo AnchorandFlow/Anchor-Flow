@@ -5,8 +5,13 @@
 // section pill tabs, and a scoped stylesheet that gives the areas' checkboxes
 // the 22px sage circle (checked = filled, the rest of the row crossed out at
 // 45% opacity). Their cards are restyled in place (SectionShell / DashCard
-// read RD_LH_CARD when the flag is on).
+// read lighthouseColors.js when the flag is on).
+//
+// Colors: each area pill has its own school color (LH_AREA_TONE), each child
+// pill is in that child's person color, and the body carries the child's
+// color as a thin top accent.
 import { font, check } from "../design/tokens.js";
+import { LH_AREA_TONE, kidTone } from "./lighthouseColors.js";
 import { FullViewPage, FullViewHeader, PillTabs, Card, Empty, PillButton, EmojiScope } from "./FullView.jsx";
 
 var SCOPE = "rd-lighthouse";
@@ -39,15 +44,18 @@ export default function LighthouseFull(props) {
     );
   }
   var childTabs = (props.children_ || []).map(function (p) {
-    return { id: p.id, label: p.name, emoji: p.mode === "homeschool" ? "🏡" : p.mode === "school" ? "🏫" : null };
+    return { id: p.id, label: p.name, emoji: p.mode === "homeschool" ? "🏡" : p.mode === "school" ? "🏫" : null, tone: kidTone(p.color) || undefined };
   });
+  var sectionTabs = (props.sections || []).map(function (t) { return Object.assign({}, t, { tone: LH_AREA_TONE[t.id] }); });
+  var kid = (props.children_ || []).filter(function (p) { return p.id === props.activeChild; })[0];
+  var kidColor = kid && kid.color ? kid.color : null;
   return (
     <FullViewPage section="lighthouse" testId="redesign-lighthouse">
       <style>{CSS}</style>
       <FullViewHeader title="Lighthouse" emoji="📚" showEmojis={se} subtitle="School and learning, child by child" />
       {childTabs.length > 1 && <PillTabs label="Children" tabs={childTabs} value={props.activeChild} onChange={props.onChild} testIdPrefix="lh-child-" showEmojis={se} />}
-      <PillTabs label="Lighthouse sections" tabs={props.sections} value={props.section} onChange={props.onSection} testIdPrefix="lh-tab-" showEmojis={se} />
-      <div className={SCOPE} data-testid="lh-body" style={{ minWidth: 0, fontSize: font.checklistItem.size }}>
+      <PillTabs label="Lighthouse sections" tabs={sectionTabs} value={props.section} onChange={props.onSection} testIdPrefix="lh-tab-" showEmojis={se} />
+      <div className={SCOPE} data-testid="lh-body" data-kid-color={kidColor || undefined} style={{ minWidth: 0, fontSize: font.checklistItem.size, borderTop: kidColor ? "3px solid " + kidColor : "none", paddingTop: kidColor ? 10 : 0 }}>
         <EmojiScope showEmojis={se}>{props.children}</EmojiScope>
       </div>
     </FullViewPage>

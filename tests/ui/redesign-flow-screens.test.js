@@ -217,102 +217,28 @@ describe("Shopping", function () {
 });
 
 // ── Tide Pool ───────────────────────────────────────────────────────────────
-function tpKids() {
-  return [
-    { kidId: "k1", kidName: "June", shells: 7, chores: [{ id: "c1", name: "Make bed", pts: 1, done: true }, { id: "c2", name: "Feed cat", pts: 2, done: false }], treasures: [], rewardHistory: [{ id: "r1", name: "Movie pick", icon: "🎬", cost: 20, date: "2026-11-01T18:00:00Z" }], bonusHistory: [] },
-    { kidId: "k2", kidName: "Ollie", shells: 12, chores: [], treasures: [], rewardHistory: [], bonusHistory: [] },
-  ];
-}
-function tpProps(over) {
-  var kids = tpKids();
-  return Object.assign({
-    kids: kids, kid: kids[0], selIdx: 0, goal: 10, onSelectKid: vi.fn(), onToggleChore: vi.fn(),
-    bonusReason: "", setBonusReason: vi.fn(), onBonus: vi.fn(),
-    treasures: [{ id: "t1", name: "Extra screen time", icon: "📱", cost: 10 }, { id: "t2", name: "Special outing", icon: "🎡", cost: 35 }],
-    selectedTreasure: null, onSelectTreasure: vi.fn(), onClaim: vi.fn(), claimed: null, onDismissClaim: vi.fn(), showEmojis: false,
-  }, over || {});
-}
-
+// Under af_redesign Tide Pool keeps its original screen; TidePoolFull is only
+// the new page around it (sea-glass background, "← Flow").
 describe("Tide Pool", function () {
-  it("opens straight on the shells: count, chest drawing, shell grid, then the progress bar", async function () {
-    await render(h(TidePoolFull, tpProps()));
-    expect(q('[role="tablist"][aria-label="Tide Pool sections"]')).toBeNull(); // no Earn/Treasures/History step
-    var june = q('[data-testid="tp-kid-k1"]');
-    expect(june.querySelector('[data-testid="tp-shells"]').textContent).toBe("7");
-    expect(parseInt(june.querySelector('[data-testid="tp-shells"]').style.fontSize, 10)).toBeGreaterThanOrEqual(44);
-    expect(june.querySelector('[data-testid="tp-chest"] svg')).toBeTruthy();
-    var slots = Array.from(june.querySelectorAll('[data-testid="tp-slot"]'));
-    expect(slots.length).toBe(12); // 7 earned + 5 ahead (the original rule)
-    expect(slots.filter(function (x) { return x.getAttribute("data-earned") === "true"; }).length).toBe(7);
-    var grid = june.querySelector('[data-testid="tp-shell-grid"]'), bar = june.querySelector('[role="progressbar"]');
-    expect(grid.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // bar under the shells
-    expect(bar.getAttribute("aria-valuenow")).toBe("7");
-    expect(bar.getAttribute("aria-valuemax")).toBe("10");
-    expect(bar.firstChild.style.width).toBe("70%");
-    expect(june.textContent).toContain("3 more to open the chest");
-    expect(q('[data-testid="tp-kidpill-k2"]').textContent).toContain("Ollie");
-    var kids = tpKids();
-    await render(h(TidePoolFull, tpProps({ kid: kids[1], selIdx: 1 })));
-    var ollie = q('[data-testid="tp-kid-k2"]');
-    expect(ollie.querySelector('[role="progressbar"]').firstChild.style.width).toBe("100%");
-    expect(ollie.textContent).toContain("Chest ready to open");
-  });
-
-  it("tap an earned shell to see where it came from; tap the ready chest to open it", async function () {
-    var kids = tpKids();
-    var p = tpProps({ kid: kids[1], selIdx: 1, onTapShell: vi.fn(), onOpenChest: vi.fn(), shellSource: function () { return { reason: "Fed the cat" }; } });
-    await render(h(TidePoolFull, p));
-    await click(q('[data-testid="tp-slot"]'));
-    expect(p.onTapShell).toHaveBeenCalledWith(0);
-    await render(h(TidePoolFull, Object.assign({}, p, { tappedShellIdx: 0 })));
-    expect(q('[data-testid="tp-shell-source"]').textContent).toContain("Fed the cat");
-    await click(q('[data-testid="tp-chest"]'));
-    expect(p.onOpenChest).toHaveBeenCalled();
-    // not ready: the chest does nothing
-    var p2 = tpProps({ onOpenChest: vi.fn() });
-    await render(h(TidePoolFull, p2));
-    await click(q('[data-testid="tp-chest"]'));
-    expect(p2.onOpenChest).not.toHaveBeenCalled();
-  });
-
-  it("earn: chores use the sage check; bonus buttons +1/+2/+3 need a reason", async function () {
-    var p = tpProps();
-    await render(h(TidePoolFull, p));
-    var done = q('[data-testid="tp-chore-c1"] [data-testid="row-text"]');
-    expect(done.style.textDecoration).toBe("line-through");
-    await click(q('[data-testid="tp-chore-c2"] [data-testid="check"]'));
-    expect(p.onToggleChore).toHaveBeenCalledWith("c2");
-    [1, 2, 3].forEach(function (n) { expect(q('[data-testid="tp-earn-' + n + '"]').disabled).toBe(true); });
-    await render(h(TidePoolFull, tpProps({ bonusReason: "Helped", onBonus: p.onBonus })));
-    await click(q('[data-testid="tp-earn-2"]'));
-    expect(p.onBonus).toHaveBeenCalledWith(2);
-  });
-
-  it("treasure list: cost, what's affordable, choose then claim", async function () {
-    var kids = tpKids();
-    var p = tpProps({ kid: kids[1], selIdx: 1 });
-    await render(h(TidePoolFull, p));
-    expect(q('[data-testid="tp-treasure-t1"]')).toBeNull(); // chest closed
-    await render(h(TidePoolFull, Object.assign({}, p, { chestOpen: true })));
-    var t1 = q('[data-testid="tp-treasure-t1"]'), t2 = q('[data-testid="tp-treasure-t2"]');
-    expect(t1.textContent).toContain("Extra screen time");
-    expect(t2.textContent).toContain("23 more");
-    expect(t2.disabled).toBe(true);
-    expect(byText("button", "Claim treasure").disabled).toBe(true); // nothing chosen yet
-    await click(t1);
-    expect(p.onSelectTreasure).toHaveBeenCalledWith(p.treasures[0]);
-    p = Object.assign({}, p, { chestOpen: true });
-    await render(h(TidePoolFull, Object.assign({}, p, { selectedTreasure: p.treasures[0] })));
-    await click(q('[data-testid="tp-claim"]'));
-    expect(p.onClaim).toHaveBeenCalled();
-  });
-
-  it("showEmojis: shells read as words when off, 🐚 when on", async function () {
-    await render(h(TidePoolFull, tpProps()));
-    expect(container.textContent).not.toContain("🐚");
-    expect(container.textContent).toContain("+2 shells");
-    await render(h(TidePoolFull, tpProps({ showEmojis: true })));
-    expect(container.textContent).toContain("🐚");
+  it("wraps the original title and body in the new page with the new back button", async function () {
+    var title = h("div", { "data-testid": "orig-title" }, "🏝️ Tide Pool");
+    var body = h("div", { "data-testid": "orig-body" }, h("span", null, "🐚"), "7 shells");
+    await render(h(TidePoolFull, { title: title, textColor: "#2C2C2A" }, body));
+    var pageEl = q('[data-testid="redesign-tidepool"]');
+    expect(pageEl.getAttribute("data-redesign")).toBe("full-view");
+    expect(pageEl.style.background).toBe("rgb(230, 239, 239)"); // page.flow
+    var back = q('[data-testid="fullview-back"]');
+    expect(back.textContent).toContain("Flow");
+    var orig = q('[data-testid="tp-original"]');
+    expect(orig.style.color).toBe("rgb(44, 44, 42)"); // the theme's own text color
+    expect(orig.style.fontSize).toBe("1rem");
+    expect(orig.querySelector('[data-testid="orig-title"]').textContent).toBe("🏝️ Tide Pool");
+    expect(orig.querySelector('[data-testid="orig-body"]').textContent).toContain("🐚"); // untouched, emoji and all
+    expect(back.compareDocumentPosition(orig) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // no redesigned pieces: no section cards, no pill tabs, no subtitle
+    expect(q('[data-tone-card]')).toBeNull();
+    expect(q('[role="tablist"]')).toBeNull();
+    expect(q('[data-testid="fullview-subtitle"]')).toBeNull();
   });
 });
 
@@ -491,7 +417,6 @@ describe("App.jsx wiring", function () {
   function closure(name, next) { var a = src.indexOf("_hfRenders." + name + " = function"); var b = src.indexOf("_hfRenders." + next + " = function", a); return src.slice(a, b); }
 
   [["ShoppingTab", "HomeTab", "ShoppingFull", '<SecHead emoji="🛒" title="Shopping List"'],
-   ["TidePoolTab", "SettingSection", "TidePoolFull", "🏝️ Tide Pool"],
    ["WavesSection", "MealBankDrawer", "WavesFull", '<SecHead emoji="〰️" title="Waves"'],
    ["CalendarTab", "WeeklyTab", "CalendarFull", '<SecHead emoji="📆" title="Calendar"'],
    ["MealsTab", "RecipeBookTab", "MealsFull", '<SecHead emoji="🍽️" title="Meal Rhythm"'],
@@ -504,6 +429,19 @@ describe("App.jsx wiring", function () {
       expect(legacy).toBeGreaterThan(rd);
       expect(body.slice(Math.max(0, rd - 1200), rd)).toMatch(/if\s*\(\s*REDESIGN[\s)&]/);
     });
+  });
+
+  it("TidePoolTab: flag on renders the original title and body (shared with flag off) inside TidePoolFull", function () {
+    var body = closure("TidePoolTab", "SettingSection");
+    expect(body).toContain("<TidePoolFull title={tpTitle} textColor={T.textDark}>{tpBody}</TidePoolFull>");
+    expect(body).toContain("<TidePoolFull title={tpEmptyTitle} textColor={T.textDark}>{tpEmptyCard}</TidePoolFull>");
+    expect(body).toMatch(/if \(REDESIGN\) \{\s*return <TidePoolFull title=\{tpTitle\}/);
+    // flag off: the same header (← to Anchor) around the same pieces
+    expect(body).toMatch(/goTab\("anchor"\)[\s\S]*\{tpTitle\}\s*<\/div>\s*\{tpBody\}/);
+    // the original chest and shells are in the shared body
+    var shared = body.slice(body.indexOf("var tpBody = ("), body.indexOf("if (REDESIGN) {\n      return <TidePoolFull"));
+    expect(shared).toContain('fill="#8B5E2A"');
+    expect(shared).toContain('{earned?"🐚":""}');
   });
 
   it("legacy bodies shared with the redesign get HomeFlow's own style helpers when the flag is off", function () {

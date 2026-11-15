@@ -212,3 +212,60 @@ describe("design tokens", function () {
     expect(initialsFor("")).toBe("");
   });
 });
+
+// ── More approved colors: Waves, Calendar, Lighthouse ───────────────────────
+import { accentTone, waveTone, calendarTones, schoolTones, subjectTone } from "../../src/design/tokens.js";
+import { eventTone } from "../../src/redesign/fullViewData.js";
+import { lhChipStyle, lhRowStyle, lhTextStyle, LH_AREA_TONE, lhAreaTone, kidTone } from "../../src/redesign/lighthouseColors.js";
+
+describe("approved color mix (af_redesign)", function () {
+  function lum2(hex) { var c = [1, 3, 5].map(function (i) { var v = parseInt(hex.substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+  function hue(hex) { var n = parseInt(hex.slice(1), 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255; var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; var l = (mx + mn) / 2; return { h: h, s: d ? d / (1 - Math.abs(2 * l - 1)) : 0 }; }
+
+  it("accent tones pass AA (white on full, ink on tint) and none is purple or pink", function () {
+    Object.keys(accentTone).forEach(function (k) {
+      var t = accentTone[k];
+      expect(1.05 / (lum2(t.full) + 0.05)).toBeGreaterThanOrEqual(4.5);
+      expect((lum2(t.tint) + 0.05) / (lum2(t.ink) + 0.05)).toBeGreaterThanOrEqual(4.5);
+      [t.tint, t.full, t.ink].forEach(function (x) { var c = hue(x); expect(c.s > 0.12 && c.h >= 260 && c.h <= 345).toBe(false); });
+    });
+  });
+
+  it("Waves: each rhythm has its own color, and not all blue", function () {
+    var fulls = ["daily", "weekly", "seasonal", "custom"].map(function (k) { return waveTone[k].full; });
+    expect(new Set(fulls).size).toBe(4);
+    expect(fulls.filter(function (f) { var h = hue(f).h; return h >= 195 && h < 260; }).length).toBe(0);
+  });
+
+  it("Calendar: default-blue events spread over the palette; chosen colors keep their family; pink lands on gold", function () {
+    var titles = ["Dentist", "Soccer", "Piano", "Library day", "Field trip", "Date night", "Swim", "Book club", "Co-op", "Vet"];
+    var seen = new Set(titles.map(function (t) { return eventTone({ title: t, color: "#6A9BB5" }).full; }));
+    expect(seen.size).toBeGreaterThanOrEqual(4);
+    expect(eventTone({ title: "x", color: "#7A9E8E" })).toBe(calendarTones[0]); // sage stays sage
+    expect(eventTone({ title: "Birthday", color: "#c878a8" })).toBe(accentTone.gold);
+    expect(eventTone({ title: "same" })).toBe(eventTone({ title: "same" })); // stable
+  });
+
+  it("Lighthouse: subjects get distinct school colors; seven-color palette, no purple/pink", function () {
+    expect(Object.keys(schoolTones).sort()).toEqual(["blue", "denim", "mustard", "sage", "sandGold", "teal", "terracotta"]);
+    var subs = ["Math", "Reading", "Science", "History", "PE", "Art", "Music"];
+    expect(new Set(subs.map(function (s) { return subjectTone(s).full; })).size).toBe(7);
+    expect(subjectTone("Algebra")).toBe(subjectTone("Math"));
+    expect(subjectTone("Bible")).toBe(subjectTone("bible"));
+    Object.keys(LH_AREA_TONE).forEach(function (k) { expect(LH_AREA_TONE[k]).toBeTruthy(); });
+    expect(lhAreaTone("plan-week")).toBe(LH_AREA_TONE.plan);
+    expect(new Set(Object.keys(LH_AREA_TONE).map(function (k) { return LH_AREA_TONE[k].full; })).size).toBe(5);
+  });
+
+  it("Lighthouse helpers leave flag-off styles untouched", function () {
+    var base = { color: "#6ABAAA", fontSize: "0.65rem" };
+    expect(lhChipStyle(false, "Math", base)).toBe(base);
+    expect(lhRowStyle(false, "Math", base)).toBe(base);
+    expect(lhTextStyle(false, "Math", base)).toBe(base);
+    expect(lhChipStyle(true, "", base)).toBe(base);
+    expect(lhChipStyle(true, "Math", base).background).toBe(subjectTone("Math").full);
+    expect(lhRowStyle(true, "Math", base).background).toBe(subjectTone("Math").tint);
+    var k = kidTone("#7A9E8E");
+    expect(1.05 / (lum2(k.full) + 0.05)).toBeGreaterThanOrEqual(4.5);
+  });
+});

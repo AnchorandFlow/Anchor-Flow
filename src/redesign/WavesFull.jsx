@@ -3,9 +3,11 @@
 // every write (af_exhale_waves + dirty-mark, resets, undo); this file is markup
 // plus local UI state only. Sub-sections (Daily / Weekly / Seasonal / Custom)
 // are pill tabs; each wave is a white card of checkable tasks, with an Edit
-// mode for renaming, schedule, tasks and delete.
+// mode for renaming, schedule, tasks and delete. Each rhythm has its own
+// color (tokens.waveTone): its pill, and every card while it is selected.
 import { useState } from "react";
-import { FullViewPage, FullViewHeader, PillTabs, Card, CheckRow, Empty, PillButton } from "./FullView.jsx";
+import { waveTone } from "../design/tokens.js";
+import { FullViewPage, FullViewHeader, PillTabs, Card, CheckRow, Empty, PillButton, ToneScope } from "./FullView.jsx";
 import { inputStyle, MUTED, HAIRLINE } from "./fullViewKit.js";
 
 var TYPES = [
@@ -142,15 +144,19 @@ export default function WavesFull(props) {
   var [type, setType] = useState("daily");
   var waves = props.waves || {};
   var list = waves[type] || [];
-  var tabs = TYPES.map(function (t) { return { id: t.id, label: t.label, count: (waves[t.id] || []).length || null }; });
+  var tabs = TYPES.map(function (t) { return { id: t.id, label: t.label, count: (waves[t.id] || []).length || null, tone: waveTone[t.id] }; });
   var x = props.api;
   return (
     <FullViewPage section="waves" testId="redesign-waves">
       <FullViewHeader title="Waves" emoji="〰️" showEmojis={se} subtitle="Routines that reset on their own" />
       <PillTabs label="Wave types" tabs={tabs} value={type} onChange={setType} testIdPrefix="waves-tab-" showEmojis={se} />
-      {!list.length && <Card><Empty>{"No " + TYPES.filter(function (t) { return t.id === type; })[0].noun + "s yet."}</Empty></Card>}
-      {list.map(function (w) { return <WaveCard key={w.id} wave={w} type={type} api={x} />; })}
-      <AddWave key={type} type={type} api={x} />
+      <ToneScope tone={waveTone[type]}>
+        <div data-testid="waves-rhythm" data-rhythm={type} style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+          {!list.length && <Card><Empty>{"No " + TYPES.filter(function (t) { return t.id === type; })[0].noun + "s yet."}</Empty></Card>}
+          {list.map(function (w) { return <WaveCard key={w.id} wave={w} type={type} api={x} />; })}
+          <AddWave key={type} type={type} api={x} />
+        </div>
+      </ToneScope>
       {props.footer}
     </FullViewPage>
   );

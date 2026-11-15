@@ -65,13 +65,14 @@ export function FullViewHeader(props) {
   );
 }
 
-// tabs: [{ id, label, emoji?, count? }]
+// tabs: [{ id, label, emoji?, count?, tone? }]
 export function PillTabs(props) {
-  var tn = useTone();
+  var tnDefault = useTone();
   return (
     <div role="tablist" aria-label={props.label} style={{ display: "flex", flexWrap: "wrap", gap: 8, minWidth: 0 }}>
       {props.tabs.map(function (t) {
         var on = t.id === props.value;
+        var tn = t.tone || tnDefault; // a tab may carry its own tone
         var glyph = t.emoji ? emo(props.showEmojis, t.emoji) : null;
         return (
           <button key={t.id} type="button" role="tab" aria-selected={on} data-testid={(props.testIdPrefix || "pill-") + t.id}
@@ -85,6 +86,12 @@ export function PillTabs(props) {
       })}
     </div>
   );
+}
+
+// Gives the cards and pills inside it a different tone than the page's
+// section tone (e.g. one Waves rhythm, one Lighthouse area).
+export function ToneScope(props) {
+  return <ToneContext.Provider value={props.tone || toneFor(props.section)}>{props.children}</ToneContext.Provider>;
 }
 
 export function Card(props) {

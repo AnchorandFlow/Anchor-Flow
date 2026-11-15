@@ -2,7 +2,7 @@
 // views (af_redesign). Existing data and keys only.
 import { eventsOn, workersOn, personColor, ymd } from "./flowData.js";
 import { resolveForPerson } from "../sync-core.js";
-import { initialsFor } from "../design/tokens.js";
+import { initialsFor, tone, accentTone, calendarTones, hashIndex } from "../design/tokens.js";
 
 var UNCAT = "__uncat__";
 
@@ -64,4 +64,36 @@ export function monthCells(year, month) {
   for (var i = 0; i < first; i++) cells.push(null);
   for (var dnum = 1; dnum <= days; dnum++) cells.push(new Date(year, month, dnum));
   return cells;
+}
+
+// ── Calendar event colors ───────────────────────────────────────────────────
+var DEFAULT_EVENT_COLOR = "#6a9bb5"; // the add-event form's default
+
+function hueSat(hex) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return null;
+  var n = parseInt(m[1], 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = Math.round(h * 60); if (h < 0) h += 360;
+  var l = (mx + mn) / 2, sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  return { h: h, s: sat };
+}
+// An event's tone. Purple/pink stored colors (birthdays, celebrations) land
+// on gold, since the redesign has no purple or pink outside Sunset.
+export function eventTone(e) {
+  var c = String((e && e.color) || "").toLowerCase();
+  var hs = c && c !== DEFAULT_EVENT_COLOR ? hueSat(c) : null;
+  // Blue-family stored colors (the form default and its neighbors, which is
+  // most events) are treated as "no color chosen" and spread like unset ones.
+  if (hs && hs.s >= 0.18 && !(hs.h >= 195 && hs.h < 260)) {
+    var h = hs.h;
+    if (h >= 260 || h < 20) return accentTone.gold;
+    if (h < 45) return tone.sand;
+    if (h < 70) return accentTone.gold;
+    if (h < 150) return tone.sage;
+    if (h < 172) return accentTone.seafoam;
+    return tone.teal;
+  }
+  return calendarTones[hashIndex((e && (e.title || e.id)) || "", calendarTones.length)];
 }

@@ -122,7 +122,8 @@ export var REDESIGN_STEPS = {
   meals: [["This Week", null], ["Edit modal", "Edit"], ["Edit closed", "Cancel"], ["Next Week", "Next Week"], ["Month", "Month"], ["Prep", "Prep"], ["SOS", "SOS"], ["Meal Bank", "Meal Bank"], ["Recipes", "Recipes"]],
   calendar: [["Month", null], ["Selected day", "13"], ["Week", "Week"], ["Day", "Day"], ["Work schedules", "Work schedules"], ["Year", "Year"]],
   waves: [["Daily", null], ["Edit wave", "Edit"], ["Weekly", "Weekly"], ["Seasonal", "Seasonal"], ["Custom", "Custom"], ["New wave", "New custom wave"]],
-  tidepool: [["Shells", null], ["Shell tapped", "#tp-slot"], ["Chest open", "#tp-chest"], ["Ollie", "Ollie"]],
+  // Tide Pool keeps its original screen (no testids): first kid, then Ollie.
+  tidepool: [["Shells", null], ["Ollie", "Ollie"]],
   lighthouse: [["Overview", null], ["Plan", "Plan"], ["Plan Month", "Month"], ["Records", "Records"], ["Growth", "Growth"], ["Library", "Library"], ["Ollie", "Ollie"]],
 };
 

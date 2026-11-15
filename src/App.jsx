@@ -38,7 +38,9 @@ import WavesFull from "./redesign/WavesFull.jsx"
 import CalendarFull from "./redesign/CalendarFull.jsx"
 import MealsFull, { PrepTask } from "./redesign/MealsFull.jsx"
 import LighthouseFull from "./redesign/LighthouseFull.jsx"
-import { rdLegacyKit, RD_YEAR_CAT_COLORS, RD_T, RD_LH_CARD, goAnchor } from "./redesign/fullViewKit.js"
+import { LH_AREA_TONE, LH_DASH_TONE, lhAreaTone, lhChipStyle, lhRowStyle, lhTextStyle, lhSectionCard, lhSectionHead, lhDashCard } from "./redesign/lighthouseColors.js"
+import { personColor as rdPersonColor } from "./redesign/flowData.js"
+import { rdLegacyKit, RD_YEAR_CAT_COLORS, RD_T, goAnchor } from "./redesign/fullViewKit.js"
 import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
 import { AnchorScreen, AnchorCard, AnchorBody } from "./redesign/AnchorFullView.jsx"
 import { EmojiScope } from "./redesign/FullView.jsx"
@@ -12841,28 +12843,34 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       };
     }, []);
 
-    // af_redesign: redesigned empty state (flag off never reaches this).
-    if (REDESIGN && kids.length === 0) return <TidePoolFull kids={[]} showEmojis={showEmojis}/>;
     // No kids in the household yet (and getDefaultTidePoolData no longer
     // fakes one — see its own comment) — show an explicit empty state
     // instead of dereferencing an undefined `kid` below.
     if (kids.length === 0) {
+      var tpEmptyTitle = (
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
+              <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
+            </div>
+      );
+      var tpEmptyCard = (
+          <div style={{...card({background:"transparent",border:"1.5px dashed "+T.borderSoft,textAlign:"center",padding:"2rem 1rem"})}}>
+            <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🏝️</div>
+            <p style={{fontWeight:600,fontSize:"0.9rem",color:T.textMid,margin:"0 0 0.35rem"}}>No kids added yet</p>
+            <p style={{color:T.textFaint,fontSize:"0.8rem",margin:0}}>Add a child in Settings → Family to start using Tide Pool.</p>
+          </div>
+      );
+      // af_redesign: the original empty state inside the new page frame.
+      if (REDESIGN) return <TidePoolFull title={tpEmptyTitle} textColor={T.textDark}>{tpEmptyCard}</TidePoolFull>;
       return (
         <div>
           <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
             <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
               <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
             </button>
-            <div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
-              <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
-            </div>
+            {tpEmptyTitle}
           </div>
-          <div style={{...card({background:"transparent",border:"1.5px dashed "+T.borderSoft,textAlign:"center",padding:"2rem 1rem"})}}>
-            <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🏝️</div>
-            <p style={{fontWeight:600,fontSize:"0.9rem",color:T.textMid,margin:"0 0 0.35rem"}}>No kids added yet</p>
-            <p style={{color:T.textFaint,fontSize:"0.8rem",margin:0}}>Add a child in Settings → Family to start using Tide Pool.</p>
-          </div>
+          {tpEmptyCard}
         </div>
       );
     }
@@ -12970,51 +12978,16 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var sandHex = "#c8a97a";
     var tealHex = "#1d9e75";
 
-    // af_redesign: the redesigned full view. Same state and the same write
-    // paths (toggleChore / planBonus / claimTreasure) as below; only the
-    // markup differs. Flag off never reaches this.
-    if (REDESIGN) {
-      var rdSel = Math.min(selIdx, kids.length-1);
-      var rdKids = kids.map(function(k){
-        if(!TIDEPOOL_V2) return k;
-        var b = tpLedger.loaded ? (tpLedger.balances[k.kidId]||0) : null;
-        return Object.assign({}, k, { shells: b==null ? (k.shells||0) : b });
-      });
-      return (
-        <TidePoolFull
-          kids={rdKids} kid={kid} selIdx={rdSel} goal={COVE_MIN_OPEN}
-          onSelectKid={function(i){ setSelIdx(i); setChestOpen(false); setSelectedTreasure(null); setClaimed(null); setTappedShellIdx(null); }}
-          onToggleChore={toggleChore}
-          bonusReason={flyName} setBonusReason={setFlyName}
-          onBonus={function(pts){
-            if(!flyName.trim()) return;
-            var plan = planBonus(kid, flyName.trim(), pts, tpPlanOpts());
-            updateKid(plan.patch);
-            recordTidePoolEvent(householdId, plan.event);
-            setFlyName("");
-          }}
-          treasures={sortedTreasures}
-          selectedTreasure={selectedTreasure} onSelectTreasure={function(t){ setClaimed(null); setSelectedTreasure(t); }}
-          onClaim={claimTreasure} claimed={claimed} onDismissClaim={function(){ setClaimed(null); }}
-          chestOpen={chestOpen} onOpenChest={openChest} onCloseChest={closeChest}
-          tappedShellIdx={tappedShellIdx} onTapShell={function(i){ setTappedShellIdx(function(prev){ return prev===i?null:i; }); }}
-          shellSource={shellSourceForIndex}
-          showEmojis={showEmojis}
-        />
-      );
-    }
-
-    return (
-      <div>
-        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
-          <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
-            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
-          </button>
+    // The original Tide Pool title and body, shared by both flag states so
+    // af_redesign shows the screen exactly as it was (fragments add no DOM).
+    var tpTitle = (
           <div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.55rem",fontWeight:700,color:T.textDark,letterSpacing:"0.04em"}}>🏝️ Tide Pool</div>
             <div style={{fontSize:"0.78rem",color:T.textSoft,marginTop:"2px"}}>Earn shells, open the chest, choose your treasure</div>
           </div>
-        </div>
+    );
+    var tpBody = (
+      <>
 
         {/* Kid selector */}
         {kids.length > 1 && (
@@ -13227,6 +13200,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             )}
           </div>
         </div>
+      </>
+    );
+
+    // af_redesign: the original Tide Pool screen, unchanged, inside the new
+    // page background with the new back button (TidePoolFull is only that
+    // frame). Same state and write paths. Flag off never reaches this.
+    if (REDESIGN) {
+      return <TidePoolFull title={tpTitle} textColor={T.textDark}>{tpBody}</TidePoolFull>;
+    }
+
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.25rem"}}>
+          <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 4px",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0}}>
+            <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
+          </button>
+          {tpTitle}
+        </div>
+        {tpBody}
       </div>
     );
   }
@@ -14785,6 +14777,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     if (REDESIGN) LC = { cream:RD_T.bg, seaglass:"#4D7A6A", navy:RD_T.textDark };
     var LH_ROSE = REDESIGN ? "#8F4F44" : "#C4849A";
     var LH_VIOLET = REDESIGN ? "#5E8FA0" : "#8878b8";
+    // af_redesign: subject colors and the child's person-color accent (see
+    // src/redesign/lighthouseColors.js). Flag off, these return `base` as is.
+    function lhChip(name, base, textOnly) { return lhChipStyle(REDESIGN, name, base, textOnly); }
+    function lhRow(name, base, extra) { return lhRowStyle(REDESIGN, name, base, extra); }
+    function lhText(name, base) { return lhTextStyle(REDESIGN, name, base); }
+    function lhKidColor() { return REDESIGN ? (rdPersonColor(activeChild, people, personIsMinor) || null) : null; }
     var todayIso = (function(){ var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); })();
 
     // Collapsible-section state, shared by every card/section across all 5 tabs.
@@ -14816,10 +14814,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var pair = useSectionOpen(opts.tabName, opts.sectionName, opts.defaultOpen);
       var open = pair[0], toggle = pair[1];
       return (
-        <div style={REDESIGN ? RD_LH_CARD : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", marginBottom:"0.85rem", overflow:"hidden" }}>
-          <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.5rem", padding:"1rem", cursor:"pointer" }}>
+        <div data-lh-area={REDESIGN ? String(opts.tabName||"").split("-")[0] : undefined} style={REDESIGN ? lhSectionCard(lhAreaTone(opts.tabName), lhKidColor()) : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", marginBottom:"0.85rem", overflow:"hidden" }}>
+          <div onClick={toggle} style={Object.assign({ display:"flex", alignItems:"center", gap:"0.5rem", padding:"1rem", cursor:"pointer" }, REDESIGN ? Object.assign(lhSectionHead(lhAreaTone(opts.tabName)), { marginBottom: open ? "0.75rem" : 0 }) : null)}>
             <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
-            <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:LC.navy, flex:1 }}>{opts.title}</span>
+            <span style={{ fontFamily:"Cormorant Garamond, serif", fontSize:"1.05rem", color:REDESIGN ? lhAreaTone(opts.tabName).ink : LC.navy, flex:1, fontWeight:REDESIGN ? 700 : undefined }}>{opts.title}</span>
             {opts.right}
             {Chevron(open)}
           </div>
@@ -14832,10 +14830,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
       var pair = useSectionOpen("overview", opts.sectionKey, opts.defaultOpen);
       var open = pair[0], toggle = pair[1];
       return (
-        <div style={REDESIGN ? Object.assign({}, RD_LH_CARD, { padding:"1rem", marginBottom:0, display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }) : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }}>
+        <div data-lh-dash={REDESIGN ? opts.sectionKey : undefined} style={REDESIGN ? Object.assign(lhDashCard(LH_DASH_TONE[opts.sectionKey] || LH_AREA_TONE.overview, lhKidColor()), { padding:"1rem 1rem 1rem 1.2rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }) : { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.9rem", padding:"1rem", display:"flex", flexDirection:"column", gap: open?"0.55rem":0 }}>
           <div onClick={toggle} style={{ display:"flex", alignItems:"center", gap:"0.4rem", cursor:"pointer" }}>
             <span style={{ fontSize:"1.05rem" }}>{opts.emoji}</span>
-            <span style={{ fontWeight:700, color:LC.navy, fontSize:"0.85rem", flex:1 }}>{opts.title}</span>
+            <span style={{ fontWeight:700, color:REDESIGN ? (LH_DASH_TONE[opts.sectionKey] || LH_AREA_TONE.overview).ink : LC.navy, fontSize:"0.85rem", flex:1 }}>{opts.title}</span>
             {Chevron(open)}
           </div>
           {open && <div style={{ fontSize:"0.83rem", color:opts.muted?"#9a9488":"#4a4a44", lineHeight:1.5 }}>{opts.body}</div>}
@@ -15402,7 +15400,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {dueTodayOrOverdue.map(function(hw) {
                 var overdue = hw.due && hw.due < todayIso;
                 return (
-                  <div key={hw.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                  <div key={hw.id} style={lhRow(hw.subj, { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem", display:"flex", alignItems:"center", gap:"0.5rem" })}>
                     <input type="checkbox" checked={hw.status==="Done"} onChange={function(){ applySchool({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{status:h.status==="Done"?"Not started":"Done"}) : h; }) }); }} style={{ cursor:"pointer", flexShrink:0 }}/>
                     <div style={{ flex:1 }}>
                       <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{hw.task}</div>
@@ -15472,12 +15470,12 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {entries.length === 0 && lhAddMode !== "today-entry" && <div style={{ color:"#9a9488", textAlign:"center", padding:"1.5rem 0", fontSize:"0.85rem" }}>Nothing planned for today yet.</div>}
               {entries.map(function(e) {
                 return (
-                  <div key={e.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem" }}>
+                  <div key={e.id} style={lhRow(e.subject, { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.65rem 0.85rem", marginBottom:"0.5rem" })}>
                     <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
                       <input type="checkbox" checked={!!e.done} onChange={function(){ saveEntriesFor(todayIso, entries.map(function(x){ return x.id===e.id ? Object.assign({},x,{done:!x.done}) : x; })); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
                       <div style={{ flex:1 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
-                          <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{e.subject}</span>
+                          <span style={lhChip(e.subject, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{e.subject}</span>
                           {e.title && <span style={{ fontSize:"0.84rem", fontWeight:600, color:e.done?"#9a9488":"#3a3a34", textDecoration:e.done?"line-through":"none" }}>{e.title}</span>}
                         </div>
                         {e.notes && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{e.notes}</div>}
@@ -15557,10 +15555,10 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {subjects.length === 0 && !isAdding && <div style={{ color:"#9a9488", fontSize:"0.8rem", fontStyle:"italic" }}>No subjects planned</div>}
             {subjects.map(function(s, idx) {
               return (
-                <div key={s.id||idx} style={{ padding:"0.4rem 0", borderBottom:"1px solid #F0EBDF" }}>
+                <div key={s.id||idx} style={lhRow(s.name, { padding:"0.4rem 0", borderBottom:"1px solid #F0EBDF" }, { padding:"0.45rem 0.65rem", borderRadius:"0.7rem", marginBottom:"0.35rem" })}>
                   <div style={{ display:"flex", alignItems:"center", gap:"0.4rem" }}>
                     <input type="checkbox" checked={!!s.done} onChange={function(){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{done:!x.done}) : x; }); saveDayPlan(day,{subjects:next}); }} style={{ cursor:"pointer", flexShrink:0 }}/>
-                    <span style={{ fontSize:"0.68rem", fontWeight:800, color:LC.seaglass, flexShrink:0 }}>{s.name}</span>
+                    <span style={lhChip(s.name, { fontSize:"0.68rem", fontWeight:800, color:LC.seaglass, flexShrink:0 }, true)}>{s.name}</span>
                     <input defaultValue={s.title||""} onBlur={function(e){ var next=subjects.map(function(x,i){ return i===idx ? Object.assign({},x,{title:e.target.value}) : x; }); saveDayPlan(day,{subjects:next}); }} placeholder="Lesson title" style={{ flex:1, minWidth:0, fontSize:"0.82rem", color:s.done?"#9a9488":"#3a3a34", textDecoration:s.done?"line-through":"none", border:"none", background:"transparent", outline:"none", fontFamily:"inherit" }}/>
                     <button type="button" onClick={function(){ addSubjectToCalendar(s); }} title="Add to Calendar" style={{ background:"none", border:"none", cursor:"pointer", color: addedSubjIds[s.id] ? LC.seaglass : "#8a8578", fontSize:"0.74rem", flexShrink:0 }}>{addedSubjIds[s.id] ? "✓" : "📅"}</button>
                     <button type="button" onClick={function(){ saveDayPlan(day,{ subjects: subjects.filter(function(_,i){ return i!==idx; }) }); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.72rem", flexShrink:0 }}>✕</button>
@@ -15783,9 +15781,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {weekEntries.length === 0 && <div style={{ color:"#9a9488", fontSize:"0.82rem", fontStyle:"italic", padding:"0.3rem 0" }}>No curriculum planned for {curWeek} yet.</div>}
               {weekEntries.map(function(entry) {
                 return (
-                  <div key={entry.id} style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" }}>
+                  <div key={entry.id} style={lhRow(entry.subject, { display:"flex", alignItems:"flex-start", gap:"0.5rem", background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.55rem 0.8rem", marginBottom:"0.4rem" })}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" }}>{entry.subject}</div>
+                      <div style={lhText(entry.subject, { fontSize:"0.82rem", fontWeight:700, color:"#3a3a34" })}>{entry.subject}</div>
                       {entry.material && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.15rem" }}>{entry.material}</div>}
                     </div>
                     <button type="button" onClick={function(){ saveCurriculumWeek(curWeek, weekEntries.filter(function(x){ return x.id!==entry.id; })); }} style={{ background:"none", border:"none", cursor:"pointer", color:LH_ROSE, fontSize:"0.75rem" }}>✕</button>
@@ -15831,7 +15829,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                       ? <div style={{ color:"#9a9488", fontSize:"0.78rem", fontStyle:"italic", marginTop:"0.25rem" }}>No subjects planned</div>
                       : <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem" }}>
                           {subjects.map(function(s) {
-                            return <span key={s.id} style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.68rem", fontWeight:700, borderRadius:"2rem", padding:"2px 9px" }}>{s.name}</span>;
+                            return <span key={s.id} style={lhChip(s.name, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.68rem", fontWeight:700, borderRadius:"2rem", padding:"2px 9px" })}>{s.name}</span>;
                           })}
                         </div>
                     }
@@ -16139,9 +16137,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 );
               }
               return (
-                <div key={r.id} style={{ background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
+                <div key={r.id} style={lhRow(r.subject, { background:"#fff", border:"1px solid #E7E1D4", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.45rem", display:"flex", alignItems:"flex-start", gap:"0.5rem" })}>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.subject}</div>
+                    <div style={lhText(r.subject, { fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{r.subject}</div>
                     {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
                     {r.website && <div style={{ fontSize:"0.74rem", color:"#8a8578" }}>{r.website}</div>}
                   </div>
@@ -16323,7 +16321,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div key={t.id} style={itemRowStyle}>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{t.name}</div>
-                    {t.subject && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{t.subject}</div>}
+                    {t.subject && <div style={lhText(t.subject, { fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 })}>{t.subject}</div>}
                     {(t.email||t.phone) && <div style={{ fontSize:"0.75rem", color:"#8a8578" }}>{[t.email,t.phone].filter(Boolean).join(" · ")}</div>}
                     {t.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", fontStyle:"italic", marginTop:"0.2rem" }}>{t.notes}</div>}
                   </div>
@@ -16594,7 +16592,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               var hasAction = entry.action && entry.action.trim() !== "";
               return (
-                <div key={entry.id} style={{ background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.5rem" }}>
+                <div key={entry.id} style={lhRow(entry.subject, { background:"#FBF9F4", border:"1px solid #F0EBDF", borderRadius:"0.7rem", padding:"0.6rem 0.85rem", marginBottom:"0.5rem" })}>
                   <div style={{ display:"flex", alignItems:"flex-start", gap:"0.5rem" }}>
                     <div style={{ flex:1 }}>
                       {entry.subject && <div style={{ fontWeight:700, fontSize:"0.85rem", color:"#3a3a34" }}>{entry.subject}</div>}
@@ -16656,7 +16654,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {sorted.map(function(hw) {
               var isDone = hw.status==="Done" || hw.status==="Turned in";
               return (
-                <div key={hw.id} style={itemRowStyle}>
+                <div key={hw.id} style={lhRow(hw.subj, itemRowStyle)}>
                   <input type="checkbox" checked={isDone} onChange={function(){ applySchoolLh({ homework: homework.map(function(h){ return h.id===hw.id ? Object.assign({},h,{ status:isDone?"Not started":"Done" }) : h; }) }); }} style={{ cursor:"pointer", flexShrink:0, marginTop:"2px" }}/>
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:"0.86rem", color:isDone?"#9a9488":"#3a3a34", textDecoration:isDone?"line-through":"none" }}>{hw.task}</div>
@@ -17014,9 +17012,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               }
               var col = markColor(row.mark);
               return (
-                <div key={row.id} style={itemRowStyle}>
+                <div key={row.id} style={lhRow(row.subject, itemRowStyle)}>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:600, fontSize:"0.86rem", color:"#3a3a34" }}>{row.subject}</div>
+                    <div style={lhText(row.subject, { fontWeight:600, fontSize:"0.86rem", color:"#3a3a34" })}>{row.subject}</div>
                     {row.comment && <div style={{ fontSize:"0.76rem", color:"#8a8578", marginTop:"0.2rem" }}>{row.comment}</div>}
                   </div>
                   {row.mark && <span style={{ fontSize:"0.7rem", fontWeight:700, color:col, background:col+"22", padding:"0.12rem 0.55rem", borderRadius:"99px", flexShrink:0 }}>{row.mark}</span>}
@@ -17111,11 +17109,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 );
               }
               return (
-                <div key={p.id} style={itemRowStyle}>
+                <div key={p.id} style={lhRow(p.subject, itemRowStyle)}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:"0.4rem", flexWrap:"wrap" }}>
                       {p.date && <span style={{ fontSize:"0.72rem", color:"#8a8578", fontWeight:700 }}>{fmtMonthDay(p.date)}</span>}
-                      {p.subject && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{p.subject}</span>}
+                      {p.subject && <span style={lhChip(p.subject, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{p.subject}</span>}
                     </div>
                     <div style={{ fontSize:"0.83rem", color:"#3a3a34", marginTop:"0.25rem" }}>{p.note}</div>
                     {p.photoUrl && <a href={p.photoUrl} target="_blank" rel="noreferrer" style={{ fontSize:"0.74rem", color:LC.seaglass }}>📷 view photo</a>}
@@ -17377,7 +17375,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.35rem", alignItems:"center" }}>
                   <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{statusLabel}</span>
                   {b.fmt && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{b.fmt}</span>}
-                  {b.subj && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{b.subj}</span>}
+                  {b.subj && <span style={lhChip(b.subj, { fontSize:"0.7rem", color:"#8a8578" })}>{b.subj}</span>}
                 </div>
                 {b.rating>0 && <div style={{ marginTop:"0.25rem" }}>{starDisplay(b.rating)}</div>}
                 {b.note && <div style={{ fontSize:"0.78rem", color:"#5a5a50", marginTop:"0.25rem" }}>{b.note}</div>}
@@ -17553,11 +17551,11 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           }
           var childName = r.childId ? ((learningKids.find(function(p){ return p.id===r.childId; })||{}).name||"") : "";
           return (
-            <div key={r.id} style={itemRowStyle}>
+            <div key={r.id} style={lhRow(r.subject, itemRowStyle)}>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.title}</div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:"0.35rem", marginTop:"0.25rem" }}>
-                  {r.subject && <span style={{ background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" }}>{r.subject}</span>}
+                  {r.subject && <span style={lhChip(r.subject, { background:LC.seaglass+"22", color:LC.seaglass, fontSize:"0.65rem", fontWeight:800, borderRadius:"2rem", padding:"1px 8px" })}>{r.subject}</span>}
                   {r.gradeLevel && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{r.gradeLevel}</span>}
                   {childName && <span style={{ fontSize:"0.7rem", color:"#8a8578" }}>{childName}</span>}
                 </div>
@@ -17601,9 +17599,9 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               {resourceRecords.length===0 && <div style={emptyTextStyle}>No curricula added yet. Add subjects in Plan to see them here.</div>}
               {resourceRecords.map(function(r) {
                 return (
-                  <div key={r.id} style={itemRowStyle}>
+                  <div key={r.id} style={lhRow(r.subject, itemRowStyle)}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" }}>{r.subject}</div>
+                      <div style={lhText(r.subject, { fontWeight:700, fontSize:"0.86rem", color:"#3a3a34" })}>{r.subject}</div>
                       {r.name && <div style={{ fontSize:"0.78rem", color:LC.seaglass, fontWeight:600 }}>{r.name}</div>}
                       {r.website && <a href={r.website.indexOf("http")===0?r.website:"https://"+r.website} target="_blank" rel="noreferrer" style={{ fontSize:"0.75rem", color:"#7A95B8", display:"block", marginTop:"0.15rem" }}>🔗 {r.website}</a>}
                       {r.notes && <div style={{ fontSize:"0.74rem", color:"#8a8578", marginTop:"0.2rem" }}>{r.notes}</div>}
@@ -17722,7 +17720,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // state, same writes). Flag off never reaches this.
     if (REDESIGN) return (
       <LighthouseFull
-        children_={learningKids.map(function(p){ return { id:p.id, name:p.name, mode:modes[p.id]||null }; })}
+        children_={learningKids.map(function(p){ return { id:p.id, name:p.name, mode:modes[p.id]||null, color:rdPersonColor(p.id, people, personIsMinor) }; })}
         activeChild={activeChild} onChild={setActiveChild}
         sections={LEARNING_TABS} section={learningSubTab} onSection={setLearningSubTab}
         showEmojis={showEmojis}>

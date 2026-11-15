@@ -35,6 +35,54 @@ export var tone = {
   navy: { tint: "#D9DFEA", full: "#1B2B44", ink: "#1B2B44" },
 };
 
+// More approved tones for screens that need several colors at once (Waves'
+// rhythms, Calendar events and days, Lighthouse subjects). Same shape and
+// contrast rules as `tone`. Still no purple or pink.
+export var accentTone = {
+  gold: { tint: "#F3E6C4", full: "#86681F", ink: "#5A4512" },
+  seafoam: { tint: "#D7EEE6", full: "#3B7F6B", ink: "#21533F" },
+  terracotta: { tint: "#F2DCD1", full: "#A0533A", ink: "#6C3321" },
+  mustard: { tint: "#F1E6B2", full: "#7C6510", ink: "#524208" },
+  denim: { tint: "#D8E1EE", full: "#3D5E8A", ink: "#253F63" },
+};
+
+// Waves: one color per rhythm.
+export var waveTone = {
+  daily: tone.teal, weekly: tone.sage, seasonal: accentTone.gold, custom: tone.sand,
+};
+
+// Calendar: the event/day palette (blue is one of six, not the default).
+export var calendarTones = [tone.sage, tone.teal, accentTone.gold, tone.sand, accentTone.seafoam, tone.blue];
+
+// Lighthouse: the wider school palette, one per subject.
+export var schoolTones = {
+  sage: tone.sage, sandGold: accentTone.gold, blue: tone.blue, teal: tone.teal,
+  terracotta: accentTone.terracotta, mustard: accentTone.mustard, denim: accentTone.denim,
+};
+var SCHOOL_ORDER = ["blue", "terracotta", "teal", "sandGold", "sage", "mustard", "denim"];
+// Common subjects get a fixed color so they read the same everywhere; any
+// other subject is hashed by name onto the palette (stable across renders).
+var SUBJECT_RULES = [
+  [/math|algebra|geometry|calculus|arithmetic|number/, "blue"],
+  [/read|english|ela\b|language arts|literature|writing|spelling|phonics|grammar|poetry/, "terracotta"],
+  [/science|biology|chemistry|physics|nature|stem|astronomy|earth/, "teal"],
+  [/history|social|geography|civics|government|econom/, "sandGold"],
+  [/\bpe\b|p\.e|physical|gym|sport|health|outdoor|garden/, "sage"],
+  [/\bart|draw|paint|craft|design/, "mustard"],
+  [/music|piano|guitar|band|choir|violin|language|spanish|french|latin|german|asl|coding|computer|tech/, "denim"],
+];
+export function hashIndex(str, n) {
+  var h = 0, s = String(str || "");
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % n;
+}
+export function subjectTone(name) {
+  var s = String(name || "").trim().toLowerCase();
+  if (!s) return schoolTones.sage;
+  for (var i = 0; i < SUBJECT_RULES.length; i++) if (SUBJECT_RULES[i][0].test(s)) return schoolTones[SUBJECT_RULES[i][1]];
+  return schoolTones[SCHOOL_ORDER[hashIndex(s, SCHOOL_ORDER.length)]];
+}
+
 // Section -> tone. Flow sections, then Anchor sections.
 export var sectionTone = {
   exhale: "sage", shopping: "teal", meals: "sand", calendar: "blue", waves: "mist", tidepool: "sand", lighthouse: "navy",
@@ -160,5 +208,5 @@ export function initialsFor(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-var tokens = { color: color, tone: tone, page: page, gradient: gradient, radius: radius, shadow: shadow, font: font, person: person, check: check, workDayTag: workDayTag, emoji: emoji };
+var tokens = { color: color, tone: tone, accentTone: accentTone, page: page, gradient: gradient, radius: radius, shadow: shadow, font: font, person: person, check: check, workDayTag: workDayTag, emoji: emoji };
 export default tokens;
