@@ -6,9 +6,12 @@
 //
 // URL params: tab=<HomeFlow tab id> | vault:<AnchorVault section>  hh=beta|other
 //             steps=<json [[label, clickText|null], ...]>  (clickText "@h2:Cleaning" =
-//             the <h2> whose text is exactly "Cleaning")
+//             the <h2> whose text is exactly "Cleaning"; "#some-id" = the element
+//             with data-testid="some-id")
 //             anchor=1 (seed the Anchor full-view data)  emojis=1 (household
-//             showEmojis on)  shot=1 (no capture, for screenshots)
+//             showEmojis on)  plus=1 (cached Plus entitlement)  scope=root
+//             (snapshot the whole app, not just the tab panel)  shot=1 (no
+//             capture, for screenshots)
 /* eslint-disable react-refresh/only-export-components -- harness entry, not a component module */
 import { FIXED_NOW, BETA_HH, OTHER_HH, MY_PERSON_ID, AUTH_USER_ID, householdData, safeHarborWithItems } from "../fixtures.js";
 import { DEFAULT_GRAB_ITEMS } from "../../../src/shell/safe-harbor-migrate.js";
@@ -51,6 +54,7 @@ Object.keys(data).forEach(function (k) {
   if (data[k] === null) return;
   localStorage.setItem("af_" + k, JSON.stringify(data[k]));
 });
+if (params.get("plus") === "1") localStorage.setItem("af_entitlement", JSON.stringify({ entitled: true, plan: "plus", status: "active" }));
 // Raw (non-JSON) strings, the way the app itself stores these.
 localStorage.setItem("af_choreResetDate", "2026-11-13");
 localStorage.setItem("af_myPersonId", MY_PERSON_ID);
@@ -85,6 +89,7 @@ function panel() {
 }
 
 function findClickable(label) {
+  if (label.charAt(0) === "#") return panel().querySelector('[data-testid="' + label.slice(1) + '"]');
   var tagged = /^@([a-z0-9]+):(.*)$/.exec(label);
   if (tagged) {
     return Array.from(panel().querySelectorAll(tagged[1])).filter(function (e) { return (e.textContent || "").replace(/\s+/g, " ").trim() === tagged[2]; })[0] || null;
@@ -142,7 +147,7 @@ async function run() {
       el.click();
       await wait(500);
     }
-    out[label] = params.get("measure") === "1" ? measure() : panel().innerHTML;
+    out[label] = params.get("measure") === "1" ? measure() : (params.get("scope") === "root" ? root().innerHTML : panel().innerHTML);
   }
   if (params.get("shot") === "1") { document.title = "READY"; return; }
   if (params.get("measure") === "1" && window.parent !== window) {

@@ -20,6 +20,7 @@ import CompassIcon from "./components/CompassIcon.jsx"
 import Icon from "./components/Icon.jsx"
 import ScrollTabs from "./components/ScrollTabs.jsx"
 import Section from "./components/Section.jsx"
+import { SettingsPillContext } from "./components/settingsPillContext.js"
 import { SYNC_KEYS, MEAL_DAYS, sanitizeHouseholdData, clearZombieAuthKeys, errorCode, applyHouseholdKey, resolveResponsibleParent, resolveForPerson, isLighthouseDirty, coveListIsShared } from "./sync-core.js"
 import { classifyRefreshError } from "./auth/classifyRefreshError.js"
 import { BUILD_STAMP } from "./buildStamp.js"
@@ -37,7 +38,11 @@ import WavesFull from "./redesign/WavesFull.jsx"
 import CalendarFull from "./redesign/CalendarFull.jsx"
 import MealsFull, { PrepTask } from "./redesign/MealsFull.jsx"
 import LighthouseFull from "./redesign/LighthouseFull.jsx"
-import { rdLegacyKit, RD_YEAR_CAT_COLORS, RD_T, RD_LH_CARD } from "./redesign/fullViewKit.js"
+import { rdLegacyKit, RD_YEAR_CAT_COLORS, RD_T, RD_LH_CARD, goAnchor } from "./redesign/fullViewKit.js"
+import { HomeFull, PeopleFull, HorizonFull } from "./redesign/AnchorHubsFull.jsx"
+import { AnchorScreen, AnchorCard, AnchorBody } from "./redesign/AnchorFullView.jsx"
+import { EmojiScope } from "./redesign/FullView.jsx"
+import { sensitiveRecords } from "./redesign/anchorData.js"
 // Aliased to avoid colliding with the legacy inline OnboardingWizard still in
 // HomeFlow (~App.jsx:4924) — left untouched. It's fully dead: setShowOnboardingWizard
 // is never called with true anywhere in the codebase, so it has no reachable trigger.
@@ -2101,6 +2106,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
   React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] stores changed, SettingsTab render #" + _stRenderCount.current); }, [stores]);
   React.useEffect(() => { AF_DEBUG&&console.log("[AF STATE CHANGE] T/theme changed, SettingsTab render #" + _stRenderCount.current); }, [T]);
   const [settingsOpen, setSettingsOpen] = useState({family:true});
+  const [rdStPill, setRdStPill] = useState("family"); // af_redesign pill tabs
   function toggleSetting(key,defaultOpen){
     setSettingsOpen(function(p){
       var current = key in p ? p[key] : (defaultOpen||false);
@@ -2180,9 +2186,22 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
 
   var minorKids = people.filter(function(p){return p&&p.name&&personIsMinor(p);});
 
-  return(
-    <div>
-      <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here" onBack={function(){goTab("anchor");}}/>
+  // af_redesign: sections become pill tabs (SettingsPillContext — only the
+  // active one renders, in a light card). Same sections, same conditions,
+  // same writes; the flag-off accordion below is unchanged. The "Set up my
+  // harbor again" row sits under Family, the About card under Feedback.
+  var _rdAiFacts = Object.entries(aiMemory||{}).filter(function(entry){ return typeof entry[1] === "string"; });
+  var _rdStTabs = [
+    {id:"family",label:"Family",emoji:"🏡"},{id:"flow",label:"Flow",emoji:"🌊"},{id:"mind",label:"Mind",emoji:"💭"},
+    {id:"meals",label:"Meals",emoji:"🍽️"},{id:"shopping",label:"Shopping",emoji:"🛒"},{id:"tidepool",label:"Tide Pool",emoji:"🏝️"},
+    {id:"weekly",label:"Weekly Rhythm",emoji:"📅"},{id:"school",label:"School",emoji:"📚"},
+    {id:"appearance",label:"Appearance & Notifications",emoji:"🎨"},{id:"sync",label:"Sign In & Sync",emoji:"🔐"},
+  ].concat(_rdAiFacts.length>0?[{id:"aimemory",label:"What Compass Knows",emoji:"🧠"}]:[])
+   .concat(redesignState.eligible?[{id:"designpreview",label:"Design preview",emoji:"🧪"}]:[])
+   .concat([{id:"feedback",label:"Feedback",emoji:"💬"}]);
+  var _rdStActive = _rdStTabs.some(function(t){ return t.id===rdStPill; }) ? rdStPill : "family";
+  var _stBody = (
+    <>
 
       {/* ════════════════════════════════════
           1. FAMILY
@@ -2197,7 +2216,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
 
       {/* OB-0 commit 5 — First Voyage re-run entry point. ONBOARDING_V1-gated, same
           as auto-launch: the feature stays fully dark until the flag is on. */}
-      {ONBOARDING_V1&&(
+      {ONBOARDING_V1&&(!REDESIGN||_rdStActive==="family")&&(
         <Row label="Set up my harbor again" sub="Re-run the welcome wizard — your people, meals, and mode stay, nothing gets deleted." tight>
           <button onClick={onOpenFirstVoyageRerun} style={btnS({fontSize:"0.78rem",padding:"0.4rem 0.85rem"})}>⚓ Set up my harbor again</button>
         </Row>
@@ -2666,6 +2685,7 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
         </div>
       </Sec>
 
+      {(!REDESIGN||_rdStActive==="feedback")&&(
       <div style={{...card({background:T.bluePale,border:"2px solid "+T.blue+"55",textAlign:"center",padding:"1.8rem"})}}>
         <AnchorLogo size={44} color={T.blue}/>
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,color:T.textDark,marginTop:"0.65rem",letterSpacing:"0.06em"}}>ANCHOR & FLOW</div>
@@ -2674,6 +2694,23 @@ function SettingsTab({people,setPeople,familyProfile,setFamilyProfile,workSchedu
         <p style={{color:T.textFaint,fontSize:"0.62rem",fontFamily:"monospace",marginTop:"0.35rem",marginBottom:0,textAlign:"center"}}>{APP_VERSION}</p>
         <p style={{color:T.textFaint,fontSize:"0.62rem",fontFamily:"monospace",marginTop:"0.1rem",marginBottom:0,textAlign:"center"}}>{"Build: "+BUILD_STAMP}</p>
       </div>
+      )}
+    </>
+  );
+  if (REDESIGN) return (
+    <AnchorScreen testId="settings-full" title="Settings" emoji="⚙️" subtitle="Set it up once — Compass learns from everything here" showEmojis={showEmojis}
+      onBack={goAnchor} tabs={_rdStTabs} value={_rdStActive} onChange={setRdStPill} testIdPrefix="settings-pill-">
+      <AnchorCard testId={"settings-"+_rdStActive}>
+        <AnchorBody><EmojiScope showEmojis={showEmojis}>
+          <SettingsPillContext.Provider value={{active:_rdStActive}}>{_stBody}</SettingsPillContext.Provider>
+        </EmojiScope></AnchorBody>
+      </AnchorCard>
+    </AnchorScreen>
+  );
+  return(
+    <div>
+      <SecHead emoji="⚙️" title="Settings" sub="Set it up once — Compass learns from everything here" onBack={function(){goTab("anchor");}}/>
+      {_stBody}
     </div>
   );
 }
@@ -11917,6 +11954,68 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // AnchorVault SubscriptionsSection via "Open Subscriptions →".
     var subsList = (function(){ try { var v=JSON.parse(localStorage.getItem("af_subs")||"[]"); return Array.isArray(v)?v:[]; } catch(e){ return []; } })();
 
+    // Info / zone editors — shared by the legacy accordion and the
+    // af_redesign Home full view (same state, same write paths).
+    var infoModalEl = addingInfo&&(
+              <ModalBox title={editingInfoId?"Edit Info":"New Info"} onClose={function(){setAddingInfo(false);setEditingInfoId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Label</label><input value={infoForm.label} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{label:e.target.value});});}} placeholder="e.g. Wi-Fi password, Plumber" style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Value</label><input value={infoForm.value} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{value:e.target.value});});}} placeholder="The actual info" style={inp()}/></div>
+                <div style={{marginBottom:"1rem"}}><label style={lbl}>Category</label>
+                  <select value={infoForm.category} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{category:e.target.value});});}} style={inp()}>
+                    {INFO_CATEGORIES.map(function(c){return <option key={c} value={c}>{c}</option>;})}
+                  </select>
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingInfoId?<button onClick={function(){deleteInfo(editingInfoId);setAddingInfo(false);setEditingInfoId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingInfo(false);setEditingInfoId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveInfo} style={btnP(T.sage)}>{editingInfoId?"Save Changes":"Create"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            );
+    var zoneModalEl = addingZone&&(
+              <ModalBox title={editingZoneId?"Edit Zone":"New Zone"} onClose={function(){setAddingZone(false);setEditingZoneId(null);}}>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Zone Name</label><input value={zoneForm.name} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{name:e.target.value});});}} placeholder="e.g. Zone 1 · Master & Baths" style={inp()} autoFocus/></div>
+                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Rooms</label><input value={zoneForm.rooms} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{rooms:e.target.value});});}} placeholder="e.g. Master bedroom, bathrooms" style={inp()}/></div>
+                <label style={lbl}>Tasks</label>
+                <div style={{marginBottom:"0.6rem",border:"1.5px solid "+T.border,borderRadius:"0.8rem",overflow:"hidden"}}>
+                  {zoneForm.tasks.length===0 && <p style={{color:"#4a6275",fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
+                  {zoneForm.tasks.map(function(t,ti){return(
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.65rem",borderBottom:ti<zoneForm.tasks.length-1?"1px solid "+T.borderSoft:"none"}}>
+                      <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{t.text}</span>
+                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
+                    </div>
+                  );})}
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.1rem"}}>
+                  <input value={zoneTaskText} onChange={function(e){setZoneTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addZoneFormTask();}} placeholder="Add a task…" style={{...inp({flex:1})}}/>
+                  <button onClick={addZoneFormTask} style={{...btnS({fontSize:"0.78rem",padding:"0.5rem 0.75rem"})}}>+ Add</button>
+                </div>
+                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
+                  {editingZoneId?<button onClick={function(){deleteZone(editingZoneId);}} style={{...btnS({color:T.rose})}}>Delete Zone</button>:<span/>}
+                  <div style={{display:"flex",gap:"0.5rem"}}>
+                    <button onClick={function(){setAddingZone(false);setEditingZoneId(null);}} style={btnS()}>Cancel</button>
+                    <button onClick={saveZone} style={btnP(T.sage)}>{editingZoneId?"Save Changes":"Create Zone"}</button>
+                  </div>
+                </div>
+              </ModalBox>
+            );
+
+    // af_redesign: new Home full view (pill per hub). Same state and writes
+    // as the legacy accordion below, which is untouched when the flag is off.
+    if (REDESIGN) return (
+      <HomeFull showEmojis={showEmojis}
+        homeInfo={homeInfo} infoCategories={INFO_CATEGORIES} onAddInfo={openNewInfo} onEditInfo={openEditInfo} infoModal={infoModalEl}
+        zones={cleaningZones} activeZone={activeZone} activeZoneIndex={activeZoneIndex}
+        onToggleTask={toggleZoneTask} onResetZone={resetZoneTasks} onSetActiveZone={setActiveZone}
+        onAddZone={openNewZone} onEditZone={openEditZone} zoneModal={zoneModalEl}
+        maintenanceDueSoon={maintenanceDueSoon} maintenanceCount={maintenanceSystems.length} formatDue={formatDueNaturally}
+        inventoryCount={inventoryItems.length} inventoryLow={inventoryLow}
+        reminders={remindersSorted} reminderLabel={reminderLabel} subs={subsList}
+        openVault={openVaultSection}/>
+    );
+
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         <style>{"@media (max-width:480px){.af-home-grid-2{grid-template-columns:1fr !important}}"}</style>
@@ -11986,24 +12085,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                 </div>
               );
             })}
-            {addingInfo&&(
-              <ModalBox title={editingInfoId?"Edit Info":"New Info"} onClose={function(){setAddingInfo(false);setEditingInfoId(null);}}>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Label</label><input value={infoForm.label} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{label:e.target.value});});}} placeholder="e.g. Wi-Fi password, Plumber" style={inp()} autoFocus/></div>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Value</label><input value={infoForm.value} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{value:e.target.value});});}} placeholder="The actual info" style={inp()}/></div>
-                <div style={{marginBottom:"1rem"}}><label style={lbl}>Category</label>
-                  <select value={infoForm.category} onChange={function(e){setInfoForm(function(p){return Object.assign({},p,{category:e.target.value});});}} style={inp()}>
-                    {INFO_CATEGORIES.map(function(c){return <option key={c} value={c}>{c}</option>;})}
-                  </select>
-                </div>
-                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
-                  {editingInfoId?<button onClick={function(){deleteInfo(editingInfoId);setAddingInfo(false);setEditingInfoId(null);}} style={{...btnS({color:T.rose})}}>Delete</button>:<span/>}
-                  <div style={{display:"flex",gap:"0.5rem"}}>
-                    <button onClick={function(){setAddingInfo(false);setEditingInfoId(null);}} style={btnS()}>Cancel</button>
-                    <button onClick={saveInfo} style={btnP(T.sage)}>{editingInfoId?"Save Changes":"Create"}</button>
-                  </div>
-                </div>
-              </ModalBox>
-            )}
+            {infoModalEl}
           </div>)}
         </div>
 
@@ -12080,33 +12162,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             {cleaningZones.length===0 && manageZonesOpen===false && (
               <button onClick={function(){setManageZonesOpen(true);}} style={{...btnS({fontSize:"0.76rem",padding:"0.4rem 0.75rem",marginTop:"0.3rem"})}}>⚙ Manage zones</button>
             )}
-            {addingZone&&(
-              <ModalBox title={editingZoneId?"Edit Zone":"New Zone"} onClose={function(){setAddingZone(false);setEditingZoneId(null);}}>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Zone Name</label><input value={zoneForm.name} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{name:e.target.value});});}} placeholder="e.g. Zone 1 · Master & Baths" style={inp()} autoFocus/></div>
-                <div style={{marginBottom:"0.7rem"}}><label style={lbl}>Rooms</label><input value={zoneForm.rooms} onChange={function(e){setZoneForm(function(p){return Object.assign({},p,{rooms:e.target.value});});}} placeholder="e.g. Master bedroom, bathrooms" style={inp()}/></div>
-                <label style={lbl}>Tasks</label>
-                <div style={{marginBottom:"0.6rem",border:"1.5px solid "+T.border,borderRadius:"0.8rem",overflow:"hidden"}}>
-                  {zoneForm.tasks.length===0 && <p style={{color:"#4a6275",fontSize:"0.79rem",padding:"0.6rem 0.85rem",fontWeight:500,margin:0}}>No tasks yet</p>}
-                  {zoneForm.tasks.map(function(t,ti){return(
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",padding:"0.4rem 0.65rem",borderBottom:ti<zoneForm.tasks.length-1?"1px solid "+T.borderSoft:"none"}}>
-                      <span style={{flex:1,fontSize:"0.83rem",color:"#1a2e3d"}}>{t.text}</span>
-                      <button onClick={function(){removeZoneFormTask(t.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"}}><Icon name="trash" size={12} color={"#4a6275"}/></button>
-                    </div>
-                  );})}
-                </div>
-                <div style={{display:"flex",gap:"0.5rem",marginBottom:"1.1rem"}}>
-                  <input value={zoneTaskText} onChange={function(e){setZoneTaskText(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")addZoneFormTask();}} placeholder="Add a task…" style={{...inp({flex:1})}}/>
-                  <button onClick={addZoneFormTask} style={{...btnS({fontSize:"0.78rem",padding:"0.5rem 0.75rem"})}}>+ Add</button>
-                </div>
-                <div style={{display:"flex",gap:"0.5rem",justifyContent:"space-between"}}>
-                  {editingZoneId?<button onClick={function(){deleteZone(editingZoneId);}} style={{...btnS({color:T.rose})}}>Delete Zone</button>:<span/>}
-                  <div style={{display:"flex",gap:"0.5rem"}}>
-                    <button onClick={function(){setAddingZone(false);setEditingZoneId(null);}} style={btnS()}>Cancel</button>
-                    <button onClick={saveZone} style={btnP(T.sage)}>{editingZoneId?"Save Changes":"Create Zone"}</button>
-                  </div>
-                </div>
-              </ModalBox>
-            )}
+            {zoneModalEl}
           </div>)}
         </div>
 
@@ -12308,6 +12364,20 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     var healthPreview = householdPeople.length===0 ? "No household members" : (householdPeople.length+" member"+(householdPeople.length!==1?"s":"")+" · "+(healthTrackedCount===householdPeople.length&&householdPeople.length>0?"All health records current":healthTrackedCount>0?healthTrackedCount+" of "+householdPeople.length+" tracked":"No records yet"));
     var overviewStatus = householdPeople.length===0 ? "Add people in Settings to get started." : (healthTrackedCount===householdPeople.length ? "All health records current." : "Some health records still need attention.");
 
+    // af_redesign: new People full view (pill per hub). Read-only, same
+    // data as the legacy accordion below. Health's PIN-locked notes show as
+    // locked hints that open Health (which asks for the PIN).
+    if (REDESIGN) {
+      var _rdHidden = (function(){ try { return JSON.parse(localStorage.getItem("af_anchor_hidden")||"{}")||{}; } catch { return {}; } })();
+      return (
+        <PeopleFull showEmojis={showEmojis} memberCount={householdPeople.length} overviewStatus={overviewStatus}
+          healthRows={healthRows} careerRows={careerRows}
+          pets={petsList.map(function(p,i){ return { id:p.id||String(i), name:p.name, type:p.type, next:petNextVet(p) }; })}
+          sensitive={sensitiveRecords({}, healthData, householdPeople, _rdHidden, readFeatureFlags())}
+          openVault={openVaultSection}/>
+      );
+    }
+
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"1.1rem"}}>
@@ -12468,6 +12538,21 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     if(nextTrip) overviewLines.push("🧳 "+nextTrip.trip.name+" in "+nextTrip.days+"d");
     if(nextCeleb) overviewLines.push("🎉 "+nextCeleb.name+" in "+nextCeleb.diff+"d");
     overviewLines.push("⚓ "+(lastReviewed ? "Reviewed "+lastReviewed : "Never reviewed"));
+
+    // af_redesign: new Horizon full view (pill per hub). Read-only, same
+    // data as the legacy accordion below. Travel's masked records (passport,
+    // trusted-traveler and member numbers, lock codes) show a lock and a hint
+    // until tapped, same rule as the vault's MaskedField.
+    if (REDESIGN) {
+      var _rdHiddenH = (function(){ try { return JSON.parse(localStorage.getItem("af_anchor_hidden")||"{}")||{}; } catch { return {}; } })();
+      var _rdTravel = (function(){ try { var v=JSON.parse(localStorage.getItem("af_travel_profile")||"{}"); return v&&typeof v==="object"?v:{}; } catch { return {}; } })();
+      return (
+        <HorizonFull showEmojis={showEmojis} trips={upcomingTrips} celebrations={celebEntries}
+          grabItemCount={grabItemCount} hazardCount={hazardCount} lastReviewed={lastReviewed}
+          sensitive={sensitiveRecords(_rdTravel, {}, [], _rdHiddenH, readFeatureFlags())}
+          openVault={openVaultSection}/>
+      );
+    }
 
     return(
       <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh"}}>
@@ -13420,6 +13505,25 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
 
   // ── Cove — organized lists, ideas, plans & keeps ────────────────────────────
   _hfRenders.CoveTab = function CoveTab() {
+    // af_redesign: Cove's bodies sit in light cards on the navy Anchor page,
+    // so they take the fixed light kit (RD_T) instead of the household theme
+    // (which may be dark). Flag off: HomeFlow's own, exactly as before.
+    var _CK = REDESIGN ? rdLegacyKit() : HF_KIT, T = _CK.T, btnP = _CK.btnP, btnS = _CK.btnS;
+    // af_redesign shell: "← Anchor", Playfair title, Lists / Notes pills, the
+    // current view's body in a light card (showEmojis respected).
+    function coveRd(pill, content, opts) {
+      var o = opts || {};
+      return (
+        <AnchorScreen testId="cove-full" title="Cove" emoji="🪸" subtitle="Your lists, notes, ideas, and keeps." showEmojis={showEmojis}
+          onBack={goAnchor} action={o.action} above={o.above}
+          tabs={[{id:"lists",label:"Lists",emoji:"📋"},{id:"notes",label:"Notes",emoji:"📝",count:coveNotes.length>0?coveNotes.length:null}]}
+          value={pill} onChange={function(id){ setCoveTab(id); setActiveNoteId(null); setView("list"); }}>
+          <AnchorCard testId={"cove-"+pill} style={{padding:0,overflow:"hidden"}}>
+            <AnchorBody><EmojiScope showEmojis={showEmojis}>{content}</EmojiScope></AnchorBody>
+          </AnchorCard>
+        </AnchorScreen>
+      );
+    }
     const COVE_ACCENT_COLORS = [
       "#3a6b8a","#c8a97a","#5DCAA5","#AFA9EC","#D4537E","#EF9F27","#888780","#1a2744"
     ];
@@ -13809,45 +13913,19 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     if (coveTab === "notes") {
       // Note detail — own stable component, see CoveNoteDetail above.
       if (activeNoteId && activeNote) {
-        return (
+        var _noteDetailEl = (
           <CoveNoteDetail key={activeNote.id} note={activeNote} T={T} colors={COVE_ACCENT_COLORS}
             fmtDate={fmtNoteDate}
             onBack={function(){ setActiveNoteId(null); }}
             onSave={function(patch){ updateNote(activeNote.id, patch); }}
             onDelete={function(){ deleteNote(activeNote.id); }}/>
         );
+        if (REDESIGN) return coveRd("notes", _noteDetailEl);
+        return _noteDetailEl;
       }
       // Notes list — 2-column grid
       var sortedNotes = coveNotesAZ ? coveNotes.slice().sort(function(a,b){return (a.title||a.body||"").localeCompare(b.title||b.body||"");}) : coveNotes;
-      return (
-        <div style={{paddingBottom:"2rem"}}>
-          <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-            <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
-              <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
-                <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
-              </button>
-              <div>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
-                <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
-              </div>
-            </div>
-            <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
-              <Icon name="plus" size={12} color="#fff"/> New note
-            </button>
-          </div>
-          {/* Tab switcher */}
-          <div style={{display:"flex",borderBottom:"1px solid "+T.border}}>
-            {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
-              var active=coveTab===t.id;
-              return(
-                <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
-                  style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                  {t.label}
-                  {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
-                </button>
-              );
-            })}
-          </div>
+      var _notesBody = (
           <div style={{padding:"14px 16px"}}>
             {coveNotes.length===0?(
               <div style={{textAlign:"center",padding:"2.5rem 0"}}>
@@ -13877,6 +13955,42 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             )}
           </div>
+      );
+      if (REDESIGN) return coveRd("notes", _notesBody, {action:(
+        <button type="button" data-testid="cove-new-note" onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.85rem",padding:"0.45rem 1rem",display:"flex",alignItems:"center",gap:5})}}>
+          <Icon name="plus" size={12} color="#fff"/> New note
+        </button>
+      )});
+      return (
+        <div style={{paddingBottom:"2rem"}}>
+          <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
+              <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
+                <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
+              </button>
+              <div>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:T.textDark}}>🪸 Cove</div>
+                <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+              </div>
+            </div>
+            <button onClick={newNote} style={{...btnP(T.blue,{fontSize:"0.75rem",padding:"0.35rem 0.85rem",display:"flex",alignItems:"center",gap:5})}}>
+              <Icon name="plus" size={12} color="#fff"/> New note
+            </button>
+          </div>
+          {/* Tab switcher */}
+          <div style={{display:"flex",borderBottom:"1px solid "+T.border}}>
+            {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
+              var active=coveTab===t.id;
+              return(
+                <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
+                  style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?T.blue:T.textSoft,background:"transparent",border:"none",borderBottom:"2px solid "+(active?T.blue:"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                  {t.label}
+                  {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {_notesBody}
         </div>
       );
     }
@@ -14213,7 +14327,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
     // ── Detail view ───────────────────────────────────────────────────────────
     if (view === "detail" && activeList) {
       var unsectionedItems = activeItems.filter(function(i){ return !i.section_id; });
-      return (
+      var _listDetailEl = (
         <div style={{paddingBottom:"3rem"}}>
           {/* Header */}
           <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"flex-start",gap:8}}>
@@ -14413,35 +14527,14 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
         </div>
       );
+      if (REDESIGN) return coveRd("lists", _listDetailEl);
+      return _listDetailEl;
     }
 
-    return (
-      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh",paddingBottom:"2rem"}}>
-        <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
-            <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
-              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
-            </button>
-            <div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:"#faf8f4"}}>🪸 Cove</div>
-              <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{display:"flex",borderBottom:"1px solid #c8a96e"}}>
-          {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
-            var active=coveTab===t.id;
-            return(
-              <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
-                style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?"#f7f1e3":"#a8c4d4",background:"transparent",border:"none",borderBottom:"2px solid "+(active?"#c8a96e":"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                {t.label}
-                {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
-              </button>
-            );
-          })}
-        </div>
-
+    // Lists view pieces — the legacy layout below places them as before; the
+    // af_redesign Cove full view puts the filters on the navy and the rest in
+    // a light card.
+    var _listsFilters = (
         <div style={{padding:"10px 16px 6px",display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {["all","family","home","personal"].map(function(cat){
@@ -14456,7 +14549,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
           </div>
           {coveLists.length>1&&<button onClick={function(){setCoveListsAZ(function(v){return !v;});}} style={{...btnS({fontSize:"0.7rem",padding:"0.22rem 0.6rem"})}}>{coveListsAZ?"A–Z ✓":"A–Z"}</button>}
         </div>
-
+    );
+    var _listsBody = (
         <div style={{padding:"8px 16px"}}>
           <div style={{background:T.bgAlt,borderRadius:10,marginBottom:12,border:"1px dashed "+T.border,padding:"8px 10px"}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -14545,8 +14639,8 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
             <span style={{fontSize:13,color:T.textFaint,lineHeight:1}}>+</span> Start from a template
           </button>
         </div>
-
-        {showNewModal&&(
+    );
+    var _listsModal = showNewModal&&(
           <div onClick={function(e){if(e.target===e.currentTarget)setShowNewModal(false);}}
             style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"1rem"}}>
             <div style={{background:T.white,borderRadius:16,width:"100%",maxWidth:480,padding:"18px 18px 24px",maxHeight:"85vh",overflowY:"auto"}}>
@@ -14568,7 +14662,41 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
               </div>
             </div>
           </div>
-        )}
+        );
+    if (REDESIGN) return coveRd("lists", <>{_listsBody}{_listsModal}</>, {above:_listsFilters});
+
+    return (
+      <div style={{background:"linear-gradient(165deg,#334967 0%,#293B56 60%,#25344B 100%)",margin:"-1.1rem -0.9rem -0.5rem",padding:"24px 20px calc(24px + env(safe-area-inset-bottom,0px))",minHeight:"100dvh",paddingBottom:"2rem"}}>
+        <div style={{padding:"18px 16px 8px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:"6px"}}>
+            <button onClick={function(){goTab("anchor");}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px 4px 0 0",display:"flex",alignItems:"center",opacity:0.5,flexShrink:0,marginTop:4}}>
+              <span style={{fontSize:17,color:T.textSoft,lineHeight:1}}>←</span>
+            </button>
+            <div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:"#faf8f4"}}>🪸 Cove</div>
+              <div style={{fontSize:"0.72rem",color:T.textSoft,marginTop:2}}>Your lists, notes, ideas, and keeps.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:"flex",borderBottom:"1px solid #c8a96e"}}>
+          {[{id:"lists",label:"Lists"},{id:"notes",label:"Notes"}].map(function(t){
+            var active=coveTab===t.id;
+            return(
+              <button key={t.id} onClick={function(){setCoveTab(t.id);setActiveNoteId(null);}}
+                style={{flex:1,padding:"10px",fontSize:"0.8rem",fontWeight:active?700:500,color:active?"#f7f1e3":"#a8c4d4",background:"transparent",border:"none",borderBottom:"2px solid "+(active?"#c8a96e":"transparent"),cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                {t.label}
+                {t.id==="notes"&&coveNotes.length>0&&<span style={{marginLeft:5,fontSize:"0.65rem",background:T.blue+"22",color:T.blue,borderRadius:"999px",padding:"1px 6px",fontWeight:700}}>{coveNotes.length}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {_listsFilters}
+
+        {_listsBody}
+
+        {_listsModal}
       </div>
     );
   }
@@ -18788,7 +18916,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   requestNotifPermission={requestNotifPermission}
                   scheduleAllDailyNotifications={scheduleAllDailyNotifications}
                   signOut={signOut} showInAppBanner={showInAppBanner}
-                  T={T} inp={inp} lbl={lbl} btnP={btnP} btnS={btnS} PC={PC}
+                  T={SETTINGS_RD_KIT?SETTINGS_RD_KIT.T:T} inp={SETTINGS_RD_KIT?SETTINGS_RD_KIT.inp:inp} lbl={SETTINGS_RD_KIT?SETTINGS_RD_KIT.lbl:lbl} btnP={SETTINGS_RD_KIT?SETTINGS_RD_KIT.btnP:btnP} btnS={SETTINGS_RD_KIT?SETTINGS_RD_KIT.btnS:btnS} PC={PC}
                   SecHead={SecHead} ModalBox={ModalBox}
                   themeName={themeName} setThemeNameRaw={setThemeNameRaw}
                   setShowHouseholdModal={setShowHouseholdModal}
@@ -18796,7 +18924,7 @@ Always return exactly 3 meals. Use only the ingredients provided plus assumed pa
                   aiMemory={aiMemory} setAiMemory={setAiMemory}
                   setShowAuthModal={setShowAuthModal}
                   syncNow={syncNow} lastSyncTime={lastSyncTime} syncStatus={syncStatus} authToken={authToken}
-                  card={card}
+                  card={SETTINGS_RD_KIT?SETTINGS_RD_KIT.card:card}
                   onOpenFirstVoyageRerun={function(){ setShowFirstVoyageRerun(true); }}
                   tidePoolEnabled={tidePoolEnabled} setTidePoolEnabled={setTidePoolEnabled}
                   lighthouseEnabled={lighthouseEnabled} setLighthouseEnabled={setLighthouseEnabled}
@@ -19088,6 +19216,10 @@ function usePointerDrag(items, setItems, { dataAttr="data-dragid" } = {}) {
 // People/Horizon/Cove only; Today, Flow's Calendar+Exhale, Meals, Shopping,
 // and Ripples must never appear here.
 var PLUS_GATED_NAV_IDS = { waves:true, lighthouse:true, tidepool:true, home:true, people:true, horizon:true, cove:true };
+// af_redesign: Settings sits in light cards on the navy Anchor page, so it
+// takes the fixed light kit rather than the household theme (which may be
+// dark). null when the flag is off: Settings gets HomeFlow's own, as before.
+var SETTINGS_RD_KIT = REDESIGN ? rdLegacyKit() : null;
 
 function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
   // Batch — Plus paywall, nav-level gates. Same sibling-component pattern as
@@ -19213,6 +19345,19 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
     window.addEventListener("af-open-vault", h);
     return function() { window.removeEventListener("af-open-vault", h); };
   }, []);
+  // af_redesign: "← Anchor" on the Home / People / Cove / Horizon / Settings
+  // full views. Same as clicking the sidebar's Anchor header, Plus gate
+  // included. Never registered while REDESIGN is off.
+  React.useEffect(function() {
+    if (!REDESIGN) return undefined;
+    function h() {
+      setOpenGroup("Anchor");
+      if (BILLING_V1 && !sub.isPremium) { setPlusModalFeature("Home"); return; }
+      setNavSel("v-home"); setShowAnchor(true); setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false);
+    }
+    window.addEventListener("af-open-anchor", h);
+    return function() { window.removeEventListener("af-open-anchor", h); };
+  }, [sub.isPremium]);
   React.useEffect(function() {
     try { sessionStorage.setItem("af_navSel", navSel); } catch {}
   }, [navSel]);
@@ -19350,7 +19495,7 @@ function FlowWrapper({ onHome, onSignOut, recoveryToken }) {
           }
         `}</style>
         {showAnchor && <SectionErrorBoundary label="Anchor Vault"><HomeSwitch redesignOn={REDESIGN && vaultSection === "home" && !anchorFullVault}
-          renderLegacy={function(){ return <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} onBackHome={REDESIGN ? function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); } : undefined} returnTo={vaultReturnTo} onReturnTo={function(tabId){ if (REDESIGN && tabId === "anchor") { setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); return; } setShowAnchor(false); _setActiveTab(tabId); }} />; }}
+          renderLegacy={function(){ return <AnchorVault onClose={() => setShowAnchor(false)} vaultSection={vaultSection} initialTripId={vaultTripId} onTripIdConsumed={() => setVaultTripId(null)} redesign={REDESIGN} featureFlags={featureFlags} onBackToAnchor={REDESIGN ? function(){ setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); } : undefined} onBackHome={REDESIGN ? function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); } : undefined} returnTo={vaultReturnTo} onReturnTo={function(tabId){ if (REDESIGN && tabId === "anchor") { setVaultSection("home"); setVaultReturnTo(null); setAnchorFullVault(false); return; } setShowAnchor(false); _setActiveTab(tabId); }} />; }}
           renderRedesign={function(){ return <RedesignAnchor sections={sections} featureFlags={featureFlags}
             onBack={function(){ setNavSel("today-pillar"); setShowAnchor(false); setOpenGroup(null); _setActiveTab("anchor"); }}
             onSettings={function(){ setShowAnchor(false); _setActiveTab("settings"); }}

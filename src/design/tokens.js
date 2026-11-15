@@ -68,6 +68,13 @@ export var font = {
   heading: "'Cormorant Garamond', Georgia, 'Times New Roman', serif",
   body: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   checklistItem: { family: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", size: 14 },
+  // Anchor full views (Vault, Safe Harbor, Home, People, Cove, Horizon,
+  // Settings): Playfair Display titles, Lato subtitles and rows (15px).
+  anchor: {
+    heading: "'Playfair Display', Georgia, 'Times New Roman', serif",
+    body: "'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    rowSize: 15,
+  },
 };
 
 // Person colors. Named entries are this household's people; kids cycle

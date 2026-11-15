@@ -7,6 +7,7 @@ import RipplesRoom from "../shell/RipplesRoom"
 import SafeHarbor from "../shell/SafeHarbor"
 import { REDESIGN } from "../design/redesignFlag.js"
 import { gradient } from "../design/tokens.js"
+import VaultFull from "../redesign/VaultFull.jsx"
 // CareerSection is defined inline below
 
 // ── Safe URL helper — prevents invalid URLs from crashing the PWA ─────────────
@@ -3483,6 +3484,24 @@ function MaskedField(props) {
   )
 }
 
+// af_redesign: a number on the Travel Wallet summary. Sensitive records show
+// a lock and a hint until tapped (same rule as MaskedField); tap again hides.
+// Only rendered when REDESIGN is on — flag off keeps the plain " · number".
+function WalletSecret(props) {
+  var pair = useState(false); var shown = pair[0]; var setShown = pair[1]
+  return (
+    <>
+      {" · "}
+      <button type="button" data-testid="wallet-secret" data-revealed={shown ? "true" : "false"}
+        aria-label={(shown ? "Hide " : "Show ") + props.label}
+        onClick={function() { setShown(function(v) { return !v }) }}
+        style={{ background:"none", border:"none", padding:0, cursor:"pointer", font:"inherit", color:"inherit", fontWeight: shown ? 700 : 400 }}>
+        {shown ? props.value : "🔒 •••••• tap to show"}
+      </button>
+    </>
+  )
+}
+
 function TravelProfileSection() {
   var warm = "#faf8f4"; var sand = "#c8a97a"; var navy = "#243A5A"
   var muted = "#4a6275"; var border = "rgba(26,46,61,0.1)"; var cardBg = "#f7f1e3"
@@ -4190,14 +4209,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {hasPassport && (
               <div style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
-                📘 {p.passportName || "Passport"}{p.passportNum ? " · "+p.passportNum : ""}
+                📘 {p.passportName || "Passport"}{p.passportNum ? (REDESIGN ? <WalletSecret label="passport number" value={p.passportNum} /> : " · "+p.passportNum) : ""}
                 <WalletExpiry date={p.passportExp} />
               </div>
             )}
             {trusted.map(function(t) {
               return (
                 <div key={t.label} style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
-                  🛂 {t.label}{t.num ? " · "+t.num : ""}
+                  🛂 {t.label}{t.num ? (REDESIGN ? <WalletSecret label={t.label + " number"} value={t.num} /> : " · "+t.num) : ""}
                   <WalletExpiry date={t.exp} />
                 </div>
               )
@@ -4205,14 +4224,14 @@ function TripsSection({ initialTripId, onTripIdConsumed, onNavigate }) {
             {ff.map(function(f) {
               return (
                 <div key={f.id} style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
-                  ✈️ {f.airline}{f.number ? " · "+f.number : ""}{f.tier ? " · "+f.tier : ""}
+                  ✈️ {f.airline}{f.number ? (REDESIGN ? <WalletSecret label={f.airline + " member number"} value={f.number} /> : " · "+f.number) : ""}{f.tier ? " · "+f.tier : ""}
                 </div>
               )
             })}
             {hotels.map(function(h) {
               return (
                 <div key={h.id} style={{ fontSize:12.5, color:"#1a2e3d", fontFamily:"DM Sans,sans-serif" }}>
-                  🏨 {h.chain}{h.number ? " · "+h.number : ""}{h.tier ? " · "+h.tier : ""}
+                  🏨 {h.chain}{h.number ? (REDESIGN ? <WalletSecret label={h.chain + " member number"} value={h.number} /> : " · "+h.number) : ""}{h.tier ? " · "+h.tier : ""}
                 </div>
               )
             })}
@@ -10190,7 +10209,9 @@ function afVaultChanged(key) {
 // "anchor" is only ever passed by the redesigned Anchor screen (af_redesign).
 var RETURN_TO_LABELS = { home: "Home", people: "People", horizon: "Horizon", anchor: "Anchor" };
 
-export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo, onBackHome }) {
+// redesign / featureFlags / onBackToAnchor: af_redesign only (FlowWrapper
+// passes them when REDESIGN is on) — the new Vault / Safe Harbor full views.
+export default function AnchorVault({ onClose, calEvents, vaultSection, initialTripId, onTripIdConsumed, returnTo, onReturnTo, onBackHome, redesign, featureFlags, onBackToAnchor }) {
   // Recipes tab lives in HomeFlow/MealsTab (App.jsx), a sibling component
   // FlowWrapper renders separately from AnchorVault — there's no prop path
   // from here to there. Navigate the same way AnchorVault already talks to
@@ -10260,6 +10281,31 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
     } catch {}
   }
 
+  // Every section except the dashboard. Shared by the legacy shell below and
+  // the af_redesign Vault / Safe Harbor full views.
+  var sectionBody = (
+    <>
+      {activeSection === "recurring" && <RecurringRemindersSection />}
+      {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
+      {activeSection === "systems" && <HomeSection />}
+      {activeSection === "health" && <HealthSection />}
+      {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} onOpenRecipe={handleOpenRecipe} onBrowseRecipes={handleBrowseRecipes} />}
+      {activeSection === "pets" && <PetsSection />}
+      {activeSection === "moments" && <MomentsSection />}
+      {activeSection === "travel" && <TravelProfileSection />}
+      {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} onNavigate={setActiveSection} />}
+      {activeSection === "career" && <CareerSection />}
+      {activeSection === "settings" && <AnchorSettings />}
+      {activeSection === "subs" && <SubscriptionsSection />}
+      {activeSection === "safeharbor" && <SafeHarbor redesign={redesign} onBack={onBackToAnchor} />}
+    </>
+  )
+
+  if (redesign && activeSection !== "ripples") {
+    return <VaultFull activeSection={activeSection} onSection={setActiveSection} featureFlags={featureFlags}
+      onBack={onBackToAnchor} body={<><style>{VAULT_INPUT_STYLE}</style>{sectionBody}</>} scrollRef={vaultScrollRef} />
+  }
+
   return (
     <div className="af-vault" style={{ position: "fixed", top: 0, left: 68, right: 0, bottom: 0, zIndex: 150, display: "flex" }}>
       <style>{VAULT_INPUT_STYLE}</style>
@@ -10293,19 +10339,7 @@ export default function AnchorVault({ onClose, calEvents, vaultSection, initialT
                 )
               )}
               {activeSection === "home" && <AnchorDashboard onNavigate={setActiveSection} onGoToFlowTab={handleGoToFlowTab} calEvents={calEvents} />}
-              {activeSection === "recurring" && <RecurringRemindersSection />}
-              {activeSection === "inventory" && <InventorySection onAddToShopping={handleAddToShopping} />}
-              {activeSection === "systems" && <HomeSection />}
-              {activeSection === "health" && <HealthSection />}
-              {activeSection === "gifts" && <GiftsAndCelebrations calEvents={calEvents} onOpenRecipe={handleOpenRecipe} onBrowseRecipes={handleBrowseRecipes} />}
-              {activeSection === "pets" && <PetsSection />}
-              {activeSection === "moments" && <MomentsSection />}
-              {activeSection === "travel" && <TravelProfileSection />}
-              {activeSection === "trips" && <TripsSection initialTripId={initialTripId} onTripIdConsumed={onTripIdConsumed} onNavigate={setActiveSection} />}
-              {activeSection === "career" && <CareerSection />}
-              {activeSection === "settings" && <AnchorSettings />}
-              {activeSection === "subs" && <SubscriptionsSection />}
-              {activeSection === "safeharbor" && <SafeHarbor />}
+              {sectionBody}
             </div>
           )}
         </div>

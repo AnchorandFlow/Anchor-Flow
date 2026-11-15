@@ -13,6 +13,7 @@ import { color, gradient, radius, font, shouldShowEmoji } from "../design/tokens
 import { isPersonMinor } from "../compass/compassEngine";
 import { visibleAnchorTabs, vaultSections, sensitiveRecords, safeHarborModel, todayZone, nextMaintenance, peopleCards, coveSummary, horizonEvents } from "./anchorData.js";
 import { daysLabel } from "./homeData.js";
+import { readAnchorStores } from "./anchorStores.js";
 
 var NAVY = color.anchorNavy;
 var IVORY = gradient.sunset.text;
@@ -21,20 +22,6 @@ var LINE = "rgba(242,234,216,0.12)";
 var PANEL = "rgba(242,234,216,0.06)";
 var GOLD = color.gold;
 var wrap = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
-
-function rd(key, fb) { try { var v = JSON.parse(localStorage.getItem("af_" + key) || "null"); return v === null ? fb : v; } catch { return fb; } }
-function readAnchorStores() {
-  return {
-    anchorHidden: rd("anchor_hidden", {}),
-    showEmojis: rd("showEmojis", false),
-    inventory: rd("inventory", {}), vaultSystems: rd("vaultSystems", []), ownedProducts: rd("ownedProducts", []),
-    houseFile: rd("houseFile", []), health: rd("health", {}), career: rd("career", {}), subs: rd("subs", []),
-    celebrations: rd("celebrations", []), birthdays: rd("birthdays", []), pets: rd("pets", []), trips: rd("trips", []),
-    travelProfile: rd("travel_profile", {}), people: rd("people", []),
-    safeHarbor: rd("safe_harbor", null), homeCleaning: rd("home_cleaning", null),
-    coveNotes: rd("cove_notes_v1", []), coveLists: rd("cove_lists_v1", []), coveItems: rd("cove_items_v1", {}),
-  };
-}
 
 function Empty(props) {
   return <div style={{ fontFamily: font.heading, fontStyle: "italic", fontSize: 16, color: SOFT, lineHeight: 1.45 }}>{props.children}</div>;

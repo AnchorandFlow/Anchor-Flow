@@ -1,6 +1,9 @@
 // src/shell/SafeHarbor.jsx — Family emergency plan. "Prepared, not worried."
 import { useState, useEffect, useRef } from "react"
 import { DEFAULT_GRAB_ITEMS, DEFAULT_DATA, migrateToV2 } from "./safe-harbor-migrate.js"
+import { font } from "../design/tokens.js"
+import { AnchorHeader, AnchorPills, AnchorBody } from "../redesign/AnchorFullView.jsx"
+import { EmojiScope } from "../redesign/FullView.jsx"
 
 // SAFE_HARBOR_V2 — opt-in (default OFF). Matches the Shopping V2 opt-in pattern.
 // Read once at module scope; toggling requires a full page reload to take effect.
@@ -291,7 +294,22 @@ var PRINT_CSS = "@media print { .af-sh-no-print { display:none !important; } .af
 // ── Mobile grid stacking ────────────────────────────────────────────────────
 var MOBILE_CSS = "@media (max-width: 480px) { .af-sh-grid-2 { grid-template-columns: 1fr !important; } .af-sh-grid-3 { grid-template-columns: 1fr 1fr !important; } }"
 
-export default function SafeHarbor() {
+// af_redesign: the tab bodies inside the Anchor room (Playfair / Lato, light
+// cards, showEmojis respected). Flag off: the bodies exactly as they are.
+function RdBody(props) {
+  if (!props.on) return props.children
+  return <AnchorBody><EmojiScope showEmojis={props.showEmojis}>{props.children}</EmojiScope></AnchorBody>
+}
+function readShowEmojis() { try { return JSON.parse(localStorage.getItem("af_showEmojis") || "false") === true } catch { return false } }
+
+var SH_TABS = [{id:"ourPlan",label:"Our Plan"},{id:"grabGo",label:"Grab & Go"},{id:"ourArea",label:"Our Area"}]
+
+// props (af_redesign only): redesign — draw the new header ("← Anchor",
+// Playfair title, Lato subtitle) and pill tabs; onBack — the back button.
+// Without them (flag off) Safe Harbor renders exactly as before.
+export default function SafeHarbor(props) {
+  var rd = !!(props && props.redesign)
+  var rdEmojis = rd ? readShowEmojis() : false
   var [tab,        setTab]        = useState("ourPlan")
   var [data,       setData]       = useState(loadData)
   var [editCon,    setEditCon]    = useState(false)
@@ -543,20 +561,32 @@ export default function SafeHarbor() {
   var t3Count = (data.grabItems || []).filter(function(i) { return !i.removed }).length
 
   return (
-    <div style={{ paddingBottom:"3rem", fontFamily:SANS }}>
+    <div style={rd ? { paddingBottom:"1rem", fontFamily:font.anchor.body, display:"flex", flexDirection:"column", gap:14, minWidth:0 } : { paddingBottom:"3rem", fontFamily:SANS }}>
       <style>{PRINT_CSS}</style>
       <style>{MOBILE_CSS}</style>
 
       {/* ── Header ── */}
+      {rd ? (
+        <div className="af-sh-no-print">
+          <AnchorHeader title="Safe Harbor" emoji="⚓" showEmojis={rdEmojis} onBack={props.onBack}
+            subtitle={"Your family's quiet plan for when life gets loud." + (data.lastReviewed ? " Last reviewed " + data.lastReviewed + "." : "")} />
+        </div>
+      ) : (
       <div style={{ marginBottom:16, paddingBottom:14, borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
         <div style={{ fontFamily:SERIF, fontSize:26, fontWeight:700, color:"#faf8f4", lineHeight:1 }}>⚓ Safe Harbor</div>
         <div style={{ fontSize:12, color:G.muted, marginTop:5, lineHeight:1.5 }}>Your family's quiet plan for when life gets loud.</div>
         {data.lastReviewed && <div style={{ fontSize:11, color:G.gold, marginTop:4, opacity:0.7 }}>Last reviewed {data.lastReviewed}</div>}
       </div>
+      )}
 
       {/* ── Tab bar ── */}
+      {rd ? (
+        <div className="af-sh-no-print">
+          <AnchorPills tabs={SH_TABS} value={tab} onChange={setTab} label="Safe Harbor sections" testIdPrefix="sh-pill-" />
+        </div>
+      ) : (
       <div className="af-sh-no-print" style={{ display:"flex", gap:3, background:"rgba(27,58,92,0.5)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:11, padding:3, marginBottom:18 }}>
-        {[{id:"ourPlan",label:"Our Plan"},{id:"grabGo",label:"Grab & Go"},{id:"ourArea",label:"Our Area"}].map(function(t) {
+        {SH_TABS.map(function(t) {
           var on = tab === t.id
           return (
             <div key={t.id} onClick={function() { setTab(t.id) }}
@@ -568,7 +598,9 @@ export default function SafeHarbor() {
           )
         })}
       </div>
+      )}
 
+      <RdBody on={rd} showEmojis={rdEmojis}>
       {/* ══════════════════════════════════════════════════
           TAB 1 — OUR PLAN
       ══════════════════════════════════════════════════ */}
@@ -1038,6 +1070,7 @@ export default function SafeHarbor() {
           })}
         </div>
       )}
+      </RdBody>
     </div>
   )
 }

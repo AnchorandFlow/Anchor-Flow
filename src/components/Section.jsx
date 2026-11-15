@@ -1,4 +1,22 @@
+import { useContext } from "react";
+import { SettingsPillContext } from "./settingsPillContext.js";
+
+// af_redesign Settings: sections are pill tabs. SettingsTab provides
+// { active } (SettingsPillContext) and only the active section renders, open,
+// in a light card (no accordion header — the pill names it). No provider
+// (flag off): the accordion below, unchanged.
+
 export default function Section({id,emoji,title,sub,children,defaultOpen=false,settingsOpen,toggleSetting,T}){
+  var pill = useContext(SettingsPillContext);
+  if (pill) {
+    if (pill.active !== id) return null;
+    return (
+      <div data-settings-section={id} style={{minWidth:0}}>
+        {sub&&<div style={{fontSize:"0.85rem",color:T.textSoft,marginBottom:"0.25rem"}}>{sub}</div>}
+        {children}
+      </div>
+    );
+  }
   var isOpen = id in settingsOpen ? settingsOpen[id] : defaultOpen;
   return(
     <div style={{borderRadius:"1.1rem",border:"1.5px solid "+T.border,background:T.white,marginBottom:"0.65rem"}}>

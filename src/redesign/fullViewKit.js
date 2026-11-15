@@ -15,6 +15,10 @@ export var HAIRLINE = "rgba(27,43,68,0.08)";
 export var wrapText = { minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" };
 
 export function goTab(tab) { try { window.dispatchEvent(new CustomEvent("af-set-tab", { detail: tab })); } catch { /* no window */ } }
+// "← Anchor" from a HomeFlow tab (Home, People, Cove, Horizon, Settings):
+// FlowWrapper opens the Anchor screen, behind the same Plus gate as the
+// sidebar's Anchor header.
+export function goAnchor() { try { window.dispatchEvent(new CustomEvent("af-open-anchor")); } catch { /* no window */ } }
 
 // Decorative emoji: shown only when the household's showEmojis is on.
 export function emo(showEmojis, glyph) { return shouldShowEmoji("item", showEmojis === true) ? glyph : null; }
@@ -66,12 +70,15 @@ export function rdLegacyKit() {
 // runs every text node under it through stripDecorativeEmoji: a text that is
 // only emoji becomes empty, and a leading or trailing emoji run is dropped.
 // Emoji in the middle of a sentence stay. Kept: ⭐ (ratings) and the pillar /
-// lock icons, which tokens.emoji.alwaysShown says always show.
-var KEEP = ["⭐", "⚓", "🌊", "🌀", "🧭", "🔒", "🔐"];
+// lock icons, which tokens.emoji.alwaysShown says always show, and the
+// show/hide eye on masked sensitive fields (part of the lock UI: an emptied
+// reveal button would leave the record unreadable).
+var KEEP = ["⭐", "⚓", "🌊", "🌀", "🧭", "🔒", "🔐", "👁", "🙈"];
 var EMOJI = "(?:\\p{Extended_Pictographic}\\uFE0F?(?:\\u200D\\p{Extended_Pictographic}\\uFE0F?)*[\\u{1F3FB}-\\u{1F3FF}]?)";
 var LEAD = new RegExp("^(\\s*)((?:" + EMOJI + "\\s*)+)", "u");
 var TRAIL = new RegExp("((?:\\s*" + EMOJI + ")+)(\\s*)$", "u");
 function keeps(run) { return KEEP.some(function (k) { return run.indexOf(k) !== -1; }); }
+export function isAlwaysShownGlyph(glyph) { return typeof glyph === "string" && keeps(glyph); }
 export function stripDecorativeEmoji(text) {
   if (typeof text !== "string" || !text) return text;
   var out = text;

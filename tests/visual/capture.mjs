@@ -80,7 +80,7 @@ function chromeArgs(extra) {
 
 export async function captureScreen(baseUrl, tab, steps, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + (o.plus ? "&plus=1" : "") + (o.scope ? "&scope=" + o.scope : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
   var html = await run(CHROME, chromeArgs(["--window-size=500,900", "--virtual-time-budget=30000", "--dump-dom", baseUrl + "?" + q]), 120000);
   var m = html.match(/<script type="application\/json" id="__capture">([^<]*)<\/script>/);
   if (!m) throw new Error("no capture for " + tab + " (page never finished)");
@@ -126,6 +126,24 @@ export var REDESIGN_STEPS = {
   lighthouse: [["Overview", null], ["Plan", "Plan"], ["Plan Month", "Month"], ["Records", "Records"], ["Growth", "Growth"], ["Library", "Library"], ["Ollie", "Ollie"]],
 };
 
+// Anchor full views, flag on (beta household, anchor data): every pill of
+// Vault, Safe Harbor, Home, People, Cove, Horizon and Settings, plus the
+// sensitive-record taps. "#id" clicks [data-testid="id"].
+var VAULT_PILLS = ["inventory", "systems", "recurring", "health", "career", "subs", "gifts", "pets", "trips"];
+export var ANCHOR_REDESIGN_STEPS = {
+  "vault:home": [["Overview", "#open-full"], ["Passport shown", "#sensitive-passport"]]
+    .concat(VAULT_PILLS.map(function (id) { return [id, "#vault-pill-" + id]; }))
+    .concat([["Wallet passport shown", "#wallet-secret"], ["Back to overview", "#vault-pill-home"], ["Health PIN tap", "#sensitive-hnote-p_lin"]]),
+  "vault:safeharbor": [["Our Plan", null], ["Grab & Go", "#sh-pill-grabGo"], ["Grab & Go 60 min", "Time to Prepare"], ["Our Area", "#sh-pill-ourArea"]],
+  home: [["Household Info", null], ["Cleaning", "#pill-cleaning"], ["Maintenance", "#pill-maintenance"], ["Inventory", "#pill-inventory"], ["Reminders", "#pill-reminders"], ["Subscriptions", "#pill-subs"]],
+  people: [["Health", null], ["Career", "#pill-career"], ["Pets", "#pill-pets"]],
+  cove: [["Lists", null], ["List detail", "Camping gear"], ["Notes", "#pill-notes"], ["Note detail", "Gift ideas"], ["Lists again", "#pill-lists"]],
+  horizon: [["Travel", null], ["Passport shown", "#sensitive-passport"], ["Celebrations", "#pill-celebrations"], ["Safe Harbor", "#pill-safeharbor"]],
+  settings: ["family", "flow", "mind", "meals", "shopping", "tidepool", "weekly", "school", "appearance", "sync", "designpreview", "feedback"].map(function (id, i) {
+    return [id, i === 0 ? null : "#settings-pill-" + id];
+  }),
+};
+
 // Layout check at phone width (default 390px) for one screen, flag on.
 export async function measureScreen(baseUrl, tab, steps, opts) {
   var o = opts || {};
@@ -159,7 +177,10 @@ export async function measureAll(opts) {
 var isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   if (!CHROME) { console.error("Chrome not found (set CHROME_PATH)"); process.exit(1); }
-  if (process.argv.includes("--measure")) {
+  if (process.argv.includes("--measure-anchor")) {
+    var ma = await measureAll({ anchor: true, steps: ANCHOR_REDESIGN_STEPS, emojis: process.argv.includes("--emojis") });
+    Object.keys(ma).forEach(function (k) { console.log(k.padEnd(34), "page " + ma[k].pageWidth + "px", ma[k].count ? "OVERFLOW " + JSON.stringify(ma[k].offenders.slice(0, 4)) : "ok"); });
+  } else if (process.argv.includes("--measure")) {
     var mm = await measureAll({ emojis: process.argv.includes("--emojis") });
     Object.keys(mm).forEach(function (k) { console.log(k.padEnd(28), "page " + mm[k].pageWidth + "px", mm[k].count ? "OVERFLOW " + JSON.stringify(mm[k].offenders.slice(0, 4)) : "ok"); });
   } else if (process.argv.includes("--write-anchor")) {
