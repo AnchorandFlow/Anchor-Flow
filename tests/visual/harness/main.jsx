@@ -4,10 +4,14 @@
 // (click a sub-section, snapshot) and writes every snapshot into
 // <script id="__capture"> for capture.mjs to read from Chrome's --dump-dom.
 //
-// URL params: tab=<HomeFlow tab id>  hh=beta|other  steps=<json [[label, clickText|null], ...]>
-//             emojis=1 (household showEmojis on)  shot=1 (no capture, for screenshots)
+// URL params: tab=<HomeFlow tab id> | vault:<AnchorVault section>  hh=beta|other
+//             steps=<json [[label, clickText|null], ...]>  (clickText "@h2:Cleaning" =
+//             the <h2> whose text is exactly "Cleaning")
+//             anchor=1 (seed the Anchor full-view data)  emojis=1 (household
+//             showEmojis on)  shot=1 (no capture, for screenshots)
 /* eslint-disable react-refresh/only-export-components -- harness entry, not a component module */
-import { FIXED_NOW, BETA_HH, OTHER_HH, MY_PERSON_ID, AUTH_USER_ID, householdData } from "../fixtures.js";
+import { FIXED_NOW, BETA_HH, OTHER_HH, MY_PERSON_ID, AUTH_USER_ID, householdData, safeHarborWithItems } from "../fixtures.js";
+import { DEFAULT_GRAB_ITEMS } from "../../../src/shell/safe-harbor-migrate.js";
 
 var params = new URLSearchParams(location.search);
 
@@ -39,7 +43,9 @@ window.fetch = function (input, init) {
 var hh = params.get("hh") === "beta" ? BETA_HH : OTHER_HH;
 localStorage.clear();
 sessionStorage.clear();
-var data = householdData(hh);
+var anchor = params.get("anchor") === "1";
+var data = householdData(hh, { anchor: anchor });
+if (anchor) data.safe_harbor = safeHarborWithItems(DEFAULT_GRAB_ITEMS);
 if (params.get("emojis") === "1") data.showEmojis = true;
 Object.keys(data).forEach(function (k) {
   if (data[k] === null) return;
@@ -50,7 +56,12 @@ localStorage.setItem("af_choreResetDate", "2026-11-13");
 localStorage.setItem("af_myPersonId", MY_PERSON_ID);
 localStorage.setItem("af_myPersonId_authUserId", AUTH_USER_ID);
 localStorage.setItem("af_supabase_session", JSON.stringify({ access_token: "harness-token" }));
-sessionStorage.setItem("af_activeTab", params.get("tab") || "anchor");
+// "vault:<section>" opens the AnchorVault overlay on that section (Today
+// underneath); anything else is a HomeFlow tab.
+var tabParam = params.get("tab") || "anchor";
+var vaultSection = tabParam.indexOf("vault:") === 0 ? tabParam.slice(6) : null;
+sessionStorage.setItem("af_activeTab", vaultSection ? "anchor" : tabParam);
+if (vaultSection) { sessionStorage.setItem("af_showAnchor", "1"); sessionStorage.setItem("af_vaultSection", vaultSection); }
 
 var steps = [];
 try { steps = JSON.parse(params.get("steps") || "[]"); } catch { steps = []; }
@@ -61,6 +72,7 @@ function root() { return document.getElementById("root"); }
 // The visible HomeFlow tab panel (display:block among the tab panels), or the
 // whole root when it can't be found.
 function panel() {
+  if (vaultSection) return document.querySelector('.af-vault, [data-testid="redesign-anchor"]') || root();
   var tab = params.get("tab");
   var el = document.querySelector('[data-harness-tab="' + tab + '"]');
   if (el) return el;
@@ -73,6 +85,10 @@ function panel() {
 }
 
 function findClickable(label) {
+  var tagged = /^@([a-z0-9]+):(.*)$/.exec(label);
+  if (tagged) {
+    return Array.from(panel().querySelectorAll(tagged[1])).filter(function (e) { return (e.textContent || "").replace(/\s+/g, " ").trim() === tagged[2]; })[0] || null;
+  }
   var els = Array.from(panel().querySelectorAll("button, [role=tab], div, span"));
   function txt(e) { return (e.textContent || "").replace(/\s+/g, " ").trim(); }
   var exact = els.filter(function (e) { return txt(e) === label; });

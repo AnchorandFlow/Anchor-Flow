@@ -1,9 +1,13 @@
 // tests/visual/capture.mjs — renders the six Flow full-view screens (Shopping,
-// Meals, Calendar, Waves, Tide Pool, Lighthouse) in headless Chrome through
-// the harness and returns each screen's DOM after each step.
+// Meals, Calendar, Waves, Tide Pool, Lighthouse) and the seven Anchor full
+// views (Vault, Safe Harbor, Home, People, Cove, Horizon, Settings) in
+// headless Chrome through the harness and returns each screen's DOM after
+// each step.
 //
-//   node tests/visual/capture.mjs --write   regenerate the flag-off golden
-//   node tests/visual/capture.mjs --measure  flag on: sideways-overflow check at 390px
+//   node tests/visual/capture.mjs --write          regenerate the Flow flag-off golden
+//   node tests/visual/capture.mjs --write-anchor   regenerate the Anchor flag-off golden
+//   node tests/visual/capture.mjs --measure        flag on: sideways-overflow check at 390px (Flow)
+//   node tests/visual/capture.mjs --measure-anchor flag on: same, Anchor full views
 //
 // The golden (tests/ui/__golden__/flow-screens-legacy.json) is the flag-off
 // output recorded BEFORE the redesign touched these screens; the flag-off
@@ -18,6 +22,7 @@ import { fileURLToPath } from "node:url";
 var here = path.dirname(fileURLToPath(import.meta.url));
 var repo = path.resolve(here, "../..");
 export var GOLDEN = path.join(repo, "tests/ui/__golden__/flow-screens-legacy.json");
+export var ANCHOR_GOLDEN = path.join(repo, "tests/ui/__golden__/anchor-screens-legacy.json");
 
 export var CHROME = [
   process.env.CHROME_PATH,
@@ -35,6 +40,23 @@ export var LEGACY_STEPS = {
   tidepool: [["initial", null], ["Ollie", "Ollie"]],
   lighthouse: [["Overview", null], ["Plan", "Plan"], ["Plan Month", "Month"], ["Records", "Records"], ["Growth", "Growth"], ["Library", "Library"]],
 };
+
+// Anchor full views, flag off (captured with anchor data: { anchor: true }).
+// "vault:<section>" opens that AnchorVault section; "@h2:X" clicks the <h2>
+// titled X (Home/People/Horizon accordion headers).
+var VAULT_SECTIONS = ["inventory", "systems", "recurring", "health", "career", "subs", "gifts", "pets", "trips"];
+export var ANCHOR_LEGACY_STEPS = Object.assign(
+  { "vault:home": [["Dashboard", null]] },
+  VAULT_SECTIONS.reduce(function (o, id) { o["vault:" + id] = [["initial", null]]; return o; }, {}),
+  {
+    "vault:safeharbor": [["Our Plan", null], ["Grab & Go", "Grab & Go"], ["Our Area", "Our Area"]],
+    home: [["initial", null], ["Cleaning", "@h2:Cleaning"], ["Maintenance", "@h2:Maintenance"], ["Inventory", "@h2:Inventory"], ["Reminders", "@h2:Reminders"], ["Subscriptions", "@h2:Subscriptions"]],
+    people: [["initial", null], ["Health", "@h2:Health"], ["Career", "@h2:Career"], ["Pets", "@h2:Pets"]],
+    cove: [["Lists", null], ["Notes", "Notes1"], ["Note detail", "Gift ideas"]],
+    horizon: [["initial", null], ["Travel", "@h2:Travel"], ["Celebrations", "@h2:Celebrations"], ["Safe Harbor", "@h2:Safe Harbor"]],
+    settings: [["initial", null], ["Flow", "Flow — Your Preferences"], ["Mind", "Mind"], ["Meals", "Meals"], ["Shopping", "Shopping"], ["Tide Pool", "Tide Pool"], ["Weekly Rhythm", "Weekly Rhythm"], ["School", "School"], ["Appearance", "Appearance & Notifications"], ["Sync", "Sign In & Sync"], ["Feedback", "Feedback"]],
+  }
+);
 
 function run(file, args, timeout) {
   return new Promise(function (resolve, reject) {
@@ -58,7 +80,7 @@ function chromeArgs(extra) {
 
 export async function captureScreen(baseUrl, tab, steps, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + "&steps=" + encodeURIComponent(JSON.stringify(steps));
   var html = await run(CHROME, chromeArgs(["--window-size=500,900", "--virtual-time-budget=30000", "--dump-dom", baseUrl + "?" + q]), 120000);
   var m = html.match(/<script type="application\/json" id="__capture">([^<]*)<\/script>/);
   if (!m) throw new Error("no capture for " + tab + " (page never finished)");
@@ -88,7 +110,7 @@ export async function captureAll(opts) {
 // will not size its window below ~500px).
 export async function screenshot(baseUrl, tab, file, opts) {
   var o = opts || {};
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + "&shot=1&steps=" + encodeURIComponent(JSON.stringify(o.steps || [])) ;
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign ? "beta" : "other") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + "&shot=1&steps=" + encodeURIComponent(JSON.stringify(o.steps || [])) ;
   var frameUrl = baseUrl + "?" + q;
   var wrapper = baseUrl.replace(/\/$/, "") + "/frame.html?src=" + encodeURIComponent(frameUrl) + "&w=" + (o.width || 390) + "&h=" + (o.height || 1600);
   await run(CHROME, chromeArgs(["--window-size=" + ((o.width || 390) + 40) + "," + (o.height || 1600), "--virtual-time-budget=30000", "--screenshot=" + file, wrapper]), 120000);
@@ -108,7 +130,7 @@ export var REDESIGN_STEPS = {
 export async function measureScreen(baseUrl, tab, steps, opts) {
   var o = opts || {};
   var w = o.width || 390;
-  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign === false ? "other" : "beta") + (o.emojis ? "&emojis=1" : "") + "&measure=1&steps=" + encodeURIComponent(JSON.stringify(steps));
+  var q = "tab=" + encodeURIComponent(tab) + "&hh=" + (o.redesign === false ? "other" : "beta") + (o.emojis ? "&emojis=1" : "") + (o.anchor ? "&anchor=1" : "") + "&measure=1&steps=" + encodeURIComponent(JSON.stringify(steps));
   var wrapper = baseUrl.replace(/\/$/, "") + "/frame.html?src=" + encodeURIComponent(baseUrl + "?" + q) + "&w=" + w + "&h=900";
   var html = await run(CHROME, chromeArgs(["--window-size=" + (w + 40) + ",900", "--virtual-time-budget=30000", "--dump-dom", wrapper]), 120000);
   var m = html.match(/<script type="application\/json" id="__capture">([^<]*)<\/script>/);
@@ -119,11 +141,13 @@ export async function measureScreen(baseUrl, tab, steps, opts) {
 }
 
 export async function measureAll(opts) {
+  var o = opts || {};
+  var steps = o.steps || REDESIGN_STEPS;
   var srv = await startServer();
   try {
     var out = {};
-    for (var tab of Object.keys(REDESIGN_STEPS)) {
-      var r = await measureScreen(srv.url, tab, REDESIGN_STEPS[tab], opts);
+    for (var tab of Object.keys(steps)) {
+      var r = await measureScreen(srv.url, tab, steps[tab], o);
       Object.keys(r).forEach(function (k) { out[tab + ":" + k] = r[k]; });
     }
     return out;
@@ -138,6 +162,11 @@ if (isMain) {
   if (process.argv.includes("--measure")) {
     var mm = await measureAll({ emojis: process.argv.includes("--emojis") });
     Object.keys(mm).forEach(function (k) { console.log(k.padEnd(28), "page " + mm[k].pageWidth + "px", mm[k].count ? "OVERFLOW " + JSON.stringify(mm[k].offenders.slice(0, 4)) : "ok"); });
+  } else if (process.argv.includes("--write-anchor")) {
+    var an = await captureAll({ anchor: true, steps: ANCHOR_LEGACY_STEPS });
+    fs.mkdirSync(path.dirname(ANCHOR_GOLDEN), { recursive: true });
+    fs.writeFileSync(ANCHOR_GOLDEN, JSON.stringify(an, null, 1) + "\n");
+    console.log("wrote " + ANCHOR_GOLDEN + " (" + Object.keys(an).length + " snapshots)");
   } else if (process.argv.includes("--write")) {
     var all = await captureAll();
     fs.mkdirSync(path.dirname(GOLDEN), { recursive: true });
